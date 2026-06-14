@@ -1192,6 +1192,89 @@ Standard promotion remains prohibited until:
 6. CPU and NPU S1 routes show no regression.
 7. A rollback property/build path is documented.
 
+## GPU Phase 17: standardGpuMinimalRuntimeCandidateDebug
+
+The Standard diagnostic gate has now shown the expected blocked state on device:
+
+- `standard_gpu_minimal_runtime_candidate_enabled=true`
+- `standard_gpu_minimal_runtime_candidate_eligible=false`
+- `standard_gpu_minimal_runtime_candidate_block_reason=liblitert_sha_mismatch`
+
+That result means Standard is still loading the normal Standard runtime pair and
+is not a valid test of the minimal successful pair. The next step is not to
+change `standardDebug`; it is to build a separate Standard-like DEV flavor with
+the minimal pair staged locally.
+
+Flavor:
+
+- `standardGpuMinimalRuntimeCandidate`
+- Debug task: `./gradlew :app:assembleStandardGpuMinimalRuntimeCandidateDebug`
+- Install task: `./gradlew :app:installStandardGpuMinimalRuntimeCandidateDebug`
+- Application ID: `io.github.ninbyo02.lami.gpustandardminimal`
+- Native source set: `app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a/`
+
+The staged candidate is limited to the currently proven pair:
+
+- `libLiteRt.so` SHA `31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24`
+- `liblitertlm_jni.so` SHA `ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f`
+
+Do not stage the following for this generic GPU path:
+
+- `libLiteRtDispatch_Qualcomm.so`
+- `libLiteRtCompilerPlugin_Qualcomm.so`
+- `libGemmaModelConstraintProvider.so`
+- QNN runtime libraries
+
+The staging helper is local-only:
+
+```bash
+scripts/stage_standard_gpu_minimal_runtime_candidate_libs.sh --dry-run
+scripts/stage_standard_gpu_minimal_runtime_candidate_libs.sh
+```
+
+It writes `artifacts/standard_gpu_minimal_runtime_candidate/native_lib_manifest.tsv`
+and refuses normal staging if the two SHA-256 values do not match the proven
+minimal pair. `.so` files remain ignored and must not be committed.
+
+New diagnostics:
+
+- `standard_gpu_minimal_runtime_candidate_flavor`
+- `standard_gpu_minimal_runtime_candidate_application_id`
+- `standard_gpu_minimal_runtime_candidate_loaded_liblitert_sha256`
+- `standard_gpu_minimal_runtime_candidate_loaded_liblitertlm_jni_sha256`
+- `standard_gpu_minimal_runtime_candidate_dispatch_present`
+- `standard_gpu_minimal_runtime_candidate_compiler_plugin_present`
+- `standard_gpu_minimal_runtime_candidate_constraint_provider_present`
+- `standard_gpu_minimal_runtime_candidate_runtime_stack_source`
+- `standard_gpu_minimal_runtime_candidate_result`
+- `standard_gpu_minimal_runtime_candidate_success_gate`
+- `runtime_stack_alignment_interpretation`
+
+Manual test:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Expected success fields:
+
+- `selected_backend=GPU`
+- `route_family=local_gpu`
+- `failure_stage=none`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `standard_gpu_minimal_runtime_candidate_result=success`
+- `standard_gpu_minimal_runtime_candidate_success_gate=true`
+
+This is still not production promotion. It is the Standard-like verification
+flavor for deciding whether the minimal pair can move to a later gated Standard
+promotion phase after restart, repeated-turn, long-output, cleanup, CPU, and NPU
+regression checks.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

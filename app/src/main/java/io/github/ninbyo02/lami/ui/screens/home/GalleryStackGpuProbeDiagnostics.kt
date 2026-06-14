@@ -132,11 +132,17 @@ internal fun isRuntimeAlignmentProbePropertyEnabled(): Boolean {
 internal fun isGpuRuntimeProbePropertyEnabled(): Boolean =
     isGalleryStackGpuProbePropertyEnabled() ||
         isRuntimeAlignmentProbePropertyEnabled() ||
-        (BuildConfig.DEBUG && BuildConfig.MINIMAL_RUNTIME_PROBE)
+        (BuildConfig.DEBUG && BuildConfig.MINIMAL_RUNTIME_PROBE) ||
+        (BuildConfig.DEBUG && BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR)
 
 internal fun shouldApplyGalleryStackGpuProbeAllowlistConfig(preferredBackend: String): Boolean =
     BuildConfig.DEBUG &&
-        (BuildConfig.GALLERY_STACK_GPU_PROBE || BuildConfig.RUNTIME_ALIGNMENT_PROBE || BuildConfig.MINIMAL_RUNTIME_PROBE) &&
+        (
+            BuildConfig.GALLERY_STACK_GPU_PROBE ||
+                BuildConfig.RUNTIME_ALIGNMENT_PROBE ||
+                BuildConfig.MINIMAL_RUNTIME_PROBE ||
+                BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR
+            ) &&
         isGpuRuntimeProbePropertyEnabled() &&
         preferredBackend.equals("GPU", ignoreCase = true)
 
@@ -315,6 +321,12 @@ internal fun resolveRuntimeNativeStackAlignmentInterpretation(
             "runtime_alignment_probe_stack_failure"
         sourceFlavor == "gpuRuntimeAlignmentProbe" ->
             "runtime_alignment_probe_stack_observed"
+        sourceFlavor == "standardGpuMinimalRuntimeCandidate" && runtimeAlignmentResult == "success" ->
+            "standard_gpu_minimal_runtime_candidate_stack_success"
+        sourceFlavor == "standardGpuMinimalRuntimeCandidate" && runtimeAlignmentResult == "failure" ->
+            "standard_gpu_minimal_runtime_candidate_stack_failure"
+        sourceFlavor == "standardGpuMinimalRuntimeCandidate" ->
+            "standard_gpu_minimal_runtime_candidate_stack_observed"
         else -> "runtime_stack_observed"
     }
 

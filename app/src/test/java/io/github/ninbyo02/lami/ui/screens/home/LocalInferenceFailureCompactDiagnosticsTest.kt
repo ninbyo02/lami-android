@@ -903,6 +903,26 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `standard GPU minimal runtime candidate flavor keeps stack interpretation`() {
+        assertEquals(
+            "standard_gpu_minimal_runtime_candidate_stack_success",
+            resolveRuntimeNativeStackAlignmentInterpretation(
+                sourceFlavor = "standardGpuMinimalRuntimeCandidate",
+                standardCandidateResult = "unknown",
+                runtimeAlignmentResult = "success",
+            ),
+        )
+        assertEquals(
+            "standard_gpu_minimal_runtime_candidate_stack_failure",
+            resolveRuntimeNativeStackAlignmentInterpretation(
+                sourceFlavor = "standardGpuMinimalRuntimeCandidate",
+                standardCandidateResult = "unknown",
+                runtimeAlignmentResult = "failure",
+            ),
+        )
+    }
+
+    @Test
     fun `minimal runtime probe classifies callback streaming success`() {
         val result = resolveMinimalRuntimeProbeResultCandidateForDebug(
             flags = LocalRouteDiagnosticFlags(
@@ -966,6 +986,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertFalse(npuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
         assertFalse(cpuDiagnostics.contains("minimal_runtime_probe_flavor="))
         assertFalse(npuDiagnostics.contains("minimal_runtime_probe_flavor="))
+        assertFalse(cpuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_flavor="))
+        assertFalse(npuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_flavor="))
         assertFalse(cpuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled="))
         assertFalse(npuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled="))
         assertFalse(cpuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
@@ -1096,7 +1118,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                     "standard_gpu_minimal_runtime_candidate_block_reason=liblitert_sha_mismatch",
                 ),
             )
-            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_result=unavailable"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_result=failure"))
             assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_success_gate=false"))
             assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_dispatch_present=false"))
             assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false"))
@@ -1113,7 +1135,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             )
             assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_enabled=true"))
             assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_eligible=false"))
-            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_result=unavailable"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_result=failure"))
             assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_dispatch_present=false"))
             assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false"))
             assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_constraint_provider_present=false"))
@@ -1217,6 +1239,83 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             model.delete()
             tempDir.delete()
         }
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate flavor diagnostics are preserved in compact`() {
+        val routeDiagnostics = listOf(
+            "LOCAL_ROUTE_DIAG",
+            "selected_model_name=gemma-4-E2B-it-edge-gallery.litertlm",
+            "selected_model_file=/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            "preferred_backend=GPU",
+            "failure_stage=none",
+            "gpu_callback_streaming_path_selected=true",
+            "gpu_callback_text_promoted_to_ui=true",
+            "gpu_ui_append_finished=true",
+            "gpu_streaming_completion_reason=flow_completed_non_empty_response",
+            "standard_gpu_minimal_runtime_candidate_flavor=true",
+            "standard_gpu_minimal_runtime_candidate_application_id=io.github.ninbyo02.lami.gpustandardminimal",
+            "standard_gpu_minimal_runtime_candidate_enabled=true",
+            "standard_gpu_minimal_runtime_candidate_eligible=true",
+            "standard_gpu_minimal_runtime_candidate_block_reason=none",
+            "standard_gpu_minimal_runtime_candidate_result=success",
+            "standard_gpu_minimal_runtime_candidate_success_gate=true",
+            "standard_gpu_minimal_runtime_candidate_loaded_liblitert_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256",
+            "standard_gpu_minimal_runtime_candidate_loaded_liblitertlm_jni_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256",
+            "standard_gpu_minimal_runtime_candidate_liblitert_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256",
+            "standard_gpu_minimal_runtime_candidate_liblitertlm_jni_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256",
+            "standard_gpu_minimal_runtime_candidate_dispatch_present=false",
+            "standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false",
+            "standard_gpu_minimal_runtime_candidate_constraint_provider_present=false",
+            "standard_gpu_minimal_runtime_candidate_runtime_stack=standardGpuMinimalRuntimeCandidateDebug_minimal_runtime_pair",
+            "standard_gpu_minimal_runtime_candidate_runtime_stack_source=dev-only-standard-like-GPU-minimal-runtime-candidate",
+            "standard_gpu_minimal_runtime_candidate_interpretation=minimal_runtime_core_pair_candidate_success",
+            "runtime_stack_loaded_source_flavor=standardGpuMinimalRuntimeCandidate",
+            "runtime_stack_alignment_interpretation=standard_gpu_minimal_runtime_candidate_stack_success",
+        ).joinToString(" ")
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                status = "success",
+                reason = "local_inference_success",
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                failureStage = "none",
+            ),
+        )
+
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_flavor=true"))
+        assertTrue(
+            compact.contains(
+                "standard_gpu_minimal_runtime_candidate_application_id=io.github.ninbyo02.lami.gpustandardminimal",
+            ),
+        )
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_result=success"))
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_success_gate=true"))
+        assertTrue(
+            compact.contains(
+                "standard_gpu_minimal_runtime_candidate_loaded_liblitert_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256",
+            ),
+        )
+        assertTrue(
+            compact.contains(
+                "standard_gpu_minimal_runtime_candidate_loaded_liblitertlm_jni_sha256=$STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256",
+            ),
+        )
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_dispatch_present=false"))
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false"))
+        assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_constraint_provider_present=false"))
+        assertTrue(
+            compact.contains(
+                "runtime_stack_alignment_interpretation=standard_gpu_minimal_runtime_candidate_stack_success",
+            ),
+        )
     }
 
     @Test

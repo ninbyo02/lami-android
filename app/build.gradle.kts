@@ -44,6 +44,7 @@ val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion = "0.11.0"
+val liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
@@ -74,6 +75,7 @@ android {
         buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
         buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
         buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+        buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
     }
 
@@ -89,6 +91,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("npuExperiment") {
@@ -103,6 +106,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
@@ -117,6 +121,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackGpuProbe") {
@@ -131,6 +136,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "true")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("gpuRuntimeAlignmentProbe") {
@@ -145,6 +151,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "true")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("standardGpuRuntimeMinimalProbe") {
@@ -159,6 +166,22 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "true")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("standardGpuMinimalRuntimeCandidate") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpustandardminimal"
+            versionNameSuffix = "-standardGpuMinimalRuntimeCandidate"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standardGpuMinimalRuntimeCandidate\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only standard-like GPU minimal runtime candidate staged in app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "true")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryAlignedNpuProbe") {
@@ -173,6 +196,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("customBuildExperiment") {
@@ -187,6 +211,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
         }
     }
@@ -239,6 +264,9 @@ android {
         create("standardGpuRuntimeMinimalProbeDebug") {
             jniLibs.srcDir("src/standardGpuRuntimeMinimalProbeDebug/jniLibs")
         }
+        create("standardGpuMinimalRuntimeCandidateDebug") {
+            jniLibs.srcDir("src/standardGpuMinimalRuntimeCandidateDebug/jniLibs")
+        }
         create("galleryAlignedNpuProbeDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
@@ -255,15 +283,33 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        if (variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate") {
+            listOf(
+                "**/libLiteRt.so",
+                "**/liblitertlm_jni.so",
+            ).forEach { pattern ->
+                variant.packaging.jniLibs.pickFirsts.add(pattern)
+            }
+            listOf(
+                "**/libLiteRtDispatch_Qualcomm.so",
+                "**/libLiteRtCompilerPlugin_Qualcomm.so",
+                "**/libGemmaModelConstraintProvider.so",
+                "**/libQnn*.so",
+                "**/libqnn_*.so",
+            ).forEach { pattern ->
+                variant.packaging.jniLibs.excludes.add(pattern)
+            }
+        }
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
             variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
+            variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate" -> liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion
             variant.buildType == "debug" && flavor == "standardGpuRuntimeMinimalProbe" -> liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion
             variant.buildType == "debug" && flavor == "gpuRuntimeAlignmentProbe" -> liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackGpuProbe" -> liteRtLmAndroidGalleryStackGpuProbeDebugVersion
@@ -908,6 +954,7 @@ dependencies {
     add("galleryStackGpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackGpuProbeDebugVersion")
     add("gpuRuntimeAlignmentProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion")
     add("standardGpuRuntimeMinimalProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion")
+    add("standardGpuMinimalRuntimeCandidateImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion")
     add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")

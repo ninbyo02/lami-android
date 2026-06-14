@@ -388,6 +388,82 @@ Promotion checks before any Standard native stack change:
 5. Timeout/exception cleanup works.
 6. CPU route remains stable.
 7. NPU S1 remains gated and unchanged.
+
+## Standard-like minimal runtime candidate flavor
+
+The latest `standardDebug` device run showed the Standard diagnostic gate is
+blocked because the loaded runtime is still the normal Standard stack:
+
+- `standard_gpu_minimal_runtime_candidate_enabled=true`
+- `standard_gpu_minimal_runtime_candidate_eligible=false`
+- `standard_gpu_minimal_runtime_candidate_block_reason=liblitert_sha_mismatch`
+
+This is expected. A runtime property cannot replace already packaged native
+libraries, and the Standard APK must not be modified by directly mixing the
+successful pair into the production/default runtime.
+
+The next DEV-only verification flavor is:
+
+- Flavor: `standardGpuMinimalRuntimeCandidate`
+- Variant: `standardGpuMinimalRuntimeCandidateDebug`
+- Application ID: `io.github.ninbyo02.lami.gpustandardminimal`
+- Build: `./gradlew :app:assembleStandardGpuMinimalRuntimeCandidateDebug`
+- Install: `./gradlew :app:installStandardGpuMinimalRuntimeCandidateDebug`
+- Native source set: `app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a/`
+
+This flavor keeps the Standard app UI and local route behavior, but allows local
+staging of only the minimal successful runtime pair:
+
+- `libLiteRt.so`
+- `liblitertlm_jni.so`
+
+The successful pair observed in `standardGpuRuntimeMinimalProbeDebug` is:
+
+- `libLiteRt.so`: `31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24`
+- `liblitertlm_jni.so`: `ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f`
+
+These remain excluded from Git. Stage them locally with:
+
+```bash
+scripts/stage_standard_gpu_minimal_runtime_candidate_libs.sh --dry-run
+scripts/stage_standard_gpu_minimal_runtime_candidate_libs.sh
+```
+
+The flavor explicitly does not stage or require the generic GPU path to include:
+
+- `libLiteRtDispatch_Qualcomm.so`
+- `libLiteRtCompilerPlugin_Qualcomm.so`
+- `libGemmaModelConstraintProvider.so`
+- QNN runtime libraries
+
+Diagnostics:
+
+- `standard_gpu_minimal_runtime_candidate_flavor`
+- `standard_gpu_minimal_runtime_candidate_application_id`
+- `standard_gpu_minimal_runtime_candidate_loaded_liblitert_sha256`
+- `standard_gpu_minimal_runtime_candidate_loaded_liblitertlm_jni_sha256`
+- `standard_gpu_minimal_runtime_candidate_dispatch_present`
+- `standard_gpu_minimal_runtime_candidate_compiler_plugin_present`
+- `standard_gpu_minimal_runtime_candidate_constraint_provider_present`
+- `standard_gpu_minimal_runtime_candidate_runtime_stack_source`
+- `standard_gpu_minimal_runtime_candidate_result`
+- `standard_gpu_minimal_runtime_candidate_success_gate`
+- `runtime_stack_alignment_interpretation`
+
+Manual verification:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Use `/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm`, select GPU, and
+run short, medium, and multi-turn prompts. Promotion to Standard remains blocked
+until this flavor passes restart, repeated turn, long-output, failure-cleanup,
+CPU regression, and NPU S1 regression checks.
 8. Rollback property/build path is documented and tested.
 
 Native stack classification for the promotion decision:

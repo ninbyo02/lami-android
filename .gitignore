@@ -65,6 +65,7 @@ _debug/
 /app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/*.so
 /app/src/gpuRuntimeAlignmentProbeDebug/jniLibs/arm64-v8a/*.so
 /app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a/*.so
+/app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a/*.so
 /third_party/qairt/
 
 # Emulator local config

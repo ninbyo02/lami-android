@@ -549,17 +549,22 @@ private fun extractStandardGpuRuntimeAlignmentCandidateDiagnostics(text: String?
         .filterKeys { it in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS }
 
 private val STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_DIAGNOSTIC_KEYS = listOf(
+    "standard_gpu_minimal_runtime_candidate_flavor",
+    "standard_gpu_minimal_runtime_candidate_application_id",
     "standard_gpu_minimal_runtime_candidate_enabled",
     "standard_gpu_minimal_runtime_candidate_eligible",
     "standard_gpu_minimal_runtime_candidate_block_reason",
     "standard_gpu_minimal_runtime_candidate_result",
     "standard_gpu_minimal_runtime_candidate_success_gate",
+    "standard_gpu_minimal_runtime_candidate_loaded_liblitert_sha256",
+    "standard_gpu_minimal_runtime_candidate_loaded_liblitertlm_jni_sha256",
     "standard_gpu_minimal_runtime_candidate_liblitert_sha256",
     "standard_gpu_minimal_runtime_candidate_liblitertlm_jni_sha256",
     "standard_gpu_minimal_runtime_candidate_dispatch_present",
     "standard_gpu_minimal_runtime_candidate_compiler_plugin_present",
     "standard_gpu_minimal_runtime_candidate_constraint_provider_present",
     "standard_gpu_minimal_runtime_candidate_runtime_stack",
+    "standard_gpu_minimal_runtime_candidate_runtime_stack_source",
     "standard_gpu_minimal_runtime_candidate_interpretation",
 )
 
