@@ -602,6 +602,14 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "gpuRuntimeAlignmentProbe" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: GPU Runtime Alignment Probe",
+                    items = buildRuntimeAlignmentProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "customBuildExperiment" }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1749,6 +1757,26 @@ private fun buildGalleryStackGpuProbeItems(
         InferenceStatItemUi(label = "allowlist temperature", value = diagnostics?.allowlistTemperature?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "allowlist maxTokens", value = diagnostics?.allowlistMaxTokens?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "allowlist maxContextLength", value = diagnostics?.allowlistMaxContextLength?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildRuntimeAlignmentProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    val diagnostics = probe.runtimeAlignmentProbeDiagnostics
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime alignment flavor", value = diagnostics?.flavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "stack source", value = diagnostics?.stackSource?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so sha256", value = diagnostics?.libLiteRtSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so sha256", value = diagnostics?.libLiteRtLmJniSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch Qualcomm present", value = diagnostics?.dispatchQualcommPresent ?: "unknown"),
+        InferenceStatItemUi(label = "compiler plugin Qualcomm present", value = diagnostics?.compilerPluginQualcommPresent ?: "unknown"),
+        InferenceStatItemUi(label = "Gemma constraint provider present", value = diagnostics?.gemmaConstraintProviderPresent ?: "unknown"),
+        InferenceStatItemUi(label = "result candidate", value = diagnostics?.resultCandidate?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "success gate", value = diagnostics?.successGate?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime stack note", value = probe.liteRtLmRuntimeStackNote?.ifBlank { "unknown" } ?: "unknown"),
     )
 }
 

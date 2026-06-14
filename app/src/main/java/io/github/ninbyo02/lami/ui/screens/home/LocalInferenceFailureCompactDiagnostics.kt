@@ -233,6 +233,7 @@ internal data class LocalInferenceFailureCompactInput(
     val liteRtRuntimeGpuExecutorHint: String = "unavailable",
     val liteRtRuntimeArtisanEvidence: String = "unavailable",
     val galleryStackProbeDiagnostics: GalleryStackGpuProbeRuntimeDiagnostics? = null,
+    val runtimeAlignmentProbeDiagnostics: RuntimeAlignmentProbeDiagnostics? = null,
     val gpuFallbackUsed: String = "unavailable",
     val gpuStaleCallbackIgnored: String = "unavailable",
     val modelName: String = "unavailable",
@@ -511,6 +512,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "native_heap_alloc_mb=${formatLocalFailureNullableLong(input.nativeHeapAllocMb)}",
         ) +
             buildGalleryStackGpuProbeCompactDiagnosticLines(input.galleryStackProbeDiagnostics) +
+            buildRuntimeAlignmentProbeCompactDiagnosticLines(input.runtimeAlignmentProbeDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
 }
@@ -543,6 +545,23 @@ private fun buildGalleryStackGpuProbeCompactDiagnosticLines(
         "gallery_stack_probe_allowlist_temperature=${diagnostics.allowlistTemperature}",
         "gallery_stack_probe_allowlist_max_tokens=${diagnostics.allowlistMaxTokens}",
         "gallery_stack_probe_allowlist_max_context_length=${diagnostics.allowlistMaxContextLength}",
+    )
+}
+
+private fun buildRuntimeAlignmentProbeCompactDiagnosticLines(
+    diagnostics: RuntimeAlignmentProbeDiagnostics?,
+): List<String> {
+    if (diagnostics?.flavor != true) return emptyList()
+    return listOf(
+        "runtime_alignment_probe_flavor=${diagnostics.flavor}",
+        "runtime_alignment_stack_source=${escapeLocalInferenceFailureValue(diagnostics.stackSource)}",
+        "runtime_alignment_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "runtime_alignment_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "runtime_alignment_dispatch_qualcomm_present=${diagnostics.dispatchQualcommPresent}",
+        "runtime_alignment_compiler_plugin_qualcomm_present=${diagnostics.compilerPluginQualcommPresent}",
+        "runtime_alignment_gemma_constraint_provider_present=${diagnostics.gemmaConstraintProviderPresent}",
+        "runtime_alignment_result_candidate=${diagnostics.resultCandidate}",
+        "runtime_alignment_success_gate=${diagnostics.successGate}",
     )
 }
 
@@ -649,6 +668,27 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
             ?: modelFile,
         preferredBackend = parsed["preferred_backend"] ?: preferredBackendSetting.name,
     )
+    val parsedRuntimeAlignmentProbe = parsed["runtime_alignment_probe_flavor"] == "true"
+    val runtimeAlignmentProbe = if (parsedRuntimeAlignmentProbe) {
+        RuntimeAlignmentProbeDiagnostics(
+            flavor = true,
+            stackSource = parsed["runtime_alignment_stack_source"] ?: "unavailable",
+            libLiteRtSha256 = parsed["runtime_alignment_liblitert_sha256"] ?: "unavailable",
+            libLiteRtLmJniSha256 = parsed["runtime_alignment_liblitertlm_jni_sha256"] ?: "unavailable",
+            dispatchQualcommPresent = parsed["runtime_alignment_dispatch_qualcomm_present"] ?: "unavailable",
+            compilerPluginQualcommPresent =
+                parsed["runtime_alignment_compiler_plugin_qualcomm_present"] ?: "unavailable",
+            gemmaConstraintProviderPresent =
+                parsed["runtime_alignment_gemma_constraint_provider_present"] ?: "unavailable",
+            resultCandidate = parsed["runtime_alignment_result_candidate"] ?: "unavailable",
+            successGate = parsed["runtime_alignment_success_gate"] ?: "unavailable",
+        )
+    } else {
+        buildRuntimeAlignmentProbeDiagnostics(
+            resultCandidate = "unavailable",
+            successGate = "unavailable",
+        )
+    }
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
         preferredBackendSetting = preferredBackendSetting,
@@ -939,6 +979,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         galleryStackProbeDiagnostics = galleryStackProbe.takeIf {
             it.flavor || parsed["gallery_stack_probe_flavor"] == "true"
         },
+        runtimeAlignmentProbeDiagnostics = runtimeAlignmentProbe.takeIf { it.flavor },
         gpuFallbackUsed = parsed["gpu_fallback_used"] ?: parsed["fallback_used"] ?: "unavailable",
         gpuStaleCallbackIgnored = parsed["gpu_stale_callback_ignored"] ?: parsed["stale_callback_ignored"] ?: "unavailable",
         modelName = modelName

@@ -690,6 +690,155 @@ Outcome interpretation:
 2. It fails with `runtime/executor/llm_litert_compiled_model_executor.cc:735`: runtime/native stack difference remains the main blocker.
 3. It succeeds only in `galleryStackGpuProbe`: keep the isolated runtime stack as the promotion candidate and do not promote the standard route yet.
 
+## GPU Phase 12: standardDebug vs galleryStackGpuProbe native stack split
+
+The current model-separation result is:
+
+- `standardDebug + Edge Gallery E2B model + guarded callback streaming`: `failure_stage=gpu_generate_compiled_model_invoke_failed`, `runtime/executor/llm_litert_compiled_model_executor.cc:735`.
+- `galleryStackGpuProbe + the same Edge Gallery E2B model + guarded callback streaming`: GPU success, callback text promoted to UI, roughly `25-38 token/s` in manual checks.
+
+This moves the primary root cause away from model identity. The same model can run on GPU in LAMI when the probe flavor/runtime stack is used, while the standard runtime stack still fails at compiled model invoke. Treat the remaining blocker as a runtime/native stack delta until a new result contradicts it.
+
+Use the APK-to-APK native stack comparison after both variants are assembled:
+
+```bash
+./gradlew :app:assembleStandardDebug
+./gradlew :app:assembleGalleryStackGpuProbeDebug
+scripts/compare_standard_gallery_stack_gpu_probe_native_libs.sh
+```
+
+Outputs are written under:
+
+```text
+artifacts/gpu_runtime_stack_compare/
+```
+
+Important outputs:
+
+- `standard_debug_native_libs.tsv`: final `standardDebug` APK `lib/arm64-v8a` inventory.
+- `gallery_stack_gpu_probe_native_libs.tsv`: final `galleryStackGpuProbeDebug` APK `lib/arm64-v8a` inventory.
+- `native_lib_diff.tsv`: presence, size, sha256, build id, NEEDED, category, and classification.
+- `needed_dependency_edges.tsv`: per-library dynamic dependency edges.
+- `gpu_runtime_stack_classification.md`: focused interpretation for GPU runtime candidates.
+
+Latest local comparison summary:
+
+- Compared `29` arm64 native libraries.
+- Same-name SHA-256 differences: `9`.
+- Presence differences: `3`.
+- High-priority runtime candidates: `5`.
+- `libLiteRt.so`: present in both, but size/SHA/build-id differ.
+- `liblitertlm_jni.so`: present in both, but size/SHA/build-id differ.
+- `libLiteRtDispatch_Qualcomm.so`: present in `standardDebug`, absent from `galleryStackGpuProbeDebug`.
+- `libLiteRtCompilerPlugin_Qualcomm.so`: present in `standardDebug`, absent from `galleryStackGpuProbeDebug`.
+- `libGemmaModelConstraintProvider.so`: present in `standardDebug`, absent from `galleryStackGpuProbeDebug`.
+- QNN libs differ in several places, including `libQnnGpu.so`, but they remain lower priority for generic GPU because the working Gallery-style path does not point to QNN GPU as the root requirement.
+
+Classification guidance:
+
+| Area | Current priority | Interpretation |
+| --- | --- | --- |
+| `libLiteRt.so` | Highest | Core LiteRT runtime. If it differs, review only as part of a matched full stack. |
+| `liblitertlm_jni.so` | Highest | Core LiteRT-LM JNI/runtime bridge. Do not single-swap. |
+| `libLiteRtDispatch_Qualcomm.so` | High review | Dispatch/runtime extension candidate. Review with the matched core runtime pair. |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | High review | Compiler/plugin candidate. Review with the matched core runtime pair. |
+| `libGemmaModelConstraintProvider.so` | High review | Model constraint/provider candidate. Review with runtime stack, not alone. |
+| QNN libraries | Lower for generic GPU | Keep visible for Qualcomm/NPU coupling, but `libQnnGpu.so` remains weakly supported as a generic GPU root cause because Edge Gallery GPU evidence does not point to QNN GPU. |
+| Other Edge Gallery-derived libraries | Review | Treat presence/build-id differences as full-stack alignment candidates only if they are in the probe APK and linked by core runtime libraries. |
+| Unrelated support libraries | Low | Mismatch can matter indirectly, but they are not first-order GPU executor candidates. |
+
+Next-phase DEV-only promotion plan:
+
+1. Do not change `standardDebug` production defaults.
+2. Continue repeated stability checks in `galleryStackGpuProbe` with `debug.lami.gpu_normal_route_use_callback_streaming=true`.
+3. Use `native_lib_diff.tsv` to identify the minimal full-stack candidate set, starting from `libLiteRt.so` + `liblitertlm_jni.so` and any directly related dispatch/compiler/model-constraint members.
+4. Do not replace a single `.so`. If promotion is tested, test a full matched runtime stack in a separate DEV flavor/application id first.
+5. Promote nothing back to `standardDebug` until the full stack candidate has repeated success, diagnostics remain clean, and provenance/licensing are documented.
+
+## GPU Phase 13: gpuRuntimeAlignmentProbe promotion candidate
+
+Phase 13 adds a DEV-only flavor:
+
+- Flavor: `gpuRuntimeAlignmentProbe`
+- Debug task: `./gradlew :app:assembleGpuRuntimeAlignmentProbeDebug`
+- Install task: `./gradlew :app:installGpuRuntimeAlignmentProbeDebug`
+- Application id suffix: `.gpualignment`
+- Native source set: `app/src/gpuRuntimeAlignmentProbeDebug/jniLibs/arm64-v8a/`
+
+The flavor is a promotion candidate harness for the runtime/native stack that is already proven in `galleryStackGpuProbe`. It does not change `standardDebug`, CPU route, NPU S1 route, fallback behavior, or production defaults.
+
+The current conclusion remains:
+
+- The Edge Gallery E2B model itself is not the blocker.
+- `galleryStackGpuProbe` has proven GPU callback streaming success with that model.
+- `standardDebug` still fails with `runtime/executor/llm_litert_compiled_model_executor.cc:735`.
+- Therefore the active blocker is runtime/native stack alignment, not model identity.
+
+Promotion candidate rules:
+
+- Treat `libLiteRt.so` + `liblitertlm_jni.so` as a matched core pair.
+- Review `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so` only with the matched core pair.
+- Do not single-swap `.so` files.
+- Do not stage native libraries into `standardDebug`.
+- Do not enable GPU by default.
+
+`gpuRuntimeAlignmentProbe` emits these additional keys:
+
+- `runtime_alignment_probe_flavor`
+- `runtime_alignment_stack_source`
+- `runtime_alignment_liblitert_sha256`
+- `runtime_alignment_liblitertlm_jni_sha256`
+- `runtime_alignment_dispatch_qualcomm_present`
+- `runtime_alignment_compiler_plugin_qualcomm_present`
+- `runtime_alignment_gemma_constraint_provider_present`
+- `runtime_alignment_result_candidate`
+- `runtime_alignment_success_gate`
+
+It also preserves the GPU callback streaming and failure keys:
+
+- `gpu_callback_streaming_path_selected`
+- `gpu_callback_text_promoted_to_ui`
+- `gpu_ui_append_finished`
+- `gpu_streaming_completion_reason`
+- `failure_stage`
+- `litert_lm_error_kind`
+- `gpu_litert_executor_error_file`
+- `gpu_litert_executor_error_line`
+
+Suggested runtime alignment test setup:
+
+```bash
+./gradlew :app:installGpuRuntimeAlignmentProbeDebug
+adb shell setprop debug.lami.runtime_alignment_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami.gpualignment 1
+```
+
+Use the Edge Gallery E2B model:
+
+```text
+/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm
+```
+
+Stability checklist before any standardDebug promotion:
+
+| Check | Expected result |
+| --- | --- |
+| App restart then first GPU request | Succeeds with `runtime_alignment_result_candidate=success`. |
+| Held engine reuse | Later turn shows reuse without stale callback or previous invocation errors. |
+| Short prompt: `こんにちは` | Assistant text appears; callback text promoted to UI. |
+| Medium prompt: `カレーの材料をお願いします` | Success; stats visible. |
+| Long prompt: `キーマカレーの材料を詳しく` | Success; no `cc:735`. |
+| Continuous 3-5 turns | No holder leak, stale callback, or forced CPU fallback. |
+| Failure cleanup | GPU failure remains visible in diagnostics and next run is safe. |
+| CPU fallback impact | CPU route remains unchanged and explicit only. |
+| NPU S1 impact | NPU S1 route remains gated and unchanged. |
+
+Only after repeated clean `gpuRuntimeAlignmentProbe` runs should a separate standardDebug promotion design be considered.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

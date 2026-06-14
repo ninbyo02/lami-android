@@ -45,6 +45,18 @@ data class GalleryStackGpuProbeRuntimeDiagnostics(
     val allowlistMaxContextLength: String,
 )
 
+data class RuntimeAlignmentProbeDiagnostics(
+    val flavor: Boolean,
+    val stackSource: String,
+    val libLiteRtSha256: String,
+    val libLiteRtLmJniSha256: String,
+    val dispatchQualcommPresent: String,
+    val compilerPluginQualcommPresent: String,
+    val gemmaConstraintProviderPresent: String,
+    val resultCandidate: String,
+    val successGate: String,
+)
+
 internal fun isGalleryStackGpuProbePropertyEnabled(): Boolean {
     if (!BuildConfig.DEBUG || !BuildConfig.GALLERY_STACK_GPU_PROBE) return false
     val localJvm = runCatching {
@@ -65,10 +77,33 @@ internal fun isGalleryStackGpuProbePropertyEnabled(): Boolean {
     }.getOrDefault(false)
 }
 
+internal fun isRuntimeAlignmentProbePropertyEnabled(): Boolean {
+    if (!BuildConfig.DEBUG || !BuildConfig.RUNTIME_ALIGNMENT_PROBE) return false
+    val localJvm = runCatching {
+        System.getProperty("lami.runtime_alignment_probe")?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+    if (localJvm != null) return localJvm.toBooleanStrictOrNull() == true
+    val env = runCatching {
+        System.getenv("LAMI_RUNTIME_ALIGNMENT_PROBE")?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+    if (env != null) return env.toBooleanStrictOrNull() == true
+    return runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val method = clazz.getMethod("get", String::class.java, String::class.java)
+        (method.invoke(null, "debug.lami.runtime_alignment_probe", "") as? String)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.toBooleanStrictOrNull() == true
+    }.getOrDefault(false)
+}
+
+internal fun isGpuRuntimeProbePropertyEnabled(): Boolean =
+    isGalleryStackGpuProbePropertyEnabled() || isRuntimeAlignmentProbePropertyEnabled()
+
 internal fun shouldApplyGalleryStackGpuProbeAllowlistConfig(preferredBackend: String): Boolean =
     BuildConfig.DEBUG &&
-        BuildConfig.GALLERY_STACK_GPU_PROBE &&
-        isGalleryStackGpuProbePropertyEnabled() &&
+        (BuildConfig.GALLERY_STACK_GPU_PROBE || BuildConfig.RUNTIME_ALIGNMENT_PROBE) &&
+        isGpuRuntimeProbePropertyEnabled() &&
         preferredBackend.equals("GPU", ignoreCase = true)
 
 internal fun buildGalleryStackGpuProbeRuntimeDiagnostics(
@@ -133,6 +168,58 @@ internal fun buildGalleryStackGpuProbeRuntimeDiagnostics(
         allowlistMaxContextLength = GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_CONTEXT_LENGTH.toString(),
     )
 }
+
+internal fun buildRuntimeAlignmentProbeDiagnostics(
+    nativeLibraryDir: String? = null,
+    resultCandidate: String = "unavailable",
+    successGate: String = "unavailable",
+): RuntimeAlignmentProbeDiagnostics {
+    val nativeDir = nativeLibraryDir
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::File)
+        ?: resolveNativeLibraryDirFromJavaLibraryPath()
+    val liteRtFile = nativeDir?.resolve("libLiteRt.so")
+    val liteRtLmJniFile = nativeDir?.resolve("liblitertlm_jni.so")
+    return RuntimeAlignmentProbeDiagnostics(
+        flavor = BuildConfig.RUNTIME_ALIGNMENT_PROBE,
+        stackSource = if (BuildConfig.RUNTIME_ALIGNMENT_PROBE) {
+            BuildConfig.DISPATCH_RUNTIME_SOURCE
+        } else {
+            "not_runtime_alignment_probe_flavor"
+        },
+        libLiteRtSha256 = liteRtFile?.takeIf { it.isFile }?.let(::sha256ForGalleryStackProbeFileSafely)
+            ?: "unavailable",
+        libLiteRtLmJniSha256 = liteRtLmJniFile?.takeIf { it.isFile }?.let(::sha256ForGalleryStackProbeFileSafely)
+            ?: "unavailable",
+        dispatchQualcommPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtDispatch_Qualcomm.so"),
+        compilerPluginQualcommPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtCompilerPlugin_Qualcomm.so"),
+        gemmaConstraintProviderPresent = nativeDir.nativeLibPresentDiagnostic("libGemmaModelConstraintProvider.so"),
+        resultCandidate = resultCandidate,
+        successGate = successGate,
+    )
+}
+
+private fun resolveNativeLibraryDirFromJavaLibraryPath(): File? =
+    runCatching {
+        System.getProperty("java.library.path")
+            ?.split(File.pathSeparator)
+            .orEmpty()
+            .asSequence()
+            .map(String::trim)
+            .filter { it.isNotBlank() }
+            .map(::File)
+            .firstOrNull { dir ->
+                dir.resolve("libLiteRt.so").isFile || dir.resolve("liblitertlm_jni.so").isFile
+            }
+    }.getOrNull()
+
+private fun File?.nativeLibPresentDiagnostic(libName: String): String =
+    when {
+        this == null -> "unavailable"
+        !isDirectory -> "unavailable"
+        else -> resolve(libName).isFile.toString()
+    }
 
 private fun sha256ForGalleryStackProbeFileSafely(file: File): String =
     runCatching {

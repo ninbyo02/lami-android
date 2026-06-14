@@ -1454,6 +1454,63 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `failure compact includes runtime alignment probe diagnostics when provided`() {
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            LocalInferenceFailureCompactInput(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                status = "failure",
+                reason = "local_inference_failure",
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                failureExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                failureExceptionMessage = "Status Code: 13. Failed to invoke the compiled model",
+                gpuCallbackStreamingPathSelected = "true",
+                gpuCallbackTextPromotedToUi = "false",
+                gpuUiAppendFinished = "false",
+                gpuStreamingCompletionReason = "unavailable",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                liteRtLmErrorKind = "compiled_model_invoke_failed",
+                gpuLiteRtExecutorErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuLiteRtExecutorErrorLine = "735",
+                runtimeAlignmentProbeDiagnostics = RuntimeAlignmentProbeDiagnostics(
+                    flavor = true,
+                    stackSource = "dev-only GPU runtime alignment promotion candidate",
+                    libLiteRtSha256 = "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24",
+                    libLiteRtLmJniSha256 = "ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f",
+                    dispatchQualcommPresent = "false",
+                    compilerPluginQualcommPresent = "false",
+                    gemmaConstraintProviderPresent = "false",
+                    resultCandidate = "failure",
+                    successGate = "true",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("runtime_alignment_probe_flavor=true"))
+        assertTrue(compact.contains("runtime_alignment_stack_source=dev-only GPU runtime alignment promotion candidate"))
+        assertTrue(
+            compact.contains(
+                "runtime_alignment_liblitert_sha256=31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24",
+            ),
+        )
+        assertTrue(
+            compact.contains(
+                "runtime_alignment_liblitertlm_jni_sha256=ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f",
+            ),
+        )
+        assertTrue(compact.contains("runtime_alignment_dispatch_qualcomm_present=false"))
+        assertTrue(compact.contains("runtime_alignment_compiler_plugin_qualcomm_present=false"))
+        assertTrue(compact.contains("runtime_alignment_gemma_constraint_provider_present=false"))
+        assertTrue(compact.contains("runtime_alignment_result_candidate=failure"))
+        assertTrue(compact.contains("runtime_alignment_success_gate=true"))
+        assertTrue(compact.contains("gpu_callback_streaming_path_selected=true"))
+        assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
+        assertTrue(compact.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
+        assertTrue(compact.contains("gpu_litert_executor_error_line=735"))
+    }
+
+    @Test
     fun `LiteRT-LM previous invocation still processing is classified`() {
         val target = IllegalStateException("Previous invocation still processing. Wait for done=true.")
         val wrapper = InvocationTargetException(target)

@@ -407,6 +407,16 @@ internal fun buildLocalRouteDiagnosticTrace(
         flags = flags,
         failureStage = failureStage,
     )
+    val runtimeAlignmentProbe = buildRuntimeAlignmentProbeDiagnostics(
+        resultCandidate = resolveRuntimeAlignmentProbeResultCandidate(
+            flags = flags,
+            failureStage = failureStage,
+        ),
+        successGate = resolveRuntimeAlignmentProbeSuccessGate(
+            context = context,
+            flags = flags,
+        ),
+    )
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -632,6 +642,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         ) +
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
             buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
+            buildRuntimeAlignmentProbeRouteDiagnosticLines(runtimeAlignmentProbe) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
@@ -682,6 +693,41 @@ private fun buildStandardGpuProbeRouteDiagnosticLines(
         "standard_gpu_probe_result_candidate=${diagnostics.resultCandidate}",
     )
 }
+
+private fun buildRuntimeAlignmentProbeRouteDiagnosticLines(
+    diagnostics: RuntimeAlignmentProbeDiagnostics,
+): List<String> {
+    if (!diagnostics.flavor) return emptyList()
+    return listOf(
+        "runtime_alignment_probe_flavor=${diagnostics.flavor}",
+        "runtime_alignment_stack_source=${diagnostics.stackSource.toDiagnosticValue()}",
+        "runtime_alignment_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "runtime_alignment_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "runtime_alignment_dispatch_qualcomm_present=${diagnostics.dispatchQualcommPresent}",
+        "runtime_alignment_compiler_plugin_qualcomm_present=${diagnostics.compilerPluginQualcommPresent}",
+        "runtime_alignment_gemma_constraint_provider_present=${diagnostics.gemmaConstraintProviderPresent}",
+        "runtime_alignment_result_candidate=${diagnostics.resultCandidate}",
+        "runtime_alignment_success_gate=${diagnostics.successGate}",
+    )
+}
+
+private fun resolveRuntimeAlignmentProbeResultCandidate(
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): String =
+    resolveStandardGpuProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
+
+private fun resolveRuntimeAlignmentProbeSuccessGate(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    (
+        context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            (flags.gpuNormalRouteUseCallbackStreaming == true || flags.gpuCallbackStreamingPathSelected == true)
+        ).toString()
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
 

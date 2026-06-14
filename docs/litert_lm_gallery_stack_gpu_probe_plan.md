@@ -241,6 +241,140 @@ Interpretation:
 - `failure` with `cc:735`: runtime/native stack difference remains likely.
 - success only in `galleryStackGpuProbe`: keep isolated runtime stack promotion separate from standardDebug.
 
+The latest standardDebug probe uses the exact Edge Gallery E2B model and still fails with `runtime/executor/llm_litert_compiled_model_executor.cc:735`, while `galleryStackGpuProbe` succeeds with the same model and guarded callback streaming. That makes model identity a lower-priority explanation. The active blocker is now the runtime/native stack delta between the two APKs.
+
+Compare the final packaged native stacks with:
+
+```bash
+./gradlew :app:assembleStandardDebug
+./gradlew :app:assembleGalleryStackGpuProbeDebug
+scripts/compare_standard_gallery_stack_gpu_probe_native_libs.sh
+```
+
+The script writes only diagnostic text files under:
+
+```text
+artifacts/gpu_runtime_stack_compare/
+```
+
+Primary outputs:
+
+- `standard_debug_native_libs.tsv`
+- `gallery_stack_gpu_probe_native_libs.tsv`
+- `native_lib_diff.tsv`
+- `needed_dependency_edges.tsv`
+- `gpu_runtime_stack_classification.md`
+
+Latest comparison result:
+
+- `29` arm64 libraries compared.
+- `9` same-name SHA-256 differences.
+- `3` presence differences.
+- `5` high-priority runtime candidates.
+- Highest-priority matched-stack candidates: `libLiteRt.so` and `liblitertlm_jni.so`.
+- Related review candidates: `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so`.
+
+Native stack classification for the promotion decision:
+
+| Library group | Promotion meaning |
+| --- | --- |
+| `libLiteRt.so` + `liblitertlm_jni.so` | Full stack alignment candidate. These are a matched core runtime pair and must not be swapped individually. |
+| `libLiteRtDispatch_Qualcomm.so` / `libLiteRtCompilerPlugin_Qualcomm.so` | Review as related stack members if present or different. Do not test without the matched core pair. |
+| `libGemmaModelConstraintProvider.so` | Review as a model constraint/runtime member if present or different. |
+| QNN libraries | Keep inventoried, but do not treat as the primary generic GPU success requirement without new evidence. |
+| Edge Gallery-derived support libraries | Review only as part of a complete isolated runtime stack. |
+| Unrelated support libraries | Low priority unless NEEDED edges show direct linkage from the core runtime pair. |
+
+Dev-only promotion plan before touching standardDebug:
+
+1. Keep `standardDebug` unchanged.
+2. Continue stability testing in `galleryStackGpuProbe`.
+3. Use `native_lib_diff.tsv` and `needed_dependency_edges.tsv` to define a minimal full-stack alignment candidate.
+4. Test that candidate only in a separate DEV flavor/application id.
+5. Keep single `.so` replacement forbidden.
+6. Keep `galleryStackGpuProbe` as the promotion candidate until repeated success, clean diagnostics, and provenance/licensing checks are complete.
+
+## gpuRuntimeAlignmentProbe Promotion Candidate
+
+`gpuRuntimeAlignmentProbe` is the next DEV-only flavor for staged promotion checks:
+
+- Product flavor: `gpuRuntimeAlignmentProbe`
+- Application id suffix: `.gpualignment`
+- Version suffix: `-gpuRuntimeAlignmentProbe`
+- Build task: `./gradlew :app:assembleGpuRuntimeAlignmentProbeDebug`
+- Install task: `./gradlew :app:installGpuRuntimeAlignmentProbeDebug`
+- Native lib source dir: `app/src/gpuRuntimeAlignmentProbeDebug/jniLibs/arm64-v8a/`
+
+This flavor exists because:
+
+- `standardDebug + Edge Gallery E2B model` still fails with `cc:735`.
+- `galleryStackGpuProbe + the same model` succeeds on GPU.
+- The model is therefore no longer the leading blocker.
+- The likely blocker is runtime/native stack alignment.
+
+The flavor must be treated as a full-stack candidate harness. It is not a place for individual `.so` swaps into `standardDebug`.
+
+Runtime alignment diagnostics:
+
+- `runtime_alignment_probe_flavor=true`
+- `runtime_alignment_stack_source`
+- `runtime_alignment_liblitert_sha256`
+- `runtime_alignment_liblitertlm_jni_sha256`
+- `runtime_alignment_dispatch_qualcomm_present`
+- `runtime_alignment_compiler_plugin_qualcomm_present`
+- `runtime_alignment_gemma_constraint_provider_present`
+- `runtime_alignment_result_candidate`
+- `runtime_alignment_success_gate`
+
+The existing GPU callback streaming diagnostics remain required:
+
+- `gpu_callback_streaming_path_selected`
+- `gpu_callback_text_promoted_to_ui`
+- `gpu_ui_append_finished`
+- `gpu_streaming_completion_reason`
+- `failure_stage`
+- `litert_lm_error_kind`
+- `gpu_litert_executor_error_file`
+- `gpu_litert_executor_error_line`
+
+Suggested commands:
+
+```bash
+./gradlew :app:installGpuRuntimeAlignmentProbeDebug
+adb shell setprop debug.lami.runtime_alignment_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami.gpualignment 1
+```
+
+Use:
+
+```text
+/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm
+```
+
+Stability tests before any standardDebug design:
+
+1. App restart then first GPU request.
+2. Held engine reuse on the second and later turns.
+3. Short prompt: `こんにちは`.
+4. Medium prompt: `カレーの材料をお願いします`.
+5. Long prompt: `キーマカレーの材料を詳しく`.
+6. Continuous 3-5 turns.
+7. Failure cleanup after a forced or natural GPU failure.
+8. CPU fallback route remains explicit and unchanged.
+9. NPU S1 remains gated and unchanged.
+
+Promotion remains blocked until this flavor repeatedly reports:
+
+- `runtime_alignment_result_candidate=success`
+- `gpu_callback_streaming_path_selected=true`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `failure_stage=none`
+
 Manual model selection:
 
 ```text

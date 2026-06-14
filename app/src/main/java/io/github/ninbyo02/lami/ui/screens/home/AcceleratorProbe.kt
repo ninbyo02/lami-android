@@ -256,6 +256,11 @@ internal object AcceleratorProbe {
             nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
             preferredBackend = "GPU",
         )
+        val runtimeAlignmentProbeDiagnostics = buildRuntimeAlignmentProbeDiagnostics(
+            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            resultCandidate = "unavailable",
+            successGate = "unavailable",
+        )
         val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
             apiInventory = liteRtLmNpuApiInventoryProbeResult,
             engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
@@ -418,6 +423,7 @@ internal object AcceleratorProbe {
             galleryStackEngineConfigConstructorMatch = galleryStackJavaNativeApiCompatibilityProbeResult.engineConfigConstructorMatch,
             galleryStackJavaNativeApiCompatibilityNote = galleryStackJavaNativeApiCompatibilityProbeResult.note,
             galleryStackGpuProbeDiagnostics = galleryStackGpuProbeDiagnostics,
+            runtimeAlignmentProbeDiagnostics = runtimeAlignmentProbeDiagnostics,
             backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeResult.enabled,
             backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeResult.skipReason,
             backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateProbeResult.nativeLibraryDirArgument,
@@ -668,6 +674,8 @@ internal object AcceleratorProbe {
                 "galleryStackExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Gallery SM8750 native stack staged only for diagnostics; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "galleryStackGpuProbe" && BuildConfig.DEBUG ->
                 "galleryStackGpuProbeDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Edge Gallery GPU stack isolation probe; libLiteRt.so present=$liteRtSoPresent"
+            BuildConfig.CURRENT_FLAVOR == "gpuRuntimeAlignmentProbe" && BuildConfig.DEBUG ->
+                "gpuRuntimeAlignmentProbeDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; DEV-only GPU runtime alignment promotion candidate; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "galleryAlignedNpuProbe" && BuildConfig.DEBUG ->
                 "galleryAlignedNpuProbeDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; isolated Gallery-aligned SM8750 native stack staged only for Backend.NPU attach probe; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "customBuildExperiment" && BuildConfig.DEBUG ->

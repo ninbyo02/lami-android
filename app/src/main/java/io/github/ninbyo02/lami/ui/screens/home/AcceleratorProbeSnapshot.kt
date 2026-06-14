@@ -130,6 +130,7 @@ data class AcceleratorProbeSnapshot(
     val galleryStackEngineConfigConstructorMatch: Boolean? = null,
     val galleryStackJavaNativeApiCompatibilityNote: String? = null,
     val galleryStackGpuProbeDiagnostics: GalleryStackGpuProbeRuntimeDiagnostics? = null,
+    val runtimeAlignmentProbeDiagnostics: RuntimeAlignmentProbeDiagnostics? = null,
     val backendNpuInstantiateProbeEnabled: Boolean? = null,
     val backendNpuInstantiateProbeSkipReason: String? = null,
     val backendNpuInstantiateNativeLibraryDirArgument: String? = null,
