@@ -25,6 +25,7 @@ internal data class LocalInferenceFailureCompactInput(
     val liteRtLmPreviousInvocationStillProcessing: Boolean = false,
     val generateConcurrencyViolationSuspected: Boolean = false,
     val gpuPrefillProbeDiagnostics: Map<String, String> = emptyMap(),
+    val cpuRouteDiagnostics: Map<String, String> = emptyMap(),
     val engineConfigBackend: String = "unavailable",
     val normalChatNativeRouteBlocked: Boolean = false,
     val blockedReason: String = "none",
@@ -522,6 +523,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildGpuPerformanceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuHolderLifecycleCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeClarityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildCpuRouteDiagnosticLines(input.cpuRouteDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
 }
@@ -972,6 +974,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
         extractGpuHolderLifecycleDiagnostics(failureDiagnosticsText) +
         extractGpuPrefillProbeClarityDiagnostics(failureDiagnosticsText)
+    val cpuRouteDiagnostics = extractCpuRouteDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()
@@ -1098,6 +1101,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         liteRtLmPreviousInvocationStillProcessing = previousInvocationStillProcessing,
         generateConcurrencyViolationSuspected = previousInvocationStillProcessing,
         gpuPrefillProbeDiagnostics = probeDiagnostics,
+        cpuRouteDiagnostics = cpuRouteDiagnostics,
         engineConfigBackend = trace?.appliedPreferredBackend
             ?: trace?.requestedPreferredBackend
             ?: when (preferredBackendSetting) {

@@ -155,6 +155,31 @@ class LocalInferenceEngineHolderLifecycleTest {
         assertEquals(1, closeCount)
     }
 
+    @Test
+    fun `CPU acquire key does not match existing GPU held engine`() = runTest {
+        val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
+        holder.setHeldForTest(createHeldEngineForTest {})
+
+        assertTrue(
+            holder.hasReusableHeldEngineForKey(
+                HeldEngineKey(
+                    modelPath = "/models/gemma.litertlm",
+                    backendKey = "gpu",
+                    cacheDirPath = "/cache",
+                ),
+            ),
+        )
+        assertFalse(
+            holder.hasReusableHeldEngineForKey(
+                HeldEngineKey(
+                    modelPath = "/models/gemma.litertlm",
+                    backendKey = "cpu",
+                    cacheDirPath = "/cache",
+                ),
+            ),
+        )
+    }
+
     private fun LocalInferenceEngineHolder.setHeldForTest(engine: HeldLocalEngine) {
         val field = LocalInferenceEngineHolder::class.java.getDeclaredField("held")
         field.isAccessible = true

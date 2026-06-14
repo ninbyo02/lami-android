@@ -7148,7 +7148,7 @@ private suspend fun runLocalInferenceOnceEntry(
         LocalModelResolution(
             modelPath = resolvedModelPath,
             displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
-            backendKey = LOCAL_LITERT_BACKEND_KEY,
+            backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
             cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
         )
     } else {
@@ -7157,6 +7157,7 @@ private suspend fun runLocalInferenceOnceEntry(
             settingsPreferences = settingsPreferences,
             localBaseModelFilePath = localBaseModelFilePath,
             localBaseModelDisplayName = localBaseModelDisplayName,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
     } ?: run {
         appendLocalReflectionTrace(
@@ -8226,6 +8227,19 @@ private suspend fun resolveLocalBaseModelPathOrNull(
 
 private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
 
+private fun buildLocalLiteRtBackendKey(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): String {
+    val textBackend = when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU,
+        PreferredBackendDryRunSetting.DEFAULT -> "CPU"
+        PreferredBackendDryRunSetting.GPU -> "GPU"
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> "GPU"
+    }
+    return "$LOCAL_LITERT_BACKEND_KEY/requested=${preferredBackendDryRunSetting.name}/text=$textBackend"
+}
+
 private fun buildLiteRtCacheDirPath(context: Context): String = context.cacheDir.absolutePath
 
 private fun resolveLocalModelDisplayName(
@@ -8280,6 +8294,7 @@ private suspend fun resolveLocalModelResolutionOrNull(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): LocalModelResolution? {
     val modelPath = resolveLocalBaseModelPathOrNull(
         settingsPreferences = settingsPreferences,
@@ -8288,7 +8303,7 @@ private suspend fun resolveLocalModelResolutionOrNull(
     return LocalModelResolution(
         modelPath = modelPath,
         displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, modelPath),
-        backendKey = LOCAL_LITERT_BACKEND_KEY,
+        backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
         cacheDirPath = buildLiteRtCacheDirPath(context),
     )
 }

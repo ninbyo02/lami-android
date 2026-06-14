@@ -13,6 +13,63 @@ Genericモデル `gemma-4-E2B-it.litertlm` を LAMI の GPU backend で実行し
 - 現在は `gpu_timeout_stage=generate_before_first_token` として分類し、token生成が遅いだけなのか、generate 開始後 first token 前で GPU runtime / compiled model 側が停止しているのかを切り分ける。
 - 同一端末の Edge Gallery 観察では `Gemma-4-E2B-it` + `Accelerator: GPU` で "Model on GPU" 表示、`こんにちは` に約1.6秒で応答しており、LAMI 固有差分の可能性が高い。
 
+## CPU route regression check
+
+2026-06-14 時点の追加調査では、CPU 選択時にも `Status Code: 13` /
+`Failed to invoke the compiled model` が出るケースが確認された。過去の本ドキュメントでは
+Generic E2B CPU は `selected_backend=CPU` / `route_family=local_cpu` で working と記録されており、
+`cpu_gpu_generate_diff=cpu_callback_ok_gpu_compiled_model_invoke_failed` も CPU callback 成功の根拠として残っている。
+
+切り分けのため、CPU route では GPU 名の共通 diagnostics とは別に `cpu_route_selected`,
+`cpu_engine_config_backend`, `cpu_generate_started`, `cpu_generate_finished`,
+`cpu_generate_failed_before_first_token`, `cpu_generate_call_entered`, `cpu_callback_invoked_count`,
+`cpu_generate_exception_status_code`, `cpu_generate_exception_error_file`,
+`cpu_generate_exception_error_line`, `cpu_failure_stage`, `cpu_failure_interpretation` を出す。
+LiteRT-LM 例外が CPU route で発生した場合は、互換用の既存 key を残しつつ
+`failure_stage=cpu_generate_compiled_model_invoke_failed` として分類する。
+
+重要な実装上の確認点として、held engine key は model path / backend / cache dir で分離する必要がある。
+以前の key は backend の実選択を含まない固定文字列だったため、同一モデルで GPU から CPU へ切り替えた場合に
+既存 holder を誤 reuse する余地があった。現在は requested backend / text backend を key に含め、
+CPU 選択時に GPU holder を再利用しないことを diagnostics と unit test で確認する。
+
+CPU 実機確認時は、GPU output quality 系 probe を無効化してから実行する。
+
+```sh
+adb shell setprop debug.lami.gpu_callback_raw_passthrough false
+adb shell setprop debug.lami.compare_cpu_gpu_callback false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode baseline
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 4000
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.cpu_route_probe true
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+見る key:
+
+- `selected_backend`
+- `effective_backend`
+- `route_family`
+- `cpu_route_selected`
+- `cpu_engine_config_backend`
+- `cpu_generate_call_entered`
+- `cpu_generate_finished`
+- `cpu_generate_failed_before_first_token`
+- `cpu_callback_invoked_count`
+- `cpu_first_token_received`
+- `cpu_generate_exception_status_code`
+- `cpu_generate_exception_error_file`
+- `cpu_generate_exception_error_line`
+- `cpu_failure_stage`
+- `cpu_failure_interpretation`
+- `cpu_previous_holder_backend`
+- `held_engine_reused`
+- `holder_reused`
+- `gpu_edge_gallery_diff_applied`
+
 ## Edge Gallery 側の確認結果
 
 参照:

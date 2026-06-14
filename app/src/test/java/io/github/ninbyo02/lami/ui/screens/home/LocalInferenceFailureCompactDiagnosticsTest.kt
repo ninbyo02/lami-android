@@ -26,6 +26,99 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `CPU route compiled model invoke failure emits CPU diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-local",
+            selectedModelFile = "/data/user/0/io.github.ninbyo02.lami.gpustandardminimal/files/local_models/gemma-4-E2B-it.litertlm",
+            selectedModelPath = "/data/user/0/io.github.ninbyo02.lami.gpustandardminimal/files/local_models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "CPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = false,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "cpu_generate_compiled_model_invoke_failed",
+                fallbackUsed = false,
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                gpuGenerateExceptionMessageSanitized = "Status_Code:_13._Message:_ERROR:_Failed_to_invoke_the_compiled_model",
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "756",
+                liteRtLmErrorKind = "compiled_model_invoke_failed",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "756",
+                cpuRouteDiagnostics = mapOf(
+                    "cpu_route_selected" to "true",
+                    "cpu_engine_config_backend" to "CPU",
+                    "cpu_selected_model_name" to "gemma-local",
+                    "cpu_selected_model_file" to "gemma-4-E2B-it.litertlm",
+                    "cpu_selected_model_path_tail" to "gemma-4-E2B-it.litertlm",
+                    "cpu_model_size_bytes" to "2583085056",
+                    "cpu_generate_started" to "true",
+                    "cpu_generate_finished" to "false",
+                    "cpu_generate_failed_before_first_token" to "true",
+                    "cpu_generate_call_entered" to "true",
+                    "cpu_generate_call_returned" to "true",
+                    "cpu_callback_invoked_count" to "0",
+                    "cpu_callback_non_empty_text_count" to "0",
+                    "cpu_first_non_empty_text_elapsed_ms" to "unavailable",
+                    "cpu_first_token_received" to "false",
+                    "cpu_generate_exception_class" to "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                    "cpu_generate_exception_message_sanitized" to
+                        "Status_Code:_13._Message:_ERROR:_Failed_to_invoke_the_compiled_model",
+                    "cpu_generate_exception_status_code" to "13",
+                    "cpu_generate_exception_error_file" to "runtime/executor/llm_litert_compiled_model_executor.cc",
+                    "cpu_generate_exception_error_line" to "756",
+                    "cpu_generate_exception_summary" to "failed_to_invoke_compiled_model",
+                    "cpu_failure_stage" to "cpu_generate_compiled_model_invoke_failed",
+                    "cpu_failure_interpretation" to "compiled_model_invoke_failed_during_cpu_generate",
+                    "cpu_holder_reused" to "false",
+                    "cpu_holder_reuse_block_reason" to "backend_changed",
+                    "cpu_previous_holder_backend" to "GPU",
+                    "cpu_route_probe_enabled" to "true",
+                    "cpu_route_probe_result" to "failure",
+                    "cpu_route_probe_failure_stage" to "cpu_generate_compiled_model_invoke_failed",
+                    "cpu_route_probe_callback_count" to "0",
+                ),
+            ),
+            elapsedMs = 1_234L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+            ),
+        )
+
+        assertTrue(compact.contains("failure_stage=cpu_generate_compiled_model_invoke_failed"))
+        assertTrue(compact.contains("cpu_failure_stage=cpu_generate_compiled_model_invoke_failed"))
+        assertTrue(compact.contains("cpu_route_selected=true"))
+        assertTrue(compact.contains("cpu_engine_config_backend=CPU"))
+        assertTrue(compact.contains("cpu_generate_started=true"))
+        assertTrue(compact.contains("cpu_generate_finished=false"))
+        assertTrue(compact.contains("cpu_generate_failed_before_first_token=true"))
+        assertTrue(compact.contains("cpu_generate_exception_status_code=13"))
+        assertTrue(compact.contains("cpu_generate_exception_error_line=756"))
+        assertTrue(compact.contains("cpu_generate_exception_summary=failed_to_invoke_compiled_model"))
+        assertTrue(compact.contains("cpu_failure_interpretation=compiled_model_invoke_failed_during_cpu_generate"))
+        assertTrue(compact.contains("cpu_holder_reuse_block_reason=backend_changed"))
+        assertTrue(compact.contains("cpu_previous_holder_backend=GPU"))
+        assertTrue(compact.contains("cpu_route_probe_result=failure"))
+        assertTrue(compact.contains("selected_model_backend_constraint_hint=not_detected_by_path"))
+    }
+
+    @Test
     fun `GPU failure builds local compact diagnostics`() {
         val text = buildFailureText(PreferredBackendDryRunSetting.GPU)
 
@@ -214,6 +307,17 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 "none_detected",
             ),
         )
+    }
+
+    @Test
+    fun `model backend hint ignores application id gpu segment for generic CPU model`() {
+        val diagnostics = buildLiteRtLmBackendArtisanApiDiagnostics(
+            selectedModelPath =
+                "/data/user/0/io.github.ninbyo02.lami.gpustandardminimal/files/local_models/gemma-4-E2B-it.litertlm",
+        )
+
+        assertEquals("not_detected_by_path", diagnostics.selectedModelBackendConstraintHint)
+        assertEquals("not_detected_by_path", diagnostics.selectedModelArtisanHint)
     }
 
     @Test
@@ -1600,6 +1704,23 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertFalse(
             isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
                 preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = { "true" },
+            ),
+        )
+        assertTrue(
+            isCpuRouteProbeEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.cpu_route_probe" -> "true"
+                        else -> null
+                    }
+                },
+            ),
+        )
+        assertFalse(
+            isCpuRouteProbeEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
                 propertyReader = { "true" },
             ),
         )

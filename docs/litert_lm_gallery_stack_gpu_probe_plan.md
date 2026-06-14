@@ -875,6 +875,33 @@ adb shell setprop debug.lami.gpu_generate_probe_mode normal
 Promotion remains prohibited by default. Phase 2 requires repeated Standard candidate stability checks and a full-stack
 runtime promotion design; single `.so` replacement remains prohibited.
 
+## CPU Route Regression Guard
+
+During the standard GPU minimal runtime investigation, CPU backend selection also showed
+LiteRT-LM `Status Code: 13` / compiled model invoke failures on some runs. CPU had previously been recorded as the
+stable route, so CPU failures are treated as regression evidence rather than as expected GPU-quality fallout.
+
+CPU route diagnostics now use CPU-specific keys in addition to existing compatibility keys:
+
+- `cpu_route_selected`
+- `cpu_engine_config_backend`
+- `cpu_generate_started`
+- `cpu_generate_finished`
+- `cpu_generate_failed_before_first_token`
+- `cpu_generate_call_entered`
+- `cpu_callback_invoked_count`
+- `cpu_first_token_received`
+- `cpu_generate_exception_status_code`
+- `cpu_generate_exception_error_file`
+- `cpu_generate_exception_error_line`
+- `cpu_failure_stage`
+- `cpu_failure_interpretation`
+- `cpu_previous_holder_backend`
+
+`debug.lami.cpu_route_probe=true` records the normal CPU route as a smoke probe without launching a second inference.
+The holder key includes the requested/text backend, so CPU selection must not reuse a previous GPU held engine for the
+same model/cache pair.
+
 Rollback:
 
 ```bash

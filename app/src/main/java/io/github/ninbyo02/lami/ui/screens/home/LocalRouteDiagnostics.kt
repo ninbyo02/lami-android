@@ -43,6 +43,7 @@ internal data class LocalRouteDiagnosticFlags(
     val engineInitializeFinished: Boolean? = null,
     val gpuConfigDiagnostics: GpuRouteConfigDiagnostics? = null,
     val gpuPrefillProbeDiagnostics: Map<String, String> = emptyMap(),
+    val cpuRouteDiagnostics: Map<String, String> = emptyMap(),
     val holderCreated: Boolean? = null,
     val holderAcquired: Boolean? = null,
     val holderReused: Boolean? = null,
@@ -2314,6 +2315,7 @@ internal fun buildLocalRouteDiagnosticTrace(
                     runtimeAlignmentProbe.flavor ||
                     minimalRuntimeProbe.flavor,
             ) +
+            buildCpuRouteDiagnosticLines(flags.cpuRouteDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
@@ -2776,6 +2778,39 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "gpu_callback_ui_identical",
 )
 
+internal val CPU_ROUTE_DIAGNOSTIC_KEYS = listOf(
+    "cpu_route_selected",
+    "cpu_engine_config_backend",
+    "cpu_selected_model_name",
+    "cpu_selected_model_file",
+    "cpu_selected_model_path_tail",
+    "cpu_model_size_bytes",
+    "cpu_generate_started",
+    "cpu_generate_finished",
+    "cpu_generate_failed_before_first_token",
+    "cpu_generate_call_entered",
+    "cpu_generate_call_returned",
+    "cpu_callback_invoked_count",
+    "cpu_callback_non_empty_text_count",
+    "cpu_first_non_empty_text_elapsed_ms",
+    "cpu_first_token_received",
+    "cpu_generate_exception_class",
+    "cpu_generate_exception_message_sanitized",
+    "cpu_generate_exception_status_code",
+    "cpu_generate_exception_error_file",
+    "cpu_generate_exception_error_line",
+    "cpu_generate_exception_summary",
+    "cpu_failure_stage",
+    "cpu_failure_interpretation",
+    "cpu_holder_reused",
+    "cpu_holder_reuse_block_reason",
+    "cpu_previous_holder_backend",
+    "cpu_route_probe_enabled",
+    "cpu_route_probe_result",
+    "cpu_route_probe_failure_stage",
+    "cpu_route_probe_callback_count",
+)
+
 internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
     buildMap {
         text
@@ -2805,11 +2840,23 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
 internal fun extractGpuPrefillProbeDiagnostics(text: String?): Map<String, String> =
     parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS }
 
+internal fun extractCpuRouteDiagnostics(text: String?): Map<String, String> =
+    parseDiagnosticKeyValueText(text).filterKeys { key -> key in CPU_ROUTE_DIAGNOSTIC_KEYS }
+
 internal fun buildGpuPrefillProbeDiagnosticLines(
     diagnostics: Map<String, String>,
 ): List<String> {
     if (diagnostics.isEmpty()) return emptyList()
     return GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.replace(Regex("\\s+"), "_") ?: "unavailable"}"
+    }
+}
+
+internal fun buildCpuRouteDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.isEmpty()) return emptyList()
+    return CPU_ROUTE_DIAGNOSTIC_KEYS.map { key ->
         "$key=${diagnostics[key]?.replace(Regex("\\s+"), "_") ?: "unavailable"}"
     }
 }
@@ -3212,7 +3259,12 @@ private fun normalizeLiteRtLmApiTokenForMatch(value: String): String =
         .filter { it in 'A'..'Z' || it in '0'..'9' }
 
 private fun inferSelectedModelBackendConstraintHint(selectedModelPath: String?): String {
-    val normalized = selectedModelPath.orEmpty().lowercase()
+    val path = selectedModelPath.orEmpty()
+    val normalized = path
+        .takeIf { it.isNotBlank() && it != "unknown" }
+        ?.let { File(it).name.ifBlank { it } }
+        .orEmpty()
+        .lowercase()
     return when {
         normalized.isBlank() || normalized == "unknown" -> "unavailable"
         "gpu_artisan" in normalized -> "path_contains_gpu_artisan"
@@ -3226,7 +3278,12 @@ private fun inferSelectedModelBackendConstraintHint(selectedModelPath: String?):
 }
 
 private fun inferSelectedModelArtisanHint(selectedModelPath: String?): String {
-    val normalized = selectedModelPath.orEmpty().lowercase()
+    val path = selectedModelPath.orEmpty()
+    val normalized = path
+        .takeIf { it.isNotBlank() && it != "unknown" }
+        ?.let { File(it).name.ifBlank { it } }
+        .orEmpty()
+        .lowercase()
     return when {
         normalized.isBlank() || normalized == "unknown" -> "unavailable"
         "artisan" in normalized -> "path_contains_artisan"

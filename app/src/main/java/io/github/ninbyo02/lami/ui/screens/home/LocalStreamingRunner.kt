@@ -1515,6 +1515,7 @@ private class GenerateCallbackLifecycleTracker(
             cpuGpuSamePrompt = base.cpuGpuSamePrompt,
             cpuGpuSameMaxTokens = base.cpuGpuSameMaxTokens,
             cpuGpuSameSamplerConfigHint = base.cpuGpuSameSamplerConfigHint,
+            cpuRouteDiagnostics = buildCpuRouteDiagnosticsForTracker(base),
             gpuCallbackToUiEnabled = callbackToUiEnabled,
             gpuCallbackTextPromotedToUi = callbackTextPromotedToUi,
             gpuCallbackPromotedTextLength = callbackPromotedTextLength,
@@ -1676,6 +1677,85 @@ private class GenerateCallbackLifecycleTracker(
                 ),
             ),
         )
+
+    private fun buildCpuRouteDiagnosticsForTracker(
+        base: LocalRouteDiagnosticFlags,
+    ): Map<String, String> {
+        val diagnostics = base.cpuRouteDiagnostics
+        if (diagnostics["cpu_route_selected"] != "true") return diagnostics
+        val exceptionClass = base.gpuGenerateExceptionClass ?: "none"
+        val exceptionMessage = base.gpuGenerateExceptionMessageSanitized
+            ?: base.gpuGenerateExceptionMessageRaw
+            ?: "none"
+        val statusCode = base.gpuGenerateExceptionStatusCode
+            ?: base.liteRtLmErrorStatusCode
+            ?: "unavailable"
+        val errorFile = base.gpuGenerateExceptionErrorFile
+            ?: base.liteRtLmErrorPrimaryFile
+            ?: "unavailable"
+        val errorLine = base.gpuGenerateExceptionErrorLine
+            ?: base.liteRtLmErrorPrimaryLine
+            ?: "unavailable"
+        val exceptionSummary = base.gpuGenerateExceptionSummary
+            ?: when (base.liteRtLmErrorKind) {
+                "compiled_model_invoke_failed" -> "failed_to_invoke_compiled_model"
+                "max_tokens_too_small" -> "input_token_budget_too_small"
+                else -> "unavailable"
+            }
+        val cpuFailureStage = base.failureStage
+            ?.takeIf { it.startsWith("cpu_generate") }
+            ?: "none"
+        val cpuGenerateStarted = base.generateStarted == true || generateCallEntered
+        val cpuGenerateFinished =
+            cpuFailureStage == "none" &&
+                streamingCompletionReason.startsWith("flow_completed")
+        val cpuFailedBeforeFirstToken =
+            cpuFailureStage != "none" &&
+                base.firstTokenReceived != true &&
+                callbackInvokedCount == 0
+        val failureInterpretation = when {
+            base.failureStage == "cpu_generate_compiled_model_invoke_failed" ||
+                base.liteRtLmErrorKind == "compiled_model_invoke_failed" ->
+                "compiled_model_invoke_failed_during_cpu_generate"
+            base.failureStage?.startsWith("cpu_generate") == true -> "cpu_generate_exception"
+            callbackNonEmptyTextCount > 0 || base.firstTokenReceived == true -> "cpu_callback_observed"
+            else -> "cpu_route_in_progress"
+        }
+        val probeEnabled = diagnostics["cpu_route_probe_enabled"] == "true"
+        val probeResult = when {
+            !probeEnabled -> "disabled"
+            base.failureStage?.startsWith("cpu_generate") == true -> "failure"
+            callbackNonEmptyTextCount > 0 || base.firstTokenReceived == true -> "success"
+            else -> "in_progress"
+        }
+        val probeFailureStage = if (probeResult == "failure") {
+            base.failureStage ?: "cpu_generate_exception"
+        } else {
+            "none"
+        }
+        return diagnostics + mapOf(
+            "cpu_generate_started" to cpuGenerateStarted.toString(),
+            "cpu_generate_finished" to cpuGenerateFinished.toString(),
+            "cpu_generate_failed_before_first_token" to cpuFailedBeforeFirstToken.toString(),
+            "cpu_generate_call_entered" to generateCallEntered.toString(),
+            "cpu_generate_call_returned" to generateCallReturned.toString(),
+            "cpu_callback_invoked_count" to callbackInvokedCount.toString(),
+            "cpu_callback_non_empty_text_count" to callbackNonEmptyTextCount.toString(),
+            "cpu_first_non_empty_text_elapsed_ms" to (firstNonEmptyTextElapsedMs?.toString() ?: "unavailable"),
+            "cpu_first_token_received" to (base.firstTokenReceived == true || callbackNonEmptyTextCount > 0).toString(),
+            "cpu_generate_exception_class" to exceptionClass,
+            "cpu_generate_exception_message_sanitized" to exceptionMessage,
+            "cpu_generate_exception_status_code" to statusCode,
+            "cpu_generate_exception_error_file" to errorFile,
+            "cpu_generate_exception_error_line" to errorLine,
+            "cpu_generate_exception_summary" to exceptionSummary,
+            "cpu_failure_stage" to cpuFailureStage,
+            "cpu_failure_interpretation" to failureInterpretation,
+            "cpu_route_probe_result" to probeResult,
+            "cpu_route_probe_failure_stage" to probeFailureStage,
+            "cpu_route_probe_callback_count" to callbackInvokedCount.toString(),
+        )
+    }
 
     private fun recordRecentChunkSummary(text: String) {
         val sanitizedHead = text
@@ -2241,16 +2321,103 @@ internal fun resolveCpuGpuCallbackCompareRequestForDebug(
     )
 }
 
+internal fun isCpuRouteProbeEnabledForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG || preferredBackend != PreferredBackendDryRunSetting.CPU) return false
+    val value = propertyReader("debug.lami.cpu_route_probe")
+        ?: propertyReader("lami.cpu_route_probe")
+        ?: return false
+    return value.equals("true", ignoreCase = true) || value == "1"
+}
+
+private fun buildCpuRouteBaseDiagnostics(
+    heldEngine: HeldLocalEngine,
+    localModelDisplayName: String?,
+    gpuConfigDiagnostics: GpuRouteConfigDiagnostics,
+    heldEngineReused: Boolean?,
+    heldEngineAcquireResult: String?,
+    holderSnapshotAtRunStart: HeldEngineDevDiagnosticSnapshot,
+    cpuRouteProbeEnabled: Boolean,
+): Map<String, String> {
+    if (heldEngine.preferredBackendDryRunSetting != PreferredBackendDryRunSetting.CPU) return emptyMap()
+    val modelFile = File(heldEngine.modelPath)
+    return mapOf(
+        "cpu_route_selected" to "true",
+        "cpu_engine_config_backend" to gpuConfigDiagnostics.backend,
+        "cpu_selected_model_name" to (localModelDisplayName ?: modelFile.name.ifBlank { "unknown" }),
+        "cpu_selected_model_file" to modelFile.name.ifBlank { "unknown" },
+        "cpu_selected_model_path_tail" to heldEngine.modelPath.takeLast(96),
+        "cpu_model_size_bytes" to modelFile.takeIf { it.isFile }?.length().orUnavailable(),
+        "cpu_holder_reused" to heldEngineReused.toStringOrUnavailable(),
+        "cpu_holder_reuse_block_reason" to resolveCpuHolderReuseBlockReason(
+            heldEngineReused = heldEngineReused,
+            heldEngineAcquireResult = heldEngineAcquireResult,
+            holderSnapshot = holderSnapshotAtRunStart,
+        ),
+        "cpu_previous_holder_backend" to resolveCpuPreviousHolderBackend(
+            heldEngine = heldEngine,
+            heldEngineReused = heldEngineReused,
+            holderSnapshot = holderSnapshotAtRunStart,
+        ),
+        "cpu_route_probe_enabled" to cpuRouteProbeEnabled.toString(),
+        "cpu_route_probe_result" to if (cpuRouteProbeEnabled) "not_started" else "disabled",
+        "cpu_route_probe_failure_stage" to "none",
+        "cpu_route_probe_callback_count" to "0",
+    )
+}
+
+private fun resolveCpuHolderReuseBlockReason(
+    heldEngineReused: Boolean?,
+    heldEngineAcquireResult: String?,
+    holderSnapshot: HeldEngineDevDiagnosticSnapshot,
+): String =
+    when {
+        heldEngineReused == true -> "reuse_ok"
+        holderSnapshot.heldEngineDestroyReason == "backend-changed" -> "backend_changed"
+        holderSnapshot.heldEngineDestroyReason == "model-changed" ||
+            holderSnapshot.heldEngineDestroyReason == "clear-model-changed" -> "model_path_changed"
+        heldEngineAcquireResult == "created" && holderSnapshot.heldEngineHash == null -> "first_turn_no_previous_holder"
+        heldEngineAcquireResult == "created" -> "holder_recreated_for_requested_cpu_backend"
+        else -> "unsupported_or_unknown"
+    }
+
+private fun resolveCpuPreviousHolderBackend(
+    heldEngine: HeldLocalEngine,
+    heldEngineReused: Boolean?,
+    holderSnapshot: HeldEngineDevDiagnosticSnapshot,
+): String {
+    if (heldEngineReused == true) return heldEngine.preferredBackendDryRunSetting.name
+    val snapshotBackend = holderSnapshot.heldEngineSnapshotBeforeDestroy
+        ?.split(';')
+        ?.firstOrNull { it.startsWith("backend=") }
+        ?.substringAfter("backend=")
+        ?.takeIf { it.isNotBlank() }
+    return snapshotBackend ?: holderSnapshot.lastHeldEngineCreateRequestedPreferredBackend ?: "unavailable"
+}
+
+private fun Long?.orUnavailable(): String = this?.toString() ?: "unavailable"
+
+private fun Boolean?.toStringOrUnavailable(): String =
+    this?.toString() ?: "unavailable"
+
 private fun buildGpuGenerateExceptionDiagnostic(
     throwable: Throwable,
     baseFlags: LocalRouteDiagnosticFlags,
+    preferredBackend: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
 ): GpuGenerateExceptionDiagnostic {
     val rawMessage = generateCallbackExceptionChain(throwable)
     val sanitizedMessage = sanitizeGpuLiteRtFailureMessage(rawMessage)
     val error = classifyLiteRtLmError(rawMessage)
-    val failureStage = when (error.kind) {
-        "compiled_model_invoke_failed" -> "gpu_generate_compiled_model_invoke_failed"
-        "max_tokens_too_small" -> "gpu_generate_input_token_budget_failed"
+    val failureStage = when {
+        preferredBackend == PreferredBackendDryRunSetting.CPU && error.kind == "compiled_model_invoke_failed" ->
+            "cpu_generate_compiled_model_invoke_failed"
+        preferredBackend == PreferredBackendDryRunSetting.CPU && error.kind == "max_tokens_too_small" ->
+            "cpu_generate_input_token_budget_failed"
+        preferredBackend == PreferredBackendDryRunSetting.CPU -> "cpu_generate_exception"
+        error.kind == "compiled_model_invoke_failed" -> "gpu_generate_compiled_model_invoke_failed"
+        error.kind == "max_tokens_too_small" -> "gpu_generate_input_token_budget_failed"
         else -> "gpu_generate_exception"
     }
     return GpuGenerateExceptionDiagnostic(
@@ -2817,9 +2984,21 @@ internal suspend fun runWithHeldEngine(
     val cpuGpuCallbackCompareRequest = resolveCpuGpuCallbackCompareRequestForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
     )
+    val cpuRouteProbeEnabled = isCpuRouteProbeEnabledForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
     val cpuGpuCallbackCompareMaxTokens = gpuConfigDiagnosticsForRun.outputQualityEffectiveMaxTokens.toIntOrNull()
         ?: gpuConfigDiagnosticsForRun.maxTokens.toIntOrNull()
     val cpuGpuCallbackCompareSamplerHint = gpuConfigDiagnosticsForRun.samplerAccelerationPolicy
+    val cpuRouteBaseDiagnostics = buildCpuRouteBaseDiagnostics(
+        heldEngine = heldEngine,
+        localModelDisplayName = localModelDisplayName,
+        gpuConfigDiagnostics = gpuConfigDiagnosticsForRun,
+        heldEngineReused = heldEngineReused,
+        heldEngineAcquireResult = heldEngineAcquireResult,
+        holderSnapshotAtRunStart = holderSnapshotAtRunStart,
+        cpuRouteProbeEnabled = cpuRouteProbeEnabled,
+    )
 
     fun recordMemorySnapshot(stage: String) {
         memorySnapshots += captureLocalMemorySnapshot(
@@ -2906,6 +3085,7 @@ internal suspend fun runWithHeldEngine(
                 gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
                 gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
                 gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
+                cpuRouteDiagnostics = cpuRouteBaseDiagnostics,
             ),
         )
     }
@@ -2942,6 +3122,7 @@ internal suspend fun runWithHeldEngine(
                 gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
                 gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
                 gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
+                cpuRouteDiagnostics = cpuRouteBaseDiagnostics,
             ),
         )
     }
@@ -2980,6 +3161,7 @@ internal suspend fun runWithHeldEngine(
             gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
             gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
             gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
+            cpuRouteDiagnostics = cpuRouteBaseDiagnostics,
         )
         return if (successCpuGpuCallbackCompare != null) {
             flags.withCpuGpuCompare(
@@ -3203,6 +3385,7 @@ internal suspend fun runWithHeldEngine(
                 val generateExceptionDiagnostic = buildGpuGenerateExceptionDiagnostic(
                     throwable = throwable,
                     baseFlags = currentGenerateCallbackFlags(),
+                    preferredBackend = heldEngine.preferredBackendDryRunSetting,
                 )
                 val cpuCompare = if (cpuGpuCallbackCompareRequest.requested) {
                     runCpuGpuCallbackCompareForDebug(
@@ -3236,7 +3419,7 @@ internal suspend fun runWithHeldEngine(
                         stage = generateExceptionDiagnostic.failureStage,
                         throwable = throwable,
                         selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
-                        selectedFallbackPath = "gpu",
+                        selectedFallbackPath = heldEngine.preferredBackendDryRunSetting.name.lowercase(),
                     )
                 }
                 failureDiagnosticsText = listOfNotNull(routeText, localFailureText)
@@ -3350,6 +3533,7 @@ internal suspend fun runWithHeldEngine(
                 val generateExceptionDiagnostic = buildGpuGenerateExceptionDiagnostic(
                     throwable = throwable,
                     baseFlags = currentGenerateCallbackFlags(),
+                    preferredBackend = heldEngine.preferredBackendDryRunSetting,
                 )
                 val cpuCompare = if (cpuGpuCallbackCompareRequest.requested) {
                     runCpuGpuCallbackCompareForDebug(
@@ -3383,7 +3567,7 @@ internal suspend fun runWithHeldEngine(
                         stage = generateExceptionDiagnostic.failureStage,
                         throwable = throwable,
                         selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
-                        selectedFallbackPath = "gpu",
+                        selectedFallbackPath = heldEngine.preferredBackendDryRunSetting.name.lowercase(),
                     )
                 }
                 failureDiagnosticsText = listOfNotNull(routeText, localFailureText)
@@ -3483,7 +3667,7 @@ internal suspend fun runWithHeldEngine(
                 stage = "conversation-create",
                 throwable = throwable,
                 selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
-                selectedFallbackPath = "gpu",
+                selectedFallbackPath = heldEngine.preferredBackendDryRunSetting.name.lowercase(),
             )
         }
         safeAppendTrace(
