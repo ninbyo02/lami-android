@@ -1317,6 +1317,7 @@ private class GenerateCallbackLifecycleTracker(
     private var callbackNonEmptyTextCount: Int = 0
     private var callbackLastTextLength: Int = 0
     private var callbackLastTextHead: String = "none"
+    private var callbackLastNonEmptyText: String = ""
     private var firstNonEmptyTextElapsedMs: Long? = null
     private var firstTokenClassificationReason: String = "no_callback_yet"
     private var callbackExceptionClass: String = "none"
@@ -1393,6 +1394,7 @@ private class GenerateCallbackLifecycleTracker(
             }
         } else {
             callbackNonEmptyTextCount += 1
+            callbackLastNonEmptyText = text
             recordRecentChunkSummary(text)
             nonEmptyChunkLengths += text.length
             recordChunkLengthBucket(text.length)
@@ -1614,6 +1616,7 @@ private class GenerateCallbackLifecycleTracker(
             },
             gpuPrefillProbeDiagnostics = base.gpuPrefillProbeDiagnostics +
                 resolveFragmentationDiagnostics() +
+                resolveEdgeGalleryFinalResponseProbeDiagnostics() +
                 if (callbackStreamingPathSelected) {
                     rawArtifactWriter.diagnostics(
                         rawText = rawCallbackFullText.toString(),
@@ -1677,6 +1680,85 @@ private class GenerateCallbackLifecycleTracker(
                 ),
             ),
         )
+
+    private fun resolveEdgeGalleryFinalResponseProbeDiagnostics(): Map<String, String> {
+        if (!callbackStreamingPathSelected) return emptyMap()
+        val finalCandidateSource = resolveGpuCallbackFinalCandidateSource()
+        val finalCandidateText = resolveGpuCallbackFinalCandidateText(finalCandidateSource)
+        val finalCandidateSuspiciousReason = classifyGpuOutputSuspiciousFragmentReason(
+            rawSample = finalCandidateText.take(120) + " " + finalCandidateText.takeLast(120),
+            promotedSample = finalCandidateText.take(120) + " " + finalCandidateText.takeLast(120),
+            finalSample = finalCandidateText.take(120) + " " + finalCandidateText.takeLast(120),
+            rawLength = finalCandidateText.length,
+            finalLength = finalCandidateText.length,
+            nonEmptyChunkCount = if (finalCandidateText.isBlank()) 0 else 1,
+        )
+        val callbackSemantics = resolveEdgeGalleryCallbackTextSemanticsCandidate(
+            matrixMode = outputQualityMatrixMode,
+            callbackCount = callbackInvokedCount,
+            accumulatedTextLength = rawCallbackFullText.length,
+            lastNonEmptyTextLength = callbackLastNonEmptyText.length,
+        )
+        val finalProbeResult = resolveEdgeGalleryFinalResponseProbeResult(
+            matrixMode = outputQualityMatrixMode,
+            finalCandidateLength = finalCandidateText.length,
+            finalCandidateSuspiciousReason = finalCandidateSuspiciousReason,
+        )
+        val finalProbeSummary = resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+            matrixMode = outputQualityMatrixMode,
+            appendAllSuspiciousReason = resolveGpuOutputSuspiciousReason(),
+            finalCandidateSuspiciousReason = finalCandidateSuspiciousReason,
+            callbackSemanticsCandidate = callbackSemantics,
+            accumulatedTextLength = rawCallbackFullText.length,
+            finalCandidateLength = finalCandidateText.length,
+        )
+        return mapOf(
+            "edge_gallery_generate_api_candidate" to resolveEdgeGalleryGenerateApiCandidate(),
+            "edge_gallery_callback_text_semantics_candidate" to callbackSemantics,
+            "edge_gallery_callback_done_semantics_candidate" to resolveEdgeGalleryCallbackDoneSemanticsCandidate(),
+            "lami_callback_join_strategy_candidate" to resolveGpuOutputChunkJoinStrategy(),
+            "gpu_callback_last_non_empty_text_length" to callbackLastNonEmptyText.length.toString(),
+            "gpu_callback_last_non_empty_text_sha256" to sha256ForGpuCallbackText(callbackLastNonEmptyText),
+            "gpu_callback_accumulated_text_sha256" to sha256ForGpuCallbackText(rawCallbackFullText.toString()),
+            "gpu_callback_final_candidate_text_sha256" to sha256ForGpuCallbackText(finalCandidateText),
+            "gpu_callback_final_candidate_source" to finalCandidateSource,
+            "edge_gallery_final_response_probe_result" to finalProbeResult,
+            "edge_gallery_final_response_probe_difference_summary" to finalProbeSummary,
+        )
+    }
+
+    private fun resolveEdgeGalleryGenerateApiCandidate(): String =
+        if (isEdgeGalleryFinalResponseProbeMode(outputQualityMatrixMode)) {
+            "send_message_async_flow_collect_final_candidate"
+        } else {
+            "send_message_async_flow_incremental"
+        }
+
+    private fun resolveEdgeGalleryCallbackDoneSemanticsCandidate(): String =
+        when {
+            !isEdgeGalleryFinalResponseProbeMode(outputQualityMatrixMode) -> "unavailable"
+            callbackDoneTrueSeen -> "done_true_seen"
+            callbackInvokedCount > 0 -> "done_true_not_seen"
+            else -> "unknown"
+        }
+
+    private fun resolveGpuCallbackFinalCandidateSource(): String =
+        when {
+            isEdgeGalleryFinalResponseProbeMode(outputQualityMatrixMode) -> "last_non_empty_callback"
+            outputQualityCollectOnlyEnabled -> "collect_only_final_commit"
+            callbackStreamingPathSelected -> "append_all_chunks"
+            else -> "unknown"
+        }
+
+    private fun resolveGpuCallbackFinalCandidateText(source: String): String =
+        when (source) {
+            "last_non_empty_callback" -> callbackLastNonEmptyText
+            "collect_only_final_commit" -> finalAssistantText.headText()
+                .takeIf { finalAssistantText.length <= 120 && it != "none" }
+                ?: rawCallbackFullText.toString()
+            "append_all_chunks" -> rawCallbackFullText.toString()
+            else -> rawCallbackFullText.toString()
+        }
 
     private fun buildCpuRouteDiagnosticsForTracker(
         base: LocalRouteDiagnosticFlags,

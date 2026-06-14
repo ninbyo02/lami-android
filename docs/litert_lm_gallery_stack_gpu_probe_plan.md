@@ -1324,3 +1324,46 @@ Interpretation:
 - `edge_gallery_parity_difference_summary=edge_gallery_gpu_ok_lami_gpu_raw_callback_decode_fragmentation` means the
   model and CPU route are not the leading suspects; the LAMI GPU route still differs from Edge Gallery before UI append.
 - A parity mode that flips to `quality_candidate_pass` becomes the next candidate to inspect before any wider promotion.
+
+### Final Response / Callback Semantics Probe
+
+Edge Gallery official GPU output is currently the reference behavior: the same E2B model can produce a long Japanese
+ingredient answer without the raw callback tail breakage seen in LAMI GPU. Since LAMI CPU also succeeds, the remaining
+route difference is likely in the GPU generate/callback path rather than the model file itself.
+
+Use the final-response probe to compare candidate callback interpretations:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_final_response_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+This mode is available only in the dev-only `standardGpuMinimalRuntimeCandidateDebug` GPU route. It keeps production and
+standard defaults unchanged. The route still receives callback chunks, but diagnostics compare:
+
+- `append_all_chunks`: LAMI's current delta-chunk assumption.
+- `last_non_empty_callback`: a candidate for accumulated/full-response callback semantics.
+- `collect_only_final_commit`: no incremental UI append; commit only after the Flow completes.
+
+Read these keys:
+
+- `edge_gallery_generate_api_candidate`
+- `edge_gallery_callback_text_semantics_candidate`
+- `edge_gallery_callback_done_semantics_candidate`
+- `lami_callback_join_strategy_candidate`
+- `gpu_callback_accumulated_text_sha256`
+- `gpu_callback_last_non_empty_text_sha256`
+- `gpu_callback_final_candidate_source`
+- `edge_gallery_final_response_probe_result`
+- `edge_gallery_final_response_probe_difference_summary`
+
+If `edge_gallery_callback_text_semantics_candidate=accumulated_text` and the final candidate passes while
+`append_all_chunks` fails, the next focus is callback text semantics / join strategy. If both append-all and
+last-non-empty are suspicious, the stronger hypothesis remains GPU raw callback source corruption in LAMI's runtime/API
+path. Standard GPU promotion remains blocked while `gpu_output_quality_candidate_result=quality_candidate_fail` or
+`callback_corruption_earliest_stage=raw_callback` is reproducible.

@@ -208,6 +208,147 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU output quality matrix resolves Edge Gallery final response probe only for GPU candidate flavor`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `Edge Gallery final response probe classifies delta and accumulated callback semantics`() {
+        assertEquals(
+            "delta_chunks",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 120,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 2,
+            ),
+        )
+        assertEquals(
+            "accumulated_text",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 12,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 1100,
+            ),
+        )
+        assertEquals(
+            "final_only",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 1,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 1200,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackCount = 120,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 2,
+            ),
+        )
+    }
+
+    @Test
+    fun `Edge Gallery final response probe result keeps quality blocker classification`() {
+        assertEquals(
+            "pass",
+            resolveEdgeGalleryFinalResponseProbeResult(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                finalCandidateLength = 400,
+                finalCandidateSuspiciousReason = "none",
+            ),
+        )
+        assertEquals(
+            "fail",
+            resolveEdgeGalleryFinalResponseProbeResult(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                finalCandidateLength = 400,
+                finalCandidateSuspiciousReason = "many_tiny_fragments",
+            ),
+        )
+        assertEquals(
+            "last_non_empty_callback_is_delta_not_final_response",
+            resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                appendAllSuspiciousReason = "many_tiny_fragments",
+                finalCandidateSuspiciousReason = "none",
+                callbackSemanticsCandidate = "delta_chunks",
+                accumulatedTextLength = 1200,
+                finalCandidateLength = 2,
+            ),
+        )
+        assertEquals(
+            "append_all_chunks_and_last_non_empty_both_suspicious",
+            resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                appendAllSuspiciousReason = "many_tiny_fragments",
+                finalCandidateSuspiciousReason = "mixed_language_fragment",
+                callbackSemanticsCandidate = "unknown",
+                accumulatedTextLength = 1200,
+                finalCandidateLength = 400,
+            ),
+        )
+    }
+
+    @Test
     fun `GPU output quality matrix ignores non candidate or non GPU route`() {
         assertEquals(
             "unavailable",

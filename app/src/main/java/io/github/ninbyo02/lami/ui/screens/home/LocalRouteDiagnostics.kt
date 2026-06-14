@@ -1921,6 +1921,7 @@ internal fun buildLocalRouteDiagnosticTrace(
     val gpuPerformance = buildGpuPerformanceDiagnostics(flags)
     val gpuHolderLifecycle = buildGpuHolderLifecycleDiagnostics(flags)
     val gpuPrefillProbe = buildGpuPrefillProbeClarityDiagnostics(flags)
+    val finalResponseProbeDiagnostics = flags.gpuPrefillProbeDiagnostics
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -2062,6 +2063,17 @@ internal fun buildLocalRouteDiagnosticTrace(
         "edge_gallery_parity_sampler_present=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigSamplerPresent else "unavailable"}",
         "edge_gallery_parity_candidate_result=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuOutputQuality.candidateResult else "unavailable"}",
         "edge_gallery_parity_difference_summary=${resolveEdgeGalleryParityDifferenceSummary(gpuOutputQuality.matrixMode, gpuOutputQuality.sourceCorruptionStage, gpuOutputQuality.candidateResult, gpuOutputQuality.samplerRootCauseCandidate)}",
+        "edge_gallery_generate_api_candidate=${finalResponseProbeDiagnostics["edge_gallery_generate_api_candidate"] ?: "unavailable"}",
+        "edge_gallery_callback_text_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_text_semantics_candidate"] ?: "unavailable"}",
+        "edge_gallery_callback_done_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_done_semantics_candidate"] ?: "unavailable"}",
+        "lami_callback_join_strategy_candidate=${finalResponseProbeDiagnostics["lami_callback_join_strategy_candidate"] ?: "unavailable"}",
+        "gpu_callback_last_non_empty_text_length=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_length"] ?: "unavailable"}",
+        "gpu_callback_last_non_empty_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_sha256"] ?: "unavailable"}",
+        "gpu_callback_accumulated_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_accumulated_text_sha256"] ?: "unavailable"}",
+        "gpu_callback_final_candidate_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_text_sha256"] ?: "unavailable"}",
+        "gpu_callback_final_candidate_source=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_source"] ?: "unavailable"}",
+        "edge_gallery_final_response_probe_result=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_result"] ?: "unavailable"}",
+        "edge_gallery_final_response_probe_difference_summary=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_difference_summary"] ?: "unavailable"}",
         "gpu_max_tokens=${gpuConfig.maxTokens}",
         "gpu_top_k=${gpuConfig.samplerTopK}",
         "gpu_top_p=${gpuConfig.samplerTopP}",
@@ -3556,6 +3568,8 @@ internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DE
     "edge_gallery_parity_sampler_default"
 internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE =
     "edge_gallery_parity_sampler_none"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE =
+    "edge_gallery_final_response_probe"
 private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4000)
 internal val EDGE_GALLERY_PARITY_MATRIX_MODES = setOf(
     GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
@@ -3610,6 +3624,10 @@ internal fun resolveGpuOutputQualityMatrixModeForDebug(
         "parity_sampler_default" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DEFAULT
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE,
         "parity_sampler_none" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+        "edge_gallery_final_probe",
+        "final_response_probe",
+        "parity_final_response_probe" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE
         else -> GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
     }
 }
@@ -3652,6 +3670,7 @@ internal fun isGpuOutputQualityCollectOnlyModeForDebug(
         GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
     )
 
 private fun isGpuOutputQualityCollectOnlyMode(
@@ -3665,6 +3684,7 @@ private fun isGpuOutputQualityCollectOnlyMode(
             GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
             GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
             GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
         )
 
 internal fun resolveGpuOutputQualityMaxTokensOverrideForDebug(
@@ -3705,6 +3725,9 @@ internal fun isEdgeGalleryParityNoHolderReuseModeForDebug(
 internal fun resolveEdgeGalleryParityModeForMatrixMode(matrixMode: String): String =
     matrixMode.takeIf { it in EDGE_GALLERY_PARITY_MATRIX_MODES } ?: "unavailable"
 
+internal fun isEdgeGalleryFinalResponseProbeMode(matrixMode: String): Boolean =
+    matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE
+
 internal fun resolveEdgeGalleryParityCallbackModeForMatrixMode(
     matrixMode: String,
     streamingMode: String,
@@ -3742,6 +3765,63 @@ internal fun resolveEdgeGalleryParityDifferenceSummary(
         samplerRootCauseCandidate == "streaming_join_issue" -> "lami_streaming_join_diff_candidate"
         else -> "edge_gallery_parity_difference_still_unclassified"
     }
+
+internal fun resolveEdgeGalleryCallbackTextSemanticsCandidate(
+    matrixMode: String,
+    callbackCount: Int,
+    accumulatedTextLength: Int,
+    lastNonEmptyTextLength: Int,
+): String {
+    if (!isEdgeGalleryFinalResponseProbeMode(matrixMode)) return "unavailable"
+    if (callbackCount <= 0 || lastNonEmptyTextLength <= 0 || accumulatedTextLength <= 0) return "unknown"
+    if (callbackCount == 1) return "final_only"
+    val ratio = lastNonEmptyTextLength.toDouble() / accumulatedTextLength.coerceAtLeast(1)
+    return when {
+        ratio >= 0.80 -> "accumulated_text"
+        ratio <= 0.25 -> "delta_chunks"
+        else -> "unknown"
+    }
+}
+
+internal fun resolveEdgeGalleryFinalResponseProbeResult(
+    matrixMode: String,
+    finalCandidateLength: Int,
+    finalCandidateSuspiciousReason: String,
+): String =
+    when {
+        !isEdgeGalleryFinalResponseProbeMode(matrixMode) -> "unavailable"
+        finalCandidateLength <= 0 -> "unavailable"
+        finalCandidateSuspiciousReason == "none" -> "pass"
+        else -> "fail"
+    }
+
+internal fun resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+    matrixMode: String,
+    appendAllSuspiciousReason: String,
+    finalCandidateSuspiciousReason: String,
+    callbackSemanticsCandidate: String,
+    accumulatedTextLength: Int,
+    finalCandidateLength: Int,
+): String {
+    if (!isEdgeGalleryFinalResponseProbeMode(matrixMode)) return "unavailable"
+    if (finalCandidateLength <= 0) return "final_response_probe_no_non_empty_callback"
+    if (
+        callbackSemanticsCandidate == "delta_chunks" &&
+        accumulatedTextLength > 256 &&
+        finalCandidateLength < accumulatedTextLength / 4
+    ) {
+        return "last_non_empty_callback_is_delta_not_final_response"
+    }
+    return when {
+        appendAllSuspiciousReason != "none" && finalCandidateSuspiciousReason == "none" ->
+            "append_all_chunks_suspicious_last_non_empty_clean"
+        appendAllSuspiciousReason != "none" && finalCandidateSuspiciousReason != "none" ->
+            "append_all_chunks_and_last_non_empty_both_suspicious"
+        appendAllSuspiciousReason == "none" && finalCandidateSuspiciousReason != "none" ->
+            "append_all_chunks_clean_last_non_empty_suspicious"
+        else -> "final_response_probe_pass"
+    }
+}
 
 private fun resolveGpuOutputQualityStreamingModeForDebug(
     preferredBackend: String,

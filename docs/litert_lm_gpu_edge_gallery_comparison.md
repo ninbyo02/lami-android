@@ -2735,3 +2735,54 @@ Promotion remains blocked when `edge_gallery_parity_candidate_result=quality_can
 `gpu_output_quality_candidate_result=quality_candidate_fail`, or
 `callback_corruption_earliest_stage=raw_callback`. These modes are only for locating which LAMI GPU route difference
 matters: EngineConfig, ConversationConfig/sampler, callback streaming, holder reuse, cacheDir, or raw callback source.
+
+### Edge Gallery Final Response Probe
+
+Edge Gallery official GPU has been observed to generate natural long Japanese for
+`カレーの材料をお願いします。`, while LAMI CPU also succeeds with both the generic and Edge Gallery E2B model files.
+LAMI GPU still corrupts long output in `edge_gallery_parity_minimal` before Markdown repair or UI append:
+`callback_corruption_earliest_stage=raw_callback` and `gpu_output_source_corruption_stage=raw_callback`.
+
+The next open difference is generate/callback semantics. LAMI currently consumes the LiteRT-LM Flow callback text as
+delta chunks and joins every non-empty callback. If Edge Gallery treats callback text as an accumulated response or uses
+a final-response path, appending every callback would be the wrong interpretation. The dev-only final-response probe
+records both interpretations without changing production behavior:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_final_response_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Important keys:
+
+- `edge_gallery_generate_api_candidate`
+- `edge_gallery_callback_text_semantics_candidate`
+- `edge_gallery_callback_done_semantics_candidate`
+- `lami_callback_join_strategy_candidate`
+- `gpu_callback_last_non_empty_text_length`
+- `gpu_callback_last_non_empty_text_sha256`
+- `gpu_callback_accumulated_text_sha256`
+- `gpu_callback_final_candidate_text_sha256`
+- `gpu_callback_final_candidate_source`
+- `edge_gallery_final_response_probe_result`
+- `edge_gallery_final_response_probe_difference_summary`
+
+Interpretation:
+
+- `edge_gallery_callback_text_semantics_candidate=delta_chunks` means the last non-empty callback is far shorter than
+  the accumulated callback text, so it does not look like an accumulated final response.
+- `edge_gallery_callback_text_semantics_candidate=accumulated_text` means the last non-empty callback is close to the
+  accumulated length, so the LAMI join strategy may be wrong.
+- `edge_gallery_final_response_probe_difference_summary=append_all_chunks_suspicious_last_non_empty_clean` points toward
+  callback semantics / join interpretation.
+- `edge_gallery_final_response_probe_difference_summary=append_all_chunks_and_last_non_empty_both_suspicious` keeps the
+  source-side GPU decode/runtime hypothesis stronger.
+
+`gpu_output_quality_candidate_result=quality_candidate_fail` remains a Standard GPU promotion blocker regardless of this
+probe result. This probe is diagnostic-only and does not change runtime stack, model loading, NPU, CPU, or production GPU
+defaults.

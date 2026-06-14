@@ -2926,6 +2926,89 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `Edge Gallery final response probe diagnostics expose callback semantics candidates`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputQualityMatrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                gpuOutputQualitySamplerMode = "edge_gallery_like",
+                gpuOutputQualityStreamingMode = "collect_only_final_commit",
+                gpuOutputQualityEffectiveMaxTokens = "512",
+                gpuOutputQualityCollectOnlyEnabled = true,
+                gpuOutputQualityUiIncrementalAppendEnabled = false,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuOutputQualityFailureBlockReason = "callback_source_already_suspicious",
+                gpuOutputSourceCorruptionStage = "raw_callback",
+                gpuOutputCallbackChunkCount = 120,
+                gpuOutputNonEmptyChunkCount = 110,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputSuspiciousFragmentReason = "many_tiny_fragments",
+                gpuCallbackAverageChunkLength = "1.70",
+                gpuCallbackTwoCharOrLessChunkRatio = "0.900",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_sampler_root_cause_candidate" to "runtime_decode_fragmentation",
+                    "edge_gallery_generate_api_candidate" to "send_message_async_flow_collect_final_candidate",
+                    "edge_gallery_callback_text_semantics_candidate" to "delta_chunks",
+                    "edge_gallery_callback_done_semantics_candidate" to "done_true_not_seen",
+                    "lami_callback_join_strategy_candidate" to "raw_callback_collect_only_final_commit:dev_gate_normal_route",
+                    "gpu_callback_last_non_empty_text_length" to "2",
+                    "gpu_callback_last_non_empty_text_sha256" to "lastsha",
+                    "gpu_callback_accumulated_text_sha256" to "accumsha",
+                    "gpu_callback_final_candidate_text_sha256" to "finalsha",
+                    "gpu_callback_final_candidate_source" to "last_non_empty_callback",
+                    "edge_gallery_final_response_probe_result" to "fail",
+                    "edge_gallery_final_response_probe_difference_summary" to
+                        "last_non_empty_callback_is_delta_not_final_response",
+                ),
+                callbackQualityClassification = "severe_fragmentation",
+                callbackCorruptionEarliestStage = "raw_callback",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_output_quality_matrix_mode=edge_gallery_final_response_probe"))
+        assertTrue(compact.contains("edge_gallery_generate_api_candidate=send_message_async_flow_collect_final_candidate"))
+        assertTrue(compact.contains("edge_gallery_callback_text_semantics_candidate=delta_chunks"))
+        assertTrue(compact.contains("edge_gallery_callback_done_semantics_candidate=done_true_not_seen"))
+        assertTrue(compact.contains("lami_callback_join_strategy_candidate=raw_callback_collect_only_final_commit:dev_gate_normal_route"))
+        assertTrue(compact.contains("gpu_callback_last_non_empty_text_length=2"))
+        assertTrue(compact.contains("gpu_callback_final_candidate_source=last_non_empty_callback"))
+        assertTrue(compact.contains("edge_gallery_final_response_probe_result=fail"))
+        assertTrue(
+            compact.contains(
+                "edge_gallery_final_response_probe_difference_summary=last_non_empty_callback_is_delta_not_final_response",
+            ),
+        )
+        assertTrue(compact.contains("gpu_output_quality_promotion_blocker=true"))
+    }
+
+    @Test
     fun `GPU perf slow path classifier separates first token and tokenizer delays`() {
         assertEquals(
             "slow_first_token",
