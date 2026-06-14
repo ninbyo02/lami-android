@@ -267,6 +267,52 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU output quality matrix resolves Edge Gallery executor probe only for GPU candidate flavor`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(isEdgeGalleryExecutorProbeMode(GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE))
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
     fun `Edge Gallery final response probe classifies delta and accumulated callback semantics`() {
         assertEquals(
             "delta_chunks",

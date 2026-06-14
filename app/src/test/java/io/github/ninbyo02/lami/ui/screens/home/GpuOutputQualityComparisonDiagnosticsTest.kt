@@ -210,6 +210,40 @@ class GpuOutputQualityComparisonDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_quality_summary=runtime_callback_source_corruption_suspected"))
     }
 
+    @Test
+    fun `runtime executor fingerprint diagnostics are copied to compact`() {
+        val compact = compactFromFlags(
+            LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = true,
+                gpuOutputQualityMatrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuOutputSourceCorruptionStage = "raw_callback",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_sampler_root_cause_candidate" to "runtime_decode_fragmentation",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("executor_selection_fingerprint="))
+        assertTrue(compact.contains("runtime_backend_fingerprint="))
+        assertTrue(compact.contains("runtime_executor_fingerprint="))
+        assertTrue(compact.contains("runtime_dispatch_fingerprint="))
+        assertTrue(compact.contains("runtime_compiled_model_fingerprint="))
+        assertTrue(compact.contains("engine_config_fingerprint="))
+        assertTrue(compact.contains("conversation_config_fingerprint="))
+        assertTrue(compact.contains("sampler_config_fingerprint="))
+        assertTrue(compact.contains("edge_gallery_executor_probe_result="))
+        assertTrue(compact.contains("edge_gallery_executor_difference_summary="))
+        assertTrue(compact.contains("loaded_native_runtime_stack_fingerprint="))
+    }
+
     private fun compactFromFlags(flags: LocalRouteDiagnosticFlags): String {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-4-E2B-it-edge-gallery",

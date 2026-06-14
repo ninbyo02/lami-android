@@ -518,6 +518,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildStandardGpuMinimalRuntimeCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildLoadedRuntimeNativeStackCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildRuntimeExecutorFingerprintCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuOutputQualityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPerformanceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
@@ -617,6 +618,9 @@ private val LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS = listOf(
     "runtime_stack_loaded_source_flavor",
     "runtime_stack_loaded_native_library_dir",
     "runtime_stack_loaded_native_stack_source",
+    "loaded_native_lib_count",
+    "loaded_native_libs_sha256",
+    "loaded_native_runtime_stack_fingerprint",
     "runtime_stack_loaded_liblitert_present",
     "runtime_stack_loaded_liblitert_sha256",
     "runtime_stack_loaded_liblitertlm_jni_present",
@@ -642,6 +646,32 @@ private fun buildLoadedRuntimeNativeStackCompactDiagnosticLines(
 
 private fun extractLoadedRuntimeNativeStackDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS }
+
+private val RUNTIME_EXECUTOR_FINGERPRINT_DIAGNOSTIC_KEYS = listOf(
+    "executor_selection_fingerprint",
+    "runtime_backend_fingerprint",
+    "runtime_executor_fingerprint",
+    "runtime_dispatch_fingerprint",
+    "runtime_compiled_model_fingerprint",
+    "engine_config_fingerprint",
+    "conversation_config_fingerprint",
+    "sampler_config_fingerprint",
+    "edge_gallery_executor_probe_result",
+    "edge_gallery_executor_difference_summary",
+)
+
+private fun buildRuntimeExecutorFingerprintCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in RUNTIME_EXECUTOR_FINGERPRINT_DIAGNOSTIC_KEYS }) return emptyList()
+    return RUNTIME_EXECUTOR_FINGERPRINT_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractRuntimeExecutorFingerprintDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text)
+        .filterKeys { it in RUNTIME_EXECUTOR_FINGERPRINT_DIAGNOSTIC_KEYS }
 
 private val GPU_ALIGNMENT_HOLDER_DIAGNOSTIC_KEYS = listOf(
     "gpu_alignment_holder_present_before_acquire",
@@ -990,6 +1020,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractStandardGpuMinimalRuntimeCandidateDiagnostics(failureDiagnosticsText) +
         extractMinimalRuntimeProbeDiagnostics(failureDiagnosticsText) +
         extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText) +
+        extractRuntimeExecutorFingerprintDiagnostics(failureDiagnosticsText) +
         extractGpuOutputQualityDiagnostics(failureDiagnosticsText) +
         extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
         extractGpuHolderLifecycleDiagnostics(failureDiagnosticsText) +

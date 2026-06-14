@@ -75,6 +75,9 @@ data class LoadedRuntimeNativeStackDiagnostics(
     val sourceFlavor: String,
     val nativeLibraryDir: String,
     val nativeStackSource: String,
+    val loadedNativeLibCount: String = "unavailable",
+    val loadedNativeLibsSha256: String = "unavailable",
+    val loadedNativeRuntimeStackFingerprint: String = "unavailable",
     val libLiteRtPresent: String,
     val libLiteRtSha256: String,
     val libLiteRtLmJniPresent: String,
@@ -279,10 +282,14 @@ internal fun buildLoadedRuntimeNativeStackDiagnostics(
         ?.takeIf { it.isNotBlank() }
         ?.let(::File)
         ?: resolveNativeLibraryDirFromJavaLibraryPath()
+    val loadedInventory = collectLoadedRuntimeNativeLibInventory(nativeDir)
     return LoadedRuntimeNativeStackDiagnostics(
         sourceFlavor = BuildConfig.CURRENT_FLAVOR,
         nativeLibraryDir = nativeDir?.absolutePath ?: "unavailable",
         nativeStackSource = BuildConfig.DISPATCH_RUNTIME_SOURCE,
+        loadedNativeLibCount = loadedInventory.count,
+        loadedNativeLibsSha256 = loadedInventory.libsSha256,
+        loadedNativeRuntimeStackFingerprint = loadedInventory.fingerprint,
         libLiteRtPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRt.so"),
         libLiteRtSha256 = nativeDir.nativeLibSha256Diagnostic("libLiteRt.so"),
         libLiteRtLmJniPresent = nativeDir.nativeLibPresentDiagnostic("liblitertlm_jni.so"),
@@ -330,6 +337,56 @@ internal fun resolveRuntimeNativeStackAlignmentInterpretation(
         else -> "runtime_stack_observed"
     }
 
+private data class LoadedRuntimeNativeLibInventory(
+    val count: String,
+    val libsSha256: String,
+    val fingerprint: String,
+)
+
+private val RUNTIME_NATIVE_LIB_NAMES = listOf(
+    "libLiteRt.so",
+    "liblitertlm_jni.so",
+    "libLiteRtDispatch_Qualcomm.so",
+    "libLiteRtCompilerPlugin_Qualcomm.so",
+    "libGemmaModelConstraintProvider.so",
+)
+
+private fun collectLoadedRuntimeNativeLibInventory(nativeDir: File?): LoadedRuntimeNativeLibInventory {
+    val mapPaths = readRuntimeNativeLibPathsFromProcMaps()
+    val selectedPaths = RUNTIME_NATIVE_LIB_NAMES.mapNotNull { libName ->
+        mapPaths.firstOrNull { path -> path.name == libName }
+            ?: nativeDir?.resolve(libName)?.takeIf { it.isFile }
+    }.distinctBy { it.name }
+    val entries = selectedPaths
+        .sortedBy { it.name }
+        .map { file ->
+            "${file.name}:${sha256ForGalleryStackProbeFileSafely(file)}"
+        }
+    val libsSha256 = entries.takeIf { it.isNotEmpty() }?.joinToString(",") ?: "unavailable"
+    return LoadedRuntimeNativeLibInventory(
+        count = entries.size.toString(),
+        libsSha256 = libsSha256,
+        fingerprint = stableRuntimeFingerprint(libsSha256),
+    )
+}
+
+private fun readRuntimeNativeLibPathsFromProcMaps(): List<File> =
+    runCatching {
+        File("/proc/self/maps")
+            .takeIf { it.isFile }
+            ?.readLines()
+            .orEmpty()
+            .asSequence()
+            .mapNotNull { line -> line.substringAfterLast(' ', missingDelimiterValue = "").trim().takeIf { it.endsWith(".so") } }
+            .filter { path -> RUNTIME_NATIVE_LIB_NAMES.any { libName -> path.endsWith("/$libName") } }
+            .map(::File)
+            .filter { it.isFile }
+            .distinctBy { it.absolutePath }
+            .toList()
+    }.getOrElse {
+        emptyList()
+    }
+
 private fun resolveNativeLibraryDirFromJavaLibraryPath(): File? =
     runCatching {
         System.getProperty("java.library.path")
@@ -374,3 +431,13 @@ private fun sha256ForGalleryStackProbeFileSafely(file: File): String =
     }.getOrElse {
         "unavailable:${it.javaClass.simpleName}"
     }
+
+private fun stableRuntimeFingerprint(value: String): String {
+    if (value.isBlank() || value == "unavailable") return "unavailable"
+    return runCatching {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(Locale.US, byte.toInt() and 0xff) }
+        digest.take(16)
+    }.getOrDefault("unavailable")
+}

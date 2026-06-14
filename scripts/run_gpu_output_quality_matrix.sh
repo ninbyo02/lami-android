@@ -28,12 +28,14 @@ Modes:
   edge_gallery_parity_sampler_default
   edge_gallery_parity_sampler_none
   edge_gallery_final_response_probe
+  edge_gallery_executor_probe
 
 Examples:
   scripts/run_gpu_output_quality_matrix.sh --mode baseline --max-tokens 4000
   scripts/run_gpu_output_quality_matrix.sh --mode collect_only --max-tokens 512 --prompt "カレーの材料をお願いします。"
   scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_parity_minimal --max-tokens 512 --prompt "カレーの材料をお願いします。"
   scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_final_response_probe --max-tokens 512 --prompt "カレーの材料をお願いします。"
+  scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_executor_probe --max-tokens 512 --prompt "カレーの材料をお願いします。"
 
 The script sets DEV-only GPU output-quality props and launches the selected app.
 Prompt entry is still manual in the app; when possible, the prompt is copied to
@@ -77,7 +79,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$MODE" in
-  baseline|sampler_minimal|no_sampling_acceleration|disable_topk_gpu_sampler_candidate|collect_only|edge_gallery_parity_minimal|edge_gallery_parity_no_streaming|edge_gallery_parity_collect_final|edge_gallery_parity_no_holder_reuse|edge_gallery_parity_cache_app_files|edge_gallery_parity_cache_null|edge_gallery_parity_sampler_default|edge_gallery_parity_sampler_none|edge_gallery_final_response_probe)
+  baseline|sampler_minimal|no_sampling_acceleration|disable_topk_gpu_sampler_candidate|collect_only|edge_gallery_parity_minimal|edge_gallery_parity_no_streaming|edge_gallery_parity_collect_final|edge_gallery_parity_no_holder_reuse|edge_gallery_parity_cache_app_files|edge_gallery_parity_cache_null|edge_gallery_parity_sampler_default|edge_gallery_parity_sampler_none|edge_gallery_final_response_probe|edge_gallery_executor_probe)
     ;;
   *)
     echo "Unsupported mode: $MODE" >&2
@@ -139,6 +141,18 @@ Check compact/details keys:
   gpu_callback_final_candidate_source
   edge_gallery_final_response_probe_result
   edge_gallery_final_response_probe_difference_summary
+  executor_selection_fingerprint
+  runtime_backend_fingerprint
+  runtime_executor_fingerprint
+  runtime_dispatch_fingerprint
+  runtime_compiled_model_fingerprint
+  engine_config_fingerprint
+  conversation_config_fingerprint
+  sampler_config_fingerprint
+  loaded_native_lib_count
+  loaded_native_runtime_stack_fingerprint
+  edge_gallery_executor_probe_result
+  edge_gallery_executor_difference_summary
 
 Paste copied diagnostics into:
   $ARTIFACT_DIR/${MODE}_${MAX_TOKENS}.txt

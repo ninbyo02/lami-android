@@ -4,6 +4,8 @@ import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.File
 import java.lang.reflect.Modifier
+import java.security.MessageDigest
+import java.util.Locale
 
 internal data class LocalRouteDiagnosticContext(
     val selectedModelName: String,
@@ -432,6 +434,19 @@ private data class GpuPrefillProbeClarityDiagnostics(
     val requiresHeldEngine: String,
     val heldEnginePresent: String,
     val disableRecommendation: String,
+)
+
+private data class RuntimeExecutorFingerprintDiagnostics(
+    val executorSelectionFingerprint: String,
+    val runtimeBackendFingerprint: String,
+    val runtimeExecutorFingerprint: String,
+    val runtimeDispatchFingerprint: String,
+    val runtimeCompiledModelFingerprint: String,
+    val engineConfigFingerprint: String,
+    val conversationConfigFingerprint: String,
+    val samplerConfigFingerprint: String,
+    val edgeGalleryExecutorProbeResult: String,
+    val edgeGalleryExecutorDifferenceSummary: String,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -1921,6 +1936,15 @@ internal fun buildLocalRouteDiagnosticTrace(
     val gpuPerformance = buildGpuPerformanceDiagnostics(flags)
     val gpuHolderLifecycle = buildGpuHolderLifecycleDiagnostics(flags)
     val gpuPrefillProbe = buildGpuPrefillProbeClarityDiagnostics(flags)
+    val runtimeFingerprints = buildRuntimeExecutorFingerprints(
+        context = context,
+        gpuConfig = gpuConfig,
+        gpuOutputQuality = gpuOutputQuality,
+        loadedRuntimeNativeStack = loadedRuntimeNativeStack,
+        artisanApi = artisanApi,
+        compiledModelExecutorFailureCategory = compiledModelExecutorFailureCategory,
+        failureStage = failureStage,
+    )
     val finalResponseProbeDiagnostics = flags.gpuPrefillProbeDiagnostics
     return (
         listOf(
@@ -2046,6 +2070,14 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_options_source=${gpuConfig.gpuOptionsSource}",
         "gpu_thinking_enabled=${gpuConfig.thinkingEnabled}",
         "gpu_speculative_decoding_enabled=${gpuConfig.speculativeDecodingEnabled}",
+        "executor_selection_fingerprint=${runtimeFingerprints.executorSelectionFingerprint}",
+        "runtime_backend_fingerprint=${runtimeFingerprints.runtimeBackendFingerprint}",
+        "runtime_executor_fingerprint=${runtimeFingerprints.runtimeExecutorFingerprint}",
+        "runtime_dispatch_fingerprint=${runtimeFingerprints.runtimeDispatchFingerprint}",
+        "runtime_compiled_model_fingerprint=${runtimeFingerprints.runtimeCompiledModelFingerprint}",
+        "engine_config_fingerprint=${runtimeFingerprints.engineConfigFingerprint}",
+        "conversation_config_fingerprint=${runtimeFingerprints.conversationConfigFingerprint}",
+        "sampler_config_fingerprint=${runtimeFingerprints.samplerConfigFingerprint}",
         "gpu_output_quality_matrix_mode=${gpuOutputQuality.matrixMode}",
         "gpu_output_quality_sampler_mode=${gpuOutputQuality.samplerMode}",
         "gpu_output_quality_streaming_mode=${gpuOutputQuality.streamingMode}",
@@ -2063,6 +2095,8 @@ internal fun buildLocalRouteDiagnosticTrace(
         "edge_gallery_parity_sampler_present=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigSamplerPresent else "unavailable"}",
         "edge_gallery_parity_candidate_result=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuOutputQuality.candidateResult else "unavailable"}",
         "edge_gallery_parity_difference_summary=${resolveEdgeGalleryParityDifferenceSummary(gpuOutputQuality.matrixMode, gpuOutputQuality.sourceCorruptionStage, gpuOutputQuality.candidateResult, gpuOutputQuality.samplerRootCauseCandidate)}",
+        "edge_gallery_executor_probe_result=${runtimeFingerprints.edgeGalleryExecutorProbeResult}",
+        "edge_gallery_executor_difference_summary=${runtimeFingerprints.edgeGalleryExecutorDifferenceSummary}",
         "edge_gallery_generate_api_candidate=${finalResponseProbeDiagnostics["edge_gallery_generate_api_candidate"] ?: "unavailable"}",
         "edge_gallery_callback_text_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_text_semantics_candidate"] ?: "unavailable"}",
         "edge_gallery_callback_done_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_done_semantics_candidate"] ?: "unavailable"}",
@@ -2497,6 +2531,9 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "runtime_stack_loaded_source_flavor=${diagnostics.sourceFlavor}",
         "runtime_stack_loaded_native_library_dir=${diagnostics.nativeLibraryDir.toDiagnosticValue()}",
         "runtime_stack_loaded_native_stack_source=${diagnostics.nativeStackSource.toDiagnosticValue()}",
+        "loaded_native_lib_count=${diagnostics.loadedNativeLibCount}",
+        "loaded_native_libs_sha256=${diagnostics.loadedNativeLibsSha256}",
+        "loaded_native_runtime_stack_fingerprint=${diagnostics.loadedNativeRuntimeStackFingerprint}",
         "runtime_stack_loaded_liblitert_present=${diagnostics.libLiteRtPresent}",
         "runtime_stack_loaded_liblitert_sha256=${diagnostics.libLiteRtSha256}",
         "runtime_stack_loaded_liblitertlm_jni_present=${diagnostics.libLiteRtLmJniPresent}",
@@ -2510,6 +2547,191 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "runtime_stack_loaded_full_stack_candidate_unit=${diagnostics.fullStackCandidateUnit.toDiagnosticValue()}",
         "runtime_stack_alignment_interpretation=${diagnostics.alignmentInterpretation}",
     )
+}
+
+private fun buildRuntimeExecutorFingerprints(
+    context: LocalRouteDiagnosticContext,
+    gpuConfig: GpuRouteConfigDiagnostics,
+    gpuOutputQuality: GpuOutputQualityDiagnostics,
+    loadedRuntimeNativeStack: LoadedRuntimeNativeStackDiagnostics,
+    artisanApi: LiteRtLmBackendArtisanApiDiagnostics,
+    compiledModelExecutorFailureCategory: String,
+    failureStage: String,
+): RuntimeExecutorFingerprintDiagnostics {
+    if (!context.preferredBackend.equals("GPU", ignoreCase = true)) {
+        return RuntimeExecutorFingerprintDiagnostics(
+            executorSelectionFingerprint = "unavailable",
+            runtimeBackendFingerprint = "unavailable",
+            runtimeExecutorFingerprint = "unavailable",
+            runtimeDispatchFingerprint = "unavailable",
+            runtimeCompiledModelFingerprint = "unavailable",
+            engineConfigFingerprint = "unavailable",
+            conversationConfigFingerprint = "unavailable",
+            samplerConfigFingerprint = "unavailable",
+            edgeGalleryExecutorProbeResult = "unavailable",
+            edgeGalleryExecutorDifferenceSummary = "unavailable",
+        )
+    }
+    val engineConfigMaterial = listOf(
+        "model=${gpuConfig.modelPathTail}",
+        "backend=${gpuConfig.backend}",
+        "vision=${gpuConfig.visionBackend}",
+        "audio=${gpuConfig.audioBackend}",
+        "cache=${gpuConfig.cacheDirPresent}:${gpuConfig.cacheDir}",
+        "max=${gpuConfig.maxTokens}",
+        "profile=${resolveGpuEngineConfigProfileForBackend(context.preferredBackend)}",
+    ).joinToString("|")
+    val conversationConfigMaterial = listOf(
+        "profile=${gpuConfig.conversationConfigProfile}",
+        "sampler_present=${gpuConfig.conversationConfigSamplerPresent}",
+        "streaming=${gpuOutputQuality.streamingMode}",
+        "collect_only=${gpuOutputQuality.collectOnlyEnabled}",
+    ).joinToString("|")
+    val samplerConfigMaterial = listOf(
+        "enabled=${gpuConfig.samplerConfigEnabled}",
+        "top_k=${gpuConfig.samplerTopK}",
+        "top_p=${gpuConfig.samplerTopP}",
+        "temperature=${gpuConfig.samplerTemperature}",
+        "policy=${gpuConfig.samplerAccelerationPolicy}",
+    ).joinToString("|")
+    val runtimeBackendMaterial = listOf(
+        "source_flavor=${loadedRuntimeNativeStack.sourceFlavor}",
+        "native_source=${loadedRuntimeNativeStack.nativeStackSource}",
+        "libs=${loadedRuntimeNativeStack.loadedNativeLibsSha256}",
+        "backend_candidates=${artisanApi.backendCandidates}",
+        "gpu_artisan=${artisanApi.gpuArtisanAvailable}",
+    ).joinToString("|")
+    val runtimeExecutorMaterial = listOf(
+        "executor_candidates=${artisanApi.runtimeExecutorCandidates}",
+        "selection_hint=${artisanApi.runtimeExecutorSelectionHint}",
+        "compiled_hint=${artisanApi.runtimeCompiledModelExecutorHint}",
+        "gpu_hint=${artisanApi.runtimeGpuExecutorHint}",
+        "artisan_evidence=${artisanApi.runtimeArtisanEvidence}",
+    ).joinToString("|")
+    val dispatchMaterial = listOf(
+        "dispatch_present=${loadedRuntimeNativeStack.dispatchQualcommPresent}",
+        "dispatch_sha=${loadedRuntimeNativeStack.dispatchQualcommSha256}",
+        "compiler_present=${loadedRuntimeNativeStack.compilerPluginQualcommPresent}",
+        "compiler_sha=${loadedRuntimeNativeStack.compilerPluginQualcommSha256}",
+        "constraint_present=${loadedRuntimeNativeStack.gemmaConstraintProviderPresent}",
+        "constraint_sha=${loadedRuntimeNativeStack.gemmaConstraintProviderSha256}",
+    ).joinToString("|")
+    val compiledModelMaterial = listOf(
+        "failure_stage=$failureStage",
+        "compiled_category=$compiledModelExecutorFailureCategory",
+        "quality=${gpuOutputQuality.candidateResult}",
+        "source_stage=${gpuOutputQuality.sourceCorruptionStage}",
+        "sampler_root=${gpuOutputQuality.samplerRootCauseCandidate}",
+    ).joinToString("|")
+    val engineFingerprint = stableLocalRouteFingerprint(engineConfigMaterial)
+    val conversationFingerprint = stableLocalRouteFingerprint(conversationConfigMaterial)
+    val samplerFingerprint = stableLocalRouteFingerprint(samplerConfigMaterial)
+    val runtimeBackendFingerprint = stableLocalRouteFingerprint(runtimeBackendMaterial)
+    val runtimeExecutorFingerprint = stableLocalRouteFingerprint(runtimeExecutorMaterial)
+    val runtimeDispatchFingerprint = stableLocalRouteFingerprint(dispatchMaterial)
+    val runtimeCompiledModelFingerprint = stableLocalRouteFingerprint(compiledModelMaterial)
+    val executorSelectionFingerprint = stableLocalRouteFingerprint(
+        listOf(
+            runtimeBackendFingerprint,
+            runtimeExecutorFingerprint,
+            runtimeDispatchFingerprint,
+            runtimeCompiledModelFingerprint,
+            engineFingerprint,
+            conversationFingerprint,
+            samplerFingerprint,
+        ).joinToString("|"),
+    )
+    val probeResult = resolveEdgeGalleryExecutorProbeResult(
+        matrixMode = gpuOutputQuality.matrixMode,
+        loadedRuntimeNativeStack = loadedRuntimeNativeStack,
+        gpuOutputQuality = gpuOutputQuality,
+        samplerFingerprint = samplerFingerprint,
+    )
+    return RuntimeExecutorFingerprintDiagnostics(
+        executorSelectionFingerprint = executorSelectionFingerprint,
+        runtimeBackendFingerprint = runtimeBackendFingerprint,
+        runtimeExecutorFingerprint = runtimeExecutorFingerprint,
+        runtimeDispatchFingerprint = runtimeDispatchFingerprint,
+        runtimeCompiledModelFingerprint = runtimeCompiledModelFingerprint,
+        engineConfigFingerprint = engineFingerprint,
+        conversationConfigFingerprint = conversationFingerprint,
+        samplerConfigFingerprint = samplerFingerprint,
+        edgeGalleryExecutorProbeResult = probeResult,
+        edgeGalleryExecutorDifferenceSummary = resolveEdgeGalleryExecutorProbeDifferenceSummary(
+            probeResult = probeResult,
+            matrixMode = gpuOutputQuality.matrixMode,
+            sourceFlavor = loadedRuntimeNativeStack.sourceFlavor,
+            sourceCorruptionStage = gpuOutputQuality.sourceCorruptionStage,
+            samplerRootCauseCandidate = gpuOutputQuality.samplerRootCauseCandidate,
+        ),
+    )
+}
+
+private fun resolveEdgeGalleryExecutorProbeResult(
+    matrixMode: String,
+    loadedRuntimeNativeStack: LoadedRuntimeNativeStackDiagnostics,
+    gpuOutputQuality: GpuOutputQualityDiagnostics,
+    samplerFingerprint: String,
+): String {
+    if (!isEdgeGalleryExecutorProbeMode(matrixMode)) return "unavailable"
+    val edgeGalleryRuntimeStack =
+        loadedRuntimeNativeStack.libLiteRtSha256.equals(GALLERY_STACK_GPU_PROBE_EDGE_LITERT_SHA256, ignoreCase = true) &&
+            loadedRuntimeNativeStack.libLiteRtLmJniSha256.equals(
+                GALLERY_STACK_GPU_PROBE_EDGE_LITERTLM_JNI_SHA256,
+                ignoreCase = true,
+            )
+    val minimalRuntimeStack =
+        loadedRuntimeNativeStack.libLiteRtSha256.equals(
+            STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            ignoreCase = true,
+        ) &&
+            loadedRuntimeNativeStack.libLiteRtLmJniSha256.equals(
+                STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+                ignoreCase = true,
+            )
+    return when {
+        edgeGalleryRuntimeStack && gpuOutputQuality.candidateResult == "quality_candidate_pass" -> "same_runtime_stack"
+        edgeGalleryRuntimeStack -> "same_executor_different_runtime"
+        minimalRuntimeStack &&
+            samplerFingerprint != "unavailable" &&
+            gpuOutputQuality.samplerRootCauseCandidate == "runtime_decode_fragmentation" ->
+            "same_sampler_different_executor"
+        minimalRuntimeStack -> "different_runtime_stack"
+        loadedRuntimeNativeStack.libLiteRtSha256 != "unavailable" ||
+            loadedRuntimeNativeStack.libLiteRtLmJniSha256 != "unavailable" -> "different_runtime_stack"
+        else -> "unknown"
+    }
+}
+
+private fun resolveEdgeGalleryExecutorProbeDifferenceSummary(
+    probeResult: String,
+    matrixMode: String,
+    sourceFlavor: String,
+    sourceCorruptionStage: String,
+    samplerRootCauseCandidate: String,
+): String =
+    when {
+        !isEdgeGalleryExecutorProbeMode(matrixMode) -> "unavailable"
+        probeResult == "same_runtime_stack" -> "edge_gallery_runtime_stack_matched"
+        probeResult == "same_sampler_different_executor" &&
+            sourceCorruptionStage == "raw_callback" &&
+            samplerRootCauseCandidate == "runtime_decode_fragmentation" ->
+            "same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected"
+        probeResult == "different_runtime_stack" ->
+            "runtime_stack_differs_from_edge_gallery_source_flavor=$sourceFlavor"
+        probeResult == "same_executor_different_runtime" ->
+            "edge_gallery_core_runtime_matched_but_quality_or_config_differs"
+        else -> "executor_difference_unknown"
+    }
+
+private fun stableLocalRouteFingerprint(material: String): String {
+    if (material.isBlank()) return "unavailable"
+    return runCatching {
+        MessageDigest.getInstance("SHA-256")
+            .digest(material.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(Locale.US, byte.toInt() and 0xff) }
+            .take(16)
+    }.getOrDefault("unavailable")
 }
 
 private fun resolveRuntimeAlignmentProbeResultCandidate(
@@ -3570,6 +3792,8 @@ internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NO
     "edge_gallery_parity_sampler_none"
 internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE =
     "edge_gallery_final_response_probe"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE =
+    "edge_gallery_executor_probe"
 private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4000)
 internal val EDGE_GALLERY_PARITY_MATRIX_MODES = setOf(
     GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
@@ -3628,6 +3852,9 @@ internal fun resolveGpuOutputQualityMatrixModeForDebug(
         "edge_gallery_final_probe",
         "final_response_probe",
         "parity_final_response_probe" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
+        "executor_probe",
+        "parity_executor_probe" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE
         else -> GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
     }
 }
@@ -3671,6 +3898,7 @@ internal fun isGpuOutputQualityCollectOnlyModeForDebug(
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
         GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
     )
 
 private fun isGpuOutputQualityCollectOnlyMode(
@@ -3685,6 +3913,7 @@ private fun isGpuOutputQualityCollectOnlyMode(
             GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
             GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
             GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
         )
 
 internal fun resolveGpuOutputQualityMaxTokensOverrideForDebug(
@@ -3727,6 +3956,9 @@ internal fun resolveEdgeGalleryParityModeForMatrixMode(matrixMode: String): Stri
 
 internal fun isEdgeGalleryFinalResponseProbeMode(matrixMode: String): Boolean =
     matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE
+
+internal fun isEdgeGalleryExecutorProbeMode(matrixMode: String): Boolean =
+    matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE
 
 internal fun resolveEdgeGalleryParityCallbackModeForMatrixMode(
     matrixMode: String,
