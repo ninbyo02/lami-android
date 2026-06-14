@@ -96,18 +96,39 @@ internal data class LocalRouteDiagnosticFlags(
     val liteRtLmErrorSecondaryFile: String? = null,
     val liteRtLmErrorSecondaryLine: String? = null,
     val liteRtLmErrorRecoverabilityHint: String? = null,
+    val cpuCompareRequested: Boolean? = null,
+    val cpuCompareEnabled: Boolean? = null,
     val cpuCompareStarted: Boolean? = null,
+    val cpuCompareFinished: Boolean? = null,
+    val cpuCompareSkippedReason: String? = null,
+    val cpuCompareFailureStage: String? = null,
     val cpuCompareEngineInitializeFinished: Boolean? = null,
     val cpuCompareConversationCreateFinished: Boolean? = null,
     val cpuCompareGenerateStarted: Boolean? = null,
     val cpuCompareCallbackInvokedCount: Int? = null,
+    val cpuCompareEmptyTextCount: Int? = null,
+    val cpuCompareNonEmptyTextCount: Int? = null,
     val cpuCompareFirstNonEmptyTextElapsedMs: Long? = null,
     val cpuCompareDoneTrueSeen: Boolean? = null,
     val cpuCompareExceptionClass: String? = null,
     val cpuCompareExceptionMessage: String? = null,
+    val cpuCompareElapsedMs: Long? = null,
     val cpuGpuGenerateDiff: String? = null,
     val cpuCallbackAverageChunkLength: String? = null,
+    val cpuCallbackMedianChunkLength: String? = null,
+    val cpuCallbackP90ChunkLength: String? = null,
+    val cpuCallbackP95ChunkLength: String? = null,
+    val cpuCallbackOneCharChunkCount: Int? = null,
+    val cpuCallbackTwoCharOrLessChunkCount: Int? = null,
+    val cpuCallbackOneCharChunkRatio: String? = null,
     val cpuCallbackTwoCharOrLessRatio: String? = null,
+    val cpuCallbackChunkLengthHistogram: String? = null,
+    val cpuCallbackFirstChunksArtifact: String? = null,
+    val cpuCallbackLastChunksArtifact: String? = null,
+    val cpuCallbackQualityClassification: String? = null,
+    val cpuOutputSuspiciousFragmentDetected: Boolean? = null,
+    val cpuOutputSuspiciousFragmentReason: String? = null,
+    val cpuOutputSourceCorruptionStage: String? = null,
     val gpuCallbackAverageChunkLength: String? = null,
     val gpuCallbackMedianChunkLength: String? = null,
     val gpuCallbackP50ChunkLength: String? = null,
@@ -122,6 +143,14 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuCallbackFirstChunksArtifact: String? = null,
     val gpuCallbackLastChunksArtifact: String? = null,
     val callbackQualityCompareResult: String? = null,
+    val callbackQualityCompareReason: String? = null,
+    val cpuGpuAvgChunkLengthRatio: String? = null,
+    val cpuGpuTwoCharOrLessRatioDelta: String? = null,
+    val cpuGpuCallbackCountDelta: String? = null,
+    val cpuGpuRawTextSimilarityHint: String? = null,
+    val cpuGpuSamePrompt: Boolean? = null,
+    val cpuGpuSameMaxTokens: Boolean? = null,
+    val cpuGpuSameSamplerConfigHint: String? = null,
     val callbackQualityClassification: String? = null,
     val callbackCorruptionEarliestStage: String? = null,
     val gpuCallbackToUiEnabled: Boolean? = null,
@@ -312,13 +341,43 @@ private data class GpuOutputQualityDiagnostics(
     val callbackLastChunksArtifact: String,
     val callbackQualityClassification: String,
     val callbackCorruptionEarliestStage: String,
+    val cpuCompareRequested: String,
+    val cpuCompareEnabled: String,
+    val cpuCompareStarted: String,
+    val cpuCompareFinished: String,
+    val cpuCompareSkippedReason: String,
+    val cpuCompareFailureStage: String,
+    val cpuCompareElapsedMs: String,
     val cpuAverageChunkLength: String,
+    val cpuMedianChunkLength: String,
+    val cpuP90ChunkLength: String,
+    val cpuP95ChunkLength: String,
+    val cpuOneCharChunkCount: String,
+    val cpuTwoCharOrLessChunkCount: String,
+    val cpuOneCharChunkRatio: String,
     val gpuAverageChunkLength: String,
     val cpuCallbackCount: String,
+    val cpuEmptyTextCount: String,
+    val cpuNonEmptyTextCount: String,
     val gpuCallbackCount: String,
     val cpuTwoCharOrLessRatio: String,
+    val cpuChunkLengthHistogram: String,
+    val cpuCallbackFirstChunks: String,
+    val cpuCallbackLastChunks: String,
+    val cpuCallbackQualityClassification: String,
+    val cpuOutputSuspiciousFragmentDetected: String,
+    val cpuOutputSuspiciousFragmentReason: String,
+    val cpuOutputSourceCorruptionStage: String,
     val gpuTwoCharOrLessRatio: String,
     val callbackQualityCompareResult: String,
+    val callbackQualityCompareReason: String,
+    val cpuGpuAvgChunkLengthRatio: String,
+    val cpuGpuTwoCharOrLessRatioDelta: String,
+    val cpuGpuCallbackCountDelta: String,
+    val cpuGpuRawTextSimilarityHint: String,
+    val cpuGpuSamePrompt: String,
+    val cpuGpuSameMaxTokens: String,
+    val cpuGpuSameSamplerConfigHint: String,
 )
 
 private data class GpuPerformanceDiagnostics(
@@ -1134,22 +1193,80 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
                 suspiciousReason = suspiciousReason,
                 uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
             ),
+        cpuCompareRequested = flags.cpuCompareRequested.toDiagnosticValue(),
+        cpuCompareEnabled = flags.cpuCompareEnabled.toDiagnosticValue(),
+        cpuCompareStarted = flags.cpuCompareStarted.toDiagnosticValue(),
+        cpuCompareFinished = flags.cpuCompareFinished.toDiagnosticValue(),
+        cpuCompareSkippedReason = flags.cpuCompareSkippedReason.toDiagnosticValue(),
+        cpuCompareFailureStage = flags.cpuCompareFailureStage.toDiagnosticValue(),
+        cpuCompareElapsedMs = flags.cpuCompareElapsedMs?.toString() ?: "unavailable",
         cpuAverageChunkLength = flags.cpuCallbackAverageChunkLength ?: "unavailable",
+        cpuMedianChunkLength = flags.cpuCallbackMedianChunkLength ?: "unavailable",
+        cpuP90ChunkLength = flags.cpuCallbackP90ChunkLength ?: "unavailable",
+        cpuP95ChunkLength = flags.cpuCallbackP95ChunkLength ?: "unavailable",
+        cpuOneCharChunkCount = flags.cpuCallbackOneCharChunkCount?.toString() ?: "unavailable",
+        cpuTwoCharOrLessChunkCount = flags.cpuCallbackTwoCharOrLessChunkCount?.toString() ?: "unavailable",
+        cpuOneCharChunkRatio = flags.cpuCallbackOneCharChunkRatio ?: "unavailable",
         gpuAverageChunkLength = flags.gpuCallbackAverageChunkLength ?: "unavailable",
         cpuCallbackCount = flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable",
+        cpuEmptyTextCount = flags.cpuCompareEmptyTextCount?.toString() ?: "unavailable",
+        cpuNonEmptyTextCount = flags.cpuCompareNonEmptyTextCount?.toString() ?: "unavailable",
         gpuCallbackCount = (flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount)?.toString()
             ?: "unavailable",
         cpuTwoCharOrLessRatio = flags.cpuCallbackTwoCharOrLessRatio ?: "unavailable",
+        cpuChunkLengthHistogram = flags.cpuCallbackChunkLengthHistogram.toDiagnosticValue(),
+        cpuCallbackFirstChunks = flags.cpuCallbackFirstChunksArtifact.toDiagnosticValue(),
+        cpuCallbackLastChunks = flags.cpuCallbackLastChunksArtifact.toDiagnosticValue(),
+        cpuCallbackQualityClassification = flags.cpuCallbackQualityClassification.toDiagnosticValue(),
+        cpuOutputSuspiciousFragmentDetected = flags.cpuOutputSuspiciousFragmentDetected.toDiagnosticValue(),
+        cpuOutputSuspiciousFragmentReason = flags.cpuOutputSuspiciousFragmentReason.toDiagnosticValue(),
+        cpuOutputSourceCorruptionStage = flags.cpuOutputSourceCorruptionStage.toDiagnosticValue(),
         gpuTwoCharOrLessRatio = flags.gpuCallbackTwoCharOrLessChunkRatio ?: "unavailable",
         callbackQualityCompareResult = flags.callbackQualityCompareResult
             ?: classifyCallbackQualityCompareResult(
+                gpuCandidateResult = candidateResult,
+                gpuSuspiciousDetected = suspiciousDetected,
+                cpuSuspiciousDetected = flags.cpuOutputSuspiciousFragmentDetected,
+                cpuFinished = flags.cpuCompareFinished,
+                cpuSkippedReason = flags.cpuCompareSkippedReason,
+            ),
+        callbackQualityCompareReason = flags.callbackQualityCompareReason
+            ?: classifyCallbackQualityCompareReason(
                 cpuAvg = flags.cpuCallbackAverageChunkLength,
                 gpuAvg = flags.gpuCallbackAverageChunkLength,
                 cpuTwoCharRatio = flags.cpuCallbackTwoCharOrLessRatio,
                 gpuTwoCharRatio = flags.gpuCallbackTwoCharOrLessChunkRatio,
                 cpuCount = flags.cpuCompareCallbackInvokedCount,
                 gpuCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
+                cpuSkippedReason = flags.cpuCompareSkippedReason,
             ),
+        cpuGpuAvgChunkLengthRatio = flags.cpuGpuAvgChunkLengthRatio
+            ?: calculateDoubleRatio(
+                numerator = flags.gpuCallbackAverageChunkLength,
+                denominator = flags.cpuCallbackAverageChunkLength,
+            ),
+        cpuGpuTwoCharOrLessRatioDelta = flags.cpuGpuTwoCharOrLessRatioDelta
+            ?: calculateDoubleDelta(
+                lhs = flags.gpuCallbackTwoCharOrLessChunkRatio,
+                rhs = flags.cpuCallbackTwoCharOrLessRatio,
+            ),
+        cpuGpuCallbackCountDelta = flags.cpuGpuCallbackCountDelta
+            ?: calculateIntDelta(
+                lhs = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
+                rhs = flags.cpuCompareCallbackInvokedCount,
+            ),
+        cpuGpuRawTextSimilarityHint = flags.cpuGpuRawTextSimilarityHint
+            ?: classifyCpuGpuRawTextSimilarityHint(
+                cpuCount = flags.cpuCompareCallbackInvokedCount,
+                gpuCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
+                cpuSuspiciousDetected = flags.cpuOutputSuspiciousFragmentDetected,
+                gpuSuspiciousDetected = suspiciousDetected,
+                cpuAverageChunkLength = flags.cpuCallbackAverageChunkLength,
+                gpuAverageChunkLength = flags.gpuCallbackAverageChunkLength,
+            ),
+        cpuGpuSamePrompt = flags.cpuGpuSamePrompt.toDiagnosticValue(),
+        cpuGpuSameMaxTokens = flags.cpuGpuSameMaxTokens.toDiagnosticValue(),
+        cpuGpuSameSamplerConfigHint = flags.cpuGpuSameSamplerConfigHint.toDiagnosticValue(),
     )
 }
 
@@ -1323,20 +1440,43 @@ internal fun classifyCallbackQuality(
     }
 }
 
-private fun classifyCallbackQualityCompareResult(
+internal fun classifyCallbackQualityCompareResult(
+    gpuCandidateResult: String?,
+    gpuSuspiciousDetected: Boolean?,
+    cpuSuspiciousDetected: Boolean?,
+    cpuFinished: Boolean?,
+    cpuSkippedReason: String?,
+): String {
+    if (cpuFinished != true) return "comparison_unavailable"
+    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") return "comparison_unavailable"
+    val gpuCorrupt = gpuCandidateResult == "quality_candidate_fail" || gpuSuspiciousDetected == true
+    val cpuCorrupt = cpuSuspiciousDetected == true
+    return when {
+        gpuCorrupt && cpuCorrupt -> "cpu_and_gpu_corrupt"
+        gpuCorrupt -> "gpu_only_corrupt"
+        cpuCorrupt -> "cpu_only_corrupt"
+        else -> "both_pass"
+    }
+}
+
+private fun classifyCallbackQualityCompareReason(
     cpuAvg: String?,
     gpuAvg: String?,
     cpuTwoCharRatio: String?,
     gpuTwoCharRatio: String?,
     cpuCount: Int?,
     gpuCount: Int?,
+    cpuSkippedReason: String?,
 ): String {
+    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") {
+        return "cpu_compare_skipped:$cpuSkippedReason"
+    }
     val cpuAverage = cpuAvg?.toDoubleOrNull()
     val gpuAverage = gpuAvg?.toDoubleOrNull()
     val cpuSmall = cpuTwoCharRatio?.toDoubleOrNull()
     val gpuSmall = gpuTwoCharRatio?.toDoubleOrNull()
     return when {
-        cpuCount == null || gpuCount == null || cpuCount <= 0 || gpuCount <= 0 -> "unavailable"
+        cpuCount == null || gpuCount == null || cpuCount <= 0 || gpuCount <= 0 -> "comparison_unavailable"
         cpuAverage != null && gpuAverage != null &&
             cpuAverage >= 6.0 && gpuAverage <= 3.0 -> "gpu_chunks_much_smaller_than_cpu"
         cpuSmall != null && gpuSmall != null &&
@@ -1346,6 +1486,61 @@ private fun classifyCallbackQualityCompareResult(
         else -> "cpu_gpu_callback_quality_recorded"
     }
 }
+
+private fun calculateDoubleRatio(
+    numerator: String?,
+    denominator: String?,
+): String {
+    val n = numerator?.toDoubleOrNull()
+    val d = denominator?.toDoubleOrNull()
+    if (n == null || d == null || d == 0.0) return "unavailable"
+    return "%.3f".format(java.util.Locale.US, n / d)
+}
+
+private fun calculateDoubleDelta(
+    lhs: String?,
+    rhs: String?,
+): String {
+    val left = lhs?.toDoubleOrNull()
+    val right = rhs?.toDoubleOrNull()
+    if (left == null || right == null) return "unavailable"
+    return "%.3f".format(java.util.Locale.US, left - right)
+}
+
+private fun calculateIntDelta(
+    lhs: Int?,
+    rhs: Int?,
+): String =
+    if (lhs == null || rhs == null) {
+        "unavailable"
+    } else {
+        (lhs - rhs).toString()
+    }
+
+private fun classifyCpuGpuRawTextSimilarityHint(
+    cpuCount: Int?,
+    gpuCount: Int?,
+    cpuSuspiciousDetected: Boolean?,
+    gpuSuspiciousDetected: Boolean?,
+    cpuAverageChunkLength: String?,
+    gpuAverageChunkLength: String?,
+): String {
+    if (cpuCount == null || gpuCount == null || cpuCount <= 0 || gpuCount <= 0) return "comparison_unavailable"
+    if (gpuSuspiciousDetected == true && cpuSuspiciousDetected != true) return "gpu_raw_callback_suspicious_cpu_clean"
+    if (gpuSuspiciousDetected == true && cpuSuspiciousDetected == true) return "both_raw_callbacks_suspicious"
+    val cpuAverage = cpuAverageChunkLength?.toDoubleOrNull()
+    val gpuAverage = gpuAverageChunkLength?.toDoubleOrNull()
+    return when {
+        cpuAverage != null && gpuAverage != null && kotlin.math.abs(cpuAverage - gpuAverage) <= 2.0 ->
+            "chunk_shape_similar"
+        cpuAverage != null && gpuAverage != null && gpuAverage < cpuAverage ->
+            "gpu_chunks_smaller"
+        cpuAverage != null && gpuAverage != null && gpuAverage > cpuAverage ->
+            "gpu_chunks_larger"
+        else -> "raw_text_not_directly_compared"
+    }
+}
+
 private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): GpuPerformanceDiagnostics {
     val engineCreateOrReuse = flags.gpuPerfEngineCreateOrReuse ?: when (flags.heldEngineReused) {
         true -> "reuse"
@@ -1817,23 +2012,55 @@ internal fun buildLocalRouteDiagnosticTrace(
         "litert_lm_error_secondary_line=${flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine}",
         "litert_lm_error_recoverability_hint=${flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint}",
         "litert_compiled_model_executor_failure_category=$compiledModelExecutorFailureCategory",
+        "cpu_compare_requested=${gpuOutputQuality.cpuCompareRequested}",
+        "cpu_compare_enabled=${gpuOutputQuality.cpuCompareEnabled}",
         "cpu_compare_started=${flags.cpuCompareStarted.toDiagnosticValue()}",
+        "cpu_compare_finished=${gpuOutputQuality.cpuCompareFinished}",
+        "cpu_compare_skipped_reason=${gpuOutputQuality.cpuCompareSkippedReason}",
+        "cpu_compare_failure_stage=${gpuOutputQuality.cpuCompareFailureStage}",
+        "cpu_compare_elapsed_ms=${gpuOutputQuality.cpuCompareElapsedMs}",
         "cpu_compare_engine_initialize_finished=${flags.cpuCompareEngineInitializeFinished.toDiagnosticValue()}",
         "cpu_compare_conversation_create_finished=${flags.cpuCompareConversationCreateFinished.toDiagnosticValue()}",
         "cpu_compare_generate_started=${flags.cpuCompareGenerateStarted.toDiagnosticValue()}",
         "cpu_compare_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
+        "cpu_compare_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
+        "cpu_compare_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
         "cpu_compare_first_non_empty_text_elapsed_ms=${flags.cpuCompareFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
         "cpu_compare_done_true_seen=${flags.cpuCompareDoneTrueSeen.toDiagnosticValue()}",
         "cpu_compare_exception_class=${flags.cpuCompareExceptionClass.toDiagnosticValue()}",
         "cpu_compare_exception_message=${flags.cpuCompareExceptionMessage.toDiagnosticValue()}",
         "cpu_gpu_generate_diff=${flags.cpuGpuGenerateDiff.toDiagnosticValue()}",
+        "cpu_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
+        "cpu_callback_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
+        "cpu_callback_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
         "cpu_avg_chunk_length=${gpuOutputQuality.cpuAverageChunkLength}",
+        "cpu_median_chunk_length=${gpuOutputQuality.cpuMedianChunkLength}",
+        "cpu_p90_chunk_length=${gpuOutputQuality.cpuP90ChunkLength}",
+        "cpu_p95_chunk_length=${gpuOutputQuality.cpuP95ChunkLength}",
+        "cpu_one_char_chunk_count=${gpuOutputQuality.cpuOneCharChunkCount}",
+        "cpu_two_char_or_less_chunk_count=${gpuOutputQuality.cpuTwoCharOrLessChunkCount}",
+        "cpu_one_char_chunk_ratio=${gpuOutputQuality.cpuOneCharChunkRatio}",
         "gpu_avg_chunk_length=${gpuOutputQuality.gpuAverageChunkLength}",
         "cpu_callback_count=${gpuOutputQuality.cpuCallbackCount}",
         "gpu_callback_count=${gpuOutputQuality.gpuCallbackCount}",
         "cpu_two_char_or_less_ratio=${gpuOutputQuality.cpuTwoCharOrLessRatio}",
+        "cpu_chunk_length_histogram=${gpuOutputQuality.cpuChunkLengthHistogram}",
+        "cpu_callback_first_30_chunks=${gpuOutputQuality.cpuCallbackFirstChunks}",
+        "cpu_callback_last_30_chunks=${gpuOutputQuality.cpuCallbackLastChunks}",
+        "cpu_callback_quality_classification=${gpuOutputQuality.cpuCallbackQualityClassification}",
+        "cpu_output_suspicious_fragment_detected=${gpuOutputQuality.cpuOutputSuspiciousFragmentDetected}",
+        "cpu_output_suspicious_fragment_reason=${gpuOutputQuality.cpuOutputSuspiciousFragmentReason}",
+        "cpu_output_source_corruption_stage=${gpuOutputQuality.cpuOutputSourceCorruptionStage}",
         "gpu_two_char_or_less_ratio=${gpuOutputQuality.gpuTwoCharOrLessRatio}",
         "callback_quality_compare_result=${gpuOutputQuality.callbackQualityCompareResult}",
+        "callback_quality_compare_reason=${gpuOutputQuality.callbackQualityCompareReason}",
+        "cpu_gpu_avg_chunk_length_ratio=${gpuOutputQuality.cpuGpuAvgChunkLengthRatio}",
+        "cpu_gpu_two_char_or_less_ratio_delta=${gpuOutputQuality.cpuGpuTwoCharOrLessRatioDelta}",
+        "cpu_gpu_callback_count_delta=${gpuOutputQuality.cpuGpuCallbackCountDelta}",
+        "cpu_gpu_raw_text_similarity_hint=${gpuOutputQuality.cpuGpuRawTextSimilarityHint}",
+        "cpu_gpu_same_prompt=${gpuOutputQuality.cpuGpuSamePrompt}",
+        "cpu_gpu_same_max_tokens=${gpuOutputQuality.cpuGpuSameMaxTokens}",
+        "cpu_gpu_same_sampler_config_hint=${gpuOutputQuality.cpuGpuSameSamplerConfigHint}",
         "gpu_callback_to_ui_enabled=${flags.gpuCallbackToUiEnabled.toDiagnosticValue()}",
         "gpu_callback_text_promoted_to_ui=${flags.gpuCallbackTextPromotedToUi.toDiagnosticValue()}",
         "gpu_callback_promoted_text_length=${flags.gpuCallbackPromotedTextLength?.toString() ?: "unavailable"}",

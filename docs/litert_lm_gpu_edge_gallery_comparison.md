@@ -2463,10 +2463,28 @@ Enable CPU comparison only when extra diagnostic overhead is acceptable:
 adb shell setprop debug.lami.compare_cpu_gpu_callback true
 ```
 
+The comparison runs only in the DEV candidate flavor by default (`standardGpuMinimalRuntimeCandidateDebug`) or with an
+explicit debug override. It uses the same prompt and the same effective max-token budget where available, keeps the CPU
+engine/conversation separate from the GPU holder, and never appends CPU text to the UI.
+
 Interpretation:
 
-- `callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu` means the GPU callback stream is shaped very
-  differently from CPU for the same prompt.
-- `callback_quality_compare_result=cpu_gpu_callback_chunks_similar` moves suspicion away from chunk emission shape and
-  back toward sampler/output semantics.
+- `callback_quality_compare_result=gpu_only_corrupt`: GPU raw callback quality fails while CPU passes for the same
+  prompt/max-token budget. This blocks production promotion.
+- `callback_quality_compare_result=cpu_and_gpu_corrupt`: both routes produce suspicious raw callback output, so model /
+  prompt / sampling config becomes more suspect.
+- `callback_quality_compare_result=both_pass`: raw callback shape does not currently explain the quality issue.
+- `callback_quality_compare_result=comparison_unavailable`: inspect `cpu_compare_skipped_reason`,
+  `cpu_compare_exception_class`, and `cpu_compare_failure_stage`.
+- `callback_quality_compare_reason=gpu_chunks_much_smaller_than_cpu` or
+  `gpu_two_char_ratio_much_higher_than_cpu` records the chunk-shape difference behind the high-level result.
 - If `callback_corruption_earliest_stage=raw_callback`, UI append and final commit are not the first corruption point.
+
+Important keys:
+
+- `cpu_compare_requested`, `cpu_compare_enabled`, `cpu_compare_finished`, `cpu_compare_skipped_reason`
+- `cpu_callback_quality_classification`
+- `cpu_output_suspicious_fragment_detected`
+- `cpu_output_source_corruption_stage`
+- `cpu_gpu_same_prompt`, `cpu_gpu_same_max_tokens`, `cpu_gpu_same_sampler_config_hint`
+- `cpu_gpu_avg_chunk_length_ratio`, `cpu_gpu_two_char_or_less_ratio_delta`, `cpu_gpu_callback_count_delta`

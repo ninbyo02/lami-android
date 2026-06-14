@@ -2563,15 +2563,40 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputFinalAssistantTextLength = 60,
                 gpuOutputCallbackChunkCount = 40,
                 gpuOutputNonEmptyChunkCount = 40,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
                 gpuCallbackAverageChunkLength = "1.75",
                 gpuCallbackTwoCharOrLessChunkRatio = "0.900",
+                cpuCompareRequested = true,
+                cpuCompareEnabled = true,
                 cpuCompareStarted = true,
+                cpuCompareFinished = true,
+                cpuCompareSkippedReason = "none",
+                cpuCompareFailureStage = "none",
                 cpuCompareEngineInitializeFinished = true,
                 cpuCompareConversationCreateFinished = true,
                 cpuCompareGenerateStarted = true,
                 cpuCompareCallbackInvokedCount = 8,
+                cpuCompareEmptyTextCount = 1,
+                cpuCompareNonEmptyTextCount = 8,
                 cpuCallbackAverageChunkLength = "12.50",
+                cpuCallbackMedianChunkLength = "12",
+                cpuCallbackP90ChunkLength = "16",
+                cpuCallbackP95ChunkLength = "18",
+                cpuCallbackOneCharChunkCount = 0,
+                cpuCallbackTwoCharOrLessChunkCount = 0,
+                cpuCallbackOneCharChunkRatio = "0.000",
                 cpuCallbackTwoCharOrLessRatio = "0.000",
+                cpuCallbackChunkLengthHistogram = "0=1;1_2=0;3_8=0;9_32=8;33_plus=0",
+                cpuCallbackFirstChunksArtifact = "chunk_001 len=12 text=\"材料を\"",
+                cpuCallbackLastChunksArtifact = "chunk_008 len=12 text=\"完成\"",
+                cpuCallbackQualityClassification = "healthy_large_chunks",
+                cpuOutputSuspiciousFragmentDetected = false,
+                cpuOutputSuspiciousFragmentReason = "none",
+                cpuOutputSourceCorruptionStage = "none",
+                cpuGpuSamePrompt = true,
+                cpuGpuSameMaxTokens = true,
+                cpuGpuSameSamplerConfigHint = "edge_gallery_like",
             ),
             elapsedMs = 2_000L,
         )
@@ -2587,13 +2612,125 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             ),
         )
 
+        assertTrue(compact.contains("cpu_compare_requested=true"))
+        assertTrue(compact.contains("cpu_compare_enabled=true"))
+        assertTrue(compact.contains("cpu_compare_finished=true"))
+        assertTrue(compact.contains("cpu_compare_skipped_reason=none"))
+        assertTrue(compact.contains("cpu_callback_invoked_count=8"))
+        assertTrue(compact.contains("cpu_callback_non_empty_text_count=8"))
         assertTrue(compact.contains("cpu_avg_chunk_length=12.50"))
+        assertTrue(compact.contains("cpu_median_chunk_length=12"))
+        assertTrue(compact.contains("cpu_p90_chunk_length=16"))
+        assertTrue(compact.contains("cpu_one_char_chunk_ratio=0.000"))
         assertTrue(compact.contains("gpu_avg_chunk_length=1.75"))
         assertTrue(compact.contains("cpu_callback_count=8"))
         assertTrue(compact.contains("gpu_callback_count=40"))
         assertTrue(compact.contains("cpu_two_char_or_less_ratio=0.000"))
+        assertTrue(compact.contains("cpu_chunk_length_histogram=0=1;1_2=0;3_8=0;9_32=8;33_plus=0"))
+        assertTrue(compact.contains("cpu_callback_quality_classification=healthy_large_chunks"))
+        assertTrue(compact.contains("cpu_output_suspicious_fragment_detected=false"))
         assertTrue(compact.contains("gpu_two_char_or_less_ratio=0.900"))
-        assertTrue(compact.contains("callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu"))
+        assertTrue(compact.contains("callback_quality_compare_result=gpu_only_corrupt"))
+        assertTrue(compact.contains("callback_quality_compare_reason=gpu_chunks_much_smaller_than_cpu"))
+        assertTrue(compact.contains("cpu_gpu_avg_chunk_length_ratio=0.140"))
+        assertTrue(compact.contains("cpu_gpu_two_char_or_less_ratio_delta=0.900"))
+        assertTrue(compact.contains("cpu_gpu_callback_count_delta=32"))
+        assertTrue(compact.contains("cpu_gpu_same_prompt=true"))
+        assertTrue(compact.contains("cpu_gpu_same_max_tokens=true"))
+    }
+
+    @Test
+    fun `GPU callback quality comparison diagnostics classify both corrupt`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = buildGpuRouteContextForNewDiagnostics(),
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = true,
+                gpuOutputCallbackChunkCount = 20,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                cpuCompareRequested = true,
+                cpuCompareEnabled = true,
+                cpuCompareStarted = true,
+                cpuCompareFinished = true,
+                cpuCompareSkippedReason = "none",
+                cpuCompareCallbackInvokedCount = 10,
+                cpuOutputSuspiciousFragmentDetected = true,
+                cpuOutputSuspiciousFragmentReason = "many_tiny_fragments",
+                cpuOutputSourceCorruptionStage = "raw_callback",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = buildGpuRouteContextForNewDiagnostics(),
+            ),
+        )
+
+        assertTrue(compact.contains("callback_quality_compare_result=cpu_and_gpu_corrupt"))
+        assertTrue(compact.contains("cpu_output_suspicious_fragment_detected=true"))
+        assertTrue(compact.contains("cpu_output_source_corruption_stage=raw_callback"))
+    }
+
+    @Test
+    fun `GPU callback quality comparison diagnostics include skip reason`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = buildGpuRouteContextForNewDiagnostics(),
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = true,
+                gpuOutputCallbackChunkCount = 20,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                cpuCompareRequested = true,
+                cpuCompareEnabled = false,
+                cpuCompareStarted = false,
+                cpuCompareFinished = false,
+                cpuCompareSkippedReason = "not_standard_gpu_minimal_runtime_candidate_flavor",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = buildGpuRouteContextForNewDiagnostics(),
+            ),
+        )
+
+        assertTrue(compact.contains("cpu_compare_requested=true"))
+        assertTrue(compact.contains("cpu_compare_enabled=false"))
+        assertTrue(compact.contains("cpu_compare_skipped_reason=not_standard_gpu_minimal_runtime_candidate_flavor"))
+        assertTrue(compact.contains("callback_quality_compare_result=comparison_unavailable"))
+        assertTrue(
+            compact.contains(
+                "callback_quality_compare_reason=cpu_compare_skipped:not_standard_gpu_minimal_runtime_candidate_flavor",
+            ),
+        )
     }
 
     @Test

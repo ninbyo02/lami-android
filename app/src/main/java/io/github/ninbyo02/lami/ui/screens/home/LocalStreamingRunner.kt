@@ -1304,16 +1304,48 @@ private class GenerateCallbackLifecycleTracker(
             liteRtLmErrorSecondaryFile = base.liteRtLmErrorSecondaryFile,
             liteRtLmErrorSecondaryLine = base.liteRtLmErrorSecondaryLine,
             liteRtLmErrorRecoverabilityHint = base.liteRtLmErrorRecoverabilityHint,
+            cpuCompareRequested = base.cpuCompareRequested,
+            cpuCompareEnabled = base.cpuCompareEnabled,
             cpuCompareStarted = base.cpuCompareStarted,
+            cpuCompareFinished = base.cpuCompareFinished,
+            cpuCompareSkippedReason = base.cpuCompareSkippedReason,
+            cpuCompareFailureStage = base.cpuCompareFailureStage,
             cpuCompareEngineInitializeFinished = base.cpuCompareEngineInitializeFinished,
             cpuCompareConversationCreateFinished = base.cpuCompareConversationCreateFinished,
             cpuCompareGenerateStarted = base.cpuCompareGenerateStarted,
             cpuCompareCallbackInvokedCount = base.cpuCompareCallbackInvokedCount,
+            cpuCompareEmptyTextCount = base.cpuCompareEmptyTextCount,
+            cpuCompareNonEmptyTextCount = base.cpuCompareNonEmptyTextCount,
             cpuCompareFirstNonEmptyTextElapsedMs = base.cpuCompareFirstNonEmptyTextElapsedMs,
             cpuCompareDoneTrueSeen = base.cpuCompareDoneTrueSeen,
             cpuCompareExceptionClass = base.cpuCompareExceptionClass,
             cpuCompareExceptionMessage = base.cpuCompareExceptionMessage,
+            cpuCompareElapsedMs = base.cpuCompareElapsedMs,
             cpuGpuGenerateDiff = base.cpuGpuGenerateDiff,
+            cpuCallbackAverageChunkLength = base.cpuCallbackAverageChunkLength,
+            cpuCallbackMedianChunkLength = base.cpuCallbackMedianChunkLength,
+            cpuCallbackP90ChunkLength = base.cpuCallbackP90ChunkLength,
+            cpuCallbackP95ChunkLength = base.cpuCallbackP95ChunkLength,
+            cpuCallbackOneCharChunkCount = base.cpuCallbackOneCharChunkCount,
+            cpuCallbackTwoCharOrLessChunkCount = base.cpuCallbackTwoCharOrLessChunkCount,
+            cpuCallbackOneCharChunkRatio = base.cpuCallbackOneCharChunkRatio,
+            cpuCallbackTwoCharOrLessRatio = base.cpuCallbackTwoCharOrLessRatio,
+            cpuCallbackChunkLengthHistogram = base.cpuCallbackChunkLengthHistogram,
+            cpuCallbackFirstChunksArtifact = base.cpuCallbackFirstChunksArtifact,
+            cpuCallbackLastChunksArtifact = base.cpuCallbackLastChunksArtifact,
+            cpuCallbackQualityClassification = base.cpuCallbackQualityClassification,
+            cpuOutputSuspiciousFragmentDetected = base.cpuOutputSuspiciousFragmentDetected,
+            cpuOutputSuspiciousFragmentReason = base.cpuOutputSuspiciousFragmentReason,
+            cpuOutputSourceCorruptionStage = base.cpuOutputSourceCorruptionStage,
+            callbackQualityCompareResult = base.callbackQualityCompareResult,
+            callbackQualityCompareReason = base.callbackQualityCompareReason,
+            cpuGpuAvgChunkLengthRatio = base.cpuGpuAvgChunkLengthRatio,
+            cpuGpuTwoCharOrLessRatioDelta = base.cpuGpuTwoCharOrLessRatioDelta,
+            cpuGpuCallbackCountDelta = base.cpuGpuCallbackCountDelta,
+            cpuGpuRawTextSimilarityHint = base.cpuGpuRawTextSimilarityHint,
+            cpuGpuSamePrompt = base.cpuGpuSamePrompt,
+            cpuGpuSameMaxTokens = base.cpuGpuSameMaxTokens,
+            cpuGpuSameSamplerConfigHint = base.cpuGpuSameSamplerConfigHint,
             gpuCallbackToUiEnabled = callbackToUiEnabled,
             gpuCallbackTextPromotedToUi = callbackTextPromotedToUi,
             gpuCallbackPromotedTextLength = callbackPromotedTextLength,
@@ -1823,18 +1855,50 @@ private data class GpuGenerateExceptionDiagnostic(
 )
 
 private data class CpuGpuCallbackCompareResult(
+    val requested: Boolean = false,
+    val enabled: Boolean = false,
     val started: Boolean = false,
+    val finished: Boolean = false,
+    val skippedReason: String = "unavailable",
+    val failureStage: String = "none",
     val engineInitializeFinished: Boolean = false,
     val conversationCreateFinished: Boolean = false,
     val generateStarted: Boolean = false,
     val callbackInvokedCount: Int = 0,
+    val emptyCallbackCount: Int = 0,
     val nonEmptyCallbackCount: Int = 0,
     val averageChunkLength: String = "unavailable",
+    val medianChunkLength: String = "unavailable",
+    val p90ChunkLength: String = "unavailable",
+    val p95ChunkLength: String = "unavailable",
+    val oneCharChunkCount: Int = 0,
+    val twoCharOrLessChunkCount: Int = 0,
+    val oneCharChunkRatio: String = "unavailable",
     val twoCharOrLessChunkRatio: String = "unavailable",
+    val chunkLengthHistogram: String = "unavailable",
+    val firstChunksArtifact: String = "none",
+    val lastChunksArtifact: String = "none",
+    val qualityClassification: String = "unavailable",
+    val outputSuspiciousFragmentDetected: Boolean = false,
+    val outputSuspiciousFragmentReason: String = "none",
+    val outputSourceCorruptionStage: String = "none",
     val firstNonEmptyTextElapsedMs: Long? = null,
     val doneTrueSeen: Boolean = false,
     val exceptionClass: String = "none",
     val exceptionMessage: String = "none",
+    val elapsedMs: Long? = null,
+    val samePrompt: Boolean = true,
+    val sameMaxTokens: Boolean = true,
+    val sameSamplerConfigHint: String = "best_effort_cpu_backend",
+    val rawTextLength: Int = 0,
+    val rawTextHead: String = "none",
+    val rawTextTail: String = "none",
+)
+
+internal data class CpuGpuCallbackCompareRequest(
+    val requested: Boolean,
+    val enabled: Boolean,
+    val skippedReason: String,
 )
 
 internal fun isCpuGpuCallbackCompareRequestedForDebug(
@@ -1845,6 +1909,50 @@ internal fun isCpuGpuCallbackCompareRequestedForDebug(
         ?: propertyReader("lami.compare_cpu_gpu_callback")
         ?: return false
     return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
+internal fun resolveCpuGpuCallbackCompareRequestForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): CpuGpuCallbackCompareRequest {
+    val requested = isCpuGpuCallbackCompareRequestedForDebug(propertyReader)
+    if (!requested) {
+        return CpuGpuCallbackCompareRequest(
+            requested = false,
+            enabled = false,
+            skippedReason = "not_requested",
+        )
+    }
+    if (!BuildConfig.DEBUG) {
+        return CpuGpuCallbackCompareRequest(
+            requested = true,
+            enabled = false,
+            skippedReason = "not_debug_build",
+        )
+    }
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) {
+        return CpuGpuCallbackCompareRequest(
+            requested = true,
+            enabled = false,
+            skippedReason = "selected_backend_not_gpu",
+        )
+    }
+    val allowAnyDebugFlavor = propertyReader("debug.lami.compare_cpu_gpu_callback_allow_any_debug_flavor")
+        ?.let { value -> value.equals("true", ignoreCase = true) || value == "1" }
+        ?: false
+    if (!standardGpuMinimalRuntimeCandidateFlavor && !allowAnyDebugFlavor) {
+        return CpuGpuCallbackCompareRequest(
+            requested = true,
+            enabled = false,
+            skippedReason = "not_standard_gpu_minimal_runtime_candidate_flavor",
+        )
+    }
+    return CpuGpuCallbackCompareRequest(
+        requested = true,
+        enabled = true,
+        skippedReason = "none",
+    )
 }
 
 private fun buildGpuGenerateExceptionDiagnostic(
@@ -1890,6 +1998,7 @@ private fun LocalRouteDiagnosticFlags.withCpuGpuCompare(
 ): LocalRouteDiagnosticFlags {
     if (compare == null) return this
     val diff = when {
+        !compare.enabled -> "cpu_compare_skipped"
         compare.firstNonEmptyTextElapsedMs != null && gpuError.kind == "compiled_model_invoke_failed" ->
             "cpu_callback_ok_gpu_compiled_model_invoke_failed"
         compare.exceptionClass != "none" && gpuError.kind == "compiled_model_invoke_failed" ->
@@ -1898,18 +2007,58 @@ private fun LocalRouteDiagnosticFlags.withCpuGpuCompare(
         else -> "cpu_gpu_compare_recorded"
     }
     return copy(
+        cpuCompareRequested = compare.requested,
+        cpuCompareEnabled = compare.enabled,
         cpuCompareStarted = compare.started,
+        cpuCompareFinished = compare.finished,
+        cpuCompareSkippedReason = compare.skippedReason,
+        cpuCompareFailureStage = compare.failureStage,
         cpuCompareEngineInitializeFinished = compare.engineInitializeFinished,
         cpuCompareConversationCreateFinished = compare.conversationCreateFinished,
         cpuCompareGenerateStarted = compare.generateStarted,
         cpuCompareCallbackInvokedCount = compare.callbackInvokedCount,
+        cpuCompareEmptyTextCount = compare.emptyCallbackCount,
+        cpuCompareNonEmptyTextCount = compare.nonEmptyCallbackCount,
         cpuCompareFirstNonEmptyTextElapsedMs = compare.firstNonEmptyTextElapsedMs,
         cpuCompareDoneTrueSeen = compare.doneTrueSeen,
         cpuCompareExceptionClass = compare.exceptionClass,
         cpuCompareExceptionMessage = compare.exceptionMessage,
+        cpuCompareElapsedMs = compare.elapsedMs,
         cpuGpuGenerateDiff = diff,
         cpuCallbackAverageChunkLength = compare.averageChunkLength,
+        cpuCallbackMedianChunkLength = compare.medianChunkLength,
+        cpuCallbackP90ChunkLength = compare.p90ChunkLength,
+        cpuCallbackP95ChunkLength = compare.p95ChunkLength,
+        cpuCallbackOneCharChunkCount = compare.oneCharChunkCount,
+        cpuCallbackTwoCharOrLessChunkCount = compare.twoCharOrLessChunkCount,
+        cpuCallbackOneCharChunkRatio = compare.oneCharChunkRatio,
         cpuCallbackTwoCharOrLessRatio = compare.twoCharOrLessChunkRatio,
+        cpuCallbackChunkLengthHistogram = compare.chunkLengthHistogram,
+        cpuCallbackFirstChunksArtifact = compare.firstChunksArtifact,
+        cpuCallbackLastChunksArtifact = compare.lastChunksArtifact,
+        cpuCallbackQualityClassification = compare.qualityClassification,
+        cpuOutputSuspiciousFragmentDetected = compare.outputSuspiciousFragmentDetected,
+        cpuOutputSuspiciousFragmentReason = compare.outputSuspiciousFragmentReason,
+        cpuOutputSourceCorruptionStage = compare.outputSourceCorruptionStage,
+        callbackQualityCompareResult = when {
+            !compare.enabled || !compare.finished -> "comparison_unavailable"
+            compare.outputSuspiciousFragmentDetected &&
+                (gpuOutputQualityCandidateResult == "quality_candidate_fail" || gpuOutputSuspiciousFragmentDetected == true) ->
+                "cpu_and_gpu_corrupt"
+            compare.outputSuspiciousFragmentDetected -> "cpu_only_corrupt"
+            gpuOutputQualityCandidateResult == "quality_candidate_fail" || gpuOutputSuspiciousFragmentDetected == true ->
+                "gpu_only_corrupt"
+            else -> "both_pass"
+        },
+        callbackQualityCompareReason = when {
+            !compare.enabled -> "cpu_compare_skipped:${compare.skippedReason}"
+            compare.exceptionClass != "none" -> "cpu_compare_exception:${compare.exceptionClass}"
+            compare.callbackInvokedCount == 0 -> "cpu_compare_no_callback"
+            else -> "cpu_compare_finished"
+        },
+        cpuGpuSamePrompt = compare.samePrompt,
+        cpuGpuSameMaxTokens = compare.sameMaxTokens,
+        cpuGpuSameSamplerConfigHint = compare.sameSamplerConfigHint,
     )
 }
 
@@ -1917,9 +2066,27 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
     modelPath: String,
     cacheDirPath: String,
     prompt: String,
+    request: CpuGpuCallbackCompareRequest,
+    maxTokens: Int?,
+    sameSamplerConfigHint: String,
     appendTrace: (String) -> Unit,
 ): CpuGpuCallbackCompareResult {
-    if (!isCpuGpuCallbackCompareRequestedForDebug()) return CpuGpuCallbackCompareResult()
+    if (!request.requested) {
+        return CpuGpuCallbackCompareResult(
+            requested = false,
+            enabled = false,
+            skippedReason = request.skippedReason,
+            sameSamplerConfigHint = sameSamplerConfigHint,
+        )
+    }
+    if (!request.enabled) {
+        return CpuGpuCallbackCompareResult(
+            requested = true,
+            enabled = false,
+            skippedReason = request.skippedReason,
+            sameSamplerConfigHint = sameSamplerConfigHint,
+        )
+    }
     return withContext(Dispatchers.IO) {
         withTimeoutOrNull(15_000L) {
             var engine: Any? = null
@@ -1928,7 +2095,11 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
             var conversationCreated = false
             var generateStarted = false
             var callbackCount = 0
+            var emptyCallbackCount = 0
             val callbackLengths = mutableListOf<Int>()
+            val callbackTexts = mutableListOf<String>()
+            val firstChunkArtifacts = mutableListOf<String>()
+            val lastChunkArtifacts = ArrayDeque<String>()
             var firstNonEmptyMs: Long? = null
             var doneSeen = false
             val startedAt = SystemClock.elapsedRealtime()
@@ -1938,7 +2109,7 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
                     backend = Backend.CPU(),
                     visionBackend = null,
                     audioBackend = null,
-                    maxNumTokens = GPU_EDGE_GALLERY_LIKE_MAX_TOKENS,
+                    maxNumTokens = maxTokens ?: GPU_EDGE_GALLERY_LIKE_MAX_TOKENS,
                     cacheDir = cacheDirPath,
                 )
                 val createdEngine = Engine(engineConfig)
@@ -1955,21 +2126,35 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
                 )
                 conversationCreated = conversation != null
                 val activeConversation = conversation ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    requested = true,
+                    enabled = true,
                     started = true,
+                    finished = true,
+                    failureStage = "conversation_create",
                     engineInitializeFinished = engineInitialized,
                     conversationCreateFinished = false,
                     exceptionClass = "ConversationUnavailable",
                     exceptionMessage = "createConversation returned null",
+                    elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                    sameMaxTokens = maxTokens != null,
+                    sameSamplerConfigHint = sameSamplerConfigHint,
                 )
                 val method = findSendMessageAsyncMethod(
                     conversationClass = activeConversation.javaClass,
                     namespace = "com.google.ai.edge.litertlm",
                 ) ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    requested = true,
+                    enabled = true,
                     started = true,
+                    finished = true,
+                    failureStage = "send_message_async_lookup",
                     engineInitializeFinished = engineInitialized,
                     conversationCreateFinished = conversationCreated,
                     exceptionClass = "SendMessageAsyncUnavailable",
                     exceptionMessage = "sendMessageAsync unavailable",
+                    elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                    sameMaxTokens = maxTokens != null,
+                    sameSamplerConfigHint = sameSamplerConfigHint,
                 )
                 generateStarted = true
                 val flowValue = invokeSendMessageAsync(
@@ -1979,12 +2164,19 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
                     prompt = prompt,
                 )
                 val flow = flowValue as? Flow<*> ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    requested = true,
+                    enabled = true,
                     started = true,
+                    finished = true,
+                    failureStage = "flow_lookup",
                     engineInitializeFinished = engineInitialized,
                     conversationCreateFinished = conversationCreated,
                     generateStarted = true,
                     exceptionClass = "FlowUnavailable",
                     exceptionMessage = "sendMessageAsync did not return Flow",
+                    elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                    sameMaxTokens = maxTokens != null,
+                    sameSamplerConfigHint = sameSamplerConfigHint,
                 )
                 flow.collect { message ->
                     callbackCount += 1
@@ -1994,49 +2186,160 @@ private suspend fun runCpuGpuCallbackCompareForDebug(
                         value = message,
                         appendTrace = appendTrace,
                     ).orEmpty()
+                    recordCpuCompareCallbackArtifact(
+                        index = callbackCount,
+                        text = text,
+                        firstChunkArtifacts = firstChunkArtifacts,
+                        lastChunkArtifacts = lastChunkArtifacts,
+                    )
                     if (text.isNotBlank()) {
+                        callbackTexts += text
                         callbackLengths += text.length
                         if (firstNonEmptyMs == null) {
                             firstNonEmptyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
                         }
+                    } else {
+                        emptyCallbackCount += 1
                     }
                 }
+                val rawText = callbackTexts.joinToString("")
+                val suspiciousReason = classifyGpuOutputSuspiciousFragmentReason(
+                    rawSample = rawText,
+                    promotedSample = rawText,
+                    finalSample = rawText,
+                    rawLength = rawText.length,
+                    finalLength = rawText.length,
+                    nonEmptyChunkCount = callbackLengths.size,
+                )
                 CpuGpuCallbackCompareResult(
+                    requested = true,
+                    enabled = true,
                     started = true,
+                    finished = true,
+                    skippedReason = "none",
                     engineInitializeFinished = engineInitialized,
                     conversationCreateFinished = conversationCreated,
                     generateStarted = generateStarted,
                     callbackInvokedCount = callbackCount,
+                    emptyCallbackCount = emptyCallbackCount,
                     nonEmptyCallbackCount = callbackLengths.size,
                     averageChunkLength = formatCallbackAverageChunkLength(callbackLengths),
+                    medianChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.50),
+                    p90ChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.90),
+                    p95ChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.95),
+                    oneCharChunkCount = callbackLengths.count { it == 1 },
+                    twoCharOrLessChunkCount = callbackLengths.count { it <= 2 },
+                    oneCharChunkRatio = formatCallbackChunkRatio(
+                        count = callbackLengths.count { it == 1 },
+                        total = callbackLengths.size,
+                    ),
                     twoCharOrLessChunkRatio = formatCallbackTwoCharOrLessRatio(callbackLengths),
+                    chunkLengthHistogram = formatCallbackChunkLengthHistogram(
+                        zeroLengthCount = emptyCallbackCount,
+                        lengths = callbackLengths,
+                    ),
+                    firstChunksArtifact = firstChunkArtifacts.joinToString("|").ifBlank { "none" },
+                    lastChunksArtifact = lastChunkArtifacts.joinToString("|").ifBlank { "none" },
+                    qualityClassification = classifyCallbackQuality(
+                        callbackCount = callbackCount,
+                        twoCharOrLessRatio = formatCallbackTwoCharOrLessRatio(callbackLengths),
+                        averageChunkLength = formatCallbackAverageChunkLength(callbackLengths),
+                    ),
+                    outputSuspiciousFragmentDetected = suspiciousReason != "none",
+                    outputSuspiciousFragmentReason = suspiciousReason,
+                    outputSourceCorruptionStage = if (suspiciousReason == "none") "none" else "raw_callback",
                     firstNonEmptyTextElapsedMs = firstNonEmptyMs,
                     doneTrueSeen = doneSeen,
+                    elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                    samePrompt = true,
+                    sameMaxTokens = maxTokens != null,
+                    sameSamplerConfigHint = sameSamplerConfigHint,
+                    rawTextLength = rawText.length,
+                    rawTextHead = rawText.diagnosticHeadText(),
+                    rawTextTail = rawText.diagnosticTailText(),
                 )
             } catch (throwable: Throwable) {
                 if (throwable is CancellationException) throw throwable
+                val rawText = callbackTexts.joinToString("")
+                val suspiciousReason = classifyGpuOutputSuspiciousFragmentReason(
+                    rawSample = rawText,
+                    promotedSample = rawText,
+                    finalSample = rawText,
+                    rawLength = rawText.length,
+                    finalLength = rawText.length,
+                    nonEmptyChunkCount = callbackLengths.size,
+                )
                 CpuGpuCallbackCompareResult(
+                    requested = true,
+                    enabled = true,
                     started = true,
+                    finished = true,
+                    skippedReason = "none",
+                    failureStage = when {
+                        !engineInitialized -> "engine_initialize"
+                        !conversationCreated -> "conversation_create"
+                        !generateStarted -> "generate_start"
+                        else -> "generate_collect"
+                    },
                     engineInitializeFinished = engineInitialized,
                     conversationCreateFinished = conversationCreated,
                     generateStarted = generateStarted,
                     callbackInvokedCount = callbackCount,
+                    emptyCallbackCount = emptyCallbackCount,
                     nonEmptyCallbackCount = callbackLengths.size,
                     averageChunkLength = formatCallbackAverageChunkLength(callbackLengths),
+                    medianChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.50),
+                    p90ChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.90),
+                    p95ChunkLength = formatCallbackPercentileChunkLength(callbackLengths, 0.95),
+                    oneCharChunkCount = callbackLengths.count { it == 1 },
+                    twoCharOrLessChunkCount = callbackLengths.count { it <= 2 },
+                    oneCharChunkRatio = formatCallbackChunkRatio(
+                        count = callbackLengths.count { it == 1 },
+                        total = callbackLengths.size,
+                    ),
                     twoCharOrLessChunkRatio = formatCallbackTwoCharOrLessRatio(callbackLengths),
+                    chunkLengthHistogram = formatCallbackChunkLengthHistogram(
+                        zeroLengthCount = emptyCallbackCount,
+                        lengths = callbackLengths,
+                    ),
+                    firstChunksArtifact = firstChunkArtifacts.joinToString("|").ifBlank { "none" },
+                    lastChunksArtifact = lastChunkArtifacts.joinToString("|").ifBlank { "none" },
+                    qualityClassification = classifyCallbackQuality(
+                        callbackCount = callbackCount,
+                        twoCharOrLessRatio = formatCallbackTwoCharOrLessRatio(callbackLengths),
+                        averageChunkLength = formatCallbackAverageChunkLength(callbackLengths),
+                    ),
+                    outputSuspiciousFragmentDetected = suspiciousReason != "none",
+                    outputSuspiciousFragmentReason = suspiciousReason,
+                    outputSourceCorruptionStage = if (suspiciousReason == "none") "none" else "raw_callback",
                     firstNonEmptyTextElapsedMs = firstNonEmptyMs,
                     doneTrueSeen = doneSeen,
                     exceptionClass = throwable.javaClass.name,
                     exceptionMessage = sanitizeGpuLiteRtFailureMessage(throwable.message ?: "none"),
+                    elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                    samePrompt = true,
+                    sameMaxTokens = maxTokens != null,
+                    sameSamplerConfigHint = sameSamplerConfigHint,
+                    rawTextLength = rawText.length,
+                    rawTextHead = rawText.diagnosticHeadText(),
+                    rawTextTail = rawText.diagnosticTailText(),
                 )
             } finally {
                 closeQuietly(conversation, appendTrace)
                 closeQuietly(engine, appendTrace)
             }
         } ?: CpuGpuCallbackCompareResult(
+            requested = true,
+            enabled = true,
             started = true,
+            finished = true,
+            skippedReason = "none",
+            failureStage = "timeout",
             exceptionClass = "Timeout",
             exceptionMessage = "cpu_gpu_callback_compare_timeout",
+            elapsedMs = 15_000L,
+            sameMaxTokens = maxTokens != null,
+            sameSamplerConfigHint = sameSamplerConfigHint,
         )
     }
 }
@@ -2054,6 +2357,56 @@ private fun formatCallbackTwoCharOrLessRatio(lengths: List<Int>): String =
     } else {
         "%.3f".format(Locale.US, lengths.count { it <= 2 }.toDouble() / lengths.size)
     }
+
+private fun formatCallbackPercentileChunkLength(
+    lengths: List<Int>,
+    percentile: Double,
+): String {
+    if (lengths.isEmpty()) return "unavailable"
+    val sorted = lengths.sorted()
+    val index = kotlin.math.ceil(percentile * sorted.size).toInt().coerceIn(1, sorted.size) - 1
+    return sorted[index].toString()
+}
+
+private fun formatCallbackChunkRatio(
+    count: Int,
+    total: Int,
+): String =
+    if (total <= 0) {
+        "unavailable"
+    } else {
+        "%.3f".format(Locale.US, count.toDouble() / total)
+    }
+
+private fun formatCallbackChunkLengthHistogram(
+    zeroLengthCount: Int,
+    lengths: List<Int>,
+): String =
+    "0=$zeroLengthCount;1_2=${lengths.count { it in 1..2 }};3_8=${lengths.count { it in 3..8 }};" +
+        "9_32=${lengths.count { it in 9..32 }};33_plus=${lengths.count { it >= 33 }}"
+
+private fun recordCpuCompareCallbackArtifact(
+    index: Int,
+    text: String,
+    firstChunkArtifacts: MutableList<String>,
+    lastChunkArtifacts: ArrayDeque<String>,
+) {
+    val preview = text.take(8).replace("\n", "\\n").replace("\"", "'")
+    val item = "chunk_${index.toString().padStart(3, '0')} len=${text.length} text=\"$preview\""
+    if (firstChunkArtifacts.size < 30) {
+        firstChunkArtifacts += item
+    }
+    lastChunkArtifacts += item
+    while (lastChunkArtifacts.size > 30) {
+        lastChunkArtifacts.removeFirst()
+    }
+}
+
+private fun String.diagnosticHeadText(limit: Int = 80): String =
+    take(limit).ifBlank { "none" }
+
+private fun String.diagnosticTailText(limit: Int = 80): String =
+    takeLast(limit).ifBlank { "none" }
 
 internal suspend fun runWithHeldEngine(
     heldEngine: HeldLocalEngine,
@@ -2165,6 +2518,12 @@ internal suspend fun runWithHeldEngine(
         ),
         probeMode = generateProbeMode,
     )
+    val cpuGpuCallbackCompareRequest = resolveCpuGpuCallbackCompareRequestForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
+    val cpuGpuCallbackCompareMaxTokens = gpuConfigDiagnosticsForRun.outputQualityEffectiveMaxTokens.toIntOrNull()
+        ?: gpuConfigDiagnosticsForRun.maxTokens.toIntOrNull()
+    val cpuGpuCallbackCompareSamplerHint = gpuConfigDiagnosticsForRun.samplerAccelerationPolicy
 
     fun recordMemorySnapshot(stage: String) {
         memorySnapshots += captureLocalMemorySnapshot(
@@ -2515,12 +2874,15 @@ internal suspend fun runWithHeldEngine(
                 if (
                     heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU &&
                     successCpuGpuCallbackCompare == null &&
-                    isCpuGpuCallbackCompareRequestedForDebug()
+                    cpuGpuCallbackCompareRequest.requested
                 ) {
                     successCpuGpuCallbackCompare = runCpuGpuCallbackCompareForDebug(
                         modelPath = heldEngine.modelPath,
                         cacheDirPath = heldEngine.engineKey.cacheDirPath,
                         prompt = effectivePrompt,
+                        request = cpuGpuCallbackCompareRequest,
+                        maxTokens = cpuGpuCallbackCompareMaxTokens,
+                        sameSamplerConfigHint = cpuGpuCallbackCompareSamplerHint,
                         appendTrace = appendTrace,
                     )
                 }
@@ -2539,11 +2901,14 @@ internal suspend fun runWithHeldEngine(
                     throwable = throwable,
                     baseFlags = currentGenerateCallbackFlags(),
                 )
-                val cpuCompare = if (isCpuGpuCallbackCompareRequestedForDebug()) {
+                val cpuCompare = if (cpuGpuCallbackCompareRequest.requested) {
                     runCpuGpuCallbackCompareForDebug(
                         modelPath = heldEngine.modelPath,
                         cacheDirPath = heldEngine.engineKey.cacheDirPath,
                         prompt = effectivePrompt,
+                        request = cpuGpuCallbackCompareRequest,
+                        maxTokens = cpuGpuCallbackCompareMaxTokens,
+                        sameSamplerConfigHint = cpuGpuCallbackCompareSamplerHint,
                         appendTrace = appendTrace,
                     )
                 } else {
@@ -2683,11 +3048,14 @@ internal suspend fun runWithHeldEngine(
                     throwable = throwable,
                     baseFlags = currentGenerateCallbackFlags(),
                 )
-                val cpuCompare = if (isCpuGpuCallbackCompareRequestedForDebug()) {
+                val cpuCompare = if (cpuGpuCallbackCompareRequest.requested) {
                     runCpuGpuCallbackCompareForDebug(
                         modelPath = heldEngine.modelPath,
                         cacheDirPath = heldEngine.engineKey.cacheDirPath,
                         prompt = effectivePrompt,
+                        request = cpuGpuCallbackCompareRequest,
+                        maxTokens = cpuGpuCallbackCompareMaxTokens,
+                        sameSamplerConfigHint = cpuGpuCallbackCompareSamplerHint,
                         appendTrace = appendTrace,
                     )
                 } else {
@@ -2786,12 +3154,15 @@ internal suspend fun runWithHeldEngine(
                 if (
                     heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU &&
                     successCpuGpuCallbackCompare == null &&
-                    isCpuGpuCallbackCompareRequestedForDebug()
+                    cpuGpuCallbackCompareRequest.requested
                 ) {
                     successCpuGpuCallbackCompare = runCpuGpuCallbackCompareForDebug(
                         modelPath = heldEngine.modelPath,
                         cacheDirPath = heldEngine.engineKey.cacheDirPath,
                         prompt = effectivePrompt,
+                        request = cpuGpuCallbackCompareRequest,
+                        maxTokens = cpuGpuCallbackCompareMaxTokens,
+                        sameSamplerConfigHint = cpuGpuCallbackCompareSamplerHint,
                         appendTrace = appendTrace,
                     )
                 }

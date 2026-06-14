@@ -1042,7 +1042,21 @@ Additional callback metrics are emitted to distinguish normal small streaming ch
 - `callback_corruption_earliest_stage`
 
 When `debug.lami.compare_cpu_gpu_callback=true` is enabled, the same prompt is sampled on CPU for callback-shape
-comparison. The summary keys are:
+comparison in `standardGpuMinimalRuntimeCandidateDebug` or with an explicit debug override. CPU output is diagnostics
+only and is never appended to the visible assistant message. If comparison cannot run, the diagnostics must say why
+rather than leaving `cpu_compare_*` as only `unavailable`.
+
+Lifecycle keys:
+
+- `cpu_compare_requested`
+- `cpu_compare_enabled`
+- `cpu_compare_started`
+- `cpu_compare_finished`
+- `cpu_compare_skipped_reason`
+- `cpu_compare_failure_stage`
+- `cpu_compare_elapsed_ms`
+
+The summary keys are:
 
 - `cpu_avg_chunk_length`
 - `gpu_avg_chunk_length`
@@ -1050,8 +1064,23 @@ comparison. The summary keys are:
 - `gpu_callback_count`
 - `cpu_two_char_or_less_ratio`
 - `gpu_two_char_or_less_ratio`
+- `cpu_callback_first_30_chunks`
+- `cpu_callback_last_30_chunks`
+- `cpu_callback_quality_classification`
+- `cpu_output_suspicious_fragment_detected`
 - `callback_quality_compare_result`
+- `callback_quality_compare_reason`
 
-If `callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu` or
-`gpu_two_char_or_less_ratio_much_higher_than_cpu`, the current strongest suspect is the LiteRT-LM GPU callback /
-decode stream source rather than ChatScreen append, markdown rendering, or final UI commit.
+`callback_quality_compare_result` uses:
+
+- `gpu_only_corrupt`
+- `cpu_and_gpu_corrupt`
+- `cpu_only_corrupt`
+- `both_pass`
+- `comparison_unavailable`
+
+If `callback_quality_compare_result=gpu_only_corrupt`, especially with
+`gpu_output_source_corruption_stage=raw_callback`, the current strongest suspect is the LiteRT-LM GPU callback / decode
+stream source rather than ChatScreen append, markdown rendering, or final UI commit. Production promotion remains
+blocked while `gpu_output_quality_candidate_result=quality_candidate_fail` or
+`callback_quality_compare_result=gpu_only_corrupt` is reproducible.

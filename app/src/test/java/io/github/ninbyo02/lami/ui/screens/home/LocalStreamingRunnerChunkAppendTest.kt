@@ -176,6 +176,68 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `CPU GPU callback compare request is disabled by default`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { null },
+            standardGpuMinimalRuntimeCandidateFlavor = true,
+        )
+
+        assertFalse(request.requested)
+        assertFalse(request.enabled)
+        assertEquals("not_requested", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request enables only candidate flavor by default`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                if (key == "debug.lami.compare_cpu_gpu_callback") "true" else null
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = true,
+        )
+
+        assertTrue(request.requested)
+        assertTrue(request.enabled)
+        assertEquals("none", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request reports skip reason outside candidate flavor`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                if (key == "debug.lami.compare_cpu_gpu_callback") "true" else null
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = false,
+        )
+
+        assertTrue(request.requested)
+        assertFalse(request.enabled)
+        assertEquals("not_standard_gpu_minimal_runtime_candidate_flavor", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request supports explicit debug flavor override`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.compare_cpu_gpu_callback" -> "true"
+                    "debug.lami.compare_cpu_gpu_callback_allow_any_debug_flavor" -> "true"
+                    else -> null
+                }
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = false,
+        )
+
+        assertTrue(request.requested)
+        assertTrue(request.enabled)
+        assertEquals("none", request.skippedReason)
+    }
+
+    @Test
     fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
         assertEquals(
             null,
