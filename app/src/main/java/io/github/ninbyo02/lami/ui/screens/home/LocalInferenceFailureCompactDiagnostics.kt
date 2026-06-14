@@ -513,10 +513,32 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         ) +
             buildGalleryStackGpuProbeCompactDiagnosticLines(input.galleryStackProbeDiagnostics) +
             buildRuntimeAlignmentProbeCompactDiagnosticLines(input.runtimeAlignmentProbeDiagnostics) +
+            buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
 }
+
+private val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS = listOf(
+    "standard_gpu_runtime_alignment_candidate_enabled",
+    "standard_gpu_runtime_alignment_candidate_eligible",
+    "standard_gpu_runtime_alignment_candidate_block_reason",
+    "standard_gpu_runtime_alignment_candidate_model_size_bytes",
+    "standard_gpu_runtime_alignment_candidate_model_identity_hint",
+    "standard_gpu_runtime_alignment_candidate_runtime_stack",
+    "standard_gpu_runtime_alignment_candidate_result",
+)
+
+private fun buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> =
+    STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+
+private fun extractStandardGpuRuntimeAlignmentCandidateDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text)
+        .filterKeys { it in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS }
 
 private val GPU_ALIGNMENT_HOLDER_DIAGNOSTIC_KEYS = listOf(
     "gpu_alignment_holder_present_before_acquire",
@@ -618,7 +640,8 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
 ): LocalInferenceFailureCompactInput {
     val parsed = parseLocalInferenceFailureDiagnosticsText(failureDiagnosticsText)
     val probeDiagnostics = extractGpuPrefillProbeDiagnostics(failureDiagnosticsText) +
-        extractGpuAlignmentHolderDiagnostics(failureDiagnosticsText)
+        extractGpuAlignmentHolderDiagnostics(failureDiagnosticsText) +
+        extractStandardGpuRuntimeAlignmentCandidateDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()

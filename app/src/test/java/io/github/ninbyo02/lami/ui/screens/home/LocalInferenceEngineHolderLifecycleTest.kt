@@ -44,6 +44,35 @@ class LocalInferenceEngineHolderLifecycleTest {
         assertEquals(1, closeCount)
     }
 
+    @Test
+    fun `model switch invalidates held engine safely`() = runTest {
+        val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+
+        holder.clearIfModelChanged("/models/gemma-next.litertlm")
+
+        val snapshot = holder.getDevDiagnosticSnapshot()
+        assertNull(snapshot.heldEngineHash)
+        assertEquals("clear-model-changed", snapshot.heldEngineDestroyReason)
+        assertEquals(1, closeCount)
+    }
+
+    @Test
+    fun `backend switch invalidates held engine safely`() = runTest {
+        val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+
+        holder.notifyLifecycleEvent(reason = "backend-changed")
+
+        val snapshot = holder.getDevDiagnosticSnapshot()
+        assertNull(snapshot.heldEngineHash)
+        assertEquals("backend-changed", snapshot.lastLifecycleEventReason)
+        assertEquals("CLOSE_AND_RECREATE", snapshot.lastLifecycleDecisionAction)
+        assertEquals(1, closeCount)
+    }
+
     private fun LocalInferenceEngineHolder.setHeldForTest(engine: HeldLocalEngine) {
         val field = LocalInferenceEngineHolder::class.java.getDeclaredField("held")
         field.isAccessible = true

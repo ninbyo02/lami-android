@@ -642,6 +642,13 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuCallbackStreamingReusedHeldEngine = true,
                 gpuCallbackStreamingCompletionReason = "flow_completed_non_empty_response",
                 gpuCallbackStreamingFailureReason = "none",
+                standardGpuRuntimeAlignmentCandidateEnabled = true,
+                standardGpuRuntimeAlignmentCandidateEligible = true,
+                standardGpuRuntimeAlignmentCandidateBlockReason = "none",
+                standardGpuRuntimeAlignmentCandidateModelSizeBytes = "2588147712",
+                standardGpuRuntimeAlignmentCandidateModelIdentityHint = "edge_gallery_e2b_expected",
+                standardGpuRuntimeAlignmentCandidateRuntimeStack = "standardDebug_dev_gate",
+                standardGpuRuntimeAlignmentCandidateResult = "success",
             ),
             elapsedMs = 18_000L,
         )
@@ -687,6 +694,13 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_runtime_stack=standardDebug"))
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_callback_streaming_gate=true"))
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_result_candidate=success"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_enabled=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_eligible=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_block_reason=none"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_model_size_bytes=2588147712"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_model_identity_hint=edge_gallery_e2b_expected"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_runtime_stack=standardDebug_dev_gate"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_result=success"))
         assertTrue(routeDiagnostics.contains("gpu_callback_text_promoted_to_ui=true"))
         assertTrue(routeDiagnostics.contains("gpu_ui_append_finished=true"))
         assertTrue(routeDiagnostics.contains("gpu_streaming_completion_reason=flow_completed_non_empty_response"))
@@ -697,6 +711,9 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_callback_streaming_failure_reason=none"))
         assertTrue(compact.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
         assertTrue(compact.contains("standard_gpu_probe_result_candidate=success"))
+        assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_enabled=true"))
+        assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_eligible=true"))
+        assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=success"))
     }
 
     @Test
@@ -737,6 +754,13 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuCallbackStreamingPathReason = "dev_gate_normal_route",
                 gpuCallbackStreamingSuccessCount = 0,
                 gpuCallbackStreamingFailureReason = "flow_response",
+                standardGpuRuntimeAlignmentCandidateEnabled = true,
+                standardGpuRuntimeAlignmentCandidateEligible = true,
+                standardGpuRuntimeAlignmentCandidateBlockReason = "none",
+                standardGpuRuntimeAlignmentCandidateModelSizeBytes = "2588147712",
+                standardGpuRuntimeAlignmentCandidateModelIdentityHint = "edge_gallery_e2b_expected",
+                standardGpuRuntimeAlignmentCandidateRuntimeStack = "standardDebug_dev_gate",
+                standardGpuRuntimeAlignmentCandidateResult = "failure",
             ),
             elapsedMs = 2_000L,
         )
@@ -762,10 +786,58 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_callback_streaming_gate=true"))
         assertTrue(routeDiagnostics.contains("standard_gpu_probe_result_candidate=failure"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_enabled=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_eligible=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
         assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
         assertTrue(compact.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
         assertTrue(compact.contains("standard_gpu_probe_result_candidate=failure"))
+        assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
         assertTrue(compact.contains("litert_lm_error_status_code=13"))
+    }
+
+    @Test
+    fun `Standard GPU runtime alignment candidate is disabled by default in diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                gpuNormalRouteUseCallbackStreaming = false,
+                gpuCallbackStreamingPathSelected = false,
+            ),
+            elapsedMs = 2_000L,
+        )
+
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_enabled=false"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_eligible=false"))
+        assertTrue(
+            routeDiagnostics.contains(
+                "standard_gpu_runtime_alignment_candidate_block_reason=candidate_gate_disabled",
+            ),
+        )
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
     }
 
     @Test

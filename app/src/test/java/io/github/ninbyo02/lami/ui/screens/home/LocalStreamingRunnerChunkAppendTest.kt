@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import java.io.File
 import java.lang.reflect.InvocationTargetException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -251,6 +252,97 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(text.contains("probe_invalidated_held_engine=true"))
         assertTrue(text.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
         assertTrue(text.contains("previous_invocation_still_processing_detected=false"))
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate is disabled by default`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            propertyReader = { null },
+        )
+
+        assertFalse(isStandardGpuRuntimeAlignmentCandidateEnabledForDebug(propertyReader = { null }))
+        assertFalse(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("candidate_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate eligible selects callback streaming path`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+        val selected = isGpuCallbackStreamingPathSelectedForDebug(
+            probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+            normalRouteUseCallbackStreaming = true && eligibility.eligible,
+        )
+
+        assertTrue(eligibility.enabled)
+        assertTrue(eligibility.eligible)
+        assertEquals("none", eligibility.blockReason)
+        assertEquals("edge_gallery_e2b_expected_size_unavailable", eligibility.modelIdentityHint)
+        assertTrue(selected)
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate blocks ineligible model`() {
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val mismatch = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            mismatch.writeText("not a real model")
+
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = mismatch.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("model_size_mismatch", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_size_mismatch", eligibility.modelIdentityHint)
+        } finally {
+            mismatch.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate requires callback streaming gate`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = false,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("callback_streaming_gate_disabled", eligibility.blockReason)
     }
 
     @Test

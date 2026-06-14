@@ -125,6 +125,13 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuCallbackStreamingReusedHeldEngine: Boolean? = null,
     val gpuCallbackStreamingCompletionReason: String? = null,
     val gpuCallbackStreamingFailureReason: String? = null,
+    val standardGpuRuntimeAlignmentCandidateEnabled: Boolean? = null,
+    val standardGpuRuntimeAlignmentCandidateEligible: Boolean? = null,
+    val standardGpuRuntimeAlignmentCandidateBlockReason: String? = null,
+    val standardGpuRuntimeAlignmentCandidateModelSizeBytes: String? = null,
+    val standardGpuRuntimeAlignmentCandidateModelIdentityHint: String? = null,
+    val standardGpuRuntimeAlignmentCandidateRuntimeStack: String? = null,
+    val standardGpuRuntimeAlignmentCandidateResult: String? = null,
     val gpuAlignmentHolderPresentBeforeAcquire: Boolean? = null,
     val gpuAlignmentHolderAcquireResult: String? = null,
     val gpuAlignmentHolderReused: Boolean? = null,
@@ -241,6 +248,13 @@ internal data class StandardGpuProbeDiagnostics(
     val runtimeStack: String = "unavailable",
     val callbackStreamingGate: String = "unavailable",
     val resultCandidate: String = "unknown",
+    val runtimeAlignmentCandidateEnabled: String = "unavailable",
+    val runtimeAlignmentCandidateEligible: String = "unavailable",
+    val runtimeAlignmentCandidateBlockReason: String = "unavailable",
+    val runtimeAlignmentCandidateModelSizeBytes: String = "unavailable",
+    val runtimeAlignmentCandidateModelIdentityHint: String = "unavailable",
+    val runtimeAlignmentCandidateRuntimeStack: String = "unavailable",
+    val runtimeAlignmentCandidateResult: String = "unknown",
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -311,10 +325,30 @@ internal fun buildStandardGpuProbeDiagnostics(
     val expectedEdgeGalleryE2b =
         edgeGalleryNameHint ||
             (genericE2bNameHint && actualSize == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+    val candidateEnabled = flags.standardGpuRuntimeAlignmentCandidateEnabled
+        ?: isStandardGpuRuntimeAlignmentCandidateEnabledForDebug()
+    val candidateBlockReason = flags.standardGpuRuntimeAlignmentCandidateBlockReason
+        ?: resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = if (context.preferredBackend.equals("GPU", ignoreCase = true)) {
+                io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting.GPU
+            } else {
+                io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting.DEFAULT
+            },
+            modelPath = context.selectedModelPath,
+            callbackStreamingGateEnabled = flags.gpuNormalRouteUseCallbackStreaming == true,
+        ).blockReason
+    val candidateEligible = flags.standardGpuRuntimeAlignmentCandidateEligible
+        ?: (candidateBlockReason == "none")
+    val candidateResult = flags.standardGpuRuntimeAlignmentCandidateResult
+        ?: resolveStandardGpuProbeResultCandidate(
+            flags = flags,
+            failureStage = failureStage,
+        ).takeIf { candidateEligible || it != "unknown" }
+        ?: "unknown"
     val standardGpuProbe =
         BuildConfig.CURRENT_FLAVOR == "standard" &&
             context.preferredBackend.equals("GPU", ignoreCase = true) &&
-            expectedEdgeGalleryE2b
+            (expectedEdgeGalleryE2b || candidateEnabled)
     if (!standardGpuProbe) return StandardGpuProbeDiagnostics()
     val resultCandidate = resolveStandardGpuProbeResultCandidate(
         flags = flags,
@@ -328,6 +362,23 @@ internal fun buildStandardGpuProbeDiagnostics(
         runtimeStack = "standardDebug",
         callbackStreamingGate = flags.gpuNormalRouteUseCallbackStreaming?.toString() ?: "unavailable",
         resultCandidate = resultCandidate,
+        runtimeAlignmentCandidateEnabled = candidateEnabled.toString(),
+        runtimeAlignmentCandidateEligible = candidateEligible.toString(),
+        runtimeAlignmentCandidateBlockReason = candidateBlockReason,
+        runtimeAlignmentCandidateModelSizeBytes =
+            flags.standardGpuRuntimeAlignmentCandidateModelSizeBytes
+                ?: actualSize?.toString()
+                ?: "unavailable",
+        runtimeAlignmentCandidateModelIdentityHint =
+            flags.standardGpuRuntimeAlignmentCandidateModelIdentityHint
+                ?: when {
+                    expectedEdgeGalleryE2b -> "edge_gallery_e2b_expected"
+                    else -> "not_edge_gallery_e2b"
+                },
+        runtimeAlignmentCandidateRuntimeStack =
+            flags.standardGpuRuntimeAlignmentCandidateRuntimeStack
+                ?: STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_RUNTIME_STACK,
+        runtimeAlignmentCandidateResult = candidateResult,
     )
 }
 
@@ -854,6 +905,13 @@ private fun buildStandardGpuProbeRouteDiagnosticLines(
         "standard_gpu_probe_runtime_stack=${diagnostics.runtimeStack}",
         "standard_gpu_probe_callback_streaming_gate=${diagnostics.callbackStreamingGate}",
         "standard_gpu_probe_result_candidate=${diagnostics.resultCandidate}",
+        "standard_gpu_runtime_alignment_candidate_enabled=${diagnostics.runtimeAlignmentCandidateEnabled}",
+        "standard_gpu_runtime_alignment_candidate_eligible=${diagnostics.runtimeAlignmentCandidateEligible}",
+        "standard_gpu_runtime_alignment_candidate_block_reason=${diagnostics.runtimeAlignmentCandidateBlockReason}",
+        "standard_gpu_runtime_alignment_candidate_model_size_bytes=${diagnostics.runtimeAlignmentCandidateModelSizeBytes}",
+        "standard_gpu_runtime_alignment_candidate_model_identity_hint=${diagnostics.runtimeAlignmentCandidateModelIdentityHint}",
+        "standard_gpu_runtime_alignment_candidate_runtime_stack=${diagnostics.runtimeAlignmentCandidateRuntimeStack}",
+        "standard_gpu_runtime_alignment_candidate_result=${diagnostics.runtimeAlignmentCandidateResult}",
     )
 }
 

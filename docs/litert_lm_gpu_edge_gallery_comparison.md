@@ -892,6 +892,78 @@ Production promotion remains blocked until all of these gates are checked on dev
 7. NPU S1 remains gated and unchanged.
 8. `standardDebug` may still fail because its native runtime stack is intentionally not promoted.
 
+## GPU Phase 12: Standard dev-gated runtime alignment candidate
+
+Phase 1 of Standard integration adds a DEV-only candidate gate for the Standard app:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+The gate is off by default. When it is unset, Standard app behavior remains unchanged and existing GPU
+`cc:735` failure diagnostics remain the baseline. When it is enabled, the candidate path is eligible only when:
+
+- selected backend is `GPU`;
+- selected model looks like Edge Gallery E2B;
+- model size is `2588147712` bytes when the file size is available;
+- `debug.lami.gpu_normal_route_use_callback_streaming=true`;
+- no existing active generation or model/backend switch gate reports a block;
+- callback streaming diagnostics remain enabled.
+
+New diagnostics:
+
+- `standard_gpu_runtime_alignment_candidate_enabled`
+- `standard_gpu_runtime_alignment_candidate_eligible`
+- `standard_gpu_runtime_alignment_candidate_block_reason`
+- `standard_gpu_runtime_alignment_candidate_model_size_bytes`
+- `standard_gpu_runtime_alignment_candidate_model_identity_hint`
+- `standard_gpu_runtime_alignment_candidate_runtime_stack`
+- `standard_gpu_runtime_alignment_candidate_result`
+
+Manual Standard verification:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+Use the Edge Gallery E2B model and GPU backend. Test prompts:
+
+1. `こんにちは`
+2. `カレーの材料をお願いします。`
+3. `さっぱり系でお願いします。`
+4. `分量も教えてください。`
+
+Expected success indicators:
+
+- `selected_backend=GPU`
+- `route_family=local_gpu`
+- `failure_stage=none`
+- `standard_gpu_runtime_alignment_candidate_enabled=true`
+- `standard_gpu_runtime_alignment_candidate_eligible=true`
+- `gpu_callback_streaming_path_selected=true`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+
+Rollback:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate false
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+```
+
+This is still not production promotion. Standard GPU remains off by default; native runtime stack promotion is still
+prohibited outside an explicit full-stack alignment plan.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

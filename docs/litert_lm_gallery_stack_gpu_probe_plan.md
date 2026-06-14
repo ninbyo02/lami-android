@@ -443,6 +443,49 @@ Interpretation:
 - GPU still fails at `runtime/executor/llm_litert_compiled_model_executor.cc:735`: public `Backend.GPU` or inaccessible `GPU_ARTISAN`/internal executor remains the likely blocker.
 - GPU fails earlier at load/init: staged native stack is incompatible with this app packaging/dependency graph.
 
+## Standard Phase 1 Dev Gate
+
+The Standard app now has a DEV-only runtime alignment candidate gate. It does not stage native libraries and it is off
+by default.
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+Eligibility requires GPU backend, an Edge Gallery E2B-compatible model, exact model size when available, the callback
+streaming gate, and no active generation/switch block. The candidate emits:
+
+- `standard_gpu_runtime_alignment_candidate_enabled`
+- `standard_gpu_runtime_alignment_candidate_eligible`
+- `standard_gpu_runtime_alignment_candidate_block_reason`
+- `standard_gpu_runtime_alignment_candidate_model_size_bytes`
+- `standard_gpu_runtime_alignment_candidate_model_identity_hint`
+- `standard_gpu_runtime_alignment_candidate_runtime_stack`
+- `standard_gpu_runtime_alignment_candidate_result`
+
+Test prompts:
+
+1. `こんにちは`
+2. `カレーの材料をお願いします。`
+3. `さっぱり系でお願いします。`
+4. `分量も教えてください。`
+
+Rollback:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate false
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+```
+
+Promotion remains prohibited by default. Phase 2 requires repeated Standard candidate stability checks and a full-stack
+runtime promotion design; single `.so` replacement remains prohibited.
+
 Rollback:
 
 ```bash

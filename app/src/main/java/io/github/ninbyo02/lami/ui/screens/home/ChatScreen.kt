@@ -795,7 +795,8 @@ fun Home(
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
-    LaunchedEffect(selectedInferenceTarget, effectiveChatId) {
+    LaunchedEffect(selectedInferenceTarget, effectiveChatId, isLocalInferenceRunning) {
+        if (isLocalInferenceRunning) return@LaunchedEffect
         if (selectedInferenceTarget != InferenceTarget.LOCAL) {
             effectiveChatId?.let { currentChatId ->
                 localInferenceEngineHolder.notifyLifecycleEvent(
@@ -813,10 +814,11 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
-    LaunchedEffect(localBaseModelFilePath) {
+    LaunchedEffect(localBaseModelFilePath, isLocalInferenceRunning) {
         if (localBaseModelFilePath.isNullOrBlank()) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
+        if (isLocalInferenceRunning) return@LaunchedEffect
         if (shouldApplyHeldEngineModelPath(localBaseModelFilePath)) {
             localInferenceEngineHolder.clearIfModelChanged(localBaseModelFilePath?.trim().orEmpty())
         }
