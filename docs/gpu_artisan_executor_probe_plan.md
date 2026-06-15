@@ -35,6 +35,39 @@ These remain hard blockers:
 
 No probe result should be treated as production-ready while these remain true.
 
+## Latest Internal Surface Evidence
+
+The read-only internal surface probe now completes on
+`standardGpuMinimalRuntimeCandidateDebug` when
+`debug.lami.gpu_internal_surface_probe=true`.
+
+Observed:
+
+```text
+gpu_internal_surface_probe_enabled=true
+gpu_internal_surface_probe_result=completed
+gpu_internal_surface_probe_disabled_reason=none
+gpu_internal_runtime_config_class_present=false
+gpu_internal_backend_constraint_class_present=false
+gpu_internal_preferred_engine_type_class_present=false
+gpu_internal_gpu_options_class_present=false
+gpu_internal_artisan_class_present=false
+gpu_internal_llm_gpu_artisan_executor_symbol_present=true
+gpu_internal_kv_cache_symbol_present=true
+gpu_internal_runtime_config_methods=class_absent
+gpu_internal_backend_constraint_methods=class_absent
+gpu_internal_gpu_options_methods=class_absent
+gpu_internal_probe_exception_class=none
+gpu_internal_probe_exception_message=none
+```
+
+This supports a public-API gap interpretation: Lami can see native evidence for
+`LlmGpuArtisanExecutor` and GPU KV-cache, but Java/Kotlin-visible
+`RuntimeConfig`, `BackendConstraint`, `PreferredEngineType`, `GpuOptions`, and
+`Artisan` classes are absent. The next safe step is to compare Edge Gallery APK
+native/internal fingerprints against Lami minimal GPU fingerprints. Do not move
+to reflection or forced `GPU_ARTISAN` selection from this evidence alone.
+
 ## Candidate Probe Order
 
 ### 1. API Surface Inventory

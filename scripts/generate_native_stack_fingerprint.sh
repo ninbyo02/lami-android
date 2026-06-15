@@ -13,7 +13,8 @@ TARGET_LIBS=(
   libGemmaModelConstraintProvider.so
 )
 
-KEYWORD_REGEX='GPU_ARTISAN|LlmGpuArtisanExecutor|RuntimeConfig|BackendConstraint|PreferredEngineType|CompiledModelExecutor|LlmLiteRtCompiledModelExecutor|generateContent|generateContentStream|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode'
+INTERNAL_SURFACE_REGEX='GPU_ARTISAN|LlmGpuArtisanExecutor|Artisan|RuntimeConfig|BackendConstraint|PreferredEngineType|GpuOptions|LrtCreateGpuOptionsFromToml|tflite_gpu_kv_cache|tflite_opencl_kv_cache|kv_cache|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode|CompiledModelExecutor|LlmLiteRtCompiledModelExecutor|GetRuntimeConfig|backend constraint|preferred engine'
+KEYWORD_REGEX="$INTERNAL_SURFACE_REGEX|generateContent|generateContentStream"
 JNI_REGEX='Java_.*LiteRtLmJni|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode'
 
 usage() {
@@ -179,6 +180,17 @@ material_for_executor() {
     done | sort -u
 }
 
+material_for_internal_surface() {
+  local lib_dir="$1"
+  find "$lib_dir" -maxdepth 1 -type f -name '*.so' 2>/dev/null | sort |
+    while IFS= read -r path; do
+      {
+        symbols_for_lib "$path"
+        strings_for_lib "$path"
+      } | grep -Eai "$INTERNAL_SURFACE_REGEX" | sed "s#^#$(basename "$path"):#" || true
+    done | sort -u
+}
+
 material_for_qualcomm() {
   local lib_dir="$1"
   find "$lib_dir" -maxdepth 1 -type f \
@@ -196,7 +208,7 @@ fingerprint_from_material() {
 generate_fingerprints() {
   local input="$1"
   local label="$2"
-  local tmpdir lib_dir source_file runtime_fp jni_fp executor_fp qualcomm_fp
+  local tmpdir lib_dir source_file runtime_fp jni_fp executor_fp internal_surface_fp qualcomm_fp
   tmpdir="$(mktemp -d)"
   FINGERPRINT_TMPDIR="$tmpdir"
   trap 'rm -rf "${FINGERPRINT_TMPDIR:-}"' RETURN
@@ -207,11 +219,13 @@ generate_fingerprints() {
   runtime_fp="$(material_for_runtime "$lib_dir" | fingerprint_from_material)"
   jni_fp="$(material_for_jni "$lib_dir" | fingerprint_from_material)"
   executor_fp="$(material_for_executor "$lib_dir" | fingerprint_from_material)"
+  internal_surface_fp="$(material_for_internal_surface "$lib_dir" | fingerprint_from_material)"
   qualcomm_fp="$(material_for_qualcomm "$lib_dir" | fingerprint_from_material)"
 
   printf '%s_RUNTIME_STACK_FINGERPRINT=%s\n' "$label" "$runtime_fp"
   printf '%s_JNI_SURFACE_FINGERPRINT=%s\n' "$label" "$jni_fp"
   printf '%s_EXECUTOR_SYMBOL_FINGERPRINT=%s\n' "$label" "$executor_fp"
+  printf '%s_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$label" "$internal_surface_fp"
   printf '%s_QUALCOMM_STACK_FINGERPRINT=%s\n' "$label" "$qualcomm_fp"
   printf '%s_NATIVE_LIB_COUNT=%s\n' "$label" "$(find "$lib_dir" -maxdepth 1 -type f -name '*.so' 2>/dev/null | wc -l | awk '{print $1}')"
 }
@@ -232,6 +246,10 @@ run_self_test() {
   }
   printf '%s\n' "$out" | grep -Fq 'TEST_JNI_SURFACE_FINGERPRINT=' || {
     echo "self-test failed: missing JNI fingerprint" >&2
+    exit 1
+  }
+  printf '%s\n' "$out" | grep -Fq 'TEST_INTERNAL_SURFACE_FINGERPRINT=' || {
+    echo "self-test failed: missing internal surface fingerprint" >&2
     exit 1
   }
   rm -rf "$tmpdir"

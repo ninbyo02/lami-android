@@ -132,6 +132,7 @@ render_report() {
   local apk_native_diff="$3"
   local output="$4"
   local tmpdir latest_device executor_file promotion_blocker
+  local internal_surface_file
 
   mkdir -p "$(dirname "$output")"
   tmpdir="$(mktemp -d)"
@@ -141,6 +142,8 @@ render_report() {
   latest_device="$(latest_file_in_dir "$device_runs" || true)"
   executor_file="$(first_file_with_key "$device_runs" "edge_gallery_executor_probe_result" || true)"
   [[ -n "$executor_file" ]] || executor_file="$latest_device"
+  internal_surface_file="$(first_file_with_key "$device_runs" "gpu_internal_surface_probe_enabled" || true)"
+  [[ -n "$internal_surface_file" ]] || internal_surface_file="$executor_file"
   promotion_blocker="$(promotion_blocker_from_file "$latest_device")"
 
   {
@@ -153,7 +156,8 @@ render_report() {
     printf '| quality matrix | %s | `%s` |\n' "$([[ -d "$quality_matrix" ]] && printf present || printf missing)" "$quality_matrix"
     printf '| APK native diff | %s | `%s` |\n' "$([[ -d "$apk_native_diff" ]] && printf present || printf missing)" "$apk_native_diff"
     printf '| latest device run | %s | `%s` |\n' "$([[ -n "$latest_device" ]] && printf present || printf missing)" "${latest_device:-none}"
-    printf '| executor probe file | %s | `%s` |\n\n' "$([[ -n "$executor_file" ]] && printf present || printf missing)" "${executor_file:-none}"
+    printf '| executor probe file | %s | `%s` |\n' "$([[ -n "$executor_file" ]] && printf present || printf missing)" "${executor_file:-none}"
+    printf '| internal surface probe file | %s | `%s` |\n\n' "$([[ -n "$internal_surface_file" ]] && printf present || printf missing)" "${internal_surface_file:-none}"
   } >"$output"
 
   {
@@ -198,6 +202,40 @@ render_report() {
       printf 'missing: no executor probe diagnostics found.\n\n'
     fi
   } >>"$output"
+
+  {
+    printf '## GPU Internal Surface Probe Summary\n\n'
+    if [[ -n "$internal_surface_file" && -f "$internal_surface_file" ]]; then
+      printf 'Source: `%s`\n\n' "$internal_surface_file"
+    else
+      printf 'missing: no `gpu_internal_surface_probe_*` diagnostics found.\n\n'
+    fi
+  } >>"$output"
+  if [[ -n "$internal_surface_file" && -f "$internal_surface_file" ]]; then
+    append_key_table "$output" "$internal_surface_file" \
+      gpu_internal_surface_probe_enabled \
+      gpu_internal_surface_probe_result \
+      gpu_internal_surface_probe_disabled_reason \
+      gpu_internal_runtime_config_class_present \
+      gpu_internal_backend_constraint_class_present \
+      gpu_internal_preferred_engine_type_class_present \
+      gpu_internal_gpu_options_class_present \
+      gpu_internal_artisan_class_present \
+      gpu_internal_llm_gpu_artisan_executor_symbol_present \
+      gpu_internal_kv_cache_symbol_present \
+      gpu_internal_runtime_config_methods \
+      gpu_internal_backend_constraint_methods \
+      gpu_internal_gpu_options_methods \
+      gpu_internal_probe_exception_class \
+      gpu_internal_probe_exception_message
+    {
+      printf '\n'
+      printf 'Interpretation:\n\n'
+      printf '%s\n' '- Public/internal Java classes reported as absent point to a public API gap, not a safe selector surface.'
+      printf '%s\n' '- `LlmGpuArtisanExecutor` and KV-cache native symbols reported as present point to native/internal executor capability.'
+      printf '%s\n\n' '- If promotion blocker remains true, treat this as hidden/native executor path mismatch evidence, not a promotion signal.'
+    } >>"$output"
+  fi
 
   {
     printf '## Runtime/Native Stack Fingerprint Summary\n\n'
@@ -283,7 +321,7 @@ run_self_test() {
 
   mkdir -p "$tmpdir/device_runs" "$tmpdir/quality_matrix" "$tmpdir/apk_native_diff"
   cat >"$tmpdir/device_runs/gpu_executor_probe.txt" <<'EOF'
-selected_backend=GPU route_family=local_gpu status=success edge_gallery_executor_probe_result=same_sampler_different_executor executor_selection_fingerprint=execB loaded_native_runtime_stack_fingerprint=stackA gpu_output_quality_candidate_result=quality_candidate_fail callback_corruption_earliest_stage=raw_callback gpu_output_source_corruption_stage=raw_callback gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_fragmentation_score=0.812 callback_quality_classification=severe_fragmentation
+selected_backend=GPU route_family=local_gpu status=success edge_gallery_executor_probe_result=same_sampler_different_executor executor_selection_fingerprint=execB loaded_native_runtime_stack_fingerprint=stackA gpu_output_quality_candidate_result=quality_candidate_fail callback_corruption_earliest_stage=raw_callback gpu_output_source_corruption_stage=raw_callback gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_fragmentation_score=0.812 callback_quality_classification=severe_fragmentation gpu_internal_surface_probe_enabled=true gpu_internal_surface_probe_result=completed gpu_internal_surface_probe_disabled_reason=none gpu_internal_runtime_config_class_present=false gpu_internal_backend_constraint_class_present=false gpu_internal_preferred_engine_type_class_present=false gpu_internal_gpu_options_class_present=false gpu_internal_artisan_class_present=false gpu_internal_llm_gpu_artisan_executor_symbol_present=true gpu_internal_kv_cache_symbol_present=true gpu_internal_runtime_config_methods=class_absent gpu_internal_backend_constraint_methods=class_absent gpu_internal_gpu_options_methods=class_absent gpu_internal_probe_exception_class=none gpu_internal_probe_exception_message=none
 EOF
   cat >"$tmpdir/quality_matrix/baseline.txt" <<'EOF'
 gpu_output_quality_matrix_mode=baseline gpu_output_quality_candidate_result=quality_candidate_fail gpu_fragmentation_score=0.812 average_chunk_length=1.7 one_char_chunk_ratio=0.52 gpu_output_suspicious_fragment_tail_ratio=0.18 gpu_sampler_root_cause_candidate=runtime_decode_fragmentation
@@ -313,6 +351,14 @@ EOF
   }
   grep -Fq '## Promotion Blocker Status' "$tmpdir/report.md" || {
     echo "self-test failed: missing Promotion Blocker Status" >&2
+    exit 1
+  }
+  grep -Fq '## GPU Internal Surface Probe Summary' "$tmpdir/report.md" || {
+    echo "self-test failed: missing GPU Internal Surface Probe Summary" >&2
+    exit 1
+  }
+  grep -Fq 'gpu_internal_llm_gpu_artisan_executor_symbol_present' "$tmpdir/report.md" || {
+    echo "self-test failed: missing internal surface evidence" >&2
     exit 1
   }
   grep -Fq 'Status: **blocked**' "$tmpdir/report.md" || {

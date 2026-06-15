@@ -13,6 +13,7 @@ Markdown file that summarizes:
 - GPU output quality matrix
 - executor probe classification
 - runtime/native stack fingerprints
+- GPU internal surface probe evidence
 - APK native diff
 - regression suite summary
 - promotion blocker status
@@ -139,6 +140,7 @@ artifacts/gpu_investigation_report/GPU_INVESTIGATION_REPORT.md
 | Latest device run summary | Extracts high-value keys from the newest copied diagnostics file. |
 | GPU output quality summary | Calls `scripts/summarize_gpu_output_quality_matrix.sh` when matrix artifacts exist. |
 | Executor probe classification | Calls `scripts/classify_gpu_executor_probe_result.sh` for the executor probe diagnostics. |
+| GPU internal surface probe summary | Shows read-only `gpu_internal_*` class/symbol evidence and the public API gap interpretation. |
 | Runtime/native stack fingerprint summary | Includes `native_stack_fingerprint.txt` from APK native diff output. |
 | APK native diff summary | Includes runtime stack summary, native library inventory, and JNI symbol diff snippets. |
 | Regression suite summary | Calls `scripts/summarize_gpu_regression_results.sh` when device run artifacts exist. |
@@ -164,6 +166,7 @@ If the report says blocked, do not promote standard GPU.
 | --- | --- |
 | `same_stack_different_executor` | Focus on internal executor/backend selection, RuntimeConfig, backend constraints, and GPU_ARTISAN evidence. |
 | `different_runtime_stack` | Compare APK native stack SHA-256 values and keep experiments isolated. |
+| `GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,...,gpu_artisan_symbol_present,kv_cache_symbol_present` | Treat the issue as public API gap plus native/internal executor evidence; compare Edge Gallery and Lami native/internal fingerprints next. |
 | `gpu_only_corrupt` | Collect raw callback artifacts for failing GPU prompts and compare CPU pass diagnostics. |
 | `long_text_only_corrupt` | Treat output length/decode accumulation as a stronger trigger. |
 | `quality_gate_pass` | Repeat restart, multi-turn, Markdown, long output, and mixed prompt tests before changing any gate. |
@@ -178,5 +181,7 @@ The self-test creates temporary fixtures and verifies:
 
 - report file is generated
 - `Overview` exists
+- `GPU Internal Surface Probe Summary` exists when fixture diagnostics include
+  `gpu_internal_surface_probe_enabled`
 - `Promotion Blocker Status` exists
 - missing inputs do not fail report generation

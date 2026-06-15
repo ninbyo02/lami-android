@@ -278,6 +278,62 @@ Interpretation:
 - `gpu_internal_llm_gpu_artisan_executor_symbol_present=true` with class
   presence false means the evidence is native/internal only.
 - `gpu_internal_kv_cache_symbol_present=true` strengthens the decode-cache path
+
+## Device Result: Internal Surface Probe
+
+The latest `standardGpuMinimalRuntimeCandidateDebug` GPU run with
+`debug.lami.gpu_internal_surface_probe=true` completed the read-only probe:
+
+```text
+gpu_internal_surface_probe_enabled=true
+gpu_internal_surface_probe_result=completed
+gpu_internal_surface_probe_disabled_reason=none
+gpu_internal_runtime_config_class_present=false
+gpu_internal_backend_constraint_class_present=false
+gpu_internal_preferred_engine_type_class_present=false
+gpu_internal_gpu_options_class_present=false
+gpu_internal_artisan_class_present=false
+gpu_internal_llm_gpu_artisan_executor_symbol_present=true
+gpu_internal_kv_cache_symbol_present=true
+gpu_internal_runtime_config_methods=class_absent
+gpu_internal_backend_constraint_methods=class_absent
+gpu_internal_gpu_options_methods=class_absent
+gpu_internal_probe_exception_class=none
+gpu_internal_probe_exception_message=none
+```
+
+The same run still reported:
+
+```text
+edge_gallery_executor_probe_result=same_sampler_different_executor
+edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected
+gpu_output_quality_candidate_result=quality_candidate_fail
+gpu_output_quality_gate_status=fail
+gpu_output_quality_promotion_blocker=true
+gpu_output_quality_summary=runtime_callback_source_corruption_suspected
+gpu_sampler_root_cause_candidate=runtime_decode_fragmentation
+gpu_output_source_corruption_stage=raw_callback
+callback_corruption_earliest_stage=raw_callback
+callback_quality_classification=severe_fragmentation
+```
+
+Interpretation:
+
+- Lami minimal GPU still reaches invocation, but long output corruption starts
+  at the raw callback source.
+- Public Java/Kotlin class surfaces for `RuntimeConfig`, `BackendConstraint`,
+  `PreferredEngineType`, `GpuOptions`, and `Artisan` are absent in the current
+  runtime.
+- Native/internal evidence for `LlmGpuArtisanExecutor` and GPU KV-cache remains
+  present.
+- No safe public API surface has been confirmed for selecting the Edge
+  Gallery-like internal executor/config path from Lami.
+- The next evidence to collect is an Edge Gallery APK vs Lami APK
+  native/internal surface fingerprint comparison, not a reflection-based config
+  change.
+
+Promotion remains blocked while `gpu_output_quality_promotion_blocker=true` and
+`gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`.
   hypothesis but does not identify a safe public configuration surface.
 - `gpu_internal_surface_probe_result=exception` should be treated as diagnostic
   noise unless the main route also fails independently. The probe must not

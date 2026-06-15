@@ -45,6 +45,56 @@ selector logic, not actual selection in the successful Edge Gallery run.
   runtime comparison.
 - No production or runtime behavior change is needed to continue investigation.
 
+## Latest Device Internal Surface Result
+
+The read-only internal surface probe completed in
+`standardGpuMinimalRuntimeCandidateDebug`:
+
+```text
+gpu_internal_surface_probe_enabled=true
+gpu_internal_surface_probe_result=completed
+gpu_internal_surface_probe_disabled_reason=none
+gpu_internal_runtime_config_class_present=false
+gpu_internal_backend_constraint_class_present=false
+gpu_internal_preferred_engine_type_class_present=false
+gpu_internal_gpu_options_class_present=false
+gpu_internal_artisan_class_present=false
+gpu_internal_llm_gpu_artisan_executor_symbol_present=true
+gpu_internal_kv_cache_symbol_present=true
+```
+
+The same run retained the quality blocker:
+
+```text
+edge_gallery_executor_probe_result=same_sampler_different_executor
+gpu_output_quality_candidate_result=quality_candidate_fail
+gpu_output_quality_promotion_blocker=true
+gpu_sampler_root_cause_candidate=runtime_decode_fragmentation
+callback_corruption_earliest_stage=raw_callback
+```
+
+Interpretation:
+
+- Lami public `Backend.GPU` can load the minimal runtime and invoke GPU decode.
+- Long-output corruption is still a raw callback/runtime decode failure.
+- Public class surfaces for the hidden selector/config objects are absent.
+- Native/internal symbols for `LlmGpuArtisanExecutor` and GPU KV-cache are
+  present.
+- The next concrete comparison is Edge Gallery APK vs Lami APK native/internal
+  surface fingerprints:
+
+```bash
+scripts/compare_edge_gallery_and_lami_apk.sh \
+  --edge-gallery path/to/edge_gallery.apk \
+  --lami-apk path/to/lami.apk
+```
+
+Look for:
+
+- `EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT`
+- `LAMI_INTERNAL_SURFACE_FINGERPRINT`
+- `INTERNAL_SURFACE_DIFF_SUMMARY`
+
 ## Next Device Actions
 
 ### 1. Capture Lami executor probe diagnostics

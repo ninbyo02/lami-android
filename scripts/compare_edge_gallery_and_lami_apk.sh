@@ -14,7 +14,8 @@ TARGET_LIBS=(
   libGemmaModelConstraintProvider.so
 )
 
-KEYWORD_REGEX='GPU_ARTISAN|LlmGpuArtisanExecutor|RuntimeConfig|BackendConstraint|PreferredEngineType|CompiledModelExecutor|LlmLiteRtCompiledModelExecutor|generateContent|generateContentStream|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode'
+INTERNAL_SURFACE_REGEX='GPU_ARTISAN|LlmGpuArtisanExecutor|Artisan|RuntimeConfig|BackendConstraint|PreferredEngineType|GpuOptions|LrtCreateGpuOptionsFromToml|tflite_gpu_kv_cache|tflite_opencl_kv_cache|kv_cache|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode|CompiledModelExecutor|LlmLiteRtCompiledModelExecutor|GetRuntimeConfig|backend constraint|preferred engine'
+KEYWORD_REGEX="$INTERNAL_SURFACE_REGEX|generateContent|generateContentStream"
 JNI_REGEX='Java_.*LiteRtLmJni|nativeGenerateContent|nativeGenerateContentStream|nativeRunPrefill|nativeRunDecode'
 
 usage() {
@@ -140,7 +141,7 @@ presence_flags() {
   local strings_content
   strings_content="$(strings_for_lib "$file")"
   local flag output=""
-  for flag in GPU_ARTISAN LlmGpuArtisanExecutor RuntimeConfig BackendConstraint PreferredEngineType CompiledModelExecutor nativeGenerateContent nativeGenerateContentStream nativeRunPrefill nativeRunDecode; do
+  for flag in GPU_ARTISAN LlmGpuArtisanExecutor Artisan RuntimeConfig BackendConstraint PreferredEngineType GpuOptions LrtCreateGpuOptionsFromToml tflite_gpu_kv_cache tflite_opencl_kv_cache kv_cache CompiledModelExecutor LlmLiteRtCompiledModelExecutor GetRuntimeConfig nativeGenerateContent nativeGenerateContentStream nativeRunPrefill nativeRunDecode; do
     if printf '%s\n' "$strings_content" | grep -Fq "$flag"; then
       output="${output}${flag}=yes;"
     else
@@ -234,6 +235,17 @@ executor_material() {
     done | sort -u
 }
 
+internal_surface_material() {
+  local lib_dir="$1"
+  find "$lib_dir" -maxdepth 1 -type f -name '*.so' 2>/dev/null | sort |
+    while IFS= read -r path; do
+      {
+        symbols_for_lib "$path"
+        strings_for_lib "$path"
+      } | grep -Eai "$INTERNAL_SURFACE_REGEX" | sed "s#^#$(basename "$path"):#" || true
+    done | sort -u
+}
+
 fingerprint_from_material() {
   sha_for_stream
 }
@@ -249,6 +261,8 @@ write_fingerprints() {
     "$ROOT_DIR/scripts/generate_native_stack_fingerprint.sh" --input "$lami_input" --label LAMI
     printf 'EDGE_EXECUTOR_KEYWORD_FINGERPRINT=%s\n' "$(executor_material "$edge_dir" | fingerprint_from_material)"
     printf 'LAMI_EXECUTOR_KEYWORD_FINGERPRINT=%s\n' "$(executor_material "$lami_dir" | fingerprint_from_material)"
+    printf 'EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$(internal_surface_material "$edge_dir" | fingerprint_from_material)"
+    printf 'LAMI_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$(internal_surface_material "$lami_dir" | fingerprint_from_material)"
   } >"$out"
 }
 
@@ -264,13 +278,15 @@ write_summary() {
   local fingerprint_file="$3"
   local inventory_file="$4"
   local out="$5"
-  local edge_runtime lami_runtime edge_jni lami_jni edge_exec lami_exec edge_qualcomm lami_qualcomm
+  local edge_runtime lami_runtime edge_jni lami_jni edge_exec lami_exec edge_internal lami_internal edge_qualcomm lami_qualcomm
   edge_runtime="$(read_key_from_file "$fingerprint_file" EDGE_RUNTIME_STACK_FINGERPRINT)"
   lami_runtime="$(read_key_from_file "$fingerprint_file" LAMI_RUNTIME_STACK_FINGERPRINT)"
   edge_jni="$(read_key_from_file "$fingerprint_file" EDGE_JNI_SURFACE_FINGERPRINT)"
   lami_jni="$(read_key_from_file "$fingerprint_file" LAMI_JNI_SURFACE_FINGERPRINT)"
   edge_exec="$(read_key_from_file "$fingerprint_file" EDGE_EXECUTOR_SYMBOL_FINGERPRINT)"
   lami_exec="$(read_key_from_file "$fingerprint_file" LAMI_EXECUTOR_SYMBOL_FINGERPRINT)"
+  edge_internal="$(read_key_from_file "$fingerprint_file" EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT)"
+  lami_internal="$(read_key_from_file "$fingerprint_file" LAMI_INTERNAL_SURFACE_FINGERPRINT)"
   edge_qualcomm="$(read_key_from_file "$fingerprint_file" EDGE_QUALCOMM_STACK_FINGERPRINT)"
   lami_qualcomm="$(read_key_from_file "$fingerprint_file" LAMI_QUALCOMM_STACK_FINGERPRINT)"
   {
@@ -279,6 +295,8 @@ write_summary() {
     printf 'runtime_stack_same=%s\n' "$([[ "$edge_runtime" == "$lami_runtime" ]] && printf yes || printf no)"
     printf 'jni_surface_same=%s\n' "$([[ "$edge_jni" == "$lami_jni" ]] && printf yes || printf no)"
     printf 'executor_symbol_same=%s\n' "$([[ "$edge_exec" == "$lami_exec" ]] && printf yes || printf no)"
+    printf 'internal_surface_same=%s\n' "$([[ "$edge_internal" == "$lami_internal" ]] && printf yes || printf no)"
+    printf 'INTERNAL_SURFACE_DIFF_SUMMARY=%s\n' "$([[ "$edge_internal" == "$lami_internal" ]] && printf same_internal_surface || printf different_internal_surface)"
     printf 'qualcomm_stack_same=%s\n' "$([[ "$edge_qualcomm" == "$lami_qualcomm" ]] && printf yes || printf no)"
     printf 'missing_high_priority_lami_libs='
     awk -F '\t' 'NR > 1 && $2 == "yes" && $5 == "no" && $1 !~ /^libQnn/ {printf "%s,", $1}' "$inventory_file"
@@ -336,6 +354,11 @@ run_self_test() {
   }
   grep -Fq 'runtime_stack_same=no' "$out_dir/runtime_stack_summary.txt" || {
     echo "self-test failed: expected runtime stack difference" >&2
+    cat "$out_dir/runtime_stack_summary.txt" >&2
+    exit 1
+  }
+  grep -Fq 'INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface' "$out_dir/runtime_stack_summary.txt" || {
+    echo "self-test failed: expected internal surface difference" >&2
     cat "$out_dir/runtime_stack_summary.txt" >&2
     exit 1
   }

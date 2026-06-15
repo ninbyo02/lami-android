@@ -33,7 +33,7 @@ run_self_test() {
   trap 'rm -rf "${SELF_TEST_TMPDIR:-}"' EXIT
 
   write_fixture "$tmpdir/raw_corrupt.txt" \
-    "source_summary=sample edge_gallery_executor_probe_result=same_sampler_different_executor loaded_native_runtime_stack_fingerprint=stackA executor_selection_fingerprint=execB gpu_output_quality_candidate_result=quality_candidate_fail callback_corruption_earliest_stage=raw_callback gpu_output_source_corruption_stage=raw_callback gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true"
+    "source_summary=sample edge_gallery_executor_probe_result=same_sampler_different_executor loaded_native_runtime_stack_fingerprint=stackA executor_selection_fingerprint=execB gpu_output_quality_candidate_result=quality_candidate_fail callback_corruption_earliest_stage=raw_callback gpu_output_source_corruption_stage=raw_callback gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_internal_runtime_config_class_present=false gpu_internal_backend_constraint_class_present=false gpu_internal_preferred_engine_type_class_present=false gpu_internal_gpu_options_class_present=false gpu_internal_artisan_class_present=false gpu_internal_llm_gpu_artisan_executor_symbol_present=true gpu_internal_kv_cache_symbol_present=true"
   write_fixture "$tmpdir/pass.txt" \
     "edge_gallery_executor_probe_result=same_runtime_stack loaded_native_runtime_stack_fingerprint=stackA executor_selection_fingerprint=execA gpu_output_quality_candidate_result=quality_candidate_pass callback_corruption_earliest_stage=none gpu_output_quality_gate_status=pass gpu_output_quality_promotion_blocker=false"
   write_fixture "$tmpdir/baseline.txt" \
@@ -41,8 +41,11 @@ run_self_test() {
   write_fixture "$tmpdir/different_stack.txt" \
     "loaded_native_runtime_stack_fingerprint=stackB executor_selection_fingerprint=execA gpu_output_quality_candidate_result=quality_candidate_pass"
 
-  local raw_class pass_class stack_class
-  raw_class="$(classify_file "$tmpdir/raw_corrupt.txt" "" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
+  local raw_output raw_class raw_evidence raw_next_action pass_class stack_class
+  raw_output="$(classify_file "$tmpdir/raw_corrupt.txt" "")"
+  raw_class="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
+  raw_evidence="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_INTERNAL_SURFACE_EVIDENCE=/ {print $2}')"
+  raw_next_action="$(printf '%s\n' "$raw_output" | awk -F= '/^NEXT_ACTION=/ {print $2}')"
   pass_class="$(classify_file "$tmpdir/pass.txt" "" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
   stack_class="$(classify_file "$tmpdir/different_stack.txt" "$tmpdir/baseline.txt" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
 
@@ -58,6 +61,16 @@ run_self_test() {
     echo "self-test failed: stack classification=$stack_class" >&2
     exit 1
   }
+  [[ "$raw_evidence" == *"runtime_config_class_absent"* &&
+    "$raw_evidence" == *"gpu_artisan_symbol_present"* &&
+    "$raw_evidence" == *"kv_cache_symbol_present"* ]] || {
+    echo "self-test failed: internal surface evidence=$raw_evidence" >&2
+    exit 1
+  }
+  [[ "$raw_next_action" == "compare_edge_gallery_native_internal_executor_selection_and_public_api_gap" ]] || {
+    echo "self-test failed: next action=$raw_next_action" >&2
+    exit 1
+  }
   rm -rf "$tmpdir"
   SELF_TEST_TMPDIR=""
   trap - EXIT
@@ -71,12 +84,48 @@ bool_true() {
   esac
 }
 
+internal_surface_evidence() {
+  local input="$1"
+  local runtime_config backend_constraint preferred_engine gpu_options artisan artisan_symbol kv_cache
+  runtime_config="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_runtime_config_class_present")"
+  backend_constraint="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_backend_constraint_class_present")"
+  preferred_engine="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_preferred_engine_type_class_present")"
+  gpu_options="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_gpu_options_class_present")"
+  artisan="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_artisan_class_present")"
+  artisan_symbol="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_llm_gpu_artisan_executor_symbol_present")"
+  kv_cache="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_kv_cache_symbol_present")"
+
+  local parts=()
+  [[ "$runtime_config" == "false" ]] && parts+=("runtime_config_class_absent")
+  [[ "$runtime_config" == "true" ]] && parts+=("runtime_config_class_present")
+  [[ "$backend_constraint" == "false" ]] && parts+=("backend_constraint_class_absent")
+  [[ "$backend_constraint" == "true" ]] && parts+=("backend_constraint_class_present")
+  [[ "$preferred_engine" == "false" ]] && parts+=("preferred_engine_type_class_absent")
+  [[ "$preferred_engine" == "true" ]] && parts+=("preferred_engine_type_class_present")
+  [[ "$gpu_options" == "false" ]] && parts+=("gpu_options_class_absent")
+  [[ "$gpu_options" == "true" ]] && parts+=("gpu_options_class_present")
+  [[ "$artisan" == "false" ]] && parts+=("artisan_class_absent")
+  [[ "$artisan" == "true" ]] && parts+=("artisan_class_present")
+  [[ "$artisan_symbol" == "true" ]] && parts+=("gpu_artisan_symbol_present")
+  [[ "$artisan_symbol" == "false" ]] && parts+=("gpu_artisan_symbol_absent")
+  [[ "$kv_cache" == "true" ]] && parts+=("kv_cache_symbol_present")
+  [[ "$kv_cache" == "false" ]] && parts+=("kv_cache_symbol_absent")
+
+  if [[ "${#parts[@]}" -eq 0 ]]; then
+    printf 'unavailable\n'
+  else
+    local IFS=,
+    printf '%s\n' "${parts[*]}"
+  fi
+}
+
 classify_file() {
   local input="$1"
   local baseline="$2"
 
   local probe_result difference executor_fp runtime_stack quality callback_stage source_stage sampler_root gate_status blocker
   local baseline_runtime_stack baseline_executor_fp classification reason promotion_blocker root_cause next_action
+  local internal_evidence internal_runtime_config internal_artisan_symbol internal_kv_cache
 
   probe_result="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_probe_result")"
   difference="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_difference_summary")"
@@ -88,6 +137,10 @@ classify_file() {
   sampler_root="$(diagnostic_get_key_or_unavailable "$input" "gpu_sampler_root_cause_candidate")"
   gate_status="$(diagnostic_get_key_or_unavailable "$input" "gpu_output_quality_gate_status")"
   blocker="$(diagnostic_get_key_or_unavailable "$input" "gpu_output_quality_promotion_blocker")"
+  internal_evidence="$(internal_surface_evidence "$input")"
+  internal_runtime_config="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_runtime_config_class_present")"
+  internal_artisan_symbol="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_llm_gpu_artisan_executor_symbol_present")"
+  internal_kv_cache="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_kv_cache_symbol_present")"
 
   baseline_runtime_stack="unavailable"
   baseline_executor_fp="unavailable"
@@ -161,6 +214,11 @@ classify_file() {
       ;;
     same_stack_different_executor)
       next_action="inspect_runtime_backend_executor_fingerprints_and_edge_gallery_internal_selector"
+      if [[ "$internal_artisan_symbol" == "true" &&
+        "$internal_kv_cache" == "true" &&
+        "$internal_runtime_config" == "false" ]]; then
+        next_action="compare_edge_gallery_native_internal_executor_selection_and_public_api_gap"
+      fi
       ;;
     same_stack_same_executor_raw_callback_corrupt|callback_corruption_confirmed)
       next_action="keep_promotion_blocked_collect_raw_callback_artifacts_and_compare_edge_gallery_runtime_path"
@@ -177,6 +235,7 @@ classify_file() {
   printf 'GPU_EXECUTOR_PROBE_REASON=%s\n' "$reason"
   printf 'GPU_PROMOTION_BLOCKER=%s\n' "$promotion_blocker"
   printf 'GPU_ROOT_CAUSE_CANDIDATE=%s\n' "$root_cause"
+  printf 'GPU_INTERNAL_SURFACE_EVIDENCE=%s\n' "$internal_evidence"
   printf 'NEXT_ACTION=%s\n' "$next_action"
 }
 
