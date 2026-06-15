@@ -273,6 +273,9 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "status=${input.status}",
         "reason=${input.reason}",
         "failure_stage=${input.failureStage.ifBlank { "unknown" }}",
+        ) +
+            buildGpuInternalSurfaceProbePresenceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            listOf(
         "failure_exception_class=${input.failureExceptionClass.ifBlank { "unavailable" }}",
         "failure_exception_message=${escapeLocalInferenceFailureValue(input.failureExceptionMessage.ifBlank { "unavailable" })}",
         "failure_cause_class=${input.failureCauseClass.ifBlank { "unavailable" }}",
@@ -655,6 +658,17 @@ private fun buildGpuInternalSurfaceProbeCompactDiagnosticLines(
     return GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS.map { key ->
         "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
     }
+}
+
+private fun buildGpuInternalSurfaceProbePresenceCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS }) return emptyList()
+    return listOf(
+        "gpu_internal_surface_probe_enabled=${diagnostics["gpu_internal_surface_probe_enabled"]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}",
+        "gpu_internal_surface_probe_result=${diagnostics["gpu_internal_surface_probe_result"]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}",
+        "gpu_internal_surface_probe_disabled_reason=${diagnostics["gpu_internal_surface_probe_disabled_reason"]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}",
+    )
 }
 
 private fun extractGpuInternalSurfaceProbeDiagnostics(text: String?): Map<String, String> =

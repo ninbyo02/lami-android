@@ -214,6 +214,10 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_enabled=false"))
         assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_result=disabled"))
         assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_disabled_reason=not_gpustandardminimal_application"))
+        val edgeGalleryProbeIndex = routeDiagnostics.indexOf("edge_gallery_executor_probe_result=")
+        val internalProbeIndex = routeDiagnostics.indexOf("gpu_internal_surface_probe_enabled=")
+        assertTrue(internalProbeIndex > edgeGalleryProbeIndex)
+        assertTrue(internalProbeIndex - edgeGalleryProbeIndex < 160)
     }
 
     @Test
@@ -242,5 +246,69 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_result=disabled"))
         assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_disabled_reason=property_off"))
         assertTrue(routeDiagnostics.contains("gpu_internal_runtime_config_class_present=false"))
+    }
+
+    @Test
+    fun `compact diagnostics keep internal surface presence keys in priority section`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "gemma-4-E2B-it-edge-gallery",
+                selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                selectedModelPath = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                preferredBackend = "GPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+            ),
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "none",
+                gpuOutputQualityMatrixMode = "edge_gallery_executor_probe",
+                gpuInternalSurfaceProbeDiagnostics = mapOf(
+                    "gpu_internal_surface_probe_enabled" to "true",
+                    "gpu_internal_surface_probe_result" to "completed_with_missing_symbols",
+                    "gpu_internal_surface_probe_disabled_reason" to "none",
+                    "gpu_internal_runtime_config_class_present" to "false",
+                    "gpu_internal_backend_constraint_class_present" to "false",
+                    "gpu_internal_preferred_engine_type_class_present" to "false",
+                    "gpu_internal_gpu_options_class_present" to "false",
+                    "gpu_internal_artisan_class_present" to "false",
+                    "gpu_internal_llm_gpu_artisan_executor_symbol_present" to "unavailable",
+                    "gpu_internal_kv_cache_symbol_present" to "unavailable",
+                    "gpu_internal_runtime_config_methods" to "class_absent",
+                    "gpu_internal_backend_constraint_methods" to "class_absent",
+                    "gpu_internal_gpu_options_methods" to "class_absent",
+                    "gpu_internal_probe_exception_class" to "none",
+                    "gpu_internal_probe_exception_message" to "none",
+                ),
+            ),
+            elapsedMs = 1_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "diagnostic_success",
+                routeContext = buildLocalRouteDiagnosticContext(
+                    selectedModelName = "gemma-4-E2B-it-edge-gallery",
+                    selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                    selectedModelPath = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                    preferredBackend = "GPU",
+                    npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                    shouldEnterNpuS1 = false,
+                    localRouteEntered = true,
+                ),
+            ),
+        )
+
+        val failureStageIndex = compact.indexOf("failure_stage=")
+        val internalProbeIndex = compact.indexOf("gpu_internal_surface_probe_enabled=")
+        assertTrue(internalProbeIndex > failureStageIndex)
+        assertTrue(internalProbeIndex - failureStageIndex < 128)
+        assertTrue(compact.contains("gpu_internal_surface_probe_result=completed_with_missing_symbols"))
+        assertTrue(compact.contains("gpu_internal_surface_probe_disabled_reason=none"))
     }
 }
