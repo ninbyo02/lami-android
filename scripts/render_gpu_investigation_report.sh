@@ -413,6 +413,10 @@ EOF
     echo "self-test failed: missing internal surface evidence" >&2
     exit 1
   }
+  grep -Fq 'PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present' "$tmpdir/report.md" || {
+    echo "self-test failed: missing public API gap summary" >&2
+    exit 1
+  }
   grep -Fq 'Status: **blocked**' "$tmpdir/report.md" || {
     echo "self-test failed: expected blocked status" >&2
     exit 1

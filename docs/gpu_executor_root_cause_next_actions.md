@@ -146,6 +146,23 @@ Reading:
 - Static token parity for `GPU_ARTISAN` does not mean Lami's public
   `Backend.GPU` reaches the same internal decode path as Edge Gallery.
 
+The current public API gap inventory adds:
+
+```text
+PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=false
+PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=false
+PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=false
+PUBLIC_GPU_OPTIONS_API_AVAILABLE=false
+PUBLIC_ARTISAN_API_AVAILABLE=false
+NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=true
+NATIVE_KV_CACHE_SYMBOL_PRESENT=true
+PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present
+```
+
+This is the clearest Phase 10 formulation of the current gap: the native
+runtime exposes executor/decode capability, but the Lami public route has no
+safe Java/Kotlin selector API for it.
+
 Updated root cause ordering:
 
 1. Edge Gallery internal executor selection path differs from Lami public
@@ -157,6 +174,33 @@ Updated root cause ordering:
    inaccessible from the Lami route.
 5. Native stack / symbol set partially differs.
 6. Sampler, max tokens, and public cacheDir remain low-priority explanations.
+
+## Safe And Unsafe Next Actions
+
+Safe to continue now:
+
+- Strengthen docs, scripts, classifier output, and report generation.
+- Re-run APK/native/internal fingerprint comparison whenever Edge Gallery or
+  LiteRT-LM artifacts change.
+- Track upstream AI Edge Gallery / LiteRT-LM changes for public
+  `RuntimeConfig`, `BackendConstraint`, `PreferredEngineType`, `GpuOptions`, or
+  artisan executor APIs.
+- Keep CPU as stable default while GPU remains experimental.
+- Continue NPU route investigation independently.
+- Keep collecting raw callback artifacts and executor fingerprints in
+  DEV-only flavors.
+
+Do not do in the current phase:
+
+- Force `GPU_ARTISAN` through reflection.
+- Construct and pass hidden `RuntimeConfig`, `BackendConstraint`, or
+  `PreferredEngineType` objects.
+- Call `nativeGenerateContentStream`, `nativeRunPrefill`, or `nativeRunDecode`
+  directly.
+- Swap individual `.so` files into standardDebug.
+- Copy Edge Gallery internal implementation details into Lami without a public
+  API or isolated license/packaging review.
+- Hide GPU corruption by repairing callback text after the fact.
 
 ## Next Device Actions
 

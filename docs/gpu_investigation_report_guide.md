@@ -176,6 +176,7 @@ If the report says blocked, do not promote standard GPU.
 | `same_stack_different_executor` | Focus on internal executor/backend selection, RuntimeConfig, backend constraints, and GPU_ARTISAN evidence. |
 | `different_runtime_stack` | Compare APK native stack SHA-256 values and keep experiments isolated. |
 | `GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,...,gpu_artisan_symbol_present,kv_cache_symbol_present` | Treat the issue as public API gap plus native/internal executor evidence; compare Edge Gallery and Lami native/internal fingerprints next. |
+| `PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present` | Public selector/config classes are absent while native executor/KV-cache evidence is present. Track public API or upstream Edge Gallery internal selector gap; do not force hidden config. |
 | `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface` | Edge Gallery APK and Lami APK expose different hidden executor/config/KV-cache string/symbol surfaces. Keep investigation on native/internal selector differences. |
 | `INTERNAL_SURFACE_DIFF_SUMMARY=same_internal_surface` plus `same_sampler_different_executor` | Static capability appears aligned; focus on runtime selector inputs, model metadata, backend constraints, or hidden RuntimeConfig values. |
 | `EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens` | Static executor/backend token inventories differ. Use the Edge-only / Lami-only / common token lists to decide what to inspect next, but do not treat token presence as runtime selection proof. |
@@ -227,6 +228,8 @@ For the current failing Lami GPU path, expected high-value output is:
 ```text
 GPU_EXECUTOR_PROBE_CLASSIFICATION=same_stack_different_executor
 GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,backend_constraint_class_absent,preferred_engine_type_class_absent,gpu_options_class_absent,artisan_class_absent,gpu_artisan_symbol_present,kv_cache_symbol_present
+PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present
+PUBLIC_API_GAP_NEXT_ACTION=track_public_api_or_upstream_edge_gallery_internal_selector_gap
 GPU_PROMOTION_BLOCKER=true
 GPU_ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
 NEXT_ACTION=compare_edge_gallery_native_internal_executor_selection_and_public_api_gap

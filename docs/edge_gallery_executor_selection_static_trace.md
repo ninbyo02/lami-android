@@ -151,6 +151,28 @@ Interpretation:
 - Token presence proves availability of strings/symbols only. It does not prove
   which executor Edge Gallery selected during the known-good GPU run.
 
+Phase 10 public API gap inventory:
+
+```text
+PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=false
+PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=false
+PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=false
+PUBLIC_GPU_OPTIONS_API_AVAILABLE=false
+PUBLIC_ARTISAN_API_AVAILABLE=false
+NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=true
+NATIVE_KV_CACHE_SYMBOL_PRESENT=true
+PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present
+```
+
+This separates two facts that should not be conflated:
+
+- Native/internal tokens show the runtime contains GPU artisan / decode-cache
+  capabilities.
+- Public Java/Kotlin API inventory shows Lami cannot safely select those
+  capabilities through the current public `Backend.GPU` route.
+
+The likely gap is therefore a runtime selector gap, not missing token presence.
+
 ## Unknowns
 
 Static strings do not prove which executor Edge Gallery selected during the

@@ -56,6 +56,9 @@ artifacts/litertlm_api_surface/method_inventory.txt
 artifacts/litertlm_api_surface/reflection_candidate_methods.txt
 artifacts/litertlm_api_surface/gpu_executor_candidate_symbols.txt
 artifacts/litertlm_api_surface/api_surface_summary.txt
+artifacts/litertlm_api_surface/public_api_inventory.txt
+artifacts/litertlm_api_surface/internal_native_token_inventory.txt
+artifacts/litertlm_api_surface/public_api_gap_summary.txt
 ```
 
 The current local inventory found the expected public classes in the Maven AARs:
@@ -65,7 +68,22 @@ The current local inventory found the expected public classes in the Maven AARs:
 - `Conversation` and `ConversationConfig`.
 - `SamplerConfig`.
 
-It did not find Java-visible target classes for:
+Current public API inventory:
+
+```text
+PUBLIC_BACKEND_API_AVAILABLE=true
+PUBLIC_BACKEND_GPU_API_AVAILABLE=true
+PUBLIC_ENGINE_CONFIG_API_AVAILABLE=true
+PUBLIC_CONVERSATION_CONFIG_API_AVAILABLE=true
+PUBLIC_SAMPLER_CONFIG_API_AVAILABLE=true
+PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=false
+PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=false
+PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=false
+PUBLIC_GPU_OPTIONS_API_AVAILABLE=false
+PUBLIC_ARTISAN_API_AVAILABLE=false
+```
+
+It did not find Java-visible target classes for the selector/config surfaces:
 
 - `RuntimeConfig`
 - `RuntimeConfig$Builder`
@@ -76,8 +94,24 @@ It did not find Java-visible target classes for:
 - `GpuOptions`
 - `LlmGpuArtisanExecutor`
 
-The same names are visible in native strings/static artifacts, so they should be
-treated as native/internal evidence, not a public Kotlin/Java API surface.
+Native/internal token inventory still reports those concepts as present:
+
+```text
+NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=true
+NATIVE_KV_CACHE_SYMBOL_PRESENT=true
+NATIVE_RUNTIME_CONFIG_TOKEN_PRESENT=true
+NATIVE_BACKEND_CONSTRAINT_TOKEN_PRESENT=true
+NATIVE_PREFERRED_ENGINE_TOKEN_PRESENT=true
+NATIVE_GPU_OPTIONS_TOKEN_PRESENT=true
+NATIVE_GENERATE_STREAM_TOKEN_PRESENT=true
+NATIVE_PREFILL_DECODE_TOKEN_PRESENT=true
+PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present
+```
+
+The same concepts are visible in native strings/static artifacts, so they should
+be treated as native/internal evidence, not a public Kotlin/Java API surface.
+The gap is now explicit: Lami can see symbols/tokens for the internal executor
+family but cannot safely select it through public Java/Kotlin classes.
 
 ## Phase 9 Native/Internal Trace Evidence
 
@@ -112,6 +146,8 @@ This refines the interpretation:
   common.
 - The strongest next question is not "does the string exist?" but "which
   selector path chooses it during decode?"
+- `PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present`
+  is the current expected classifier/report summary for this state.
 
 ## LAMI Public GPU Surface
 

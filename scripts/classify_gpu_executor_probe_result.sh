@@ -41,11 +41,13 @@ run_self_test() {
   write_fixture "$tmpdir/different_stack.txt" \
     "loaded_native_runtime_stack_fingerprint=stackB executor_selection_fingerprint=execA gpu_output_quality_candidate_result=quality_candidate_pass"
 
-  local raw_output raw_class raw_evidence raw_next_action pass_class stack_class
+  local raw_output raw_class raw_evidence raw_gap raw_next_action raw_public_next_action pass_class stack_class
   raw_output="$(classify_file "$tmpdir/raw_corrupt.txt" "")"
   raw_class="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
   raw_evidence="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_INTERNAL_SURFACE_EVIDENCE=/ {print $2}')"
+  raw_gap="$(printf '%s\n' "$raw_output" | awk -F= '/^PUBLIC_API_GAP_SUMMARY=/ {print $2}')"
   raw_next_action="$(printf '%s\n' "$raw_output" | awk -F= '/^NEXT_ACTION=/ {print $2}')"
+  raw_public_next_action="$(printf '%s\n' "$raw_output" | awk -F= '/^PUBLIC_API_GAP_NEXT_ACTION=/ {print $2}')"
   pass_class="$(classify_file "$tmpdir/pass.txt" "" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
   stack_class="$(classify_file "$tmpdir/different_stack.txt" "$tmpdir/baseline.txt" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
 
@@ -67,8 +69,16 @@ run_self_test() {
     echo "self-test failed: internal surface evidence=$raw_evidence" >&2
     exit 1
   }
+  [[ "$raw_gap" == "public_selector_api_absent_native_executor_symbols_present" ]] || {
+    echo "self-test failed: public API gap summary=$raw_gap" >&2
+    exit 1
+  }
   [[ "$raw_next_action" == "compare_edge_gallery_native_internal_executor_selection_and_public_api_gap" ]] || {
     echo "self-test failed: next action=$raw_next_action" >&2
+    exit 1
+  }
+  [[ "$raw_public_next_action" == "track_public_api_or_upstream_edge_gallery_internal_selector_gap" ]] || {
+    echo "self-test failed: public API gap next action=$raw_public_next_action" >&2
     exit 1
   }
   rm -rf "$tmpdir"
@@ -119,6 +129,48 @@ internal_surface_evidence() {
   fi
 }
 
+public_api_gap_summary() {
+  local input="$1"
+  local existing runtime_config backend_constraint preferred_engine gpu_options artisan artisan_symbol kv_cache
+  existing="$(diagnostic_get_key_or_unavailable "$input" "PUBLIC_API_GAP_SUMMARY")"
+  if [[ "$existing" != "unavailable" && -n "$existing" ]]; then
+    printf '%s\n' "$existing"
+    return
+  fi
+
+  runtime_config="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_runtime_config_class_present")"
+  backend_constraint="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_backend_constraint_class_present")"
+  preferred_engine="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_preferred_engine_type_class_present")"
+  gpu_options="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_gpu_options_class_present")"
+  artisan="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_artisan_class_present")"
+  artisan_symbol="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_llm_gpu_artisan_executor_symbol_present")"
+  kv_cache="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_kv_cache_symbol_present")"
+
+  if [[ "$runtime_config" == "false" &&
+    "$backend_constraint" == "false" &&
+    "$preferred_engine" == "false" &&
+    "$gpu_options" == "false" &&
+    "$artisan" == "false" &&
+    "$artisan_symbol" == "true" &&
+    "$kv_cache" == "true" ]]; then
+    printf 'public_selector_api_absent_native_executor_symbols_present\n'
+  elif [[ "$runtime_config" == "true" ||
+    "$backend_constraint" == "true" ||
+    "$preferred_engine" == "true" ||
+    "$gpu_options" == "true" ||
+    "$artisan" == "true" ]]; then
+    printf 'public_selector_api_partially_available\n'
+  elif [[ "$runtime_config" == "unavailable" &&
+    "$backend_constraint" == "unavailable" &&
+    "$preferred_engine" == "unavailable" &&
+    "$gpu_options" == "unavailable" &&
+    "$artisan" == "unavailable" ]]; then
+    printf 'unavailable\n'
+  else
+    printf 'unknown\n'
+  fi
+}
+
 classify_file() {
   local input="$1"
   local baseline="$2"
@@ -126,6 +178,7 @@ classify_file() {
   local probe_result difference executor_fp runtime_stack quality callback_stage source_stage sampler_root gate_status blocker
   local baseline_runtime_stack baseline_executor_fp classification reason promotion_blocker root_cause next_action
   local internal_evidence internal_runtime_config internal_artisan_symbol internal_kv_cache
+  local public_gap_summary public_gap_next_action
 
   probe_result="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_probe_result")"
   difference="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_difference_summary")"
@@ -141,6 +194,11 @@ classify_file() {
   internal_runtime_config="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_runtime_config_class_present")"
   internal_artisan_symbol="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_llm_gpu_artisan_executor_symbol_present")"
   internal_kv_cache="$(diagnostic_get_key_or_unavailable "$input" "gpu_internal_kv_cache_symbol_present")"
+  public_gap_summary="$(public_api_gap_summary "$input")"
+  public_gap_next_action="unavailable"
+  if [[ "$public_gap_summary" == "public_selector_api_absent_native_executor_symbols_present" ]]; then
+    public_gap_next_action="track_public_api_or_upstream_edge_gallery_internal_selector_gap"
+  fi
 
   baseline_runtime_stack="unavailable"
   baseline_executor_fp="unavailable"
@@ -236,6 +294,8 @@ classify_file() {
   printf 'GPU_PROMOTION_BLOCKER=%s\n' "$promotion_blocker"
   printf 'GPU_ROOT_CAUSE_CANDIDATE=%s\n' "$root_cause"
   printf 'GPU_INTERNAL_SURFACE_EVIDENCE=%s\n' "$internal_evidence"
+  printf 'PUBLIC_API_GAP_SUMMARY=%s\n' "$public_gap_summary"
+  printf 'PUBLIC_API_GAP_NEXT_ACTION=%s\n' "$public_gap_next_action"
   printf 'NEXT_ACTION=%s\n' "$next_action"
 }
 

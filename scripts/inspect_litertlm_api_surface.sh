@@ -31,6 +31,7 @@ TARGET_CLASSES=(
   'com.google.ai.edge.litertlm.BackendConstraint$Builder'
   com.google.ai.edge.litertlm.GpuOptions
   'com.google.ai.edge.litertlm.GpuOptions$Builder'
+  com.google.ai.edge.litertlm.Artisan
   com.google.ai.edge.litertlm.LlmGpuArtisanExecutor
   com.google.ai.edge.litertlm.CompiledModelExecutor
 )
@@ -257,6 +258,93 @@ write_summary() {
       printf 'absent'
     fi
   }
+  public_api_available() {
+    local class_name="$1"
+    if [[ "$(public_class_presence "$class_name")" == "present" ]]; then
+      printf 'true'
+    else
+      printf 'false'
+    fi
+  }
+  public_artisan_api_available() {
+    if [[ "$(public_class_presence 'com.google.ai.edge.litertlm.Artisan')" == "present" ||
+      "$(public_class_presence 'com.google.ai.edge.litertlm.LlmGpuArtisanExecutor')" == "present" ]]; then
+      printf 'true'
+    else
+      printf 'false'
+    fi
+  }
+  native_token_present() {
+    local pattern="$1"
+    if [[ "$(native_evidence_presence "$pattern")" == "present" ]]; then
+      printf 'true'
+    else
+      printf 'false'
+    fi
+  }
+  local public_runtime_config public_backend_constraint public_preferred_engine public_gpu_options public_artisan
+  local native_gpu_artisan native_kv_cache public_gap_summary
+  public_runtime_config="$(public_api_available 'com.google.ai.edge.litertlm.RuntimeConfig')"
+  public_backend_constraint="$(public_api_available 'com.google.ai.edge.litertlm.BackendConstraint')"
+  public_preferred_engine="$(public_api_available 'com.google.ai.edge.litertlm.PreferredEngineType')"
+  public_gpu_options="$(public_api_available 'com.google.ai.edge.litertlm.GpuOptions')"
+  public_artisan="$(public_artisan_api_available)"
+  native_gpu_artisan="$(native_token_present 'GPU_ARTISAN|LlmGpuArtisanExecutor')"
+  native_kv_cache="$(native_token_present 'tflite_gpu_kv_cache|tflite_opencl_kv_cache|kv_cache')"
+  public_gap_summary="unknown"
+  if [[ "$public_runtime_config" == "false" &&
+    "$public_backend_constraint" == "false" &&
+    "$public_preferred_engine" == "false" &&
+    "$public_gpu_options" == "false" &&
+    "$public_artisan" == "false" &&
+    "$native_gpu_artisan" == "true" &&
+    "$native_kv_cache" == "true" ]]; then
+    public_gap_summary="public_selector_api_absent_native_executor_symbols_present"
+  elif [[ "$public_runtime_config" == "true" ||
+    "$public_backend_constraint" == "true" ||
+    "$public_preferred_engine" == "true" ||
+    "$public_gpu_options" == "true" ||
+    "$public_artisan" == "true" ]]; then
+    public_gap_summary="public_selector_api_partially_available"
+  elif [[ "$native_gpu_artisan" == "false" && "$native_kv_cache" == "false" ]]; then
+    public_gap_summary="native_executor_symbols_absent"
+  fi
+
+  {
+    printf 'PUBLIC_BACKEND_API_AVAILABLE=%s\n' "$(public_api_available 'com.google.ai.edge.litertlm.Backend')"
+    printf 'PUBLIC_BACKEND_GPU_API_AVAILABLE=%s\n' "$(public_api_available 'com.google.ai.edge.litertlm.Backend$GPU')"
+    printf 'PUBLIC_ENGINE_CONFIG_API_AVAILABLE=%s\n' "$(public_api_available 'com.google.ai.edge.litertlm.EngineConfig')"
+    printf 'PUBLIC_CONVERSATION_CONFIG_API_AVAILABLE=%s\n' "$(public_api_available 'com.google.ai.edge.litertlm.ConversationConfig')"
+    printf 'PUBLIC_SAMPLER_CONFIG_API_AVAILABLE=%s\n' "$(public_api_available 'com.google.ai.edge.litertlm.SamplerConfig')"
+    printf 'PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=%s\n' "$public_runtime_config"
+    printf 'PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=%s\n' "$public_backend_constraint"
+    printf 'PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=%s\n' "$public_preferred_engine"
+    printf 'PUBLIC_GPU_OPTIONS_API_AVAILABLE=%s\n' "$public_gpu_options"
+    printf 'PUBLIC_ARTISAN_API_AVAILABLE=%s\n' "$public_artisan"
+  } >"$OUT_DIR/public_api_inventory.txt"
+
+  {
+    printf 'NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=%s\n' "$native_gpu_artisan"
+    printf 'NATIVE_KV_CACHE_SYMBOL_PRESENT=%s\n' "$native_kv_cache"
+    printf 'NATIVE_RUNTIME_CONFIG_TOKEN_PRESENT=%s\n' "$(native_token_present 'RuntimeConfig|GetRuntimeConfig')"
+    printf 'NATIVE_BACKEND_CONSTRAINT_TOKEN_PRESENT=%s\n' "$(native_token_present 'BackendConstraint|backend constraint|Supported backends')"
+    printf 'NATIVE_PREFERRED_ENGINE_TOKEN_PRESENT=%s\n' "$(native_token_present 'PreferredEngineType|preferred engine')"
+    printf 'NATIVE_GPU_OPTIONS_TOKEN_PRESENT=%s\n' "$(native_token_present 'GpuOptions|LrtCreateGpuOptionsFromToml')"
+    printf 'NATIVE_GENERATE_STREAM_TOKEN_PRESENT=%s\n' "$(native_token_present 'nativeGenerateContentStream|generateContentStream')"
+    printf 'NATIVE_PREFILL_DECODE_TOKEN_PRESENT=%s\n' "$(native_token_present 'nativeRunPrefill|nativeRunDecode')"
+  } >"$OUT_DIR/internal_native_token_inventory.txt"
+
+  {
+    printf 'PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=%s\n' "$public_runtime_config"
+    printf 'PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=%s\n' "$public_backend_constraint"
+    printf 'PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=%s\n' "$public_preferred_engine"
+    printf 'PUBLIC_GPU_OPTIONS_API_AVAILABLE=%s\n' "$public_gpu_options"
+    printf 'PUBLIC_ARTISAN_API_AVAILABLE=%s\n' "$public_artisan"
+    printf 'NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=%s\n' "$native_gpu_artisan"
+    printf 'NATIVE_KV_CACHE_SYMBOL_PRESENT=%s\n' "$native_kv_cache"
+    printf 'PUBLIC_API_GAP_SUMMARY=%s\n' "$public_gap_summary"
+  } >"$OUT_DIR/public_api_gap_summary.txt"
+
   {
     printf 'output_dir=%s\n' "$OUT_DIR"
     printf 'gradle_cache=%s\n' "$GRADLE_CACHE"
@@ -278,6 +366,14 @@ write_summary() {
     printf 'gpu_options_native_evidence=%s\n' "$(native_evidence_presence 'GpuOptions|LrtCreateGpuOptionsFromToml')"
     printf 'gpu_artisan_native_evidence=%s\n' "$(native_evidence_presence 'GPU_ARTISAN|LlmGpuArtisanExecutor')"
     printf 'gpu_kv_cache_native_evidence=%s\n' "$(native_evidence_presence 'tflite_gpu_kv_cache|tflite_opencl_kv_cache')"
+    printf 'PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=%s\n' "$public_runtime_config"
+    printf 'PUBLIC_BACKEND_CONSTRAINT_API_AVAILABLE=%s\n' "$public_backend_constraint"
+    printf 'PUBLIC_PREFERRED_ENGINE_TYPE_API_AVAILABLE=%s\n' "$public_preferred_engine"
+    printf 'PUBLIC_GPU_OPTIONS_API_AVAILABLE=%s\n' "$public_gpu_options"
+    printf 'PUBLIC_ARTISAN_API_AVAILABLE=%s\n' "$public_artisan"
+    printf 'NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=%s\n' "$native_gpu_artisan"
+    printf 'NATIVE_KV_CACHE_SYMBOL_PRESENT=%s\n' "$native_kv_cache"
+    printf 'PUBLIC_API_GAP_SUMMARY=%s\n' "$public_gap_summary"
   } >"$OUT_DIR/api_surface_summary.txt"
 }
 
@@ -319,7 +415,7 @@ run_self_test() {
   printf 'fake class bytes\n' >"$classes_root/com/google/ai/edge/litertlm/EngineConfig.class"
   printf 'fake class bytes\n' >"$classes_root/com/google/ai/edge/litertlm/Backend.class"
   (cd "$classes_root" && jar cf "$aar_dir/classes.jar" com >/dev/null 2>&1)
-  printf 'GPU_ARTISAN\nLlmGpuArtisanExecutor\nnativeGenerateContentStream\nRuntimeConfig\n' >"$aar_dir/jni/arm64-v8a/liblitertlm_jni.so"
+  printf 'GPU_ARTISAN\nLlmGpuArtisanExecutor\nnativeGenerateContentStream\nRuntimeConfig\ntflite_gpu_kv_cache\n' >"$aar_dir/jni/arm64-v8a/liblitertlm_jni.so"
   aar_file="$fixture_root/com.google.ai.edge.litertlm/litertlm-android/0.test/litertlm-android-0.test.aar"
   (cd "$aar_dir" && jar cf "$aar_file" classes.jar jni >/dev/null 2>&1)
   GRADLE_CACHE="$fixture_root"
@@ -334,6 +430,19 @@ run_self_test() {
   }
   grep -Fq 'GPU_ARTISAN' "$OUT_DIR/gpu_executor_candidate_symbols.txt" || {
     echo "self-test failed: missing GPU_ARTISAN symbol hit" >&2
+    exit 1
+  }
+  grep -Fq 'PUBLIC_RUNTIME_CONFIG_API_AVAILABLE=false' "$OUT_DIR/public_api_gap_summary.txt" || {
+    echo "self-test failed: missing public RuntimeConfig unavailable summary" >&2
+    exit 1
+  }
+  grep -Fq 'NATIVE_GPU_ARTISAN_SYMBOL_PRESENT=true' "$OUT_DIR/public_api_gap_summary.txt" || {
+    echo "self-test failed: missing native GPU artisan summary" >&2
+    exit 1
+  }
+  grep -Fq 'PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present' "$OUT_DIR/public_api_gap_summary.txt" || {
+    echo "self-test failed: missing public API gap summary" >&2
+    cat "$OUT_DIR/public_api_gap_summary.txt" >&2
     exit 1
   }
   grep -Fq 'api_surface_summary' /tmp/lami_litertlm_api_surface_self_test.out || true
