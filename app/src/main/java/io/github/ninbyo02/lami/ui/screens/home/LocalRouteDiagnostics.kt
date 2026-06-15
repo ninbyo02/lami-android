@@ -1928,7 +1928,9 @@ internal fun buildLocalRouteDiagnosticTrace(
             preferredBackend = context.preferredBackend,
             nativeLibraryDir = context.nativeLibraryDir,
         ).toRouteDiagnosticMap()
-    }
+    }.withGpuInternalSurfaceProbePresenceDefaults(
+        preferredBackend = context.preferredBackend,
+    )
     val standardGpuMinimalRuntimeCandidate = buildStandardGpuMinimalRuntimeCandidateDiagnostics(
         context = context,
         flags = flags,
@@ -2582,6 +2584,32 @@ private fun buildGpuInternalSurfaceProbeRouteDiagnosticLines(
     return GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS.map { key ->
         "$key=${diagnostics[key]?.toDiagnosticValue() ?: "unavailable"}"
     }
+}
+
+private fun Map<String, String>.withGpuInternalSurfaceProbePresenceDefaults(
+    preferredBackend: String,
+): Map<String, String> {
+    if (isEmpty()) return emptyMap()
+    val enabled = this["gpu_internal_surface_probe_enabled"]?.takeIf { it.isNotBlank() }
+        ?: "false"
+    val result = this["gpu_internal_surface_probe_result"]?.takeIf { it.isNotBlank() }
+        ?: when {
+            !preferredBackend.equals("GPU", ignoreCase = true) -> "not_eligible"
+            enabled == "true" -> "completed_with_missing_symbols"
+            else -> "disabled"
+        }
+    val disabledReason = this["gpu_internal_surface_probe_disabled_reason"]?.takeIf { it.isNotBlank() }
+        ?: when {
+            enabled == "true" -> "none"
+            !preferredBackend.equals("GPU", ignoreCase = true) -> "not_gpu_backend"
+            else -> "property_off"
+        }
+    return this +
+        mapOf(
+            "gpu_internal_surface_probe_enabled" to enabled,
+            "gpu_internal_surface_probe_result" to result,
+            "gpu_internal_surface_probe_disabled_reason" to disabledReason,
+        )
 }
 
 private fun GpuInternalSurfaceProbeDiagnostics.toRouteDiagnosticMap(): Map<String, String> {

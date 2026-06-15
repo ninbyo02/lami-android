@@ -175,4 +175,72 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
         assertTrue(compact.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=true"))
         assertTrue(compact.contains("gpu_internal_kv_cache_symbol_present=true"))
     }
+
+    @Test
+    fun `GPU success LOCAL_ROUTE_DIAG emits internal surface presence keys with executor probe`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "gemma-4-E2B-it-edge-gallery",
+                selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                selectedModelPath = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                preferredBackend = "GPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+            ),
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "none",
+                generateStarted = true,
+                firstTokenReceived = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendStarted = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputQualityMatrixMode = "edge_gallery_executor_probe",
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                callbackCorruptionEarliestStage = "raw_callback",
+                gpuOutputSourceCorruptionStage = "raw_callback",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_sampler_root_cause_candidate" to "runtime_decode_fragmentation",
+                ),
+            ),
+            elapsedMs = 1_000L,
+        )
+
+        assertTrue(routeDiagnostics.contains("LOCAL_ROUTE_DIAG "))
+        assertTrue(routeDiagnostics.contains("edge_gallery_executor_probe_result="))
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_enabled=false"))
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_result=disabled"))
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_disabled_reason=not_gpustandardminimal_application"))
+    }
+
+    @Test
+    fun `injected internal surface map is normalized with presence keys`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "gemma-4-E2B-it-edge-gallery",
+                selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                selectedModelPath = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+                preferredBackend = "GPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+            ),
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "none",
+                gpuInternalSurfaceProbeDiagnostics = mapOf(
+                    "gpu_internal_runtime_config_class_present" to "false",
+                ),
+            ),
+            elapsedMs = 1_000L,
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_enabled=false"))
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_result=disabled"))
+        assertTrue(routeDiagnostics.contains("gpu_internal_surface_probe_disabled_reason=property_off"))
+        assertTrue(routeDiagnostics.contains("gpu_internal_runtime_config_class_present=false"))
+    }
 }

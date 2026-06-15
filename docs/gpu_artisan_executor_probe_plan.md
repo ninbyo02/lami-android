@@ -238,6 +238,62 @@ Evidence:
 
 - Baseline, collect-only, no sampling acceleration, and max token matrix still
   produced `quality_candidate_fail`.
+
+## Read-Only Surface Presence Fix
+
+A real-device `standardGpuMinimalRuntimeCandidateDebug` run with
+`debug.lami.gpu_internal_surface_probe=true` showed
+`edge_gallery_executor_probe_result=same_sampler_different_executor`, but no
+`gpu_internal_surface_probe_*` keys in the success diagnostics. That indicates a
+diagnostics merge/visibility issue, not a runtime executor result.
+
+The success `LOCAL_ROUTE_DIAG` path now emits these presence keys alongside the
+executor probe keys:
+
+```text
+gpu_internal_surface_probe_enabled
+gpu_internal_surface_probe_result
+gpu_internal_surface_probe_disabled_reason
+```
+
+Expected values:
+
+- Property off:
+  `gpu_internal_surface_probe_enabled=false`,
+  `gpu_internal_surface_probe_result=disabled`,
+  `gpu_internal_surface_probe_disabled_reason=property_off`.
+- CPU backend:
+  `gpu_internal_surface_probe_result=not_eligible`,
+  `gpu_internal_surface_probe_disabled_reason=not_gpu_backend`.
+- Standard application id:
+  `gpu_internal_surface_probe_result=not_eligible`,
+  `gpu_internal_surface_probe_disabled_reason=not_gpustandardminimal_application`.
+- `gpustandardminimal` + GPU + property on:
+  `gpu_internal_surface_probe_enabled=true`,
+  `gpu_internal_surface_probe_result=completed` or
+  `completed_with_missing_symbols`,
+  `gpu_internal_surface_probe_disabled_reason=none`.
+
+Device check:
+
+```bash
+adb shell getprop debug.lami.gpu_internal_surface_probe
+adb shell setprop debug.lami.gpu_internal_surface_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_executor_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+After saving copied diagnostics:
+
+```bash
+grep -E "gpu_internal_surface_probe|gpu_internal_.*class_present|gpu_internal_.*symbol_present|gpu_internal_.*methods|edge_gallery_executor_probe_result|gpu_output_quality_promotion_blocker" \
+  artifacts/device_runs/gpu_internal_surface_probe_2026-06-15.txt
+```
 - Current classifier says `same_sampler_different_executor`.
 
 ## Safe Next Implementation Boundary

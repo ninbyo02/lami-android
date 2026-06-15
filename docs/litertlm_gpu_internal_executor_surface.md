@@ -297,3 +297,36 @@ Grep helper after saving copied diagnostics:
 grep -E "gpu_internal_surface_probe|gpu_internal_.*class_present|gpu_internal_.*symbol_present|gpu_internal_.*methods|edge_gallery_executor_probe_result|gpu_output_quality_promotion_blocker" \
   artifacts/device_runs/gpu_internal_surface_probe_2026-06-15.txt
 ```
+
+## Success Diagnostics Merge Fix
+
+The first device check of this read-only probe produced the expected
+`edge_gallery_executor_probe_result` and quality blocker keys, but none of the
+`gpu_internal_surface_probe_*` keys in the success details. The probe property
+was confirmed with `getprop`, so the issue was treated as diagnostics visibility
+rather than an executor/runtime finding.
+
+The success `source_summary=LOCAL_ROUTE_DIAG ...` path now normalizes and emits
+presence keys for the internal surface probe in the same route diagnostics as
+`edge_gallery_executor_probe_result`:
+
+```text
+gpu_internal_surface_probe_enabled
+gpu_internal_surface_probe_result
+gpu_internal_surface_probe_disabled_reason
+```
+
+With `debug.lami.gpu_internal_surface_probe=true`,
+`standardGpuMinimalRuntimeCandidateDebug`, and backend `GPU`, expected values are:
+
+```text
+gpu_internal_surface_probe_enabled=true
+gpu_internal_surface_probe_result=completed
+# or completed_with_missing_symbols
+gpu_internal_surface_probe_disabled_reason=none
+```
+
+If the keys are still absent after reinstalling the candidate APK, assume the
+copied diagnostics came from a stale APK or from a UI path that did not include
+the local route success details. Do not interpret absent keys as proof that
+hidden runtime surfaces are absent.
