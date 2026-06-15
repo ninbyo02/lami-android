@@ -2560,6 +2560,7 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
 internal val GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS = listOf(
     "gpu_internal_surface_probe_enabled",
     "gpu_internal_surface_probe_result",
+    "gpu_internal_surface_probe_disabled_reason",
     "gpu_internal_runtime_config_class_present",
     "gpu_internal_backend_constraint_class_present",
     "gpu_internal_preferred_engine_type_class_present",
@@ -2588,6 +2589,7 @@ private fun GpuInternalSurfaceProbeDiagnostics.toRouteDiagnosticMap(): Map<Strin
     return mapOf(
         "gpu_internal_surface_probe_enabled" to enabled,
         "gpu_internal_surface_probe_result" to result,
+        "gpu_internal_surface_probe_disabled_reason" to disabledReason,
         "gpu_internal_runtime_config_class_present" to runtimeConfigClassPresent,
         "gpu_internal_backend_constraint_class_present" to backendConstraintClassPresent,
         "gpu_internal_preferred_engine_type_class_present" to preferredEngineTypeClassPresent,

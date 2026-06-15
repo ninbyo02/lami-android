@@ -4,7 +4,6 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.File
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +20,7 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
         assertTrue(diagnostics.emit)
         assertEquals("false", diagnostics.enabled)
         assertEquals("disabled", diagnostics.result)
+        assertEquals("property_off", diagnostics.disabledReason)
         assertEquals("unavailable", diagnostics.runtimeConfigClassPresent)
     }
 
@@ -38,12 +38,14 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
                     if (key == "debug.lami.gpu_internal_surface_probe") "true" else null
                 },
                 debugBuild = true,
-                standardGpuMinimalRuntimeCandidateFlavor = true,
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+                applicationId = "io.github.ninbyo02.lami.gpustandardminimal",
             )
 
             assertTrue(diagnostics.emit)
             assertEquals("true", diagnostics.enabled)
-            assertEquals("ok", diagnostics.result)
+            assertEquals("completed", diagnostics.result)
+            assertEquals("none", diagnostics.disabledReason)
             assertEquals("false", diagnostics.runtimeConfigClassPresent)
             assertEquals("class_absent", diagnostics.runtimeConfigMethods)
             assertEquals("true", diagnostics.llmGpuArtisanExecutorSymbolPresent)
@@ -55,16 +57,36 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
     }
 
     @Test
-    fun `CPU route does not run internal surface probe`() {
+    fun `CPU route emits not eligible without running internal surface probe`() {
         val diagnostics = buildGpuInternalSurfaceProbeDiagnostics(
             preferredBackend = "CPU",
             propertyReader = { "true" },
             debugBuild = true,
             standardGpuMinimalRuntimeCandidateFlavor = true,
+            applicationId = "io.github.ninbyo02.lami.gpustandardminimal",
         )
 
-        assertFalse(diagnostics.emit)
-        assertEquals("not_gpu_backend", diagnostics.result)
+        assertTrue(diagnostics.emit)
+        assertEquals("false", diagnostics.enabled)
+        assertEquals("not_eligible", diagnostics.result)
+        assertEquals("not_gpu_backend", diagnostics.disabledReason)
+        assertEquals("unavailable", diagnostics.runtimeConfigClassPresent)
+    }
+
+    @Test
+    fun `standard application id is not eligible even when property is true`() {
+        val diagnostics = buildGpuInternalSurfaceProbeDiagnostics(
+            preferredBackend = "GPU",
+            propertyReader = { "true" },
+            debugBuild = true,
+            standardGpuMinimalRuntimeCandidateFlavor = false,
+            applicationId = "io.github.ninbyo02.lami",
+        )
+
+        assertTrue(diagnostics.emit)
+        assertEquals("false", diagnostics.enabled)
+        assertEquals("not_eligible", diagnostics.result)
+        assertEquals("not_gpustandardminimal_application", diagnostics.disabledReason)
     }
 
     @Test
@@ -81,6 +103,7 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
             },
             debugBuild = true,
             standardGpuMinimalRuntimeCandidateFlavor = true,
+            applicationId = "io.github.ninbyo02.lami.gpustandardminimal",
             classLoader = throwingClassLoader,
         )
 
@@ -108,7 +131,8 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
                 failureStage = "none",
                 gpuInternalSurfaceProbeDiagnostics = mapOf(
                     "gpu_internal_surface_probe_enabled" to "true",
-                    "gpu_internal_surface_probe_result" to "ok",
+                    "gpu_internal_surface_probe_result" to "completed",
+                    "gpu_internal_surface_probe_disabled_reason" to "none",
                     "gpu_internal_runtime_config_class_present" to "false",
                     "gpu_internal_backend_constraint_class_present" to "false",
                     "gpu_internal_preferred_engine_type_class_present" to "false",
@@ -146,7 +170,8 @@ class GpuInternalSurfaceProbeDiagnosticsTest {
         )
 
         assertTrue(compact.contains("gpu_internal_surface_probe_enabled=true"))
-        assertTrue(compact.contains("gpu_internal_surface_probe_result=ok"))
+        assertTrue(compact.contains("gpu_internal_surface_probe_result=completed"))
+        assertTrue(compact.contains("gpu_internal_surface_probe_disabled_reason=none"))
         assertTrue(compact.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=true"))
         assertTrue(compact.contains("gpu_internal_kv_cache_symbol_present=true"))
     }

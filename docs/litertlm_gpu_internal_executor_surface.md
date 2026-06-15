@@ -212,6 +212,8 @@ adb shell setprop debug.lami.gpu_internal_surface_probe true
 
 The probe is intentionally narrow:
 
+- It always emits presence keys in debug diagnostics, even when disabled or not
+  eligible, so missing keys indicate a stale APK or diagnostics merge problem.
 - It only emits detailed data in `standardGpuMinimalRuntimeCandidateDebug`.
 - It only runs for the GPU backend.
 - It uses class presence checks with `Class.forName(..., initialize=false, ...)`.
@@ -228,6 +230,7 @@ Expected keys:
 ```text
 gpu_internal_surface_probe_enabled
 gpu_internal_surface_probe_result
+gpu_internal_surface_probe_disabled_reason
 gpu_internal_runtime_config_class_present
 gpu_internal_backend_constraint_class_present
 gpu_internal_preferred_engine_type_class_present
@@ -263,6 +266,12 @@ Prompt:
 
 Interpretation:
 
+- `gpu_internal_surface_probe_enabled=false` with
+  `gpu_internal_surface_probe_disabled_reason=property_off` means the APK is
+  emitting the presence keys but the property is not enabled.
+- `gpu_internal_surface_probe_result=not_eligible` means the probe body did not
+  run. Check `gpu_internal_surface_probe_disabled_reason`; expected values
+  include `not_gpu_backend` and `not_gpustandardminimal_application`.
 - `gpu_internal_*_class_present=true` means a Java/Kotlin-visible class exists
   at runtime. That only authorizes a later design review; it does not mean LAMI
   should invoke it.
@@ -281,3 +290,10 @@ Do not move to reflection application until all of these are true:
 3. A DEV-only isolated flavor/property design exists with rollback.
 4. The expected new diagnostics can prove whether executor fingerprints change.
 5. The GPU quality blocker remains enforced until output quality passes.
+
+Grep helper after saving copied diagnostics:
+
+```bash
+grep -E "gpu_internal_surface_probe|gpu_internal_.*class_present|gpu_internal_.*symbol_present|gpu_internal_.*methods|edge_gallery_executor_probe_result|gpu_output_quality_promotion_blocker" \
+  artifacts/device_runs/gpu_internal_surface_probe_2026-06-15.txt
+```

@@ -11,6 +11,7 @@ internal data class GpuInternalSurfaceProbeDiagnostics(
     val emit: Boolean,
     val enabled: String,
     val result: String,
+    val disabledReason: String,
     val runtimeConfigClassPresent: String,
     val backendConstraintClassPresent: String,
     val preferredEngineTypeClassPresent: String,
@@ -31,21 +32,17 @@ internal fun buildGpuInternalSurfaceProbeDiagnostics(
     propertyReader: (String) -> String? = ::readGpuInternalSurfaceProbeProperty,
     debugBuild: Boolean = BuildConfig.DEBUG,
     standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+    applicationId: String = BuildConfig.APPLICATION_ID,
     classLoader: ClassLoader = GpuInternalSurfaceProbeDiagnostics::class.java.classLoader
         ?: ClassLoader.getSystemClassLoader(),
 ): GpuInternalSurfaceProbeDiagnostics {
-    val emit = debugBuild &&
-        standardGpuMinimalRuntimeCandidateFlavor &&
-        preferredBackend.equals(PreferredBackendDryRunSetting.GPU.name, ignoreCase = true)
+    val emit = debugBuild
     if (!emit) {
         return GpuInternalSurfaceProbeDiagnostics(
             emit = false,
             enabled = "false",
-            result = when {
-                !debugBuild -> "not_debug_build"
-                !standardGpuMinimalRuntimeCandidateFlavor -> "not_standard_gpu_minimal_runtime_candidate_flavor"
-                else -> "not_gpu_backend"
-            },
+            result = "not_eligible",
+            disabledReason = "not_debug_build",
             runtimeConfigClassPresent = "unavailable",
             backendConstraintClassPresent = "unavailable",
             preferredEngineTypeClassPresent = "unavailable",
@@ -61,12 +58,22 @@ internal fun buildGpuInternalSurfaceProbeDiagnostics(
         )
     }
 
-    val enabled = isGpuInternalSurfaceProbeEnabled(propertyReader)
-    if (!enabled) {
+    val propertyEnabled = isGpuInternalSurfaceProbeEnabled(propertyReader)
+    val appIdEligible = applicationId == GPU_INTERNAL_SURFACE_PROBE_APPLICATION_ID ||
+        standardGpuMinimalRuntimeCandidateFlavor
+    val gpuEligible = preferredBackend.equals(PreferredBackendDryRunSetting.GPU.name, ignoreCase = true)
+    val disabledReason = when {
+        !appIdEligible -> "not_gpustandardminimal_application"
+        !gpuEligible -> "not_gpu_backend"
+        !propertyEnabled -> "property_off"
+        else -> "none"
+    }
+    if (disabledReason != "none") {
         return GpuInternalSurfaceProbeDiagnostics(
             emit = true,
             enabled = "false",
-            result = "disabled",
+            result = if (propertyEnabled) "not_eligible" else "disabled",
+            disabledReason = disabledReason,
             runtimeConfigClassPresent = "unavailable",
             backendConstraintClassPresent = "unavailable",
             preferredEngineTypeClassPresent = "unavailable",
@@ -113,7 +120,12 @@ internal fun buildGpuInternalSurfaceProbeDiagnostics(
     return GpuInternalSurfaceProbeDiagnostics(
         emit = true,
         enabled = "true",
-        result = if (exceptions.isEmpty()) "ok" else "exception",
+        result = when {
+            exceptions.isNotEmpty() -> "exception"
+            llmGpuArtisanSymbol != "true" || kvCacheSymbol != "true" -> "completed_with_missing_symbols"
+            else -> "completed"
+        },
+        disabledReason = "none",
         runtimeConfigClassPresent = runtimeConfig.present.toString(),
         backendConstraintClassPresent = backendConstraint.present.toString(),
         preferredEngineTypeClassPresent = preferredEngineType.present.toString(),
@@ -134,6 +146,9 @@ private data class ReflectedClassSurface(
     val methodSummary: String,
     val exception: Throwable? = null,
 )
+
+private const val GPU_INTERNAL_SURFACE_PROBE_APPLICATION_ID =
+    "io.github.ninbyo02.lami.gpustandardminimal"
 
 private fun inspectClassSurface(
     className: String,

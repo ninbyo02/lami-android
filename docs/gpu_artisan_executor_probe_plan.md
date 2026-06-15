@@ -284,6 +284,7 @@ Keys to copy:
 ```text
 gpu_internal_surface_probe_enabled
 gpu_internal_surface_probe_result
+gpu_internal_surface_probe_disabled_reason
 gpu_internal_runtime_config_class_present
 gpu_internal_backend_constraint_class_present
 gpu_internal_preferred_engine_type_class_present
@@ -299,6 +300,9 @@ gpu_output_quality_promotion_blocker
 Success for this diagnostic phase:
 
 - The probe emits keys without changing inference status.
+- Presence keys are visible even when the property is off or the route is not
+  eligible. If the keys are absent, reinstall the expected APK and re-check the
+  copied `LOCAL_ROUTE_DIAG` source summary.
 - Hidden Java/Kotlin class presence is clearly separated from native string
   evidence.
 - Exceptions are reported in `gpu_internal_probe_exception_*` and do not change
@@ -308,6 +312,14 @@ Failure for this diagnostic phase:
 
 - The probe cannot emit keys in the candidate flavor.
 - It changes route status, holder lifecycle, callback streaming, or output text.
+
+Confirm the property and copied diagnostics with:
+
+```bash
+adb shell getprop debug.lami.gpu_internal_surface_probe
+grep -E "gpu_internal_surface_probe|gpu_internal_.*class_present|gpu_internal_.*symbol_present|gpu_internal_.*methods|edge_gallery_executor_probe_result|gpu_output_quality_promotion_blocker" \
+  artifacts/device_runs/gpu_internal_surface_probe_2026-06-15.txt
+```
 
 Reflection application is still blocked because the current public AAR
 inventory shows the likely selector surfaces as native/internal evidence rather
