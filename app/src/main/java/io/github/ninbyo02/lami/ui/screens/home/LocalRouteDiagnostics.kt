@@ -269,6 +269,7 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuPrefillProbeRequiresHeldEngine: Boolean? = null,
     val gpuPrefillProbeHeldEnginePresent: Boolean? = null,
     val gpuPrefillProbeDisableRecommendation: String? = null,
+    val gpuInternalSurfaceProbeDiagnostics: Map<String, String> = emptyMap(),
 )
 
 private val GPU_ALIGNMENT_APP_PROCESS_START_MARKER: String = System.currentTimeMillis().toString()
@@ -1922,6 +1923,12 @@ internal fun buildLocalRouteDiagnosticTrace(
         standardCandidateResult = standardGpuProbe.runtimeAlignmentCandidateResult,
         runtimeAlignmentResult = runtimeAlignmentResultCandidate,
     )
+    val gpuInternalSurfaceProbe = flags.gpuInternalSurfaceProbeDiagnostics.ifEmpty {
+        buildGpuInternalSurfaceProbeDiagnostics(
+            preferredBackend = context.preferredBackend,
+            nativeLibraryDir = context.nativeLibraryDir,
+        ).toRouteDiagnosticMap()
+    }
     val standardGpuMinimalRuntimeCandidate = buildStandardGpuMinimalRuntimeCandidateDiagnostics(
         context = context,
         flags = flags,
@@ -2370,6 +2377,7 @@ internal fun buildLocalRouteDiagnosticTrace(
                     runtimeAlignmentProbe.flavor ||
                     minimalRuntimeProbe.flavor,
             ) +
+            buildGpuInternalSurfaceProbeRouteDiagnosticLines(gpuInternalSurfaceProbe) +
             buildCpuRouteDiagnosticLines(flags.cpuRouteDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
@@ -2546,6 +2554,52 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "runtime_stack_loaded_gemma_constraint_provider_sha256=${diagnostics.gemmaConstraintProviderSha256}",
         "runtime_stack_loaded_full_stack_candidate_unit=${diagnostics.fullStackCandidateUnit.toDiagnosticValue()}",
         "runtime_stack_alignment_interpretation=${diagnostics.alignmentInterpretation}",
+    )
+}
+
+internal val GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS = listOf(
+    "gpu_internal_surface_probe_enabled",
+    "gpu_internal_surface_probe_result",
+    "gpu_internal_runtime_config_class_present",
+    "gpu_internal_backend_constraint_class_present",
+    "gpu_internal_preferred_engine_type_class_present",
+    "gpu_internal_gpu_options_class_present",
+    "gpu_internal_artisan_class_present",
+    "gpu_internal_llm_gpu_artisan_executor_symbol_present",
+    "gpu_internal_kv_cache_symbol_present",
+    "gpu_internal_runtime_config_methods",
+    "gpu_internal_backend_constraint_methods",
+    "gpu_internal_gpu_options_methods",
+    "gpu_internal_probe_exception_class",
+    "gpu_internal_probe_exception_message",
+)
+
+private fun buildGpuInternalSurfaceProbeRouteDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.isEmpty()) return emptyList()
+    return GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.toDiagnosticValue() ?: "unavailable"}"
+    }
+}
+
+private fun GpuInternalSurfaceProbeDiagnostics.toRouteDiagnosticMap(): Map<String, String> {
+    if (!emit) return emptyMap()
+    return mapOf(
+        "gpu_internal_surface_probe_enabled" to enabled,
+        "gpu_internal_surface_probe_result" to result,
+        "gpu_internal_runtime_config_class_present" to runtimeConfigClassPresent,
+        "gpu_internal_backend_constraint_class_present" to backendConstraintClassPresent,
+        "gpu_internal_preferred_engine_type_class_present" to preferredEngineTypeClassPresent,
+        "gpu_internal_gpu_options_class_present" to gpuOptionsClassPresent,
+        "gpu_internal_artisan_class_present" to artisanClassPresent,
+        "gpu_internal_llm_gpu_artisan_executor_symbol_present" to llmGpuArtisanExecutorSymbolPresent,
+        "gpu_internal_kv_cache_symbol_present" to kvCacheSymbolPresent,
+        "gpu_internal_runtime_config_methods" to runtimeConfigMethods,
+        "gpu_internal_backend_constraint_methods" to backendConstraintMethods,
+        "gpu_internal_gpu_options_methods" to gpuOptionsMethods,
+        "gpu_internal_probe_exception_class" to exceptionClass,
+        "gpu_internal_probe_exception_message" to exceptionMessage,
     )
 }
 

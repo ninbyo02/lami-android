@@ -257,6 +257,64 @@ It must not:
 - Change callback join/UI append.
 - Alter CPU, NPU, fallback, or production GPU defaults.
 
+## Read-Only Surface Probe
+
+Before any reflection application is considered, run the read-only internal
+surface probe:
+
+```bash
+adb shell setprop debug.lami.gpu_internal_surface_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_executor_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Prompt:
+
+```text
+カレーの材料をお願いします。
+```
+
+Keys to copy:
+
+```text
+gpu_internal_surface_probe_enabled
+gpu_internal_surface_probe_result
+gpu_internal_runtime_config_class_present
+gpu_internal_backend_constraint_class_present
+gpu_internal_preferred_engine_type_class_present
+gpu_internal_gpu_options_class_present
+gpu_internal_artisan_class_present
+gpu_internal_llm_gpu_artisan_executor_symbol_present
+gpu_internal_kv_cache_symbol_present
+edge_gallery_executor_probe_result
+edge_gallery_executor_difference_summary
+gpu_output_quality_promotion_blocker
+```
+
+Success for this diagnostic phase:
+
+- The probe emits keys without changing inference status.
+- Hidden Java/Kotlin class presence is clearly separated from native string
+  evidence.
+- Exceptions are reported in `gpu_internal_probe_exception_*` and do not change
+  the route result.
+
+Failure for this diagnostic phase:
+
+- The probe cannot emit keys in the candidate flavor.
+- It changes route status, holder lifecycle, callback streaming, or output text.
+
+Reflection application is still blocked because the current public AAR
+inventory shows the likely selector surfaces as native/internal evidence rather
+than stable Java/Kotlin APIs. Applying those surfaces without a separate
+DEV-only design could accidentally change executor selection, model loading, or
+decode behavior in ways that are hard to roll back.
+
 ## Manual Diagnostics To Compare
 
 When a future probe exists, compare:

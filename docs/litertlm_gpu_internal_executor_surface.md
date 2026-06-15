@@ -201,3 +201,83 @@ For the next real-device run, preserve these keys:
 If a future DEV-only probe only changes an internal selector, these keys are the
 minimum set needed to decide whether executor/path changed without relaxing the
 quality gate.
+
+## Read-Only Internal Surface Probe
+
+The next diagnostic step is a read-only runtime surface probe guarded by:
+
+```bash
+adb shell setprop debug.lami.gpu_internal_surface_probe true
+```
+
+The probe is intentionally narrow:
+
+- It only emits detailed data in `standardGpuMinimalRuntimeCandidateDebug`.
+- It only runs for the GPU backend.
+- It uses class presence checks with `Class.forName(..., initialize=false, ...)`.
+- It scans already loaded/native library files for string evidence such as
+  `LlmGpuArtisanExecutor`, `GPU_ARTISAN`, and `tflite_gpu_kv_cache`.
+- It does not instantiate hidden classes.
+- It does not set `RuntimeConfig`, `BackendConstraint`, `PreferredEngineType`,
+  or `GpuOptions`.
+- It does not force `GPU_ARTISAN`.
+- It does not call native methods directly.
+
+Expected keys:
+
+```text
+gpu_internal_surface_probe_enabled
+gpu_internal_surface_probe_result
+gpu_internal_runtime_config_class_present
+gpu_internal_backend_constraint_class_present
+gpu_internal_preferred_engine_type_class_present
+gpu_internal_gpu_options_class_present
+gpu_internal_artisan_class_present
+gpu_internal_llm_gpu_artisan_executor_symbol_present
+gpu_internal_kv_cache_symbol_present
+gpu_internal_runtime_config_methods
+gpu_internal_backend_constraint_methods
+gpu_internal_gpu_options_methods
+gpu_internal_probe_exception_class
+gpu_internal_probe_exception_message
+```
+
+Manual command:
+
+```bash
+adb shell setprop debug.lami.gpu_internal_surface_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_executor_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Prompt:
+
+```text
+カレーの材料をお願いします。
+```
+
+Interpretation:
+
+- `gpu_internal_*_class_present=true` means a Java/Kotlin-visible class exists
+  at runtime. That only authorizes a later design review; it does not mean LAMI
+  should invoke it.
+- `gpu_internal_llm_gpu_artisan_executor_symbol_present=true` with class
+  presence false means the evidence is native/internal only.
+- `gpu_internal_kv_cache_symbol_present=true` strengthens the decode-cache path
+  hypothesis but does not identify a safe public configuration surface.
+- `gpu_internal_surface_probe_result=exception` should be treated as diagnostic
+  noise unless the main route also fails independently. The probe must not
+  overwrite inference status.
+
+Do not move to reflection application until all of these are true:
+
+1. The same probe is repeatable across app restart.
+2. The class/method surface is visible without native direct calls.
+3. A DEV-only isolated flavor/property design exists with rollback.
+4. The expected new diagnostics can prove whether executor fingerprints change.
+5. The GPU quality blocker remains enforced until output quality passes.

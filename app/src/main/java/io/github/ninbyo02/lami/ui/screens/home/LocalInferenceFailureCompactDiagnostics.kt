@@ -518,6 +518,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildStandardGpuMinimalRuntimeCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildLoadedRuntimeNativeStackCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuInternalSurfaceProbeCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildRuntimeExecutorFingerprintCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuOutputQualityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
@@ -646,6 +647,19 @@ private fun buildLoadedRuntimeNativeStackCompactDiagnosticLines(
 
 private fun extractLoadedRuntimeNativeStackDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS }
+
+private fun buildGpuInternalSurfaceProbeCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractGpuInternalSurfaceProbeDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text)
+        .filterKeys { it in GPU_INTERNAL_SURFACE_PROBE_DIAGNOSTIC_KEYS }
 
 private val RUNTIME_EXECUTOR_FINGERPRINT_DIAGNOSTIC_KEYS = listOf(
     "executor_selection_fingerprint",
@@ -1020,6 +1034,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractStandardGpuMinimalRuntimeCandidateDiagnostics(failureDiagnosticsText) +
         extractMinimalRuntimeProbeDiagnostics(failureDiagnosticsText) +
         extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText) +
+        extractGpuInternalSurfaceProbeDiagnostics(failureDiagnosticsText) +
         extractRuntimeExecutorFingerprintDiagnostics(failureDiagnosticsText) +
         extractGpuOutputQualityDiagnostics(failureDiagnosticsText) +
         extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
