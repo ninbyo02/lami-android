@@ -39,13 +39,15 @@ latest_file_in_dir() {
     awk 'NR == 1 { $1 = ""; sub(/^ /, ""); print; exit }'
 }
 
-first_file_with_key() {
+latest_file_with_key() {
   local dir="$1"
   local key="$2"
   [[ -d "$dir" ]] || return 0
-  find "$dir" -type f 2>/dev/null |
-    sort |
-    while IFS= read -r file; do
+  find "$dir" -type f -printf '%T@ %p\n' 2>/dev/null |
+    sort -nr |
+    while IFS= read -r line; do
+      local file
+      file="${line#* }"
       if grep -Eq "(^|[[:space:]])${key}=" "$file" 2>/dev/null; then
         printf '%s\n' "$file"
         return 0
@@ -140,9 +142,9 @@ render_report() {
   trap 'rm -rf "${REPORT_TMPDIR:-}"' RETURN
 
   latest_device="$(latest_file_in_dir "$device_runs" || true)"
-  executor_file="$(first_file_with_key "$device_runs" "edge_gallery_executor_probe_result" || true)"
+  executor_file="$(latest_file_with_key "$device_runs" "edge_gallery_executor_probe_result" || true)"
   [[ -n "$executor_file" ]] || executor_file="$latest_device"
-  internal_surface_file="$(first_file_with_key "$device_runs" "gpu_internal_surface_probe_enabled" || true)"
+  internal_surface_file="$(latest_file_with_key "$device_runs" "gpu_internal_surface_probe_enabled" || true)"
   [[ -n "$internal_surface_file" ]] || internal_surface_file="$executor_file"
   promotion_blocker="$(promotion_blocker_from_file "$latest_device")"
 
@@ -246,6 +248,8 @@ render_report() {
     printf '## APK Native Diff Summary\n\n'
   } >>"$output"
   append_file_or_missing "$output" "runtime_stack_summary.txt" "$apk_native_diff/runtime_stack_summary.txt" 120
+  append_file_or_missing "$output" "internal_surface_summary.txt" "$apk_native_diff/internal_surface_summary.txt" 80
+  append_file_or_missing "$output" "internal_surface_diff.tsv" "$apk_native_diff/internal_surface_diff.tsv" 80
   append_file_or_missing "$output" "native_lib_inventory.tsv" "$apk_native_diff/native_lib_inventory.tsv" 80
   append_file_or_missing "$output" "jni_symbol_diff.tsv" "$apk_native_diff/jni_symbol_diff.tsv" 80
 
@@ -330,10 +334,23 @@ EOF
 runtime_stack_same=no
 jni_surface_same=yes
 executor_symbol_same=no
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
 EOF
   cat >"$tmpdir/apk_native_diff/native_stack_fingerprint.txt" <<'EOF'
 EDGE_RUNTIME_STACK_FINGERPRINT=edge
 LAMI_RUNTIME_STACK_FINGERPRINT=lami
+EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=edge_internal
+LAMI_INTERNAL_SURFACE_FINGERPRINT=lami_internal
+EOF
+  cat >"$tmpdir/apk_native_diff/internal_surface_summary.txt" <<'EOF'
+EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=edge_internal
+LAMI_INTERNAL_SURFACE_FINGERPRINT=lami_internal
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
+EOF
+  cat >"$tmpdir/apk_native_diff/internal_surface_diff.tsv" <<'EOF'
+surface_hit	edge_present	lami_present
+liblitertlm_jni.so:GPU_ARTISAN	yes	yes
+liblitertlm_jni.so:LrtCreateGpuOptionsFromToml	yes	no
 EOF
   cat >"$tmpdir/apk_native_diff/native_lib_inventory.tsv" <<'EOF'
 library	edge_present	edge_size	edge_sha256	lami_present	lami_size	lami_sha256	same_sha256
@@ -363,6 +380,10 @@ EOF
   }
   grep -Fq 'Status: **blocked**' "$tmpdir/report.md" || {
     echo "self-test failed: expected blocked status" >&2
+    exit 1
+  }
+  grep -Fq 'internal_surface_summary.txt' "$tmpdir/report.md" || {
+    echo "self-test failed: expected internal surface summary artifact" >&2
     exit 1
   }
 

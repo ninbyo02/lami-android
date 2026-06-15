@@ -142,7 +142,7 @@ presence_flags() {
   strings_content="$(strings_for_lib "$file")"
   local flag output=""
   for flag in GPU_ARTISAN LlmGpuArtisanExecutor Artisan RuntimeConfig BackendConstraint PreferredEngineType GpuOptions LrtCreateGpuOptionsFromToml tflite_gpu_kv_cache tflite_opencl_kv_cache kv_cache CompiledModelExecutor LlmLiteRtCompiledModelExecutor GetRuntimeConfig nativeGenerateContent nativeGenerateContentStream nativeRunPrefill nativeRunDecode; do
-    if printf '%s\n' "$strings_content" | grep -Fq "$flag"; then
+    if grep -Fq "$flag" <<<"$strings_content"; then
       output="${output}${flag}=yes;"
     else
       output="${output}${flag}=no;"
@@ -224,6 +224,29 @@ write_jni_diff() {
   rm -rf "$tmpdir"
 }
 
+write_internal_surface_diff() {
+  local edge_dir="$1"
+  local lami_dir="$2"
+  local out="$3"
+  local tmpdir edge_hits lami_hits all_hits
+  tmpdir="$(mktemp -d)"
+  edge_hits="$tmpdir/edge.txt"
+  lami_hits="$tmpdir/lami.txt"
+  all_hits="$tmpdir/all.txt"
+  internal_surface_material "$edge_dir" >"$edge_hits"
+  internal_surface_material "$lami_dir" >"$lami_hits"
+  cat "$edge_hits" "$lami_hits" | sort -u >"$all_hits"
+  printf 'surface_hit\tedge_present\tlami_present\n' >"$out"
+  while IFS= read -r hit; do
+    [[ -n "$hit" ]] || continue
+    local edge_present=no lami_present=no
+    grep -Fxq "$hit" "$edge_hits" && edge_present=yes
+    grep -Fxq "$hit" "$lami_hits" && lami_present=yes
+    printf '%s\t%s\t%s\n' "$hit" "$edge_present" "$lami_present" >>"$out"
+  done <"$all_hits"
+  rm -rf "$tmpdir"
+}
+
 executor_material() {
   local lib_dir="$1"
   find "$lib_dir" -maxdepth 1 -type f -name '*.so' 2>/dev/null | sort |
@@ -259,11 +282,28 @@ write_fingerprints() {
   {
     "$ROOT_DIR/scripts/generate_native_stack_fingerprint.sh" --input "$edge_input" --label EDGE
     "$ROOT_DIR/scripts/generate_native_stack_fingerprint.sh" --input "$lami_input" --label LAMI
+    printf 'EDGE_GALLERY_NATIVE_STACK_FINGERPRINT=%s\n' "$(internal_read_or_runtime "$edge_input" "$edge_dir" runtime)"
+    printf 'LAMI_NATIVE_STACK_FINGERPRINT=%s\n' "$(internal_read_or_runtime "$lami_input" "$lami_dir" runtime)"
     printf 'EDGE_EXECUTOR_KEYWORD_FINGERPRINT=%s\n' "$(executor_material "$edge_dir" | fingerprint_from_material)"
     printf 'LAMI_EXECUTOR_KEYWORD_FINGERPRINT=%s\n' "$(executor_material "$lami_dir" | fingerprint_from_material)"
     printf 'EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$(internal_surface_material "$edge_dir" | fingerprint_from_material)"
     printf 'LAMI_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$(internal_surface_material "$lami_dir" | fingerprint_from_material)"
   } >"$out"
+}
+
+internal_read_or_runtime() {
+  local input="$1"
+  local lib_dir="$2"
+  local mode="$3"
+  case "$mode" in
+    runtime)
+      "$ROOT_DIR/scripts/generate_native_stack_fingerprint.sh" --input "$input" --label TMP |
+        awk -F= '$1 == "TMP_RUNTIME_STACK_FINGERPRINT" {print $2; exit}'
+      ;;
+    internal)
+      internal_surface_material "$lib_dir" | fingerprint_from_material
+      ;;
+  esac
 }
 
 read_key_from_file() {
@@ -293,17 +333,40 @@ write_summary() {
     printf 'edge_input=%s\n' "$edge_input"
     printf 'lami_input=%s\n' "$lami_input"
     printf 'runtime_stack_same=%s\n' "$([[ "$edge_runtime" == "$lami_runtime" ]] && printf yes || printf no)"
+    printf 'RUNTIME_STACK_DIFF_SUMMARY=%s\n' "$([[ "$edge_runtime" == "$lami_runtime" ]] && printf same_runtime_stack || printf different_runtime_stack)"
     printf 'jni_surface_same=%s\n' "$([[ "$edge_jni" == "$lami_jni" ]] && printf yes || printf no)"
+    printf 'JNI_SYMBOL_DIFF_SUMMARY=%s\n' "$([[ "$edge_jni" == "$lami_jni" ]] && printf same_jni_surface || printf different_jni_surface)"
     printf 'executor_symbol_same=%s\n' "$([[ "$edge_exec" == "$lami_exec" ]] && printf yes || printf no)"
+    printf 'EXECUTOR_SYMBOL_DIFF_SUMMARY=%s\n' "$([[ "$edge_exec" == "$lami_exec" ]] && printf same_executor_symbols || printf different_executor_symbols)"
     printf 'internal_surface_same=%s\n' "$([[ "$edge_internal" == "$lami_internal" ]] && printf yes || printf no)"
     printf 'INTERNAL_SURFACE_DIFF_SUMMARY=%s\n' "$([[ "$edge_internal" == "$lami_internal" ]] && printf same_internal_surface || printf different_internal_surface)"
     printf 'qualcomm_stack_same=%s\n' "$([[ "$edge_qualcomm" == "$lami_qualcomm" ]] && printf yes || printf no)"
+    printf 'QUALCOMM_STACK_DIFF_SUMMARY=%s\n' "$([[ "$edge_qualcomm" == "$lami_qualcomm" ]] && printf same_qualcomm_stack || printf different_qualcomm_stack)"
     printf 'missing_high_priority_lami_libs='
     awk -F '\t' 'NR > 1 && $2 == "yes" && $5 == "no" && $1 !~ /^libQnn/ {printf "%s,", $1}' "$inventory_file"
     printf '\n'
     printf 'sha_mismatch_high_priority_libs='
     awk -F '\t' 'NR > 1 && $2 == "yes" && $5 == "yes" && $8 == "no" && $1 !~ /^libQnn/ {printf "%s,", $1}' "$inventory_file"
     printf '\n'
+  } >"$out"
+}
+
+write_internal_surface_summary() {
+  local fingerprint_file="$1"
+  local diff_file="$2"
+  local out="$3"
+  local edge_internal lami_internal same only_edge only_lami
+  edge_internal="$(read_key_from_file "$fingerprint_file" EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT)"
+  lami_internal="$(read_key_from_file "$fingerprint_file" LAMI_INTERNAL_SURFACE_FINGERPRINT)"
+  same="$([[ "$edge_internal" == "$lami_internal" ]] && printf same_internal_surface || printf different_internal_surface)"
+  only_edge="$(awk -F '\t' 'NR > 1 && $2 == "yes" && $3 == "no" {count++} END {print count + 0}' "$diff_file")"
+  only_lami="$(awk -F '\t' 'NR > 1 && $2 == "no" && $3 == "yes" {count++} END {print count + 0}' "$diff_file")"
+  {
+    printf 'EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$edge_internal"
+    printf 'LAMI_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$lami_internal"
+    printf 'INTERNAL_SURFACE_DIFF_SUMMARY=%s\n' "$same"
+    printf 'internal_surface_hits_edge_only=%s\n' "$only_edge"
+    printf 'internal_surface_hits_lami_only=%s\n' "$only_lami"
   } >"$out"
 }
 
@@ -326,6 +389,8 @@ run_compare() {
   write_inventory "$edge_dir" "$lami_dir" "$out_dir/native_lib_inventory.tsv"
   write_jni_diff "$edge_dir" "$lami_dir" "$out_dir/jni_symbol_diff.tsv"
   write_fingerprints "$edge_input" "$lami_input" "$edge_dir" "$lami_dir" "$out_dir/native_stack_fingerprint.txt"
+  write_internal_surface_diff "$edge_dir" "$lami_dir" "$out_dir/internal_surface_diff.tsv"
+  write_internal_surface_summary "$out_dir/native_stack_fingerprint.txt" "$out_dir/internal_surface_diff.tsv" "$out_dir/internal_surface_summary.txt"
   write_summary "$edge_input" "$lami_input" "$out_dir/native_stack_fingerprint.txt" "$out_dir/native_lib_inventory.tsv" "$out_dir/runtime_stack_summary.txt"
   printf 'Wrote APK native diff artifacts to: %s\n' "$out_dir"
 }
@@ -352,6 +417,10 @@ run_self_test() {
     echo "self-test failed: missing jni_symbol_diff.tsv" >&2
     exit 1
   }
+  [[ -s "$out_dir/internal_surface_diff.tsv" && -s "$out_dir/internal_surface_summary.txt" ]] || {
+    echo "self-test failed: missing internal surface artifacts" >&2
+    exit 1
+  }
   grep -Fq 'runtime_stack_same=no' "$out_dir/runtime_stack_summary.txt" || {
     echo "self-test failed: expected runtime stack difference" >&2
     cat "$out_dir/runtime_stack_summary.txt" >&2
@@ -360,6 +429,11 @@ run_self_test() {
   grep -Fq 'INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface' "$out_dir/runtime_stack_summary.txt" || {
     echo "self-test failed: expected internal surface difference" >&2
     cat "$out_dir/runtime_stack_summary.txt" >&2
+    exit 1
+  }
+  grep -Fq 'INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface' "$out_dir/internal_surface_summary.txt" || {
+    echo "self-test failed: expected internal surface summary difference" >&2
+    cat "$out_dir/internal_surface_summary.txt" >&2
     exit 1
   }
   rm -rf "$tmpdir"

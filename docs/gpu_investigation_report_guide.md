@@ -43,6 +43,8 @@ artifacts/apk_native_diff/
   jni_symbol_diff.tsv
   native_stack_fingerprint.txt
   runtime_stack_summary.txt
+  internal_surface_summary.txt
+  internal_surface_diff.tsv
 ```
 
 The report handles missing directories gracefully and records them as missing.
@@ -143,6 +145,7 @@ artifacts/gpu_investigation_report/GPU_INVESTIGATION_REPORT.md
 | GPU internal surface probe summary | Shows read-only `gpu_internal_*` class/symbol evidence and the public API gap interpretation. |
 | Runtime/native stack fingerprint summary | Includes `native_stack_fingerprint.txt` from APK native diff output. |
 | APK native diff summary | Includes runtime stack summary, native library inventory, and JNI symbol diff snippets. |
+| Internal surface summary artifacts | Included under APK native diff summary when `internal_surface_summary.txt` / `internal_surface_diff.tsv` exist. |
 | Regression suite summary | Calls `scripts/summarize_gpu_regression_results.sh` when device run artifacts exist. |
 | Promotion blocker status | Computes whether latest diagnostics still block standard GPU promotion. |
 | Root cause ranking | Captures the current investigation ranking. |
@@ -167,6 +170,8 @@ If the report says blocked, do not promote standard GPU.
 | `same_stack_different_executor` | Focus on internal executor/backend selection, RuntimeConfig, backend constraints, and GPU_ARTISAN evidence. |
 | `different_runtime_stack` | Compare APK native stack SHA-256 values and keep experiments isolated. |
 | `GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,...,gpu_artisan_symbol_present,kv_cache_symbol_present` | Treat the issue as public API gap plus native/internal executor evidence; compare Edge Gallery and Lami native/internal fingerprints next. |
+| `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface` | Edge Gallery APK and Lami APK expose different hidden executor/config/KV-cache string/symbol surfaces. Keep investigation on native/internal selector differences. |
+| `INTERNAL_SURFACE_DIFF_SUMMARY=same_internal_surface` plus `same_sampler_different_executor` | Static capability appears aligned; focus on runtime selector inputs, model metadata, backend constraints, or hidden RuntimeConfig values. |
 | `gpu_only_corrupt` | Collect raw callback artifacts for failing GPU prompts and compare CPU pass diagnostics. |
 | `long_text_only_corrupt` | Treat output length/decode accumulation as a stronger trigger. |
 | `quality_gate_pass` | Repeat restart, multi-turn, Markdown, long output, and mixed prompt tests before changing any gate. |
@@ -185,3 +190,44 @@ The self-test creates temporary fixtures and verifies:
   `gpu_internal_surface_probe_enabled`
 - `Promotion Blocker Status` exists
 - missing inputs do not fail report generation
+
+## Saving Copied Diagnostics For Classification
+
+After a device run, paste both copy outputs into one file:
+
+```bash
+mkdir -p artifacts/device_runs
+cat > artifacts/device_runs/gpu_executor_probe_latest.txt <<'EOF'
+[GPU diagnostic keys]
+...
+[GPU internal surface keys]
+...
+EOF
+```
+
+Then run:
+
+```bash
+scripts/classify_gpu_executor_probe_result.sh \
+  --input artifacts/device_runs/gpu_executor_probe_latest.txt
+```
+
+For the current failing Lami GPU path, expected high-value output is:
+
+```text
+GPU_EXECUTOR_PROBE_CLASSIFICATION=same_stack_different_executor
+GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,backend_constraint_class_absent,preferred_engine_type_class_absent,gpu_options_class_absent,artisan_class_absent,gpu_artisan_symbol_present,kv_cache_symbol_present
+GPU_PROMOTION_BLOCKER=true
+GPU_ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
+NEXT_ACTION=compare_edge_gallery_native_internal_executor_selection_and_public_api_gap
+```
+
+Generate the full report after APK/native comparison:
+
+```bash
+scripts/render_gpu_investigation_report.sh \
+  --device-runs artifacts/device_runs \
+  --quality-matrix artifacts/gpu_output_quality_matrix \
+  --apk-native-diff artifacts/apk_native_diff \
+  --output artifacts/gpu_investigation_report/GPU_INVESTIGATION_REPORT.md
+```

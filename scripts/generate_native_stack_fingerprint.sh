@@ -223,6 +223,7 @@ generate_fingerprints() {
   qualcomm_fp="$(material_for_qualcomm "$lib_dir" | fingerprint_from_material)"
 
   printf '%s_RUNTIME_STACK_FINGERPRINT=%s\n' "$label" "$runtime_fp"
+  printf '%s_NATIVE_STACK_FINGERPRINT=%s\n' "$label" "$runtime_fp"
   printf '%s_JNI_SURFACE_FINGERPRINT=%s\n' "$label" "$jni_fp"
   printf '%s_EXECUTOR_SYMBOL_FINGERPRINT=%s\n' "$label" "$executor_fp"
   printf '%s_INTERNAL_SURFACE_FINGERPRINT=%s\n' "$label" "$internal_surface_fp"

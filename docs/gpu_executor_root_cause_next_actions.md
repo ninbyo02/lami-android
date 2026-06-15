@@ -95,6 +95,21 @@ Look for:
 - `LAMI_INTERNAL_SURFACE_FINGERPRINT`
 - `INTERNAL_SURFACE_DIFF_SUMMARY`
 
+Latest APK comparison:
+
+```text
+EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=34af6f258570c911a9bbb14763e6b267fa33b432324e4c30752502f88af56dd4
+LAMI_INTERNAL_SURFACE_FINGERPRINT=3fa6528634ecf90fdec7931523a4b3b0f8050c2f77aaa5ffa72794e9276fb253
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
+RUNTIME_STACK_DIFF_SUMMARY=different_runtime_stack
+JNI_SYMBOL_DIFF_SUMMARY=different_jni_surface
+EXECUTOR_SYMBOL_DIFF_SUMMARY=different_executor_symbols
+```
+
+This does not prove the exact selected executor, but it narrows the next
+investigation to native/internal surface and selector-path differences rather
+than sampler, max tokens, public `ConversationConfig`, or UI joining.
+
 ## Next Device Actions
 
 ### 1. Capture Lami executor probe diagnostics
@@ -134,6 +149,52 @@ Copy compact/details diagnostics and check:
 - `gpu_sampler_root_cause_candidate`
 
 ### 2. Compare copied diagnostics
+
+Save the copied `GPU診断キー` and `GPU内部surfaceキー` output together:
+
+```bash
+mkdir -p artifacts/device_runs
+cat > artifacts/device_runs/gpu_executor_probe_latest.txt <<'EOF'
+[GPU diagnostic keys]
+edge_gallery_executor_probe_result=same_sampler_different_executor
+edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected
+gpu_output_quality_candidate_result=quality_candidate_fail
+gpu_output_quality_gate_status=fail
+gpu_output_quality_promotion_blocker=true
+gpu_sampler_root_cause_candidate=runtime_decode_fragmentation
+gpu_output_source_corruption_stage=raw_callback
+callback_corruption_earliest_stage=raw_callback
+
+[GPU internal surface keys]
+gpu_internal_surface_probe_enabled=true
+gpu_internal_surface_probe_result=completed
+gpu_internal_surface_probe_disabled_reason=none
+gpu_internal_runtime_config_class_present=false
+gpu_internal_backend_constraint_class_present=false
+gpu_internal_preferred_engine_type_class_present=false
+gpu_internal_gpu_options_class_present=false
+gpu_internal_artisan_class_present=false
+gpu_internal_llm_gpu_artisan_executor_symbol_present=true
+gpu_internal_kv_cache_symbol_present=true
+EOF
+```
+
+Classify:
+
+```bash
+scripts/classify_gpu_executor_probe_result.sh \
+  --input artifacts/device_runs/gpu_executor_probe_latest.txt
+```
+
+Expected:
+
+```text
+GPU_EXECUTOR_PROBE_CLASSIFICATION=same_stack_different_executor
+GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,backend_constraint_class_absent,preferred_engine_type_class_absent,gpu_options_class_absent,artisan_class_absent,gpu_artisan_symbol_present,kv_cache_symbol_present
+GPU_PROMOTION_BLOCKER=true
+GPU_ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
+NEXT_ACTION=compare_edge_gallery_native_internal_executor_selection_and_public_api_gap
+```
 
 ```bash
 scripts/compare_runtime_fingerprints.sh --baseline <baseline-diag.txt> --probe <executor-probe-diag.txt>

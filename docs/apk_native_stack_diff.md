@@ -23,7 +23,7 @@ APK inputs:
 
 ```bash
 scripts/compare_edge_gallery_and_lami_apk.sh \
-  --edge-gallery artifacts/external/edge_gallery_apks/split_config.arm64_v8a.apk \
+  --edge-gallery artifacts/external/edge_gallery_apks/base.apk \
   --lami-apk app/build/outputs/apk/standardGpuMinimalRuntimeCandidate/debug/app-standardGpuMinimalRuntimeCandidate-debug.apk
 ```
 
@@ -54,6 +54,8 @@ artifacts/apk_native_diff/
 | `jni_symbol_diff.tsv` | Visible JNI generate/prefill/decode symbol/string surface comparison. |
 | `native_stack_fingerprint.txt` | Runtime, JNI, executor, and Qualcomm fingerprints for each side. |
 | `runtime_stack_summary.txt` | High-level same/different summary and high-priority missing/mismatch list. |
+| `internal_surface_summary.txt` | Edge Gallery vs Lami internal surface fingerprints and same/different summary. |
+| `internal_surface_diff.tsv` | Per-hit internal surface presence comparison. |
 
 ## Compared Libraries
 
@@ -79,14 +81,51 @@ The inventory records per-library keyword flags for:
 
 - `GPU_ARTISAN`
 - `LlmGpuArtisanExecutor`
+- `Artisan`
 - `RuntimeConfig`
 - `BackendConstraint`
 - `PreferredEngineType`
+- `GpuOptions`
+- `LrtCreateGpuOptionsFromToml`
+- `tflite_gpu_kv_cache`
+- `tflite_opencl_kv_cache`
+- `kv_cache`
 - `CompiledModelExecutor`
+- `LlmLiteRtCompiledModelExecutor`
+- `GetRuntimeConfig`
 - `nativeGenerateContent`
 - `nativeGenerateContentStream`
 - `nativeRunPrefill`
 - `nativeRunDecode`
+
+## Latest Comparison
+
+Inputs:
+
+```text
+edge_input=artifacts/external/edge_gallery_apks
+lami_input=app/build/outputs/apk/standardGpuMinimalRuntimeCandidate/debug/app-standardGpuMinimalRuntimeCandidate-debug.apk
+```
+
+Current result:
+
+```text
+RUNTIME_STACK_DIFF_SUMMARY=different_runtime_stack
+JNI_SYMBOL_DIFF_SUMMARY=different_jni_surface
+EXECUTOR_SYMBOL_DIFF_SUMMARY=different_executor_symbols
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
+QUALCOMM_STACK_DIFF_SUMMARY=different_qualcomm_stack
+missing_high_priority_lami_libs=libLiteRtDispatch_Qualcomm.so,
+sha_mismatch_high_priority_libs=libLiteRt.so,liblitertlm_jni.so,
+```
+
+Internal surface fingerprints:
+
+```text
+EDGE_GALLERY_INTERNAL_SURFACE_FINGERPRINT=34af6f258570c911a9bbb14763e6b267fa33b432324e4c30752502f88af56dd4
+LAMI_INTERNAL_SURFACE_FINGERPRINT=3fa6528634ecf90fdec7931523a4b3b0f8050c2f77aaa5ffa72794e9276fb253
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
+```
 
 ## Interpreting Results
 
@@ -117,7 +156,13 @@ Useful interpretations:
 | `runtime_stack_same=no` | At least one target runtime library presence/SHA differs. |
 | `jni_surface_same=no` | Generate/prefill/decode JNI surface differs. |
 | `executor_symbol_same=no` | Executor/runtime strings or exported symbols differ. |
+| `internal_surface_same=no` or `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface` | The internal executor/config/KV-cache string/symbol surface differs. This strengthens the public API gap / hidden executor path hypothesis. |
 | `qualcomm_stack_same=no` | Qualcomm dispatch/compiler/QNN/model constraint provider set differs. |
+
+If `INTERNAL_SURFACE_DIFF_SUMMARY=same_internal_surface` but the device run still
+reports `edge_gallery_executor_probe_result=same_sampler_different_executor`,
+prioritize runtime selection/config metadata over packaged symbol presence. Same
+static surface does not prove that both apps select the same executor.
 
 ## Promotion Position
 
