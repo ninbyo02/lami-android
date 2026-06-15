@@ -110,6 +110,54 @@ This does not prove the exact selected executor, but it narrows the next
 investigation to native/internal surface and selector-path differences rather
 than sampler, max tokens, public `ConversationConfig`, or UI joining.
 
+## Phase 9 Executor Selection Trace
+
+The static executor-selection trace now compares Edge Gallery APK/extracted
+inputs against the Lami `standardGpuMinimalRuntimeCandidateDebug` APK:
+
+```bash
+scripts/static_trace_edge_gallery_executor.sh \
+  --edge-apks artifacts/external/edge_gallery_apks \
+  --lami-apk app/build/outputs/apk/standardGpuMinimalRuntimeCandidate/debug/app-standardGpuMinimalRuntimeCandidate-debug.apk \
+  --compare-output artifacts/apk_native_diff
+```
+
+Latest summary:
+
+```text
+EDGE_GALLERY_EXECUTOR_SELECTION_TRACE_FINGERPRINT=7c7054d0ebcce0c3f39d9a84c691acb1c31cace01f8decbe9577205a80177be0
+LAMI_EXECUTOR_SELECTION_TRACE_FINGERPRINT=8b95d5a60d533165f02515015c9da7c3c0f2365f065e603f7c8a8e2a63250700
+EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens
+EDGE_ONLY_EXECUTOR_TOKENS=none
+LAMI_ONLY_EXECUTOR_TOKENS=BackendConstraint,PreferredEngineType
+COMMON_EXECUTOR_TOKENS=GPU_ARTISAN,LlmGpuArtisanExecutor,RuntimeConfig,GpuOptions,LrtCreateGpuOptionsFromToml,tflite_gpu_kv_cache,kv_cache,nativeGenerateContentStream,nativeRunPrefill,nativeRunDecode,CompiledModelExecutor,LlmLiteRtCompiledModelExecutor
+```
+
+Reading:
+
+- `GPU_ARTISAN`, `LlmGpuArtisanExecutor`, GPU KV-cache tokens, and native
+  generate/decode entry points are statically visible on both sides.
+- Exact `BackendConstraint` and `PreferredEngineType` tokens were Lami-only in
+  this trace, but phrase variants were common. Treat this as a token inventory
+  difference, not runtime selection proof.
+- The important combined signal remains:
+  `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface` plus real-device
+  `edge_gallery_executor_probe_result=same_sampler_different_executor`.
+- Static token parity for `GPU_ARTISAN` does not mean Lami's public
+  `Backend.GPU` reaches the same internal decode path as Edge Gallery.
+
+Updated root cause ordering:
+
+1. Edge Gallery internal executor selection path differs from Lami public
+   `Backend.GPU`.
+2. Edge Gallery reaches a `GPU_ARTISAN` / `LlmGpuArtisanExecutor` path through
+   hidden native config or backend constraints.
+3. GPU KV-cache / decode cache path differs.
+4. RuntimeConfig / BackendConstraint public surface remains absent or
+   inaccessible from the Lami route.
+5. Native stack / symbol set partially differs.
+6. Sampler, max tokens, and public cacheDir remain low-priority explanations.
+
 ## Next Device Actions
 
 ### 1. Capture Lami executor probe diagnostics

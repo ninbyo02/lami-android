@@ -108,6 +108,49 @@ model identity because:
 - Edge Gallery native runtime contains internal executor/constraint/KV-cache
   evidence not represented in Lami public reflection.
 
+## Phase 9 Executor Token Trace
+
+`scripts/static_trace_edge_gallery_executor.sh` now also compares Edge Gallery
+APK/extracted inputs with the Lami `standardGpuMinimalRuntimeCandidateDebug`
+APK and writes executor-selection token artifacts under
+`artifacts/apk_native_diff/`:
+
+```text
+executor_selection_trace.tsv
+executor_selection_trace_summary.txt
+edge_only_executor_tokens.txt
+lami_only_executor_tokens.txt
+common_executor_tokens.txt
+```
+
+Latest local trace:
+
+```text
+EDGE_GALLERY_EXECUTOR_SELECTION_TRACE_FINGERPRINT=7c7054d0ebcce0c3f39d9a84c691acb1c31cace01f8decbe9577205a80177be0
+LAMI_EXECUTOR_SELECTION_TRACE_FINGERPRINT=8b95d5a60d533165f02515015c9da7c3c0f2365f065e603f7c8a8e2a63250700
+EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens
+EDGE_ONLY_EXECUTOR_TOKENS=none
+LAMI_ONLY_EXECUTOR_TOKENS=BackendConstraint,PreferredEngineType
+COMMON_EXECUTOR_TOKENS=GPU_ARTISAN,LlmGpuArtisanExecutor,RuntimeConfig,GpuOptions,LrtCreateGpuOptionsFromToml,tflite_gpu_kv_cache,kv_cache,nativeGenerateContentStream,nativeRunPrefill,nativeRunDecode,CompiledModelExecutor,LlmLiteRtCompiledModelExecutor
+```
+
+Interpretation:
+
+- The high-value native/runtime tokens `GPU_ARTISAN`,
+  `LlmGpuArtisanExecutor`, `RuntimeConfig`, `GpuOptions`,
+  `LrtCreateGpuOptionsFromToml`, GPU KV-cache tokens, and native generate/decode
+  entry points are visible in both static inputs.
+- Exact-token `BackendConstraint` and `PreferredEngineType` were observed only
+  in the Lami trace, while the lower-case phrase forms `backend constraint` and
+  `preferred engine` were common. This should be treated as a surface/token
+  inventory difference, not proof that Lami reaches a better executor path.
+- There were no Edge-only executor tokens in this token list. That does not
+  clear Lami: the APK/native fingerprint comparison still reports
+  `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface`, and the real
+  device executor probe reports `same_sampler_different_executor`.
+- Token presence proves availability of strings/symbols only. It does not prove
+  which executor Edge Gallery selected during the known-good GPU run.
+
 ## Unknowns
 
 Static strings do not prove which executor Edge Gallery selected during the
@@ -147,9 +190,14 @@ copy compact/details diagnostics. The most important keys are:
 Static trace helper:
 
 ```bash
-scripts/static_trace_edge_gallery_executor.sh
+scripts/static_trace_edge_gallery_executor.sh \
+  --edge-apks artifacts/external/edge_gallery_apks \
+  --lami-apk app/build/outputs/apk/standardGpuMinimalRuntimeCandidate/debug/app-standardGpuMinimalRuntimeCandidate-debug.apk \
+  --compare-output artifacts/apk_native_diff
 ```
 
-The helper writes to `artifacts/static_edge_gallery_executor_trace/` and is
-safe to run when APK artifacts are missing; it reports expected paths instead of
-treating missing inputs as fatal.
+The helper writes the older Edge-only trace to
+`artifacts/static_edge_gallery_executor_trace/` and the Edge-vs-Lami executor
+token comparison to `artifacts/apk_native_diff/`. It is safe to run when APK
+artifacts are missing; it reports expected paths instead of treating missing
+inputs as fatal.

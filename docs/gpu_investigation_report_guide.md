@@ -45,6 +45,11 @@ artifacts/apk_native_diff/
   runtime_stack_summary.txt
   internal_surface_summary.txt
   internal_surface_diff.tsv
+  executor_selection_trace_summary.txt
+  executor_selection_trace.tsv
+  edge_only_executor_tokens.txt
+  lami_only_executor_tokens.txt
+  common_executor_tokens.txt
 ```
 
 The report handles missing directories gracefully and records them as missing.
@@ -146,6 +151,7 @@ artifacts/gpu_investigation_report/GPU_INVESTIGATION_REPORT.md
 | Runtime/native stack fingerprint summary | Includes `native_stack_fingerprint.txt` from APK native diff output. |
 | APK native diff summary | Includes runtime stack summary, native library inventory, and JNI symbol diff snippets. |
 | Internal surface summary artifacts | Included under APK native diff summary when `internal_surface_summary.txt` / `internal_surface_diff.tsv` exist. |
+| Executor selection static trace summary | Includes Edge-vs-Lami static token fingerprints and Edge-only / Lami-only / common executor token lists. |
 | Regression suite summary | Calls `scripts/summarize_gpu_regression_results.sh` when device run artifacts exist. |
 | Promotion blocker status | Computes whether latest diagnostics still block standard GPU promotion. |
 | Root cause ranking | Captures the current investigation ranking. |
@@ -172,6 +178,8 @@ If the report says blocked, do not promote standard GPU.
 | `GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,...,gpu_artisan_symbol_present,kv_cache_symbol_present` | Treat the issue as public API gap plus native/internal executor evidence; compare Edge Gallery and Lami native/internal fingerprints next. |
 | `INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface` | Edge Gallery APK and Lami APK expose different hidden executor/config/KV-cache string/symbol surfaces. Keep investigation on native/internal selector differences. |
 | `INTERNAL_SURFACE_DIFF_SUMMARY=same_internal_surface` plus `same_sampler_different_executor` | Static capability appears aligned; focus on runtime selector inputs, model metadata, backend constraints, or hidden RuntimeConfig values. |
+| `EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens` | Static executor/backend token inventories differ. Use the Edge-only / Lami-only / common token lists to decide what to inspect next, but do not treat token presence as runtime selection proof. |
+| `GPU_ARTISAN` / `LlmGpuArtisanExecutor` common tokens plus `same_sampler_different_executor` | Both APKs expose native capability, but Lami still likely reaches a different selector path or hidden runtime config at decode time. |
 | `gpu_only_corrupt` | Collect raw callback artifacts for failing GPU prompts and compare CPU pass diagnostics. |
 | `long_text_only_corrupt` | Treat output length/decode accumulation as a stronger trigger. |
 | `quality_gate_pass` | Repeat restart, multi-turn, Markdown, long output, and mixed prompt tests before changing any gate. |
@@ -188,6 +196,8 @@ The self-test creates temporary fixtures and verifies:
 - `Overview` exists
 - `GPU Internal Surface Probe Summary` exists when fixture diagnostics include
   `gpu_internal_surface_probe_enabled`
+- `Executor Selection Static Trace Summary` exists when APK/native diff fixture
+  artifacts include `executor_selection_trace_summary.txt`
 - `Promotion Blocker Status` exists
 - missing inputs do not fail report generation
 

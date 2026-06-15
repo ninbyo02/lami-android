@@ -254,6 +254,16 @@ render_report() {
   append_file_or_missing "$output" "jni_symbol_diff.tsv" "$apk_native_diff/jni_symbol_diff.tsv" 80
 
   {
+    printf '## Executor Selection Static Trace Summary\n\n'
+    printf 'This section is generated from static APK/directory token traces. Token presence is evidence of available runtime/native surfaces, not proof of the runtime executor selected by a device run.\n\n'
+  } >>"$output"
+  append_file_or_missing "$output" "executor_selection_trace_summary.txt" "$apk_native_diff/executor_selection_trace_summary.txt" 80
+  append_file_or_missing "$output" "edge_only_executor_tokens.txt" "$apk_native_diff/edge_only_executor_tokens.txt" 80
+  append_file_or_missing "$output" "lami_only_executor_tokens.txt" "$apk_native_diff/lami_only_executor_tokens.txt" 80
+  append_file_or_missing "$output" "common_executor_tokens.txt" "$apk_native_diff/common_executor_tokens.txt" 120
+  append_file_or_missing "$output" "executor_selection_trace.tsv" "$apk_native_diff/executor_selection_trace.tsv" 80
+
+  {
     printf '## Regression Suite Summary\n\n'
     if [[ -d "$device_runs" && -x "$SCRIPT_DIR/summarize_gpu_regression_results.sh" ]]; then
       capture_command "$tmpdir/regression_stdout.txt" "$SCRIPT_DIR/summarize_gpu_regression_results.sh" --input "$device_runs" --output "$tmpdir/GPU_CORRUPTION_REGRESSION_SUMMARY.md"
@@ -360,6 +370,31 @@ EOF
 symbol	edge_present	lami_present
 nativeGenerateContent	yes	yes
 EOF
+  cat >"$tmpdir/apk_native_diff/executor_selection_trace_summary.txt" <<'EOF'
+EDGE_GALLERY_EXECUTOR_SELECTION_TRACE_FINGERPRINT=edge_exec_trace
+LAMI_EXECUTOR_SELECTION_TRACE_FINGERPRINT=lami_exec_trace
+EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens
+EDGE_ONLY_EXECUTOR_TOKENS=GPU_ARTISAN
+LAMI_ONLY_EXECUTOR_TOKENS=BackendConstraint
+COMMON_EXECUTOR_TOKENS=LlmGpuArtisanExecutor,tflite_gpu_kv_cache,nativeGenerateContentStream
+EOF
+  cat >"$tmpdir/apk_native_diff/edge_only_executor_tokens.txt" <<'EOF'
+GPU_ARTISAN
+EOF
+  cat >"$tmpdir/apk_native_diff/lami_only_executor_tokens.txt" <<'EOF'
+BackendConstraint
+EOF
+  cat >"$tmpdir/apk_native_diff/common_executor_tokens.txt" <<'EOF'
+LlmGpuArtisanExecutor
+tflite_gpu_kv_cache
+nativeGenerateContentStream
+EOF
+  cat >"$tmpdir/apk_native_diff/executor_selection_trace.tsv" <<'EOF'
+token	edge_present	lami_present	edge_count	lami_count	edge_sample	lami_sample
+GPU_ARTISAN	yes	no	1	0	EDGE:GPU_ARTISAN	missing
+BackendConstraint	no	yes	0	1	missing	LAMI:BackendConstraint
+LlmGpuArtisanExecutor	yes	yes	1	1	EDGE:LlmGpuArtisanExecutor	LAMI:LlmGpuArtisanExecutor
+EOF
 
   render_report "$tmpdir/device_runs" "$tmpdir/quality_matrix" "$tmpdir/apk_native_diff" "$tmpdir/report.md" >/tmp/lami_gpu_report_self_test.out
   grep -Fq '## Overview' "$tmpdir/report.md" || {
@@ -384,6 +419,14 @@ EOF
   }
   grep -Fq 'internal_surface_summary.txt' "$tmpdir/report.md" || {
     echo "self-test failed: expected internal surface summary artifact" >&2
+    exit 1
+  }
+  grep -Fq '## Executor Selection Static Trace Summary' "$tmpdir/report.md" || {
+    echo "self-test failed: missing executor selection static trace section" >&2
+    exit 1
+  }
+  grep -Fq 'EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens' "$tmpdir/report.md" || {
+    echo "self-test failed: missing executor selection trace summary" >&2
     exit 1
   }
 

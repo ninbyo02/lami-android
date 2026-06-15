@@ -79,6 +79,40 @@ It did not find Java-visible target classes for:
 The same names are visible in native strings/static artifacts, so they should be
 treated as native/internal evidence, not a public Kotlin/Java API surface.
 
+## Phase 9 Native/Internal Trace Evidence
+
+The latest APK/native comparison and executor-selection token trace produce two
+separate signals:
+
+```text
+INTERNAL_SURFACE_DIFF_SUMMARY=different_internal_surface
+EXECUTOR_SELECTION_TRACE_DIFF_SUMMARY=different_executor_selection_tokens
+```
+
+The executor token trace found:
+
+```text
+EDGE_ONLY_EXECUTOR_TOKENS=none
+LAMI_ONLY_EXECUTOR_TOKENS=BackendConstraint,PreferredEngineType
+COMMON_EXECUTOR_TOKENS=GPU_ARTISAN,LlmGpuArtisanExecutor,RuntimeConfig,GpuOptions,LrtCreateGpuOptionsFromToml,tflite_gpu_kv_cache,kv_cache,nativeGenerateContentStream,nativeRunPrefill,nativeRunDecode,CompiledModelExecutor,LlmLiteRtCompiledModelExecutor
+```
+
+This refines the interpretation:
+
+- Both APK surfaces contain static evidence for `GPU_ARTISAN`,
+  `LlmGpuArtisanExecutor`, `RuntimeConfig`, `GpuOptions`, GPU KV-cache strings,
+  and native generate/decode entry points.
+- Lami runtime diagnostics still report Java/Kotlin class absence for
+  `RuntimeConfig`, `BackendConstraint`, `PreferredEngineType`, `GpuOptions`,
+  and `Artisan`.
+- Native symbol/string presence therefore means the runtime contains capability,
+  not that Lami public `Backend.GPU` can select or configure that path.
+- `different_internal_surface` remains important because the aggregate
+  native/internal fingerprint differs even when many high-value tokens are
+  common.
+- The strongest next question is not "does the string exist?" but "which
+  selector path chooses it during decode?"
+
 ## LAMI Public GPU Surface
 
 The current LAMI route can configure these public settings:
