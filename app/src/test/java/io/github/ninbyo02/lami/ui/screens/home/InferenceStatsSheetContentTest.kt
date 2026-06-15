@@ -6,6 +6,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
@@ -559,6 +560,72 @@ class InferenceStatsSheetContentTest {
         )
 
         assertTrue(text.contains("—"))
+    }
+
+    @Test
+    fun `buildGpuDiagnosticKeysCopyText includes executor internal surface and quality keys`() {
+        val traceText = """
+            LOCAL_ROUTE_DIAG preferred_backend=GPU selected_model_name=gemma selected_model_file=gemma.litertlm gpu_output_quality_matrix_mode=edge_gallery_executor_probe edge_gallery_executor_probe_result=same_sampler_different_executor edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected edge_gallery_generate_api_candidate=generateResponse executor_selection_fingerprint=exec runtime_backend_fingerprint=backend runtime_executor_fingerprint=runtime runtime_dispatch_fingerprint=dispatch runtime_compiled_model_fingerprint=compiled engine_config_fingerprint=engine conversation_config_fingerprint=conversation sampler_config_fingerprint=sampler gpu_internal_surface_probe_enabled=true gpu_internal_surface_probe_result=completed gpu_internal_surface_probe_disabled_reason=none gpu_output_quality_candidate_result=quality_candidate_fail gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_output_quality_summary=runtime_callback_source_corruption_suspected gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_source_corruption_stage=raw_callback callback_corruption_earliest_stage=raw_callback callback_quality_classification=severe_fragmentation gpu_fragmentation_score=0.816 gpu_output_suspicious_fragment_detected=true gpu_output_suspicious_fragment_reason=many_tiny_fragments gpu_callback_invoked_count=323 gpu_callback_empty_text_count=13 gpu_callback_non_empty_text_count=310 gpu_output_callback_chunk_count=323 gpu_output_raw_callback_text_head=head gpu_output_raw_callback_text_tail=tail gpu_output_final_assistant_text_head=final_head gpu_output_final_assistant_text_tail=final_tail gpu_perf_engine_acquire_elapsed_ms=10 gpu_perf_engine_create_or_reuse=reuse gpu_perf_generate_to_first_token_ms=300 gpu_perf_callback_total_elapsed_ms=1200 gpu_perf_slow_path_detected=false gpu_perf_slow_path_reason=none
+        """.trimIndent()
+        val text = buildGpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
+        )
+
+        assertTrue(text.startsWith("[GPU diagnostic keys]"))
+        assertTrue(text.contains("selected_backend=GPU"))
+        assertTrue(text.contains("requested_backend=GPU"))
+        assertTrue(text.contains("effective_backend=GPU"))
+        assertTrue(text.contains("route_family=local_gpu"))
+        assertTrue(text.contains("backend_evidence=gpu_route"))
+        assertTrue(text.contains("edge_gallery_executor_probe_result=same_sampler_different_executor"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=true"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=completed"))
+        assertTrue(text.contains("gpu_output_quality_promotion_blocker=true"))
+        assertTrue(text.contains("gpu_sampler_root_cause_candidate=runtime_decode_fragmentation"))
+        assertTrue(text.contains("gpu_output_raw_callback_text_tail=tail"))
+    }
+
+    @Test
+    fun `buildGpuDiagnosticKeysCopyText uses unavailable for missing keys and is CPU safe`() {
+        val text = buildGpuDiagnosticKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=CPU
+                    requested_backend=CPU
+                    effective_backend=CPU
+                    route_family=local_cpu
+                    backend_evidence=cpu_route
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.contains("selected_backend=CPU"))
+        assertTrue(text.contains("route_family=local_cpu"))
+        assertTrue(text.contains("edge_gallery_executor_probe_result=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=unavailable"))
+        assertTrue(text.contains("gpu_output_quality_promotion_blocker=unavailable"))
+    }
+
+    @Test
+    fun `buildGpuInternalSurfaceKeysCopyText only includes internal surface keys`() {
+        val text = buildGpuInternalSurfaceKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    gpu_internal_surface_probe_enabled=true
+                    gpu_internal_surface_probe_result=completed_with_missing_symbols
+                    gpu_internal_surface_probe_disabled_reason=none
+                    gpu_internal_runtime_config_class_present=false
+                    gpu_internal_kv_cache_symbol_present=true
+                    edge_gallery_executor_probe_result=same_sampler_different_executor
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[GPU internal surface keys]"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=true"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=completed_with_missing_symbols"))
+        assertTrue(text.contains("gpu_internal_kv_cache_symbol_present=true"))
+        assertFalse(text.contains("edge_gallery_executor_probe_result="))
     }
 
     private fun memorySnapshot(

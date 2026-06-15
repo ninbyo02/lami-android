@@ -46,6 +46,43 @@ artifacts/apk_native_diff/
 
 The report handles missing directories gracefully and records them as missing.
 
+## Copy Focused GPU Diagnostics
+
+The inference stats bottom sheet keeps the existing full stats copy action. In
+debug builds it also provides `GPU診断キーをコピー`, which copies a stable
+machine-readable key subset for GPU root-cause investigation. Use this when the
+detail view is too long and important keys may be visually truncated.
+
+The copied text starts with:
+
+```text
+[GPU diagnostic keys]
+```
+
+Representative keys include:
+
+- `selected_backend`, `requested_backend`, `effective_backend`, `route_family`
+- `edge_gallery_executor_probe_result`
+- `edge_gallery_executor_difference_summary`
+- `executor_selection_fingerprint`
+- `runtime_backend_fingerprint`
+- `runtime_executor_fingerprint`
+- `runtime_dispatch_fingerprint`
+- `runtime_compiled_model_fingerprint`
+- `gpu_internal_surface_probe_enabled`
+- `gpu_internal_surface_probe_result`
+- `gpu_internal_surface_probe_disabled_reason`
+- `gpu_output_quality_promotion_blocker`
+- `gpu_sampler_root_cause_candidate`
+- `gpu_output_source_corruption_stage`
+- `callback_corruption_earliest_stage`
+- callback chunk counts, raw/final text head/tail, and GPU perf slow-path keys
+
+Missing keys are emitted as `unavailable`, so pasted diagnostics can be diffed
+without changing shape between runs. A narrower internal-surface formatter also
+exists in code for tests and future UI use, but the current UI exposes the
+single broader `GPU診断キーをコピー` action to avoid crowding the stats sheet.
+
 ## Generate Report
 
 ```bash

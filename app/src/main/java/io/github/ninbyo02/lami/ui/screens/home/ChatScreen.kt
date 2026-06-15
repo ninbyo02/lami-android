@@ -10752,6 +10752,20 @@ private fun InferenceStatsSheetContent(
                         ),
                     )
                 },
+                onCopyGpuDiagnosticKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildGpuDiagnosticKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
             )
 
             sections.forEach { section ->
@@ -10885,6 +10899,7 @@ private fun InferenceModelInfoRow(
     stats: InferenceStats,
     inferenceTarget: InferenceTarget,
     onCopyInferenceStats: () -> Unit,
+    onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -10927,6 +10942,20 @@ private fun InferenceModelInfoRow(
                     contentDescription = "推論統計をコピー",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+        if (onCopyGpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyGpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = "GPU診断キーをコピー" },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("GPU診断キーをコピー")
             }
         }
     }
