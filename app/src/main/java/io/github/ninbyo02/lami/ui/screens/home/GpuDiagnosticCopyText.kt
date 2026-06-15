@@ -2,6 +2,9 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 
+internal const val GPU_DIAGNOSTIC_COPY_BUTTON_LABEL = "GPU診断キーをコピー"
+internal const val GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL = "GPU内部surfaceキーをコピー"
+
 internal val GPU_DIAGNOSTIC_COPY_KEYS = listOf(
     "selected_backend",
     "requested_backend",

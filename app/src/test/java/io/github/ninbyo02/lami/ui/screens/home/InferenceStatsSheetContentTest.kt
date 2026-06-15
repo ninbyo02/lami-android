@@ -615,7 +615,17 @@ class InferenceStatsSheetContentTest {
                     gpu_internal_surface_probe_result=completed_with_missing_symbols
                     gpu_internal_surface_probe_disabled_reason=none
                     gpu_internal_runtime_config_class_present=false
+                    gpu_internal_backend_constraint_class_present=true
+                    gpu_internal_preferred_engine_type_class_present=false
+                    gpu_internal_gpu_options_class_present=true
+                    gpu_internal_artisan_class_present=false
+                    gpu_internal_llm_gpu_artisan_executor_symbol_present=true
                     gpu_internal_kv_cache_symbol_present=true
+                    gpu_internal_runtime_config_methods=builder,setBackend
+                    gpu_internal_backend_constraint_methods=matchGpu
+                    gpu_internal_gpu_options_methods=createFromToml
+                    gpu_internal_probe_exception_class=none
+                    gpu_internal_probe_exception_message=none
                     edge_gallery_executor_probe_result=same_sampler_different_executor
                 """.trimIndent(),
             ),
@@ -624,8 +634,47 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.startsWith("[GPU internal surface keys]"))
         assertTrue(text.contains("gpu_internal_surface_probe_enabled=true"))
         assertTrue(text.contains("gpu_internal_surface_probe_result=completed_with_missing_symbols"))
+        assertTrue(text.contains("gpu_internal_surface_probe_disabled_reason=none"))
+        assertTrue(text.contains("gpu_internal_runtime_config_class_present=false"))
+        assertTrue(text.contains("gpu_internal_backend_constraint_class_present=true"))
+        assertTrue(text.contains("gpu_internal_preferred_engine_type_class_present=false"))
+        assertTrue(text.contains("gpu_internal_gpu_options_class_present=true"))
+        assertTrue(text.contains("gpu_internal_artisan_class_present=false"))
+        assertTrue(text.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=true"))
         assertTrue(text.contains("gpu_internal_kv_cache_symbol_present=true"))
+        assertTrue(text.contains("gpu_internal_runtime_config_methods=builder,setBackend"))
+        assertTrue(text.contains("gpu_internal_backend_constraint_methods=matchGpu"))
+        assertTrue(text.contains("gpu_internal_gpu_options_methods=createFromToml"))
+        assertTrue(text.contains("gpu_internal_probe_exception_class=none"))
+        assertTrue(text.contains("gpu_internal_probe_exception_message=none"))
         assertFalse(text.contains("edge_gallery_executor_probe_result="))
+    }
+
+    @Test
+    fun `buildGpuInternalSurfaceKeysCopyText keeps stable unavailable shape for missing keys`() {
+        val text = buildGpuInternalSurfaceKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=CPU
+                    route_family=local_cpu
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[GPU internal surface keys]"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_disabled_reason=unavailable"))
+        assertTrue(text.contains("gpu_internal_runtime_config_class_present=unavailable"))
+        assertTrue(text.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=unavailable"))
+        assertTrue(text.contains("gpu_internal_probe_exception_message=unavailable"))
+    }
+
+    @Test
+    fun `GPU copy button labels remain distinct`() {
+        assertEquals("GPU診断キーをコピー", GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+        assertEquals("GPU内部surfaceキーをコピー", GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL, GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
     }
 
     private fun memorySnapshot(

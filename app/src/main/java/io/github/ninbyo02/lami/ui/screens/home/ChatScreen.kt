@@ -10766,6 +10766,20 @@ private fun InferenceStatsSheetContent(
                 } else {
                     null
                 },
+                onCopyGpuInternalSurfaceKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildGpuInternalSurfaceKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
             )
 
             sections.forEach { section ->
@@ -10900,6 +10914,7 @@ private fun InferenceModelInfoRow(
     inferenceTarget: InferenceTarget,
     onCopyInferenceStats: () -> Unit,
     onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
+    onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -10947,7 +10962,7 @@ private fun InferenceModelInfoRow(
         if (onCopyGpuDiagnosticKeys != null) {
             TextButton(
                 onClick = onCopyGpuDiagnosticKeys,
-                modifier = Modifier.semantics { contentDescription = "GPU診断キーをコピー" },
+                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
             ) {
                 Icon(
                     imageVector = Icons.Default.ContentCopy,
@@ -10955,7 +10970,21 @@ private fun InferenceModelInfoRow(
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("GPU診断キーをコピー")
+                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyGpuInternalSurfaceKeys != null) {
+            TextButton(
+                onClick = onCopyGpuInternalSurfaceKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
             }
         }
     }

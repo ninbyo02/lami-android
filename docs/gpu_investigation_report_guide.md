@@ -49,9 +49,14 @@ The report handles missing directories gracefully and records them as missing.
 ## Copy Focused GPU Diagnostics
 
 The inference stats bottom sheet keeps the existing full stats copy action. In
-debug builds it also provides `GPU診断キーをコピー`, which copies a stable
-machine-readable key subset for GPU root-cause investigation. Use this when the
-detail view is too long and important keys may be visually truncated.
+debug builds it also provides focused copy actions for GPU investigation. Use
+these when the detail view is too long and important keys may be visually
+truncated.
+
+`GPU診断キーをコピー` is the first action to use for overall triage. It copies
+the executor probe result, runtime fingerprints, quality gate status, promotion
+blocker, root-cause candidate, raw callback corruption state, and performance
+slow-path keys.
 
 The copied text starts with:
 
@@ -78,10 +83,37 @@ Representative keys include:
 - `callback_corruption_earliest_stage`
 - callback chunk counts, raw/final text head/tail, and GPU perf slow-path keys
 
+`GPU内部surfaceキーをコピー` is the follow-up action for executor-surface
+deep-dives. It keeps the copied payload narrow and focused on whether Lami can
+see internal LiteRT-LM / GPU executor surfaces without relying on the long detail
+view:
+
+```text
+[GPU internal surface keys]
+```
+
+Representative keys include:
+
+- `gpu_internal_surface_probe_enabled`
+- `gpu_internal_surface_probe_result`
+- `gpu_internal_surface_probe_disabled_reason`
+- `gpu_internal_runtime_config_class_present`
+- `gpu_internal_backend_constraint_class_present`
+- `gpu_internal_preferred_engine_type_class_present`
+- `gpu_internal_gpu_options_class_present`
+- `gpu_internal_artisan_class_present`
+- `gpu_internal_llm_gpu_artisan_executor_symbol_present`
+- `gpu_internal_kv_cache_symbol_present`
+- `gpu_internal_runtime_config_methods`
+- `gpu_internal_backend_constraint_methods`
+- `gpu_internal_gpu_options_methods`
+- `gpu_internal_probe_exception_class`
+- `gpu_internal_probe_exception_message`
+
 Missing keys are emitted as `unavailable`, so pasted diagnostics can be diffed
-without changing shape between runs. A narrower internal-surface formatter also
-exists in code for tests and future UI use, but the current UI exposes the
-single broader `GPU診断キーをコピー` action to avoid crowding the stats sheet.
+without changing shape between runs. For promotion triage, copy GPU diagnostic
+keys first; use internal surface keys only when the executor / RuntimeConfig /
+BackendConstraint / GPU_ARTISAN evidence needs deeper inspection.
 
 ## Generate Report
 
