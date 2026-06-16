@@ -69,6 +69,11 @@ fallback_detected() {
   return 1
 }
 
+has_meaningful_diagnostic_value() {
+  local value="$1"
+  [[ -n "$value" && "$value" != "unavailable" ]]
+}
+
 backend_evidence_summary() {
   local evidence="$1"
   local npu_evidence="$2"
@@ -102,6 +107,7 @@ classify_file() {
 
   local status reason selected effective route_family backend_evidence npu_backend_evidence backend_summary
   local fallback_used fallback fresh_crash timeout fresh_tombstone quality standard_connected conversation_created generate_response
+  local quality_candidate_status sanitized_output actual_display_text prepared_output
   local cleanup_status engine_close native_cleanup run_decode failure_kind failure_layer last_engine_create
   local classification classification_reason promotion_blocker promotion_decision promotion_decision_reason root_cause next_action
 
@@ -119,6 +125,10 @@ classify_file() {
   timeout="$(diagnostic_get_key_or_unavailable "$input" "timeout")"
   fresh_tombstone="$(diagnostic_get_key_or_unavailable "$input" "fresh_tombstone_status")"
   quality="$(diagnostic_get_key_or_unavailable "$input" "quality_classification")"
+  quality_candidate_status="$(diagnostic_get_key_or_unavailable "$input" "output_quality_candidate_status")"
+  sanitized_output="$(diagnostic_get_key_or_unavailable "$input" "sanitized_output")"
+  actual_display_text="$(diagnostic_get_key_or_unavailable "$input" "actual_display_text")"
+  prepared_output="$(diagnostic_get_key_or_unavailable "$input" "output_quality_candidate_prepared_output")"
   standard_connected="$(diagnostic_get_key_or_unavailable "$input" "standard_route_connected")"
   conversation_created="$(diagnostic_get_key_or_unavailable "$input" "conversation_created")"
   generate_response="$(diagnostic_get_key_or_unavailable "$input" "generate_response")"
@@ -196,6 +206,18 @@ classify_file() {
     root_cause="npu_cleanup_failure"
     promotion_decision_reason="cleanup_failure"
     next_action="fix_cleanup_before_standard_route_promotion"
+  elif [[ "$status" == "success" &&
+    "$quality_candidate_status" == "quality_candidate_pass" &&
+    "$quality" != "natural_japanese" &&
+    ( "$quality" == "template_artifact" || "$quality" == "unknown" ) ]] &&
+    (has_meaningful_diagnostic_value "$sanitized_output" ||
+      has_meaningful_diagnostic_value "$actual_display_text" ||
+      has_meaningful_diagnostic_value "$prepared_output"); then
+    classification="npu_quality_candidate_pass_with_template_cleanup"
+    classification_reason="quality candidate passed after template cleanup"
+    root_cause="prompt_wrapper_or_template_artifact_cleanup_needed"
+    promotion_decision_reason="quality_candidate_pass_but_primary_classification_not_natural_japanese"
+    next_action="run_repeatability_matrix_and_align_quality_classification_with_candidate_gate"
   elif [[ "$status" == "success" && "$quality" != "natural_japanese" ]]; then
     classification="npu_quality_failure"
     classification_reason="status=success but quality_classification is not natural_japanese"
@@ -266,14 +288,17 @@ run_self_test() {
     "status=failure selected_backend=NPU effective_backend=NPU route_family=npu_s1 backend_evidence=QNN_HTP_V79_FastRPC timeout=false fallback=false fresh_crash=true fresh_tombstone_status=fresh_tombstone_found"
   write_fixture "$tmpdir/quality_fail.txt" \
     "status=success selected_backend=NPU effective_backend=NPU route_family=npu_s1 backend_evidence=QNN_HTP_V79_FastRPC timeout=false fallback=false fresh_crash=false quality_classification=unknown standard_route_connected=true conversation_created=true generate_response=true cleanup_status=success engine_close_evidence=present"
+  write_fixture "$tmpdir/template_cleanup_pass.txt" \
+    "status=success selected_backend=NPU_S1 requested_backend=NPU effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag route_family=npu_s1 fallback=false timeout=false fresh_crash=false run_decode_reached=true native_stage=adapter_success native_call_returned=true native_decode_started=true native_decode_finished=true native_cleanup_reached=true raw_output=>こんにちは！何かお手伝いできることはありますか？<end_of_turn> sanitized_output=こんにちは！何かお手伝いできることはありますか？ actual_display_text=こんにちは！何かお手伝いできることはありますか？ output_quality_candidate_status=quality_candidate_pass output_quality_candidate_reason=natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup output_quality_candidate_prepared_output=こんにちは！何かお手伝いできることはありますか？ quality_classification=template_artifact"
 
-  local engine_output gpu_output success_output timeout_output crash_output quality_output
+  local engine_output gpu_output success_output timeout_output crash_output quality_output cleanup_output
   engine_output="$(classify_file "$tmpdir/engine_create_failed.txt")"
   gpu_output="$(classify_file "$tmpdir/gpu_route.txt")"
   success_output="$(classify_file "$tmpdir/success.txt")"
   timeout_output="$(classify_file "$tmpdir/timeout.txt")"
   crash_output="$(classify_file "$tmpdir/crash.txt")"
   quality_output="$(classify_file "$tmpdir/quality_fail.txt")"
+  cleanup_output="$(classify_file "$tmpdir/template_cleanup_pass.txt")"
 
   assert_output_key "$engine_output" "NPU_CLASSIFICATION" "npu_engine_create_failed"
   assert_output_key "$engine_output" "NPU_PROMOTION_BLOCKER" "true"
@@ -288,6 +313,11 @@ run_self_test() {
   assert_output_key "$timeout_output" "NPU_CLASSIFICATION" "npu_timeout"
   assert_output_key "$crash_output" "NPU_CLASSIFICATION" "npu_crash_detected"
   assert_output_key "$quality_output" "NPU_CLASSIFICATION" "npu_quality_failure"
+  assert_output_key "$cleanup_output" "NPU_CLASSIFICATION" "npu_quality_candidate_pass_with_template_cleanup"
+  assert_output_key "$cleanup_output" "NPU_PROMOTION_BLOCKER" "true"
+  assert_output_key "$cleanup_output" "NPU_PROMOTION_DECISION" "blocked"
+  assert_output_key "$cleanup_output" "NPU_PROMOTION_DECISION_REASON" "quality_candidate_pass_but_primary_classification_not_natural_japanese"
+  assert_output_key "$cleanup_output" "NPU_ROOT_CAUSE_CANDIDATE" "prompt_wrapper_or_template_artifact_cleanup_needed"
 
   rm -rf "$tmpdir"
   SELF_TEST_TMPDIR=""

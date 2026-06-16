@@ -212,3 +212,18 @@ NPU_BACKEND_EVIDENCE_SUMMARY=qnn_htp_fastrpc_present
 NPU_FAILURE_LAYER=litert_npu_compiled_model_executor
 NEXT_ACTION=inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
 ```
+
+For template cleanup success where the prepared output is natural but the
+primary classifier still reports `template_artifact`, the report should show:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_template_cleanup
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=quality_candidate_pass_but_primary_classification_not_natural_japanese
+NPU_ROOT_CAUSE_CANDIDATE=prompt_wrapper_or_template_artifact_cleanup_needed
+NEXT_ACTION=run_repeatability_matrix_and_align_quality_classification_with_candidate_gate
+```
+
+This is not a full promotion candidate. It is a reportable intermediate state
+for repeatability testing and quality gate alignment.

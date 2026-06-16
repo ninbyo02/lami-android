@@ -66,6 +66,7 @@ NEXT_ACTION=run_repeatability_matrix_before_standard_route_promotion
 npu_promotion_candidate
 npu_route_not_connected
 npu_fallback_detected
+npu_quality_candidate_pass_with_template_cleanup
 npu_quality_failure
 npu_timeout
 npu_crash_detected
@@ -100,10 +101,15 @@ Evaluate hard blockers first:
 9. If cleanup evidence is failed or missing for a terminal failure, classify as
    `npu_cleanup_failure`. `native_cleanup_reached=true` is accepted as cleanup
    evidence for current S1 DEV diagnostics.
-10. If `status=success` but `quality_classification` is not
+10. If `status=success`, `output_quality_candidate_status=quality_candidate_pass`,
+    `quality_classification` is `template_artifact` or `unknown`, and
+    `sanitized_output`, `actual_display_text`, or
+    `output_quality_candidate_prepared_output` is present, classify as
+    `npu_quality_candidate_pass_with_template_cleanup`.
+11. If `status=success` but `quality_classification` is not
     `natural_japanese`, classify as `npu_quality_failure`.
-11. If all required gate keys pass, classify as `npu_promotion_candidate`.
-12. Otherwise classify as `unknown`.
+12. If all required gate keys pass, classify as `npu_promotion_candidate`.
+13. Otherwise classify as `unknown`.
 
 ## Promotion Blocker Mapping
 
@@ -112,6 +118,7 @@ Evaluate hard blockers first:
 | `npu_promotion_candidate` | `false` | `none` |
 | `npu_route_not_connected` | `true` | `route_not_connected` |
 | `npu_fallback_detected` | `true` | `fallback_used` |
+| `npu_quality_candidate_pass_with_template_cleanup` | `true` | `prompt_wrapper_or_template_artifact_cleanup_needed` |
 | `npu_quality_failure` | `true` | `output_quality_failure` |
 | `npu_timeout` | `true` | `timeout` |
 | `npu_crash_detected` | `true` | `fresh_crash` |
@@ -139,7 +146,37 @@ collect_more_diagnostics
 inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
 inspect_compiled_model_dispatch_delegate_and_model_constraints
 inspect_stage_history_before_decode
+run_repeatability_matrix_and_align_quality_classification_with_candidate_gate
 ```
+
+## Quality Candidate vs Primary Classification
+
+`output_quality_candidate_status=quality_candidate_pass` means a prepared or
+sanitized candidate output looks acceptable after cleanup. It is not the same as
+the primary promotion quality gate.
+
+The full promotion candidate still requires:
+
+```text
+quality_classification=natural_japanese
+```
+
+If the candidate output passes but the primary classification remains
+`template_artifact` or `unknown`, the classifier emits:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_template_cleanup
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=quality_candidate_pass_but_primary_classification_not_natural_japanese
+NPU_ROOT_CAUSE_CANDIDATE=prompt_wrapper_or_template_artifact_cleanup_needed
+NEXT_ACTION=run_repeatability_matrix_and_align_quality_classification_with_candidate_gate
+```
+
+Interpretation: the current run should not be treated as a full promotion
+candidate. It is a useful signal that the sanitizer/template cleanup path may be
+correct, but the primary quality classifier and repeatability matrix still need
+alignment.
 
 ## Engine Create Failed Example
 
@@ -186,4 +223,5 @@ The script self-test covers:
 - timeout
 - fresh crash
 - engine create failure
+- candidate quality pass with template cleanup
 - non-natural output quality

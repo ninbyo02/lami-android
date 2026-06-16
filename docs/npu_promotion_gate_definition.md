@@ -41,6 +41,22 @@ timeout=true
 quality_classification!=natural_japanese
 ```
 
+`output_quality_candidate_status=quality_candidate_pass` is not sufficient for
+promotion when `quality_classification` is still `template_artifact` or
+`unknown`. That case is classified as:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_template_cleanup
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=quality_candidate_pass_but_primary_classification_not_natural_japanese
+```
+
+The next action is repeatability testing and alignment between the prepared
+output quality candidate and the primary quality classifier. Do not relax the
+full promotion gate until `quality_classification=natural_japanese` is observed
+under the same route and prompt matrix.
+
 Additional blockers:
 
 - `npu_s1_failure_kind=engine_create_failed`

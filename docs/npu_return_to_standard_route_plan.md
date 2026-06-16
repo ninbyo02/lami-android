@@ -231,6 +231,21 @@ NPU_ROOT_CAUSE_CANDIDATE=litert_npu_compiled_model_executor_failure
 NEXT_ACTION=inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
 ```
 
+If `output_quality_candidate_status=quality_candidate_pass` but
+`quality_classification=template_artifact` or `unknown`, classify it as an
+intermediate blocker:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_template_cleanup
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=quality_candidate_pass_but_primary_classification_not_natural_japanese
+NEXT_ACTION=run_repeatability_matrix_and_align_quality_classification_with_candidate_gate
+```
+
+This preserves the full promotion requirement that the primary
+`quality_classification` must be `natural_japanese`.
+
 Use the Priority C report generator after saving copied NPU diagnostics:
 
 ```bash
