@@ -41,11 +41,13 @@ run_self_test() {
   write_fixture "$tmpdir/different_stack.txt" \
     "loaded_native_runtime_stack_fingerprint=stackB executor_selection_fingerprint=execA gpu_output_quality_candidate_result=quality_candidate_pass"
 
-  local raw_output raw_class raw_evidence raw_gap raw_next_action raw_public_next_action pass_class stack_class
+  local raw_output raw_class raw_evidence raw_gap raw_decision raw_decision_reason raw_next_action raw_public_next_action pass_class stack_class
   raw_output="$(classify_file "$tmpdir/raw_corrupt.txt" "")"
   raw_class="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
   raw_evidence="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_INTERNAL_SURFACE_EVIDENCE=/ {print $2}')"
   raw_gap="$(printf '%s\n' "$raw_output" | awk -F= '/^PUBLIC_API_GAP_SUMMARY=/ {print $2}')"
+  raw_decision="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_PROMOTION_DECISION=/ {print $2}')"
+  raw_decision_reason="$(printf '%s\n' "$raw_output" | awk -F= '/^GPU_PROMOTION_DECISION_REASON=/ {print $2}')"
   raw_next_action="$(printf '%s\n' "$raw_output" | awk -F= '/^NEXT_ACTION=/ {print $2}')"
   raw_public_next_action="$(printf '%s\n' "$raw_output" | awk -F= '/^PUBLIC_API_GAP_NEXT_ACTION=/ {print $2}')"
   pass_class="$(classify_file "$tmpdir/pass.txt" "" | awk -F= '/^GPU_EXECUTOR_PROBE_CLASSIFICATION=/ {print $2}')"
@@ -71,6 +73,14 @@ run_self_test() {
   }
   [[ "$raw_gap" == "public_selector_api_absent_native_executor_symbols_present" ]] || {
     echo "self-test failed: public API gap summary=$raw_gap" >&2
+    exit 1
+  }
+  [[ "$raw_decision" == "blocked" ]] || {
+    echo "self-test failed: promotion decision=$raw_decision" >&2
+    exit 1
+  }
+  [[ "$raw_decision_reason" == "raw_callback_corruption_and_public_api_gap" ]] || {
+    echo "self-test failed: promotion decision reason=$raw_decision_reason" >&2
     exit 1
   }
   [[ "$raw_next_action" == "compare_edge_gallery_native_internal_executor_selection_and_public_api_gap" ]] || {
@@ -179,6 +189,7 @@ classify_file() {
   local baseline_runtime_stack baseline_executor_fp classification reason promotion_blocker root_cause next_action
   local internal_evidence internal_runtime_config internal_artisan_symbol internal_kv_cache
   local public_gap_summary public_gap_next_action
+  local promotion_decision promotion_decision_reason
 
   probe_result="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_probe_result")"
   difference="$(diagnostic_get_key_or_unavailable "$input" "edge_gallery_executor_difference_summary")"
@@ -214,6 +225,24 @@ classify_file() {
     [[ "$callback_stage" == "raw_callback" ]] ||
     [[ "$source_stage" == "raw_callback" ]]; then
     promotion_blocker="true"
+  fi
+
+  promotion_decision="unknown"
+  promotion_decision_reason="insufficient_diagnostics"
+  if [[ "$promotion_blocker" == "true" ]]; then
+    promotion_decision="blocked"
+    promotion_decision_reason="promotion_blocker_true"
+    if [[ ( "$callback_stage" == "raw_callback" || "$source_stage" == "raw_callback" || "$quality" == "quality_candidate_fail" ) &&
+      "$public_gap_summary" == "public_selector_api_absent_native_executor_symbols_present" ]]; then
+      promotion_decision_reason="raw_callback_corruption_and_public_api_gap"
+    elif [[ "$callback_stage" == "raw_callback" || "$source_stage" == "raw_callback" || "$quality" == "quality_candidate_fail" ]]; then
+      promotion_decision_reason="raw_callback_corruption"
+    elif [[ "$public_gap_summary" == "public_selector_api_absent_native_executor_symbols_present" ]]; then
+      promotion_decision_reason="public_api_gap"
+    fi
+  elif [[ "$quality" == "quality_candidate_pass" || "$gate_status" == "pass" ]]; then
+    promotion_decision="not_blocked_by_latest_classifier"
+    promotion_decision_reason="quality_gate_pass_requires_repeat_soak"
   fi
 
   root_cause="unknown"
@@ -292,6 +321,8 @@ classify_file() {
   printf 'GPU_EXECUTOR_PROBE_CLASSIFICATION=%s\n' "$classification"
   printf 'GPU_EXECUTOR_PROBE_REASON=%s\n' "$reason"
   printf 'GPU_PROMOTION_BLOCKER=%s\n' "$promotion_blocker"
+  printf 'GPU_PROMOTION_DECISION=%s\n' "$promotion_decision"
+  printf 'GPU_PROMOTION_DECISION_REASON=%s\n' "$promotion_decision_reason"
   printf 'GPU_ROOT_CAUSE_CANDIDATE=%s\n' "$root_cause"
   printf 'GPU_INTERNAL_SURFACE_EVIDENCE=%s\n' "$internal_evidence"
   printf 'PUBLIC_API_GAP_SUMMARY=%s\n' "$public_gap_summary"

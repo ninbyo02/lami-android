@@ -17,6 +17,7 @@ Markdown file that summarizes:
 - APK native diff
 - regression suite summary
 - promotion blocker status
+- final GPU promotion decision
 - root cause ranking
 - next actions
 
@@ -153,6 +154,7 @@ artifacts/gpu_investigation_report/GPU_INVESTIGATION_REPORT.md
 | Internal surface summary artifacts | Included under APK native diff summary when `internal_surface_summary.txt` / `internal_surface_diff.tsv` exist. |
 | Executor selection static trace summary | Includes Edge-vs-Lami static token fingerprints and Edge-only / Lami-only / common executor token lists. |
 | Regression suite summary | Calls `scripts/summarize_gpu_regression_results.sh` when device run artifacts exist. |
+| GPU promotion decision | Emits final key-value decision lines for blocked / not blocked / unknown and the safe next action. |
 | Promotion blocker status | Computes whether latest diagnostics still block standard GPU promotion. |
 | Root cause ranking | Captures the current investigation ranking. |
 | Next actions | Lists what to do based on the observed classification. |
@@ -168,6 +170,17 @@ The report marks GPU promotion as blocked if the latest diagnostics show any of:
 - `gpu_output_source_corruption_stage=raw_callback`
 
 If the report says blocked, do not promote standard GPU.
+
+Current expected final decision for the failing Lami GPU path:
+
+```text
+GPU_PROMOTION_DECISION=blocked
+GPU_PROMOTION_DECISION_REASON=raw_callback_corruption_and_public_api_gap
+GPU_SAFE_NEXT_ACTION=keep_gpu_experimental_return_focus_to_cpu_stable_and_npu_route
+```
+
+This means GPU remains experimental/diagnostics-only. Use CPU as the stable
+local route and return the main acceleration workstream to NPU safety gates.
 
 ## Decision Examples
 
@@ -231,6 +244,8 @@ GPU_INTERNAL_SURFACE_EVIDENCE=runtime_config_class_absent,backend_constraint_cla
 PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present
 PUBLIC_API_GAP_NEXT_ACTION=track_public_api_or_upstream_edge_gallery_internal_selector_gap
 GPU_PROMOTION_BLOCKER=true
+GPU_PROMOTION_DECISION=blocked
+GPU_PROMOTION_DECISION_REASON=raw_callback_corruption_and_public_api_gap
 GPU_ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
 NEXT_ACTION=compare_edge_gallery_native_internal_executor_selection_and_public_api_gap
 ```

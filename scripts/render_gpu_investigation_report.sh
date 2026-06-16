@@ -128,6 +128,65 @@ promotion_blocker_from_file() {
   fi
 }
 
+public_api_gap_from_file() {
+  local file="$1"
+  [[ -f "$file" ]] || {
+    printf 'unavailable\n'
+    return
+  }
+  local existing runtime_config backend_constraint preferred_engine gpu_options artisan artisan_symbol kv_cache
+  existing="$(diagnostic_get_key_or_unavailable "$file" "PUBLIC_API_GAP_SUMMARY")"
+  if [[ "$existing" != "unavailable" && -n "$existing" ]]; then
+    printf '%s\n' "$existing"
+    return
+  fi
+  runtime_config="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_runtime_config_class_present")"
+  backend_constraint="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_backend_constraint_class_present")"
+  preferred_engine="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_preferred_engine_type_class_present")"
+  gpu_options="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_gpu_options_class_present")"
+  artisan="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_artisan_class_present")"
+  artisan_symbol="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_llm_gpu_artisan_executor_symbol_present")"
+  kv_cache="$(diagnostic_get_key_or_unavailable "$file" "gpu_internal_kv_cache_symbol_present")"
+  if [[ "$runtime_config" == "false" &&
+    "$backend_constraint" == "false" &&
+    "$preferred_engine" == "false" &&
+    "$gpu_options" == "false" &&
+    "$artisan" == "false" &&
+    "$artisan_symbol" == "true" &&
+    "$kv_cache" == "true" ]]; then
+    printf 'public_selector_api_absent_native_executor_symbols_present\n'
+  else
+    printf 'unavailable\n'
+  fi
+}
+
+promotion_decision_reason_from_files() {
+  local latest_file="$1"
+  local internal_file="$2"
+  local blocker public_gap quality callback_stage source_stage
+  blocker="$(promotion_blocker_from_file "$latest_file")"
+  public_gap="$(public_api_gap_from_file "$internal_file")"
+  quality="$(diagnostic_get_key_or_unavailable "$latest_file" "gpu_output_quality_candidate_result")"
+  callback_stage="$(diagnostic_get_key_or_unavailable "$latest_file" "callback_corruption_earliest_stage")"
+  source_stage="$(diagnostic_get_key_or_unavailable "$latest_file" "gpu_output_source_corruption_stage")"
+  if [[ "$blocker" == "true" ]]; then
+    if [[ ( "$quality" == "quality_candidate_fail" || "$callback_stage" == "raw_callback" || "$source_stage" == "raw_callback" ) &&
+      "$public_gap" == "public_selector_api_absent_native_executor_symbols_present" ]]; then
+      printf 'raw_callback_corruption_and_public_api_gap\n'
+    elif [[ "$quality" == "quality_candidate_fail" || "$callback_stage" == "raw_callback" || "$source_stage" == "raw_callback" ]]; then
+      printf 'raw_callback_corruption\n'
+    elif [[ "$public_gap" == "public_selector_api_absent_native_executor_symbols_present" ]]; then
+      printf 'public_api_gap\n'
+    else
+      printf 'promotion_blocker_true\n'
+    fi
+  elif [[ "$blocker" == "false" ]]; then
+    printf 'quality_gate_pass_requires_repeat_soak\n'
+  else
+    printf 'insufficient_diagnostics\n'
+  fi
+}
+
 render_report() {
   local device_runs="$1"
   local quality_matrix="$2"
@@ -135,6 +194,7 @@ render_report() {
   local output="$4"
   local tmpdir latest_device executor_file promotion_blocker
   local internal_surface_file
+  local promotion_decision promotion_decision_reason public_api_gap safe_next_action
 
   mkdir -p "$(dirname "$output")"
   tmpdir="$(mktemp -d)"
@@ -147,6 +207,15 @@ render_report() {
   internal_surface_file="$(latest_file_with_key "$device_runs" "gpu_internal_surface_probe_enabled" || true)"
   [[ -n "$internal_surface_file" ]] || internal_surface_file="$executor_file"
   promotion_blocker="$(promotion_blocker_from_file "$latest_device")"
+  public_api_gap="$(public_api_gap_from_file "$internal_surface_file")"
+  promotion_decision="unknown"
+  if [[ "$promotion_blocker" == "true" ]]; then
+    promotion_decision="blocked"
+  elif [[ "$promotion_blocker" == "false" ]]; then
+    promotion_decision="not_blocked_by_latest_run"
+  fi
+  promotion_decision_reason="$(promotion_decision_reason_from_files "$latest_device" "$internal_surface_file")"
+  safe_next_action="keep_gpu_experimental_return_focus_to_cpu_stable_and_npu_route"
 
   {
     printf '# GPU Investigation Report\n\n'
@@ -278,6 +347,16 @@ render_report() {
     else
       printf 'missing: `%s`\n\n' "$device_runs"
     fi
+  } >>"$output"
+
+  {
+    printf '## GPU Promotion Decision\n\n'
+    printf '```text\n'
+    printf 'GPU_PROMOTION_DECISION=%s\n' "$promotion_decision"
+    printf 'GPU_PROMOTION_DECISION_REASON=%s\n' "$promotion_decision_reason"
+    printf 'GPU_SAFE_NEXT_ACTION=%s\n' "$safe_next_action"
+    printf 'PUBLIC_API_GAP_SUMMARY=%s\n' "$public_api_gap"
+    printf '```\n\n'
   } >>"$output"
 
   {
@@ -415,6 +494,18 @@ EOF
   }
   grep -Fq 'PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present' "$tmpdir/report.md" || {
     echo "self-test failed: missing public API gap summary" >&2
+    exit 1
+  }
+  grep -Fq 'GPU_PROMOTION_DECISION=blocked' "$tmpdir/report.md" || {
+    echo "self-test failed: missing blocked promotion decision" >&2
+    exit 1
+  }
+  grep -Fq 'GPU_PROMOTION_DECISION_REASON=raw_callback_corruption_and_public_api_gap' "$tmpdir/report.md" || {
+    echo "self-test failed: missing promotion decision reason" >&2
+    exit 1
+  }
+  grep -Fq 'GPU_SAFE_NEXT_ACTION=keep_gpu_experimental_return_focus_to_cpu_stable_and_npu_route' "$tmpdir/report.md" || {
+    echo "self-test failed: missing GPU safe next action" >&2
     exit 1
   }
   grep -Fq 'Status: **blocked**' "$tmpdir/report.md" || {

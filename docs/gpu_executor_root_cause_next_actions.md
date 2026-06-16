@@ -175,7 +175,41 @@ Updated root cause ordering:
 5. Native stack / symbol set partially differs.
 6. Sampler, max tokens, and public cacheDir remain low-priority explanations.
 
-## Safe And Unsafe Next Actions
+## Phase 11 Promotion Decision
+
+Current decision:
+
+```text
+GPU_PROMOTION_DECISION=blocked
+GPU_PROMOTION_DECISION_REASON=raw_callback_corruption_and_public_api_gap
+GPU_SAFE_NEXT_ACTION=keep_gpu_experimental_return_focus_to_cpu_stable_and_npu_route
+```
+
+Standard GPU production promotion is not allowed at this point. Lami minimal GPU
+can invoke, but long generation still fails the quality gate before UI append:
+
+- `gpu_output_quality_candidate_result=quality_candidate_fail`
+- `gpu_output_quality_promotion_blocker=true`
+- `callback_corruption_earliest_stage=raw_callback`
+- `gpu_output_source_corruption_stage=raw_callback`
+- `callback_quality_classification=severe_fragmentation`
+
+The best current root-cause class remains internal executor / runtime decode
+path mismatch. The public API gap means there is no confirmed safe Lami-side
+fix surface for selecting the Edge Gallery internal path:
+
+- `PUBLIC_API_GAP_SUMMARY=public_selector_api_absent_native_executor_symbols_present`
+- GPU artisan / KV-cache native evidence exists.
+- `RuntimeConfig`, `BackendConstraint`, `PreferredEngineType`,
+  `GpuOptions`, and `Artisan` public Java/Kotlin surfaces are absent.
+
+Operationally:
+
+- Keep GPU in DEV-only experimental / diagnostics flavors.
+- Keep CPU as the stable usable local route.
+- Return primary development focus to the NPU route safety/promotion track.
+
+## Safe Stop Line
 
 Safe to continue now:
 
@@ -189,6 +223,8 @@ Safe to continue now:
 - Continue NPU route investigation independently.
 - Keep collecting raw callback artifacts and executor fingerprints in
   DEV-only flavors.
+- Use `GPU診断キーをコピー` and `GPU内部surfaceキーをコピー` when new GPU
+  artifacts are needed.
 
 Do not do in the current phase:
 
@@ -201,6 +237,8 @@ Do not do in the current phase:
 - Copy Edge Gallery internal implementation details into Lami without a public
   API or isolated license/packaging review.
 - Hide GPU corruption by repairing callback text after the fact.
+- Promote any GPU UI/default path while `severe_fragmentation` or raw callback
+  quality failure is present.
 
 ## Next Device Actions
 

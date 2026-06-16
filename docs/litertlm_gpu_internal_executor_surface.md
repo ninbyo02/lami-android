@@ -8,6 +8,27 @@ probe is implemented.
 No runtime behavior is changed by this document. The current standard GPU
 promotion blocker remains in force.
 
+## Phase 11 Promotion Gate
+
+Current decision:
+
+```text
+GPU_PROMOTION_DECISION=blocked
+GPU_PROMOTION_DECISION_REASON=raw_callback_corruption_and_public_api_gap
+GPU_SAFE_NEXT_ACTION=keep_gpu_experimental_return_focus_to_cpu_stable_and_npu_route
+```
+
+GPU remains DEV-only experimental / diagnostics-only. The reason is not simple
+invoke failure anymore: Lami minimal GPU invokes, but long output corrupts at
+raw callback source with `severe_fragmentation`, while CPU route succeeds and
+Edge Gallery GPU does not show the same corruption. The current blocker is the
+combination of raw callback quality failure and no safe public selector API for
+the internal executor path that Edge Gallery appears to reach.
+
+CPU remains the stable usable local route. NPU route work should resume as the
+main acceleration track while GPU waits for upstream public API or additional
+safe selector evidence.
+
 ## Current Device Evidence
 
 The latest `edge_gallery_executor_probe` run classified the LAMI GPU failure as
@@ -205,9 +226,14 @@ Unsafe for the current phase:
 - Forcing `GPU_ARTISAN` through reflection.
 - Invoking hidden `RuntimeConfig`, `BackendConstraint`, or
   `PreferredEngineType` setters.
+- Constructing hidden `BackendConstraint` / `PreferredEngineType` /
+  `GpuOptions` objects and injecting them into the public route.
 - Calling native methods directly.
 - Replacing native libraries in standardDebug.
 - Changing production/default GPU routing.
+- Repairing or filtering callback text to hide raw callback corruption.
+- Promoting GPU UI/default behavior while `quality_candidate_fail`,
+  `severe_fragmentation`, or raw callback corruption remains reproducible.
 
 ## DEV-Only Probe Candidate Ranking
 
