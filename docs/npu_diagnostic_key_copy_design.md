@@ -11,7 +11,7 @@ than reading a long details panel. NPU investigation should use the same shape:
 a stable, machine-readable key list that can be copied from device runs and fed
 into classifiers, reports, and promotion gate review.
 
-The future UI action name can be:
+The implemented UI action name is:
 
 ```text
 NPU diagnostic keys
@@ -19,6 +19,17 @@ NPU diagnostic keys
 
 The action should be route-specific and diagnostic-only. It must not imply that
 NPU standard route is promoted.
+
+The user-facing button label is:
+
+```text
+NPU診断キーをコピー
+```
+
+This differs from GPU diagnostic copy: GPU copy focuses on executor/runtime
+decode and raw callback quality, while NPU copy focuses on backend evidence,
+fallback/crash/timeout, standard route connection, output quality, and cleanup
+evidence for the promotion gate.
 
 ## Copy Text Format
 
@@ -57,6 +68,10 @@ promotion_decision_reason=hidden_route_gate_passed
 
 Missing keys should render as `unavailable` so copied text is stable across
 device runs.
+
+Use this button during device verification before reading the long details
+panel. The copied output should be saved with the run artifact and used to check
+the NPU promotion gate in `docs/npu_promotion_gate_definition.md`.
 
 ## Priority Keys
 

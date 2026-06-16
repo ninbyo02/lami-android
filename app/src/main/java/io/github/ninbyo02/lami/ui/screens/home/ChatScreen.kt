@@ -10780,6 +10780,20 @@ private fun InferenceStatsSheetContent(
                 } else {
                     null
                 },
+                onCopyNpuDiagnosticKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildNpuDiagnosticKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
             )
 
             sections.forEach { section ->
@@ -10915,6 +10929,7 @@ private fun InferenceModelInfoRow(
     onCopyInferenceStats: () -> Unit,
     onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
     onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
+    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -10985,6 +11000,20 @@ private fun InferenceModelInfoRow(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyNpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyNpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
             }
         }
     }

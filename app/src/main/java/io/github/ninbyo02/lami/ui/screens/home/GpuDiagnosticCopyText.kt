@@ -91,7 +91,7 @@ internal fun buildGpuInternalSurfaceKeysCopyText(
     diagnostics = collectInferenceDiagnosticKeyValues(stats = stats, trace = trace),
 )
 
-private fun buildDiagnosticKeyCopyText(
+internal fun buildDiagnosticKeyCopyText(
     title: String,
     keys: List<String>,
     diagnostics: Map<String, String>,
@@ -104,7 +104,7 @@ private fun buildDiagnosticKeyCopyText(
     }
 }.trimEnd()
 
-private fun collectInferenceDiagnosticKeyValues(
+internal fun collectInferenceDiagnosticKeyValues(
     stats: InferenceStats,
     trace: LocalInferenceTrace?,
 ): Map<String, String> {

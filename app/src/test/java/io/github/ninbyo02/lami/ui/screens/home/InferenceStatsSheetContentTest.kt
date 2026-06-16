@@ -671,10 +671,60 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
-    fun `GPU copy button labels remain distinct`() {
+    fun `buildNpuDiagnosticKeysCopyText includes NPU promotion gate keys`() {
+        val traceText = """
+            status=success reason=success selected_backend=NPU requested_backend=NPU effective_backend=NPU route_family=standard_chat_screen_s5_npu_tts backend_evidence=QNN_HTP_V79_FastRPC npu_backend_evidence=QNN_HTP_V79_FastRPC fallback_used=false fresh_crash=false timeout=false selected_path_npu_saved=true normal_ui_route_connected=true standard_route_connected=true conversation_created=true generate_response=true quality_classification=natural_japanese db=true tts=true markdown=true streaming=true cleanup_status=success engine_close_evidence=present fresh_tombstone_status=none
+        """.trimIndent()
+        val text = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
+        )
+
+        assertTrue(text.startsWith("[NPU diagnostic keys]"))
+        assertTrue(text.contains("status=success"))
+        assertTrue(text.contains("reason=success"))
+        assertTrue(text.contains("selected_backend=NPU"))
+        assertTrue(text.contains("route_family=standard_chat_screen_s5_npu_tts"))
+        assertTrue(text.contains("backend_evidence=QNN_HTP_V79_FastRPC"))
+        assertTrue(text.contains("npu_backend_evidence=QNN_HTP_V79_FastRPC"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("fresh_crash=false"))
+        assertTrue(text.contains("timeout=false"))
+        assertTrue(text.contains("standard_route_connected=true"))
+        assertTrue(text.contains("quality_classification=natural_japanese"))
+        assertTrue(text.contains("cleanup_status=success"))
+        assertTrue(text.contains("engine_close_evidence=present"))
+    }
+
+    @Test
+    fun `buildNpuDiagnosticKeysCopyText uses unavailable for missing keys and is GPU safe`() {
+        val text = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=GPU
+                    requested_backend=GPU
+                    effective_backend=GPU
+                    route_family=local_gpu
+                    backend_evidence=gpu_route
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[NPU diagnostic keys]"))
+        assertTrue(text.contains("selected_backend=GPU"))
+        assertTrue(text.contains("fallback_used=unavailable"))
+        assertTrue(text.contains("standard_route_connected=unavailable"))
+        assertTrue(text.contains("quality_classification=unavailable"))
+        assertTrue(text.contains("fresh_tombstone_status=unavailable"))
+    }
+
+    @Test
+    fun `route diagnostic copy button labels remain distinct`() {
         assertEquals("GPU診断キーをコピー", GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
         assertEquals("GPU内部surfaceキーをコピー", GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+        assertEquals("NPU診断キーをコピー", NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
         assertNotEquals(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL, GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL, NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL, NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
     }
 
     private fun memorySnapshot(

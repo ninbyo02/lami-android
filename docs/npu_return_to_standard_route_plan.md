@@ -197,7 +197,7 @@ Use this order when moving from planning into implementation:
 
 | Priority | Work item | Scope |
 | --- | --- | --- |
-| A | NPU diagnostic key copy | Add a stable copied key set for backend evidence, route isolation, quality, cleanup, and promotion decision. |
+| A | NPU diagnostic key copy | Implemented as `NPU診断キーをコピー`; captures backend evidence, route isolation, quality, cleanup, and promotion-gate inputs. |
 | B | NPU classifier | Classify copied diagnostics into promotion candidate / blocker categories. |
 | C | NPU report generator | Summarize device runs, backend evidence, quality, cleanup, blockers, and next actions. |
 | D | NPU promotion decision | Emit explicit `NPU_PROMOTION_DECISION`, reason, blocker, and safe next action. |
@@ -207,6 +207,12 @@ Use this order when moving from planning into implementation:
 
 Priority A through D should remain diagnostics/reporting work. Priority E and
 later require a separate approval because they change Android route behavior.
+
+Use the Priority A copy action for first-pass device evidence capture. GPU
+diagnostic copy focuses on executor / callback corruption; NPU diagnostic copy
+captures `fallback_used`, `fresh_crash`, `timeout`, `npu_backend_evidence`,
+`standard_route_connected`, `quality_classification`, `cleanup_status`, and
+`engine_close_evidence` as stable promotion-gate inputs.
 
 Implementation tasks to defer until separately approved:
 
