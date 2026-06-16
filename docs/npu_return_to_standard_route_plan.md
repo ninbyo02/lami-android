@@ -191,6 +191,23 @@ Keep the next tasks small and evidence-producing:
 6. Prepare a device-run checklist for hidden route confirmation; do not connect
    normal `ChatScreen` yet.
 
+## Implementation Priority
+
+Use this order when moving from planning into implementation:
+
+| Priority | Work item | Scope |
+| --- | --- | --- |
+| A | NPU diagnostic key copy | Add a stable copied key set for backend evidence, route isolation, quality, cleanup, and promotion decision. |
+| B | NPU classifier | Classify copied diagnostics into promotion candidate / blocker categories. |
+| C | NPU report generator | Summarize device runs, backend evidence, quality, cleanup, blockers, and next actions. |
+| D | NPU promotion decision | Emit explicit `NPU_PROMOTION_DECISION`, reason, blocker, and safe next action. |
+| E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
+| F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
+| G | Full promotion | Only after repeated standard-route success, quality, cleanup, and regression evidence. |
+
+Priority A through D should remain diagnostics/reporting work. Priority E and
+later require a separate approval because they change Android route behavior.
+
 Implementation tasks to defer until separately approved:
 
 - normal `ChatScreen` NPU branch
