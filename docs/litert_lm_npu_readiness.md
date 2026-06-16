@@ -26,6 +26,8 @@ Development focus should return to the NPU safety/promotion track:
 - Keep CPU as stable fallback / usable route.
 - Continue NPU through the existing minimum safe route and standard promotion
   gates.
+- Use `docs/npu_return_to_standard_route_plan.md` as the current return-to-NPU
+  summary and implementation planning index.
 - Reuse the GPU investigation patterns where helpful: focused copy keys,
   compact diagnostics, report generation, artifact summaries, and explicit
   promotion blockers.
