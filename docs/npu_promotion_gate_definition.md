@@ -219,6 +219,40 @@ Rollback risks for a future standard route probe include:
 The detailed checklist is maintained in
 `docs/npu_standard_route_connection_review.md`.
 
+## Promotion Final Review
+
+The final pre-connection review combines readiness, quality alignment, and
+standard route connection review:
+
+```bash
+scripts/review_npu_promotion_final.sh --device-runs artifacts/device_runs
+```
+
+It emits:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW=...
+READY_FOR_STANDARD_ROUTE=...
+PROMOTION_SCORE=...
+PASSED_REVIEWS=...
+FAILED_REVIEWS=...
+PROMOTION_BLOCKERS=...
+SAFE_NEXT_ACTION=...
+```
+
+Current expected state:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW=quality_alignment_pending
+READY_FOR_STANDARD_ROUTE=false
+PROMOTION_SCORE=83
+SAFE_NEXT_ACTION=finish_quality_classification_alignment_before_standard_route_connection
+```
+
+`PROMOTION_SCORE` averages readiness and quality alignment scores, while
+`READY_FOR_CONNECTION` remains a hard go/no-go input. A high score does not
+authorize connection while `READY_FOR_STANDARD_ROUTE=false`.
+
 ## Gate Levels
 
 ### Hidden Route Gate

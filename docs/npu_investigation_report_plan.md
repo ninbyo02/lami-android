@@ -34,6 +34,7 @@ Backend evidence summary
 NPU classifier summary
 NPU promotion readiness summary
 NPU quality alignment summary
+NPU promotion final review
 Promotion gate status
 Promotion blocker status
 Failure layer summary
@@ -182,6 +183,38 @@ NEXT_ACTION=review_quality_classifier_alignment_without_relaxing_promotion_gate
 
 This section explains the remaining readiness blocker. It does not make
 template cleanup or mixed-language proper noun cases eligible for promotion.
+
+### NPU Promotion Final Review
+
+The report invokes:
+
+```bash
+scripts/review_npu_promotion_final.sh --device-runs <device-runs-dir>
+```
+
+and embeds:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW
+READY_FOR_STANDARD_ROUTE
+PROMOTION_SCORE
+PASSED_REVIEWS
+FAILED_REVIEWS
+PROMOTION_BLOCKERS
+SAFE_NEXT_ACTION
+```
+
+For the current repeatability pattern, expected final review is:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW=quality_alignment_pending
+READY_FOR_STANDARD_ROUTE=false
+PROMOTION_SCORE=83
+SAFE_NEXT_ACTION=finish_quality_classification_alignment_before_standard_route_connection
+```
+
+This is the report's final stop/go summary before any standard route
+implementation work.
 
 ### Promotion Blocker Status
 

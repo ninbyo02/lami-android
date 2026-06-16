@@ -203,6 +203,7 @@ Use this order when moving from planning into implementation:
 | D | NPU promotion readiness review | Implemented as `scripts/review_npu_promotion_readiness.sh`; aggregates repeatability runs into readiness, score, passed gates, failed gates, remaining blockers, and next action. |
 | D1 | NPU quality alignment review | Implemented as `scripts/review_npu_quality_alignment.sh`; reviews `quality_classification` against candidate/display output without relaxing the promotion gate. |
 | D2 | NPU standard route connection review | Implemented as `scripts/review_npu_standard_route_connection.sh`; converts readiness / classifier / device-run evidence into a go/no-go review for a future DEV-only standard route connection. |
+| D3 | NPU promotion final review | Implemented as `scripts/review_npu_promotion_final.sh`; combines readiness, quality alignment, and connection review into the final pre-connection go/no-go decision. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
 | F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
 | G | Full promotion | Only after repeated standard-route success, quality, cleanup, and regression evidence. |
@@ -339,6 +340,24 @@ connection readiness. `near_candidate` is not enough to connect normal
 
 See `docs/npu_standard_route_connection_review.md` for the pre-connection
 gate, post-connection checklist, stop line, and rollback criteria.
+
+Use the D3 final review as the last stop/go summary before implementation:
+
+```bash
+scripts/review_npu_promotion_final.sh --device-runs artifacts/device_runs
+```
+
+Current expected output is:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW=quality_alignment_pending
+READY_FOR_STANDARD_ROUTE=false
+PROMOTION_SCORE=83
+SAFE_NEXT_ACTION=finish_quality_classification_alignment_before_standard_route_connection
+```
+
+This means the next task is quality-classifier alignment review, not standard
+route connection. See `docs/npu_promotion_final_review.md`.
 
 Implementation tasks to defer until separately approved:
 
