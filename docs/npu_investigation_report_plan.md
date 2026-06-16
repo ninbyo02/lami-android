@@ -35,6 +35,7 @@ NPU classifier summary
 NPU promotion readiness summary
 NPU quality alignment summary
 NPU quality alignment decision
+NPU validation matrix summary
 NPU promotion final review
 Promotion gate status
 Promotion blocker status
@@ -217,6 +218,40 @@ SAFE_NEXT_ACTION=collect_additional_repeatability_data_before_standard_route_con
 
 This classifies the remaining blocker as likely conservative rather than a
 visible quality failure. It does not relax the promotion gate.
+
+### NPU Validation Matrix Summary
+
+The report invokes:
+
+```bash
+scripts/review_npu_validation_matrix.sh --device-runs <device-runs-dir>
+```
+
+and embeds:
+
+```text
+NPU_VALIDATION_RESULT
+VALIDATION_SCORE
+PASSED_CASES
+FAILED_CASES
+PROMOTION_RECOMMENDATION
+NEXT_ACTION
+```
+
+Required categories:
+
+```text
+short, medium, long, markdown, mixed_language, quality_gate
+```
+
+For standard route connection, the matrix should reach:
+
+```text
+PROMOTION_RECOMMENDATION=ready_for_standard_route_review
+```
+
+Current three-prompt repeatability is useful but incomplete, so missing matrix
+categories remain expected until additional device runs are collected.
 
 ### NPU Promotion Final Review
 
