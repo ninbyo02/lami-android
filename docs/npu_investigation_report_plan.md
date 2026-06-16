@@ -33,6 +33,7 @@ Latest NPU run summary
 Backend evidence summary
 NPU classifier summary
 NPU promotion readiness summary
+NPU quality alignment summary
 Promotion gate status
 Promotion blocker status
 Failure layer summary
@@ -148,6 +149,39 @@ FAILED_GATES=quality_alignment
 REMAINING_BLOCKERS=quality_classification_alignment
 NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
 ```
+
+### NPU Quality Alignment Summary
+
+The report invokes:
+
+```bash
+scripts/review_npu_quality_alignment.sh --device-runs <device-runs-dir>
+```
+
+and embeds:
+
+```text
+NPU_QUALITY_ALIGNMENT
+QUALITY_ALIGNMENT_SCORE
+PASSED_ALIGNMENTS
+FAILED_ALIGNMENTS
+QUALITY_MISMATCHES
+NEXT_ACTION
+```
+
+For the current repeatability pattern, expected quality alignment is:
+
+```text
+NPU_QUALITY_ALIGNMENT=classifier_alignment_needed
+QUALITY_ALIGNMENT_SCORE=86
+PASSED_ALIGNMENTS=template_cleanup_candidate,mixed_language_proper_noun_candidate,natural_japanese
+FAILED_ALIGNMENTS=primary_quality_classification_alignment
+QUALITY_MISMATCHES=template_artifact_vs_candidate_pass,mixed_language_vs_candidate_pass
+NEXT_ACTION=review_quality_classifier_alignment_without_relaxing_promotion_gate
+```
+
+This section explains the remaining readiness blocker. It does not make
+template cleanup or mixed-language proper noun cases eligible for promotion.
 
 ### Promotion Blocker Status
 

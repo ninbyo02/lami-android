@@ -264,6 +264,18 @@ render_report() {
   } >>"$output"
 
   {
+    printf '## NPU Quality Alignment Summary\n\n'
+    if [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_quality_alignment.sh" ]]; then
+      capture_command "$tmpdir/npu_quality_alignment.txt" "$SCRIPT_DIR/review_npu_quality_alignment.sh" --device-runs "$device_runs"
+      printf '```text\n'
+      cat "$tmpdir/npu_quality_alignment.txt"
+      printf '```\n\n'
+    else
+      printf 'missing: no NPU device run diagnostics found.\n\n'
+    fi
+  } >>"$output"
+
+  {
     printf '## Promotion Gate Summary\n\n'
     if [[ -n "$latest_device" && -f "$latest_device" ]]; then
       append_gate_summary "$output" "$latest_device"
@@ -352,6 +364,10 @@ self_test_case() {
   }
   grep -q '^## Promotion Blocker Summary' "$output" || {
     echo "self-test failed: promotion blocker section missing for $name" >&2
+    exit 1
+  }
+  grep -q '^## NPU Quality Alignment Summary' "$output" || {
+    echo "self-test failed: quality alignment section missing for $name" >&2
     exit 1
   }
   actual="$(diagnostic_extract_key "$output" "NPU_CLASSIFICATION")"

@@ -132,6 +132,40 @@ Current repeatability expectation for the three known prompts is
 gates pass, while quality alignment remains blocked by
 `template_artifact` / `mixed_language` intermediate classifications.
 
+## Quality Alignment Review
+
+Before changing any route behavior, review the mismatch between
+`quality_classification` and candidate/display output:
+
+```bash
+scripts/review_npu_quality_alignment.sh --device-runs artifacts/device_runs
+```
+
+The review emits:
+
+```text
+NPU_QUALITY_ALIGNMENT=...
+QUALITY_ALIGNMENT_SCORE=...
+PASSED_ALIGNMENTS=...
+FAILED_ALIGNMENTS=...
+QUALITY_MISMATCHES=...
+NEXT_ACTION=...
+```
+
+Current expected repeatability result:
+
+```text
+NPU_QUALITY_ALIGNMENT=classifier_alignment_needed
+QUALITY_ALIGNMENT_SCORE=86
+QUALITY_MISMATCHES=template_artifact_vs_candidate_pass,mixed_language_vs_candidate_pass
+NEXT_ACTION=review_quality_classifier_alignment_without_relaxing_promotion_gate
+```
+
+This review does not relax promotion. `template_artifact` and `mixed_language`
+candidate-pass states remain blockers until the primary
+`quality_classification` gate aligns with `natural_japanese` under the same
+route and prompt matrix.
+
 ## Standard Route Connection Review
 
 Before implementing a DEV-only standard route connection, run:

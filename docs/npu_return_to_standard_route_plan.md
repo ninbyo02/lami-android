@@ -201,6 +201,7 @@ Use this order when moving from planning into implementation:
 | B | NPU classifier | Implemented as `scripts/classify_npu_diagnostic_result.sh`; classifies copied diagnostics and DEV NPU compact/details into promotion candidate / blocker categories. |
 | C | NPU report generator | Implemented as `scripts/render_npu_investigation_report.sh`; summarizes device runs, classifier output, backend evidence, gate status, cleanup, blockers, and next actions. |
 | D | NPU promotion readiness review | Implemented as `scripts/review_npu_promotion_readiness.sh`; aggregates repeatability runs into readiness, score, passed gates, failed gates, remaining blockers, and next action. |
+| D1 | NPU quality alignment review | Implemented as `scripts/review_npu_quality_alignment.sh`; reviews `quality_classification` against candidate/display output without relaxing the promotion gate. |
 | D2 | NPU standard route connection review | Implemented as `scripts/review_npu_standard_route_connection.sh`; converts readiness / classifier / device-run evidence into a go/no-go review for a future DEV-only standard route connection. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
 | F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
@@ -293,6 +294,28 @@ NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
 This means NPU standard promotion is close but still blocked on quality
 classification alignment and standard route connection review. It does not
 authorize Android route changes.
+
+Use the D1 quality alignment review to explain the remaining blocker without
+relaxing the gate:
+
+```bash
+scripts/review_npu_quality_alignment.sh --device-runs artifacts/device_runs
+```
+
+For the current three-prompt repeatability set, expected output is:
+
+```text
+NPU_QUALITY_ALIGNMENT=classifier_alignment_needed
+QUALITY_ALIGNMENT_SCORE=86
+PASSED_ALIGNMENTS=template_cleanup_candidate,mixed_language_proper_noun_candidate,natural_japanese
+FAILED_ALIGNMENTS=primary_quality_classification_alignment
+QUALITY_MISMATCHES=template_artifact_vs_candidate_pass,mixed_language_vs_candidate_pass
+NEXT_ACTION=review_quality_classifier_alignment_without_relaxing_promotion_gate
+```
+
+This keeps `quality_classification=natural_japanese` as the full promotion
+requirement while making template cleanup and mixed-language proper-noun cases
+visible as reviewable mismatches.
 
 Use the D2 standard route connection review before any route implementation:
 
