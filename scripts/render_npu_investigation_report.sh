@@ -276,6 +276,19 @@ render_report() {
   } >>"$output"
 
   {
+    printf '## NPU Quality Alignment Decision\n\n'
+    if [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_quality_alignment_decision.sh" ]]; then
+      capture_command "$tmpdir/npu_quality_alignment_decision.txt" \
+        "$SCRIPT_DIR/review_npu_quality_alignment_decision.sh" --device-runs "$device_runs"
+      printf '```text\n'
+      cat "$tmpdir/npu_quality_alignment_decision.txt"
+      printf '```\n\n'
+    else
+      printf 'missing: no NPU device run diagnostics found.\n\n'
+    fi
+  } >>"$output"
+
+  {
     printf '## NPU Promotion Final Review\n\n'
     if [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_promotion_final.sh" ]]; then
       capture_command "$tmpdir/npu_promotion_final.txt" "$SCRIPT_DIR/review_npu_promotion_final.sh" --device-runs "$device_runs"
@@ -380,6 +393,10 @@ self_test_case() {
   }
   grep -q '^## NPU Quality Alignment Summary' "$output" || {
     echo "self-test failed: quality alignment section missing for $name" >&2
+    exit 1
+  }
+  grep -q '^## NPU Quality Alignment Decision' "$output" || {
+    echo "self-test failed: quality alignment decision section missing for $name" >&2
     exit 1
   }
   grep -q '^## NPU Promotion Final Review' "$output" || {

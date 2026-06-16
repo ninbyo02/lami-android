@@ -162,3 +162,27 @@ scripts/review_npu_quality_alignment.sh --device-runs <device-runs-dir>
 
 Use the report section to decide whether the next task is classifier alignment,
 repeatability expansion, or standard-route connection review.
+
+## Decision Review
+
+After generating this alignment review, classify whether the remaining blocker
+is a hard quality blocker or a conservative review warning:
+
+```bash
+scripts/review_npu_quality_alignment_decision.sh --device-runs artifacts/device_runs
+```
+
+Current expected decision:
+
+```text
+NPU_ALIGNMENT_DECISION=review_warning
+ALIGNMENT_IS_HARD_BLOCKER=false
+ALIGNMENT_IS_REVIEW_WARNING=true
+CONFIDENCE_SCORE=80
+RATIONALE=template_artifact_and_mixed_language_cases_are_explained_by_cleanup_and_proper_nouns
+SAFE_NEXT_ACTION=collect_additional_repeatability_data_before_standard_route_connection
+```
+
+This is not a promotion gate change. It means the current blocker looks more
+like a conservative primary-classifier false positive than a visible output
+quality failure, while `READY_FOR_STANDARD_ROUTE` remains false.

@@ -34,6 +34,7 @@ Backend evidence summary
 NPU classifier summary
 NPU promotion readiness summary
 NPU quality alignment summary
+NPU quality alignment decision
 NPU promotion final review
 Promotion gate status
 Promotion blocker status
@@ -183,6 +184,39 @@ NEXT_ACTION=review_quality_classifier_alignment_without_relaxing_promotion_gate
 
 This section explains the remaining readiness blocker. It does not make
 template cleanup or mixed-language proper noun cases eligible for promotion.
+
+### NPU Quality Alignment Decision
+
+The report invokes:
+
+```bash
+scripts/review_npu_quality_alignment_decision.sh --device-runs <device-runs-dir>
+```
+
+and embeds:
+
+```text
+NPU_ALIGNMENT_DECISION
+ALIGNMENT_IS_HARD_BLOCKER
+ALIGNMENT_IS_REVIEW_WARNING
+CONFIDENCE_SCORE
+RATIONALE
+SAFE_NEXT_ACTION
+```
+
+For the current repeatability pattern, expected decision is:
+
+```text
+NPU_ALIGNMENT_DECISION=review_warning
+ALIGNMENT_IS_HARD_BLOCKER=false
+ALIGNMENT_IS_REVIEW_WARNING=true
+CONFIDENCE_SCORE=80
+RATIONALE=template_artifact_and_mixed_language_cases_are_explained_by_cleanup_and_proper_nouns
+SAFE_NEXT_ACTION=collect_additional_repeatability_data_before_standard_route_connection
+```
+
+This classifies the remaining blocker as likely conservative rather than a
+visible quality failure. It does not relax the promotion gate.
 
 ### NPU Promotion Final Review
 

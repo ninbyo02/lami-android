@@ -359,6 +359,26 @@ SAFE_NEXT_ACTION=finish_quality_classification_alignment_before_standard_route_c
 This means the next task is quality-classifier alignment review, not standard
 route connection. See `docs/npu_promotion_final_review.md`.
 
+Use the alignment decision review to decide whether the remaining quality
+alignment blocker is a hard quality failure or a conservative warning:
+
+```bash
+scripts/review_npu_quality_alignment_decision.sh --device-runs artifacts/device_runs
+```
+
+Current expected output:
+
+```text
+NPU_ALIGNMENT_DECISION=review_warning
+ALIGNMENT_IS_HARD_BLOCKER=false
+ALIGNMENT_IS_REVIEW_WARNING=true
+CONFIDENCE_SCORE=80
+SAFE_NEXT_ACTION=collect_additional_repeatability_data_before_standard_route_connection
+```
+
+This does not authorize route connection. It means the current blocker is best
+handled as a review warning while repeatability evidence is expanded.
+
 Implementation tasks to defer until separately approved:
 
 - normal `ChatScreen` NPU branch

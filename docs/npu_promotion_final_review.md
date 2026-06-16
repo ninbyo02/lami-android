@@ -149,3 +149,30 @@ scripts/review_npu_promotion_final.sh --device-runs <device-runs-dir>
 ```
 
 Use this section as the final pre-connection stop/go summary.
+
+## Alignment Decision Relationship
+
+If final review remains:
+
+```text
+NPU_PROMOTION_FINAL_REVIEW=quality_alignment_pending
+READY_FOR_STANDARD_ROUTE=false
+```
+
+run the decision review:
+
+```bash
+scripts/review_npu_quality_alignment_decision.sh --device-runs artifacts/device_runs
+```
+
+Current expected output:
+
+```text
+NPU_ALIGNMENT_DECISION=review_warning
+ALIGNMENT_IS_HARD_BLOCKER=false
+ALIGNMENT_IS_REVIEW_WARNING=true
+```
+
+This refines the blocker interpretation only. It does not set
+`READY_FOR_STANDARD_ROUTE=true` and does not authorize standard route
+connection.
