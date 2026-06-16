@@ -1,7 +1,22 @@
 # NPU Investigation Report Plan
 
-Scope: report design only. This document does not implement scripts or Android
-runtime changes.
+Scope: scripts/docs only. This document describes the implemented NPU
+investigation report generator. It does not change Android runtime behavior.
+
+## Script
+
+Implemented script:
+
+```bash
+scripts/render_npu_investigation_report.sh \
+  --device-runs artifacts/device_runs \
+  --output artifacts/npu_investigation_report/NPU_INVESTIGATION_REPORT.md
+
+scripts/render_npu_investigation_report.sh --self-test
+```
+
+The script gracefully handles missing input directories and still writes a
+report with missing-state sections.
 
 ## Purpose
 
@@ -10,17 +25,18 @@ quality status, promotion blockers, root-cause candidates, and next actions.
 NPU should use the same reporting pattern once NPU artifacts are stable enough
 to summarize.
 
-## Proposed Report Sections
+## Report Sections
 
 ```text
 Overview
-Latest NPU run
-Backend evidence
-Quality summary
+Latest NPU run summary
+Backend evidence summary
+NPU classifier summary
 Promotion gate status
 Promotion blocker status
+Failure layer summary
+Crash / tombstone summary
 Cleanup summary
-Crash summary
 Root cause ranking
 Next actions
 ```
@@ -39,15 +55,25 @@ NPU_ROUTE=standard_promotion_candidate_under_gate
 
 ### Latest NPU Run
 
-Include copied NPU diagnostic keys and artifact metadata:
+Includes copied NPU diagnostic keys and artifact metadata:
 
 ```text
-run_id
-artifact_path
 status
+reason
 route_family
 selected_backend
+requested_backend
 effective_backend
+backend_evidence
+npu_backend_evidence
+fallback_used
+fallback
+fresh_crash
+timeout
+quality_classification
+standard_route_connected
+conversation_created
+generate_response
 ```
 
 ### Backend Evidence
@@ -64,6 +90,28 @@ quality_classification
 prompt_echo_detected
 template_residue_detected
 multilingual_drift_detected
+```
+
+### NPU Classifier Summary
+
+The report invokes:
+
+```bash
+scripts/classify_npu_diagnostic_result.sh --input <latest-device-run>
+```
+
+and embeds:
+
+```text
+NPU_CLASSIFICATION
+NPU_CLASSIFICATION_REASON
+NPU_PROMOTION_BLOCKER
+NPU_PROMOTION_DECISION
+NPU_PROMOTION_DECISION_REASON
+NPU_ROOT_CAUSE_CANDIDATE
+NPU_BACKEND_EVIDENCE_SUMMARY
+NPU_FAILURE_LAYER
+NEXT_ACTION
 ```
 
 ### Promotion Gate Status
@@ -88,10 +136,11 @@ Include:
 ```text
 cleanup_status
 engine_close_evidence
-fresh_tombstone_status
+native_cleanup_reached
+native_cleanup_finished
 ```
 
-### Crash Summary
+### Crash / Tombstone Summary
 
 Include:
 
@@ -99,6 +148,19 @@ Include:
 fresh_crash
 timeout
 fresh_tombstone_status
+native_crash_risk_hint
+```
+
+### Failure Layer Summary
+
+Include:
+
+```text
+npu_s1_failure_kind
+npu_s1_failure_layer
+native_stage
+failure_stage
+native_error_stage
 ```
 
 ### Root Cause Ranking
@@ -124,13 +186,29 @@ NEXT_ACTION=promote_to_next_gate
 
 ## Artifact Layout
 
-Recommended future paths:
+Recommended paths:
 
 ```text
 artifacts/npu_device_runs/
+artifacts/device_runs/
 artifacts/npu_investigation_report/NPU_INVESTIGATION_REPORT.md
 artifacts/npu_classifier/
 ```
 
 Do not commit generated artifacts unless they are small fixtures explicitly
 created for tests.
+
+## Example Classifier Block
+
+For the current engine-create-failed S1 DEV diagnostics, the report should show:
+
+```text
+NPU_CLASSIFICATION=npu_engine_create_failed
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=engine_create_failed
+NPU_ROOT_CAUSE_CANDIDATE=litert_npu_compiled_model_executor_failure
+NPU_BACKEND_EVIDENCE_SUMMARY=qnn_htp_fastrpc_present
+NPU_FAILURE_LAYER=litert_npu_compiled_model_executor
+NEXT_ACTION=inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
+```

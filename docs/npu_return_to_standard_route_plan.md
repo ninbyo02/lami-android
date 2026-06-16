@@ -199,7 +199,7 @@ Use this order when moving from planning into implementation:
 | --- | --- | --- |
 | A | NPU diagnostic key copy | Implemented as `NPU診断キーをコピー`; captures backend evidence, route isolation, quality, cleanup, and promotion-gate inputs. |
 | B | NPU classifier | Implemented as `scripts/classify_npu_diagnostic_result.sh`; classifies copied diagnostics and DEV NPU compact/details into promotion candidate / blocker categories. |
-| C | NPU report generator | Summarize device runs, backend evidence, quality, cleanup, blockers, and next actions. |
+| C | NPU report generator | Implemented as `scripts/render_npu_investigation_report.sh`; summarizes device runs, classifier output, backend evidence, gate status, cleanup, blockers, and next actions. |
 | D | NPU promotion decision | Emit explicit `NPU_PROMOTION_DECISION`, reason, blocker, and safe next action. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
 | F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
@@ -230,6 +230,17 @@ NPU_PROMOTION_DECISION_REASON=engine_create_failed
 NPU_ROOT_CAUSE_CANDIDATE=litert_npu_compiled_model_executor_failure
 NEXT_ACTION=inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
 ```
+
+Use the Priority C report generator after saving copied NPU diagnostics:
+
+```bash
+scripts/render_npu_investigation_report.sh \
+  --device-runs artifacts/device_runs \
+  --output artifacts/npu_investigation_report/NPU_INVESTIGATION_REPORT.md
+```
+
+The report embeds the classifier output, promotion gate summary, failure layer,
+crash/tombstone status, cleanup evidence, root cause ranking, and next action.
 
 Implementation tasks to defer until separately approved:
 
