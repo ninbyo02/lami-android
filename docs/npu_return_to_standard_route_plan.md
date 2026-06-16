@@ -200,7 +200,7 @@ Use this order when moving from planning into implementation:
 | A | NPU diagnostic key copy | Implemented as `NPU診断キーをコピー`; captures backend evidence, route isolation, quality, cleanup, and promotion-gate inputs. |
 | B | NPU classifier | Implemented as `scripts/classify_npu_diagnostic_result.sh`; classifies copied diagnostics and DEV NPU compact/details into promotion candidate / blocker categories. |
 | C | NPU report generator | Implemented as `scripts/render_npu_investigation_report.sh`; summarizes device runs, classifier output, backend evidence, gate status, cleanup, blockers, and next actions. |
-| D | NPU promotion decision | Emit explicit `NPU_PROMOTION_DECISION`, reason, blocker, and safe next action. |
+| D | NPU promotion readiness review | Implemented as `scripts/review_npu_promotion_readiness.sh`; aggregates repeatability runs into readiness, score, passed gates, failed gates, remaining blockers, and next action. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
 | F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
 | G | Full promotion | Only after repeated standard-route success, quality, cleanup, and regression evidence. |
@@ -271,6 +271,27 @@ scripts/render_npu_investigation_report.sh \
 
 The report embeds the classifier output, promotion gate summary, failure layer,
 crash/tombstone status, cleanup evidence, root cause ranking, and next action.
+
+Use the Priority D readiness review for multi-run promotion assessment:
+
+```bash
+scripts/review_npu_promotion_readiness.sh --device-runs artifacts/device_runs
+```
+
+Current repeatability results should evaluate as:
+
+```text
+NPU_PROMOTION_READINESS=near_candidate
+NPU_PROMOTION_READINESS_SCORE=80
+PASSED_GATES=status,backend,backend_evidence,decode,native_call_returned,cleanup,no_fallback,no_timeout,no_crash
+FAILED_GATES=quality_alignment
+REMAINING_BLOCKERS=quality_classification_alignment
+NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
+```
+
+This means NPU standard promotion is close but still blocked on quality
+classification alignment and standard route connection review. It does not
+authorize Android route changes.
 
 Implementation tasks to defer until separately approved:
 

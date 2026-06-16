@@ -98,6 +98,40 @@ For current S1 DEV diagnostics, `npu_engine_create_failed` means route entry and
 NPU backend evidence can be present while promotion remains blocked at the
 LiteRT NPU compiled model executor layer.
 
+## Promotion Readiness Review
+
+The readiness review script aggregates multiple copied NPU device-run
+diagnostics:
+
+```bash
+scripts/review_npu_promotion_readiness.sh --device-runs artifacts/device_runs
+```
+
+It emits:
+
+```text
+NPU_PROMOTION_READINESS=near_candidate
+NPU_PROMOTION_READINESS_SCORE=80
+PASSED_GATES=status,backend,backend_evidence,decode,native_call_returned,cleanup,no_fallback,no_timeout,no_crash
+FAILED_GATES=quality_alignment
+REMAINING_BLOCKERS=quality_classification_alignment
+NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
+```
+
+Readiness scores:
+
+- `100`: all runs are strict `npu_promotion_candidate` results.
+- `80`: hard gates pass, but one or more runs are conditional quality passes
+  such as template cleanup or mixed-language proper noun cases.
+- `60`: hard gates pass but a generic quality failure remains.
+- `40`: hard gate failure or hard blocker classification remains.
+- `0`: no device-run diagnostics are available.
+
+Current repeatability expectation for the three known prompts is
+`near_candidate`: backend, decode, cleanup, no-fallback, no-timeout, and no-crash
+gates pass, while quality alignment remains blocked by
+`template_artifact` / `mixed_language` intermediate classifications.
+
 ## Gate Levels
 
 ### Hidden Route Gate

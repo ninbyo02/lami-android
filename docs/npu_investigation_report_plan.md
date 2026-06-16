@@ -32,6 +32,7 @@ Overview
 Latest NPU run summary
 Backend evidence summary
 NPU classifier summary
+NPU promotion readiness summary
 Promotion gate status
 Promotion blocker status
 Failure layer summary
@@ -118,6 +119,35 @@ NEXT_ACTION
 
 Render each gate condition from
 `docs/npu_promotion_gate_definition.md` as pass / fail / unavailable.
+
+### NPU Promotion Readiness Summary
+
+The report invokes:
+
+```bash
+scripts/review_npu_promotion_readiness.sh --device-runs <device-runs-dir>
+```
+
+and embeds:
+
+```text
+NPU_PROMOTION_READINESS
+NPU_PROMOTION_READINESS_SCORE
+PASSED_GATES
+FAILED_GATES
+REMAINING_BLOCKERS
+NEXT_ACTION
+```
+
+For the current repeatability pattern, expected readiness is:
+
+```text
+NPU_PROMOTION_READINESS=near_candidate
+NPU_PROMOTION_READINESS_SCORE=80
+FAILED_GATES=quality_alignment
+REMAINING_BLOCKERS=quality_classification_alignment
+NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
+```
 
 ### Promotion Blocker Status
 

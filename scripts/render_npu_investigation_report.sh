@@ -252,6 +252,18 @@ render_report() {
   } >>"$output"
 
   {
+    printf '## NPU Promotion Readiness Summary\n\n'
+    if [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_promotion_readiness.sh" ]]; then
+      capture_command "$tmpdir/npu_readiness.txt" "$SCRIPT_DIR/review_npu_promotion_readiness.sh" --device-runs "$device_runs"
+      printf '```text\n'
+      cat "$tmpdir/npu_readiness.txt"
+      printf '```\n\n'
+    else
+      printf 'missing: no NPU device run diagnostics found.\n\n'
+    fi
+  } >>"$output"
+
+  {
     printf '## Promotion Gate Summary\n\n'
     if [[ -n "$latest_device" && -f "$latest_device" ]]; then
       append_gate_summary "$output" "$latest_device"
