@@ -246,6 +246,21 @@ NEXT_ACTION=run_repeatability_matrix_and_align_quality_classification_with_candi
 This preserves the full promotion requirement that the primary
 `quality_classification` must be `natural_japanese`.
 
+If the candidate output passes but the primary classification is
+`mixed_language`, classify it as a success-leaning intermediate blocker:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_mixed_language_terms
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=mixed_language_classification_with_quality_candidate_pass
+NEXT_ACTION=run_repeatability_matrix_and_review_mixed_language_gate
+```
+
+Use this for outputs where English proper nouns such as `Google DeepMind` or
+`Gemma 4` trigger mixed-language detection while the Japanese response is
+otherwise natural. It does not relax the full promotion gate.
+
 Use the Priority C report generator after saving copied NPU diagnostics:
 
 ```bash

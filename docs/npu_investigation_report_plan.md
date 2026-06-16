@@ -227,3 +227,18 @@ NEXT_ACTION=run_repeatability_matrix_and_align_quality_classification_with_candi
 
 This is not a full promotion candidate. It is a reportable intermediate state
 for repeatability testing and quality gate alignment.
+
+For mixed-language proper noun cases where the prepared output is natural but
+the primary classifier reports `mixed_language`, the report should show:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_mixed_language_terms
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=mixed_language_classification_with_quality_candidate_pass
+NPU_ROOT_CAUSE_CANDIDATE=quality_classifier_mixed_language_due_to_proper_nouns
+NEXT_ACTION=run_repeatability_matrix_and_review_mixed_language_gate
+```
+
+This is also not a full promotion candidate. It is a reportable intermediate
+state for repeatability testing and mixed-language gate review.

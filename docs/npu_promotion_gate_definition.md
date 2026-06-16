@@ -42,8 +42,8 @@ quality_classification!=natural_japanese
 ```
 
 `output_quality_candidate_status=quality_candidate_pass` is not sufficient for
-promotion when `quality_classification` is still `template_artifact` or
-`unknown`. That case is classified as:
+promotion when `quality_classification` is still `template_artifact`, `unknown`,
+or `mixed_language`. Template cleanup cases are classified as:
 
 ```text
 NPU_CLASSIFICATION=npu_quality_candidate_pass_with_template_cleanup
@@ -56,6 +56,19 @@ The next action is repeatability testing and alignment between the prepared
 output quality candidate and the primary quality classifier. Do not relax the
 full promotion gate until `quality_classification=natural_japanese` is observed
 under the same route and prompt matrix.
+
+Mixed-language candidate-pass cases are classified separately:
+
+```text
+NPU_CLASSIFICATION=npu_quality_candidate_pass_with_mixed_language_terms
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=mixed_language_classification_with_quality_candidate_pass
+```
+
+English proper nouns can make this less severe than a generic quality failure,
+but it still requires repeatability testing and quality gate review before
+promotion.
 
 Additional blockers:
 

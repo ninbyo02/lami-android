@@ -160,6 +160,11 @@ append_root_cause_ranking() {
         printf '| 2 | primary quality gate mismatch | candidate output passed but `quality_classification` is not natural_japanese |\n'
         printf '| 3 | repeatability matrix needed | keep promotion blocked until classification aligns with candidate gate |\n'
         ;;
+      npu_quality_candidate_pass_with_mixed_language_terms)
+        printf '| 1 | mixed-language proper noun classification | `%s` |\n' "$root_cause"
+        printf '| 2 | primary quality gate mismatch | candidate output passed but `quality_classification=mixed_language` |\n'
+        printf '| 3 | repeatability matrix needed | review mixed-language gate before promotion |\n'
+        ;;
       npu_promotion_candidate)
         printf '| 1 | none | all classifier gates passed |\n'
         ;;
@@ -362,6 +367,8 @@ run_self_test() {
     "status=success reason=success selected_backend=NPU requested_backend=NPU effective_backend=NPU route_family=npu_s1 backend_evidence=QNN_HTP_V79_FastRPC npu_backend_evidence=QNN_HTP_V79_FastRPC fallback_used=false fresh_crash=false timeout=false quality_classification=natural_japanese standard_route_connected=true conversation_created=true generate_response=true cleanup_status=success engine_close_evidence=present"
   self_test_case "$tmpdir" "template_cleanup_pass" "npu_quality_candidate_pass_with_template_cleanup" \
     "status=success selected_backend=NPU_S1 requested_backend=NPU effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag route_family=npu_s1 fallback=false timeout=false fresh_crash=false run_decode_reached=true native_cleanup_reached=true sanitized_output=こんにちは！何かお手伝いできることはありますか？ actual_display_text=こんにちは！何かお手伝いできることはありますか？ output_quality_candidate_status=quality_candidate_pass output_quality_candidate_reason=natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup output_quality_candidate_prepared_output=こんにちは！何かお手伝いできることはありますか？ quality_classification=template_artifact"
+  self_test_case "$tmpdir" "mixed_language_pass" "npu_quality_candidate_pass_with_mixed_language_terms" \
+    "status=success reason=success selected_backend=NPU_S1 requested_backend=NPU effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag route_family=npu_s1 fallback=false timeout=false fresh_crash=false run_decode_reached=true native_cleanup_reached=true output_quality_candidate_status=quality_candidate_pass quality_classification=mixed_language sanitized_output=私はGoogle DeepMindによって開発された大規模言語モデル、Gemma 4です。 actual_display_text=私はGoogle DeepMindによって開発された大規模言語モデル、Gemma 4です。 output_quality_candidate_prepared_output=私はGoogle DeepMindによって開発された大規模言語モデル、Gemma 4です。"
 
   missing_output="$tmpdir/missing/report.md"
   render_report "$tmpdir/no_such_runs" "$missing_output"
