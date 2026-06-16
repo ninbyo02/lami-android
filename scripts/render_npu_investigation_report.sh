@@ -302,6 +302,35 @@ render_report() {
   } >>"$output"
 
   {
+    printf '## Validation Dataset Coverage\n\n'
+    if [[ -x "$SCRIPT_DIR/create_npu_validation_manifest.sh" ]]; then
+      capture_command "$tmpdir/npu_validation_manifest.tsv" \
+        "$SCRIPT_DIR/create_npu_validation_manifest.sh" --date YYYYMMDD
+      printf 'Required manifest:\n\n'
+      printf '```text\n'
+      cat "$tmpdir/npu_validation_manifest.tsv"
+      printf '```\n\n'
+    else
+      printf 'missing: `scripts/create_npu_validation_manifest.sh` is unavailable.\n\n'
+    fi
+    if [[ -f "$tmpdir/npu_validation_matrix.txt" ]]; then
+      printf 'Current coverage result:\n\n'
+      printf '```text\n'
+      cat "$tmpdir/npu_validation_matrix.txt"
+      printf '```\n\n'
+    elif [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_validation_matrix.sh" ]]; then
+      capture_command "$tmpdir/npu_validation_matrix_coverage.txt" \
+        "$SCRIPT_DIR/review_npu_validation_matrix.sh" --device-runs "$device_runs"
+      printf 'Current coverage result:\n\n'
+      printf '```text\n'
+      cat "$tmpdir/npu_validation_matrix_coverage.txt"
+      printf '```\n\n'
+    else
+      printf 'Current coverage result: missing device run diagnostics.\n\n'
+    fi
+  } >>"$output"
+
+  {
     printf '## NPU Promotion Final Review\n\n'
     if [[ -d "$device_runs" && -x "$SCRIPT_DIR/review_npu_promotion_final.sh" ]]; then
       capture_command "$tmpdir/npu_promotion_final.txt" "$SCRIPT_DIR/review_npu_promotion_final.sh" --device-runs "$device_runs"
@@ -414,6 +443,10 @@ self_test_case() {
   }
   grep -q '^## NPU Validation Matrix Summary' "$output" || {
     echo "self-test failed: validation matrix section missing for $name" >&2
+    exit 1
+  }
+  grep -q '^## Validation Dataset Coverage' "$output" || {
+    echo "self-test failed: validation dataset coverage section missing for $name" >&2
     exit 1
   }
   grep -q '^## NPU Promotion Final Review' "$output" || {

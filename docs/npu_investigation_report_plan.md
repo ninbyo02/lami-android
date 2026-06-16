@@ -36,6 +36,7 @@ NPU promotion readiness summary
 NPU quality alignment summary
 NPU quality alignment decision
 NPU validation matrix summary
+Validation dataset coverage
 NPU promotion final review
 Promotion gate status
 Promotion blocker status
@@ -252,6 +253,28 @@ PROMOTION_RECOMMENDATION=ready_for_standard_route_review
 
 Current three-prompt repeatability is useful but incomplete, so missing matrix
 categories remain expected until additional device runs are collected.
+
+### Validation Dataset Coverage
+
+The report invokes:
+
+```bash
+scripts/create_npu_validation_manifest.sh --date YYYYMMDD
+```
+
+and shows the required collection manifest:
+
+```text
+CATEGORY
+PROMPT
+EXPECTED_CLASSIFIER_TARGET
+ARTIFACT_NAME
+```
+
+It then repeats the current `scripts/review_npu_validation_matrix.sh` result so
+the report shows both the target dataset and the currently collected coverage.
+This section is intentionally collection-oriented; it does not relax the
+promotion gate or infer success from missing artifacts.
 
 ### NPU Promotion Final Review
 
