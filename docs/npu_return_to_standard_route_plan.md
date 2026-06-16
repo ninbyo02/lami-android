@@ -201,6 +201,7 @@ Use this order when moving from planning into implementation:
 | B | NPU classifier | Implemented as `scripts/classify_npu_diagnostic_result.sh`; classifies copied diagnostics and DEV NPU compact/details into promotion candidate / blocker categories. |
 | C | NPU report generator | Implemented as `scripts/render_npu_investigation_report.sh`; summarizes device runs, classifier output, backend evidence, gate status, cleanup, blockers, and next actions. |
 | D | NPU promotion readiness review | Implemented as `scripts/review_npu_promotion_readiness.sh`; aggregates repeatability runs into readiness, score, passed gates, failed gates, remaining blockers, and next action. |
+| D2 | NPU standard route connection review | Implemented as `scripts/review_npu_standard_route_connection.sh`; converts readiness / classifier / device-run evidence into a go/no-go review for a future DEV-only standard route connection. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
 | F | DB / TTS / Markdown / Streaming integration | Add one integration boundary at a time after route stability. |
 | G | Full promotion | Only after repeated standard-route success, quality, cleanup, and regression evidence. |
@@ -292,6 +293,29 @@ NEXT_ACTION=collect_repeatability_matrix_and_review_standard_route_connection
 This means NPU standard promotion is close but still blocked on quality
 classification alignment and standard route connection review. It does not
 authorize Android route changes.
+
+Use the D2 standard route connection review before any route implementation:
+
+```bash
+scripts/review_npu_standard_route_connection.sh --device-runs artifacts/device_runs
+```
+
+For the current repeatability set, expected output is:
+
+```text
+NPU_STANDARD_ROUTE_REVIEW=needs_quality_alignment
+READY_FOR_CONNECTION=false
+FAILED_GATES=quality_gate_review,standard_route_connected,conversation_created,generate_response,engine_close_evidence
+ROLLBACK_RISKS=none
+NEXT_ACTION=finish_quality_alignment_before_standard_route_connection
+```
+
+The review deliberately distinguishes NPU DEV route success from standard route
+connection readiness. `near_candidate` is not enough to connect normal
+`ChatScreen` NPU behavior while `quality_classification_alignment` remains.
+
+See `docs/npu_standard_route_connection_review.md` for the pre-connection
+gate, post-connection checklist, stop line, and rollback criteria.
 
 Implementation tasks to defer until separately approved:
 

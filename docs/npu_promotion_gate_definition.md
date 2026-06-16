@@ -132,6 +132,59 @@ Current repeatability expectation for the three known prompts is
 gates pass, while quality alignment remains blocked by
 `template_artifact` / `mixed_language` intermediate classifications.
 
+## Standard Route Connection Review
+
+Before implementing a DEV-only standard route connection, run:
+
+```bash
+scripts/review_npu_standard_route_connection.sh --device-runs artifacts/device_runs
+```
+
+The review combines:
+
+- copied NPU device-run diagnostics
+- `scripts/classify_npu_diagnostic_result.sh`
+- `scripts/review_npu_promotion_readiness.sh`
+
+It emits:
+
+```text
+NPU_STANDARD_ROUTE_REVIEW=...
+READY_FOR_CONNECTION=...
+PASSED_GATES=...
+FAILED_GATES=...
+ROLLBACK_RISKS=...
+NEXT_ACTION=...
+```
+
+For the current `near_candidate` repeatability set, the expected review is:
+
+```text
+NPU_STANDARD_ROUTE_REVIEW=needs_quality_alignment
+READY_FOR_CONNECTION=false
+FAILED_GATES=quality_gate_review,standard_route_connected,conversation_created,generate_response,engine_close_evidence
+ROLLBACK_RISKS=none
+NEXT_ACTION=finish_quality_alignment_before_standard_route_connection
+```
+
+This means the DEV route can continue collecting evidence, but standard route
+connection is still blocked until the quality gate is aligned.
+
+Rollback risks for a future standard route probe include:
+
+- fallback
+- fresh crash
+- timeout
+- decode not reached
+- cleanup failure
+- fresh tombstone
+- quality regression
+- selected path saved before approval
+- DB / TTS / Markdown / streaming integration side effects before gate
+
+The detailed checklist is maintained in
+`docs/npu_standard_route_connection_review.md`.
+
 ## Gate Levels
 
 ### Hidden Route Gate
