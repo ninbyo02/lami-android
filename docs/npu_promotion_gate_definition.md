@@ -43,6 +43,10 @@ quality_classification!=natural_japanese
 
 Additional blockers:
 
+- `npu_s1_failure_kind=engine_create_failed`
+- `last_failure_was_engine_create_failed=true`
+- `NPU_CLASSIFICATION=npu_engine_create_failed`
+- `NPU_CLASSIFICATION=npu_compiled_model_failure`
 - missing NPU/QNN/HTP backend evidence
 - `standard_route_connected=false` when testing a standard-route probe
 - `conversation_created=false`
@@ -53,6 +57,17 @@ Additional blockers:
 - `selected_path_npu_saved=true` before explicit promotion approval
 - DB / TTS / Markdown / streaming connected before isolated route stability
 - unknown QAIRT / QNN / LiteRT dispatch / model provenance
+
+Classifier output should map these blockers to:
+
+```text
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+```
+
+For current S1 DEV diagnostics, `npu_engine_create_failed` means route entry and
+NPU backend evidence can be present while promotion remains blocked at the
+LiteRT NPU compiled model executor layer.
 
 ## Gate Levels
 

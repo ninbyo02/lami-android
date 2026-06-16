@@ -198,7 +198,7 @@ Use this order when moving from planning into implementation:
 | Priority | Work item | Scope |
 | --- | --- | --- |
 | A | NPU diagnostic key copy | Implemented as `NPU診断キーをコピー`; captures backend evidence, route isolation, quality, cleanup, and promotion-gate inputs. |
-| B | NPU classifier | Classify copied diagnostics into promotion candidate / blocker categories. |
+| B | NPU classifier | Implemented as `scripts/classify_npu_diagnostic_result.sh`; classifies copied diagnostics and DEV NPU compact/details into promotion candidate / blocker categories. |
 | C | NPU report generator | Summarize device runs, backend evidence, quality, cleanup, blockers, and next actions. |
 | D | NPU promotion decision | Emit explicit `NPU_PROMOTION_DECISION`, reason, blocker, and safe next action. |
 | E | ChatScreen standard route integration | DEV-only route connection after hidden route and classifier gates pass. |
@@ -213,6 +213,23 @@ diagnostic copy focuses on executor / callback corruption; NPU diagnostic copy
 captures `fallback_used`, `fresh_crash`, `timeout`, `npu_backend_evidence`,
 `standard_route_connected`, `quality_classification`, `cleanup_status`, and
 `engine_close_evidence` as stable promotion-gate inputs.
+
+Use the Priority B classifier on copied diagnostics or DEV compact/details:
+
+```bash
+scripts/classify_npu_diagnostic_result.sh --input artifacts/device_runs/npu_s1_latest.txt
+```
+
+Current S1 engine-create-failed diagnostics should classify as:
+
+```text
+NPU_CLASSIFICATION=npu_engine_create_failed
+NPU_PROMOTION_BLOCKER=true
+NPU_PROMOTION_DECISION=blocked
+NPU_PROMOTION_DECISION_REASON=engine_create_failed
+NPU_ROOT_CAUSE_CANDIDATE=litert_npu_compiled_model_executor_failure
+NEXT_ACTION=inspect_qairt_qnn_model_runtime_alignment_and_recreate_guard
+```
 
 Implementation tasks to defer until separately approved:
 
