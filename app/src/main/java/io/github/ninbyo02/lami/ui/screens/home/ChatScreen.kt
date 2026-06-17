@@ -3751,7 +3751,18 @@ fun Home(
                                                             npuStandardRoutePhaseDiagnostics[
                                                                 "npu_standard_route_markdown_block_reason"
                                                             ] ?: "none"
-                                                        val npuStandardRouteStreamingExecuted = false
+                                                        var npuStandardRouteStreamingExecuted = false
+                                                        var npuStandardRouteStreamingMode = "none"
+                                                        var npuStandardRouteStreamingSource = "none"
+                                                        var npuStandardRouteStreamingChunkCount = 0
+                                                        var npuStandardRouteStreamingFinalTextLength = 0
+                                                        var npuStandardRouteStreamingBlockReason =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_streaming_block_reason"
+                                                            ] ?: "none"
+                                                        val npuStandardRouteNativeStreamingUsed = false
+                                                        var npuStandardRouteStreamingTextMatchesDb = false
+                                                        var npuStandardRouteStreamingTextMatchesMarkdown = false
                                                         var npuStandardRouteDeliveryPath = when {
                                                             npuStandardRoutePhaseGateActive && npuStandardRouteDbSaveAllowed ->
                                                                 "phase6_pending_db_save"
@@ -3835,6 +3846,7 @@ fun Home(
                                                                 npuStandardRouteMarkdownMode =
                                                                     markdownStreamingMode.name.lowercase()
                                                                 npuStandardRouteMarkdownBlockReason = "none"
+                                                                npuStandardRouteStreamingSource = "markdown_finalized_text"
                                                             } else {
                                                                 npuStandardRouteMarkdownExecuted = false
                                                                 npuStandardRouteMarkdownMode = "none"
@@ -3850,6 +3862,102 @@ fun Home(
                                                                 npuStandardRoutePhaseDiagnostics[
                                                                     "npu_standard_route_markdown_block_reason"
                                                                 ] ?: "phase_not_markdown"
+                                                        }
+                                                        if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteStreamingAllowed &&
+                                                            npuStandardRouteMarkdownAllowed &&
+                                                            npuStandardRouteMarkdownExecuted &&
+                                                            npuStandardRouteDbSaveAllowed &&
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            val streamingFinalText = npuStandardRouteAssistantTextForPersist.trim()
+                                                            val pseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                .preparePseudoStreamingCandidate(
+                                                                    s1Result = s1Result,
+                                                                    finalText = streamingFinalText,
+                                                                    sourceDisplayText = s1DisplayTextWithMemory,
+                                                                )
+                                                            val pseudoStreamingCandidate = pseudoStreamingMapping
+                                                                .takeIf {
+                                                                    shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                        enabled = true,
+                                                                        mapping = it,
+                                                                    )
+                                                                }
+                                                                ?.pseudoStreamingCandidate
+                                                            if (pseudoStreamingCandidate != null) {
+                                                                val s4GuardEpoch = streamingGuardEpoch
+                                                                npuStandardRouteS4PseudoStreamingActive = true
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                try {
+                                                                    pseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                        if (
+                                                                            !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                                localStopRequested = localStopRequested,
+                                                                                runGuardEpoch = s4GuardEpoch,
+                                                                                currentGuardEpoch = streamingGuardEpoch,
+                                                                                expectedChatId = currentChatId,
+                                                                                currentChatId = effectiveChatId,
+                                                                            )
+                                                                        ) {
+                                                                            return@launch
+                                                                        }
+                                                                        localStreamingResponseText = chunk
+                                                                        streamingResponseTextForRender = chunk
+                                                                        npuStandardRouteS4PseudoStreamingText = chunk
+                                                                        delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                    }
+                                                                    localStreamingResponseText = pseudoStreamingCandidate.finalText
+                                                                    streamingResponseTextForRender = pseudoStreamingCandidate.finalText
+                                                                    npuStandardRouteS4PseudoStreamingText = pseudoStreamingCandidate.finalText
+                                                                    npuStandardRouteStreamingExecuted = true
+                                                                    npuStandardRouteStreamingMode = "pseudo_final_text"
+                                                                    npuStandardRouteStreamingSource =
+                                                                        if (npuStandardRouteMarkdownExecuted) {
+                                                                            "markdown_finalized_text"
+                                                                        } else {
+                                                                            "safe_final_text"
+                                                                        }
+                                                                    npuStandardRouteStreamingChunkCount =
+                                                                        pseudoStreamingCandidate.chunks.size
+                                                                    npuStandardRouteStreamingFinalTextLength =
+                                                                        pseudoStreamingCandidate.finalText.length
+                                                                    npuStandardRouteStreamingBlockReason = "none"
+                                                                    npuStandardRouteStreamingTextMatchesDb =
+                                                                        pseudoStreamingCandidate.finalText ==
+                                                                            npuStandardRouteAssistantTextForPersist
+                                                                    npuStandardRouteStreamingTextMatchesMarkdown =
+                                                                        !npuStandardRouteMarkdownExecuted ||
+                                                                            pseudoStreamingCandidate.finalText ==
+                                                                            npuStandardRouteAssistantTextForPersist
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        "phase8_pseudo_streaming_pending_db"
+                                                                } finally {
+                                                                    npuStandardRouteS4PseudoStreamingActive = false
+                                                                    npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                }
+                                                            } else {
+                                                                npuStandardRouteStreamingExecuted = false
+                                                                npuStandardRouteStreamingMode = "none"
+                                                                npuStandardRouteStreamingSource = "none"
+                                                                npuStandardRouteStreamingBlockReason =
+                                                                    pseudoStreamingMapping.failureReason
+                                                                        ?: "pseudo_streaming_candidate_unavailable"
+                                                            }
+                                                        } else if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteStreamingBlockReason == "none"
+                                                        ) {
+                                                            npuStandardRouteStreamingBlockReason = when {
+                                                                npuStandardRouteStreamingAllowed && !npuStandardRouteMarkdownExecuted ->
+                                                                    npuStandardRouteMarkdownBlockReason
+                                                                else ->
+                                                                    npuStandardRoutePhaseDiagnostics[
+                                                                        "npu_standard_route_streaming_block_reason"
+                                                                    ] ?: "phase_not_streaming"
+                                                            }
                                                         }
                                                         if (
                                                             npuStandardRoutePhaseGateActive &&
@@ -3888,7 +3996,9 @@ fun Home(
                                                                     npuStandardRouteDbMessageReplacedTransient = true
                                                                     npuStandardRouteDbSaveBlockReason = "none"
                                                                     npuStandardRouteDeliveryPath =
-                                                                        if (npuStandardRouteMarkdownExecuted) {
+                                                                        if (npuStandardRouteStreamingExecuted) {
+                                                                            "phase8_pseudo_streaming_db_backed_ui_append_db_markdown"
+                                                                        } else if (npuStandardRouteMarkdownExecuted) {
                                                                             "phase7_db_backed_ui_append_db_markdown"
                                                                         } else {
                                                                             "phase6_db_backed_ui_append_db"
@@ -3944,7 +4054,9 @@ fun Home(
                                                                     npuStandardRouteTtsStarted = true
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
-                                                                            if (npuStandardRouteMarkdownExecuted) {
+                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                                "phase8_pseudo_streaming_ui_append_tts_db_markdown"
+                                                                            } else if (npuStandardRouteMarkdownExecuted) {
                                                                                 "phase7_db_backed_ui_append_tts_db_markdown"
                                                                             } else {
                                                                                 "phase6_db_backed_ui_append_tts_db"
@@ -3962,7 +4074,9 @@ fun Home(
                                                                         NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
-                                                                            if (npuStandardRouteMarkdownExecuted) {
+                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                                "phase8_pseudo_streaming_ui_append_db_markdown_tts_exception"
+                                                                            } else if (npuStandardRouteMarkdownExecuted) {
                                                                                 "phase7_db_backed_ui_append_db_markdown_tts_exception"
                                                                             } else {
                                                                                 "phase6_db_backed_ui_append_db_tts_exception"
@@ -4012,6 +4126,14 @@ fun Home(
                                                                     markdownMode = npuStandardRouteMarkdownMode,
                                                                     markdownBlockReason = npuStandardRouteMarkdownBlockReason,
                                                                     streamingExecuted = npuStandardRouteStreamingExecuted,
+                                                                    streamingMode = npuStandardRouteStreamingMode,
+                                                                    streamingSource = npuStandardRouteStreamingSource,
+                                                                    streamingChunkCount = npuStandardRouteStreamingChunkCount,
+                                                                    streamingFinalTextLength = npuStandardRouteStreamingFinalTextLength,
+                                                                    streamingBlockReason = npuStandardRouteStreamingBlockReason,
+                                                                    nativeStreamingUsed = npuStandardRouteNativeStreamingUsed,
+                                                                    streamingTextMatchesDb = npuStandardRouteStreamingTextMatchesDb,
+                                                                    streamingTextMatchesMarkdown = npuStandardRouteStreamingTextMatchesMarkdown,
                                                                 ),
                                                             ).joinToString("\n")
                                                         fun appendNpuStandardRouteExecutionDiagnostics(text: String?): String? =

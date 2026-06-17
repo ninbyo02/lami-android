@@ -669,12 +669,82 @@ adb shell setprop debug.lami.npu_standard_route_phase 7
 adb shell monkey -p io.github.ninbyo02.lami 1
 ```
 
-### Phase 7B: Streaming
+### Phase 7B: Pseudo Streaming
 
-Streaming remains unimplemented in Phase 7A. Phase 7B may only start after
-Phase 7A confirms Markdown execution, DB-backed display, TTS, and fail-output
-suppression. Keep real token streaming disabled; S4 remains pseudo streaming
-from final text unless a separate safety review changes that plan.
+Phase 7B uses property phase `8` because the phase selector is integer based:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=8
+```
+
+This phase is pseudo streaming only. It does not call native token streaming and
+does not change LiteRT-LM / JNI / native code. The NPU generation result is still
+collected as complete final text first, then the safe finalized text is split
+into cumulative UI chunks with the existing pseudo-streaming mapper.
+
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_phase=8
+npu_standard_route_phase_name=7b_pseudo_streaming_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_markdown_executed=true
+npu_standard_route_streaming_allowed=true
+npu_standard_route_streaming_executed=true
+npu_standard_route_streaming_mode=pseudo_final_text
+npu_standard_route_streaming_source=markdown_finalized_text
+npu_standard_route_streaming_chunk_count=<count>
+npu_standard_route_streaming_final_text_length=<length>
+npu_standard_route_native_streaming_used=false
+npu_standard_route_streaming_text_matches_db=true
+npu_standard_route_streaming_text_matches_markdown=true
+npu_standard_route_rollback_required=false
+```
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=8
+npu_standard_route_phase_name=7b_pseudo_streaming_gate
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_started=false
+npu_standard_route_db_save_executed=false
+npu_standard_route_markdown_executed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_streaming_executed=false
+npu_standard_route_streaming_block_reason=quality_candidate_fail
+npu_standard_route_native_streaming_used=false
+npu_standard_route_rollback_required=true
+```
+
+Phase 7B stop line:
+
+- native token streaming remains disabled and
+  `npu_standard_route_native_streaming_used=false`
+- streaming source must be `markdown_finalized_text` or another safe final text,
+  never `raw_output`
+- `quality_candidate_fail` must keep UI, TTS, DB, Markdown, and pseudo streaming
+  execution disabled
+- DB saved text, Markdown finalized text, and pseudo streaming final text should
+  match
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 8
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
 
 ## NPU Standard Route Completion Checklist
 
@@ -685,7 +755,8 @@ from final text unless a separate safety review changes that plan.
 - Phase 5 TTS started only for `quality_candidate_pass`
 - Phase 6 DB save executed only for `quality_candidate_pass`
 - Phase 7A Markdown executed only for `quality_candidate_pass`
-- Streaming remains closed until Phase 7B
+- Phase 7B pseudo streaming executed only for `quality_candidate_pass`
+- Native token streaming remains deferred
 - `quality_candidate_fail` never reaches UI, TTS, DB, Markdown, or streaming
 
 ## Fail Output Suppression Rule

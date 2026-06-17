@@ -19,6 +19,8 @@ internal const val NPU_STANDARD_ROUTE_PHASE_6 = "6"
 internal const val NPU_STANDARD_ROUTE_PHASE_6_NAME = "6_db_save_gate"
 internal const val NPU_STANDARD_ROUTE_PHASE_7 = "7"
 internal const val NPU_STANDARD_ROUTE_PHASE_7_NAME = "7_markdown_gate"
+internal const val NPU_STANDARD_ROUTE_PHASE_8 = "8"
+internal const val NPU_STANDARD_ROUTE_PHASE_8_NAME = "7b_pseudo_streaming_gate"
 internal const val NPU_STANDARD_ROUTE_SUPPRESSION_REASON_NONE = "none"
 internal const val NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL =
     "quality_candidate_fail"
@@ -93,6 +95,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     ttsTextLength: Int? = null,
 ): Map<String, String> {
     val phaseName = when (phase) {
+        NPU_STANDARD_ROUTE_PHASE_8 -> NPU_STANDARD_ROUTE_PHASE_8_NAME
         NPU_STANDARD_ROUTE_PHASE_7 -> NPU_STANDARD_ROUTE_PHASE_7_NAME
         NPU_STANDARD_ROUTE_PHASE_6 -> NPU_STANDARD_ROUTE_PHASE_6_NAME
         NPU_STANDARD_ROUTE_PHASE_5 -> NPU_STANDARD_ROUTE_PHASE_5_NAME
@@ -108,6 +111,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_5,
         NPU_STANDARD_ROUTE_PHASE_6,
         NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
     ) && connected
     val generateResponse = phase in setOf(
         NPU_STANDARD_ROUTE_PHASE_3,
@@ -115,6 +119,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_5,
         NPU_STANDARD_ROUTE_PHASE_6,
         NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
     ) && connected
     val generateDiagnosticOnly = phase == NPU_STANDARD_ROUTE_PHASE_3 && generateResponse
     val qualityGatePassed = when (outputQualityCandidateStatus) {
@@ -130,6 +135,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_5,
         NPU_STANDARD_ROUTE_PHASE_6,
         NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
     )
     val suppressionReason = if (outputSuppressed) {
         if (generateOrDeliveryPhase) {
@@ -171,6 +177,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_5,
         NPU_STANDARD_ROUTE_PHASE_6,
         NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
     ) &&
         baseRunHealthy &&
         qualityCandidatePassed &&
@@ -180,12 +187,19 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_5,
         NPU_STANDARD_ROUTE_PHASE_6,
         NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
     ) &&
         uiAppendAllowed &&
         ttsPresent
-    val dbSaveAllowed = phase in setOf(NPU_STANDARD_ROUTE_PHASE_6, NPU_STANDARD_ROUTE_PHASE_7) &&
+    val dbSaveAllowed = phase in setOf(
+        NPU_STANDARD_ROUTE_PHASE_6,
+        NPU_STANDARD_ROUTE_PHASE_7,
+        NPU_STANDARD_ROUTE_PHASE_8,
+    ) &&
         uiAppendAllowed
-    val markdownAllowed = phase == NPU_STANDARD_ROUTE_PHASE_7 && dbSaveAllowed
+    val markdownAllowed = phase in setOf(NPU_STANDARD_ROUTE_PHASE_7, NPU_STANDARD_ROUTE_PHASE_8) &&
+        dbSaveAllowed
+    val streamingAllowed = phase == NPU_STANDARD_ROUTE_PHASE_8 && markdownAllowed
     val uiAppendSource = when {
         uiAppendAllowed -> "actual_display_text"
         phase !in setOf(
@@ -193,6 +207,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
             NPU_STANDARD_ROUTE_PHASE_7,
+            NPU_STANDARD_ROUTE_PHASE_8,
         ) -> "not_allowed_before_phase4"
         outputSuppressed -> "blocked_quality_candidate_fail"
         !candidatePresent -> "candidate_text_absent"
@@ -210,6 +225,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
             NPU_STANDARD_ROUTE_PHASE_7,
+            NPU_STANDARD_ROUTE_PHASE_8,
         ) -> "phase_not_ui_append"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !candidatePresent -> "candidate_text_absent"
@@ -226,6 +242,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
             NPU_STANDARD_ROUTE_PHASE_7,
+            NPU_STANDARD_ROUTE_PHASE_8,
         ) -> "not_allowed_before_phase5"
         outputSuppressed -> "blocked_quality_candidate_fail"
         !uiAppendAllowed -> "blocked_ui_append_not_allowed"
@@ -238,6 +255,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
             NPU_STANDARD_ROUTE_PHASE_7,
+            NPU_STANDARD_ROUTE_PHASE_8,
         ) -> "phase_not_tts"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !uiAppendAllowed -> uiAppendBlockReason
@@ -246,16 +264,27 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val dbSaveBlockReason = when {
         dbSaveAllowed -> "none"
-        phase !in setOf(NPU_STANDARD_ROUTE_PHASE_6, NPU_STANDARD_ROUTE_PHASE_7) -> "phase_not_db_save"
+        phase !in setOf(
+            NPU_STANDARD_ROUTE_PHASE_6,
+            NPU_STANDARD_ROUTE_PHASE_7,
+            NPU_STANDARD_ROUTE_PHASE_8,
+        ) -> "phase_not_db_save"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !uiAppendAllowed -> uiAppendBlockReason
         else -> "quality_gate_unavailable"
     }
     val markdownBlockReason = when {
         markdownAllowed -> "none"
-        phase != NPU_STANDARD_ROUTE_PHASE_7 -> "phase_not_markdown"
+        phase !in setOf(NPU_STANDARD_ROUTE_PHASE_7, NPU_STANDARD_ROUTE_PHASE_8) -> "phase_not_markdown"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !dbSaveAllowed -> dbSaveBlockReason
+        else -> "quality_gate_unavailable"
+    }
+    val streamingBlockReason = when {
+        streamingAllowed -> "none"
+        phase != NPU_STANDARD_ROUTE_PHASE_8 -> "phase_not_streaming"
+        outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
+        !markdownAllowed -> markdownBlockReason
         else -> "quality_gate_unavailable"
     }
     val rollbackRequired = rollbackReasons.isNotEmpty()
@@ -294,7 +323,9 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         "npu_standard_route_db_save_block_reason" to dbSaveBlockReason,
         "npu_standard_route_markdown_allowed" to markdownAllowed.toString(),
         "npu_standard_route_markdown_block_reason" to markdownBlockReason,
-        "npu_standard_route_streaming_allowed" to "false",
+        "npu_standard_route_streaming_allowed" to streamingAllowed.toString(),
+        "npu_standard_route_streaming_block_reason" to streamingBlockReason,
+        "npu_standard_route_native_streaming_used" to "false",
         "npu_standard_route_rollback_required" to rollbackRequired.toString(),
         "npu_standard_route_rollback_reason" to rollbackReason,
     )
@@ -326,6 +357,14 @@ internal fun buildNpuStandardRouteDeliveryExecutionDiagnostics(
     markdownMode: String = if (markdownExecuted) "default" else "none",
     markdownBlockReason: String = NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE,
     streamingExecuted: Boolean = false,
+    streamingMode: String = if (streamingExecuted) "pseudo_final_text" else "none",
+    streamingSource: String = "none",
+    streamingChunkCount: Int = 0,
+    streamingFinalTextLength: Int = 0,
+    streamingBlockReason: String = NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE,
+    nativeStreamingUsed: Boolean = false,
+    streamingTextMatchesDb: Boolean = false,
+    streamingTextMatchesMarkdown: Boolean = false,
 ): Map<String, String> = linkedMapOf(
     "npu_standard_route_ui_append_executed" to uiAppendExecuted.toString(),
     "npu_standard_route_ui_append_visible_candidate" to uiAppendVisibleCandidate.toString(),
@@ -347,6 +386,14 @@ internal fun buildNpuStandardRouteDeliveryExecutionDiagnostics(
     "npu_standard_route_markdown_mode" to markdownMode,
     "npu_standard_route_markdown_block_reason" to markdownBlockReason,
     "npu_standard_route_streaming_executed" to streamingExecuted.toString(),
+    "npu_standard_route_streaming_mode" to streamingMode,
+    "npu_standard_route_streaming_source" to streamingSource,
+    "npu_standard_route_streaming_chunk_count" to streamingChunkCount.coerceAtLeast(0).toString(),
+    "npu_standard_route_streaming_final_text_length" to streamingFinalTextLength.coerceAtLeast(0).toString(),
+    "npu_standard_route_streaming_block_reason" to streamingBlockReason,
+    "npu_standard_route_native_streaming_used" to nativeStreamingUsed.toString(),
+    "npu_standard_route_streaming_text_matches_db" to streamingTextMatchesDb.toString(),
+    "npu_standard_route_streaming_text_matches_markdown" to streamingTextMatchesMarkdown.toString(),
 )
 
 private fun isNpuStandardRoutePhase1Backend(preferredBackend: String): Boolean {
@@ -358,6 +405,7 @@ private fun resolveNpuStandardRouteDiagnosticPhase(
     propertyReader: (String) -> String?,
 ): String =
     when (propertyReader(NPU_STANDARD_ROUTE_PHASE_PROPERTY)?.trim()) {
+        NPU_STANDARD_ROUTE_PHASE_8 -> NPU_STANDARD_ROUTE_PHASE_8
         NPU_STANDARD_ROUTE_PHASE_7 -> NPU_STANDARD_ROUTE_PHASE_7
         NPU_STANDARD_ROUTE_PHASE_6 -> NPU_STANDARD_ROUTE_PHASE_6
         NPU_STANDARD_ROUTE_PHASE_5 -> NPU_STANDARD_ROUTE_PHASE_5

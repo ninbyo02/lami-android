@@ -350,7 +350,36 @@ Rejected output must keep `npu_standard_route_markdown_allowed=false` and
 Phase 7B. Phase 7B must not start until Phase 7A confirms Markdown execution and
 confirms `_turn>` / `raw_unexpected_start_turn` output never reaches Markdown.
 
-Settings should treat S1-S7 as NPU standard-route phases, not separate hardware
+Phase 7B pseudo streaming gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=8
+npu_standard_route_phase=8
+npu_standard_route_phase_name=7b_pseudo_streaming_gate
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_markdown_executed=true
+npu_standard_route_streaming_allowed=true
+npu_standard_route_streaming_executed=true
+npu_standard_route_streaming_mode=pseudo_final_text
+npu_standard_route_streaming_source=markdown_finalized_text
+npu_standard_route_native_streaming_used=false
+npu_standard_route_streaming_text_matches_db=true
+npu_standard_route_streaming_text_matches_markdown=true
+npu_standard_route_rollback_required=false
+```
+
+Phase 7B does not implement native token streaming. It streams only safe final
+text that has already passed the quality gate and Markdown finalization. Rejected
+output must keep `npu_standard_route_streaming_executed=false` and
+`npu_standard_route_streaming_block_reason=quality_candidate_fail`. Native
+streaming remains deferred until LiteRT-LM exposes reliable chunk/finish
+telemetry for this NPU route.
+
+Settings should treat S1-S8 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
 

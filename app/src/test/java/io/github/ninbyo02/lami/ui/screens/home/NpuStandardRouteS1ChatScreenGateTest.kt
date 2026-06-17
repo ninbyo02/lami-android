@@ -2161,6 +2161,102 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route phase8 enables pseudo streaming while keeping native streaming disabled`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "材料を箇条書きで説明します。\n- 玉ねぎ\n- にんじん",
+                sanitizedOutput = "材料を箇条書きで説明します。\n- 玉ねぎ\n- にんじん",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "8"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("8", diagnostics["npu_standard_route_phase"])
+        assertEquals("7b_pseudo_streaming_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("none", diagnostics["npu_standard_route_streaming_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_native_streaming_used"])
+        assertEquals("false", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
+    fun `NPU standard route phase8 suppresses quality candidate fail before pseudo streaming`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "_turn>\n<end_of_turn>\n<start_of_turn>model",
+                sanitizedOutput = "_turn>",
+                qualityClassification = "template_artifact",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "8"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("8", diagnostics["npu_standard_route_phase"])
+        assertEquals("7b_pseudo_streaming_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("false", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("raw_unexpected_start_turn", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_streaming_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_native_streaming_used"])
+        assertEquals("true", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
     fun `NPU standard route execution diagnostics record phase4 UI append execution`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = true,
@@ -2269,6 +2365,47 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route execution diagnostics record phase8 pseudo streaming without native streaming`() {
+        val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
+            uiAppendExecuted = true,
+            uiAppendVisibleCandidate = true,
+            ttsRequested = true,
+            ttsStarted = true,
+            deliveryPath = "phase8_pseudo_streaming_ui_append_tts_db_markdown",
+            uiAppendTarget = "db_backed_assistant_message",
+            dbSaveExecuted = true,
+            dbSaveTarget = "assistant_message",
+            dbSavedTextLength = 24,
+            dbAssistantIdPresent = true,
+            dbSaveBlockReason = "none",
+            dbMessageReplacedTransient = true,
+            dbConversationIdPresent = true,
+            markdownExecuted = true,
+            markdownMode = "lami_recovery_v1",
+            markdownBlockReason = "none",
+            streamingExecuted = true,
+            streamingMode = "pseudo_final_text",
+            streamingSource = "markdown_finalized_text",
+            streamingChunkCount = 4,
+            streamingFinalTextLength = 24,
+            streamingBlockReason = "none",
+            nativeStreamingUsed = false,
+            streamingTextMatchesDb = true,
+            streamingTextMatchesMarkdown = true,
+        )
+
+        assertEquals("true", diagnostics["npu_standard_route_streaming_executed"])
+        assertEquals("pseudo_final_text", diagnostics["npu_standard_route_streaming_mode"])
+        assertEquals("markdown_finalized_text", diagnostics["npu_standard_route_streaming_source"])
+        assertEquals("4", diagnostics["npu_standard_route_streaming_chunk_count"])
+        assertEquals("24", diagnostics["npu_standard_route_streaming_final_text_length"])
+        assertEquals("none", diagnostics["npu_standard_route_streaming_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_native_streaming_used"])
+        assertEquals("true", diagnostics["npu_standard_route_streaming_text_matches_db"])
+        assertEquals("true", diagnostics["npu_standard_route_streaming_text_matches_markdown"])
+    }
+
+    @Test
     fun `NPU standard route execution diagnostics record suppressed output without delivery`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = false,
@@ -2292,6 +2429,8 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertEquals("false", diagnostics["npu_standard_route_markdown_executed"])
         assertEquals("none", diagnostics["npu_standard_route_markdown_mode"])
         assertEquals("false", diagnostics["npu_standard_route_streaming_executed"])
+        assertEquals("none", diagnostics["npu_standard_route_streaming_mode"])
+        assertEquals("false", diagnostics["npu_standard_route_native_streaming_used"])
         assertEquals("false", diagnostics["npu_standard_route_output_delivery_executed"])
         assertEquals("phase_gate_suppressed", diagnostics["npu_standard_route_delivery_path"])
         assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_tts_execution_block_reason"])
