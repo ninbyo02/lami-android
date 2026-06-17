@@ -1,0 +1,351 @@
+# NPU Standard Route DEV Gate Integration Plan
+
+Scope: planning only. Do not change Kotlin runtime, Android route behavior,
+NPU route selection, DB, TTS, Markdown, streaming, native libraries, hidden
+configuration, fallback behavior, or production defaults in this phase.
+
+## Current State
+
+NPU S1 DEV route has passed backend / decode / cleanup / repeatability /
+validation coverage:
+
+```text
+NPU_VALIDATION_RESULT=pass
+VALIDATION_SCORE=100
+PASSED_CASES=short_template_cleanup_pass,medium,long,markdown,mixed_language,quality_gate_expected_rejection
+FAILED_CASES=none
+VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db
+PROMOTION_RECOMMENDATION=ready_for_standard_route_review_with_stop_line
+NEXT_ACTION=enforce_quality_gate_output_suppression_before_standard_route_connection
+```
+
+Confirmed NPU DEV route evidence:
+
+```text
+status=success
+selected_backend=NPU_S1
+requested_backend=NPU
+effective_backend=NPU
+backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+route_family=npu_s1
+run_decode_reached=true
+timeout=false
+fallback=false
+fresh_crash=false
+native_stage=adapter_success
+native_call_returned=true
+native_decode_started=true
+native_decode_finished=true
+native_cleanup_reached=true
+```
+
+## Code Inventory
+
+Read-only inspection found these existing boundaries:
+
+- `NpuStandardRouteS1Contract.kt`
+  - S1 result, `successCriteriaMet`, `actualDisplayText`, `ttsText`, side-effect
+    flags, and `outputQualityCandidateStatus`.
+  - `successCriteriaMet` rejects `quality_candidate_fail`.
+- `NpuStandardRouteS1Mapper.kt`
+  - Maps raw native result into S1 result and computes display text from
+    quality candidate / sanitized output.
+- `NpuS1PersistentCustomJniDiagnostics.kt`
+  - Defines quality candidate constants and prompt/profile evidence.
+- `ChatScreen.kt`
+  - Has existing staged helpers for S1 display, S2 DB, S3 Markdown, S4 pseudo
+    streaming, and S5 TTS.
+- `NpuStandardRouteS2DbMapper.kt`
+  - Builds DB save candidate only if `s1Result.successCriteriaMet`.
+- `NpuStandardRouteS3MarkdownMapper.kt`
+  - Builds Markdown candidate only if `s1Result.successCriteriaMet`.
+- `NpuStandardRouteS4PseudoStreamingMapper.kt`
+  - Builds pseudo-streaming chunks only if `s1Result.successCriteriaMet`.
+- `NpuStandardRouteS5TtsMapper.kt`
+  - Builds TTS candidate only if `s1Result.successCriteriaMet` and TTS gates
+    pass.
+- `NpuDiagnosticCopyText.kt`
+  - Already exposes stable copied NPU diagnostic keys for device-run review.
+
+This existing shape is compatible with a staged DEV gate. The implementation
+plan should preserve the S1-to-S5 separation and must not bypass
+`successCriteriaMet`.
+
+## Passed Gates
+
+- NPU backend evidence is present: `QNN_HTP_V79_FastRPC_native_diag`.
+- Decode path is reached and completes.
+- Native call returns.
+- Native cleanup is reached.
+- `fallback=false`.
+- `timeout=false`.
+- `fresh_crash=false`.
+- Validation matrix reaches score 100.
+- `short_template_cleanup_pass` confirms safe template cleanup candidate.
+- `quality_gate_expected_rejection` confirms unsafe template output is rejected
+  by the quality candidate gate.
+
+## Remaining Stop Line
+
+The remaining blocker is:
+
+```text
+quality_gate_output_must_not_reach_ui_tts_db
+```
+
+The validation `quality_gate` case can produce:
+
+```text
+raw_output=_turn>\n<end_of_turn>\n<start_of_turn>model_turn>\n<end_of_turn>
+sanitized_output=_turn>
+actual_display_text=_turn>
+tts_text=_turn>
+output_quality_candidate_status=quality_candidate_fail
+output_quality_candidate_reason=raw_unexpected_start_turn
+```
+
+This is an expected rejection for validation matrix purposes, but it must never
+flow to UI append, TTS, DB save, Markdown, or streaming in the standard route.
+
+## DEV Gate Property
+
+Use a single explicit opt-in property for any future standard-route candidate:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+```
+
+Default behavior:
+
+```text
+debug.lami.npu_standard_route_dev_gate=false
+```
+
+When false:
+
+- standard route NPU connection remains disabled
+- normal CPU route remains unchanged
+- GPU experimental diagnostics remain unchanged
+- no DB/TTS/Markdown/Streaming NPU side effects are allowed
+
+## Phase Order
+
+### Phase 0: docs/scripts only
+
+Current phase. No Kotlin behavior changes.
+
+### Phase 1: route entry diagnostics only
+
+Goal: show whether the standard-route DEV gate would select the NPU candidate.
+
+Do not create conversation or generate output.
+
+Expected diagnostics:
+
+```text
+npu_standard_route_dev_gate_enabled=true
+npu_standard_route_phase=1_route_entry_diagnostic
+npu_standard_route_connected=false
+conversation_created=false
+generate_response=false
+```
+
+### Phase 2: conversation creation only
+
+Goal: validate ChatScreen / route plumbing without native generation.
+
+Do not call generate.
+
+Expected diagnostics:
+
+```text
+npu_standard_route_phase=2_conversation_created
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+```
+
+### Phase 3: generate response with output suppression
+
+Goal: call S1 generate, but only allow output to become a candidate when:
+
+```text
+output_quality_candidate_status=quality_candidate_pass
+```
+
+If candidate fails, suppress all user-facing / persistence surfaces.
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=3_generate_suppressed
+generate_response=true
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_suppression_reason=quality_candidate_fail
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=quality_gate_output_must_not_reach_ui_tts_db
+```
+
+### Phase 4: UI append
+
+Only after Phase 3 proves suppression, allow UI append for candidate pass.
+
+Do not enable TTS, DB, Markdown, or streaming.
+
+### Phase 5: TTS
+
+Only after UI append is stable and candidate pass is required. Reuse S5 TTS
+mapper conditions and add a hard check that candidate fail cannot produce
+`tts_text`.
+
+### Phase 6: DB save
+
+Only after UI/TTS behavior is stable or explicitly skipped. Reuse S2 DB mapping
+and require candidate pass before save candidate construction.
+
+### Phase 7: Markdown / streaming
+
+Connect Markdown before pseudo streaming. Keep real token streaming disabled;
+S4 is pseudo streaming from final text.
+
+## Fail Output Suppression Rule
+
+Implementation must use this invariant:
+
+```text
+output_quality_candidate_status=quality_candidate_fail
+```
+
+means:
+
+- no UI append of model text
+- no TTS text
+- no DB save
+- no Markdown rendering
+- no streaming / pseudo streaming chunks
+- diagnostic-only failure assistant text may be shown only if it is a fixed
+  safe app-authored message, not model output
+
+See `docs/npu_quality_gate_output_suppression_plan.md`.
+
+## Diagnostics Key Plan
+
+Add these keys when Kotlin implementation begins:
+
+```text
+npu_standard_route_dev_gate_enabled
+npu_standard_route_phase
+npu_standard_route_connected
+npu_standard_route_quality_gate_passed
+npu_standard_route_output_suppressed
+npu_standard_route_suppression_reason
+npu_standard_route_ui_append_allowed
+npu_standard_route_tts_allowed
+npu_standard_route_db_save_allowed
+npu_standard_route_markdown_allowed
+npu_standard_route_streaming_allowed
+npu_standard_route_rollback_required
+npu_standard_route_rollback_reason
+```
+
+Also keep existing gate inputs:
+
+```text
+status
+fallback
+fallback_used
+timeout
+fresh_crash
+run_decode_reached
+native_cleanup_reached
+output_quality_candidate_status
+output_quality_candidate_reason
+quality_classification
+actual_display_text
+tts_text
+standard_route_connected
+conversation_created
+generate_response
+db
+tts
+markdown
+streaming
+```
+
+## Rollback Conditions
+
+Stop the phase and do not advance if any of these occur:
+
+- `fallback=true` or `fallback_used=true`
+- `timeout=true`
+- `fresh_crash=true`
+- fresh tombstone appears
+- `run_decode_reached=false`
+- `native_cleanup_reached=false`
+- `output_quality_candidate_status=quality_candidate_fail` and model output
+  reaches UI/TTS/DB/Markdown/Streaming
+- `actual_display_text` contains unsafe template fragments such as `_turn>`
+- DB save occurs before explicit DB phase
+- TTS starts before explicit TTS phase
+- Markdown / streaming starts before explicit phase
+- CPU/GPU route behavior regresses
+
+## Test Plan
+
+Unit tests for the future Kotlin implementation:
+
+- candidate pass -> output allowed only for the active phase
+- candidate fail -> output suppressed for all downstream surfaces
+- `actual_display_text=_turn>` -> output suppressed
+- DEV gate off -> no standard route connection
+- DEV gate on Phase 1 -> diagnostics only
+- DEV gate on Phase 2 -> conversation created, no generate
+- DEV gate on Phase 3 -> generate response, suppress failure output
+- S2 DB mapper remains blocked when S1 success criteria fail
+- S3 Markdown mapper remains blocked when S1 success criteria fail
+- S4 pseudo streaming mapper remains blocked when S1 success criteria fail
+- S5 TTS mapper remains blocked when S1 success criteria fail
+- CPU route unaffected
+- GPU route unaffected
+
+Device tests after implementation:
+
+- short
+- medium
+- long
+- markdown
+- mixed_language
+- quality_gate expected rejection
+
+For the quality gate run, expected standard-route diagnostics:
+
+```text
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+## Conditions To Start Implementation
+
+Start Kotlin implementation only after approving:
+
+- DEV gate property name and phase order
+- fixed safe failure message policy for candidate fail
+- exact diagnostic key list
+- test coverage for output suppression
+- no DB/TTS/Markdown/Streaming connection before Phase 4+
+
+The first implementation task should be Phase 1 diagnostics only.

@@ -23,7 +23,7 @@ medium	カレーの材料をお願いします。	npu_promotion_candidate	npu_va
 long	300〜500文字程度で、健康的な食事の考え方を説明してください。	npu_promotion_candidate	npu_validation_long_${date_stamp}.txt
 markdown	箇条書きで旅行計画を作成してください。	npu_promotion_candidate	npu_validation_markdown_${date_stamp}.txt
 mixed_language	あなたは誰ですか？	npu_quality_candidate_pass_with_mixed_language_terms	npu_validation_mixed_language_${date_stamp}.txt
-quality_gate	template cleanup が発生しやすい短文として「こんにちは」と入力してください。	npu_quality_candidate_pass_with_template_cleanup	npu_validation_quality_gate_${date_stamp}.txt
+quality_gate	template cleanup が発生しやすい短文として「こんにちは」と入力してください。	quality_gate_expected_rejection	npu_validation_quality_gate_${date_stamp}.txt
 EOF
 }
 

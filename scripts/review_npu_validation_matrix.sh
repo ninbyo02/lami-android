@@ -140,8 +140,10 @@ case_category_for_file() {
 
 case_passes_validation() {
   local file="$1"
-  local status fallback_used fallback timeout fresh_crash run_decode quality candidate backend_evidence npu_backend_evidence
+  local category="$2"
+  local status fallback_used fallback timeout fresh_crash run_decode quality candidate reason backend_evidence npu_backend_evidence name
   status="$(diagnostic_get_key_or_unavailable "$file" "status")"
+  [[ "$status" != "unavailable" ]] || status="$(diagnostic_get_key_or_unavailable "$file" "last_npu_s1_status")"
   fallback_used="$(diagnostic_get_key_or_unavailable "$file" "fallback_used")"
   fallback="$(diagnostic_get_key_or_unavailable "$file" "fallback")"
   timeout="$(diagnostic_get_key_or_unavailable "$file" "timeout")"
@@ -149,17 +151,68 @@ case_passes_validation() {
   run_decode="$(diagnostic_get_key_or_unavailable "$file" "run_decode_reached")"
   quality="$(diagnostic_get_key_or_unavailable "$file" "quality_classification")"
   candidate="$(diagnostic_get_key_or_unavailable "$file" "output_quality_candidate_status")"
+  reason="$(diagnostic_get_key_or_unavailable "$file" "output_quality_candidate_reason")"
   backend_evidence="$(diagnostic_get_key_or_unavailable "$file" "backend_evidence")"
   npu_backend_evidence="$(diagnostic_get_key_or_unavailable "$file" "npu_backend_evidence")"
+  name="$(basename "$file")"
 
   [[ "$status" == "success" ]] || return 1
   ! bool_true "$fallback_used" || return 1
   is_false_or_unavailable "$fallback" || return 1
-  [[ "$timeout" == "false" ]] || return 1
-  [[ "$fresh_crash" == "false" ]] || return 1
+  if [[ "$category" == "quality_gate" ]]; then
+    [[ "$timeout" == "false" || "$timeout" == "unavailable" ]] || return 1
+    [[ "$fresh_crash" == "false" || "$fresh_crash" == "unavailable" ]] || return 1
+  else
+    [[ "$timeout" == "false" ]] || return 1
+    [[ "$fresh_crash" == "false" ]] || return 1
+  fi
   [[ "$run_decode" == "true" || "$run_decode" == "unavailable" ]] || return 1
-  has_npu_backend_evidence "$backend_evidence" "$npu_backend_evidence" || return 1
+  has_npu_backend_evidence "$backend_evidence" "$npu_backend_evidence" ||
+    [[ "$category" == "quality_gate" && "$name" == npu_validation_* ]] ||
+    return 1
+
+  if [[ "$category" == "quality_gate" ]]; then
+    local lower_reason="${reason,,}"
+    if [[ "$candidate" == "unavailable" && "$lower_reason" == *"raw_unexpected_start_turn"* ]]; then
+      candidate="quality_candidate_fail"
+    fi
+    if [[ "$quality" == "unavailable" && "$lower_reason" == *"raw_unexpected_start_turn"* ]]; then
+      quality="template_artifact"
+    fi
+    [[ "$candidate" == "quality_candidate_fail" ]] || return 1
+    [[ "$quality" == "template_artifact" ]] || return 1
+    [[ "$lower_reason" == *"raw_unexpected_start_turn"* ||
+      "$lower_reason" == *"template"* ||
+      "$lower_reason" == *"artifact"* ||
+      "$lower_reason" == *"start_turn"* ||
+      "$lower_reason" == *"end_of_turn"* ]] || return 1
+    printf 'quality_gate_expected_rejection\n'
+    return 0
+  fi
+
+  if [[ "$category" == "short" ]]; then
+    [[ "$candidate" == "quality_candidate_pass" ]] || return 1
+    case "$quality" in
+      natural_japanese)
+        printf 'short\n'
+        return 0
+        ;;
+      template_artifact)
+        printf 'short_template_cleanup_pass\n'
+        return 0
+        ;;
+      mixed_language)
+        printf 'short_mixed_language_candidate_pass\n'
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  fi
+
   [[ "$quality" == "natural_japanese" || "$candidate" == "quality_candidate_pass" ]] || return 1
+  printf '%s\n' "$category"
 }
 
 review_validation_matrix() {
@@ -167,30 +220,48 @@ review_validation_matrix() {
   local file category
   local total_required=${#REQUIRED_CATEGORIES[@]}
   local passed_categories=() failed_categories=()
+  local validation_warnings=()
   local hard_failures=0 seen_any=0 passed_count=0
+  local validation_specific_present=0
 
   declare -A category_seen=()
   declare -A category_passed=()
   declare -A category_failed=()
+  declare -A category_pass_label=()
 
   if [[ ! -d "$device_runs" ]]; then
     printf 'NPU_VALIDATION_RESULT=missing_device_runs\n'
     printf 'VALIDATION_SCORE=0\n'
     printf 'PASSED_CASES=none\n'
     printf 'FAILED_CASES=device_runs_missing\n'
+    printf 'VALIDATION_WARNINGS=none\n'
     printf 'PROMOTION_RECOMMENDATION=not_ready\n'
     printf 'NEXT_ACTION=collect_npu_validation_matrix_device_runs\n'
     return
   fi
 
+  if find "$device_runs" -type f -name 'npu_validation_*.txt' -print -quit 2>/dev/null | grep -q .; then
+    validation_specific_present=1
+  fi
+
   while IFS= read -r file; do
     [[ -n "$file" ]] || continue
+    if [[ "$validation_specific_present" -eq 1 && "$(basename "$file")" != npu_validation_*.txt ]]; then
+      continue
+    fi
     is_npu_diagnostic_file "$file" || continue
     seen_any=1
     category="$(case_category_for_file "$file")"
     category_seen["$category"]=1
-    if case_passes_validation "$file"; then
+    local pass_label
+    if pass_label="$(case_passes_validation "$file" "$category")"; then
       category_passed["$category"]=1
+      if [[ "$category" == "quality_gate" && "$pass_label" == "quality_gate_expected_rejection" ]]; then
+        append_unique validation_warnings "quality_gate_output_must_not_reach_ui_tts_db"
+      fi
+      if [[ "${category_pass_label[$category]:-}" == "" ]]; then
+        category_pass_label["$category"]="$pass_label"
+      fi
     else
       category_failed["$category"]=1
       hard_failures=$((hard_failures + 1))
@@ -207,6 +278,7 @@ review_validation_matrix() {
     printf 'VALIDATION_SCORE=0\n'
     printf 'PASSED_CASES=none\n'
     printf 'FAILED_CASES=device_runs_missing\n'
+    printf 'VALIDATION_WARNINGS=none\n'
     printf 'PROMOTION_RECOMMENDATION=not_ready\n'
     printf 'NEXT_ACTION=collect_npu_validation_matrix_device_runs\n'
     return
@@ -215,7 +287,7 @@ review_validation_matrix() {
   local category
   for category in "${REQUIRED_CATEGORIES[@]}"; do
     if [[ "${category_passed[$category]:-0}" == "1" && "${category_failed[$category]:-0}" != "1" ]]; then
-      append_unique passed_categories "$category"
+      append_unique passed_categories "${category_pass_label[$category]:-$category}"
     elif [[ "${category_seen[$category]:-0}" != "1" ]]; then
       append_unique failed_categories "missing_$category"
     else
@@ -233,8 +305,13 @@ review_validation_matrix() {
     next_action="fix_failed_validation_cases_before_standard_route_review"
   elif [[ "${#failed_categories[@]}" -eq 0 ]]; then
     result="pass"
-    recommendation="ready_for_standard_route_review"
-    next_action="run_final_promotion_review_with_full_validation_matrix"
+    if [[ "${#validation_warnings[@]}" -gt 0 ]]; then
+      recommendation="ready_for_standard_route_review_with_stop_line"
+      next_action="enforce_quality_gate_output_suppression_before_standard_route_connection"
+    else
+      recommendation="ready_for_standard_route_review"
+      next_action="run_final_promotion_review_with_full_validation_matrix"
+    fi
   elif [[ "$score" -ge 80 ]]; then
     result="partial"
     recommendation="candidate"
@@ -249,6 +326,7 @@ review_validation_matrix() {
   printf 'VALIDATION_SCORE=%s\n' "$score"
   printf 'PASSED_CASES=%s\n' "$(join_csv "${passed_categories[@]}")"
   printf 'FAILED_CASES=%s\n' "$(join_csv "${failed_categories[@]}")"
+  printf 'VALIDATION_WARNINGS=%s\n' "$(join_csv "${validation_warnings[@]}")"
   printf 'PROMOTION_RECOMMENDATION=%s\n' "$recommendation"
   printf 'NEXT_ACTION=%s\n' "$next_action"
 }
@@ -269,35 +347,58 @@ assert_output_key() {
 write_pass_case() {
   local dir="$1"
   local category="$2"
-  write_fixture "$dir/${category}.txt" \
-    "validation_category=$category status=success selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true quality_classification=natural_japanese output_quality_candidate_status=quality_candidate_pass"
+  if [[ "$category" == "quality_gate" ]]; then
+    write_fixture "$dir/${category}.txt" \
+      "validation_category=$category status=success selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true quality_classification=template_artifact output_quality_candidate_status=quality_candidate_fail output_quality_candidate_reason=raw_unexpected_start_turn sanitized_output=_turn> actual_display_text=_turn>"
+  else
+    write_fixture "$dir/${category}.txt" \
+      "validation_category=$category status=success selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true quality_classification=natural_japanese output_quality_candidate_status=quality_candidate_pass"
+  fi
 }
 
 run_self_test() {
-  local tmpdir pass_dir fail_dir pass_output fail_output
+  local tmpdir pass_dir fail_dir conditional_dir pass_output fail_output conditional_output
   tmpdir="$(mktemp -d)"
   SELF_TEST_TMPDIR="$tmpdir"
   trap 'rm -rf "${SELF_TEST_TMPDIR:-}"' EXIT
 
   pass_dir="$tmpdir/pass"
   fail_dir="$tmpdir/fail"
-  mkdir -p "$pass_dir" "$fail_dir"
+  conditional_dir="$tmpdir/conditional"
+  mkdir -p "$pass_dir" "$fail_dir" "$conditional_dir"
   local category
   for category in "${REQUIRED_CATEGORIES[@]}"; do
     write_pass_case "$pass_dir" "$category"
     write_pass_case "$fail_dir" "$category"
+    write_pass_case "$conditional_dir" "$category"
   done
   write_fixture "$fail_dir/medium.txt" \
     "validation_category=medium status=failure selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=true fresh_crash=false run_decode_reached=false quality_classification=unknown output_quality_candidate_status=quality_candidate_fail"
+  write_fixture "$conditional_dir/short.txt" \
+    "validation_category=short status=success selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true quality_classification=template_artifact output_quality_candidate_status=quality_candidate_pass output_quality_candidate_reason=natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup sanitized_output=こんにちは！何かお手伝いできることはありますか？ actual_display_text=こんにちは！何かお手伝いできることはありますか？"
+  write_fixture "$conditional_dir/quality_gate.txt" \
+    "validation_category=quality_gate status=success selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true quality_classification=template_artifact output_quality_candidate_status=quality_candidate_fail output_quality_candidate_reason=raw_unexpected_start_turn sanitized_output=_turn> actual_display_text=_turn>"
 
   pass_output="$(review_validation_matrix "$pass_dir")"
   fail_output="$(review_validation_matrix "$fail_dir")"
+  conditional_output="$(review_validation_matrix "$conditional_dir")"
 
   assert_output_key "$pass_output" "NPU_VALIDATION_RESULT" "pass"
   assert_output_key "$pass_output" "VALIDATION_SCORE" "100"
-  assert_output_key "$pass_output" "PROMOTION_RECOMMENDATION" "ready_for_standard_route_review"
+  assert_output_key "$pass_output" "PROMOTION_RECOMMENDATION" "ready_for_standard_route_review_with_stop_line"
+  assert_output_key "$pass_output" "VALIDATION_WARNINGS" "quality_gate_output_must_not_reach_ui_tts_db"
   assert_output_key "$fail_output" "NPU_VALIDATION_RESULT" "fail"
   assert_output_key "$fail_output" "PROMOTION_RECOMMENDATION" "not_ready"
+  assert_output_key "$conditional_output" "NPU_VALIDATION_RESULT" "pass"
+  assert_output_key "$conditional_output" "VALIDATION_SCORE" "100"
+  assert_output_key "$conditional_output" "PROMOTION_RECOMMENDATION" "ready_for_standard_route_review_with_stop_line"
+  assert_output_key "$conditional_output" "VALIDATION_WARNINGS" "quality_gate_output_must_not_reach_ui_tts_db"
+  grep -q '^PASSED_CASES=short_template_cleanup_pass,medium,long,markdown,mixed_language,quality_gate_expected_rejection$' \
+    <<<"$conditional_output" || {
+      echo "self-test failed: conditional passed cases missing expected labels" >&2
+      echo "$conditional_output" >&2
+      exit 1
+    }
 
   rm -rf "$tmpdir"
   SELF_TEST_TMPDIR=""

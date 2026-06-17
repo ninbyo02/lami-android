@@ -42,6 +42,16 @@ Expected classifier target:
 npu_quality_candidate_pass_with_template_cleanup_or_natural_japanese
 ```
 
+Matrix interpretation:
+
+```text
+short_template_cleanup_pass
+```
+
+is a conditional pass when `quality_classification=template_artifact` but
+`output_quality_candidate_status=quality_candidate_pass` and the sanitized /
+display text is natural Japanese.
+
 ### medium
 
 Prompt:
@@ -115,6 +125,28 @@ Expected classifier target:
 npu_quality_candidate_pass_with_template_cleanup
 ```
 
+Matrix interpretation:
+
+```text
+quality_gate_expected_rejection
+```
+
+is a pass for this category when the artifact shows
+`output_quality_candidate_status=quality_candidate_fail`,
+`quality_classification=template_artifact`, and a reason such as
+`raw_unexpected_start_turn`. The purpose is to prove dangerous template output
+is rejected, not to approve that text for display.
+
+Stop line:
+
+```text
+VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db
+```
+
+If the rejected text appears in `actual_display_text` and could flow to UI, TTS,
+DB, Markdown, or streaming, standard route connection must wait for output
+suppression evidence.
+
 ## Artifact Naming
 
 Save copied NPU diagnostics under:
@@ -166,6 +198,9 @@ EXPECTED_CLASSIFIER_TARGET
 ARTIFACT_NAME
 ```
 
+The `quality_gate` row intentionally targets an expected rejection rather than a
+normal generation success.
+
 ## Collection Flow
 
 1. Generate the manifest.
@@ -190,6 +225,17 @@ NPU_VALIDATION_RESULT=pass
 VALIDATION_SCORE=100
 PROMOTION_RECOMMENDATION=ready_for_standard_route_review
 ```
+
+If the matrix passes with `quality_gate_expected_rejection`, the recommendation
+may instead be:
+
+```text
+PROMOTION_RECOMMENDATION=ready_for_standard_route_review_with_stop_line
+VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db
+```
+
+That is not a route-connection approval by itself; it requires proof that failed
+quality-gate output cannot reach UI/TTS/DB.
 
 If one category is missing but there are no hard failures, the expected posture
 is still not full readiness:

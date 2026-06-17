@@ -117,6 +117,12 @@ Minimum evidence before any standard-route experiment:
 - no visible template residue after display cleanup
 - no prompt echo, repeated completion classification, or multilingual drift in
   displayed output
+- validation matrix `short` may pass as `short_template_cleanup_pass` only when
+  `output_quality_candidate_status=quality_candidate_pass` and sanitized /
+  display text is natural Japanese
+- validation matrix `quality_gate` may pass as
+  `quality_gate_expected_rejection` only to prove unsafe template output is
+  rejected; it is not a normal output success
 - callback / tokenizer / stats diagnostics do not fail or go missing
 - lifecycle evidence shows cleanup / close or safe isolation after each run
 - DB, TTS, Markdown, and streaming remain disconnected until isolated route
@@ -137,6 +143,14 @@ Standard route remains blocked if any of these are true:
 - `selected_path_npu_saved=true` before explicit approval
 - dispatch/runtime/model provenance is unknown
 - hidden route needs process force-stop to be safe for the tested mode
+- `VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db` appears
+  without proof that rejected output is suppressed before UI/TTS/DB/Markdown /
+  streaming ingress
+
+Detailed standard-route DEV gate planning is tracked in:
+
+- `docs/npu_standard_route_dev_gate_integration_plan.md`
+- `docs/npu_quality_gate_output_suppression_plan.md`
 
 ## Next Device Confirmation Keys
 

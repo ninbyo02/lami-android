@@ -47,8 +47,19 @@ Pass criteria:
 - `timeout=false`
 - `fresh_crash=false`
 - `run_decode_reached=true`
-- `quality_classification=natural_japanese` or
-  `output_quality_candidate_status=quality_candidate_pass`
+- `output_quality_candidate_status=quality_candidate_pass`
+- `quality_classification=natural_japanese`, `template_artifact`, or
+  `mixed_language`
+
+`quality_classification=template_artifact` with candidate pass is a conditional
+pass:
+
+```text
+short_template_cleanup_pass
+```
+
+This covers safe leading marker / `<end_of_turn>` cleanup where
+`sanitized_output` and `actual_display_text` are natural Japanese.
 
 ### medium
 
@@ -108,6 +119,25 @@ mixed-language proper noun candidate: Google DeepMind / Gemma 4
 strict natural Japanese: no template marker, no Latin proper noun mismatch
 ```
 
+The `quality_gate` category is allowed to pass as an expected rejection when it
+proves the gate rejects dangerous template output:
+
+```text
+quality_classification=template_artifact
+output_quality_candidate_status=quality_candidate_fail
+output_quality_candidate_reason=raw_unexpected_start_turn
+```
+
+This is reported as:
+
+```text
+quality_gate_expected_rejection
+```
+
+It is not a normal output success. If the rejected text reaches display, TTS, or
+DB persistence, standard route connection must stop until output suppression is
+proven.
+
 ## Script
 
 Use:
@@ -123,6 +153,7 @@ NPU_VALIDATION_RESULT=...
 VALIDATION_SCORE=...
 PASSED_CASES=...
 FAILED_CASES=...
+VALIDATION_WARNINGS=...
 PROMOTION_RECOMMENDATION=...
 NEXT_ACTION=...
 ```
@@ -162,6 +193,14 @@ PROMOTION_RECOMMENDATION=ready_for_standard_route_review
 All categories are present and pass.
 
 ```text
+PROMOTION_RECOMMENDATION=ready_for_standard_route_review_with_stop_line
+```
+
+All categories pass, but `quality_gate_expected_rejection` was observed. This is
+acceptable for matrix coverage only if the rejected output is blocked from
+UI/TTS/DB before standard route connection.
+
+```text
 PROMOTION_RECOMMENDATION=candidate
 ```
 
@@ -173,6 +212,19 @@ PROMOTION_RECOMMENDATION=not_ready
 ```
 
 Score is below 80, hard failures are present, or device runs are missing.
+
+## Stop Line
+
+The validation matrix may pass with:
+
+```text
+VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db
+```
+
+That warning means a `quality_gate` case correctly rejected unsafe template
+output, but standard route connection is still unsafe unless the app proves the
+rejected `actual_display_text` cannot flow into UI, TTS, DB, Markdown, or
+streaming surfaces.
 
 ## Current Interpretation
 

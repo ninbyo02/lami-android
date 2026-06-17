@@ -235,6 +235,7 @@ NPU_VALIDATION_RESULT
 VALIDATION_SCORE
 PASSED_CASES
 FAILED_CASES
+VALIDATION_WARNINGS
 PROMOTION_RECOMMENDATION
 NEXT_ACTION
 ```
@@ -253,6 +254,10 @@ PROMOTION_RECOMMENDATION=ready_for_standard_route_review
 
 Current three-prompt repeatability is useful but incomplete, so missing matrix
 categories remain expected until additional device runs are collected.
+If `VALIDATION_WARNINGS=quality_gate_output_must_not_reach_ui_tts_db` appears,
+the matrix may have enough category coverage but standard route connection still
+needs proof that rejected quality-gate output cannot enter UI, TTS, DB,
+Markdown, or streaming surfaces.
 
 ### Validation Dataset Coverage
 
