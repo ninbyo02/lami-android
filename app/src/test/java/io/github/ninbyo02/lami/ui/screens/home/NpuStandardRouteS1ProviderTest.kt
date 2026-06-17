@@ -540,6 +540,7 @@ class NpuStandardRouteS1ProviderTest {
         listOf(compact, fullDump).forEach { text ->
             assertTrue(text.contains("npu_standard_route_dev_gate_enabled=true"))
             assertTrue(text.contains("npu_standard_route_phase=1"))
+            assertTrue(text.contains("npu_standard_route_phase_name=1_route_entry_diagnostic"))
             assertTrue(text.contains("npu_standard_route_connected=true"))
             assertTrue(text.contains("conversation_created=false"))
             assertTrue(text.contains("generate_response=false"))
@@ -584,11 +585,13 @@ class NpuStandardRouteS1ProviderTest {
 
         assertTrue(trace.contains("npu_standard_route_dev_gate_enabled=true"))
         assertTrue(trace.contains("npu_standard_route_phase=1"))
+        assertTrue(trace.contains("npu_standard_route_phase_name=1_route_entry_diagnostic"))
         assertTrue(trace.contains("npu_standard_route_connected=true"))
         assertTrue(trace.contains("conversation_created=false"))
         assertTrue(trace.contains("generate_response=false"))
         assertTrue(copyText.contains("npu_standard_route_dev_gate_enabled=true"))
         assertTrue(copyText.contains("npu_standard_route_phase=1"))
+        assertTrue(copyText.contains("npu_standard_route_phase_name=1_route_entry_diagnostic"))
         assertTrue(copyText.contains("npu_standard_route_connected=true"))
         assertTrue(copyText.contains("conversation_created=false"))
         assertTrue(copyText.contains("generate_response=false"))
@@ -597,6 +600,68 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("npu_standard_route_db_save_allowed=false"))
         assertTrue(copyText.contains("npu_standard_route_markdown_allowed=false"))
         assertTrue(copyText.contains("npu_standard_route_streaming_allowed=false"))
+    }
+
+    @Test
+    fun `S1 compact full dump and diagnostic copy include phase2 conversation-created diagnostics`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val phase2Reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "2"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = phase2Reader,
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = phase2Reader,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteDevGatePropertyReader = phase2Reader,
+        )
+        val copyText = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = trace),
+        )
+
+        listOf(compact, fullDump, trace, copyText).forEach { text ->
+            assertTrue(text.contains("npu_standard_route_dev_gate_enabled=true"))
+            assertTrue(text.contains("npu_standard_route_phase=2"))
+            assertTrue(text.contains("npu_standard_route_phase_name=2_conversation_created_diagnostic"))
+            assertTrue(text.contains("npu_standard_route_connected=true"))
+            assertTrue(text.contains("conversation_created=true"))
+            assertTrue(text.contains("generate_response=false"))
+            assertTrue(text.contains("npu_standard_route_ui_append_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_tts_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_db_save_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_markdown_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_streaming_allowed=false"))
+        }
     }
 
     @Test

@@ -21,6 +21,7 @@ internal val NPU_DIAGNOSTIC_COPY_KEYS = listOf(
     "standard_route_connected",
     "npu_standard_route_dev_gate_enabled",
     "npu_standard_route_phase",
+    "npu_standard_route_phase_name",
     "npu_standard_route_connected",
     "npu_standard_route_quality_gate_passed",
     "npu_standard_route_output_suppressed",

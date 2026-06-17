@@ -115,6 +115,17 @@ Use a single explicit opt-in property for any future standard-route candidate:
 debug.lami.npu_standard_route_dev_gate=true
 ```
 
+Phase selection is read only when the DEV gate is enabled:
+
+```text
+debug.lami.npu_standard_route_phase=1
+debug.lami.npu_standard_route_phase=2
+```
+
+Unset, blank, or invalid phase values fall back to Phase 1. This keeps the
+diagnostic path conservative if a stale or malformed property remains on the
+device.
+
 Default behavior:
 
 ```text
@@ -154,6 +165,7 @@ Implemented Phase 1 diagnostics use:
 
 ```text
 debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=1
 ```
 
 and emit route-decision diagnostics only for NPU backend candidates. CPU and GPU
@@ -191,18 +203,55 @@ npu_standard_route_rollback_reason=quality_gate_output_must_not_reach_ui_tts_db
 
 Goal: validate ChatScreen / route plumbing without native generation.
 
-Do not call generate.
+Phase 2 is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=2
+```
+
+Do not call generate. In the current diagnostic-only implementation,
+`conversation_created=true` means the standard-route connection has advanced to
+the conversation-created gate for review; it does not permit native generate,
+UI append, TTS, DB, Markdown, or streaming.
 
 Expected diagnostics:
 
 ```text
-npu_standard_route_phase=2_conversation_created
+npu_standard_route_dev_gate_enabled=true
+npu_standard_route_phase=2
+npu_standard_route_phase_name=2_conversation_created_diagnostic
 npu_standard_route_connected=true
 conversation_created=true
 generate_response=false
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
 npu_standard_route_ui_append_allowed=false
 npu_standard_route_tts_allowed=false
 npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+npu_standard_route_rollback_reason=none
+```
+
+Phase 2 stop line:
+
+- `generate_response` must remain `false`
+- all output/persistence surfaces must remain disallowed
+- if `output_quality_candidate_status=quality_candidate_fail`, set
+  `npu_standard_route_output_suppressed=true`,
+  `npu_standard_route_suppression_reason=quality_candidate_fail`, and
+  `npu_standard_route_rollback_required=true`
+- any evidence that rejected output reached UI/TTS/DB/Markdown/Streaming stops
+  the standard-route connection work
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 2
+adb shell monkey -p io.github.ninbyo02.lami 1
 ```
 
 ### Phase 3: generate response with output suppression

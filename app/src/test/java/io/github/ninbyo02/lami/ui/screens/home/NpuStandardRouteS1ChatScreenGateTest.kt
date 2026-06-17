@@ -1563,6 +1563,133 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route explicit phase1 keeps conversation uncreated`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "1"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("1", diagnostics["npu_standard_route_phase"])
+        assertEquals("1_route_entry_diagnostic", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("false", diagnostics["conversation_created"])
+        assertEquals("false", diagnostics["generate_response"])
+    }
+
+    @Test
+    fun `NPU standard route phase2 emits conversation created diagnostics without generate`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "2"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("true", diagnostics["npu_standard_route_dev_gate_enabled"])
+        assertEquals("2", diagnostics["npu_standard_route_phase"])
+        assertEquals("2_conversation_created_diagnostic", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["npu_standard_route_connected"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("false", diagnostics["generate_response"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+    }
+
+    @Test
+    fun `NPU standard route phase2 quality candidate fail remains suppressed`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "2"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("2", diagnostics["npu_standard_route_phase"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("false", diagnostics["generate_response"])
+        assertEquals("false", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("true", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
+    fun `NPU standard route invalid phase falls back to phase1`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "banana"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("1", diagnostics["npu_standard_route_phase"])
+        assertEquals("1_route_entry_diagnostic", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("false", diagnostics["conversation_created"])
+        assertEquals("false", diagnostics["generate_response"])
+    }
+
+    @Test
     fun `NPU standard route phase1 quality candidate fail is suppressed`() {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-npu",
@@ -1609,7 +1736,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         )
         val trace = buildNpuStandardRoutePhase1DiagnosticLines(
             buildNpuStandardRoutePhase1Diagnostics(
-            context = context,
+                context = context,
                 propertyReader = { key ->
                     if (key == NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY) "true" else null
                 },

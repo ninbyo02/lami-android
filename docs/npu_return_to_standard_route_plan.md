@@ -156,7 +156,9 @@ Phase 1 diagnostic-only connection is complete when:
 
 ```text
 debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=1
 npu_standard_route_phase=1
+npu_standard_route_phase_name=1_route_entry_diagnostic
 npu_standard_route_connected=true
 conversation_created=false
 generate_response=false
@@ -169,6 +171,28 @@ npu_standard_route_streaming_allowed=false
 
 This phase must not create a conversation, call generate, append UI text, speak
 TTS, save DB messages, render Markdown, or start streaming.
+
+Phase 2 conversation-created diagnostic gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=2
+npu_standard_route_phase=2
+npu_standard_route_phase_name=2_conversation_created_diagnostic
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+Phase 2 remains diagnostic-only. It must not call native generate/decode, append
+UI text, speak TTS, save DB messages, render Markdown, or start streaming. If
+the quality candidate fails, output suppression and rollback diagnostics must
+remain active before any later standard-route connection work proceeds.
 
 ## Next Device Confirmation Keys
 
