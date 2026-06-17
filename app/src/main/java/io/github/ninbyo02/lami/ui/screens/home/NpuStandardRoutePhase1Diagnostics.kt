@@ -13,6 +13,8 @@ internal const val NPU_STANDARD_ROUTE_PHASE_3 = "3"
 internal const val NPU_STANDARD_ROUTE_PHASE_3_NAME = "3_generate_response_diagnostic"
 internal const val NPU_STANDARD_ROUTE_PHASE_4 = "4"
 internal const val NPU_STANDARD_ROUTE_PHASE_4_NAME = "4_ui_append_gate"
+internal const val NPU_STANDARD_ROUTE_PHASE_5 = "5"
+internal const val NPU_STANDARD_ROUTE_PHASE_5_NAME = "5_tts_gate"
 internal const val NPU_STANDARD_ROUTE_SUPPRESSION_REASON_NONE = "none"
 internal const val NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL =
     "quality_candidate_fail"
@@ -66,6 +68,8 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         nativeCleanupReached = result.nativeDiagnostics.nativeCleanupReached,
         candidateTextPresent = result.actualDisplayText.isNotBlank(),
         candidateTextLength = result.actualDisplayText.length,
+        ttsTextPresent = result.ttsText.isNotBlank(),
+        ttsTextLength = result.ttsText.length,
     )
 }
 
@@ -81,8 +85,11 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     nativeCleanupReached: String = "unavailable",
     candidateTextPresent: Boolean? = null,
     candidateTextLength: Int? = null,
+    ttsTextPresent: Boolean? = null,
+    ttsTextLength: Int? = null,
 ): Map<String, String> {
     val phaseName = when (phase) {
+        NPU_STANDARD_ROUTE_PHASE_5 -> NPU_STANDARD_ROUTE_PHASE_5_NAME
         NPU_STANDARD_ROUTE_PHASE_4 -> NPU_STANDARD_ROUTE_PHASE_4_NAME
         NPU_STANDARD_ROUTE_PHASE_3 -> NPU_STANDARD_ROUTE_PHASE_3_NAME
         NPU_STANDARD_ROUTE_PHASE_2 -> NPU_STANDARD_ROUTE_PHASE_2_NAME
@@ -92,8 +99,13 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_2,
         NPU_STANDARD_ROUTE_PHASE_3,
         NPU_STANDARD_ROUTE_PHASE_4,
+        NPU_STANDARD_ROUTE_PHASE_5,
     ) && connected
-    val generateResponse = phase in setOf(NPU_STANDARD_ROUTE_PHASE_3, NPU_STANDARD_ROUTE_PHASE_4) && connected
+    val generateResponse = phase in setOf(
+        NPU_STANDARD_ROUTE_PHASE_3,
+        NPU_STANDARD_ROUTE_PHASE_4,
+        NPU_STANDARD_ROUTE_PHASE_5,
+    ) && connected
     val generateDiagnosticOnly = phase == NPU_STANDARD_ROUTE_PHASE_3 && generateResponse
     val qualityGatePassed = when (outputQualityCandidateStatus) {
         NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS -> "true"
@@ -102,8 +114,13 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val qualityCandidatePassed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
     val outputSuppressed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
+    val generateOrDeliveryPhase = phase in setOf(
+        NPU_STANDARD_ROUTE_PHASE_3,
+        NPU_STANDARD_ROUTE_PHASE_4,
+        NPU_STANDARD_ROUTE_PHASE_5,
+    )
     val suppressionReason = if (outputSuppressed) {
-        if (phase in setOf(NPU_STANDARD_ROUTE_PHASE_3, NPU_STANDARD_ROUTE_PHASE_4)) {
+        if (generateOrDeliveryPhase) {
             outputQualityCandidateReason.ifBlank {
                 NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
             }
@@ -116,7 +133,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     val rollbackReasons = buildList {
         if (outputSuppressed) {
             add(
-                if (phase in setOf(NPU_STANDARD_ROUTE_PHASE_3, NPU_STANDARD_ROUTE_PHASE_4)) {
+                if (generateOrDeliveryPhase) {
                     NPU_STANDARD_ROUTE_ROLLBACK_REASON_PHASE3_QUALITY_FAIL
                 } else {
                     NPU_STANDARD_ROUTE_ROLLBACK_REASON_QUALITY_GATE_OUTPUT
@@ -130,20 +147,24 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         if (nativeCleanupReached.equals("false", ignoreCase = true)) add("native_cleanup_not_reached")
     }
     val candidatePresent = candidateTextPresent == true
+    val ttsPresent = ttsTextPresent == true
     val baseRunHealthy = connected &&
         !fallbackUsed &&
         !timeout &&
         !freshCrash &&
         runDecodeReached != false &&
         !nativeCleanupReached.equals("false", ignoreCase = true)
-    val uiAppendAllowed = phase == NPU_STANDARD_ROUTE_PHASE_4 &&
+    val uiAppendAllowed = phase in setOf(NPU_STANDARD_ROUTE_PHASE_4, NPU_STANDARD_ROUTE_PHASE_5) &&
         baseRunHealthy &&
         qualityCandidatePassed &&
         candidatePresent
     val outputDeliveryAllowed = uiAppendAllowed
+    val ttsAllowed = phase == NPU_STANDARD_ROUTE_PHASE_5 &&
+        uiAppendAllowed &&
+        ttsPresent
     val uiAppendSource = when {
         uiAppendAllowed -> "actual_display_text"
-        phase != NPU_STANDARD_ROUTE_PHASE_4 -> "not_allowed_before_phase4"
+        phase !in setOf(NPU_STANDARD_ROUTE_PHASE_4, NPU_STANDARD_ROUTE_PHASE_5) -> "not_allowed_before_phase4"
         outputSuppressed -> "blocked_quality_candidate_fail"
         !candidatePresent -> "candidate_text_absent"
         fallbackUsed -> "blocked_fallback_used"
@@ -155,7 +176,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val uiAppendBlockReason = when {
         uiAppendAllowed -> "none"
-        phase != NPU_STANDARD_ROUTE_PHASE_4 -> "phase_not_ui_append"
+        phase !in setOf(NPU_STANDARD_ROUTE_PHASE_4, NPU_STANDARD_ROUTE_PHASE_5) -> "phase_not_ui_append"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !candidatePresent -> "candidate_text_absent"
         fallbackUsed -> "fallback_used"
@@ -163,6 +184,22 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         freshCrash -> "fresh_crash"
         runDecodeReached == false -> "decode_not_reached"
         nativeCleanupReached.equals("false", ignoreCase = true) -> "native_cleanup_not_reached"
+        else -> "quality_gate_unavailable"
+    }
+    val ttsSource = when {
+        ttsAllowed -> "tts_text"
+        phase != NPU_STANDARD_ROUTE_PHASE_5 -> "not_allowed_before_phase5"
+        outputSuppressed -> "blocked_quality_candidate_fail"
+        !uiAppendAllowed -> "blocked_ui_append_not_allowed"
+        !ttsPresent -> "tts_text_absent"
+        else -> "blocked_quality_gate_unavailable"
+    }
+    val ttsBlockReason = when {
+        ttsAllowed -> "none"
+        phase != NPU_STANDARD_ROUTE_PHASE_5 -> "phase_not_tts"
+        outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
+        !uiAppendAllowed -> uiAppendBlockReason
+        !ttsPresent -> "tts_text_absent"
         else -> "quality_gate_unavailable"
     }
     val rollbackRequired = rollbackReasons.isNotEmpty()
@@ -189,7 +226,14 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
             "0"
         },
         "npu_standard_route_ui_append_block_reason" to uiAppendBlockReason,
-        "npu_standard_route_tts_allowed" to "false",
+        "npu_standard_route_tts_allowed" to ttsAllowed.toString(),
+        "npu_standard_route_tts_source" to ttsSource,
+        "npu_standard_route_tts_text_length" to if (ttsAllowed) {
+            (ttsTextLength ?: 0).toString()
+        } else {
+            "0"
+        },
+        "npu_standard_route_tts_block_reason" to ttsBlockReason,
         "npu_standard_route_db_save_allowed" to "false",
         "npu_standard_route_markdown_allowed" to "false",
         "npu_standard_route_streaming_allowed" to "false",
@@ -212,6 +256,7 @@ private fun resolveNpuStandardRouteDiagnosticPhase(
     propertyReader: (String) -> String?,
 ): String =
     when (propertyReader(NPU_STANDARD_ROUTE_PHASE_PROPERTY)?.trim()) {
+        NPU_STANDARD_ROUTE_PHASE_5 -> NPU_STANDARD_ROUTE_PHASE_5
         NPU_STANDARD_ROUTE_PHASE_4 -> NPU_STANDARD_ROUTE_PHASE_4
         NPU_STANDARD_ROUTE_PHASE_3 -> NPU_STANDARD_ROUTE_PHASE_3
         NPU_STANDARD_ROUTE_PHASE_2 -> NPU_STANDARD_ROUTE_PHASE_2

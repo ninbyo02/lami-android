@@ -673,7 +673,7 @@ class InferenceStatsSheetContentTest {
     @Test
     fun `buildNpuDiagnosticKeysCopyText includes NPU promotion gate keys`() {
         val traceText = """
-            status=success reason=success selected_backend=NPU requested_backend=NPU effective_backend=NPU route_family=standard_chat_screen_s5_npu_tts backend_evidence=QNN_HTP_V79_FastRPC npu_backend_evidence=QNN_HTP_V79_FastRPC fallback_used=false fresh_crash=false timeout=false selected_path_npu_saved=true normal_ui_route_connected=true standard_route_connected=true npu_standard_route_dev_gate_enabled=true npu_standard_route_phase=1 npu_standard_route_phase_name=1_route_entry_diagnostic npu_standard_route_connected=true npu_standard_route_quality_gate_passed=unavailable npu_standard_route_output_suppressed=false npu_standard_route_suppression_reason=none npu_standard_route_generate_diagnostic_only=false npu_standard_route_output_delivery_allowed=false npu_standard_route_candidate_text_present=true npu_standard_route_ui_append_allowed=false npu_standard_route_ui_append_source=not_allowed_before_phase4 npu_standard_route_ui_appended_text_length=0 npu_standard_route_ui_append_block_reason=phase_not_ui_append npu_standard_route_tts_allowed=false npu_standard_route_db_save_allowed=false npu_standard_route_markdown_allowed=false npu_standard_route_streaming_allowed=false npu_standard_route_rollback_required=false npu_standard_route_rollback_reason=none conversation_created=false generate_response=false quality_classification=natural_japanese db=true tts=true markdown=true streaming=true cleanup_status=success engine_close_evidence=present fresh_tombstone_status=none
+            status=success reason=success selected_backend=NPU requested_backend=NPU effective_backend=NPU route_family=standard_chat_screen_s5_npu_tts backend_evidence=QNN_HTP_V79_FastRPC npu_backend_evidence=QNN_HTP_V79_FastRPC fallback_used=false fresh_crash=false timeout=false selected_path_npu_saved=true normal_ui_route_connected=true standard_route_connected=true npu_standard_route_dev_gate_enabled=true npu_standard_route_phase=1 npu_standard_route_phase_name=1_route_entry_diagnostic npu_standard_route_connected=true npu_standard_route_quality_gate_passed=unavailable npu_standard_route_output_suppressed=false npu_standard_route_suppression_reason=none npu_standard_route_generate_diagnostic_only=false npu_standard_route_output_delivery_allowed=false npu_standard_route_candidate_text_present=true npu_standard_route_ui_append_allowed=false npu_standard_route_ui_append_source=not_allowed_before_phase4 npu_standard_route_ui_appended_text_length=0 npu_standard_route_ui_append_block_reason=phase_not_ui_append npu_standard_route_tts_allowed=false npu_standard_route_tts_source=not_allowed_before_phase5 npu_standard_route_tts_text_length=0 npu_standard_route_tts_block_reason=phase_not_tts npu_standard_route_db_save_allowed=false npu_standard_route_markdown_allowed=false npu_standard_route_streaming_allowed=false npu_standard_route_rollback_required=false npu_standard_route_rollback_reason=none conversation_created=false generate_response=false quality_classification=natural_japanese db=true tts=true markdown=true streaming=true cleanup_status=success engine_close_evidence=present fresh_tombstone_status=none
         """.trimIndent()
         val text = buildNpuDiagnosticKeysCopyText(
             stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
@@ -703,6 +703,9 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("npu_standard_route_ui_appended_text_length=0"))
         assertTrue(text.contains("npu_standard_route_ui_append_block_reason=phase_not_ui_append"))
         assertTrue(text.contains("npu_standard_route_tts_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_tts_source=not_allowed_before_phase5"))
+        assertTrue(text.contains("npu_standard_route_tts_text_length=0"))
+        assertTrue(text.contains("npu_standard_route_tts_block_reason=phase_not_tts"))
         assertTrue(text.contains("npu_standard_route_db_save_allowed=false"))
         assertTrue(text.contains("npu_standard_route_markdown_allowed=false"))
         assertTrue(text.contains("npu_standard_route_streaming_allowed=false"))
@@ -732,6 +735,8 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("standard_route_connected=unavailable"))
         assertTrue(text.contains("npu_standard_route_ui_append_source=unavailable"))
         assertTrue(text.contains("npu_standard_route_ui_append_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_tts_source=unavailable"))
+        assertTrue(text.contains("npu_standard_route_tts_block_reason=unavailable"))
         assertTrue(text.contains("quality_classification=unavailable"))
         assertTrue(text.contains("fresh_tombstone_status=unavailable"))
     }

@@ -416,9 +416,75 @@ adb shell monkey -p io.github.ninbyo02.lami 1
 
 ### Phase 5: TTS
 
-Only after UI append is stable and candidate pass is required. Reuse S5 TTS
-mapper conditions and add a hard check that candidate fail cannot produce
-`tts_text`.
+Only after UI append is stable, allow TTS for candidate pass. This phase remains
+DEV-gated and keeps DB save, Markdown, and streaming closed.
+
+Phase 5 is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=5
+```
+
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_phase=5
+npu_standard_route_phase_name=5_tts_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_output_delivery_allowed=true
+npu_standard_route_ui_append_allowed=true
+npu_standard_route_tts_allowed=true
+npu_standard_route_tts_source=tts_text
+npu_standard_route_tts_text_length=<length>
+npu_standard_route_tts_block_reason=none
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+```
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=5
+npu_standard_route_phase_name=5_tts_gate
+generate_response=true
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_suppression_reason=<output_quality_candidate_reason>
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_tts_source=blocked_quality_candidate_fail
+npu_standard_route_tts_text_length=0
+npu_standard_route_tts_block_reason=quality_candidate_fail
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db
+```
+
+Phase 5 stop line:
+
+- `quality_candidate_fail` must keep both UI append and TTS disallowed
+- `_turn>` or other template artifact display/TTS text must remain suppressed
+- DB/Markdown/Streaming allowed keys must remain `false`
+- fallback, timeout, fresh crash, decode-not-reached, or cleanup-not-reached
+  evidence requires rollback diagnostics
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 5
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
 
 ### Phase 6: DB save
 

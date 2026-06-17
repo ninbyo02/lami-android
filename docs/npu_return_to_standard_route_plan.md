@@ -247,6 +247,32 @@ remain suppressed with `npu_standard_route_output_delivery_allowed=false`,
 `npu_standard_route_rollback_required=true`. TTS, DB save, Markdown, and
 streaming remain closed until later explicit phases.
 
+Phase 5 TTS gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=5
+npu_standard_route_phase=5
+npu_standard_route_phase_name=5_tts_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_output_delivery_allowed=true
+npu_standard_route_ui_append_allowed=true
+npu_standard_route_tts_allowed=true
+npu_standard_route_tts_source=tts_text
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+Phase 5 opens only TTS after UI append for `quality_candidate_pass`. Rejected
+output must keep `npu_standard_route_tts_allowed=false` and
+`npu_standard_route_tts_block_reason=quality_candidate_fail`. DB save, Markdown,
+and streaming remain closed until later explicit phases.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

@@ -914,6 +914,132 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `S1 compact full dump and diagnostic copy include phase5 TTS gate for pass`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val phase5Reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "5"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = phase5Reader,
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = phase5Reader,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteDevGatePropertyReader = phase5Reader,
+        )
+        val copyText = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = trace),
+        )
+
+        listOf(compact, fullDump, trace, copyText).forEach { text ->
+            assertTrue(text.contains("npu_standard_route_phase=5"))
+            assertTrue(text.contains("npu_standard_route_phase_name=5_tts_gate"))
+            assertTrue(text.contains("conversation_created=true"))
+            assertTrue(text.contains("generate_response=true"))
+            assertTrue(text.contains("npu_standard_route_generate_diagnostic_only=false"))
+            assertTrue(text.contains("npu_standard_route_quality_gate_passed=true"))
+            assertTrue(text.contains("npu_standard_route_output_suppressed=false"))
+            assertTrue(text.contains("npu_standard_route_output_delivery_allowed=true"))
+            assertTrue(text.contains("npu_standard_route_ui_append_allowed=true"))
+            assertTrue(text.contains("npu_standard_route_tts_allowed=true"))
+            assertTrue(text.contains("npu_standard_route_tts_source=tts_text"))
+            assertTrue(text.contains("npu_standard_route_tts_text_length=${result.ttsText.length}"))
+            assertTrue(text.contains("npu_standard_route_tts_block_reason=none"))
+            assertTrue(text.contains("npu_standard_route_db_save_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_markdown_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_streaming_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_rollback_required=false"))
+        }
+    }
+
+    @Test
+    fun `S1 phase5 dangerous quality fail output is suppressed before TTS`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "_turn>\n<end_of_turn>\n<start_of_turn>model",
+                sanitizedOutput = "_turn>",
+                qualityClassification = "template_artifact",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val phase5Reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "5"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "template cleanup が出やすい短文",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = phase5Reader,
+        )
+
+        assertTrue(compact.contains("output_quality_candidate_status=quality_candidate_fail"))
+        assertTrue(compact.contains("output_quality_candidate_reason=raw_unexpected_start_turn"))
+        assertTrue(compact.contains("npu_standard_route_phase=5"))
+        assertTrue(compact.contains("npu_standard_route_phase_name=5_tts_gate"))
+        assertTrue(compact.contains("npu_standard_route_quality_gate_passed=false"))
+        assertTrue(compact.contains("npu_standard_route_output_suppressed=true"))
+        assertTrue(compact.contains("npu_standard_route_suppression_reason=raw_unexpected_start_turn"))
+        assertTrue(compact.contains("npu_standard_route_output_delivery_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_ui_append_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_tts_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_tts_source=blocked_quality_candidate_fail"))
+        assertTrue(compact.contains("npu_standard_route_tts_text_length=0"))
+        assertTrue(compact.contains("npu_standard_route_tts_block_reason=quality_candidate_fail"))
+        assertTrue(compact.contains("npu_standard_route_db_save_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_markdown_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_streaming_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_rollback_required=true"))
+        assertTrue(
+            compact.contains(
+                "npu_standard_route_rollback_reason=" +
+                    "quality_candidate_fail_output_suppressed_before_ui_tts_db",
+            ),
+        )
+    }
+
+    @Test
     fun `S1 compact includes phase1 suppression diagnostics for quality candidate fail`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
