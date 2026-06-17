@@ -286,7 +286,43 @@ and streaming remain closed until later explicit phases. Phase 5 is not complete
 if `npu_standard_route_tts_allowed=true` appears without
 `npu_standard_route_tts_started=true`.
 
-Settings should treat S1-S5 as NPU standard-route phases, not separate hardware
+Phase 6 DB save gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=6
+npu_standard_route_phase=6
+npu_standard_route_phase_name=6_db_save_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_output_delivery_allowed=true
+npu_standard_route_ui_append_allowed=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_ui_append_target=db_backed_assistant_message
+npu_standard_route_tts_allowed=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_allowed=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_db_save_target=assistant_message
+npu_standard_route_db_assistant_id_present=true
+npu_standard_route_db_saved_text_length=<length>
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+Phase 6 opens only DB save after UI append and TTS for
+`quality_candidate_pass`. The assistant row should be DB-backed rather than a
+duplicate transient row. Rejected output must keep
+`npu_standard_route_db_save_allowed=false`,
+`npu_standard_route_db_save_executed=false`, and
+`npu_standard_route_db_save_block_reason=quality_candidate_fail`. Phase 7 must
+not start until Phase 6 confirms DB save success and confirms `_turn>` /
+`raw_unexpected_start_turn` output never reaches UI, TTS, or DB.
+
+Settings should treat S1-S6 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
 

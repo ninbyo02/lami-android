@@ -20,7 +20,7 @@ NEXT_ACTION=enforce_quality_gate_output_suppression_before_standard_route_connec
 ```
 
 Settings display consolidation is tracked in
-`docs/npu_settings_display_consolidation_plan.md`. S1-S5 are staged NPU standard
+`docs/npu_settings_display_consolidation_plan.md`. S1-S6 are staged NPU standard
 route phases, not separate hardware backends.
 
 Confirmed NPU DEV route evidence:
@@ -512,13 +512,96 @@ adb shell monkey -p io.github.ninbyo02.lami 1
 
 ### Phase 6: DB save
 
-Only after UI/TTS behavior is stable or explicitly skipped. Reuse S2 DB mapping
-and require candidate pass before save candidate construction.
+Only after UI/TTS behavior is stable. Phase 6 remains DEV-gated and adds DB
+save for candidate-pass output only. Markdown and streaming stay closed.
+
+Phase 6 is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=6
+```
+
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_phase=6
+npu_standard_route_phase_name=6_db_save_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_output_delivery_allowed=true
+npu_standard_route_ui_append_allowed=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_ui_append_target=db_backed_assistant_message
+npu_standard_route_tts_allowed=true
+npu_standard_route_tts_requested=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_allowed=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_db_save_target=assistant_message
+npu_standard_route_db_saved_text_length=<length>
+npu_standard_route_db_assistant_id_present=true
+npu_standard_route_db_message_replaced_transient=true
+npu_standard_route_db_conversation_id_present=true
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+```
+
+Phase 6 uses the same assistant-message persistence path as the existing local
+route DB save, but only under the explicit Phase 6 DEV gate. The UI row should be
+DB-backed rather than a duplicate transient assistant row. The saved text is the
+safe display candidate selected after `quality_candidate_pass`.
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=6
+npu_standard_route_phase_name=6_db_save_gate
+generate_response=true
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_suppression_reason=<output_quality_candidate_reason>
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_tts_started=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_db_save_executed=false
+npu_standard_route_db_save_block_reason=quality_candidate_fail
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db
+```
+
+Phase 6 stop line:
+
+- `quality_candidate_fail` must keep UI append, TTS, and DB save disallowed
+- `_turn>` or other template artifact output must never be saved
+- Markdown and streaming allowed keys must remain `false`
+- `db_save_allowed=true` is not enough; `db_save_executed=true` and an assistant
+  id are required before Phase 6 is considered integrated
+- duplicate transient plus DB-backed assistant rows indicate a failed integration
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 6
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
 
 ### Phase 7: Markdown / streaming
 
-Connect Markdown before pseudo streaming. Keep real token streaming disabled;
-S4 is pseudo streaming from final text.
+Connect Markdown before pseudo streaming only after Phase 6 confirms DB-backed
+UI display without duplicates and confirms `quality_candidate_fail` output never
+reaches DB. Keep real token streaming disabled; S4 remains pseudo streaming from
+final text.
 
 ## Fail Output Suppression Rule
 

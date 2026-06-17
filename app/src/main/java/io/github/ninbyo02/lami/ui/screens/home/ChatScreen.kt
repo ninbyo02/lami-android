@@ -3641,6 +3641,8 @@ fun Home(
                                                                 ] == "true"
                                                         val npuStandardRouteLegacyS5TtsAllowed =
                                                             npuStandardRouteTtsAllowed && !npuStandardRoutePhaseGateActive
+                                                        val npuStandardRouteLegacyDbSaveAllowed =
+                                                            npuStandardRouteDbSaveAllowed && !npuStandardRoutePhaseGateActive
                                                         val s1RouteDisplayText = if (npuStandardRouteUiAppendAllowed) {
                                                             s1Result.actualDisplayText
                                                         } else {
@@ -3734,7 +3736,18 @@ fun Home(
                                                         var npuStandardRouteUiAppendFailureReason = "none"
                                                         var npuStandardRouteTtsRequested = false
                                                         var npuStandardRouteTtsStarted = false
+                                                        var npuStandardRouteDbSaveExecuted = false
+                                                        var npuStandardRouteDbSavedTextLength = 0
+                                                        var npuStandardRouteDbAssistantIdPresent = false
+                                                        var npuStandardRouteDbMessageReplacedTransient = false
+                                                        var npuStandardRouteDbConversationIdPresent = currentChatId > 0
+                                                        var npuStandardRouteDbSaveBlockReason =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_db_save_block_reason"
+                                                            ] ?: "none"
                                                         var npuStandardRouteDeliveryPath = when {
+                                                            npuStandardRoutePhaseGateActive && npuStandardRouteDbSaveAllowed ->
+                                                                "phase6_pending_db_save"
                                                             npuStandardRouteUiAppendAllowed -> "phase4_5_pending_delivery"
                                                             npuStandardRoutePhaseGateActive -> "phase_gate_suppressed"
                                                             else -> "standard_route_legacy"
@@ -3749,14 +3762,22 @@ fun Home(
                                                             npuStandardRouteSafeUiText.isNotBlank() &&
                                                             !localStopRequested
                                                         ) {
-                                                            npuStandardRoutePhaseUiAppendText = npuStandardRouteSafeUiText
+                                                            npuStandardRoutePhaseUiAppendText = if (npuStandardRouteDbSaveAllowed) {
+                                                                null
+                                                            } else {
+                                                                npuStandardRouteSafeUiText
+                                                            }
                                                             showDelayedLocalRespondingPlaceholder = false
-                                                            npuStandardRouteUiAppendExecuted = true
-                                                            npuStandardRouteUiAppendVisibleCandidate = true
-                                                            npuStandardRouteDeliveryPath = if (npuStandardRouteTtsAllowed) {
+                                                            npuStandardRouteDeliveryPath = if (npuStandardRouteDbSaveAllowed) {
+                                                                "phase6_db_save_pending"
+                                                            } else if (npuStandardRouteTtsAllowed) {
                                                                 "phase5_in_memory_ui_append"
                                                             } else {
                                                                 "phase4_in_memory_ui_append"
+                                                            }
+                                                            if (!npuStandardRouteDbSaveAllowed) {
+                                                                npuStandardRouteUiAppendExecuted = true
+                                                                npuStandardRouteUiAppendVisibleCandidate = true
                                                             }
                                                         } else if (npuStandardRouteUiAppendAllowed) {
                                                             npuStandardRoutePhaseUiAppendText = null
@@ -3772,6 +3793,58 @@ fun Home(
                                                                 npuStandardRoutePhaseDiagnostics[
                                                                     "npu_standard_route_ui_append_block_reason"
                                                                 ] ?: "ui_append_not_allowed"
+                                                        }
+                                                        if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteDbSaveAllowed &&
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            if (npuStandardRouteSafeUiText.isBlank()) {
+                                                                npuStandardRouteDbSaveBlockReason = "safe_text_empty"
+                                                                npuStandardRouteDeliveryPath = "phase6_db_save_blocked_empty_text"
+                                                            } else if (currentChatId <= 0) {
+                                                                npuStandardRouteDbSaveBlockReason = "chat_id_missing"
+                                                                npuStandardRouteDeliveryPath = "phase6_db_save_blocked_chat_id_missing"
+                                                            } else {
+                                                                try {
+                                                                    val assistantId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = currentChatId,
+                                                                                response = npuStandardRouteSafeUiText,
+                                                                                localSourceSummary = s1DisplayTextWithMemory,
+                                                                            )
+                                                                        ).toInt()
+                                                                    }
+                                                                    lastPersistedStreamingAssistantText = npuStandardRouteSafeUiText
+                                                                    localStreamingResponseText = null
+                                                                    streamingResponseTextForRender = null
+                                                                    npuStandardRoutePhaseUiAppendText = null
+                                                                    npuStandardRouteUiAppendExecuted = true
+                                                                    npuStandardRouteUiAppendVisibleCandidate = true
+                                                                    npuStandardRouteDbSaveExecuted = true
+                                                                    npuStandardRouteDbSavedTextLength = npuStandardRouteSafeUiText.length
+                                                                    npuStandardRouteDbAssistantIdPresent = assistantId > 0
+                                                                    npuStandardRouteDbMessageReplacedTransient = true
+                                                                    npuStandardRouteDbSaveBlockReason = "none"
+                                                                    npuStandardRouteDeliveryPath = "phase6_db_backed_ui_append_db"
+                                                                } catch (exception: Exception) {
+                                                                    Log.w(
+                                                                        "ChatScreen",
+                                                                        "NPU phase6 DB save failed after gated output",
+                                                                        exception,
+                                                                    )
+                                                                    npuStandardRouteDbSaveBlockReason = "db_save_exception"
+                                                                    npuStandardRouteUiAppendFailureReason = "db_save_exception"
+                                                                    npuStandardRouteDeliveryPath = "phase6_db_save_exception"
+                                                                }
+                                                            }
+                                                        } else if (npuStandardRoutePhaseGateActive && npuStandardRouteDbSaveBlockReason == "none") {
+                                                            npuStandardRouteDbSaveBlockReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_db_save_block_reason"
+                                                                ] ?: "phase_not_db_save"
                                                         }
                                                         if (npuStandardRouteTtsAllowed && !localStopRequested) {
                                                             val npuStandardRouteSafeTtsText = s1Result.ttsText
@@ -3805,7 +3878,12 @@ fun Home(
                                                                     maybeReleaseHeldEngineForTtsPlayback()
                                                                     ttsController.speak(phase5TtsCandidate.speakText)
                                                                     npuStandardRouteTtsStarted = true
-                                                                    npuStandardRouteDeliveryPath = "phase5_in_memory_ui_append_and_tts"
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            "phase6_db_backed_ui_append_tts_db"
+                                                                        } else {
+                                                                            "phase5_in_memory_ui_append_and_tts"
+                                                                        }
                                                                 } catch (exception: Exception) {
                                                                     Log.w(
                                                                         "ChatScreen",
@@ -3815,7 +3893,11 @@ fun Home(
                                                                     npuStandardRouteTtsExecutionBlockReason =
                                                                         NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
                                                                     npuStandardRouteDeliveryPath =
-                                                                        "phase5_in_memory_ui_append_tts_exception"
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            "phase6_db_backed_ui_append_db_tts_exception"
+                                                                        } else {
+                                                                            "phase5_in_memory_ui_append_tts_exception"
+                                                                        }
                                                                 }
                                                             }
                                                         } else if (npuStandardRoutePhaseGateActive) {
@@ -3833,12 +3915,27 @@ fun Home(
                                                                     ttsStarted = npuStandardRouteTtsStarted,
                                                                     deliveryPath = npuStandardRouteDeliveryPath,
                                                                     uiAppendTarget = if (npuStandardRouteUiAppendExecuted) {
-                                                                        "transient_chat_message"
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            "db_backed_assistant_message"
+                                                                        } else {
+                                                                            "transient_chat_message"
+                                                                        }
                                                                     } else {
                                                                         "none"
                                                                     },
                                                                     uiAppendFailureReason = npuStandardRouteUiAppendFailureReason,
                                                                     ttsExecutionBlockReason = npuStandardRouteTtsExecutionBlockReason,
+                                                                    dbSaveExecuted = npuStandardRouteDbSaveExecuted,
+                                                                    dbSaveTarget = if (npuStandardRouteDbSaveExecuted) {
+                                                                        "assistant_message"
+                                                                    } else {
+                                                                        "none"
+                                                                    },
+                                                                    dbSavedTextLength = npuStandardRouteDbSavedTextLength,
+                                                                    dbAssistantIdPresent = npuStandardRouteDbAssistantIdPresent,
+                                                                    dbSaveBlockReason = npuStandardRouteDbSaveBlockReason,
+                                                                    dbMessageReplacedTransient = npuStandardRouteDbMessageReplacedTransient,
+                                                                    dbConversationIdPresent = npuStandardRouteDbConversationIdPresent,
                                                                 ),
                                                             ).joinToString("\n")
                                                         fun appendNpuStandardRouteExecutionDiagnostics(text: String?): String? =
@@ -3857,7 +3954,7 @@ fun Home(
                                                             appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevFullDumpCopyText)
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
-                                                        if (npuStandardRouteS2DbEnabled && npuStandardRouteDbSaveAllowed) {
+                                                        if (npuStandardRouteS2DbEnabled && npuStandardRouteLegacyDbSaveAllowed) {
                                                             val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
                                                                 userPrompt = requestPrompt,
                                                                 s1Result = s1Result,

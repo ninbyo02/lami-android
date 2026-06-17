@@ -1962,6 +1962,109 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route phase6 enables DB save only after UI and TTS gates pass`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "6"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("6", diagnostics["npu_standard_route_phase"])
+        assertEquals("6_db_save_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("true", diagnostics["generate_response"])
+        assertEquals("true", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("false", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("none", diagnostics["npu_standard_route_db_save_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
+    fun `NPU standard route phase6 suppresses quality candidate fail before DB save`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "_turn>\n<end_of_turn>\n<start_of_turn>model",
+                sanitizedOutput = "_turn>",
+                qualityClassification = "template_artifact",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "6"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("6", diagnostics["npu_standard_route_phase"])
+        assertEquals("6_db_save_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("false", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("raw_unexpected_start_turn", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_db_save_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_rollback_required"])
+        assertEquals(
+            "quality_candidate_fail_output_suppressed_before_ui_tts_db",
+            diagnostics["npu_standard_route_rollback_reason"],
+        )
+    }
+
+    @Test
     fun `NPU standard route execution diagnostics record phase4 UI append execution`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = true,
@@ -2004,6 +2107,37 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route execution diagnostics record phase6 DB save execution`() {
+        val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
+            uiAppendExecuted = true,
+            uiAppendVisibleCandidate = true,
+            ttsRequested = true,
+            ttsStarted = true,
+            deliveryPath = "phase6_db_backed_ui_append_tts_db",
+            uiAppendTarget = "db_backed_assistant_message",
+            dbSaveExecuted = true,
+            dbSaveTarget = "assistant_message",
+            dbSavedTextLength = 12,
+            dbAssistantIdPresent = true,
+            dbSaveBlockReason = "none",
+            dbMessageReplacedTransient = true,
+            dbConversationIdPresent = true,
+        )
+
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_executed"])
+        assertEquals("db_backed_assistant_message", diagnostics["npu_standard_route_ui_append_target"])
+        assertEquals("true", diagnostics["npu_standard_route_tts_started"])
+        assertEquals("true", diagnostics["npu_standard_route_db_save_executed"])
+        assertEquals("assistant_message", diagnostics["npu_standard_route_db_save_target"])
+        assertEquals("12", diagnostics["npu_standard_route_db_saved_text_length"])
+        assertEquals("true", diagnostics["npu_standard_route_db_assistant_id_present"])
+        assertEquals("none", diagnostics["npu_standard_route_db_save_block_reason"])
+        assertEquals("true", diagnostics["npu_standard_route_db_message_replaced_transient"])
+        assertEquals("true", diagnostics["npu_standard_route_db_conversation_id_present"])
+        assertEquals("phase6_db_backed_ui_append_tts_db", diagnostics["npu_standard_route_delivery_path"])
+    }
+
+    @Test
     fun `NPU standard route execution diagnostics record suppressed output without delivery`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = false,
@@ -2013,6 +2147,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
             deliveryPath = "phase_gate_suppressed",
             uiAppendFailureReason = "quality_candidate_fail",
             ttsExecutionBlockReason = "quality_candidate_fail",
+            dbSaveBlockReason = "quality_candidate_fail",
         )
 
         assertEquals("false", diagnostics["npu_standard_route_ui_append_executed"])
@@ -2020,6 +2155,9 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertEquals("none", diagnostics["npu_standard_route_ui_append_target"])
         assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_ui_append_failure_reason"])
         assertEquals("false", diagnostics["npu_standard_route_tts_started"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_executed"])
+        assertEquals("none", diagnostics["npu_standard_route_db_save_target"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_db_save_block_reason"])
         assertEquals("false", diagnostics["npu_standard_route_output_delivery_executed"])
         assertEquals("phase_gate_suppressed", diagnostics["npu_standard_route_delivery_path"])
         assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_tts_execution_block_reason"])
