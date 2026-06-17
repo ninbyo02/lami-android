@@ -322,7 +322,35 @@ duplicate transient row. Rejected output must keep
 not start until Phase 6 confirms DB save success and confirms `_turn>` /
 `raw_unexpected_start_turn` output never reaches UI, TTS, or DB.
 
-Settings should treat S1-S6 as NPU standard-route phases, not separate hardware
+Phase 7A Markdown gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=7
+npu_standard_route_phase=7
+npu_standard_route_phase_name=7_markdown_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_markdown_allowed=true
+npu_standard_route_markdown_executed=true
+npu_standard_route_markdown_mode=<mode>
+npu_standard_route_streaming_allowed=false
+npu_standard_route_streaming_executed=false
+npu_standard_route_rollback_required=false
+```
+
+Phase 7A opens only Markdown after UI/TTS/DB for `quality_candidate_pass`.
+Rejected output must keep `npu_standard_route_markdown_allowed=false` and
+`npu_standard_route_markdown_executed=false`. Streaming remains closed until
+Phase 7B. Phase 7B must not start until Phase 7A confirms Markdown execution and
+confirms `_turn>` / `raw_unexpected_start_turn` output never reaches Markdown.
+
+Settings should treat S1-S7 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
 

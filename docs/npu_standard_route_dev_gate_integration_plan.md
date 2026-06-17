@@ -596,12 +596,97 @@ adb shell setprop debug.lami.npu_standard_route_phase 6
 adb shell monkey -p io.github.ninbyo02.lami 1
 ```
 
-### Phase 7: Markdown / streaming
+### Phase 7A: Markdown
 
-Connect Markdown before pseudo streaming only after Phase 6 confirms DB-backed
-UI display without duplicates and confirms `quality_candidate_fail` output never
-reaches DB. Keep real token streaming disabled; S4 remains pseudo streaming from
-final text.
+Connect Markdown only after Phase 6 confirms DB-backed UI display without
+duplicates and confirms `quality_candidate_fail` output never reaches DB.
+Streaming remains closed.
+
+Phase 7A is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=7
+```
+
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_phase=7
+npu_standard_route_phase_name=7_markdown_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_started=true
+npu_standard_route_db_save_executed=true
+npu_standard_route_markdown_allowed=true
+npu_standard_route_markdown_executed=true
+npu_standard_route_markdown_mode=<mode>
+npu_standard_route_markdown_block_reason=none
+npu_standard_route_streaming_allowed=false
+npu_standard_route_streaming_executed=false
+npu_standard_route_rollback_required=false
+```
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=7
+npu_standard_route_phase_name=7_markdown_gate
+npu_standard_route_output_suppressed=true
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_started=false
+npu_standard_route_db_save_executed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_markdown_executed=false
+npu_standard_route_markdown_block_reason=quality_candidate_fail
+npu_standard_route_streaming_allowed=false
+npu_standard_route_streaming_executed=false
+npu_standard_route_rollback_required=true
+```
+
+Phase 7A uses the existing `NpuStandardRouteS3MarkdownBridge` and
+`buildFinalizedStreamingResponseForPersist` path. The finalized Markdown text is
+the DB-backed assistant text for this DEV phase. `quality_candidate_fail` output
+must never be passed to Markdown rendering/finalization.
+
+Phase 7A stop line:
+
+- `quality_candidate_fail` must keep UI append, TTS, DB, and Markdown execution
+  disabled
+- `_turn>` or template artifact output must not reach Markdown
+- `npu_standard_route_streaming_allowed` and
+  `npu_standard_route_streaming_executed` must remain `false`
+- Markdown is not complete if `markdown_allowed=true` appears without
+  `markdown_executed=true`
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 7
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+### Phase 7B: Streaming
+
+Streaming remains unimplemented in Phase 7A. Phase 7B may only start after
+Phase 7A confirms Markdown execution, DB-backed display, TTS, and fail-output
+suppression. Keep real token streaming disabled; S4 remains pseudo streaming
+from final text unless a separate safety review changes that plan.
+
+## NPU Standard Route Completion Checklist
+
+- Phase 1 route-entry diagnostics visible
+- Phase 2 conversation-created gate visible
+- Phase 3 generate diagnostics with fail-output suppression
+- Phase 4 UI append executed only for `quality_candidate_pass`
+- Phase 5 TTS started only for `quality_candidate_pass`
+- Phase 6 DB save executed only for `quality_candidate_pass`
+- Phase 7A Markdown executed only for `quality_candidate_pass`
+- Streaming remains closed until Phase 7B
+- `quality_candidate_fail` never reaches UI, TTS, DB, Markdown, or streaming
 
 ## Fail Output Suppression Rule
 
