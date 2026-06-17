@@ -235,6 +235,9 @@ npu_standard_route_quality_gate_passed=true
 npu_standard_route_output_suppressed=false
 npu_standard_route_output_delivery_allowed=true
 npu_standard_route_ui_append_allowed=true
+npu_standard_route_ui_append_executed=true
+npu_standard_route_output_delivery_executed=true
+npu_standard_route_delivery_path=phase4_transient_ui_append
 npu_standard_route_tts_allowed=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
@@ -245,7 +248,9 @@ Phase 4 opens only UI append for `quality_candidate_pass`. Rejected output must
 remain suppressed with `npu_standard_route_output_delivery_allowed=false`,
 `npu_standard_route_ui_append_allowed=false`, and
 `npu_standard_route_rollback_required=true`. TTS, DB save, Markdown, and
-streaming remain closed until later explicit phases.
+streaming remain closed until later explicit phases. Phase 4 is not complete if
+`npu_standard_route_ui_append_allowed=true` appears without
+`npu_standard_route_ui_append_executed=true`.
 
 Phase 5 TTS gate is complete when:
 
@@ -263,6 +268,11 @@ npu_standard_route_output_delivery_allowed=true
 npu_standard_route_ui_append_allowed=true
 npu_standard_route_tts_allowed=true
 npu_standard_route_tts_source=tts_text
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_requested=true
+npu_standard_route_tts_started=true
+npu_standard_route_output_delivery_executed=true
+npu_standard_route_delivery_path=phase5_transient_ui_append_and_tts
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -271,7 +281,9 @@ npu_standard_route_streaming_allowed=false
 Phase 5 opens only TTS after UI append for `quality_candidate_pass`. Rejected
 output must keep `npu_standard_route_tts_allowed=false` and
 `npu_standard_route_tts_block_reason=quality_candidate_fail`. DB save, Markdown,
-and streaming remain closed until later explicit phases.
+and streaming remain closed until later explicit phases. Phase 5 is not complete
+if `npu_standard_route_tts_allowed=true` appears without
+`npu_standard_route_tts_started=true`.
 
 ## Next Device Confirmation Keys
 

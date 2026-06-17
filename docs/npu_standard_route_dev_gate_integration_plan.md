@@ -368,7 +368,11 @@ npu_standard_route_candidate_text_present=true
 npu_standard_route_ui_append_allowed=true
 npu_standard_route_ui_append_source=actual_display_text
 npu_standard_route_ui_append_block_reason=none
+npu_standard_route_ui_append_executed=true
+npu_standard_route_output_delivery_executed=true
+npu_standard_route_delivery_path=phase4_transient_ui_append
 npu_standard_route_tts_allowed=false
+npu_standard_route_tts_started=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -390,7 +394,10 @@ npu_standard_route_output_delivery_allowed=false
 npu_standard_route_ui_append_allowed=false
 npu_standard_route_ui_append_source=blocked_quality_candidate_fail
 npu_standard_route_ui_append_block_reason=quality_candidate_fail
+npu_standard_route_ui_append_executed=false
+npu_standard_route_output_delivery_executed=false
 npu_standard_route_tts_allowed=false
+npu_standard_route_tts_started=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -403,6 +410,8 @@ Phase 4 stop line:
 - `quality_candidate_fail` must keep `npu_standard_route_ui_append_allowed=false`
 - `_turn>` or other template artifact display text must remain suppressed
 - TTS/DB/Markdown/Streaming allowed keys must remain `false`
+- `npu_standard_route_ui_append_executed=true` is required before Phase 4 is
+  considered integrated; `allowed=true` alone is only a gate decision
 - fallback, timeout, fresh crash, decode-not-reached, or cleanup-not-reached
   evidence requires rollback diagnostics
 
@@ -442,6 +451,11 @@ npu_standard_route_tts_allowed=true
 npu_standard_route_tts_source=tts_text
 npu_standard_route_tts_text_length=<length>
 npu_standard_route_tts_block_reason=none
+npu_standard_route_ui_append_executed=true
+npu_standard_route_tts_requested=true
+npu_standard_route_tts_started=true
+npu_standard_route_output_delivery_executed=true
+npu_standard_route_delivery_path=phase5_transient_ui_append_and_tts
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -463,6 +477,10 @@ npu_standard_route_tts_allowed=false
 npu_standard_route_tts_source=blocked_quality_candidate_fail
 npu_standard_route_tts_text_length=0
 npu_standard_route_tts_block_reason=quality_candidate_fail
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_requested=false
+npu_standard_route_tts_started=false
+npu_standard_route_output_delivery_executed=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -475,6 +493,8 @@ Phase 5 stop line:
 - `quality_candidate_fail` must keep both UI append and TTS disallowed
 - `_turn>` or other template artifact display/TTS text must remain suppressed
 - DB/Markdown/Streaming allowed keys must remain `false`
+- `npu_standard_route_tts_started=true` is required before Phase 5 is
+  considered integrated; `tts_allowed=true` alone is only a gate decision
 - fallback, timeout, fresh crash, decode-not-reached, or cleanup-not-reached
   evidence requires rollback diagnostics
 

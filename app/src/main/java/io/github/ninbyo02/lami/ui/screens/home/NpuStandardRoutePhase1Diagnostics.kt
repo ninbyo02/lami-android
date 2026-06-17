@@ -247,6 +247,22 @@ internal fun buildNpuStandardRoutePhase1DiagnosticLines(
 ): List<String> =
     diagnostics.map { (key, value) -> "$key=$value" }
 
+internal fun buildNpuStandardRouteDeliveryExecutionDiagnostics(
+    uiAppendExecuted: Boolean,
+    ttsRequested: Boolean,
+    ttsStarted: Boolean,
+    outputDeliveryExecuted: Boolean = uiAppendExecuted || ttsStarted,
+    deliveryPath: String,
+    ttsExecutionBlockReason: String = NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE,
+): Map<String, String> = linkedMapOf(
+    "npu_standard_route_ui_append_executed" to uiAppendExecuted.toString(),
+    "npu_standard_route_tts_requested" to ttsRequested.toString(),
+    "npu_standard_route_tts_started" to ttsStarted.toString(),
+    "npu_standard_route_output_delivery_executed" to outputDeliveryExecuted.toString(),
+    "npu_standard_route_delivery_path" to deliveryPath,
+    "npu_standard_route_tts_execution_block_reason" to ttsExecutionBlockReason,
+)
+
 private fun isNpuStandardRoutePhase1Backend(preferredBackend: String): Boolean {
     val normalized = preferredBackend.trim().uppercase()
     return normalized == "NPU" || normalized == "NPU_S1"
