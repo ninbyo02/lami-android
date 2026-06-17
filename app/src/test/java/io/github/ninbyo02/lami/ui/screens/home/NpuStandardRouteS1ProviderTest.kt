@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -502,6 +503,175 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(dump.contains("[DEV診断: NPU S1 short output telemetry]"))
         assertTrue(dump.contains("finish_reason=unavailable"))
         assertTrue(dump.contains("tokenizer_output_tokens=unavailable"))
+    }
+
+    @Test
+    fun `S1 compact and full dump include phase1 diagnostics when dev gate is enabled`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = { "true" },
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = { "true" },
+        )
+
+        listOf(compact, fullDump).forEach { text ->
+            assertTrue(text.contains("npu_standard_route_dev_gate_enabled=true"))
+            assertTrue(text.contains("npu_standard_route_phase=1"))
+            assertTrue(text.contains("npu_standard_route_connected=true"))
+            assertTrue(text.contains("conversation_created=false"))
+            assertTrue(text.contains("generate_response=false"))
+            assertTrue(text.contains("npu_standard_route_quality_gate_passed=true"))
+            assertTrue(text.contains("npu_standard_route_output_suppressed=false"))
+            assertTrue(text.contains("npu_standard_route_suppression_reason=none"))
+            assertTrue(text.contains("npu_standard_route_ui_append_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_tts_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_db_save_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_markdown_allowed=false"))
+            assertTrue(text.contains("npu_standard_route_streaming_allowed=false"))
+        }
+    }
+
+    @Test
+    fun `S1 dev trace and NPU diagnostic copy include phase1 diagnostics when dev gate is enabled`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteDevGatePropertyReader = { "true" },
+        )
+        val copyText = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = trace),
+        )
+
+        assertTrue(trace.contains("npu_standard_route_dev_gate_enabled=true"))
+        assertTrue(trace.contains("npu_standard_route_phase=1"))
+        assertTrue(trace.contains("npu_standard_route_connected=true"))
+        assertTrue(trace.contains("conversation_created=false"))
+        assertTrue(trace.contains("generate_response=false"))
+        assertTrue(copyText.contains("npu_standard_route_dev_gate_enabled=true"))
+        assertTrue(copyText.contains("npu_standard_route_phase=1"))
+        assertTrue(copyText.contains("npu_standard_route_connected=true"))
+        assertTrue(copyText.contains("conversation_created=false"))
+        assertTrue(copyText.contains("generate_response=false"))
+        assertTrue(copyText.contains("npu_standard_route_ui_append_allowed=false"))
+        assertTrue(copyText.contains("npu_standard_route_tts_allowed=false"))
+        assertTrue(copyText.contains("npu_standard_route_db_save_allowed=false"))
+        assertTrue(copyText.contains("npu_standard_route_markdown_allowed=false"))
+        assertTrue(copyText.contains("npu_standard_route_streaming_allowed=false"))
+    }
+
+    @Test
+    fun `S1 compact includes phase1 suppression diagnostics for quality candidate fail`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "<start_of_turn>user\nこんにちは",
+                sanitizedOutput = "<start_of_turn>user\nこんにちは",
+                qualityClassification = "template_artifact",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            npuStandardRouteDevGatePropertyReader = { "true" },
+        )
+
+        assertTrue(compact.contains("output_quality_candidate_status=quality_candidate_fail"))
+        assertTrue(compact.contains("npu_standard_route_quality_gate_passed=false"))
+        assertTrue(compact.contains("npu_standard_route_output_suppressed=true"))
+        assertTrue(compact.contains("npu_standard_route_suppression_reason=quality_candidate_fail"))
+        assertTrue(compact.contains("npu_standard_route_rollback_required=true"))
+        assertTrue(
+            compact.contains(
+                "npu_standard_route_rollback_reason=quality_gate_output_must_not_reach_ui_tts_db",
+            ),
+        )
+        assertTrue(compact.contains("conversation_created=false"))
+        assertTrue(compact.contains("generate_response=false"))
+    }
+
+    @Test
+    fun `S1 compact does not include phase1 diagnostics for CPU or GPU selections`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        listOf(PreferredBackendDryRunSetting.CPU, PreferredBackendDryRunSetting.GPU).forEach { backend ->
+            val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+                input = "こんにちは",
+                result = result,
+                preferredBackendSetting = backend,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+                npuStandardRouteDevGatePropertyReader = { "true" },
+            )
+
+            assertFalse(compact.contains("npu_standard_route_dev_gate_enabled="))
+            assertFalse(compact.contains("npu_standard_route_phase="))
+            assertFalse(compact.contains("npu_standard_route_connected="))
+            assertFalse(compact.contains("npu_standard_route_ui_append_allowed="))
+        }
     }
 
     @Test

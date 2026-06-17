@@ -115,56 +115,75 @@ internal fun buildNpuStandardRouteS1DevTraceText(
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
+    npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
-    val lines = mutableListOf(
-        "max_output_tokens=$maxOutputTokens",
-        "input_hash=${npuRealPromptHash(input)}",
-        "input_prompt=${npuStandardRouteS1DevPreview(input)}",
-        "input_preview=${npuStandardRouteS1DevPreview(input)}",
-        "final_prompt_tail=${npuStandardRouteS1DevPreview(NpuStandardRouteS1Contract.finalPromptTail(input))}",
-        "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
-        "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
-        "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
-        "rewritten_prompt_tail=${npuStandardRouteS1DevPreview(promptRewrite.rewrittenPromptText.takeLast(160))}",
-        "input_length=${input.length}",
-        "input_code_points=${input.codePointCount(0, input.length)}",
-        "selected_model_name=${result.selectedModelName.ifBlank { "unknown" }}",
-        "selected_model_file=${result.selectedModelFile.ifBlank { "unknown" }}",
-        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
-        "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
-        "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
-        "raw_output_length=${result.rawOutput.length}",
-        "raw_output_code_points=${result.rawOutput.codePointCount(0, result.rawOutput.length)}",
-        "sanitized_output_hash=${npuRealPromptHash(result.sanitizedOutput)}",
-        "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
-        "sanitized_output_length=${result.sanitizedOutput.length}",
-        "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
-        "status=${result.status}",
-        "reason=${result.reason}",
-        "normal_chat_native_route_blocked=${result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
-        "quality_classification=${result.qualityClassification}",
-        "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
-        "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
-        "output_quality_candidate_prepared_output=${npuStandardRouteS1DevPreview(result.preparedOutput)}",
-        "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
-        "failure_exception_message=${npuStandardRouteS1DevPreview(npuStandardRouteS1FailureExceptionMessage(result))}",
-        "failure_stage=${npuStandardRouteS1FailureStage(result)}",
-        "native_stage=${result.nativeDiagnostics.nativeStage}",
-        "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
-        "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
-        "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
-        "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
-        "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
-        "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
-        "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
-        "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
-        "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
-        "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
-        "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
-        "run_decode_reached=${result.runDecodeReached}",
-        "timeout=${result.timeout}",
+    val backendDiagnostics = npuS1BackendDiagnosticsForResult(
+        result = result,
+        npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
     )
+    val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+        result = result,
+        backendDiagnostics = backendDiagnostics,
+        propertyReader = npuStandardRouteDevGatePropertyReader,
+    )
+    val lines = buildList {
+        addAll(
+            listOf(
+                "max_output_tokens=$maxOutputTokens",
+                "input_hash=${npuRealPromptHash(input)}",
+                "input_prompt=${npuStandardRouteS1DevPreview(input)}",
+                "input_preview=${npuStandardRouteS1DevPreview(input)}",
+                "final_prompt_tail=${npuStandardRouteS1DevPreview(NpuStandardRouteS1Contract.finalPromptTail(input))}",
+                "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
+                "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
+                "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
+                "rewritten_prompt_tail=${npuStandardRouteS1DevPreview(promptRewrite.rewrittenPromptText.takeLast(160))}",
+                "input_length=${input.length}",
+                "input_code_points=${input.codePointCount(0, input.length)}",
+                "selected_model_name=${result.selectedModelName.ifBlank { "unknown" }}",
+                "selected_model_file=${result.selectedModelFile.ifBlank { "unknown" }}",
+                "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
+                "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
+                "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
+                "raw_output_length=${result.rawOutput.length}",
+                "raw_output_code_points=${result.rawOutput.codePointCount(0, result.rawOutput.length)}",
+                "sanitized_output_hash=${npuRealPromptHash(result.sanitizedOutput)}",
+                "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
+                "sanitized_output_length=${result.sanitizedOutput.length}",
+                "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
+                "status=${result.status}",
+                "reason=${result.reason}",
+                "normal_chat_native_route_blocked=${result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
+                "quality_classification=${result.qualityClassification}",
+                "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
+                "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
+                "output_quality_candidate_prepared_output=${npuStandardRouteS1DevPreview(result.preparedOutput)}",
+            ),
+        )
+        addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
+        addAll(
+            listOf(
+                "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
+                "failure_exception_message=${npuStandardRouteS1DevPreview(npuStandardRouteS1FailureExceptionMessage(result))}",
+                "failure_stage=${npuStandardRouteS1FailureStage(result)}",
+                "native_stage=${result.nativeDiagnostics.nativeStage}",
+                "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+                "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
+                "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
+                "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
+                "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+                "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+                "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+                "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
+                "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+                "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+                "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
+                "run_decode_reached=${result.runDecodeReached}",
+                "timeout=${result.timeout}",
+            ),
+        )
+    }.toMutableList()
     if (transientFallback == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING) {
         lines += "original_status=${result.status}"
         lines += "original_reason=${result.reason}"
@@ -272,6 +291,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     appHistoryText: String = "",
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     val backendDiagnostics = npuS1BackendDiagnosticsForResult(
@@ -279,7 +299,14 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         preferredBackendSetting = preferredBackendSetting,
         npuStandardRouteMode = npuStandardRouteMode,
     )
-    return listOf(
+    val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+        result = result,
+        backendDiagnostics = backendDiagnostics,
+        propertyReader = npuStandardRouteDevGatePropertyReader,
+    )
+    return buildList {
+        addAll(
+            listOf(
         "[DEV診断: NPU S1 compact]",
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
         "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
@@ -304,6 +331,11 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "effective_backend=${backendDiagnostics.effectiveBackend}",
         "backend_evidence=${backendDiagnostics.backendEvidence}",
         "route_family=${backendDiagnostics.routeFamily}",
+            ),
+        )
+        addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
+        addAll(
+            listOf(
         "blocked_reason=${backendDiagnostics.blockedReason}",
         "guard_recommendation=${backendDiagnostics.guardRecommendation}",
         "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
@@ -329,7 +361,9 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
         "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
         "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
-    ).joinToString("\n")
+            ),
+        )
+    }.joinToString("\n")
 }
 
 internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -368,6 +402,7 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String = appendNpuS1ShortOutputTelemetryForDev(
     text = run {
         val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
@@ -376,7 +411,14 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
         )
-        listOf(
+        val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = backendDiagnostics,
+            propertyReader = npuStandardRouteDevGatePropertyReader,
+        )
+        buildList {
+            addAll(
+                listOf(
             "[DEV診断: NPU S1 full dump]",
             "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
             "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
@@ -401,6 +443,11 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "effective_backend=${backendDiagnostics.effectiveBackend}",
             "backend_evidence=${backendDiagnostics.backendEvidence}",
             "route_family=${backendDiagnostics.routeFamily}",
+                ),
+            )
+            addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
+            addAll(
+                listOf(
             "blocked_reason=${backendDiagnostics.blockedReason}",
             "guard_recommendation=${backendDiagnostics.guardRecommendation}",
             "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
@@ -439,7 +486,9 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "timeout=${result.timeout}",
             "fallback=${transientFallback ?: result.fallbackUsed}",
             "fresh_crash=${result.freshCrash}",
-        ).joinToString("\n")
+                ),
+            )
+        }.joinToString("\n")
     },
     input = input,
     result = result,

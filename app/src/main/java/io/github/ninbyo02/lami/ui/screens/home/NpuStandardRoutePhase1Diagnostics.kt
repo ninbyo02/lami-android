@@ -62,6 +62,55 @@ internal fun buildNpuStandardRoutePhase1Diagnostics(
     )
 }
 
+internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+    result: NpuStandardRouteS1Result,
+    backendDiagnostics: NpuS1BackendDiagnostics,
+    propertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
+): Map<String, String> {
+    val enabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
+        ?.trim()
+        ?.equals("true", ignoreCase = true) == true
+    if (!enabled) return emptyMap()
+    if (!isNpuStandardRoutePhase1NpuS1DumpEligible(result, backendDiagnostics)) return emptyMap()
+
+    val qualityGatePassed = when (result.outputQualityCandidateStatus) {
+        NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS -> "true"
+        NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL -> "false"
+        else -> "unavailable"
+    }
+    val outputSuppressed = result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
+    val suppressionReason = if (outputSuppressed) {
+        NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
+    } else {
+        NPU_STANDARD_ROUTE_SUPPRESSION_REASON_NONE
+    }
+    val rollbackRequired = outputSuppressed
+    val rollbackReason = if (rollbackRequired) {
+        NPU_STANDARD_ROUTE_ROLLBACK_REASON_QUALITY_GATE_OUTPUT
+    } else {
+        NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE
+    }
+
+    return linkedMapOf(
+        "npu_standard_route_dev_gate_enabled" to "true",
+        "npu_standard_route_phase" to NPU_STANDARD_ROUTE_PHASE_1,
+        "npu_standard_route_phase_name" to NPU_STANDARD_ROUTE_PHASE_1_NAME,
+        "npu_standard_route_connected" to "true",
+        "conversation_created" to "false",
+        "generate_response" to "false",
+        "npu_standard_route_quality_gate_passed" to qualityGatePassed,
+        "npu_standard_route_output_suppressed" to outputSuppressed.toString(),
+        "npu_standard_route_suppression_reason" to suppressionReason,
+        "npu_standard_route_ui_append_allowed" to "false",
+        "npu_standard_route_tts_allowed" to "false",
+        "npu_standard_route_db_save_allowed" to "false",
+        "npu_standard_route_markdown_allowed" to "false",
+        "npu_standard_route_streaming_allowed" to "false",
+        "npu_standard_route_rollback_required" to rollbackRequired.toString(),
+        "npu_standard_route_rollback_reason" to rollbackReason,
+    )
+}
+
 internal fun buildNpuStandardRoutePhase1DiagnosticLines(
     diagnostics: Map<String, String>,
 ): List<String> =
@@ -72,7 +121,31 @@ private fun isNpuStandardRoutePhase1Backend(preferredBackend: String): Boolean {
     return normalized == "NPU" || normalized == "NPU_S1"
 }
 
-private fun readNpuStandardRouteDevGateProperty(key: String): String? {
+private fun isNpuStandardRoutePhase1NpuS1DumpEligible(
+    result: NpuStandardRouteS1Result,
+    backendDiagnostics: NpuS1BackendDiagnostics,
+): Boolean {
+    val explicitCpuOrGpu = backendDiagnostics.selectedBackend.equals("CPU", ignoreCase = true) ||
+        backendDiagnostics.selectedBackend.equals("GPU", ignoreCase = true) ||
+        backendDiagnostics.effectiveBackend.equals("CPU", ignoreCase = true) ||
+        backendDiagnostics.effectiveBackend.equals("GPU", ignoreCase = true)
+    if (explicitCpuOrGpu) return false
+    val routeLooksNpu = backendDiagnostics.routeFamily.contains("npu", ignoreCase = true)
+    val backendLooksNpu = backendDiagnostics.selectedBackend.contains("NPU", ignoreCase = true) ||
+        backendDiagnostics.requestedBackend.contains("NPU", ignoreCase = true) ||
+        backendDiagnostics.effectiveBackend.contains("NPU", ignoreCase = true)
+    val evidenceLooksNpu = result.npuBackendEvidence.contains("QNN", ignoreCase = true) ||
+        result.npuBackendEvidence.contains("HTP", ignoreCase = true) ||
+        result.npuBackendEvidence.contains("FastRPC", ignoreCase = true) ||
+        result.npuBackendEvidence.contains("NPU", ignoreCase = true) ||
+        backendDiagnostics.backendEvidence.contains("QNN", ignoreCase = true) ||
+        backendDiagnostics.backendEvidence.contains("HTP", ignoreCase = true) ||
+        backendDiagnostics.backendEvidence.contains("FastRPC", ignoreCase = true) ||
+        backendDiagnostics.backendEvidence.contains("NPU", ignoreCase = true)
+    return routeLooksNpu || backendLooksNpu || evidenceLooksNpu
+}
+
+internal fun readNpuStandardRouteDevGateProperty(key: String): String? {
     if (key.isBlank()) return null
     return runCatching {
         val clazz = Class.forName("android.os.SystemProperties")
