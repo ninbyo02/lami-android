@@ -1746,6 +1746,114 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route phase4 enables UI append only for quality candidate pass with text`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "4"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("4", diagnostics["npu_standard_route_phase"])
+        assertEquals("4_ui_append_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("true", diagnostics["generate_response"])
+        assertEquals("false", diagnostics["npu_standard_route_generate_diagnostic_only"])
+        assertEquals("true", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("false", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("actual_display_text", diagnostics["npu_standard_route_ui_append_source"])
+        assertEquals("none", diagnostics["npu_standard_route_ui_append_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
+    fun `NPU standard route phase4 suppresses quality candidate fail before UI append`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "_turn>\n<end_of_turn>\n<start_of_turn>model",
+                sanitizedOutput = "_turn>",
+                qualityClassification = "template_artifact",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+            result = result,
+            backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "4"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("4", diagnostics["npu_standard_route_phase"])
+        assertEquals("4_ui_append_gate", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("true", diagnostics["generate_response"])
+        assertEquals("false", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("raw_unexpected_start_turn", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("blocked_quality_candidate_fail", diagnostics["npu_standard_route_ui_append_source"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_ui_append_block_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_rollback_required"])
+        assertEquals(
+            "quality_candidate_fail_output_suppressed_before_ui_tts_db",
+            diagnostics["npu_standard_route_rollback_reason"],
+        )
+    }
+
+    @Test
     fun `NPU standard route invalid phase falls back to phase1`() {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-npu",

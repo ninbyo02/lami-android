@@ -340,9 +340,79 @@ adb shell monkey -p io.github.ninbyo02.lami 1
 
 ### Phase 4: UI append
 
-Only after Phase 3 proves suppression, allow UI append for candidate pass.
+Only after Phase 3 proves suppression, allow UI append for candidate pass. This
+phase remains DEV-gated and still keeps TTS, DB save, Markdown, and streaming
+closed.
 
-Do not enable TTS, DB, Markdown, or streaming.
+Phase 4 is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=4
+```
+
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_phase=4
+npu_standard_route_phase_name=4_ui_append_gate
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_generate_diagnostic_only=false
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_suppression_reason=none
+npu_standard_route_output_delivery_allowed=true
+npu_standard_route_candidate_text_present=true
+npu_standard_route_ui_append_allowed=true
+npu_standard_route_ui_append_source=actual_display_text
+npu_standard_route_ui_append_block_reason=none
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+npu_standard_route_rollback_reason=none
+```
+
+Expected diagnostics on candidate fail:
+
+```text
+npu_standard_route_phase=4
+npu_standard_route_phase_name=4_ui_append_gate
+conversation_created=true
+generate_response=true
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_suppression_reason=<output_quality_candidate_reason>
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_ui_append_source=blocked_quality_candidate_fail
+npu_standard_route_ui_append_block_reason=quality_candidate_fail
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db
+```
+
+Phase 4 stop line:
+
+- `quality_candidate_fail` must keep `npu_standard_route_ui_append_allowed=false`
+- `_turn>` or other template artifact display text must remain suppressed
+- TTS/DB/Markdown/Streaming allowed keys must remain `false`
+- fallback, timeout, fresh crash, decode-not-reached, or cleanup-not-reached
+  evidence requires rollback diagnostics
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 4
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
 
 ### Phase 5: TTS
 
