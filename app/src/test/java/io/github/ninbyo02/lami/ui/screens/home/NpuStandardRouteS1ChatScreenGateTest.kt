@@ -1965,17 +1965,21 @@ class NpuStandardRouteS1ChatScreenGateTest {
     fun `NPU standard route execution diagnostics record phase4 UI append execution`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = true,
+            uiAppendVisibleCandidate = true,
             ttsRequested = false,
             ttsStarted = false,
-            deliveryPath = "phase4_transient_ui_append",
+            deliveryPath = "phase4_in_memory_ui_append",
             ttsExecutionBlockReason = "phase_not_tts",
         )
 
         assertEquals("true", diagnostics["npu_standard_route_ui_append_executed"])
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_visible_candidate"])
+        assertEquals("transient_chat_message", diagnostics["npu_standard_route_ui_append_target"])
+        assertEquals("none", diagnostics["npu_standard_route_ui_append_failure_reason"])
         assertEquals("false", diagnostics["npu_standard_route_tts_requested"])
         assertEquals("false", diagnostics["npu_standard_route_tts_started"])
         assertEquals("true", diagnostics["npu_standard_route_output_delivery_executed"])
-        assertEquals("phase4_transient_ui_append", diagnostics["npu_standard_route_delivery_path"])
+        assertEquals("phase4_in_memory_ui_append", diagnostics["npu_standard_route_delivery_path"])
         assertEquals("phase_not_tts", diagnostics["npu_standard_route_tts_execution_block_reason"])
     }
 
@@ -1983,16 +1987,19 @@ class NpuStandardRouteS1ChatScreenGateTest {
     fun `NPU standard route execution diagnostics record phase5 UI append and TTS execution`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = true,
+            uiAppendVisibleCandidate = true,
             ttsRequested = true,
             ttsStarted = true,
-            deliveryPath = "phase5_transient_ui_append_and_tts",
+            deliveryPath = "phase5_in_memory_ui_append_and_tts",
         )
 
         assertEquals("true", diagnostics["npu_standard_route_ui_append_executed"])
+        assertEquals("true", diagnostics["npu_standard_route_ui_append_visible_candidate"])
+        assertEquals("transient_chat_message", diagnostics["npu_standard_route_ui_append_target"])
         assertEquals("true", diagnostics["npu_standard_route_tts_requested"])
         assertEquals("true", diagnostics["npu_standard_route_tts_started"])
         assertEquals("true", diagnostics["npu_standard_route_output_delivery_executed"])
-        assertEquals("phase5_transient_ui_append_and_tts", diagnostics["npu_standard_route_delivery_path"])
+        assertEquals("phase5_in_memory_ui_append_and_tts", diagnostics["npu_standard_route_delivery_path"])
         assertEquals("none", diagnostics["npu_standard_route_tts_execution_block_reason"])
     }
 
@@ -2000,13 +2007,18 @@ class NpuStandardRouteS1ChatScreenGateTest {
     fun `NPU standard route execution diagnostics record suppressed output without delivery`() {
         val diagnostics = buildNpuStandardRouteDeliveryExecutionDiagnostics(
             uiAppendExecuted = false,
+            uiAppendVisibleCandidate = false,
             ttsRequested = false,
             ttsStarted = false,
             deliveryPath = "phase_gate_suppressed",
+            uiAppendFailureReason = "quality_candidate_fail",
             ttsExecutionBlockReason = "quality_candidate_fail",
         )
 
         assertEquals("false", diagnostics["npu_standard_route_ui_append_executed"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_visible_candidate"])
+        assertEquals("none", diagnostics["npu_standard_route_ui_append_target"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_ui_append_failure_reason"])
         assertEquals("false", diagnostics["npu_standard_route_tts_started"])
         assertEquals("false", diagnostics["npu_standard_route_output_delivery_executed"])
         assertEquals("phase_gate_suppressed", diagnostics["npu_standard_route_delivery_path"])

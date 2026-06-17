@@ -19,6 +19,10 @@ PROMOTION_RECOMMENDATION=ready_for_standard_route_review_with_stop_line
 NEXT_ACTION=enforce_quality_gate_output_suppression_before_standard_route_connection
 ```
 
+Settings display consolidation is tracked in
+`docs/npu_settings_display_consolidation_plan.md`. S1-S5 are staged NPU standard
+route phases, not separate hardware backends.
+
 Confirmed NPU DEV route evidence:
 
 ```text
@@ -370,7 +374,7 @@ npu_standard_route_ui_append_source=actual_display_text
 npu_standard_route_ui_append_block_reason=none
 npu_standard_route_ui_append_executed=true
 npu_standard_route_output_delivery_executed=true
-npu_standard_route_delivery_path=phase4_transient_ui_append
+npu_standard_route_delivery_path=phase4_in_memory_ui_append
 npu_standard_route_tts_allowed=false
 npu_standard_route_tts_started=false
 npu_standard_route_db_save_allowed=false
@@ -455,7 +459,7 @@ npu_standard_route_ui_append_executed=true
 npu_standard_route_tts_requested=true
 npu_standard_route_tts_started=true
 npu_standard_route_output_delivery_executed=true
-npu_standard_route_delivery_path=phase5_transient_ui_append_and_tts
+npu_standard_route_delivery_path=phase5_in_memory_ui_append_and_tts
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false

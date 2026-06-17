@@ -859,6 +859,7 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRoutePhaseUiAppendText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevInputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevOutputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -3463,6 +3464,7 @@ fun Home(
                                                         userPrompt = immediateNpuSendUiUpdate.userPrompt
                                                         selectedImageUriStrings = immediateNpuSendUiUpdate.selectedImageUriStrings
                                                         npuStandardRouteS1DisplayText = null
+                                                        npuStandardRoutePhaseUiAppendText = null
                                                         npuStandardRouteS1FallbackText = null
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
@@ -3728,6 +3730,8 @@ fun Home(
                                                             null
                                                         }
                                                         var npuStandardRouteUiAppendExecuted = false
+                                                        var npuStandardRouteUiAppendVisibleCandidate = false
+                                                        var npuStandardRouteUiAppendFailureReason = "none"
                                                         var npuStandardRouteTtsRequested = false
                                                         var npuStandardRouteTtsStarted = false
                                                         var npuStandardRouteDeliveryPath = when {
@@ -3745,17 +3749,29 @@ fun Home(
                                                             npuStandardRouteSafeUiText.isNotBlank() &&
                                                             !localStopRequested
                                                         ) {
-                                                            streamingResponseTextForRender = npuStandardRouteSafeUiText
-                                                            localStreamingResponseText = null
+                                                            npuStandardRoutePhaseUiAppendText = npuStandardRouteSafeUiText
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             npuStandardRouteUiAppendExecuted = true
+                                                            npuStandardRouteUiAppendVisibleCandidate = true
                                                             npuStandardRouteDeliveryPath = if (npuStandardRouteTtsAllowed) {
-                                                                "phase5_transient_ui_append"
+                                                                "phase5_in_memory_ui_append"
                                                             } else {
-                                                                "phase4_transient_ui_append"
+                                                                "phase4_in_memory_ui_append"
                                                             }
                                                         } else if (npuStandardRouteUiAppendAllowed) {
+                                                            npuStandardRoutePhaseUiAppendText = null
+                                                            npuStandardRouteUiAppendFailureReason = if (localStopRequested) {
+                                                                "local_stop_requested"
+                                                            } else {
+                                                                "safe_text_empty"
+                                                            }
                                                             npuStandardRouteDeliveryPath = "phase_ui_append_blocked_empty_or_stopped"
+                                                        } else {
+                                                            npuStandardRoutePhaseUiAppendText = null
+                                                            npuStandardRouteUiAppendFailureReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_ui_append_block_reason"
+                                                                ] ?: "ui_append_not_allowed"
                                                         }
                                                         if (npuStandardRouteTtsAllowed && !localStopRequested) {
                                                             val npuStandardRouteSafeTtsText = s1Result.ttsText
@@ -3789,7 +3805,7 @@ fun Home(
                                                                     maybeReleaseHeldEngineForTtsPlayback()
                                                                     ttsController.speak(phase5TtsCandidate.speakText)
                                                                     npuStandardRouteTtsStarted = true
-                                                                    npuStandardRouteDeliveryPath = "phase5_transient_ui_append_and_tts"
+                                                                    npuStandardRouteDeliveryPath = "phase5_in_memory_ui_append_and_tts"
                                                                 } catch (exception: Exception) {
                                                                     Log.w(
                                                                         "ChatScreen",
@@ -3799,7 +3815,7 @@ fun Home(
                                                                     npuStandardRouteTtsExecutionBlockReason =
                                                                         NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
                                                                     npuStandardRouteDeliveryPath =
-                                                                        "phase5_transient_ui_append_tts_exception"
+                                                                        "phase5_in_memory_ui_append_tts_exception"
                                                                 }
                                                             }
                                                         } else if (npuStandardRoutePhaseGateActive) {
@@ -3812,9 +3828,16 @@ fun Home(
                                                             buildNpuStandardRoutePhase1DiagnosticLines(
                                                                 buildNpuStandardRouteDeliveryExecutionDiagnostics(
                                                                     uiAppendExecuted = npuStandardRouteUiAppendExecuted,
+                                                                    uiAppendVisibleCandidate = npuStandardRouteUiAppendVisibleCandidate,
                                                                     ttsRequested = npuStandardRouteTtsRequested,
                                                                     ttsStarted = npuStandardRouteTtsStarted,
                                                                     deliveryPath = npuStandardRouteDeliveryPath,
+                                                                    uiAppendTarget = if (npuStandardRouteUiAppendExecuted) {
+                                                                        "transient_chat_message"
+                                                                    } else {
+                                                                        "none"
+                                                                    },
+                                                                    uiAppendFailureReason = npuStandardRouteUiAppendFailureReason,
                                                                     ttsExecutionBlockReason = npuStandardRouteTtsExecutionBlockReason,
                                                                 ),
                                                             ).joinToString("\n")
@@ -6635,6 +6658,20 @@ fun Home(
                                             message = localRespondingMessage,
                                             isStreaming = true,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (!npuStandardRoutePhaseUiAppendText.isNullOrBlank()) {
+                                    item(key = "npu_standard_route_phase_ui_append") {
+                                        PlainAssistantMessage(
+                                            message = npuStandardRoutePhaseUiAppendText!!,
+                                            isStreaming = false,
+                                            contentPadding = PaddingValues(
+                                                start = 16.dp,
+                                                end = 16.dp,
+                                                top = 0.dp,
+                                                bottom = 10.dp,
+                                            ),
                                         )
                                     }
                                 }

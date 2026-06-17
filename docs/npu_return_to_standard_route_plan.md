@@ -151,6 +151,7 @@ Detailed standard-route DEV gate planning is tracked in:
 
 - `docs/npu_standard_route_dev_gate_integration_plan.md`
 - `docs/npu_quality_gate_output_suppression_plan.md`
+- `docs/npu_settings_display_consolidation_plan.md`
 
 Phase 1 diagnostic-only connection is complete when:
 
@@ -237,7 +238,7 @@ npu_standard_route_output_delivery_allowed=true
 npu_standard_route_ui_append_allowed=true
 npu_standard_route_ui_append_executed=true
 npu_standard_route_output_delivery_executed=true
-npu_standard_route_delivery_path=phase4_transient_ui_append
+npu_standard_route_delivery_path=phase4_in_memory_ui_append
 npu_standard_route_tts_allowed=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
@@ -272,7 +273,7 @@ npu_standard_route_ui_append_executed=true
 npu_standard_route_tts_requested=true
 npu_standard_route_tts_started=true
 npu_standard_route_output_delivery_executed=true
-npu_standard_route_delivery_path=phase5_transient_ui_append_and_tts
+npu_standard_route_delivery_path=phase5_in_memory_ui_append_and_tts
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
@@ -284,6 +285,10 @@ output must keep `npu_standard_route_tts_allowed=false` and
 and streaming remain closed until later explicit phases. Phase 5 is not complete
 if `npu_standard_route_tts_allowed=true` appears without
 `npu_standard_route_tts_started=true`.
+
+Settings should treat S1-S5 as NPU standard-route phases, not separate hardware
+backends. Existing preference keys remain compatible while labels are redesigned
+around `NPU Experimental / DEV` plus a developer phase selector.
 
 ## Next Device Confirmation Keys
 

@@ -249,13 +249,19 @@ internal fun buildNpuStandardRoutePhase1DiagnosticLines(
 
 internal fun buildNpuStandardRouteDeliveryExecutionDiagnostics(
     uiAppendExecuted: Boolean,
+    uiAppendVisibleCandidate: Boolean,
     ttsRequested: Boolean,
     ttsStarted: Boolean,
     outputDeliveryExecuted: Boolean = uiAppendExecuted || ttsStarted,
     deliveryPath: String,
+    uiAppendTarget: String = if (uiAppendExecuted) "transient_chat_message" else "none",
+    uiAppendFailureReason: String = NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE,
     ttsExecutionBlockReason: String = NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE,
 ): Map<String, String> = linkedMapOf(
     "npu_standard_route_ui_append_executed" to uiAppendExecuted.toString(),
+    "npu_standard_route_ui_append_visible_candidate" to uiAppendVisibleCandidate.toString(),
+    "npu_standard_route_ui_append_target" to uiAppendTarget,
+    "npu_standard_route_ui_append_failure_reason" to uiAppendFailureReason,
     "npu_standard_route_tts_requested" to ttsRequested.toString(),
     "npu_standard_route_tts_started" to ttsStarted.toString(),
     "npu_standard_route_output_delivery_executed" to outputDeliveryExecuted.toString(),
