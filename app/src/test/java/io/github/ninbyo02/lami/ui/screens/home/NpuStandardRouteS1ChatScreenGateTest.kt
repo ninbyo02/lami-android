@@ -1661,6 +1661,91 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route phase3 emits generate diagnostics without delivery`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "3"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("3", diagnostics["npu_standard_route_phase"])
+        assertEquals("3_generate_response_diagnostic", diagnostics["npu_standard_route_phase_name"])
+        assertEquals("true", diagnostics["npu_standard_route_connected"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("true", diagnostics["generate_response"])
+        assertEquals("true", diagnostics["npu_standard_route_generate_diagnostic_only"])
+        assertEquals("true", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("false", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("none", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_rollback_required"])
+    }
+
+    @Test
+    fun `NPU standard route phase3 quality candidate fail is suppressed before delivery`() {
+        val context = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-npu",
+            selectedModelFile = "/models/gemma-npu.litertlm",
+            preferredBackend = "NPU",
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+            shouldEnterNpuS1 = true,
+            localRouteEntered = false,
+        )
+
+        val diagnostics = buildNpuStandardRoutePhase1Diagnostics(
+            context = context,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "3"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals("3", diagnostics["npu_standard_route_phase"])
+        assertEquals("true", diagnostics["conversation_created"])
+        assertEquals("true", diagnostics["generate_response"])
+        assertEquals("false", diagnostics["npu_standard_route_quality_gate_passed"])
+        assertEquals("true", diagnostics["npu_standard_route_output_suppressed"])
+        assertEquals("quality_candidate_fail", diagnostics["npu_standard_route_suppression_reason"])
+        assertEquals("false", diagnostics["npu_standard_route_output_delivery_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_ui_append_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_tts_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_db_save_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_markdown_allowed"])
+        assertEquals("false", diagnostics["npu_standard_route_streaming_allowed"])
+        assertEquals("true", diagnostics["npu_standard_route_rollback_required"])
+        assertEquals(
+            "quality_candidate_fail_output_suppressed_before_ui_tts_db",
+            diagnostics["npu_standard_route_rollback_reason"],
+        )
+    }
+
+    @Test
     fun `NPU standard route invalid phase falls back to phase1`() {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-npu",

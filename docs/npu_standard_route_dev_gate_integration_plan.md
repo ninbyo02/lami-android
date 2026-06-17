@@ -256,7 +256,19 @@ adb shell monkey -p io.github.ninbyo02.lami 1
 
 ### Phase 3: generate response with output suppression
 
-Goal: call S1 generate, but only allow output to become a candidate when:
+Goal: reach the generate-response diagnostic gate through the existing S1 DEV
+route result, but keep all delivery surfaces closed. This phase may collect and
+report the NPU result in compact/full dump diagnostics, but it must not send
+text to UI append, TTS, DB, Markdown, or streaming.
+
+Phase 3 is enabled with:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=3
+```
+
+Only a candidate pass can be considered safe for later phases:
 
 ```text
 output_quality_candidate_status=quality_candidate_pass
@@ -264,21 +276,66 @@ output_quality_candidate_status=quality_candidate_pass
 
 If candidate fails, suppress all user-facing / persistence surfaces.
 
+Expected diagnostics on candidate pass:
+
+```text
+npu_standard_route_dev_gate_enabled=true
+npu_standard_route_phase=3
+npu_standard_route_phase_name=3_generate_response_diagnostic
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_generate_diagnostic_only=true
+npu_standard_route_quality_gate_passed=true
+npu_standard_route_output_suppressed=false
+npu_standard_route_suppression_reason=none
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_candidate_text_present=true
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+npu_standard_route_rollback_reason=none
+```
+
 Expected diagnostics on candidate fail:
 
 ```text
-npu_standard_route_phase=3_generate_suppressed
+npu_standard_route_phase=3
+npu_standard_route_phase_name=3_generate_response_diagnostic
+conversation_created=true
 generate_response=true
 npu_standard_route_quality_gate_passed=false
 npu_standard_route_output_suppressed=true
-npu_standard_route_suppression_reason=quality_candidate_fail
+npu_standard_route_suppression_reason=<output_quality_candidate_reason>
+npu_standard_route_output_delivery_allowed=false
 npu_standard_route_ui_append_allowed=false
 npu_standard_route_tts_allowed=false
 npu_standard_route_db_save_allowed=false
 npu_standard_route_markdown_allowed=false
 npu_standard_route_streaming_allowed=false
 npu_standard_route_rollback_required=true
-npu_standard_route_rollback_reason=quality_gate_output_must_not_reach_ui_tts_db
+npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db
+```
+
+Phase 3 stop line:
+
+- UI/TTS/DB/Markdown/Streaming allowed keys must remain `false`
+- `npu_standard_route_output_delivery_allowed=false` must remain visible
+- `quality_candidate_fail` output must be suppressed before every delivery
+  surface
+- `_turn>` or other template artifact output must remain diagnostic-only
+- fallback, timeout, fresh crash, decode-not-reached, or cleanup-not-reached
+  evidence requires rollback diagnostics
+
+Device confirmation command:
+
+```bash
+adb shell setprop debug.lami.npu_standard_route_dev_gate true
+adb shell setprop debug.lami.npu_standard_route_phase 3
+adb shell monkey -p io.github.ninbyo02.lami 1
 ```
 
 ### Phase 4: UI append

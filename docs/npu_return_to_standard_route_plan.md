@@ -194,6 +194,32 @@ UI text, speak TTS, save DB messages, render Markdown, or start streaming. If
 the quality candidate fails, output suppression and rollback diagnostics must
 remain active before any later standard-route connection work proceeds.
 
+Phase 3 generate-response diagnostic gate is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=3
+npu_standard_route_phase=3
+npu_standard_route_phase_name=3_generate_response_diagnostic
+npu_standard_route_connected=true
+conversation_created=true
+generate_response=true
+npu_standard_route_generate_diagnostic_only=true
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+Phase 3 may inspect the existing S1 generate result in diagnostics, but output
+delivery remains closed. If `output_quality_candidate_status=quality_candidate_fail`,
+then `npu_standard_route_output_suppressed=true`,
+`npu_standard_route_suppression_reason=<output_quality_candidate_reason>`, and
+`npu_standard_route_rollback_required=true` are required. Template artifact text
+such as `_turn>` must not reach UI/TTS/DB/Markdown/Streaming.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:
