@@ -150,6 +150,43 @@ conversation_created=false
 generate_response=false
 ```
 
+Implemented Phase 1 diagnostics use:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+```
+
+and emit route-decision diagnostics only for NPU backend candidates. CPU and GPU
+routes do not emit these keys even when the property is set.
+
+Phase 1 completed criteria:
+
+```text
+npu_standard_route_dev_gate_enabled=true
+npu_standard_route_phase=1
+npu_standard_route_phase_name=1_route_entry_diagnostic
+npu_standard_route_connected=true
+conversation_created=false
+generate_response=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+npu_standard_route_rollback_required=false
+```
+
+If a future diagnostic fixture passes `quality_candidate_fail`, Phase 1 must
+still suppress output and require rollback:
+
+```text
+npu_standard_route_quality_gate_passed=false
+npu_standard_route_output_suppressed=true
+npu_standard_route_suppression_reason=quality_candidate_fail
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=quality_gate_output_must_not_reach_ui_tts_db
+```
+
 ### Phase 2: conversation creation only
 
 Goal: validate ChatScreen / route plumbing without native generation.

@@ -152,6 +152,24 @@ Detailed standard-route DEV gate planning is tracked in:
 - `docs/npu_standard_route_dev_gate_integration_plan.md`
 - `docs/npu_quality_gate_output_suppression_plan.md`
 
+Phase 1 diagnostic-only connection is complete when:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+npu_standard_route_phase=1
+npu_standard_route_connected=true
+conversation_created=false
+generate_response=false
+npu_standard_route_ui_append_allowed=false
+npu_standard_route_tts_allowed=false
+npu_standard_route_db_save_allowed=false
+npu_standard_route_markdown_allowed=false
+npu_standard_route_streaming_allowed=false
+```
+
+This phase must not create a conversation, call generate, append UI text, speak
+TTS, save DB messages, render Markdown, or start streaming.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

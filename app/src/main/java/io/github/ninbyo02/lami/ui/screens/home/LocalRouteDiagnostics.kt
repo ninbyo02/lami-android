@@ -1955,6 +1955,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         failureStage = failureStage,
     )
     val finalResponseProbeDiagnostics = flags.gpuPrefillProbeDiagnostics
+    val npuStandardRouteDevGateDiagnostics = buildNpuStandardRoutePhase1Diagnostics(context = context)
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -2384,6 +2385,7 @@ internal fun buildLocalRouteDiagnosticTrace(
             ) +
             buildGpuInternalSurfaceProbeRouteDiagnosticLines(gpuInternalSurfaceProbe) +
             buildCpuRouteDiagnosticLines(flags.cpuRouteDiagnostics) +
+            buildNpuStandardRoutePhase1DiagnosticLines(npuStandardRouteDevGateDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
