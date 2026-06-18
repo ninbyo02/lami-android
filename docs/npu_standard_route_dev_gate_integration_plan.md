@@ -759,6 +759,11 @@ adb shell monkey -p io.github.ninbyo02.lami 1
 - Native token streaming remains deferred
 - `quality_candidate_fail` never reaches UI, TTS, DB, Markdown, or streaming
 
+After these checks pass, run
+`scripts/review_npu_standard_route_final_promotion.sh` against the Phase 7B
+success artifact and the quality-candidate-fail suppression artifact. The final
+review is documented in `docs/npu_standard_route_final_promotion_review.md`.
+
 ## Fail Output Suppression Rule
 
 Implementation must use this invariant:

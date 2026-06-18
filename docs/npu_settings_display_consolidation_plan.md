@@ -23,7 +23,7 @@ The durable backend choices should trend toward:
 - GPU Experimental
 - NPU Experimental / DEV
 
-S1-S5 should be treated as NPU route phases:
+S1-S8 should be treated as NPU route phases:
 
 - Phase 1: route entry diagnostics
 - Phase 2: conversation-created diagnostic
@@ -31,11 +31,12 @@ S1-S5 should be treated as NPU route phases:
 - Phase 4: UI append gate
 - Phase 5: TTS gate
 - Phase 6: DB save gate
-- Phase 7: Markdown / streaming gate
+- Phase 7A: Markdown gate
+- Phase 7B: pseudo streaming gate (`debug.lami.npu_standard_route_phase=8`)
 
 ## Short-Term UI Policy
 
-Keep existing preference keys and persisted values. Do not remove S1-S5 choices
+Keep existing preference keys and persisted values. Do not remove S1-S8 choices
 or migrate stored preferences in the short term.
 
 Non-destructive display improvements are acceptable:
@@ -47,15 +48,15 @@ Non-destructive display improvements are acceptable:
 
 ## Medium-Term Migration Policy
 
-After Phase 6/7 gates are validated, split the UI into:
+After Phase 6/7/8 gates and final promotion review are validated, split the UI into:
 
 - Backend selector: Automatic / CPU / GPU Experimental / NPU Experimental
 - NPU detail selector: Phase 1 through Phase 7
 
 Migration should preserve compatibility:
 
-- Existing S1-S5 preference keys remain readable.
-- Stored S1-S5 values map to equivalent NPU detail phases.
+- Existing S1-S8 preference keys remain readable.
+- Stored S1-S8 values map to equivalent NPU detail phases.
 - No destructive deletion of preferences during the transition.
 
 ## User-Facing Label Proposal
@@ -67,6 +68,9 @@ Short term:
 - `NPU DEV Phase 3: generate diagnostics`
 - `NPU DEV Phase 4: UI`
 - `NPU DEV Phase 5: UI + TTS`
+- `NPU DEV Phase 6: UI + TTS + DB`
+- `NPU DEV Phase 7A: UI + TTS + DB + Markdown`
+- `NPU DEV Phase 7B: pseudo streaming`
 
 Backend-level label:
 
@@ -78,7 +82,7 @@ Expose the phase explicitly as a developer control:
 
 ```text
 debug.lami.npu_standard_route_dev_gate=true
-debug.lami.npu_standard_route_phase=1..7
+debug.lami.npu_standard_route_phase=1..8
 ```
 
 Settings can mirror this later, but the system property remains the canonical
@@ -86,7 +90,7 @@ safe gate during staged validation.
 
 ## Migration Risk
 
-- Removing S1-S5 choices would break existing developer workflows.
+- Removing S1-S8 choices would break existing developer workflows.
 - Renaming values instead of labels would require preference migration.
 - Moving too early to a single `NPU` user-facing entry could imply production
   readiness before Phase 6/7 validation is complete.
@@ -97,4 +101,5 @@ safe gate during staged validation.
 2. Fix Phase 4/5 actual UI/TTS delivery while DB/Markdown/Streaming remain off.
 3. Update docs and diagnostics to distinguish `allowed` from `executed`.
 4. Adjust Settings labels non-destructively in a later UI-only change.
-5. Add a separate NPU phase selector only after Phase 6/7 plans are stable.
+5. Add a separate NPU phase selector only after Phase 8 and
+   `docs/npu_standard_route_final_promotion_review.md` are stable.

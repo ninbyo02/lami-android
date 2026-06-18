@@ -379,6 +379,13 @@ output must keep `npu_standard_route_streaming_executed=false` and
 streaming remains deferred until LiteRT-LM exposes reliable chunk/finish
 telemetry for this NPU route.
 
+Final promotion readiness is reviewed by
+`scripts/review_npu_standard_route_final_promotion.sh` and documented in
+`docs/npu_standard_route_final_promotion_review.md`. A Phase 7B success artifact
+can produce `PROMOTION_DECISION=go`; a `quality_candidate_fail` artifact can
+produce `NPU_STANDARD_ROUTE_FINAL_REVIEW=suppression_pass`, which confirms safe
+suppression but is not itself promotion-ready.
+
 Settings should treat S1-S8 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
