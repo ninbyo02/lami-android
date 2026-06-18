@@ -211,6 +211,7 @@ internal fun npuS1SelectedBackendForSettings(
         InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
         InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
         InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+        InferenceBackendSelection.NPU -> NPU_S1_BACKEND_NPU
         InferenceBackendSelection.NPU_S1 -> NPU_S1_BACKEND_NPU_S1
         InferenceBackendSelection.NPU_S2 -> NPU_S1_BACKEND_NPU_S2
         InferenceBackendSelection.NPU_S3 -> NPU_S1_BACKEND_NPU_S3
@@ -232,6 +233,7 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
         InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
         InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
         InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+        InferenceBackendSelection.NPU,
         InferenceBackendSelection.NPU_S1,
         InferenceBackendSelection.NPU_S2,
         InferenceBackendSelection.NPU_S3,
@@ -242,6 +244,7 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
         InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_EVIDENCE_LOCAL_DEFAULT
         InferenceBackendSelection.CPU -> NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE
         InferenceBackendSelection.GPU -> NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE
+        InferenceBackendSelection.NPU,
         InferenceBackendSelection.NPU_S1,
         InferenceBackendSelection.NPU_S2,
         InferenceBackendSelection.NPU_S3,
@@ -260,6 +263,7 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
             InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
             InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
             InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+            InferenceBackendSelection.NPU,
             InferenceBackendSelection.NPU_S1,
             InferenceBackendSelection.NPU_S2,
             InferenceBackendSelection.NPU_S3,
@@ -271,6 +275,7 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
             InferenceBackendSelection.AUTOMATIC -> NPU_S1_ROUTE_FAMILY_LOCAL_DEFAULT
             InferenceBackendSelection.CPU -> NPU_S1_ROUTE_FAMILY_LOCAL_CPU
             InferenceBackendSelection.GPU -> NPU_S1_ROUTE_FAMILY_LOCAL_GPU
+            InferenceBackendSelection.NPU -> NPU_S1_ROUTE_FAMILY_NPU_S5
             InferenceBackendSelection.NPU_S1 -> NPU_S1_ROUTE_FAMILY_NPU_S1
             InferenceBackendSelection.NPU_S2 -> NPU_S1_ROUTE_FAMILY_NPU_S2
             InferenceBackendSelection.NPU_S3 -> NPU_S1_ROUTE_FAMILY_NPU_S3

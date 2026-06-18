@@ -47,7 +47,7 @@ data class SettingsData(
     val hiddenQairt244PromptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
 ) {
     val inferenceBackendSelection: InferenceBackendSelection
-        get() = InferenceBackendSelection.fromSettings(
+        get() = InferenceBackendSelection.userFacingFromSettings(
             preferredBackend = preferredBackendDryRunSetting,
             npuStandardRouteMode = npuStandardRouteMode,
         )

@@ -1,14 +1,13 @@
 # NPU Settings Consolidation Rollout Plan
 
-Scope: review, documentation, and script planning only. This plan does not
-change Android runtime behavior, ChatScreen delivery, NPU route behavior,
-Settings UI implementation, native libraries, hidden configuration, or stored
-preference values.
+Scope: Settings display consolidation only. This plan does not change Android
+runtime behavior, ChatScreen delivery, NPU route behavior, native libraries,
+hidden configuration, DB schema, or stored preference keys.
 
 ## Current Settings Structure
 
-Settings currently exposes NPU staged entries as if they were separate backend
-choices. The visible history includes entries such as:
+Settings previously exposed NPU staged entries as if they were separate backend
+choices. The visible history included entries such as:
 
 - NPU S1 response display
 - NPU S2 DB save
@@ -27,7 +26,9 @@ The staged standard-route work now extends through the later DEV phases:
 - Phase 7A: Markdown gate
 - Phase 7B: pseudo streaming gate (`debug.lami.npu_standard_route_phase=8`)
 
-These are integration phases, not separate hardware backends.
+These are integration phases, not separate hardware backends. The Settings UI
+now presents NPU as one user-facing backend option and keeps S1-S5 as
+developer-only legacy phase choices.
 
 ## Problem With NPU S1-S5 As Backends
 
@@ -44,25 +45,39 @@ phase selector while rollout remains gated.
 
 ## NPU Backend Consolidation Proposal
 
-Short-term backend selector:
+Current user-facing backend selector:
 
 ```text
 Automatic
 CPU
 GPU Experimental
-NPU Experimental / DEV
+NPU Experimental
 ```
 
-NPU should remain marked experimental until the rollout review confirms:
+The NPU option maps to the existing standard route preference shape rather than
+introducing a new runtime path:
+
+```text
+preferredBackendDryRunSetting=DEFAULT
+npuStandardRouteMode=FULL
+```
+
+The later Phase 6-8 verification remains controlled by the existing DEV
+property:
+
+```text
+debug.lami.npu_standard_route_phase=6..8
+```
+
+NPU remains marked experimental even after rollout readiness confirms:
 
 ```text
 NPU_ROLLOUT_READY=true
 ROLLOUT_RISK_LEVEL=medium or lower
 ```
 
-The current expected ready state still carries `medium` rollout risk because
-Settings UI consolidation, developer phase selector UI, and rollout monitoring
-are not implemented by this review step.
+The expected ready state can still carry `medium` rollout risk because rollout
+monitoring and any future production label change are separate tasks.
 
 ## Debug Phase Selector Proposal
 
@@ -73,14 +88,19 @@ debug.lami.npu_standard_route_dev_gate=true
 debug.lami.npu_standard_route_phase=1..8
 ```
 
-Later Settings work can mirror this as a developer-only phase selector:
+Settings now keeps S1-S5 behind developer access as legacy phase choices:
 
 ```text
-NPU DEV Phase 1: diagnostics
-NPU DEV Phase 2: conversation
-NPU DEV Phase 3: generate diagnostics
-NPU DEV Phase 4: UI
-NPU DEV Phase 5: UI + TTS
+DEV: NPU S1 response only
+DEV: NPU S2 DB save
+DEV: NPU S3 Markdown
+DEV: NPU S4 Streaming
+DEV: NPU S5 TTS
+```
+
+The property-driven Phase 6-8 selector remains external for now:
+
+```text
 NPU DEV Phase 6: UI + TTS + DB
 NPU DEV Phase 7A: UI + TTS + DB + Markdown
 NPU DEV Phase 7B: pseudo streaming
@@ -95,8 +115,7 @@ Use a non-destructive migration:
 1. Keep existing preference keys readable.
 2. Keep existing S1-S5/S8 values mapped to their equivalent phase.
 3. Add display labels that clarify these values are NPU DEV phases.
-4. Add a single consolidated NPU backend label only after final promotion and
-   rollout readiness reviews pass.
+4. Show a single consolidated NPU backend label in the normal backend list.
 5. Keep the DEV phase selector hidden or developer-scoped until standard route
    rollout monitoring is clean.
 
@@ -108,6 +127,8 @@ Backward compatibility requirements:
 
 - Existing preference keys remain valid.
 - Existing S1-S5 selections continue to map to the same diagnostic behavior.
+- Existing S1-S5 enum values remain parseable and selectable from the developer
+  section.
 - `debug.lami.npu_standard_route_phase` remains the authoritative phase gate.
 - CPU and GPU backend selection semantics do not change.
 - GPU remains experimental and blocked from promotion independently of NPU.
@@ -149,7 +170,16 @@ Backward compatibility requirements:
    PROMOTION_DECISION=blocked_for_this_artifact
    ```
 
-5. Implement Settings UI consolidation in a later UI-only task.
+5. Settings UI consolidation is implemented as a display-only change:
+
+   ```text
+   Automatic
+   CPU
+   GPU Experimental
+   NPU Experimental
+   ```
+
+   S1-S5 are no longer shown as normal backend options.
 
 6. Monitor rollout artifacts and keep rollback available.
 

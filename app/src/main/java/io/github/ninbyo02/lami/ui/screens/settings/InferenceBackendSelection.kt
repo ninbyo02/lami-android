@@ -22,36 +22,44 @@ enum class InferenceBackendSelection(
         preferredBackend = PreferredBackendDryRunSetting.GPU,
         npuStandardRouteMode = NpuStandardRouteMode.OFF,
     ),
+    NPU(
+        displayLabel = "NPU Experimental",
+        preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+        npuStandardRouteMode = NpuStandardRouteMode.FULL,
+    ),
     NPU_S1(
-        displayLabel = "NPU S1 応答表示",
+        displayLabel = "DEV: NPU S1 response only",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
     ),
     NPU_S2(
-        displayLabel = "NPU S2 DB保存",
+        displayLabel = "DEV: NPU S2 DB save",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.S2_DB,
     ),
     NPU_S3(
-        displayLabel = "NPU S3 Markdown",
+        displayLabel = "DEV: NPU S3 Markdown",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.S3_MARKDOWN,
     ),
     NPU_S4(
-        displayLabel = "NPU S4 Streaming",
+        displayLabel = "DEV: NPU S4 Streaming",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.S4A_PSEUDO_STREAMING,
     ),
     NPU_S5(
-        displayLabel = "NPU S5 TTS",
+        displayLabel = "DEV: NPU S5 TTS",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.FULL,
     );
 
     companion object {
         val selectableEntries: List<InferenceBackendSelection> = entries
+        val userFacingEntries: List<InferenceBackendSelection> = listOf(AUTOMATIC, CPU, GPU, NPU)
         val localEntries: List<InferenceBackendSelection> = listOf(AUTOMATIC, CPU, GPU)
-        val npuEntries: List<InferenceBackendSelection> = listOf(NPU_S1, NPU_S2, NPU_S3, NPU_S4, NPU_S5)
+        val developerNpuPhaseEntries: List<InferenceBackendSelection> =
+            listOf(NPU_S1, NPU_S2, NPU_S3, NPU_S4, NPU_S5)
+        val npuEntries: List<InferenceBackendSelection> = developerNpuPhaseEntries
 
         fun fromSettings(
             preferredBackend: PreferredBackendDryRunSetting,
@@ -71,8 +79,24 @@ enum class InferenceBackendSelection(
                     NpuStandardRouteMode.FULL -> NPU_S5
                 }
             }
+
+        fun userFacingFromSettings(
+            preferredBackend: PreferredBackendDryRunSetting,
+            npuStandardRouteMode: NpuStandardRouteMode,
+        ): InferenceBackendSelection =
+            when (preferredBackend) {
+                PreferredBackendDryRunSetting.CPU -> CPU
+                PreferredBackendDryRunSetting.GPU -> GPU
+                PreferredBackendDryRunSetting.DEFAULT,
+                PreferredBackendDryRunSetting.NPU,
+                PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU ->
+                    if (npuStandardRouteMode == NpuStandardRouteMode.OFF) AUTOMATIC else NPU
+            }
     }
 }
+
+internal fun isDeveloperNpuPhaseSelection(selection: InferenceBackendSelection): Boolean =
+    selection in InferenceBackendSelection.developerNpuPhaseEntries
 
 internal fun effectiveNpuStandardRouteModeForBackendSelection(
     preferredBackend: PreferredBackendDryRunSetting,

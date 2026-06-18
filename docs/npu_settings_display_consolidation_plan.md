@@ -2,7 +2,7 @@
 
 ## Current Problem
 
-The Settings backend selector currently exposes entries such as:
+The Settings backend selector used to expose entries such as:
 
 - NPU S1 response display
 - NPU S2 DB save
@@ -11,17 +11,23 @@ The Settings backend selector currently exposes entries such as:
 - NPU S5 TTS
 
 These are not separate hardware backends. They are staged NPU standard-route
-integration phases. Presenting them beside CPU/GPU makes the user-facing
-backend model look more fragmented than the actual runtime design.
+integration phases. Presenting them beside CPU/GPU made the user-facing backend
+model look more fragmented than the actual runtime design.
+
+The UI now shows one user-facing NPU backend entry:
+
+- NPU Experimental
+
+S1-S5 remain available only as developer legacy phase choices.
 
 ## Interpretation
 
-The durable backend choices should trend toward:
+The durable backend choices are:
 
 - Automatic
 - CPU
 - GPU Experimental
-- NPU Experimental / DEV
+- NPU Experimental
 
 S1-S8 should be treated as NPU route phases:
 
@@ -48,10 +54,12 @@ Non-destructive display improvements are acceptable:
 
 ## Medium-Term Migration Policy
 
-After Phase 6/7/8 gates and final promotion review are validated, split the UI into:
+After Phase 6/7/8 gates and final promotion review were validated, the UI was
+split into:
 
 - Backend selector: Automatic / CPU / GPU Experimental / NPU Experimental
-- NPU detail selector: Phase 1 through Phase 7
+- NPU developer detail selector: legacy S1-S5 phase choices, with Phase 6-8
+  still controlled by `debug.lami.npu_standard_route_phase`
 
 Migration should preserve compatibility:
 
@@ -65,20 +73,17 @@ The rollout-specific review and migration sequence are tracked in
 
 ## User-Facing Label Proposal
 
-Short term:
+Developer-only legacy labels:
 
-- `NPU DEV Phase 1: diagnostics`
-- `NPU DEV Phase 2: conversation`
-- `NPU DEV Phase 3: generate diagnostics`
-- `NPU DEV Phase 4: UI`
-- `NPU DEV Phase 5: UI + TTS`
-- `NPU DEV Phase 6: UI + TTS + DB`
-- `NPU DEV Phase 7A: UI + TTS + DB + Markdown`
-- `NPU DEV Phase 7B: pseudo streaming`
+- `DEV: NPU S1 response only`
+- `DEV: NPU S2 DB save`
+- `DEV: NPU S3 Markdown`
+- `DEV: NPU S4 Streaming`
+- `DEV: NPU S5 TTS`
 
 Backend-level label:
 
-- `NPU Experimental / DEV`
+- `NPU Experimental`
 
 ## Developer Phase Selector Proposal
 
@@ -99,11 +104,11 @@ safe gate during staged validation.
 - Moving too early to a single `NPU` user-facing entry could imply production
   readiness before Phase 6/7 validation is complete.
 
-## Implementation Order
+## Implementation Status
 
-1. Keep existing keys and route behavior.
-2. Fix Phase 4/5 actual UI/TTS delivery while DB/Markdown/Streaming remain off.
-3. Update docs and diagnostics to distinguish `allowed` from `executed`.
-4. Adjust Settings labels non-destructively in a later UI-only change.
-5. Add a separate NPU phase selector only after Phase 8 and
-   `docs/npu_standard_route_final_promotion_review.md` are stable.
+1. Existing keys and route behavior are kept.
+2. The normal backend list now shows NPU as one `NPU Experimental` entry.
+3. Legacy S1-S5 entries are developer-only phase choices.
+4. CPU/GPU labels and route behavior are unchanged.
+5. Phase 6-8 remain property-driven and are not exposed as destructive
+   preference migrations.

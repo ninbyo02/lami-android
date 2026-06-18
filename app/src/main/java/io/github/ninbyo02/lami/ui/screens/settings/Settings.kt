@@ -150,6 +150,9 @@ internal const val LEGACY_QAIRT244_DIAGNOSTIC_TITLE = "Legacy QAIRT244診断"
 internal const val LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION =
     "旧QAIRT診断経路です。S1〜S5 NPU標準ルートとは別で、通常利用は非推奨です。"
 
+internal const val NPU_EXPERIMENTAL_BACKEND_DESCRIPTION =
+    "NPU Experimental: Uses the completed NPU standard route with UI, TTS, DB, Markdown, and pseudo streaming gates."
+
 internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): String =
     when (mode) {
         NpuStandardRouteMode.OFF -> "OFF"
@@ -626,12 +629,12 @@ fun Settings(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は当面 CPU 優先です。\nGPU は端末依存で Genericモデルの engine create timeout が起きる可能性があるため、DEV診断目的の Experimental / 非推奨です。\nNPU S1〜S5 は開発者向け NPU標準ルートです。",
+                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は当面 CPU 優先です。\nGPU は端末依存で Genericモデルの engine create timeout が起きる可能性があるため、DEV診断目的の Experimental / 非推奨です。\nNPU は標準ルート完走済みの Experimental backend として表示します。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             val currentBackendSelection = settingsData.inferenceBackendSelection
-                            InferenceBackendSelection.localEntries.forEach { selection ->
+                            InferenceBackendSelection.userFacingEntries.forEach { selection ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -655,40 +658,53 @@ fun Settings(
                                     Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
-                            Text(
-                                text = "────────────",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            InferenceBackendSelection.npuEntries.forEach { selection ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            scope.launch {
-                                                settingsPreferences.saveInferenceBackendSelection(selection)
-                                            }
-                                        }
-                                        .padding(vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = currentBackendSelection == selection,
-                                        onClick = {
-                                            scope.launch {
-                                                settingsPreferences.saveInferenceBackendSelection(selection)
-                                            }
-                                        },
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
-                                }
+                            if (currentBackendSelection == InferenceBackendSelection.NPU) {
+                                Text(
+                                    text = NPU_EXPERIMENTAL_BACKEND_DESCRIPTION,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                            Text(
-                                text = "注意: NPU S1〜S5 は developer 向け実験機能です。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
+                            if (settingsData.developerAccessEnabled) {
+                                Text(
+                                    text = "NPU standard route phase（developer）",
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = "S1〜S5 は backend ではなく標準ルートの legacy developer phase です。通常の backend list には NPU Experimental として1項目だけ表示します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                InferenceBackendSelection.developerNpuPhaseEntries.forEach { selection ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsPreferences.saveInferenceBackendSelection(selection)
+                                                }
+                                            }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(
+                                            selected = settingsData.npuStandardRouteMode == selection.npuStandardRouteMode,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsPreferences.saveInferenceBackendSelection(selection)
+                                                }
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                                Text(
+                                    text = "Phase 6〜8 は debug.lami.npu_standard_route_phase=6..8 で確認済みです。既存 preference key は互換維持します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                     if (settingsData.developerAccessEnabled) {

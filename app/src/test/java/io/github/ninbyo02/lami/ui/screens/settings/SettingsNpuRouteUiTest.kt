@@ -54,15 +54,22 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `unified inference backend selection maps NPU choices to standard route phases`() {
+    fun `user facing backend list exposes NPU as one option`() {
         assertEquals(
             listOf(
                 InferenceBackendSelection.AUTOMATIC,
                 InferenceBackendSelection.CPU,
                 InferenceBackendSelection.GPU,
+                InferenceBackendSelection.NPU,
             ),
-            InferenceBackendSelection.localEntries,
+            InferenceBackendSelection.userFacingEntries,
         )
+        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU Experimental"))
+        assertTrue(InferenceBackendSelection.userFacingEntries.none { isDeveloperNpuPhaseSelection(it) })
+    }
+
+    @Test
+    fun `developer NPU phase entries remain available for compatibility`() {
         assertEquals(
             listOf(
                 InferenceBackendSelection.NPU_S1,
@@ -71,7 +78,39 @@ class SettingsNpuRouteUiTest {
                 InferenceBackendSelection.NPU_S4,
                 InferenceBackendSelection.NPU_S5,
             ),
+            InferenceBackendSelection.developerNpuPhaseEntries,
+        )
+        assertEquals(
+            InferenceBackendSelection.developerNpuPhaseEntries,
             InferenceBackendSelection.npuEntries,
+        )
+        assertTrue(InferenceBackendSelection.developerNpuPhaseEntries.all { isDeveloperNpuPhaseSelection(it) })
+        assertTrue(InferenceBackendSelection.NPU_S1.displayLabel.startsWith("DEV:"))
+        assertTrue(InferenceBackendSelection.NPU_S5.displayLabel.startsWith("DEV:"))
+    }
+
+    @Test
+    fun `unified inference backend selection maps NPU phases to single user facing NPU option`() {
+        assertEquals(
+            InferenceBackendSelection.NPU,
+            InferenceBackendSelection.userFacingFromSettings(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+        )
+        assertEquals(
+            InferenceBackendSelection.NPU,
+            InferenceBackendSelection.userFacingFromSettings(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            ),
+        )
+        assertEquals(
+            InferenceBackendSelection.NPU_S1,
+            InferenceBackendSelection.fromSettings(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
         )
         assertEquals(
             NpuStandardRouteMode.S1_ONLY,
@@ -87,6 +126,16 @@ class SettingsNpuRouteUiTest {
                 npuStandardRouteMode = NpuStandardRouteMode.FULL,
             ),
         )
+    }
+
+    @Test
+    fun `selecting user facing NPU maps to completed standard route mode without changing CPU or GPU`() {
+        assertEquals(PreferredBackendDryRunSetting.DEFAULT, InferenceBackendSelection.NPU.preferredBackend)
+        assertEquals(NpuStandardRouteMode.FULL, InferenceBackendSelection.NPU.npuStandardRouteMode)
+        assertEquals(PreferredBackendDryRunSetting.CPU, InferenceBackendSelection.CPU.preferredBackend)
+        assertEquals(NpuStandardRouteMode.OFF, InferenceBackendSelection.CPU.npuStandardRouteMode)
+        assertEquals(PreferredBackendDryRunSetting.GPU, InferenceBackendSelection.GPU.preferredBackend)
+        assertEquals(NpuStandardRouteMode.OFF, InferenceBackendSelection.GPU.npuStandardRouteMode)
     }
 
     @Test
@@ -169,5 +218,12 @@ class SettingsNpuRouteUiTest {
         assertTrue(LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION.contains("旧QAIRT診断経路"))
         assertTrue(LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION.contains("S1〜S5 NPU標準ルートとは別"))
         assertTrue(LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION.contains("通常利用は非推奨"))
+    }
+
+    @Test
+    fun `NPU experimental backend description explains consolidated standard route`() {
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU Experimental"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("UI, TTS, DB, Markdown"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("pseudo streaming"))
     }
 }

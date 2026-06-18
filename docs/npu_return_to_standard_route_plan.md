@@ -390,6 +390,13 @@ Settings should treat S1-S8 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
 
+Settings UI consolidation is implemented as a display-only change: the
+user-facing backend selector now shows one `NPU Experimental` option, while the
+legacy S1-S5 entries remain developer-only phase choices. Selecting the
+user-facing NPU option keeps the existing standard-route preference shape and
+does not introduce a new runtime path. Phase 6-8 remain governed by
+`debug.lami.npu_standard_route_phase`.
+
 Settings consolidation rollout readiness is reviewed by
 `scripts/review_npu_rollout_readiness.sh` and documented in
 `docs/npu_settings_consolidation_rollout_plan.md`. It consumes either raw Phase
