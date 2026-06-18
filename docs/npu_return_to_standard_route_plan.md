@@ -390,6 +390,14 @@ Settings should treat S1-S8 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
 around `NPU Experimental / DEV` plus a developer phase selector.
 
+Settings consolidation rollout readiness is reviewed by
+`scripts/review_npu_rollout_readiness.sh` and documented in
+`docs/npu_settings_consolidation_rollout_plan.md`. It consumes either raw Phase
+7B diagnostics or final promotion review output. A positive final promotion
+review can produce `NPU_ROLLOUT_READY=true`, but rollout risk remains `medium`
+until the Settings UI consolidation, developer phase selector, and monitoring
+work are implemented in later UI-only tasks.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

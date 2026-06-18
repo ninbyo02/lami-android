@@ -59,6 +59,10 @@ Migration should preserve compatibility:
 - Stored S1-S8 values map to equivalent NPU detail phases.
 - No destructive deletion of preferences during the transition.
 
+The rollout-specific review and migration sequence are tracked in
+`docs/npu_settings_consolidation_rollout_plan.md`. Use
+`scripts/review_npu_rollout_readiness.sh` before starting Settings UI changes.
+
 ## User-Facing Label Proposal
 
 Short term:
