@@ -132,10 +132,26 @@ class SettingsNpuRouteUiTest {
     fun `selecting user facing NPU maps to completed standard route mode without changing CPU or GPU`() {
         assertEquals(PreferredBackendDryRunSetting.DEFAULT, InferenceBackendSelection.NPU.preferredBackend)
         assertEquals(NpuStandardRouteMode.FULL, InferenceBackendSelection.NPU.npuStandardRouteMode)
+        assertEquals(
+            NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            NpuStandardRouteSelectionSource.forSelection(InferenceBackendSelection.NPU),
+        )
         assertEquals(PreferredBackendDryRunSetting.CPU, InferenceBackendSelection.CPU.preferredBackend)
         assertEquals(NpuStandardRouteMode.OFF, InferenceBackendSelection.CPU.npuStandardRouteMode)
+        assertEquals(
+            NpuStandardRouteSelectionSource.LOCAL_BACKEND,
+            NpuStandardRouteSelectionSource.forSelection(InferenceBackendSelection.CPU),
+        )
         assertEquals(PreferredBackendDryRunSetting.GPU, InferenceBackendSelection.GPU.preferredBackend)
         assertEquals(NpuStandardRouteMode.OFF, InferenceBackendSelection.GPU.npuStandardRouteMode)
+        assertEquals(
+            NpuStandardRouteSelectionSource.LOCAL_BACKEND,
+            NpuStandardRouteSelectionSource.forSelection(InferenceBackendSelection.GPU),
+        )
+        assertEquals(
+            NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE,
+            NpuStandardRouteSelectionSource.forSelection(InferenceBackendSelection.NPU_S5),
+        )
     }
 
     @Test

@@ -20,6 +20,10 @@ The UI now shows one user-facing NPU backend entry:
 
 S1-S5 remain available only as developer legacy phase choices.
 
+Phase R1 adds a non-destructive source marker so the app can distinguish the
+user-facing `NPU Experimental` selection from legacy developer S1-S5 choices.
+The marker does not remove or rename the existing preference keys.
+
 ## Interpretation
 
 The durable backend choices are:
@@ -112,3 +116,6 @@ safe gate during staged validation.
 4. CPU/GPU labels and route behavior are unchanged.
 5. Phase 6-8 remain property-driven and are not exposed as destructive
    preference migrations.
+6. R1 maps user-facing `NPU Experimental` to completed phase 8 only while
+   `debug.lami.npu_standard_route_dev_gate=true`; explicit phase properties
+   still override the completed-route default.

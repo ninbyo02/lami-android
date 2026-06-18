@@ -60,6 +60,7 @@ introducing a new runtime path:
 ```text
 preferredBackendDryRunSetting=DEFAULT
 npuStandardRouteMode=FULL
+npuStandardRouteSelectionSource=USER_FACING_NPU_EXPERIMENTAL
 ```
 
 The later Phase 6-8 verification remains controlled by the existing DEV
@@ -78,6 +79,34 @@ ROLLOUT_RISK_LEVEL=medium or lower
 
 The expected ready state can still carry `medium` rollout risk because rollout
 monitoring and any future production label change are separate tasks.
+
+## R1 Runtime Mapping
+
+Phase R1 connects the user-facing `NPU Experimental` selection to the completed
+standard route behavior without removing the developer gate. The mapping is:
+
+```text
+NPU Experimental + debug.lami.npu_standard_route_dev_gate=true + no explicit phase property
+  -> effective phase=8
+  -> npu_standard_route_phase_name=7b_pseudo_streaming_gate
+```
+
+If `debug.lami.npu_standard_route_phase` is explicitly set, it wins:
+
+```text
+NPU Experimental + debug.lami.npu_standard_route_phase=5
+  -> effective phase=5
+  -> npu_standard_route_selection_mode=developer_phase_override
+```
+
+If the dev gate is false, R1 does not silently open the completed route:
+
+```text
+npu_standard_route_completed_route_selected=false
+npu_standard_route_completed_route_block_reason=dev_gate_disabled
+```
+
+This keeps R1 as a rollout mapping step, not a full dev-gate removal.
 
 ## Debug Phase Selector Proposal
 
@@ -129,6 +158,10 @@ Backward compatibility requirements:
 - Existing S1-S5 selections continue to map to the same diagnostic behavior.
 - Existing S1-S5 enum values remain parseable and selectable from the developer
   section.
+- `npu_standard_route_selection_source` records whether the current NPU value
+  came from the user-facing `NPU Experimental` item or from a developer legacy
+  phase selector. Existing installations without this key remain readable as
+  legacy unspecified.
 - `debug.lami.npu_standard_route_phase` remains the authoritative phase gate.
 - CPU and GPU backend selection semantics do not change.
 - GPU remains experimental and blocked from promotion independently of NPU.
@@ -195,6 +228,8 @@ Rollback immediately if any of these appear after Settings consolidation:
 - Settings migration breaks existing S1-S5 developer values
 - CPU route behavior changes
 - GPU route promotion blocker is bypassed
+- `NPU Experimental` opens Phase 8 while
+  `debug.lami.npu_standard_route_dev_gate` is false
 
 Rollback action:
 

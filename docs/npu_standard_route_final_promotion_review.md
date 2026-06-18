@@ -149,6 +149,13 @@ keys compatible. The short-term Settings model should present NPU as one
 experimental backend with developer phase controls, not as separate hardware
 backends for S1-S8.
 
+Phase R1 keeps that compatibility while connecting the user-facing
+`NPU Experimental` selection to the completed standard route. The default
+completed phase is `8` only when `debug.lami.npu_standard_route_dev_gate=true`
+and no explicit phase override is present. Explicit
+`debug.lami.npu_standard_route_phase` values remain developer overrides and
+must continue to be reflected in diagnostics.
+
 Remaining rollout tasks:
 
 - consolidate Settings display around `NPU Experimental / DEV`

@@ -2,6 +2,25 @@ package io.github.ninbyo02.lami.ui.screens.settings
 
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 
+enum class NpuStandardRouteSelectionSource {
+    LOCAL_BACKEND,
+    USER_FACING_NPU_EXPERIMENTAL,
+    DEVELOPER_PHASE_OVERRIDE,
+    LEGACY_UNSPECIFIED;
+
+    companion object {
+        fun fromStorage(raw: String?): NpuStandardRouteSelectionSource =
+            entries.firstOrNull { it.name == raw } ?: LEGACY_UNSPECIFIED
+
+        fun forSelection(selection: InferenceBackendSelection): NpuStandardRouteSelectionSource =
+            when {
+                selection == InferenceBackendSelection.NPU -> USER_FACING_NPU_EXPERIMENTAL
+                isDeveloperNpuPhaseSelection(selection) -> DEVELOPER_PHASE_OVERRIDE
+                else -> LOCAL_BACKEND
+            }
+    }
+}
+
 enum class InferenceBackendSelection(
     val displayLabel: String,
     val preferredBackend: PreferredBackendDryRunSetting,

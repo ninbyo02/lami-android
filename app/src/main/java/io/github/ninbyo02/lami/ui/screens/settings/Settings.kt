@@ -688,7 +688,10 @@ fun Settings(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         RadioButton(
-                                            selected = settingsData.npuStandardRouteMode == selection.npuStandardRouteMode,
+                                            selected =
+                                                settingsData.npuStandardRouteSelectionSource ==
+                                                    NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE &&
+                                                    settingsData.npuStandardRouteMode == selection.npuStandardRouteMode,
                                             onClick = {
                                                 scope.launch {
                                                     settingsPreferences.saveInferenceBackendSelection(selection)

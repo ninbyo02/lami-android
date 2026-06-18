@@ -383,6 +383,7 @@ class SettingsPreferences(private val context: Context) {
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
+    private val npuStandardRouteSelectionSourceKey = stringPreferencesKey("npu_standard_route_selection_source")
     private val hiddenQairt244PromptTemplateModeKey = stringPreferencesKey("hidden_qairt244_prompt_template_mode")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
@@ -455,6 +456,9 @@ class SettingsPreferences(private val context: Context) {
             devEnableQairt244Sm8750NpuRoute = isQairt244Sm8750NpuRouteEnabled(preferences),
             npuStandardRouteMode = NpuStandardRoutePreferences.fromDataStoreValue(
                 preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            ),
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.fromStorage(
+                preferences[npuStandardRouteSelectionSourceKey],
             ),
             npuStandardRouteMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
                 preferences[NpuStandardRoutePreferences.npuStandardRouteMaxOutputTokensKey],
@@ -563,6 +567,11 @@ class SettingsPreferences(private val context: Context) {
     val preferredBackendDryRunSettingFlow: Flow<PreferredBackendDryRunSetting> = context.dataStore.data.map { preferences ->
         PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey])
     }
+
+    val npuStandardRouteSelectionSourceFlow: Flow<NpuStandardRouteSelectionSource> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRouteSelectionSource.fromStorage(preferences[npuStandardRouteSelectionSourceKey])
+        }
 
     val markdownStreamingModeFlow: Flow<MarkdownStreamingMode> = context.dataStore.data.map { preferences ->
         resolveEffectiveMarkdownStreamingMode(
@@ -823,6 +832,7 @@ class SettingsPreferences(private val context: Context) {
     suspend fun savePreferredBackendDryRunSetting(setting: PreferredBackendDryRunSetting) {
         context.dataStore.edit { preferences ->
             preferences[preferredBackendDryRunKey] = setting.name
+            preferences[npuStandardRouteSelectionSourceKey] = NpuStandardRouteSelectionSource.LOCAL_BACKEND.name
         }
     }
 
@@ -830,6 +840,8 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[preferredBackendDryRunKey] = selection.preferredBackend.name
             preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey] = selection.npuStandardRouteMode.name
+            preferences[npuStandardRouteSelectionSourceKey] =
+                NpuStandardRouteSelectionSource.forSelection(selection).name
         }
     }
 

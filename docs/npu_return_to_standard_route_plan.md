@@ -397,6 +397,20 @@ user-facing NPU option keeps the existing standard-route preference shape and
 does not introduce a new runtime path. Phase 6-8 remain governed by
 `debug.lami.npu_standard_route_phase`.
 
+Phase R1 connects `NPU Experimental` to completed standard-route behavior with a
+source marker:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_completed_phase_default=8
+```
+
+When `debug.lami.npu_standard_route_dev_gate=true` and no explicit phase
+property is set, the effective phase is `8`. If a phase property is set, it wins
+and diagnostics report `npu_standard_route_selection_mode=developer_phase_override`.
+If the dev gate is false, completed route selection is blocked with
+`npu_standard_route_completed_route_block_reason=dev_gate_disabled`.
+
 Settings consolidation rollout readiness is reviewed by
 `scripts/review_npu_rollout_readiness.sh` and documented in
 `docs/npu_settings_consolidation_rollout_plan.md`. It consumes either raw Phase

@@ -1,5 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+
 internal const val NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY =
     "debug.lami.npu_standard_route_dev_gate"
 internal const val NPU_STANDARD_ROUTE_PHASE_PROPERTY =
@@ -29,6 +32,92 @@ internal const val NPU_STANDARD_ROUTE_ROLLBACK_REASON_QUALITY_GATE_OUTPUT =
     "quality_gate_output_must_not_reach_ui_tts_db"
 internal const val NPU_STANDARD_ROUTE_ROLLBACK_REASON_PHASE3_QUALITY_FAIL =
     "quality_candidate_fail_output_suppressed_before_ui_tts_db"
+internal const val NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING =
+    "user_facing_npu_experimental"
+internal const val NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE =
+    "developer_phase_override"
+internal const val NPU_STANDARD_ROUTE_SELECTION_MODE_LOCAL_BACKEND = "local_backend"
+internal const val NPU_STANDARD_ROUTE_SELECTION_MODE_LEGACY = "legacy_unspecified"
+internal const val NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT =
+    "completed_route_default"
+internal const val NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY = "debug_property"
+internal const val NPU_STANDARD_ROUTE_PHASE_SOURCE_DEVELOPER_PHASE_SELECTION =
+    "developer_phase_selection"
+internal const val NPU_STANDARD_ROUTE_PHASE_SOURCE_GATE_DISABLED = "dev_gate_disabled"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE = "none"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_DEV_GATE_DISABLED =
+    "dev_gate_disabled"
+
+internal data class NpuStandardRouteRolloutSelection(
+    val rolloutGateEnabled: Boolean,
+    val selectionMode: String,
+    val userFacingBackend: String,
+    val completedPhaseDefault: String,
+    val completedRouteSelected: Boolean,
+    val developerPhaseOverride: Boolean,
+    val completedRouteBlockReason: String,
+    val effectivePhaseSource: String,
+    val effectivePhase: String,
+    val effectiveMode: NpuStandardRouteMode,
+)
+
+internal fun resolveNpuStandardRouteRolloutSelection(
+    preferredBackend: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+    selectionSource: NpuStandardRouteSelectionSource,
+    propertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
+): NpuStandardRouteRolloutSelection {
+    val devGateEnabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
+        ?.trim()
+        ?.equals("true", ignoreCase = true) == true
+    val explicitPhase = resolveExplicitNpuStandardRouteDiagnosticPhase(propertyReader)
+    val userFacingNpu = selectionSource == NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL &&
+        preferredBackend == PreferredBackendDryRunSetting.DEFAULT &&
+        npuStandardRouteMode == NpuStandardRouteMode.FULL
+    val developerOverride = explicitPhase != null ||
+        selectionSource == NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE
+    val selectionMode = when {
+        explicitPhase != null -> NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
+        userFacingNpu -> NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING
+        selectionSource == NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE ->
+            NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
+        selectionSource == NpuStandardRouteSelectionSource.LOCAL_BACKEND ->
+            NPU_STANDARD_ROUTE_SELECTION_MODE_LOCAL_BACKEND
+        else -> NPU_STANDARD_ROUTE_SELECTION_MODE_LEGACY
+    }
+    val completedRouteSelected = userFacingNpu && devGateEnabled && explicitPhase == null
+    val effectivePhase = when {
+        explicitPhase != null -> explicitPhase
+        completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_8
+        else -> NPU_STANDARD_ROUTE_PHASE_1
+    }
+    val effectivePhaseSource = when {
+        explicitPhase != null -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY
+        completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT
+        userFacingNpu && !devGateEnabled -> NPU_STANDARD_ROUTE_PHASE_SOURCE_GATE_DISABLED
+        else -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEVELOPER_PHASE_SELECTION
+    }
+    return NpuStandardRouteRolloutSelection(
+        rolloutGateEnabled = devGateEnabled,
+        selectionMode = selectionMode,
+        userFacingBackend = if (userFacingNpu) "NPU Experimental" else "unavailable",
+        completedPhaseDefault = NPU_STANDARD_ROUTE_PHASE_8,
+        completedRouteSelected = completedRouteSelected,
+        developerPhaseOverride = developerOverride,
+        completedRouteBlockReason = if (userFacingNpu && !devGateEnabled) {
+            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_DEV_GATE_DISABLED
+        } else {
+            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE
+        },
+        effectivePhaseSource = effectivePhaseSource,
+        effectivePhase = effectivePhase,
+        effectiveMode = if (userFacingNpu && !devGateEnabled) {
+            NpuStandardRouteMode.OFF
+        } else {
+            npuStandardRouteMode
+        },
+    )
+}
 
 internal fun buildNpuStandardRoutePhase1Diagnostics(
     context: LocalRouteDiagnosticContext,
@@ -53,6 +142,7 @@ internal fun buildNpuStandardRoutePhase1Diagnostics(
 internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
     result: NpuStandardRouteS1Result,
     backendDiagnostics: NpuS1BackendDiagnostics,
+    rolloutSelection: NpuStandardRouteRolloutSelection? = null,
     propertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): Map<String, String> {
     val enabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
@@ -61,8 +151,8 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
     if (!enabled) return emptyMap()
     if (!isNpuStandardRoutePhase1NpuS1DumpEligible(result, backendDiagnostics)) return emptyMap()
 
-    val phase = resolveNpuStandardRouteDiagnosticPhase(propertyReader)
-    return buildNpuStandardRoutePhaseDiagnosticsMap(
+    val phase = rolloutSelection?.effectivePhase ?: resolveNpuStandardRouteDiagnosticPhase(propertyReader)
+    return rolloutSelection.toDiagnosticsMap() + buildNpuStandardRoutePhaseDiagnosticsMap(
         phase = phase,
         connected = true,
         outputQualityCandidateStatus = result.outputQualityCandidateStatus,
@@ -76,6 +166,21 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         candidateTextLength = result.actualDisplayText.length,
         ttsTextPresent = result.ttsText.isNotBlank(),
         ttsTextLength = result.ttsText.length,
+    )
+}
+
+internal fun NpuStandardRouteRolloutSelection?.toDiagnosticsMap(): Map<String, String> {
+    if (this == null) return emptyMap()
+    return linkedMapOf(
+        "npu_standard_route_rollout_gate_enabled" to rolloutGateEnabled.toString(),
+        "npu_standard_route_selection_mode" to selectionMode,
+        "npu_standard_route_user_facing_backend" to userFacingBackend,
+        "npu_standard_route_completed_phase_default" to completedPhaseDefault,
+        "npu_standard_route_completed_route_selected" to completedRouteSelected.toString(),
+        "npu_standard_route_developer_phase_override" to developerPhaseOverride.toString(),
+        "npu_standard_route_completed_route_block_reason" to completedRouteBlockReason,
+        "npu_standard_route_effective_phase_source" to effectivePhaseSource,
+        "npu_standard_route_effective_phase" to effectivePhase,
     )
 }
 
@@ -404,6 +509,11 @@ private fun isNpuStandardRoutePhase1Backend(preferredBackend: String): Boolean {
 private fun resolveNpuStandardRouteDiagnosticPhase(
     propertyReader: (String) -> String?,
 ): String =
+    resolveExplicitNpuStandardRouteDiagnosticPhase(propertyReader) ?: NPU_STANDARD_ROUTE_PHASE_1
+
+private fun resolveExplicitNpuStandardRouteDiagnosticPhase(
+    propertyReader: (String) -> String?,
+): String? =
     when (propertyReader(NPU_STANDARD_ROUTE_PHASE_PROPERTY)?.trim()) {
         NPU_STANDARD_ROUTE_PHASE_8 -> NPU_STANDARD_ROUTE_PHASE_8
         NPU_STANDARD_ROUTE_PHASE_7 -> NPU_STANDARD_ROUTE_PHASE_7
@@ -412,7 +522,8 @@ private fun resolveNpuStandardRouteDiagnosticPhase(
         NPU_STANDARD_ROUTE_PHASE_4 -> NPU_STANDARD_ROUTE_PHASE_4
         NPU_STANDARD_ROUTE_PHASE_3 -> NPU_STANDARD_ROUTE_PHASE_3
         NPU_STANDARD_ROUTE_PHASE_2 -> NPU_STANDARD_ROUTE_PHASE_2
-        else -> NPU_STANDARD_ROUTE_PHASE_1
+        NPU_STANDARD_ROUTE_PHASE_1 -> NPU_STANDARD_ROUTE_PHASE_1
+        else -> null
     }
 
 private fun isNpuStandardRoutePhase1NpuS1DumpEligible(

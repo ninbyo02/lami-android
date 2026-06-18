@@ -161,8 +161,8 @@ import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
-import io.github.ninbyo02.lami.ui.screens.settings.effectiveNpuStandardRouteModeForBackendSelection
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -761,10 +761,15 @@ fun Home(
     val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
         initial = NpuStandardRouteMode.OFF,
     )
-    val effectiveNpuStandardRouteMode = effectiveNpuStandardRouteModeForBackendSelection(
+    val npuStandardRouteSelectionSource by settingsPreferences.npuStandardRouteSelectionSourceFlow.collectAsState(
+        initial = NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
+    )
+    val npuStandardRouteRolloutSelection = resolveNpuStandardRouteRolloutSelection(
         preferredBackend = preferredBackendDryRunSetting,
         npuStandardRouteMode = npuStandardRouteMode,
+        selectionSource = npuStandardRouteSelectionSource,
     )
+    val effectiveNpuStandardRouteMode = npuStandardRouteRolloutSelection.effectiveMode
     val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
         initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     )
@@ -3612,6 +3617,7 @@ fun Home(
                                                                     preferredBackendSetting = preferredBackendDryRunSetting,
                                                                     npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                                                 ),
+                                                                rolloutSelection = npuStandardRouteRolloutSelection,
                                                             )
                                                         val npuStandardRoutePhaseGateActive =
                                                             npuStandardRoutePhaseDiagnostics.isNotEmpty()
