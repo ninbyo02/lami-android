@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import java.security.MessageDigest
 
 internal fun interface NpuStandardRouteS1Provider {
@@ -115,16 +116,28 @@ internal fun buildNpuStandardRouteS1DevTraceText(
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
     npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     val backendDiagnostics = npuS1BackendDiagnosticsForResult(
         result = result,
-        npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+        preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
+    val rolloutSelection = resolveNpuStandardRouteRolloutSelection(
+        preferredBackend = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        selectionSource = npuStandardRouteSelectionSource,
+        propertyReader = npuStandardRouteDevGatePropertyReader,
     )
     val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         result = result,
         backendDiagnostics = backendDiagnostics,
+        rolloutSelection = rolloutSelection,
         propertyReader = npuStandardRouteDevGatePropertyReader,
     )
     val lines = buildList {
@@ -207,6 +220,8 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
 ) : String {
     val sections = mutableListOf(
         buildNpuStandardRouteS1CompactDiagnosticCopyText(
@@ -214,6 +229,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
             result = result,
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
+            npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
         ),
     )
     buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -232,6 +248,8 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     appHistoryText: String,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
 ): String {
     val sections = mutableListOf(
         buildNpuStandardRouteS1CompactDiagnosticCopyText(
@@ -240,6 +258,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
             appHistoryText = appHistoryText,
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
+            npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
         ),
     )
     buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -259,6 +278,8 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     appHistoryText: String = "",
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
 ): String = buildNpuStandardRouteS1DiagnosticCopyText(
     input = input,
     result = result,
@@ -267,6 +288,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     appHistoryText = appHistoryText,
     preferredBackendSetting = preferredBackendSetting,
     npuStandardRouteMode = npuStandardRouteMode,
+    npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
 )
 
 internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
@@ -276,6 +298,8 @@ internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
 ): String = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
     input = input,
     result = result,
@@ -283,6 +307,7 @@ internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
     transientFallback = transientFallback,
     preferredBackendSetting = preferredBackendSetting,
     npuStandardRouteMode = npuStandardRouteMode,
+    npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
 )
 
 internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
@@ -291,6 +316,8 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     appHistoryText: String = "",
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
     npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
@@ -299,9 +326,16 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         preferredBackendSetting = preferredBackendSetting,
         npuStandardRouteMode = npuStandardRouteMode,
     )
+    val rolloutSelection = resolveNpuStandardRouteRolloutSelection(
+        preferredBackend = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        selectionSource = npuStandardRouteSelectionSource,
+        propertyReader = npuStandardRouteDevGatePropertyReader,
+    )
     val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         result = result,
         backendDiagnostics = backendDiagnostics,
+        rolloutSelection = rolloutSelection,
         propertyReader = npuStandardRouteDevGatePropertyReader,
     )
     return buildList {
@@ -402,6 +436,8 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
     npuStandardRouteDevGatePropertyReader: (String) -> String? = ::readNpuStandardRouteDevGateProperty,
 ): String = appendNpuS1ShortOutputTelemetryForDev(
     text = run {
@@ -411,9 +447,16 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
         )
+        val rolloutSelection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+            selectionSource = npuStandardRouteSelectionSource,
+            propertyReader = npuStandardRouteDevGatePropertyReader,
+        )
         val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
             result = result,
             backendDiagnostics = backendDiagnostics,
+            rolloutSelection = rolloutSelection,
             propertyReader = npuStandardRouteDevGatePropertyReader,
         )
         buildList {

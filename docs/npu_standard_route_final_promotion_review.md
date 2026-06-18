@@ -61,6 +61,22 @@ npu_standard_route_streaming_text_matches_markdown=true
 npu_standard_route_rollback_required=false
 ```
 
+After R1b, completed-route diagnostics should also be present in the artifact
+when the run came from user-facing `NPU Experimental`:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_user_facing_backend=NPU Experimental
+npu_standard_route_completed_route_selected=true
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_completed_route_family=npu_standard_route_completed
+```
+
+The internal compatibility fields may still read `selected_backend=NPU_S5` and
+`route_family=npu_s5`. That is acceptable for final-promotion artifacts as long
+as the completed-route summary keys above are present and phase 8 gates pass.
+
 Expected output:
 
 ```text

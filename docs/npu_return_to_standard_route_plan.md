@@ -411,6 +411,21 @@ and diagnostics report `npu_standard_route_selection_mode=developer_phase_overri
 If the dev gate is false, completed route selection is blocked with
 `npu_standard_route_completed_route_block_reason=dev_gate_disabled`.
 
+Phase R1b makes that mapping explicit in compact/full dumps and NPU diagnostic
+key copy. `selected_backend=NPU_S5` and `route_family=npu_s5` can still appear
+as internal legacy evidence, while rollout interpretation should use:
+
+```text
+npu_standard_route_user_facing_selected_backend=NPU Experimental
+npu_standard_route_completed_route_family=npu_standard_route_completed
+npu_standard_route_internal_legacy_backend=NPU_S5
+npu_standard_route_internal_legacy_route_family=npu_s5
+```
+
+To clear an explicit phase override on device, use reboot or
+`adb shell setprop debug.lami.npu_standard_route_phase 0`. Empty `setprop`
+values are not valid; phase `0` is treated as no explicit override.
+
 Settings consolidation rollout readiness is reviewed by
 `scripts/review_npu_rollout_readiness.sh` and documented in
 `docs/npu_settings_consolidation_rollout_plan.md`. It consumes either raw Phase

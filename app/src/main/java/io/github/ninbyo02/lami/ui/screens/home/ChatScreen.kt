@@ -3686,6 +3686,9 @@ fun Home(
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
                                                             )
                                                         } else {
                                                             null
@@ -3718,6 +3721,7 @@ fun Home(
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
                                                                 npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
                                                             )
                                                         } else {
                                                             null
@@ -3733,6 +3737,7 @@ fun Home(
                                                                 transientFallback = s1Fallback?.kind,
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
                                                                 npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
                                                             )
                                                         } else {
                                                             null

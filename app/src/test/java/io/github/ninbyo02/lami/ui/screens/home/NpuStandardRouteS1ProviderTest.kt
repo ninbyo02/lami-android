@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -600,6 +601,81 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("npu_standard_route_db_save_allowed=false"))
         assertTrue(copyText.contains("npu_standard_route_markdown_allowed=false"))
         assertTrue(copyText.contains("npu_standard_route_streaming_allowed=false"))
+    }
+
+    @Test
+    fun `S1 compact full dump trace and diagnostic copy include completed route rollout diagnostics`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "0"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            npuStandardRouteDevGatePropertyReader = reader,
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            npuStandardRouteDevGatePropertyReader = reader,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            npuStandardRouteDevGatePropertyReader = reader,
+        )
+        val copyText = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = trace),
+        )
+
+        listOf(compact, fullDump, trace, copyText).forEach { text ->
+            assertTrue(text.contains("npu_standard_route_rollout_gate_enabled=true"))
+            assertTrue(text.contains("npu_standard_route_selection_mode=user_facing_npu_experimental"))
+            assertTrue(text.contains("npu_standard_route_user_facing_backend=NPU Experimental"))
+            assertTrue(text.contains("npu_standard_route_completed_phase_default=8"))
+            assertTrue(text.contains("npu_standard_route_completed_route_selected=true"))
+            assertTrue(text.contains("npu_standard_route_developer_phase_override=false"))
+            assertTrue(text.contains("npu_standard_route_completed_route_block_reason=none"))
+            assertTrue(text.contains("npu_standard_route_effective_phase_source=completed_route_default"))
+            assertTrue(text.contains("npu_standard_route_effective_phase=8"))
+            assertTrue(text.contains("npu_standard_route_user_facing_selected_backend=NPU Experimental"))
+            assertTrue(text.contains("npu_standard_route_completed_route_family=npu_standard_route_completed"))
+            assertTrue(text.contains("npu_standard_route_internal_legacy_backend=NPU_S5"))
+            assertTrue(text.contains("npu_standard_route_internal_legacy_route_family=npu_s5"))
+            assertTrue(text.contains("npu_standard_route_phase=8"))
+            assertTrue(text.contains("npu_standard_route_phase_name=7b_pseudo_streaming_gate"))
+        }
+        assertTrue(compact.contains("selected_backend=NPU_S5"))
+        assertTrue(compact.contains("route_family=npu_s5"))
     }
 
     @Test

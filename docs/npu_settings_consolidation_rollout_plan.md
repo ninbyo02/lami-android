@@ -108,6 +108,45 @@ npu_standard_route_completed_route_block_reason=dev_gate_disabled
 
 This keeps R1 as a rollout mapping step, not a full dev-gate removal.
 
+## R1b Diagnostics Polish
+
+Phase R1b keeps the R1 runtime behavior unchanged and makes the completed-route
+mapping visible in every copied diagnostic surface. A successful user-facing NPU
+selection should now show:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_user_facing_backend=NPU Experimental
+npu_standard_route_completed_phase_default=8
+npu_standard_route_completed_route_selected=true
+npu_standard_route_developer_phase_override=false
+npu_standard_route_completed_route_block_reason=none
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_user_facing_selected_backend=NPU Experimental
+npu_standard_route_completed_route_family=npu_standard_route_completed
+npu_standard_route_internal_legacy_backend=NPU_S5
+npu_standard_route_internal_legacy_route_family=npu_s5
+```
+
+`selected_backend=NPU_S5` and `route_family=npu_s5` may still appear in compact
+logs because the completed route reuses the legacy S5-compatible internal path.
+Treat those fields as internal compatibility evidence. Use the
+`npu_standard_route_user_facing_*` and `npu_standard_route_completed_*` keys for
+rollout and final-promotion interpretation.
+
+Android `setprop` cannot clear a property with an empty value. Do not use
+`setprop debug.lami.npu_standard_route_phase ""`. To remove an explicit phase
+override, reboot the device or set:
+
+```text
+adb shell setprop debug.lami.npu_standard_route_phase 0
+```
+
+Phase `0` is treated as no explicit developer override, allowing user-facing
+`NPU Experimental` to resolve to the completed route default phase `8` while the
+dev gate remains enabled.
+
 ## Debug Phase Selector Proposal
 
 Keep the system properties as the canonical DEV gate during rollout:

@@ -119,3 +119,12 @@ safe gate during staged validation.
 6. R1 maps user-facing `NPU Experimental` to completed phase 8 only while
    `debug.lami.npu_standard_route_dev_gate=true`; explicit phase properties
    still override the completed-route default.
+7. R1b exposes completed-route diagnostics in compact/full dumps and NPU
+   diagnostic-key copy. Internal `selected_backend=NPU_S5` /
+   `route_family=npu_s5` can remain for compatibility, but rollout status should
+   be read from `npu_standard_route_user_facing_selected_backend=NPU Experimental`
+   and `npu_standard_route_completed_route_family=npu_standard_route_completed`.
+8. To clear the phase override on device, do not use an empty `setprop` value.
+   Use device reboot or `adb shell setprop debug.lami.npu_standard_route_phase 0`;
+   phase `0` means no explicit override and lets NPU Experimental default to
+   completed phase `8` when the dev gate is enabled.
