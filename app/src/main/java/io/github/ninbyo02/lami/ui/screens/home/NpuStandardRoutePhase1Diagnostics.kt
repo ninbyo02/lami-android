@@ -79,9 +79,13 @@ internal fun resolveNpuStandardRouteRolloutSelection(
         ?.trim()
         ?.equals("true", ignoreCase = true) == true
     val explicitPhase = resolveExplicitNpuStandardRouteDiagnosticPhase(propertyReader)
-    val userFacingNpu = selectionSource == NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL &&
-        preferredBackend == PreferredBackendDryRunSetting.DEFAULT &&
+    val npuExperimentalSettingsShape = preferredBackend == PreferredBackendDryRunSetting.DEFAULT &&
         npuStandardRouteMode == NpuStandardRouteMode.FULL
+    val userFacingNpu = npuExperimentalSettingsShape &&
+        (
+            selectionSource == NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL ||
+                selectionSource == NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED
+            )
     val developerOverride = explicitPhase != null ||
         selectionSource == NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE
     val selectionMode = when {

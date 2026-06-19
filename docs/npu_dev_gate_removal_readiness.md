@@ -126,6 +126,19 @@ npu_standard_route_effective_phase=8
 npu_standard_route_completed_route_family=npu_standard_route_completed
 ```
 
+R1c additionally requires `debug.lami.npu_standard_route_phase=0` to mean
+"clear explicit developer phase override". With Settings showing
+`NPU Experimental`, phase `0` or an absent phase property must resolve to the
+completed route default:
+
+```text
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+```
+
+Explicit phase values `1` through `8` remain developer overrides and should not
+be used for default rollout samples unless intentionally testing a phase.
+
 R2 is required because dev-gate removal should be based on multiple artifacts,
 not a single final-promotion proof.
 

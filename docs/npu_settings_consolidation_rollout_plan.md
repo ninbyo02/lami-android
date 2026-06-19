@@ -147,6 +147,36 @@ Phase `0` is treated as no explicit developer override, allowing user-facing
 `NPU Experimental` to resolve to the completed route default phase `8` while the
 dev gate remains enabled.
 
+## R1c Phase 0 Resolution Fix
+
+R1c fixes a device-observed gap where `debug.lami.npu_standard_route_phase=0`
+could still resolve to Phase 1 when the stored
+`npu_standard_route_selection_source` was missing or legacy-unspecified. In the
+consolidated Settings UI, `preferredBackend=DEFAULT` plus
+`npuStandardRouteMode=FULL` is displayed as user-facing `NPU Experimental`.
+Therefore:
+
+```text
+debug.lami.npu_standard_route_dev_gate=true
+debug.lami.npu_standard_route_phase=0
+preferredBackend=DEFAULT
+npuStandardRouteMode=FULL
+npuStandardRouteSelectionSource=LEGACY_UNSPECIFIED
+```
+
+now resolves as:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_completed_route_selected=true
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_completed_route_family=npu_standard_route_completed
+```
+
+Explicit phase values `1` through `8` still remain developer overrides and win
+over the completed-route default.
+
 ## R2 Rollout Monitor
 
 Phase R2 adds a separate artifact monitor:

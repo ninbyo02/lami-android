@@ -426,6 +426,20 @@ To clear an explicit phase override on device, use reboot or
 `adb shell setprop debug.lami.npu_standard_route_phase 0`. Empty `setprop`
 values are not valid; phase `0` is treated as no explicit override.
 
+Phase R1c fixes the completed-route default resolution for older or
+legacy-unspecified preference state. If Settings shows `NPU Experimental`
+(`preferredBackend=DEFAULT`, `npuStandardRouteMode=FULL`) and the phase property
+is `0` or absent, the route now resolves to:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_completed_route_family=npu_standard_route_completed
+```
+
+Explicit phase values `1` through `8` are still developer overrides.
+
 Settings consolidation rollout readiness is reviewed by
 `scripts/review_npu_rollout_readiness.sh` and documented in
 `docs/npu_settings_consolidation_rollout_plan.md`. It consumes either raw Phase

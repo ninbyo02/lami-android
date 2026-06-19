@@ -165,4 +165,72 @@ class NpuStandardRouteRolloutSelectionTest {
         assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
     }
+
+    @Test
+    fun `legacy unspecified full setting is inferred as user facing NPU Experimental when phase zero clears override`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            selectionSource = NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "0"
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
+        assertEquals("NPU Experimental", selection.userFacingBackend)
+        assertEquals(false, selection.developerPhaseOverride)
+        assertEquals(true, selection.completedRouteSelected)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+        assertEquals(NpuStandardRouteMode.FULL, selection.effectiveMode)
+        assertEquals(NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE, selection.completedRouteBlockReason)
+    }
+
+    @Test
+    fun `explicit phase8 remains developer override even for NPU Experimental`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            selectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> NPU_STANDARD_ROUTE_PHASE_8
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE, selection.selectionMode)
+        assertEquals(true, selection.developerPhaseOverride)
+        assertEquals(false, selection.completedRouteSelected)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+    }
+
+    @Test
+    fun `explicit phase1 remains route entry diagnostic and not completed route`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            selectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            propertyReader = { key ->
+                when (key) {
+                    NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                    NPU_STANDARD_ROUTE_PHASE_PROPERTY -> NPU_STANDARD_ROUTE_PHASE_1
+                    else -> null
+                }
+            },
+        )
+
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE, selection.selectionMode)
+        assertEquals(false, selection.completedRouteSelected)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_1, selection.effectivePhase)
+    }
 }

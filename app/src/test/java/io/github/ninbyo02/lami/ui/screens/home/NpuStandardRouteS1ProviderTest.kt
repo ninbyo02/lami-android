@@ -679,6 +679,57 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `S1 completed route diagnostics infer user facing NPU when selection source is legacy unspecified and phase is zero`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY -> "true"
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "0"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
+            npuStandardRouteDevGatePropertyReader = reader,
+        )
+
+        assertTrue(compact.contains("npu_standard_route_selection_mode=user_facing_npu_experimental"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_selected=true"))
+        assertTrue(compact.contains("npu_standard_route_effective_phase_source=completed_route_default"))
+        assertTrue(compact.contains("npu_standard_route_effective_phase=8"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_family=npu_standard_route_completed"))
+        assertTrue(compact.contains("npu_standard_route_phase=8"))
+        assertTrue(compact.contains("npu_standard_route_phase_name=7b_pseudo_streaming_gate"))
+        assertTrue(compact.contains("npu_standard_route_ui_append_allowed=true"))
+        assertTrue(compact.contains("npu_standard_route_tts_allowed=true"))
+        assertTrue(compact.contains("npu_standard_route_db_save_allowed=true"))
+        assertTrue(compact.contains("npu_standard_route_markdown_allowed=true"))
+        assertTrue(compact.contains("npu_standard_route_streaming_allowed=true"))
+        assertTrue(compact.contains("selected_backend=NPU_S5"))
+        assertTrue(compact.contains("route_family=npu_s5"))
+    }
+
+    @Test
     fun `S1 compact full dump and diagnostic copy include phase2 conversation-created diagnostics`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(

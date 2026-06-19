@@ -99,6 +99,14 @@ npu_standard_route_effective_phase=8
 npu_standard_route_completed_route_family=npu_standard_route_completed
 ```
 
+R1c expected behavior:
+
+- `debug.lami.npu_standard_route_phase=0` means clear explicit developer phase
+  override.
+- With Settings showing `NPU Experimental`, phase `0` or an absent phase
+  property must resolve to completed route default phase `8`.
+- Explicit phase values `1` through `8` remain developer overrides.
+
 `selected_backend=NPU_S5` and `route_family=npu_s5` may still appear as internal
 legacy compatibility evidence. Treat the completed-route keys above as the
 user-facing rollout evidence.
