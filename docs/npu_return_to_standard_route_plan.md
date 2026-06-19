@@ -427,6 +427,41 @@ When enabled, completed-route selection is blocked with:
 npu_standard_route_completed_route_block_reason=kill_switch_disabled
 ```
 
+R5a fixes the kill-switch artifact path so this block is reported as an NPU
+completed-route safe block instead of an `Automatic` / `local_default` failure.
+With `NPU Experimental`, phase `0`, and
+`debug.lami.npu_standard_route_completed_route_disabled=true`, diagnostics
+should show:
+
+```text
+status=blocked
+reason=kill_switch_disabled
+selected_backend=NPU_S5
+requested_backend=NPU
+effective_backend=NPU
+backend_evidence=NPU_completed_route_kill_switch_blocked
+npu_standard_route_completed_route_selected=false
+npu_standard_route_completed_route_block_reason=kill_switch_disabled
+npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_phase=8
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_started=false
+npu_standard_route_db_save_executed=false
+npu_standard_route_markdown_executed=false
+npu_standard_route_streaming_executed=false
+fallback=false
+conversation_created=false
+generate_response=false
+native_call_reached=false
+```
+
+The kill-switch block must not call native generation, must not fallback to
+`Automatic`, and must not deliver output to UI / TTS / DB / Markdown /
+pseudo streaming.
+
 Phase R1b makes that mapping explicit in compact/full dumps and NPU diagnostic
 key copy. `selected_backend=NPU_S5` and `route_family=npu_s5` can still appear
 as internal legacy evidence, while rollout interpretation should use:

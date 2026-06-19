@@ -130,6 +130,31 @@ npu_standard_route_completed_route_block_reason=kill_switch_disabled
 npu_standard_route_completed_route_disabled_by_property=true
 ```
 
+R5a requires this state to produce a NPU completed-route safe block artifact,
+not an `Automatic` / `local_default` failure. The expected diagnostic shape is:
+
+```text
+status=blocked
+reason=kill_switch_disabled
+effective_backend=NPU
+backend_evidence=NPU_completed_route_kill_switch_blocked
+npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_phase=8
+npu_standard_route_output_delivery_allowed=false
+npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_started=false
+npu_standard_route_db_save_executed=false
+npu_standard_route_markdown_executed=false
+npu_standard_route_streaming_executed=false
+fallback=false
+```
+
+The kill switch remains a rollback control: no native call, generation, UI
+append, TTS, DB save, Markdown, pseudo streaming, or Automatic fallback should
+occur while it is enabled.
+
 ## R1b Diagnostics Polish
 
 Phase R1b keeps the R1 runtime behavior unchanged and makes the completed-route

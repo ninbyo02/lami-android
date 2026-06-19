@@ -194,6 +194,16 @@ The rollback property for the completed route is:
 debug.lami.npu_standard_route_completed_route_disabled=true
 ```
 
+R5a kill-switch artifacts should be NPU completed-route safe blocks. They are
+not counted as rollout successes, but they also should not appear as
+`Automatic` / `local_default` failures. Expected keys include
+`status=blocked`, `reason=kill_switch_disabled`,
+`effective_backend=NPU`,
+`backend_evidence=NPU_completed_route_kill_switch_blocked`,
+`npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch`,
+`npu_standard_route_effective_phase=8`, `fallback=false`, and all delivery
+execution keys set to `false`.
+
 ## Rollback Criteria
 
 Stop rollout review and keep the dev gate if any of these become non-zero:

@@ -254,6 +254,7 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
             ?: NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
     }
     val hasNpuEvidence = backendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE ||
+        backendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE_COMPLETED_ROUTE_KILL_SWITCH_BLOCKED ||
         backendEvidence.contains("QNN_HTP", ignoreCase = true) ||
         backendEvidence.contains("FastRPC", ignoreCase = true)
     return NpuS1BackendDiagnostics(

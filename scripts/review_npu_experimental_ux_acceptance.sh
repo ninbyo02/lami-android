@@ -143,12 +143,19 @@ classify_artifact() {
     "$block_reason" == "kill_switch_disabled" ]]; then
     if [[ "$completed_selected" == "false" &&
       "$block_reason" == "kill_switch_disabled" &&
+      "$rollout_state" == "disabled_by_kill_switch" &&
       "$delivery" == "false" &&
       "$ui" == "false" &&
       "$tts" == "false" &&
       "$db" == "false" &&
       "$markdown" == "false" &&
-      "$streaming" == "false" ]]; then
+      "$streaming" == "false" ]] &&
+      bool_false_or_unavailable "$fallback" &&
+      bool_false_or_unavailable "$fallback_used" &&
+      bool_false_or_unavailable "$timeout" &&
+      bool_false_or_unavailable "$fresh_crash" &&
+      ( value_is_npu "$selected" || value_is_npu "$effective" ) &&
+      backend_evidence_present "$backend_evidence" "$npu_backend_evidence"; then
       printf 'kill_switch_block\n'
     else
       printf 'failure\n'
@@ -363,8 +370,8 @@ write_suppression_fixture() {
 write_kill_switch_fixture() {
   local file="$1"
   write_fixture "$file" \
-    "selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag" \
-    "npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled" \
+    "status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 requested_backend=NPU effective_backend=NPU route_family=npu_s5 backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false timeout=false fresh_crash=false" \
+    "npu_standard_route_phase=8 npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch" \
     "npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false"
 }
 

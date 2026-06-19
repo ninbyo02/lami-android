@@ -59,9 +59,11 @@ internal const val NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_DEV_GATE_DI
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_ENABLED =
     "enabled"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_DISABLED_BY_PROPERTY =
-    "disabled_by_property"
+    "disabled_by_kill_switch"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_NOT_SELECTED =
     "not_selected"
+internal const val NPU_STANDARD_ROUTE_ROLLBACK_REASON_KILL_SWITCH_DISABLED =
+    "kill_switch_disabled_before_generation"
 internal const val NPU_STANDARD_ROUTE_USER_FACING_BACKEND_NPU_EXPERIMENTAL =
     "NPU Experimental"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_FAMILY =
@@ -108,6 +110,7 @@ internal fun resolveNpuStandardRouteRolloutSelection(
             selectionSource == NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL ||
                 selectionSource == NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED
             )
+    val completedRouteDisabledForUserFacingNpu = userFacingNpu && completedRouteDisabled
     val explicitDeveloperOverrideAllowed = explicitPhase != null && devGateEnabled
     val explicitDeveloperOverrideBlocked = explicitPhase != null && !devGateEnabled
     val developerSelectionSourceOverride =
@@ -127,24 +130,26 @@ internal fun resolveNpuStandardRouteRolloutSelection(
     val completedRouteSelected = userFacingNpu &&
         !completedRouteDisabled &&
         !explicitDeveloperOverrideAllowed
+    val completedRouteBlockedByKillSwitch = completedRouteDisabledForUserFacingNpu
     val effectivePhase = when {
         explicitDeveloperOverrideAllowed -> requireNotNull(explicitPhase)
         completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_8
+        completedRouteBlockedByKillSwitch -> NPU_STANDARD_ROUTE_PHASE_8
         else -> NPU_STANDARD_ROUTE_PHASE_1
     }
     val effectivePhaseSource = when {
         explicitDeveloperOverrideAllowed -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY
         completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT
-        userFacingNpu && completedRouteDisabled -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT
+        completedRouteBlockedByKillSwitch -> NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT
         else -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEVELOPER_PHASE_SELECTION
     }
     val completedRouteBlockReason = when {
-        userFacingNpu && completedRouteDisabled -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
+        completedRouteDisabledForUserFacingNpu -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         else -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE
     }
     val completedRouteRolloutState = when {
         completedRouteSelected -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_ENABLED
-        userFacingNpu && completedRouteDisabled ->
+        completedRouteDisabledForUserFacingNpu ->
             NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_DISABLED_BY_PROPERTY
         else -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_NOT_SELECTED
     }
@@ -156,7 +161,7 @@ internal fun resolveNpuStandardRouteRolloutSelection(
     return NpuStandardRouteRolloutSelection(
         devGateEnabled = devGateEnabled,
         devGateRequired = developerPhaseOverride,
-        rolloutGateEnabled = completedRouteSelected || developerPhaseOverride,
+        rolloutGateEnabled = completedRouteSelected || completedRouteBlockedByKillSwitch || developerPhaseOverride,
         selectionMode = selectionMode,
         userFacingBackend = if (userFacingNpu) {
             NPU_STANDARD_ROUTE_USER_FACING_BACKEND_NPU_EXPERIMENTAL
@@ -168,13 +173,13 @@ internal fun resolveNpuStandardRouteRolloutSelection(
         developerPhaseOverride = developerPhaseOverride,
         completedRouteBlockReason = completedRouteBlockReason,
         completedRouteKillSwitchEnabled = completedRouteDisabled,
-        completedRouteDisabledByProperty = completedRouteDisabled,
+        completedRouteDisabledByProperty = completedRouteDisabledForUserFacingNpu,
         developerPhaseOverrideBlockReason = developerPhaseOverrideBlockReason,
         completedRouteRolloutState = completedRouteRolloutState,
         effectivePhaseSource = effectivePhaseSource,
         effectivePhase = effectivePhase,
         effectiveMode = when {
-            userFacingNpu && completedRouteDisabled -> NpuStandardRouteMode.OFF
+            completedRouteBlockedByKillSwitch -> NpuStandardRouteMode.FULL
             developerSelectionSourceOverride && !devGateEnabled -> NpuStandardRouteMode.OFF
             else -> npuStandardRouteMode
         },
@@ -211,7 +216,11 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
     val enabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
         ?.trim()
         ?.equals("true", ignoreCase = true) == true
-    if (!enabled && rolloutSelection?.completedRouteSelected != true) return emptyMap()
+    if (
+        !enabled &&
+        rolloutSelection?.completedRouteSelected != true &&
+        rolloutSelection?.completedRouteDisabledByProperty != true
+    ) return emptyMap()
     if (!isNpuStandardRoutePhase1NpuS1DumpEligible(result, backendDiagnostics)) return emptyMap()
 
     val phase = rolloutSelection?.effectivePhase ?: resolveNpuStandardRouteDiagnosticPhase(propertyReader)
@@ -230,6 +239,7 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         ttsTextPresent = result.ttsText.isNotBlank(),
         ttsTextLength = result.ttsText.length,
         devGateEnabled = enabled,
+        completedRouteKillSwitchBlocked = rolloutSelection?.completedRouteDisabledByProperty == true,
     )
 }
 
@@ -251,17 +261,26 @@ internal fun NpuStandardRouteRolloutSelection?.toDiagnosticsMap(): Map<String, S
         "npu_standard_route_effective_phase_source" to effectivePhaseSource,
         "npu_standard_route_effective_phase" to effectivePhase,
         "npu_standard_route_user_facing_selected_backend" to userFacingBackend,
-        "npu_standard_route_completed_route_family" to if (completedRouteSelected) {
+        "npu_standard_route_completed_route_family" to if (
+            completedRouteSelected ||
+            completedRouteDisabledByProperty
+        ) {
             NPU_STANDARD_ROUTE_COMPLETED_ROUTE_FAMILY
         } else {
             "unavailable"
         },
-        "npu_standard_route_internal_legacy_backend" to if (completedRouteSelected) {
+        "npu_standard_route_internal_legacy_backend" to if (
+            completedRouteSelected ||
+            completedRouteDisabledByProperty
+        ) {
             NPU_STANDARD_ROUTE_INTERNAL_LEGACY_BACKEND_NPU_S5
         } else {
             "unavailable"
         },
-        "npu_standard_route_internal_legacy_route_family" to if (completedRouteSelected) {
+        "npu_standard_route_internal_legacy_route_family" to if (
+            completedRouteSelected ||
+            completedRouteDisabledByProperty
+        ) {
             NPU_STANDARD_ROUTE_INTERNAL_LEGACY_ROUTE_FAMILY_NPU_S5
         } else {
             "unavailable"
@@ -284,6 +303,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     ttsTextPresent: Boolean? = null,
     ttsTextLength: Int? = null,
     devGateEnabled: Boolean = true,
+    completedRouteKillSwitchBlocked: Boolean = false,
 ): Map<String, String> {
     val phaseName = when (phase) {
         NPU_STANDARD_ROUTE_PHASE_8 -> NPU_STANDARD_ROUTE_PHASE_8_NAME
@@ -295,7 +315,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_2 -> NPU_STANDARD_ROUTE_PHASE_2_NAME
         else -> NPU_STANDARD_ROUTE_PHASE_1_NAME
     }
-    val conversationCreated = phase in setOf(
+    val conversationCreated = !completedRouteKillSwitchBlocked && phase in setOf(
         NPU_STANDARD_ROUTE_PHASE_2,
         NPU_STANDARD_ROUTE_PHASE_3,
         NPU_STANDARD_ROUTE_PHASE_4,
@@ -304,7 +324,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_7,
         NPU_STANDARD_ROUTE_PHASE_8,
     ) && connected
-    val generateResponse = phase in setOf(
+    val generateResponse = !completedRouteKillSwitchBlocked && phase in setOf(
         NPU_STANDARD_ROUTE_PHASE_3,
         NPU_STANDARD_ROUTE_PHASE_4,
         NPU_STANDARD_ROUTE_PHASE_5,
@@ -313,13 +333,18 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         NPU_STANDARD_ROUTE_PHASE_8,
     ) && connected
     val generateDiagnosticOnly = phase == NPU_STANDARD_ROUTE_PHASE_3 && generateResponse
-    val qualityGatePassed = when (outputQualityCandidateStatus) {
-        NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS -> "true"
-        NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL -> "false"
-        else -> "unavailable"
+    val qualityGatePassed = if (completedRouteKillSwitchBlocked) {
+        "unavailable"
+    } else {
+        when (outputQualityCandidateStatus) {
+            NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS -> "true"
+            NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL -> "false"
+            else -> "unavailable"
+        }
     }
     val qualityCandidatePassed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
-    val outputSuppressed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
+    val outputSuppressed = !completedRouteKillSwitchBlocked &&
+        outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
     val generateOrDeliveryPhase = phase in setOf(
         NPU_STANDARD_ROUTE_PHASE_3,
         NPU_STANDARD_ROUTE_PHASE_4,
@@ -352,8 +377,12 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         if (fallbackUsed) add("fallback_used")
         if (timeout) add("timeout")
         if (freshCrash) add("fresh_crash")
-        if (runDecodeReached == false) add("decode_not_reached")
-        if (nativeCleanupReached.equals("false", ignoreCase = true)) add("native_cleanup_not_reached")
+        if (completedRouteKillSwitchBlocked) {
+            add(NPU_STANDARD_ROUTE_ROLLBACK_REASON_KILL_SWITCH_DISABLED)
+        } else {
+            if (runDecodeReached == false) add("decode_not_reached")
+            if (nativeCleanupReached.equals("false", ignoreCase = true)) add("native_cleanup_not_reached")
+        }
     }
     val candidatePresent = candidateTextPresent == true
     val ttsPresent = ttsTextPresent == true
@@ -393,6 +422,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     val streamingAllowed = phase == NPU_STANDARD_ROUTE_PHASE_8 && markdownAllowed
     val uiAppendSource = when {
         uiAppendAllowed -> "actual_display_text"
+        completedRouteKillSwitchBlocked -> "blocked_kill_switch_disabled"
         phase !in setOf(
             NPU_STANDARD_ROUTE_PHASE_4,
             NPU_STANDARD_ROUTE_PHASE_5,
@@ -411,6 +441,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val uiAppendBlockReason = when {
         uiAppendAllowed -> "none"
+        completedRouteKillSwitchBlocked -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         phase !in setOf(
             NPU_STANDARD_ROUTE_PHASE_4,
             NPU_STANDARD_ROUTE_PHASE_5,
@@ -429,6 +460,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val ttsSource = when {
         ttsAllowed -> "tts_text"
+        completedRouteKillSwitchBlocked -> "blocked_kill_switch_disabled"
         phase !in setOf(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
@@ -442,6 +474,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val ttsBlockReason = when {
         ttsAllowed -> "none"
+        completedRouteKillSwitchBlocked -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         phase !in setOf(
             NPU_STANDARD_ROUTE_PHASE_5,
             NPU_STANDARD_ROUTE_PHASE_6,
@@ -455,6 +488,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val dbSaveBlockReason = when {
         dbSaveAllowed -> "none"
+        completedRouteKillSwitchBlocked -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         phase !in setOf(
             NPU_STANDARD_ROUTE_PHASE_6,
             NPU_STANDARD_ROUTE_PHASE_7,
@@ -466,6 +500,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val markdownBlockReason = when {
         markdownAllowed -> "none"
+        completedRouteKillSwitchBlocked -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         phase !in setOf(NPU_STANDARD_ROUTE_PHASE_7, NPU_STANDARD_ROUTE_PHASE_8) -> "phase_not_markdown"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !dbSaveAllowed -> dbSaveBlockReason
@@ -473,6 +508,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     }
     val streamingBlockReason = when {
         streamingAllowed -> "none"
+        completedRouteKillSwitchBlocked -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
         phase != NPU_STANDARD_ROUTE_PHASE_8 -> "phase_not_streaming"
         outputSuppressed -> NPU_STANDARD_ROUTE_SUPPRESSION_REASON_QUALITY_CANDIDATE_FAIL
         !markdownAllowed -> markdownBlockReason
@@ -519,7 +555,18 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
         "npu_standard_route_native_streaming_used" to "false",
         "npu_standard_route_rollback_required" to rollbackRequired.toString(),
         "npu_standard_route_rollback_reason" to rollbackReason,
-    )
+    ).also { diagnostics ->
+        if (completedRouteKillSwitchBlocked) {
+            diagnostics["npu_standard_route_ui_append_executed"] = "false"
+            diagnostics["npu_standard_route_tts_requested"] = "false"
+            diagnostics["npu_standard_route_tts_started"] = "false"
+            diagnostics["npu_standard_route_db_save_executed"] = "false"
+            diagnostics["npu_standard_route_markdown_executed"] = "false"
+            diagnostics["npu_standard_route_streaming_executed"] = "false"
+            diagnostics["npu_standard_route_output_delivery_executed"] = "false"
+            diagnostics["npu_standard_route_delivery_path"] = "kill_switch_safe_block"
+        }
+    }
 }
 
 internal fun buildNpuStandardRoutePhase1DiagnosticLines(

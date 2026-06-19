@@ -3545,7 +3545,15 @@ fun Home(
                                                                                 userPrompt = requestPrompt,
                                                                             ),
                                                                         )
-                                                                        if (!npuModelEligibility.npuModelEligible) {
+                                                                        if (npuStandardRouteRolloutSelection.completedRouteDisabledByProperty) {
+                                                                            buildNpuStandardRouteKillSwitchBlockedResult(
+                                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                selectedModelName = npuModelEligibility.selectedModelName,
+                                                                                selectedModelFile = npuModelEligibility.selectedModelFile,
+                                                                                npuModelEligible = npuModelEligibility.npuModelEligible,
+                                                                                inputPrompt = requestPrompt,
+                                                                            )
+                                                                        } else if (!npuModelEligibility.npuModelEligible) {
                                                                             buildNpuStandardRouteS1ModelNotCompatibleResult(
                                                                                 eligibility = npuModelEligibility,
                                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
@@ -3577,7 +3585,10 @@ fun Home(
                                                                         decodeStartedAtMs = npuS1DecodeStartedAtMs,
                                                                     ),
                                                                 )
-                                                                if (npuModelEligibility.npuModelEligible) {
+                                                                if (
+                                                                    npuModelEligibility.npuModelEligible &&
+                                                                    !npuStandardRouteRolloutSelection.completedRouteDisabledByProperty
+                                                                ) {
                                                                     NpuStandardRouteS1AppHistory.recordFinished(
                                                                         context = context.applicationContext,
                                                                         result = s1Result,
@@ -12523,6 +12534,47 @@ internal fun buildNpuStandardRouteS1ModelNotCompatibleResult(
     )
 }
 
+internal fun buildNpuStandardRouteKillSwitchBlockedResult(
+    maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    selectedModelName: String = "unknown",
+    selectedModelFile: String = "unknown",
+    npuModelEligible: Boolean? = null,
+    inputPrompt: String = "",
+): NpuStandardRouteS1Result {
+    val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+    return NpuStandardRouteS1Result(
+        selection = NpuStandardRouteS1Selection(
+            enabled = true,
+            requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+            effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            sideEffects = NpuStandardRouteS1SideEffects(),
+        ),
+        status = NpuStandardRouteS1Contract.STATUS_BLOCKED,
+        reason = NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED,
+        rawOutput = "",
+        sanitizedOutput = "",
+        qualityClassification = FailureNpuStandardRouteS1Provider.QUALITY_UNKNOWN,
+        runDecodeReached = false,
+        npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE_COMPLETED_ROUTE_KILL_SWITCH_BLOCKED,
+        fallbackUsed = false,
+        timeout = false,
+        freshCrash = false,
+        selectedModelName = selectedModelName.ifBlank { "unknown" },
+        selectedModelFile = selectedModelFile.ifBlank { "unknown" },
+        npuModelEligible = npuModelEligible,
+        nativeDiagnostics = NpuS1NativeStageDiagnostics(
+            nativeStage = "kill_switch_blocked_before_generation",
+            nativeStageHistory = "kill_switch_blocked_before_generation",
+            nativeCallReached = "false",
+            nativeCallReturned = "false",
+            nativeDecodeStarted = "false",
+            nativeDecodeFinished = "false",
+            nativeCleanupReached = "false",
+        ),
+        inputPrompt = inputPrompt,
+    )
+}
+
 internal fun buildNpuStandardRouteS1UiTiming(
     result: NpuStandardRouteS1Result,
     decodeStartedAtMs: Long?,
@@ -12707,6 +12759,9 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
     }
     if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
         return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE
+    }
+    if (result.reason == NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED) {
+        return null
     }
     if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) {
         return NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE

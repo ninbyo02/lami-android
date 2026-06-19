@@ -203,6 +203,13 @@ When this property is `true`, `NPU Experimental` does not select the completed
 route, delivery gates stay closed, and diagnostics report
 `npu_standard_route_completed_route_block_reason=kill_switch_disabled`.
 
+R5a also requires the kill switch to return an NPU completed-route safe block,
+not an `Automatic` / `local_default` failure. The artifact should preserve
+`effective_backend=NPU`, `fallback=false`, phase `8`, and
+`npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch`,
+while `conversation_created=false`, `generate_response=false`, and every
+delivery execution key remains `false`.
+
 ## Next Phase
 
 Phase R3b may be enabled only after:

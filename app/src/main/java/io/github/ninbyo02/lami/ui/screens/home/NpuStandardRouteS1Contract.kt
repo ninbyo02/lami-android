@@ -195,7 +195,11 @@ internal object NpuStandardRouteS1Contract {
     const val QUALITY_ROLE_CONTAMINATION = "role_contamination"
     const val QUALITY_TEMPLATE_ARTIFACT = "template_artifact"
     const val STATUS_SUCCESS = "success"
+    const val STATUS_BLOCKED = "blocked"
     const val REASON_SUCCESS = "success"
+    const val REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED = "kill_switch_disabled"
+    const val NPU_BACKEND_EVIDENCE_COMPLETED_ROUTE_KILL_SWITCH_BLOCKED =
+        "NPU_completed_route_kill_switch_blocked"
     const val REASON_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
     const val REASON_MIXED_LANGUAGE = "mixed_language"
     const val REASON_QUESTION_ECHO = "question_echo"

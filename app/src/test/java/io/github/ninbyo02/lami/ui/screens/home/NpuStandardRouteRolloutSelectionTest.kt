@@ -88,7 +88,7 @@ class NpuStandardRouteRolloutSelectionTest {
         )
 
         assertEquals(false, selection.devGateEnabled)
-        assertEquals(false, selection.rolloutGateEnabled)
+        assertEquals(true, selection.rolloutGateEnabled)
         assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
         assertEquals(false, selection.completedRouteSelected)
         assertEquals(true, selection.completedRouteKillSwitchEnabled)
@@ -97,9 +97,10 @@ class NpuStandardRouteRolloutSelectionTest {
             NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED,
             selection.completedRouteBlockReason,
         )
-        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT, selection.effectivePhaseSource)
-        assertEquals(NPU_STANDARD_ROUTE_PHASE_1, selection.effectivePhase)
-        assertEquals(NpuStandardRouteMode.OFF, selection.effectiveMode)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+        assertEquals(NpuStandardRouteMode.FULL, selection.effectiveMode)
+        assertEquals("disabled_by_kill_switch", selection.completedRouteRolloutState)
     }
 
     @Test

@@ -827,6 +827,107 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `S1 completed route kill switch emits NPU safe block diagnostics without generation`() {
+        val result = buildNpuStandardRouteKillSwitchBlockedResult(
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            selectedModelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+            selectedModelFile = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+            npuModelEligible = true,
+            inputPrompt = "こんにちは",
+        )
+        val reader: (String) -> String? = { key ->
+            when (key) {
+                NPU_STANDARD_ROUTE_PHASE_PROPERTY -> "0"
+                NPU_STANDARD_ROUTE_COMPLETED_ROUTE_DISABLED_PROPERTY -> "true"
+                else -> null
+            }
+        }
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            npuStandardRouteDevGatePropertyReader = reader,
+        )
+
+        assertTrue(compact.contains("status=blocked"))
+        assertTrue(compact.contains("reason=kill_switch_disabled"))
+        assertTrue(compact.contains("selected_backend=NPU_S5"))
+        assertTrue(compact.contains("requested_backend=NPU"))
+        assertTrue(compact.contains("effective_backend=NPU"))
+        assertTrue(compact.contains("backend_evidence=NPU_completed_route_kill_switch_blocked"))
+        assertTrue(compact.contains("route_family=npu_s5"))
+        assertTrue(compact.contains("fallback=false"))
+        assertTrue(compact.contains("timeout=false"))
+        assertTrue(compact.contains("fresh_crash=false"))
+        assertTrue(compact.contains("npu_standard_route_dev_gate_enabled=false"))
+        assertTrue(compact.contains("npu_standard_route_rollout_gate_enabled=true"))
+        assertTrue(compact.contains("npu_standard_route_dev_gate_required=false"))
+        assertTrue(compact.contains("npu_standard_route_selection_mode=user_facing_npu_experimental"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_selected=false"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_block_reason=kill_switch_disabled"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_kill_switch_enabled=true"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_disabled_by_property=true"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch"))
+        assertTrue(compact.contains("npu_standard_route_effective_phase_source=completed_route_default"))
+        assertTrue(compact.contains("npu_standard_route_effective_phase=8"))
+        assertTrue(compact.contains("npu_standard_route_completed_route_family=npu_standard_route_completed"))
+        assertTrue(compact.contains("npu_standard_route_phase=8"))
+        assertTrue(compact.contains("npu_standard_route_phase_name=7b_pseudo_streaming_gate"))
+        assertTrue(compact.contains("conversation_created=false"))
+        assertTrue(compact.contains("generate_response=false"))
+        assertTrue(compact.contains("npu_standard_route_output_delivery_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_ui_append_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_ui_append_executed=false"))
+        assertTrue(compact.contains("npu_standard_route_tts_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_tts_requested=false"))
+        assertTrue(compact.contains("npu_standard_route_tts_started=false"))
+        assertTrue(compact.contains("npu_standard_route_db_save_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_db_save_executed=false"))
+        assertTrue(compact.contains("npu_standard_route_markdown_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_markdown_executed=false"))
+        assertTrue(compact.contains("npu_standard_route_streaming_allowed=false"))
+        assertTrue(compact.contains("npu_standard_route_streaming_executed=false"))
+        assertTrue(compact.contains("npu_standard_route_native_streaming_used=false"))
+        assertTrue(compact.contains("npu_standard_route_rollback_required=true"))
+        assertTrue(compact.contains("npu_standard_route_rollback_reason=kill_switch_disabled_before_generation"))
+        assertTrue(compact.contains("run_decode_reached=false"))
+        assertTrue(compact.contains("native_call_reached=false"))
+        assertTrue(compact.contains("native_call_returned=false"))
+        assertTrue(compact.contains("native_decode_started=false"))
+        assertTrue(compact.contains("native_decode_finished=false"))
+    }
+
+    @Test
+    fun `NPU diagnostic copy includes completed route kill switch safe block keys`() {
+        val trace = """
+            status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 requested_backend=NPU effective_backend=NPU route_family=npu_s5 backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false timeout=false fresh_crash=false
+            npu_standard_route_selection_mode=user_facing_npu_experimental npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch npu_standard_route_effective_phase=8
+            npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false
+        """.trimIndent()
+
+        val copyText = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = "source_summary=$trace"),
+        )
+
+        assertTrue(copyText.contains("status=blocked"))
+        assertTrue(copyText.contains("reason=kill_switch_disabled"))
+        assertTrue(copyText.contains("selected_backend=NPU_S5"))
+        assertTrue(copyText.contains("effective_backend=NPU"))
+        assertTrue(copyText.contains("npu_standard_route_completed_route_selected=false"))
+        assertTrue(copyText.contains("npu_standard_route_completed_route_block_reason=kill_switch_disabled"))
+        assertTrue(copyText.contains("npu_standard_route_completed_route_disabled_by_property=true"))
+        assertTrue(copyText.contains("npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch"))
+        assertTrue(copyText.contains("npu_standard_route_output_delivery_allowed=false"))
+        assertTrue(copyText.contains("npu_standard_route_ui_append_executed=false"))
+        assertTrue(copyText.contains("npu_standard_route_db_save_executed=false"))
+        assertTrue(copyText.contains("npu_standard_route_markdown_executed=false"))
+        assertTrue(copyText.contains("npu_standard_route_streaming_executed=false"))
+    }
+
+    @Test
     fun `S1 compact full dump and diagnostic copy include phase2 conversation-created diagnostics`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(

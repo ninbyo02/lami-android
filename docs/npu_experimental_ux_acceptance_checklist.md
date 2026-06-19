@@ -166,16 +166,45 @@ adb shell setprop debug.lami.npu_standard_route_completed_route_disabled true
 Expected diagnostics:
 
 ```text
+status=blocked
+reason=kill_switch_disabled
+selected_backend=NPU_S5
+requested_backend=NPU
+effective_backend=NPU
+route_family=npu_s5
+backend_evidence=NPU_completed_route_kill_switch_blocked
+fallback=false
+timeout=false
+fresh_crash=false
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_completed_phase_default=8
 npu_standard_route_completed_route_disabled_by_property=true
 npu_standard_route_completed_route_selected=false
 npu_standard_route_completed_route_block_reason=kill_switch_disabled
+npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_completed_route_family=npu_standard_route_completed
+npu_standard_route_phase=8
+npu_standard_route_phase_name=7b_pseudo_streaming_gate
 npu_standard_route_output_delivery_allowed=false
 npu_standard_route_ui_append_executed=false
+npu_standard_route_tts_requested=false
 npu_standard_route_tts_started=false
 npu_standard_route_db_save_executed=false
 npu_standard_route_markdown_executed=false
 npu_standard_route_streaming_executed=false
+npu_standard_route_native_streaming_used=false
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=kill_switch_disabled_before_generation
+conversation_created=false
+generate_response=false
+native_call_reached=false
 ```
+
+The kill switch artifact is a NPU completed-route safe block. It must not look
+like `Automatic` / `local_default`, must not fallback, and must not call native
+generation. It is counted as kill-switch evidence, not as a UX failure.
 
 The kill switch sample is desirable for low-risk UX review, but lack of a kill
 switch artifact can be treated as medium risk when all minimum runtime UX gates
