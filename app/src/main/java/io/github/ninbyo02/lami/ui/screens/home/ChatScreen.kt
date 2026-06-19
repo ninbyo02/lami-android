@@ -1035,6 +1035,8 @@ fun Home(
     var npuS1RepeatedRunPrompt by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_DEFAULT_PROMPT) }
     var npuS1RepeatedRunCount by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_COUNT) }
     var npuS1RepeatedRunWaitMs by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS) }
+    var npuLongGenerationState by remember(effectiveChatId) { mutableStateOf(NpuLongGenerationState()) }
+    var npuLongGenerationJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuS1PersistentEngineState by remember(effectiveChatId) {
         mutableStateOf(NpuS1PersistentEngineProbeState())
     }
@@ -1063,6 +1065,8 @@ fun Home(
             memoryRecoveryCheckJob = null
             npuS1RepeatedRunJob?.cancel()
             npuS1RepeatedRunJob = null
+            npuLongGenerationJob?.cancel()
+            npuLongGenerationJob = null
             npuS1PersistentEngineJob?.cancel()
             npuS1PersistentEngineJob = null
             npuS1PersistentCustomJniJob?.cancel()
@@ -1601,6 +1605,145 @@ fun Home(
 
     fun cancelNpuS1RepeatedRun() {
         npuS1RepeatedRunJob?.cancel()
+    }
+
+    fun startNpuLongGenerationTest() {
+        val promptForRun = NPU_LONG_GENERATION_DEFAULT_PROMPT
+        val tokenPlan = NPU_LONG_GENERATION_TOKEN_PLAN
+        val selectedBackendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        )
+        val startGate = npuLongGenerationStartGate(
+            preferredBackendSetting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+        )
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuLongGenerationJob?.isActive == true) return
+        if (!startGate.allowed) {
+            npuLongGenerationState = NpuLongGenerationState(
+                status = NPU_LONG_GENERATION_STATUS_STOPPED,
+                startedAtMs = System.currentTimeMillis(),
+                finishedAtMs = System.currentTimeMillis(),
+                prompt = promptForRun,
+                tokenPlan = tokenPlan,
+                selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                routeFamily = selectedBackendDiagnostics.routeFamily,
+                blockedReason = startGate.blockedReason,
+                stopped = true,
+                stopReason = "blocked",
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "NPU Beta Long Generation Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        val startedAtMs = System.currentTimeMillis()
+        npuLongGenerationState = NpuLongGenerationState(
+            status = NPU_LONG_GENERATION_STATUS_RUNNING,
+            startedAtMs = startedAtMs,
+            prompt = promptForRun,
+            tokenPlan = tokenPlan,
+            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+            routeFamily = selectedBackendDiagnostics.routeFamily,
+        )
+        npuLongGenerationJob = coroutineScope.launch {
+            val cases = mutableListOf<NpuLongGenerationCase>()
+            try {
+                tokenPlan.forEachIndexed { index, requestedMaxTokens ->
+                    val decodeStartedAtMs = SystemClock.elapsedRealtime()
+                    val rawResult = withContext(Dispatchers.Default) {
+                        NpuStandardRouteS1Bridge(
+                            mode = effectiveNpuStandardRouteMode,
+                            trace = {},
+                            allowDevNativeRoute = true,
+                        ).run(
+                            userPrompt = promptForRun,
+                            maxOutputTokens = requestedMaxTokens,
+                        )
+                    }
+                    val result = rawResult.withTiming(
+                        buildNpuStandardRouteS1UiTiming(
+                            result = rawResult,
+                            decodeStartedAtMs = decodeStartedAtMs,
+                        ),
+                    )
+                    val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
+                        result = result,
+                        preferredBackendSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                    )
+                    val case = npuLongGenerationCaseFromResult(
+                        caseIndex = index + 1,
+                        requestedMaxOutputTokens = requestedMaxTokens,
+                        result = result,
+                        backendDiagnostics = runBackendDiagnostics,
+                    )
+                    cases += case
+                    npuLongGenerationState = npuLongGenerationState.copy(
+                        status = NPU_LONG_GENERATION_STATUS_RUNNING,
+                        cases = cases.toList(),
+                    )
+                    val unsafeStopReason = when {
+                        case.fallbackUsed -> "fallback_detected"
+                        case.timeout -> "timeout"
+                        case.freshCrash -> "fresh_crash_detected"
+                        !case.runDecodeReached -> "run_decode_reached_false"
+                        case.status != NpuStandardRouteS1Contract.STATUS_SUCCESS -> case.reason
+                        else -> null
+                    }
+                    if (unsafeStopReason != null) {
+                        npuLongGenerationState = npuLongGenerationState.copy(
+                            status = NPU_LONG_GENERATION_STATUS_STOPPED,
+                            finishedAtMs = System.currentTimeMillis(),
+                            cases = cases.toList(),
+                            stopped = true,
+                            stopReason = unsafeStopReason,
+                        )
+                        return@launch
+                    }
+                }
+                npuLongGenerationState = npuLongGenerationState.copy(
+                    status = NPU_LONG_GENERATION_STATUS_COMPLETED,
+                    finishedAtMs = System.currentTimeMillis(),
+                    cases = cases.toList(),
+                )
+            } catch (exception: CancellationException) {
+                npuLongGenerationState = npuLongGenerationState.copy(
+                    status = NPU_LONG_GENERATION_STATUS_CANCELLED,
+                    finishedAtMs = System.currentTimeMillis(),
+                    stopped = true,
+                    stopReason = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuLongGenerationJob = null
+            }
+        }
+    }
+
+    fun cancelNpuLongGenerationTest() {
+        npuLongGenerationJob?.cancel()
     }
 
     fun startNpuS1PersistentEngineProbe() {
@@ -7083,6 +7226,11 @@ fun Home(
                                             onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuLongGenerationState = npuLongGenerationState,
+                                            npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
+                                            isInferenceRunningForLongGeneration = isInferenceRunningUi,
+                                            onNpuLongGenerationStart = ::startNpuLongGenerationTest,
+                                            onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
@@ -7167,6 +7315,11 @@ fun Home(
                                             onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuLongGenerationState = npuLongGenerationState,
+                                            npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
+                                            isInferenceRunningForLongGeneration = isInferenceRunningUi,
+                                            onNpuLongGenerationStart = ::startNpuLongGenerationTest,
+                                            onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
@@ -7413,6 +7566,11 @@ fun Home(
                     onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
                     onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                     onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                    npuLongGenerationState = npuLongGenerationState,
+                    npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
+                    isInferenceRunningForLongGeneration = isInferenceRunningUi,
+                    onNpuLongGenerationStart = ::startNpuLongGenerationTest,
+                    onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
                     npuS1PersistentEngineState = npuS1PersistentEngineState,
                     npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                     isInferenceRunningForPersistentEngine = isInferenceRunningUi,
@@ -10834,7 +10992,7 @@ private fun NpuS1RepeatedRunDevSection(
     val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
     val controlsEnabled = !running && !blockedByGeneration
     val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = "NPU S1 repeated run") {
+    InferenceStatsSection(title = "NPU Beta Stability Test") {
         Text(
             text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
             style = MaterialTheme.typography.bodySmall,
@@ -10848,7 +11006,7 @@ private fun NpuS1RepeatedRunDevSection(
             )
         } else if (!startGate.allowed) {
             Text(
-                text = "Safety policy: Recreate / 20 runs / wait 500ms以上のみ実行可能",
+                text = "Safety policy: Recreate / 10 runs / wait 500ms以上のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -10931,7 +11089,7 @@ private fun NpuS1RepeatedRunDevSection(
                 onClick = onStart,
                 enabled = startEnabled,
             ) {
-                Text("NPU S1 repeated run 開始")
+                Text("NPU Beta安定性テスト開始")
             }
             TextButton(
                 onClick = onCancel,
@@ -10950,8 +11108,143 @@ private fun NpuS1RepeatedRunDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InferenceStatRow(
-            label = "NPU S1 repeated run",
+            label = "NPU Beta Stability Test",
             value = formatNpuS1RepeatedRunDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
+private fun NpuLongGenerationDevSection(
+    state: NpuLongGenerationState,
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val startGate = npuLongGenerationStartGate(
+        preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
+    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+        setting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+    )
+    val controlsEnabled = !running && !blockedByGeneration
+    val startEnabled = controlsEnabled && startGate.allowed
+    InferenceStatsSection(title = "NPU Beta Long Generation Test") {
+        Text(
+            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "token_plan=${NPU_LONG_GENERATION_TOKEN_PLAN.joinToString(",")}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!startGate.allowed) {
+            Text(
+                text = "NPU Beta Long Generation Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = startEnabled,
+            ) {
+                Text("NPU Beta長文生成テスト開始")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用の長文生成比較です。32/128/512 tokens を順に実行し、UI/TTS/DB保存には使いません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU Beta Long Generation Test",
+            value = formatNpuLongGenerationDiagnosticsForDev(state),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NpuBetaDevPrimaryIntroSection(
+    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
+    onCopyCompact: (() -> Unit)? = null,
+) {
+    InferenceStatsSection(title = "DEV診断 Primary") {
+        Text(
+            text = "Safe entry points for NPU Beta validation.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Beta Long Generation Test",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Diagnostics stop automatically on timeout, fallback, crash suspicion, or decode failure.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (onCopyNpuDiagnosticKeys != null || onCopyCompact != null) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (onCopyNpuDiagnosticKeys != null) {
+                    TextButton(
+                        onClick = onCopyNpuDiagnosticKeys,
+                        modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+                    ) {
+                        Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+                    }
+                }
+                if (onCopyCompact != null) {
+                    TextButton(onClick = onCopyCompact) {
+                        Text("Copy Compact")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DevDiagnosticsAdvancedToggle(
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+) {
+    TextButton(onClick = onToggleExpanded) {
+        Text(
+            text = if (expanded) {
+                "▼ DEV診断 Advanced を隠す"
+            } else {
+                "▶ DEV診断 Advanced を表示"
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -11138,6 +11431,11 @@ private fun InferenceStatsSheetContent(
     onNpuS1RepeatedRunWaitMsChange: (Long) -> Unit = {},
     onNpuS1RepeatedRunStart: () -> Unit = {},
     onNpuS1RepeatedRunCancel: () -> Unit = {},
+    npuLongGenerationState: NpuLongGenerationState = NpuLongGenerationState(),
+    npuLongGenerationInProgress: Boolean = false,
+    isInferenceRunningForLongGeneration: Boolean = false,
+    onNpuLongGenerationStart: () -> Unit = {},
+    onNpuLongGenerationCancel: () -> Unit = {},
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
     npuS1PersistentEngineInProgress: Boolean = false,
     isInferenceRunningForPersistentEngine: Boolean = false,
@@ -11157,6 +11455,7 @@ private fun InferenceStatsSheetContent(
     onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
+    var devDiagnosticsAdvancedExpanded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(initialDisplayMode) {
         selectedDisplayMode = initialDisplayMode
     }
@@ -11198,6 +11497,48 @@ private fun InferenceStatsSheetContent(
         acceleratorProbeSnapshot = acceleratorProbeSnapshot,
         preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
+    val copyGpuDiagnosticKeysAction: (() -> Unit)? = if (BuildConfig.DEBUG) {
+        {
+            clipboardManager.setText(
+                AnnotatedString(
+                    buildGpuDiagnosticKeysCopyText(
+                        stats = stats,
+                        trace = localTraceForDev,
+                    ),
+                ),
+            )
+        }
+    } else {
+        null
+    }
+    val copyGpuInternalSurfaceKeysAction: (() -> Unit)? = if (BuildConfig.DEBUG) {
+        {
+            clipboardManager.setText(
+                AnnotatedString(
+                    buildGpuInternalSurfaceKeysCopyText(
+                        stats = stats,
+                        trace = localTraceForDev,
+                    ),
+                ),
+            )
+        }
+    } else {
+        null
+    }
+    val copyNpuDiagnosticKeysAction: (() -> Unit)? = if (BuildConfig.DEBUG) {
+        {
+            clipboardManager.setText(
+                AnnotatedString(
+                    buildNpuDiagnosticKeysCopyText(
+                        stats = stats,
+                        trace = localTraceForDev,
+                    ),
+                ),
+            )
+        }
+    } else {
+        null
+    }
 
     Column(
         modifier = Modifier
@@ -11257,48 +11598,6 @@ private fun InferenceStatsSheetContent(
                         ),
                     )
                 },
-                onCopyGpuDiagnosticKeys = if (BuildConfig.DEBUG) {
-                    {
-                        clipboardManager.setText(
-                            AnnotatedString(
-                                buildGpuDiagnosticKeysCopyText(
-                                    stats = stats,
-                                    trace = localTraceForDev,
-                                ),
-                            ),
-                        )
-                    }
-                } else {
-                    null
-                },
-                onCopyGpuInternalSurfaceKeys = if (BuildConfig.DEBUG) {
-                    {
-                        clipboardManager.setText(
-                            AnnotatedString(
-                                buildGpuInternalSurfaceKeysCopyText(
-                                    stats = stats,
-                                    trace = localTraceForDev,
-                                ),
-                            ),
-                        )
-                    }
-                } else {
-                    null
-                },
-                onCopyNpuDiagnosticKeys = if (BuildConfig.DEBUG) {
-                    {
-                        clipboardManager.setText(
-                            AnnotatedString(
-                                buildNpuDiagnosticKeysCopyText(
-                                    stats = stats,
-                                    trace = localTraceForDev,
-                                ),
-                            ),
-                        )
-                    }
-                } else {
-                    null
-                },
             )
 
             sections.forEach { section ->
@@ -11341,14 +11640,8 @@ private fun InferenceStatsSheetContent(
                 }
             }
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
-                MemoryRecoveryCheckDevSection(
-                    state = memoryRecoveryCheckState,
-                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
-                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
-                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
-                    ),
-                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
-                    onStart = onMemoryRecoveryCheck,
+                NpuBetaDevPrimaryIntroSection(
+                    onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
                 )
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
@@ -11367,61 +11660,105 @@ private fun InferenceStatsSheetContent(
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
                 )
-                if (BuildConfig.DEBUG) {
-                    NpuS1PersistentEngineDevSection(
-                        state = npuS1PersistentEngineState,
-                        running = npuS1PersistentEngineInProgress,
-                        blockedByGeneration = isInferenceRunningForPersistentEngine,
-                        onStart = onNpuS1PersistentEngineStart,
-                        onCancel = onNpuS1PersistentEngineCancel,
+                NpuLongGenerationDevSection(
+                    state = npuLongGenerationState,
+                    preferredBackendSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    running = npuLongGenerationInProgress,
+                    blockedByGeneration = isInferenceRunningForLongGeneration,
+                    onStart = onNpuLongGenerationStart,
+                    onCancel = onNpuLongGenerationCancel,
+                )
+                DevDiagnosticsAdvancedToggle(
+                    expanded = devDiagnosticsAdvancedExpanded,
+                    onToggleExpanded = { devDiagnosticsAdvancedExpanded = !devDiagnosticsAdvancedExpanded },
+                )
+                if (devDiagnosticsAdvancedExpanded) {
+                    if (copyGpuDiagnosticKeysAction != null || copyGpuInternalSurfaceKeysAction != null) {
+                        InferenceStatsSection(title = "DEV診断 Advanced Copy") {
+                            if (copyGpuDiagnosticKeysAction != null) {
+                                TextButton(
+                                    onClick = copyGpuDiagnosticKeysAction,
+                                    modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+                                ) {
+                                    Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+                                }
+                            }
+                            if (copyGpuInternalSurfaceKeysAction != null) {
+                                TextButton(
+                                    onClick = copyGpuInternalSurfaceKeysAction,
+                                    modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
+                                ) {
+                                    Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+                                }
+                            }
+                        }
+                    }
+                    MemoryRecoveryCheckDevSection(
+                        state = memoryRecoveryCheckState,
+                        buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                            isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                            isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                        ),
+                        blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                        onStart = onMemoryRecoveryCheck,
                     )
-                    NpuS1PersistentCustomJniDevSection(
-                        state = npuS1PersistentCustomJniState,
-                        selectedMode = npuS1PersistentCustomJniProbeMode,
-                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
-                        running = npuS1PersistentCustomJniInProgress,
-                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
-                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
-                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
-                        onStart = onNpuS1PersistentCustomJniStart,
-                        onCancel = onNpuS1PersistentCustomJniCancel,
-                    )
+                    if (BuildConfig.DEBUG) {
+                        NpuS1PersistentEngineDevSection(
+                            state = npuS1PersistentEngineState,
+                            running = npuS1PersistentEngineInProgress,
+                            blockedByGeneration = isInferenceRunningForPersistentEngine,
+                            onStart = onNpuS1PersistentEngineStart,
+                            onCancel = onNpuS1PersistentEngineCancel,
+                        )
+                        NpuS1PersistentCustomJniDevSection(
+                            state = npuS1PersistentCustomJniState,
+                            selectedMode = npuS1PersistentCustomJniProbeMode,
+                            selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                            running = npuS1PersistentCustomJniInProgress,
+                            blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                            onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                            onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                            onStart = onNpuS1PersistentCustomJniStart,
+                            onCancel = onNpuS1PersistentCustomJniCancel,
+                        )
+                    }
+                    InferenceStatsSection(title = "DEV Markdown") {
+                        InferenceStatRow(
+                            label = "Markdown mode",
+                            value = markdownStreamingMode.displayLabel,
+                        )
+                    }
+                    if (showDevManualEngineRecreate) {
+                        HorizontalDivider()
+                        Text(
+                            text = "ローカルエンジンを再作成",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = onManualEngineRecreate,
+                            enabled = manualEngineRecreateEnabled && !manualEngineRecreateBusy,
+                        ) {
+                            Text("ローカルエンジンを再作成")
+                        }
+                        Text(
+                            text = "PreferredBackend manual recreate result: $manualEngineRecreateResult",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "PreferredBackend manual recreate reason: $manualEngineRecreateReason",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                InferenceStatsSection(title = "DEV Markdown") {
-                    InferenceStatRow(
-                        label = "Markdown mode",
-                        value = markdownStreamingMode.displayLabel,
-                    )
-                }
-            }
-            if (showDevManualEngineRecreate && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
-                HorizontalDivider()
-                Text(
-                    text = "ローカルエンジンを再作成",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(
-                    onClick = onManualEngineRecreate,
-                    enabled = manualEngineRecreateEnabled && !manualEngineRecreateBusy,
-                ) {
-                    Text("ローカルエンジンを再作成")
-                }
-                Text(
-                    text = "PreferredBackend manual recreate result: $manualEngineRecreateResult",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = "PreferredBackend manual recreate reason: $manualEngineRecreateReason",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
@@ -11613,6 +11950,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1RepeatedRunWaitMsChange: ((Long) -> Unit)? = null,
     onNpuS1RepeatedRunStart: (() -> Unit)? = null,
     onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
+    npuLongGenerationState: NpuLongGenerationState = NpuLongGenerationState(),
+    npuLongGenerationInProgress: Boolean = false,
+    isInferenceRunningForLongGeneration: Boolean = false,
+    onNpuLongGenerationStart: (() -> Unit)? = null,
+    onNpuLongGenerationCancel: (() -> Unit)? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
     npuS1PersistentEngineInProgress: Boolean = false,
     isInferenceRunningForPersistentEngine: Boolean = false,
@@ -11632,6 +11974,7 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
 ) {
     if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
+    var advancedExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -11646,17 +11989,9 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
             )
         }
         if (shouldShowNpuStandardRouteDevDiagnosticsContent(expanded)) {
-            if (onMemoryRecoveryCheck != null) {
-                MemoryRecoveryCheckDevSection(
-                    state = memoryRecoveryCheckState,
-                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
-                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
-                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
-                    ),
-                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
-                    onStart = onMemoryRecoveryCheck,
-                )
-            }
+            NpuBetaDevPrimaryIntroSection(
+                onCopyCompact = onCopyCompact,
+            )
             if (
                 onNpuS1RepeatedRunModeChange != null &&
                 onNpuS1RepeatedRunPromptChange != null &&
@@ -11681,6 +12016,36 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
+                )
+            }
+            if (
+                onNpuLongGenerationStart != null &&
+                onNpuLongGenerationCancel != null
+            ) {
+                NpuLongGenerationDevSection(
+                    state = npuLongGenerationState,
+                    preferredBackendSetting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    running = npuLongGenerationInProgress,
+                    blockedByGeneration = isInferenceRunningForLongGeneration,
+                    onStart = onNpuLongGenerationStart,
+                    onCancel = onNpuLongGenerationCancel,
+                )
+            }
+            DevDiagnosticsAdvancedToggle(
+                expanded = advancedExpanded,
+                onToggleExpanded = { advancedExpanded = !advancedExpanded },
+            )
+            if (!advancedExpanded) return@Column
+            if (onMemoryRecoveryCheck != null) {
+                MemoryRecoveryCheckDevSection(
+                    state = memoryRecoveryCheckState,
+                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    ),
+                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                    onStart = onMemoryRecoveryCheck,
                 )
             }
             if (
@@ -11733,7 +12098,6 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     text = devTraceText,
                     onCopyInput = onCopyInput,
                     onCopyOutput = onCopyOutput,
-                    onCopyCompact = onCopyCompact,
                     onCopyRepeatedSummary = onCopyRepeatedSummary,
                     onCopyFullDump = onCopyFullDump,
                 )
@@ -11755,7 +12119,6 @@ private fun NpuStandardRouteS1DevTraceBlock(
     text: String,
     onCopyInput: () -> Unit,
     onCopyOutput: () -> Unit,
-    onCopyCompact: () -> Unit,
     onCopyRepeatedSummary: () -> Unit,
     onCopyFullDump: () -> Unit,
 ) {
@@ -11778,9 +12141,6 @@ private fun NpuStandardRouteS1DevTraceBlock(
             }
             TextButton(onClick = onCopyOutput) {
                 Text(text = "出力コピー", color = Color.Red)
-            }
-            TextButton(onClick = onCopyCompact) {
-                Text(text = "Copy Compact", color = Color.Red)
             }
             TextButton(onClick = onCopyRepeatedSummary) {
                 Text(text = "Copy Repeated Summary", color = Color.Red)

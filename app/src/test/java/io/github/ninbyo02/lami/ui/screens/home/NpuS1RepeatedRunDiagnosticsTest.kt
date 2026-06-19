@@ -160,6 +160,87 @@ class NpuS1RepeatedRunDiagnosticsTest {
     }
 
     @Test
+    fun `stability summary exposes NPU Beta aggregate keys`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                requestedRunCount = 10,
+                repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
+                records = listOf(
+                    record(
+                        runIndex = 1,
+                        totalMs = 100L,
+                        tokensPerSecond = 2.0,
+                        repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
+                        runCount = 10,
+                    ),
+                    record(
+                        runIndex = 2,
+                        totalMs = 200L,
+                        tokensPerSecond = 4.0,
+                        status = "failure",
+                        reason = "timeout",
+                        fallbackUsed = true,
+                        timeout = true,
+                        freshCrash = true,
+                        runDecodeReached = false,
+                        repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
+                        runCount = 10,
+                        qualityClassification = "template_artifact",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("test_name=NPU Beta Stability Test"))
+        assertTrue(text.contains("mode=safe_recreate"))
+        assertTrue(text.contains("requested_runs=10"))
+        assertTrue(text.contains("completed_runs=2"))
+        assertTrue(text.contains("success_count=1"))
+        assertTrue(text.contains("failed_count=1"))
+        assertTrue(text.contains("success_rate=0.50"))
+        assertTrue(text.contains("fallback_used_count=1"))
+        assertTrue(text.contains("fallback_rate=0.50"))
+        assertTrue(text.contains("timeout_count=1"))
+        assertTrue(text.contains("timeout_rate=0.50"))
+        assertTrue(text.contains("fresh_crash_count=1"))
+        assertTrue(text.contains("fresh_crash_rate=0.50"))
+        assertTrue(text.contains("run_decode_reached_count=1"))
+        assertTrue(text.contains("run_decode_reached_rate=0.50"))
+        assertTrue(text.contains("average_total_ms=150"))
+        assertTrue(text.contains("average_decode_ms=149"))
+        assertTrue(text.contains("average_tokens_per_second=3.00"))
+        assertTrue(text.contains("first_failure_reason=timeout"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:2"))
+        assertTrue(text.contains("quality_classification_summary=natural_japanese:1,template_artifact:1"))
+    }
+
+    @Test
+    fun `stability summary keeps unavailable values unavailable when records are missing`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                requestedRunCount = 10,
+                repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
+            ),
+        )
+
+        assertTrue(text.contains("test_name=NPU Beta Stability Test"))
+        assertTrue(text.contains("requested_runs=10"))
+        assertTrue(text.contains("completed_runs=0"))
+        assertTrue(text.contains("success_rate=unavailable"))
+        assertTrue(text.contains("fallback_rate=unavailable"))
+        assertTrue(text.contains("timeout_rate=unavailable"))
+        assertTrue(text.contains("fresh_crash_rate=unavailable"))
+        assertTrue(text.contains("run_decode_reached_count=0"))
+        assertTrue(text.contains("run_decode_reached_rate=unavailable"))
+        assertTrue(text.contains("average_total_ms=unavailable"))
+        assertTrue(text.contains("average_decode_ms=unavailable"))
+        assertTrue(text.contains("average_tokens_per_second=unavailable"))
+        assertTrue(text.contains("backend_evidence_summary=unavailable"))
+        assertTrue(text.contains("quality_classification_summary=unavailable"))
+    }
+
+    @Test
     fun `copy formatter includes first failure time stage and inferred adapter exception`() {
         val failureRecord = record(
             runIndex = 7,
@@ -425,7 +506,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertEquals("safe_greeting_fallback", NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING)
         assertEquals(128, NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH)
         assertEquals("short_prompt_guard", NpuDiagnosticPromptValidator.DEFAULT_INPUT_LIMIT_MODE)
-        assertEquals(20, NPU_S1_REPEATED_RUN_DEFAULT_COUNT)
+        assertEquals(10, NPU_S1_REPEATED_RUN_DEFAULT_COUNT)
         assertEquals("こんにちは", NPU_S1_REPEATED_RUN_DEFAULT_PROMPT)
         assertEquals("こんにちは！", sanitized.sanitizedOutput)
         assertTrue(sanitized.sanitizerApplied)
@@ -600,13 +681,13 @@ class NpuS1RepeatedRunDiagnosticsTest {
     }
 
     @Test
-    fun `repeated run start gate only allows NPU recreate twenty runs with wait`() {
+    fun `repeated run start gate only allows NPU recreate ten runs with wait`() {
         assertTrue(
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 500L,
             ).allowed,
         )
@@ -615,7 +696,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 500L,
             ).blockedReason,
         )
@@ -625,7 +706,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
                 preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
                 npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 500L,
             ).blockedReason,
         )
@@ -635,7 +716,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
                 preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
                 npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 500L,
             ).blockedReason,
         )
@@ -651,7 +732,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
                     preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                     npuStandardRouteMode = mode,
                     mode = NpuS1RepeatedRunMode.RECREATE,
-                    runCount = 20,
+                    runCount = 10,
                     waitMs = 500L,
                 ).blockedReason,
             )
@@ -662,7 +743,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.REUSE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 500L,
             ).blockedReason,
         )
@@ -692,7 +773,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
+                runCount = 10,
                 waitMs = 0L,
             ).blockedReason,
         )
@@ -809,8 +890,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         waitAfterRunMs: Long = 0L,
         waitStartedAtElapsedRealtimeMs: Long? = null,
         waitFinishedAtElapsedRealtimeMs: Long? = null,
-        runCount: Int = 20,
+        runCount: Int = 10,
         prompt: String = "こんにちは",
+        qualityClassification: String = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
         outputQualityCandidateStatus: String = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
         outputQualityCandidateReason: String = "natural_japanese",
         outputQualityCandidatePreparedOutput: String = "こんにちは。",
@@ -843,7 +925,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         eosDetected = "unavailable",
         rawOutput = " こんにちは。",
         sanitizedOutput = "こんにちは。",
-        qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+        qualityClassification = qualityClassification,
         outputQualityCandidateStatus = outputQualityCandidateStatus,
         outputQualityCandidateReason = outputQualityCandidateReason,
         outputQualityCandidatePreparedOutput = outputQualityCandidatePreparedOutput,
