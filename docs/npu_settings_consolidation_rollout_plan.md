@@ -276,6 +276,33 @@ backends. Cleanup should start with user-facing label remnants and stale docs;
 do not remove enum values, preference parsing, route execution compatibility, or
 artifact parser compatibility yet.
 
+## R5a UX Acceptance Review
+
+Phase R5a adds a final UX acceptance checklist and artifact review for explicit
+`NPU Experimental` usage:
+
+```text
+docs/npu_experimental_ux_acceptance_checklist.md
+scripts/create_npu_experimental_ux_manifest.sh --date YYYYMMDD
+scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
+```
+
+This is not formal backend promotion and does not add NPU to Automatic. It
+checks that the completed route is usable from the user's perspective:
+
+- UI append is visible
+- TTS starts when enabled, or reports `tts_disabled` when disabled
+- DB save succeeds
+- Markdown executes
+- pseudo streaming executes with `native_streaming_used=false`
+- quality-candidate-fail output is suppressed
+- the completed-route kill switch can block delivery
+
+R5a low risk requires three positive UX success artifacts, one suppression-pass
+artifact, no failures, at least one TTS ON success, and preferably one kill
+switch block artifact. Medium risk can still pass the minimum UX gates while
+requesting optional TTS or kill-switch evidence.
+
 ## Debug Phase Selector Proposal
 
 Keep the system properties as the canonical DEV gate during rollout:

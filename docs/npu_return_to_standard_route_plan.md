@@ -515,6 +515,19 @@ The minimum set is three Phase 8 success samples plus one suppression-pass
 sample. R1b completed-route diagnostics must be present before dev-gate removal
 readiness can move from evidence collection to implementation planning.
 
+R5a adds an explicit `NPU Experimental` UX acceptance checklist after R3b:
+
+```text
+docs/npu_experimental_ux_acceptance_checklist.md
+scripts/create_npu_experimental_ux_manifest.sh --date YYYYMMDD
+scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
+```
+
+R5a checks user-visible behavior only: UI append, TTS ON/OFF handling, DB save,
+Markdown, pseudo streaming, suppression, and the completed-route kill switch.
+It does not make NPU a formal backend, does not add NPU to Automatic, and does
+not remove legacy S1-S5 compatibility.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

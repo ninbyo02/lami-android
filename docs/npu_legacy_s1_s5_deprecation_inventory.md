@@ -175,3 +175,21 @@ gate removal stability, and artifact compatibility review all pass.
 Use the inventory script before any cleanup PR. If it reports user-facing
 references, clean labels and docs first. If it reports runtime or settings
 references, keep them unless a migration plan explicitly covers those paths.
+
+## R5a Relationship
+
+R5a UX acceptance reviews explicit `NPU Experimental` usability after the
+completed route can run without the dev gate:
+
+```text
+scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
+```
+
+Even if R5a reports low risk, it does not authorize removing S1-S5 enum values,
+preference parsing, developer overrides, or artifact parser compatibility.
+Legacy cleanup remains staged:
+
+- keep S1-S5 as developer-only compatibility
+- keep `selected_backend=NPU_S5` / `route_family=npu_s5` parser compatibility
+- use completed-route summary keys for rollout interpretation
+- do not add NPU to Automatic as part of legacy cleanup

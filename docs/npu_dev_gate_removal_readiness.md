@@ -244,3 +244,17 @@ Legacy S1-S5 values are still part of the rollback and developer override
 surface. Dev-gate removal readiness does not authorize deleting those values.
 Cleanup must follow the staged deprecation plan in
 `docs/npu_legacy_s1_s5_deprecation_inventory.md`.
+
+## R5a UX Acceptance Dependency
+
+After R3b, use R5a to review the user-visible `NPU Experimental` experience
+before any formal promotion wording or Automatic-backend discussion:
+
+```text
+scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
+```
+
+R5a is still explicit-user-selection only. It checks UI visibility, TTS ON/OFF
+handling, DB save, Markdown, pseudo streaming, safe suppression, and the
+completed-route kill switch. A positive R5a review does not authorize removing
+legacy S1-S5 compatibility or adding NPU to Automatic.

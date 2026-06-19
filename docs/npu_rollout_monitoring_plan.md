@@ -215,3 +215,21 @@ pass.
 
 Dev-gate removal readiness remains blocked until at least one positive Phase 8
 success artifact includes the R1b completed-route diagnostics.
+
+## R5a UX Acceptance
+
+R2 rollout monitoring answers whether Phase 8 artifacts are healthy. R5a adds a
+user-visible acceptance layer for explicit `NPU Experimental`:
+
+```text
+scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
+```
+
+The UX review requires positive completed-route samples with
+`npu_standard_route_dev_gate_required=false`, UI append, DB save, Markdown,
+pseudo streaming, text consistency, no native streaming, and no rollback. It
+also counts quality-candidate-fail suppression as safety-pass evidence and can
+count a completed-route kill switch block sample.
+
+Use the R5a review before R5b/R5c rollout planning. Do not treat it as Automatic
+backend approval.
