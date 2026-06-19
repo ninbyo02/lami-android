@@ -79,6 +79,21 @@ R1b keys such as `npu_standard_route_selection_mode` and
 when present. They are not required so older Phase 8 artifacts remain
 classifiable.
 
+The rollout monitor counts older explicit-phase Phase 8 samples as success when
+the runtime gates pass. R1b completed-route diagnostics are evaluated by the dev
+gate removal readiness layer. That layer requires at least one positive Phase 8
+success artifact with:
+
+```text
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_completed_route_selected=true
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+npu_standard_route_completed_route_family=npu_standard_route_completed
+```
+
+It does not require every historical success artifact to carry those keys.
+
 ## Suppression Pass Classification
 
 A quality-candidate-fail artifact is counted as a safety pass, not as a rollout
@@ -178,3 +193,6 @@ copy. Device confirmation may lag behind script work. The monitor therefore
 does not require these keys. A pre-R1b Phase 8 success artifact can still count
 as success if phase, backend, delivery, pseudo-streaming, and rollback gates
 pass.
+
+Dev-gate removal readiness remains blocked until at least one positive Phase 8
+success artifact includes the R1b completed-route diagnostics.

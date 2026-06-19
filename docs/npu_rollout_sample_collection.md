@@ -99,6 +99,11 @@ npu_standard_route_effective_phase=8
 npu_standard_route_completed_route_family=npu_standard_route_completed
 ```
 
+These keys do not need to be present on every older Phase 8 artifact. Explicit
+developer-phase samples can still contribute to success count when their runtime
+gates pass. For dev-gate removal readiness, at least one positive Phase 8
+success artifact must contain the R1b completed-route keys above.
+
 R1c expected behavior:
 
 - `debug.lami.npu_standard_route_phase=0` means clear explicit developer phase

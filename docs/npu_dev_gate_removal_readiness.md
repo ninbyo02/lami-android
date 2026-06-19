@@ -126,6 +126,27 @@ npu_standard_route_effective_phase=8
 npu_standard_route_completed_route_family=npu_standard_route_completed
 ```
 
+R1b diagnostics are not required on every historical artifact. Older Phase 8
+samples collected with explicit `debug.lami.npu_standard_route_phase=8` can
+remain valid for success-count evidence even when they report:
+
+```text
+npu_standard_route_selection_mode=developer_phase_override
+npu_standard_route_completed_route_selected=false
+npu_standard_route_effective_phase_source=debug_property
+```
+
+The R1b gate passes when at least one positive Phase 8 success artifact has the
+completed-route diagnostics above. A positive artifact must be NPU-backed,
+Phase 8, streaming-executed, rollback-free, and have no fallback / timeout /
+fresh crash. The readiness script reports:
+
+```text
+R1B_DIAGNOSTICS_FOUND=true
+R1B_DIAGNOSTICS_ARTIFACT=<basename>
+R1B_DIAGNOSTICS_MODE=user_facing_npu_experimental/completed_route_default
+```
+
 R1c additionally requires `debug.lami.npu_standard_route_phase=0` to mean
 "clear explicit developer phase override". With Settings showing
 `NPU Experimental`, phase `0` or an absent phase property must resolve to the

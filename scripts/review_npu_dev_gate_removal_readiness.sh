@@ -56,6 +56,117 @@ contains_raw_phase8_keys() {
   grep -Eq '(^|[[:space:]])npu_standard_route_phase=' "$file"
 }
 
+bool_true() {
+  case "${1:-}" in
+    true|TRUE|1|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+bool_false_or_unavailable() {
+  case "${1:-}" in
+    false|FALSE|0|no|NO|none|unavailable|"") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+value_is_npu() {
+  local value="$1"
+  [[ "${value^^}" == *"NPU"* ]]
+}
+
+backend_evidence_present() {
+  local combined="${1,,} ${2,,}"
+  [[ "$combined" == *"qnn"* ||
+    "$combined" == *"htp"* ||
+    "$combined" == *"fastrpc"* ||
+    "$combined" == *"npu"* ]]
+}
+
+list_raw_artifact_files() {
+  if [[ -n "$INPUT" ]]; then
+    if [[ -f "$INPUT" ]] && contains_raw_phase8_keys "$INPUT"; then
+      printf '%s\n' "$INPUT"
+      return 0
+    fi
+  fi
+  [[ -d "$DEVICE_RUNS" ]] || return 0
+  find "$DEVICE_RUNS" -type f \
+    ! -name 'NPU_INVESTIGATION_REPORT.md' \
+    ! -name 'GPU_INVESTIGATION_REPORT.md' \
+    ! -name '*.png' \
+    ! -name '*.jpg' \
+    ! -name '*.jpeg' \
+    ! -name '*.webp' \
+    -print 2>/dev/null |
+    sort
+}
+
+is_positive_phase8_success_artifact() {
+  local file="$1"
+  local status selected effective backend_evidence npu_backend_evidence phase streaming rollback
+  local fallback fallback_used timeout fresh_crash
+  status="$(diagnostic_get_key_or_unavailable "$file" "status")"
+  selected="$(diagnostic_get_key_or_unavailable "$file" "selected_backend")"
+  effective="$(diagnostic_get_key_or_unavailable "$file" "effective_backend")"
+  backend_evidence="$(diagnostic_get_key_or_unavailable "$file" "backend_evidence")"
+  npu_backend_evidence="$(diagnostic_get_key_or_unavailable "$file" "npu_backend_evidence")"
+  phase="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_phase")"
+  streaming="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_streaming_executed")"
+  rollback="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_rollback_required")"
+  fallback="$(diagnostic_get_key_or_unavailable "$file" "fallback")"
+  fallback_used="$(diagnostic_get_key_or_unavailable "$file" "fallback_used")"
+  timeout="$(diagnostic_get_key_or_unavailable "$file" "timeout")"
+  fresh_crash="$(diagnostic_get_key_or_unavailable "$file" "fresh_crash")"
+
+  [[ "$status" == "success" &&
+    "$phase" == "8" &&
+    "$streaming" == "true" &&
+    "$rollback" == "false" ]] &&
+    ( value_is_npu "$selected" || value_is_npu "$effective" ) &&
+    backend_evidence_present "$backend_evidence" "$npu_backend_evidence" &&
+    bool_false_or_unavailable "$fallback" &&
+    bool_false_or_unavailable "$fallback_used" &&
+    bool_false_or_unavailable "$timeout" &&
+    bool_false_or_unavailable "$fresh_crash"
+}
+
+r1b_keys_present_in_artifact() {
+  local file="$1"
+  local selection completed phase_source effective completed_family
+  selection="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_selection_mode")"
+  completed="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_completed_route_selected")"
+  phase_source="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_effective_phase_source")"
+  effective="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_effective_phase")"
+  completed_family="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_completed_route_family")"
+  [[ "$selection" == "user_facing_npu_experimental" &&
+    "$completed" == "true" &&
+    "$phase_source" == "completed_route_default" &&
+    "$effective" == "8" &&
+    "$completed_family" == "npu_standard_route_completed" ]]
+}
+
+R1B_DIAGNOSTICS_FOUND="false"
+R1B_DIAGNOSTICS_ARTIFACT="unavailable"
+R1B_DIAGNOSTICS_MODE="unavailable"
+
+find_r1b_diagnostics_artifact() {
+  local file
+  R1B_DIAGNOSTICS_FOUND="false"
+  R1B_DIAGNOSTICS_ARTIFACT="unavailable"
+  R1B_DIAGNOSTICS_MODE="unavailable"
+  while IFS= read -r file; do
+    [[ -n "$file" && -f "$file" ]] || continue
+    is_positive_phase8_success_artifact "$file" || continue
+    r1b_keys_present_in_artifact "$file" || continue
+    R1B_DIAGNOSTICS_FOUND="true"
+    R1B_DIAGNOSTICS_ARTIFACT="$(basename "$file")"
+    R1B_DIAGNOSTICS_MODE="user_facing_npu_experimental/completed_route_default"
+    return 0
+  done < <(list_raw_artifact_files)
+  return 1
+}
+
 make_monitor_output() {
   local output="$1"
   if [[ -n "$INPUT" ]]; then
@@ -119,22 +230,40 @@ make_final_review_output() {
 r1b_confirmed() {
   local raw_or_combined="$1"
   local explicit selection completed effective completed_family
+  if find_r1b_diagnostics_artifact; then
+    return 0
+  fi
   explicit="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "NPU_R1B_DIAGNOSTICS_CONFIRMED")"
   [[ "$explicit" != "unavailable" ]] || explicit="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "R1B_DIAGNOSTICS_CONFIRMED")"
   if [[ "$explicit" == "true" ]]; then
+    R1B_DIAGNOSTICS_FOUND="true"
+    R1B_DIAGNOSTICS_ARTIFACT="explicit_confirmation"
+    R1B_DIAGNOSTICS_MODE="explicit_confirmation"
     return 0
   fi
   if [[ "$explicit" == "false" ]]; then
+    R1B_DIAGNOSTICS_FOUND="false"
+    R1B_DIAGNOSTICS_ARTIFACT="unavailable"
+    R1B_DIAGNOSTICS_MODE="unavailable"
     return 1
   fi
   selection="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "npu_standard_route_selection_mode")"
   completed="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "npu_standard_route_completed_route_selected")"
   effective="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "npu_standard_route_effective_phase")"
   completed_family="$(diagnostic_get_key_or_unavailable "$raw_or_combined" "npu_standard_route_completed_route_family")"
-  [[ "$selection" == "user_facing_npu_experimental" &&
+  if [[ "$selection" == "user_facing_npu_experimental" &&
     "$completed" == "true" &&
     "$effective" == "8" &&
-    "$completed_family" == "npu_standard_route_completed" ]]
+    "$completed_family" == "npu_standard_route_completed" ]]; then
+    R1B_DIAGNOSTICS_FOUND="true"
+    R1B_DIAGNOSTICS_ARTIFACT="combined_input"
+    R1B_DIAGNOSTICS_MODE="user_facing_npu_experimental/completed_route_default"
+    return 0
+  fi
+  R1B_DIAGNOSTICS_FOUND="false"
+  R1B_DIAGNOSTICS_ARTIFACT="unavailable"
+  R1B_DIAGNOSTICS_MODE="unavailable"
+  return 1
 }
 
 rollback_plan_exists() {
@@ -196,7 +325,7 @@ emit_review() {
   [[ "$final_review" == "ready" && "$final_ready" == "true" && "$decision" == "go" ]] &&
     passed+=("final_promotion_go") || failed+=("final_promotion_not_go")
   r1b_confirmed "$raw_or_combined" &&
-    passed+=("r1b_completed_route_diagnostics") || failed+=("r1b_diagnostics_missing")
+    passed+=("r1b_diagnostics") || failed+=("r1b_diagnostics_missing")
   [[ "$native_streaming_used" == "false" || "$native_streaming_used" == "unavailable" ]] &&
     passed+=("native_streaming_not_used") || failed+=("native_streaming_used")
   [[ "$matches_db" == "true" || "$matches_db" == "unavailable" ]] &&
@@ -243,6 +372,9 @@ emit_review() {
   printf 'CURRENT_TIMEOUT_COUNT=%s\n' "$timeout_count"
   printf 'CURRENT_FRESH_CRASH_COUNT=%s\n' "$fresh_crash_count"
   printf 'CURRENT_FALLBACK_COUNT=%s\n' "$fallback_count"
+  printf 'R1B_DIAGNOSTICS_FOUND=%s\n' "$R1B_DIAGNOSTICS_FOUND"
+  printf 'R1B_DIAGNOSTICS_ARTIFACT=%s\n' "$R1B_DIAGNOSTICS_ARTIFACT"
+  printf 'R1B_DIAGNOSTICS_MODE=%s\n' "$R1B_DIAGNOSTICS_MODE"
   printf 'REQUIRED_GATES=rollout_monitor_low_risk,success_count_ge_%s,suppression_pass_ge_1,no_failures,no_timeout,no_fresh_crash,no_fallback,final_promotion_go,r1b_diagnostics,phase8_text_consistency,rollback_plan\n' "$REQUIRED_SAMPLE_COUNT"
   printf 'PASSED_GATES=%s\n' "$(join_csv "${passed[@]}")"
   printf 'FAILED_GATES=%s\n' "$(join_csv "${failed[@]}")"
@@ -271,7 +403,51 @@ review_current_input() {
 write_fixture() {
   local file="$1"
   shift
+  mkdir -p "$(dirname "$file")"
   printf '%s\n' "$@" >"$file"
+}
+
+write_phase8_success_artifact() {
+  local file="$1"
+  local selection_mode="$2"
+  local completed_selected="$3"
+  local phase_source="$4"
+  local completed_family="$5"
+  write_fixture "$file" \
+    "status=success selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false fallback_used=false timeout=false fresh_crash=false run_decode_reached=true native_cleanup_reached=true" \
+    "npu_standard_route_phase=8 npu_standard_route_phase_name=7b_pseudo_streaming_gate npu_standard_route_selection_mode=${selection_mode} npu_standard_route_completed_route_selected=${completed_selected} npu_standard_route_effective_phase_source=${phase_source} npu_standard_route_effective_phase=8 npu_standard_route_completed_route_family=${completed_family}" \
+    "npu_standard_route_streaming_executed=true npu_standard_route_native_streaming_used=false npu_standard_route_streaming_text_matches_db=true npu_standard_route_streaming_text_matches_markdown=true npu_standard_route_rollback_required=false"
+}
+
+write_phase8_suppression_artifact() {
+  local file="$1"
+  write_fixture "$file" \
+    "status=success selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false fallback_used=false timeout=false fresh_crash=false run_decode_reached=true native_cleanup_reached=true" \
+    "output_quality_candidate_status=quality_candidate_fail npu_standard_route_phase=8 npu_standard_route_quality_gate_passed=false npu_standard_route_output_suppressed=true npu_standard_route_suppression_reason=raw_unexpected_start_turn" \
+    "npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false npu_standard_route_native_streaming_used=false npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db"
+}
+
+write_healthy_go_review_input() {
+  local file="$1"
+  write_fixture "$file" \
+    "NPU_ROLLOUT_MONITOR_STATUS=healthy" \
+    "NPU_ROLLOUT_SAMPLE_COUNT=5" \
+    "NPU_ROLLOUT_SUCCESS_COUNT=4" \
+    "NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=1" \
+    "NPU_ROLLOUT_FAILURE_COUNT=0" \
+    "NPU_ROLLOUT_ROLLBACK_COUNT=0" \
+    "NPU_ROLLOUT_TIMEOUT_COUNT=0" \
+    "NPU_ROLLOUT_FRESH_CRASH_COUNT=0" \
+    "NPU_ROLLOUT_FALLBACK_COUNT=0" \
+    "NPU_ROLLOUT_RISK_LEVEL=low" \
+    "NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true" \
+    "NPU_STANDARD_ROUTE_FINAL_REVIEW=ready" \
+    "READY_FOR_NPU_STANDARD_ROUTE=true" \
+    "PROMOTION_DECISION=go" \
+    "npu_standard_route_native_streaming_used=false" \
+    "npu_standard_route_streaming_text_matches_db=true" \
+    "npu_standard_route_streaming_text_matches_markdown=true" \
+    "ROLLBACK_PLAN_DOC_EXISTS=true"
 }
 
 expect_output_contains() {
@@ -314,6 +490,69 @@ self_test() {
   expect_output_contains "$out" "NPU_DEV_GATE_REMOVAL_REVIEW=ready"
   expect_output_contains "$out" "READY_TO_REMOVE_DEV_GATE=true"
   expect_output_contains "$out" "DEV_GATE_REMOVAL_DECISION=go"
+
+  mkdir -p "$tmpdir/mixed_runs"
+  write_phase8_success_artifact \
+    "$tmpdir/mixed_runs/old_developer_phase8_success.txt" \
+    "developer_phase_override" \
+    "false" \
+    "debug_property" \
+    "unavailable"
+  write_phase8_success_artifact \
+    "$tmpdir/mixed_runs/new_user_facing_completed_route_success.txt" \
+    "user_facing_npu_experimental" \
+    "true" \
+    "completed_route_default" \
+    "npu_standard_route_completed"
+  write_phase8_suppression_artifact "$tmpdir/mixed_runs/suppression_pass.txt"
+  write_healthy_go_review_input "$tmpdir/mixed_monitor.txt"
+  out="$tmpdir/mixed.out"
+  DEVICE_RUNS="$tmpdir/mixed_runs" INPUT="$tmpdir/mixed_monitor.txt" review_current_input >"$out"
+  expect_output_contains "$out" "READY_TO_REMOVE_DEV_GATE=true"
+  expect_output_contains "$out" "R1B_DIAGNOSTICS_FOUND=true"
+  expect_output_contains "$out" "R1B_DIAGNOSTICS_ARTIFACT=new_user_facing_completed_route_success.txt"
+  grep -Eq '^PASSED_GATES=.*r1b_diagnostics' "$out" || {
+    echo "self-test failed: mixed output should pass r1b_diagnostics" >&2
+    cat "$out" >&2
+    exit 1
+  }
+
+  mkdir -p "$tmpdir/all_old_runs"
+  write_phase8_success_artifact \
+    "$tmpdir/all_old_runs/old_developer_phase8_success_1.txt" \
+    "developer_phase_override" \
+    "false" \
+    "debug_property" \
+    "unavailable"
+  write_phase8_success_artifact \
+    "$tmpdir/all_old_runs/old_developer_phase8_success_2.txt" \
+    "developer_phase_override" \
+    "false" \
+    "debug_property" \
+    "unavailable"
+  write_phase8_suppression_artifact "$tmpdir/all_old_runs/suppression_pass.txt"
+  write_healthy_go_review_input "$tmpdir/all_old_monitor.txt"
+  out="$tmpdir/all_old.out"
+  DEVICE_RUNS="$tmpdir/all_old_runs" INPUT="$tmpdir/all_old_monitor.txt" review_current_input >"$out"
+  expect_output_contains "$out" "READY_TO_REMOVE_DEV_GATE=false"
+  expect_output_contains "$out" "DEV_GATE_REMOVAL_DECISION_REASON=r1b_diagnostics_missing"
+  expect_output_contains "$out" "R1B_DIAGNOSTICS_FOUND=false"
+  grep -Eq '^FAILED_GATES=.*r1b_diagnostics_missing' "$out" || {
+    echo "self-test failed: all-old output should fail r1b_diagnostics_missing" >&2
+    cat "$out" >&2
+    exit 1
+  }
+
+  mkdir -p "$tmpdir/bad_r1b_runs"
+  write_fixture "$tmpdir/bad_r1b_runs/r1b_timeout_rollback.txt" \
+    "status=success selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false fallback_used=false timeout=true fresh_crash=false run_decode_reached=true native_cleanup_reached=true" \
+    "npu_standard_route_phase=8 npu_standard_route_selection_mode=user_facing_npu_experimental npu_standard_route_completed_route_selected=true npu_standard_route_effective_phase_source=completed_route_default npu_standard_route_effective_phase=8 npu_standard_route_completed_route_family=npu_standard_route_completed" \
+    "npu_standard_route_streaming_executed=true npu_standard_route_native_streaming_used=false npu_standard_route_rollback_required=true"
+  write_healthy_go_review_input "$tmpdir/bad_r1b_monitor.txt"
+  out="$tmpdir/bad_r1b.out"
+  DEVICE_RUNS="$tmpdir/bad_r1b_runs" INPUT="$tmpdir/bad_r1b_monitor.txt" review_current_input >"$out"
+  expect_output_contains "$out" "R1B_DIAGNOSTICS_FOUND=false"
+  expect_output_contains "$out" "DEV_GATE_REMOVAL_DECISION_REASON=r1b_diagnostics_missing"
 
   write_fixture "$tmpdir/insufficient_samples.txt" \
     "NPU_ROLLOUT_MONITOR_STATUS=needs_more_samples" \
