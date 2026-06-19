@@ -128,3 +128,7 @@ safe gate during staged validation.
    Use device reboot or `adb shell setprop debug.lami.npu_standard_route_phase 0`;
    phase `0` means no explicit override and lets NPU Experimental default to
    completed phase `8` when the dev gate is enabled.
+9. R4 adds a static S1-S5 deprecation inventory. Treat S1-S5 as
+   developer-only / legacy phase labels, not as normal backend choices. Keep
+   preference parsing and enum compatibility until the staged deprecation plan
+   reaches a later migration window.

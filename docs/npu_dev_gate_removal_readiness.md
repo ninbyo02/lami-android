@@ -167,3 +167,16 @@ DEV_GATE_REMOVAL_DECISION=go
 
 R3b must remain reversible, preserve CPU/GPU behavior, preserve legacy developer
 phase overrides, and keep quality-candidate-fail suppression as the stop line.
+
+## Legacy S1-S5 Cleanup Dependency
+
+Before removing or hiding additional developer controls, run:
+
+```text
+scripts/review_npu_legacy_s1_s5_inventory.sh
+```
+
+Legacy S1-S5 values are still part of the rollback and developer override
+surface. Dev-gate removal readiness does not authorize deleting those values.
+Cleanup must follow the staged deprecation plan in
+`docs/npu_legacy_s1_s5_deprecation_inventory.md`.

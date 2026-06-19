@@ -460,6 +460,16 @@ It requires low-risk rollout monitoring, final promotion GO, R1b diagnostics,
 text consistency, and rollback-plan documentation before a future R3b runtime
 kill-switch implementation can be considered.
 
+Phase R4 inventories legacy S1-S5 references without changing runtime:
+
+```text
+scripts/review_npu_legacy_s1_s5_inventory.sh
+```
+
+S1-S5 remain developer-only compatibility phases. Do not remove enum values,
+preference parsing, route execution compatibility, or artifact parser support
+until the staged deprecation plan explicitly allows it.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

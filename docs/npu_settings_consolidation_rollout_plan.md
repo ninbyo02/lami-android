@@ -184,6 +184,19 @@ completed-route diagnostics, phase 8 text consistency, and a documented rollback
 plan. A positive result only authorizes a future R3b implementation with a
 runtime kill switch.
 
+## R4 Legacy S1-S5 Inventory
+
+Phase R4 adds a static inventory for legacy S1-S5 references:
+
+```text
+scripts/review_npu_legacy_s1_s5_inventory.sh
+```
+
+S1-S5 remain compatibility and developer-phase controls, not user-facing
+backends. Cleanup should start with user-facing label remnants and stale docs;
+do not remove enum values, preference parsing, route execution compatibility, or
+artifact parser compatibility yet.
+
 ## Debug Phase Selector Proposal
 
 Keep the system properties as the canonical DEV gate during rollout:
