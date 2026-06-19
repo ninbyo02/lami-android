@@ -23,6 +23,7 @@ class NpuStandardRouteS2DbMapperTest {
         assertEquals("こんにちは。", candidate.assistantMessage.sourceDisplayText)
         assertFalse(candidate.assistantMessage.isSendByMe)
         assertTrue(candidate.sideEffects.dbConnected)
+        assertTrue(candidate.sideEffects.conversationHistorySaved)
         assertFalse(candidate.sideEffects.tts)
         assertFalse(candidate.sideEffects.markdown)
         assertFalse(candidate.sideEffects.streaming)
@@ -49,6 +50,39 @@ class NpuStandardRouteS2DbMapperTest {
     }
 
     @Test
+    fun `assistant candidate uses prepared output when quality candidate passes`() {
+        val s1Result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val assistant = requireNotNull(
+            NpuStandardRouteS2DbMapper.map(
+                userPrompt = "1+1は？",
+                s1Result = s1Result,
+            ).saveCandidate,
+        ).assistantMessage
+
+        assertEquals("2", assistant.text)
+        assertEquals("2", s1Result.actualDisplayText)
+        assertFalse(assistant.text.contains("<start_of_turn>"))
+        assertFalse(assistant.text.contains("次の計算"))
+    }
+
+    @Test
     fun `failed S1 result creates no DB save candidate`() {
         val mapping = NpuStandardRouteS2DbMapper.map(
             userPrompt = "こんにちは",
@@ -58,6 +92,58 @@ class NpuStandardRouteS2DbMapperTest {
         assertFalse(mapping.hasSaveCandidate)
         assertNull(mapping.saveCandidate)
         assertEquals(NpuStandardRouteS2DbContract.FAILURE_S1_NOT_SUCCESS, mapping.failureReason)
+    }
+
+    @Test
+    fun `raw output containing Japanese user role marker creates no DB save candidate`() {
+        assertRawRoleContaminationBlocked("どうしましたか。\nユーザー: ああああ")
+    }
+
+    @Test
+    fun `raw output containing Japanese assistant role marker creates no DB save candidate`() {
+        assertRawRoleContaminationBlocked("どうしましたか。\nアシスタント: 何か困っていますか。")
+    }
+
+    @Test
+    fun `raw output containing English user role marker creates no DB save candidate`() {
+        assertRawRoleContaminationBlocked("Hello.\nUser: test")
+    }
+
+    @Test
+    fun `raw output containing English assistant role marker creates no DB save candidate`() {
+        assertRawRoleContaminationBlocked("Hello.\nAssistant: How can I help?")
+    }
+
+    @Test
+    fun `natural sanitized output is blocked when raw output has role contamination`() {
+        val contaminated = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                sanitizedOutput = "どうしましたか。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "こんにちは",
+            s1Result = contaminated,
+        )
+
+        assertFalse(contaminated.successCriteriaMet)
+        assertEquals(FailureNpuStandardRouteS1Provider.STATUS_FAILURE, contaminated.status)
+        assertEquals(NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION, contaminated.reason)
+        assertEquals(NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION, contaminated.qualityClassification)
+        assertFalse(mapping.hasSaveCandidate)
+        assertNull(mapping.saveCandidate)
+        assertEquals(NpuStandardRouteS2DbContract.FAILURE_RAW_ROLE_CONTAMINATION, mapping.failureReason)
     }
 
     @Test
@@ -87,9 +173,24 @@ class NpuStandardRouteS2DbMapperTest {
         assertFalse(s1Result.selection.sideEffects.markdown)
         assertFalse(s1Result.selection.sideEffects.streaming)
         assertTrue(candidate.sideEffects.dbConnected)
+        assertTrue(candidate.sideEffects.conversationHistorySaved)
         assertFalse(candidate.sideEffects.tts)
         assertFalse(candidate.sideEffects.markdown)
         assertFalse(candidate.sideEffects.streaming)
+    }
+
+    private fun assertRawRoleContaminationBlocked(rawOutput: String) {
+        val mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "こんにちは",
+            s1Result = successResult(
+                rawOutput = rawOutput,
+                sanitizedOutput = "どうしましたか。",
+            ),
+        )
+
+        assertFalse(mapping.hasSaveCandidate)
+        assertNull(mapping.saveCandidate)
+        assertEquals(NpuStandardRouteS2DbContract.FAILURE_RAW_ROLE_CONTAMINATION, mapping.failureReason)
     }
 
     private fun successResult(

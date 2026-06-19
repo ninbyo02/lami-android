@@ -18,5 +18,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Ollama"
+rootProject.name = "lami-android"
 include(":app")

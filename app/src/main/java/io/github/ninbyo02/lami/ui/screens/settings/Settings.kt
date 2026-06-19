@@ -100,6 +100,8 @@ import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
 import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
@@ -143,6 +145,39 @@ private const val ResetSettingsScrollOnReturnFromAboutKey = "reset_settings_scro
 
 // サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
 private val ServerRowTrailingSlotWidth = 32.dp
+
+internal const val LEGACY_QAIRT244_DIAGNOSTIC_TITLE = "Legacy QAIRT244診断"
+internal const val LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION =
+    "旧QAIRT診断経路です。S1〜S5 NPU標準ルートとは別で、通常利用は非推奨です。"
+
+internal const val NPU_EXPERIMENTAL_BACKEND_DESCRIPTION =
+    "NPU Beta: Uses the completed NPU standard route with UI, TTS, DB, Markdown, and pseudo streaming gates."
+
+internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): String =
+    when (mode) {
+        NpuStandardRouteMode.OFF -> "OFF"
+        NpuStandardRouteMode.S1_ONLY -> "S1 応答表示"
+        NpuStandardRouteMode.S2_DB -> "S2 DB保存"
+        NpuStandardRouteMode.S3_MARKDOWN -> "S3 Markdown"
+        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "S4 Streaming"
+        NpuStandardRouteMode.FULL -> "S5 TTS"
+    }
+
+internal fun npuStandardRouteModeDescription(mode: NpuStandardRouteMode): String =
+    when (mode) {
+        NpuStandardRouteMode.OFF -> "無効"
+        NpuStandardRouteMode.S1_ONLY -> "NPU応答を画面に表示します"
+        NpuStandardRouteMode.S2_DB -> "応答をDBに保存します"
+        NpuStandardRouteMode.S3_MARKDOWN -> "Markdown表示まで有効にします"
+        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "擬似Streaming表示まで有効にします"
+        NpuStandardRouteMode.FULL -> "TTS読み上げまで有効にします"
+    }
+
+internal fun npuStandardRouteMaxOutputTokensDisplayLabel(maxOutputTokens: Int): String =
+    maxOutputTokens.toString()
+
+internal fun npuStandardRouteMaxOutputTokensDescription(maxOutputTokens: Int): String =
+    "NPU標準ルートのmax_output_tokens=$maxOutputTokens"
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -237,12 +272,7 @@ fun Settings(
                 )
             }
         } else {
-            listOf(
-                ServerInput(
-                    url = "http://localhost:13511/",
-                    isActive = true
-                )
-            )
+            emptyList()
         }
         serverInputs.clear()
         serverInputs.addAll(initialList)
@@ -595,97 +625,145 @@ fun Settings(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                text = "MediaPipe preferredBackend（実験）",
+                                text = "推論バックエンド",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。NPUはvendor FastRPC namespace制約のため本線では無効化し、GPUを推奨します。変更後はローカルエンジン再作成が必要です。",
+                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は当面 CPU 優先です。\nGPU は端末依存で Genericモデルの engine create timeout が起きる可能性があるため、DEV診断目的の Experimental / 非推奨です。\nNPU は標準ルート完走済みの Beta backend として表示します。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            val currentDryRun = settingsData.preferredBackendDryRunSetting
-                            PreferredBackendDryRunSetting.selectableEntries.forEach { setting ->
+                            val currentBackendSelection = settingsData.inferenceBackendSelection
+                            InferenceBackendSelection.userFacingEntries.forEach { selection ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             scope.launch {
-                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
                                             }
                                         }
                                         .padding(vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(
-                                        selected = currentDryRun == setting,
+                                        selected = currentBackendSelection == selection,
                                         onClick = {
                                             scope.launch {
-                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
                                             }
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = setting.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
                                 }
+                            }
+                            if (currentBackendSelection == InferenceBackendSelection.NPU) {
+                                Text(
+                                    text = NPU_EXPERIMENTAL_BACKEND_DESCRIPTION,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (settingsData.developerAccessEnabled) {
+                                Text(
+                                    text = "NPU standard route phase（developer）",
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = "S1〜S5 は backend ではなく標準ルートの legacy developer phase です。通常の backend list には NPU Beta として1項目だけ表示します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                InferenceBackendSelection.developerNpuPhaseEntries.forEach { selection ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsPreferences.saveInferenceBackendSelection(selection)
+                                                }
+                                            }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(
+                                            selected =
+                                                settingsData.npuStandardRouteSelectionSource ==
+                                                    NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE &&
+                                                    settingsData.npuStandardRouteMode == selection.npuStandardRouteMode,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsPreferences.saveInferenceBackendSelection(selection)
+                                                }
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                                Text(
+                                    text = "Phase 6〜8 は debug.lami.npu_standard_route_phase=6..8 で確認済みです。既存 preference key は互換維持します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
-                        Card {
-                            SettingsToggleRowItem(
-                                headline = "DEV: SM8750 NPU実験",
-                                supporting = "customBuildExperimentDebug限定。key=dev_enable_qairt244_sm8750_npu_route。既定OFF、128-token phase、失敗時もGPU/CPUへfallbackしません。",
-                                leadingIcon = Icons.Filled.BugReport,
-                                checked = settingsData.devEnableQairt244Sm8750NpuRoute,
-                                enabled = true,
-                                onCheckedChange = { enabled ->
-                                    scope.launch {
-                                        settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
-                                    }
-                                },
-                            )
-                        }
+                    if (settingsData.developerAccessEnabled) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Card {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
-                                    text = "DEV NPU ChatScreen route boundary",
+                                    text = "NPU max output tokens（開発用）",
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
-                                    text = "key=dev_enable_npu_chatscreen_route",
+                                    text = "developer向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Text(
-                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    if (!BuildConfig.CUSTOM_BUILD_EXPERIMENT && settingsData.developerAccessEnabled) {
-                        Card {
-                            SettingsToggleRowItem(
-                                headline = "実験的NPU（SM8750）",
-                                supporting = "SM8750専用の開発者向けNPU実験です。失敗時は手動でOFFにしてください。",
-                                leadingIcon = Icons.Filled.BugReport,
-                                checked = settingsData.devEnableQairt244Sm8750NpuRoute,
-                                enabled = true,
-                                onCheckedChange = { enabled ->
-                                    scope.launch {
-                                        settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
+                                val currentNpuMaxOutputTokens = settingsData.npuStandardRouteMaxOutputTokens
+                                NpuStandardRoutePreferences.selectableMaxOutputTokens.forEach { maxOutputTokens ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsPreferences.saveNpuStandardRouteMaxOutputTokens(maxOutputTokens)
+                                                }
+                                            }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(
+                                            selected = currentNpuMaxOutputTokens == maxOutputTokens,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsPreferences.saveNpuStandardRouteMaxOutputTokens(maxOutputTokens)
+                                                }
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = npuStandardRouteMaxOutputTokensDisplayLabel(maxOutputTokens),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Text(
+                                                text = npuStandardRouteMaxOutputTokensDescription(maxOutputTokens),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
                                     }
-                                },
-                            )
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Card {
@@ -696,48 +774,88 @@ fun Settings(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
-                                    text = "実験的NPU prompt template",
+                                    text = LEGACY_QAIRT244_DIAGNOSTIC_TITLE,
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
-                                    text = "standardDebug hidden qairt244 NPU route限定。customBuildExperimentDebugのinternal_intent routeには適用しません。",
+                                    text = LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                val currentTemplateMode = settingsData.hiddenQairt244PromptTemplateMode
-                                HiddenQairt244PromptTemplateMode.entries.forEach { mode ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                scope.launch {
-                                                    settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
+                                SettingsToggleRowItem(
+                                    headline = "Legacy QAIRT244 ChatScreen route",
+                                    supporting = "key=dev_enable_qairt244_sm8750_npu_route。旧QAIRT診断経路用で、NPU標準ルートとは別です。",
+                                    leadingIcon = Icons.Filled.BugReport,
+                                    checked = settingsData.devEnableQairt244Sm8750NpuRoute,
+                                    enabled = true,
+                                    onCheckedChange = { enabled ->
+                                        scope.launch {
+                                            settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
+                                        }
+                                    },
+                                )
+                                if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+                                    Text(
+                                        text = "customBuildExperimentDebugでも通常利用ではなくlegacy診断として扱います。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Legacy QAIRT244 prompt template",
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+                                    Text(
+                                        text = "legacy ChatScreen route専用。NPU標準ルートのprompt shapingには使いません。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    val currentTemplateMode = settingsData.hiddenQairt244PromptTemplateMode
+                                    HiddenQairt244PromptTemplateMode.entries.forEach { mode ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    scope.launch {
+                                                        settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
+                                                    }
                                                 }
+                                                .padding(vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            RadioButton(
+                                                selected = currentTemplateMode == mode,
+                                                onClick = {
+                                                    scope.launch {
+                                                        settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
+                                                    }
+                                                },
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Text(
+                                                    text = mode.displayName,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                                Text(
+                                                    text = mode.description,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
                                             }
-                                            .padding(vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        RadioButton(
-                                            selected = currentTemplateMode == mode,
-                                            onClick = {
-                                                scope.launch {
-                                                    settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
-                                                }
-                                            },
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(
-                                                text = mode.displayName,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            Text(
-                                                text = mode.description,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
                                         }
                                     }
+                                }
+                                if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+                                    Text(
+                                        text = "DEV NPU ChatScreen route boundary",
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+                                    Text(
+                                        text = "key=dev_enable_npu_chatscreen_route / blocked adapter only / normal selectedPath=npu disabled",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
@@ -935,7 +1053,7 @@ fun Settings(
                                             )
                                             return@launch
                                         }
-                                        if (serverInputs.none { it.isActive }) {
+                                        if (serverInputs.isNotEmpty() && serverInputs.none { it.isActive }) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
                                         val inputsForValidation = normalizedInputs
@@ -983,7 +1101,7 @@ fun Settings(
                                         )
                                         if (initializationState.usedFallback) {
                                             val fallbackMessage = initializationState.errorMessage
-                                                ?: "有効なURLがないためデフォルトにフォールバックしました"
+                                                ?: "サーバー設定を更新しました"
                                             snackbarHostState.showSnackbar(
                                                 message = fallbackMessage,
                                                 duration = SnackbarDuration.Short
@@ -1025,6 +1143,25 @@ fun Settings(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                    }
+                }
+            }
+            if (serverInputs.isEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text = "サーバーは登録されていません",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = "+ でサーバーを追加できます",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -1150,17 +1287,8 @@ fun Settings(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
                                 .padding(end = 0.dp),
-                            enabled = serverInputs.size > 1,
+                            enabled = true,
                             onClick = {
-                                if (serverInputs.size <= 1) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "最低1件のサーバーを残してください",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                    return@IconButton
-                                }
                                 val wasActive = serverInputs[index].isActive
                                 val updatedInvalidConnections =
                                     connectionStatuses.toMutableMap().apply {
@@ -1199,8 +1327,8 @@ fun Settings(
                             } else {
                                 serverInputs.add(
                                     ServerInput(
-                                        url = "http://localhost:13511/",
-                                        isActive = false
+                                        url = "",
+                                        isActive = serverInputs.isEmpty()
                                     )
                                 )
                                 val normalizedInputs = getNormalizedInputs()

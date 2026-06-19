@@ -100,11 +100,13 @@ internal object Qairt244OutputUnicodeDiagnostics {
 
         if (containsTemplateArtifact(output)) return "template_artifact"
 
-        val hasJapanese = codePoints.any { it.isJapaneseCodePoint() }
-        val latinLetterCount = codePoints.count {
-            (it in 'A'.code..'Z'.code) || (it in 'a'.code..'z'.code)
-        }
-        if (!hasJapanese || latinLetterCount >= 3) return "mixed_language"
+        val japaneseSpecificCount = codePoints.count { it.isJapaneseSpecificCodePoint() }
+        val japaneseTextCount = codePoints.count { it.isJapaneseTextCodePoint() }
+        if (japaneseSpecificCount == 0 || japaneseTextCount == 0) return "mixed_language"
+        if (codePoints.any { it.isNonJapaneseScriptCodePoint() }) return "mixed_language"
+
+        val latinWords = LATIN_WORD_PATTERN.findAll(trimmed).map { it.value }.toList()
+        if (latinWords.any { !it.isAllowedJapaneseInlineLatinTerm() }) return "mixed_language"
 
         return "natural_japanese"
     }
@@ -204,15 +206,57 @@ internal object Qairt244OutputUnicodeDiagnostics {
     private fun Int.isQuestionMark(): Boolean =
         this == QUESTION_MARK_CODE_POINT || this == FULLWIDTH_QUESTION_MARK_CODE_POINT
 
-    private fun Int.isJapaneseCodePoint(): Boolean =
+    private fun Int.isJapaneseTextCodePoint(): Boolean =
+        isJapaneseSpecificCodePoint() || isCjkUnifiedIdeograph()
+
+    private fun Int.isJapaneseSpecificCodePoint(): Boolean =
         this in 0x3040..0x309F ||
-            this in 0x30A0..0x30FF ||
-            this in 0x3400..0x4DBF ||
+            this in 0x30A0..0x30FF
+
+    private fun Int.isCjkUnifiedIdeograph(): Boolean =
+        this in 0x3400..0x4DBF ||
             this in 0x4E00..0x9FFF ||
             this in 0xF900..0xFAFF
+
+    private fun Int.isNonJapaneseScriptCodePoint(): Boolean =
+        this in 0x0900..0x097F ||
+            this in 0xAC00..0xD7AF ||
+            this in 0x1100..0x11FF ||
+            this in 0x3130..0x318F
+
+    private fun String.isAllowedJapaneseInlineLatinTerm(): Boolean {
+        val normalized = trim('.', ',', ':', ';', '!', '?', '-', '_').lowercase()
+        if (normalized.isBlank()) return true
+        return normalized in allowedJapaneseInlineLatinTerms ||
+            (all { it.isUpperCase() || it.isDigit() } && length in 2..4)
+    }
 
     private const val REPLACEMENT_CHAR_CODE_POINT = 0xFFFD
     private const val WHITE_CIRCLE_CODE_POINT = 0x3007
     private const val QUESTION_MARK_CODE_POINT = 0x003F
     private const val FULLWIDTH_QUESTION_MARK_CODE_POINT = 0xFF1F
+    private val LATIN_WORD_PATTERN = Regex("[A-Za-z][A-Za-z0-9+#._-]*")
+    private val allowedJapaneseInlineLatinTerms = setOf(
+        "ai",
+        "android",
+        "api",
+        "chatgpt",
+        "cpu",
+        "db",
+        "github",
+        "google",
+        "gpu",
+        "java",
+        "javascript",
+        "kotlin",
+        "litert",
+        "npu",
+        "openai",
+        "python",
+        "qairt",
+        "qualcomm",
+        "qnn",
+        "sql",
+        "ui",
+    )
 }

@@ -5,8 +5,8 @@ set -euo pipefail
 # update.sh (single-dev safe mode)
 #
 # Design philosophy:
-#   - Safe by default: 作業中でも止めずに進める（自動 wip）
-#   - Explicit safety: --no-wip 指定時は一切触らない
+#   - Safe by default: dirty worktree では commit / stash / reset せずに止まる
+#   - Explicit escape hatches: --stash / --wip 指定時のみ自動退避する
 #   - Reproducible: 動いていたPR/commitを即テスト可能
 #
 # ==============================================================================
@@ -14,6 +14,8 @@ set -euo pipefail
 WORK_BRANCH=future
 REMOTE_NAME="origin"
 WIP_PREFIX="wip(auto):"
+WIP_MESSAGE="${WIP_PREFIX} before update.sh"
+STASH_MESSAGE="stash(auto): before update.sh"
 PHONE_IP="10.5.5.3"
 DEFAULT_PORT="40215"
 DEFAULT_ANDROID_FLAVOR="standard"
@@ -32,20 +34,22 @@ usage() {
 update.sh (single-dev safe mode)
 
 Design philosophy:
-  - Safe by default: 作業中でも止めずに進める（自動 wip）
-  - Explicit safety: --no-wip 指定時は一切触らない（汚れていたら中断）
+  - Safe by default: dirty worktree では commit / stash / reset せずに止まる
+  - Explicit escape hatches: --stash / --wip 指定時のみ自動退避する
   - Reproducible: 動いていたPR/commitを即テスト可能
 
-What is WIP / --no-wip ?
-  - wip(auto): 作業ツリーがdirtyでも、ローカルに一時コミットを作って先へ進む安全策
-              （pushしない。戻すなら: git reset --soft HEAD~1）
-  - --no-wip : 作業ツリーがdirtyなら“何もしないで止まる”慎重モード（事故防止）
+Local update policy:
+  - update        : clean worktree の場合のみ ff-only 更新（dirty なら停止）
+  - update --stash: git stash push --include-untracked で退避し、更新後に stash pop
+  - update --wip  : legacy explicit mode。WIP commit 後に更新（default では使わない）
 
 Usage:
   ./update.sh                      # show help
 
 Subcommands:
   ./update.sh update [options]      # fetch/pull WORK_BRANCH, then build+install
+  ./update.sh wip                   # explicitly create local WIP commit if dirty
+  ./update.sh stash                 # explicitly stash current changes if dirty
   ./update.sh publish [options]     # commit current changes, then push current branch
   ./update.sh switch [options]      # create/switch branch from PR or commit (optionally push & update WORK_BRANCH)
   ./update.sh test   [options]      # build/install test on temp branch (no detached), then return & cleanup
@@ -54,9 +58,11 @@ Subcommands:
 
 update options:
   --port|-p PORT        ADB connect port (default: 40215)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
-  --no-wip              abort if working tree dirty (default: auto WIP local commit)
+  --stash               stash dirty worktree before update, then stash pop after update
+  --wip                 legacy explicit mode: create local WIP commit before update
+  --no-wip              compatibility alias for default safe behavior
   --dry-run             stop after fetch/pull (no gradle, no adb)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
 
@@ -72,19 +78,26 @@ test options:
   --pr N | --commit SHA
   --build               run selected flavor Kotlin compile task (default if neither --build nor --install)
   --install             run selected flavor install task (device required)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before install task (requires --install)
   --port|-p PORT        ADB connect port (default: 40215)
   --keep-temp           keep temp branch after test (default: delete)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
 
+dirty-worktree compatibility options:
+  --wip                 legacy explicit mode: create local WIP commit first
+  --no-wip              compatibility alias for default safe behavior
+
 Examples:
   ./update.sh update --dry-run
+  ./update.sh update --stash
+  ./update.sh update --wip
   ./update.sh update --flavor npuExperiment
   ./update.sh update --flavor galleryStackExperiment
+  ./update.sh update --flavor galleryAlignedNpuProbe
   ./update.sh update --flavor customBuildExperiment
-  ./update.sh update --no-wip
-  ./update.sh update -c --no-wip
+  ./update.sh wip
+  ./update.sh stash
   ./update.sh publish -m "docs: update README"
   ./update.sh publish --dry-run
   ./update.sh test --pr 398 --install -c -v
@@ -138,8 +151,9 @@ normalize_android_flavor() {
     standard|Standard) echo "standard" ;;
     npuExperiment|NpuExperiment|npu|npu-experiment) echo "npuExperiment" ;;
     galleryStackExperiment|GalleryStackExperiment|gallery|gallery-stack|gallery-stack-experiment|gallerynpu) echo "galleryStackExperiment" ;;
+    galleryAlignedNpuProbe|GalleryAlignedNpuProbe|gallery-aligned|gallery-aligned-npu-probe|galleryprobe) echo "galleryAlignedNpuProbe" ;;
     customBuildExperiment|CustomBuildExperiment|custom|custom-build|custom-build-experiment|customnpu) echo "customBuildExperiment" ;;
-    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment)" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment)" ;;
   esac
 }
 
@@ -150,6 +164,7 @@ install_task_for_flavor() {
     standard) echo "installStandardDebug" ;;
     npuExperiment) echo "installNpuExperimentDebug" ;;
     galleryStackExperiment) echo "installGalleryStackExperimentDebug" ;;
+    galleryAlignedNpuProbe) echo "installGalleryAlignedNpuProbeDebug" ;;
     customBuildExperiment) echo "installCustomBuildExperimentDebug" ;;
   esac
 }
@@ -161,6 +176,7 @@ compile_task_for_flavor() {
     standard) echo "compileDebugKotlin" ;;
     npuExperiment) echo "compileNpuExperimentDebugKotlin" ;;
     galleryStackExperiment) echo "compileGalleryStackExperimentDebugKotlin" ;;
+    galleryAlignedNpuProbe) echo "compileGalleryAlignedNpuProbeDebugKotlin" ;;
     customBuildExperiment) echo "compileCustomBuildExperimentDebugKotlin" ;;
   esac
 }
@@ -174,6 +190,7 @@ resolve_app_id_for_flavor() {
     standard) echo "io.github.ninbyo02.lami" ;;
     npuExperiment) echo "io.github.ninbyo02.lami.npu" ;;
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
+    galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
   esac
 }
@@ -183,18 +200,28 @@ print_head_commit() {
   # repo外なら何もしない（安全）
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
-  local b sha subject datetime
+  local b sha subject datetime upstream ahead behind
   b="$(git symbolic-ref --short HEAD 2>/dev/null || echo "(detached)")"
   sha="$(git rev-parse --short HEAD 2>/dev/null || echo "???????")"
   subject="$(git log -1 --pretty=%s 2>/dev/null || echo "(no commit)")"
   datetime="$(git log -1 --date=iso --pretty=%cd 2>/dev/null || echo "")"
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null || true)"
+  if [[ -n "$upstream" ]]; then
+    read -r ahead behind < <(git rev-list --left-right --count "HEAD...@{upstream}" 2>/dev/null || echo "0 0")
+  else
+    upstream="(none)"
+    ahead="0"
+    behind="0"
+  fi
 
   info "== git HEAD =="
   info "branch: ${b}"
   info "commit: ${sha} ${datetime}"
   info "msg   : ${subject}"
+  info "upstream: ${upstream}"
+  info "ahead/behind: ${ahead:-0}/${behind:-0}"
 
-  if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
+  if is_worktree_dirty; then
     warn "worktree: DIRTY (has uncommitted changes)"
   else
     info "worktree: clean"
@@ -202,6 +229,10 @@ print_head_commit() {
   info "========="
 
   print_codex_branch_guidance
+}
+
+is_worktree_dirty() {
+  [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]
 }
 
 print_codex_branch_guidance() {
@@ -230,7 +261,7 @@ print_codex_branch_guidance() {
   local AHEAD_BEHIND_DISPLAY="${AHEAD}/${BEHIND}"
 
   local worktree_status="clean"
-  if ! git diff --quiet || ! git diff --cached --quiet; then
+  if is_worktree_dirty; then
     worktree_status="dirty"
   fi
 
@@ -402,25 +433,166 @@ do_clean_uninstall_if_requested() {
   fi
 }
 
-maybe_auto_wip_commit() {
-  local no_wip="$1"
-  local auto_wip_commit_var="$2" # name of variable to set (bash indirection)
+print_dirty_summary() {
+  git status -sb || true
 
-  if [[ -n "$(git status --porcelain)" ]]; then
-    warn "Working tree is dirty."
-    git status --short
+  local unstaged_stat=""
+  local staged_stat=""
+  unstaged_stat="$(git diff --stat 2>/dev/null || true)"
+  staged_stat="$(git diff --cached --stat 2>/dev/null || true)"
 
-    if [[ "$no_wip" -eq 1 ]]; then
-      die "--no-wip is set. Aborting because working tree is dirty."
-    fi
-
-    info "Creating local WIP commit (no push)..."
-    git add -A
-    git commit -m "${WIP_PREFIX} before update.sh" >/dev/null
-    printf -v "$auto_wip_commit_var" "1"
-  else
-    printf -v "$auto_wip_commit_var" "0"
+  if [[ -n "$unstaged_stat" || -n "$staged_stat" ]]; then
+    echo ""
+    info "== git diff --stat =="
+    [[ -n "$staged_stat" ]] && git diff --cached --stat || true
+    [[ -n "$unstaged_stat" ]] && git diff --stat || true
+    info "======================="
   fi
+}
+
+abort_dirty_update() {
+  warn "Working tree is dirty. update.sh will not commit, stash, or reset automatically."
+  print_dirty_summary
+  cat <<'EOF'
+
+変更があるため、自動更新しません。
+次のいずれかを選んでください:
+  ./update.sh update --stash
+  ./update.sh update --wip
+  手動で commit / stash / reset してから ./update.sh update を再実行
+EOF
+  exit 1
+}
+
+handle_dirty_wip_mode() {
+  local command_name="$1"
+  local dirty_mode="$2"
+  local auto_wip_commit_var="$3" # name of variable to set (bash indirection)
+
+  printf -v "$auto_wip_commit_var" "0"
+  if ! is_worktree_dirty; then
+    return 0
+  fi
+
+  if [[ "$dirty_mode" == "wip" ]]; then
+    create_wip_commit_if_dirty
+    printf -v "$auto_wip_commit_var" "1"
+    return 0
+  fi
+
+  warn "Working tree is dirty. ${command_name} will not create a WIP commit by default."
+  print_dirty_summary
+  cat <<EOF
+
+変更があるため、自動実行しません。
+次のいずれかを選んでください:
+  ./update.sh ${command_name} --wip
+  手動で commit / stash / reset してから再実行
+EOF
+  exit 1
+}
+
+create_wip_commit_if_dirty() {
+  if ! is_worktree_dirty; then
+    info "worktree is clean; no WIP commit created."
+    return 0
+  fi
+
+  warn "legacy / explicit mode: creating local WIP commit."
+  warn "Default update does not create WIP commits; prefer a normal commit or --stash for temporary local work."
+  print_dirty_summary
+  info "Creating local WIP commit (no push): ${WIP_MESSAGE}"
+  git add -A
+  git commit -m "${WIP_MESSAGE}" >/dev/null
+  ok "local WIP commit created"
+}
+
+stash_current_changes_if_dirty() {
+  local stash_created_var="$1" # name of variable to set (bash indirection)
+
+  if ! is_worktree_dirty; then
+    info "worktree is clean; no stash created."
+    printf -v "$stash_created_var" "0"
+    return 0
+  fi
+
+  warn "Stashing dirty worktree before update."
+  print_dirty_summary
+  # Include untracked files so update does not overwrite local new files. Ignored
+  # files are intentionally left in place; review them manually if they matter.
+  git stash push --include-untracked -m "${STASH_MESSAGE}"
+  printf -v "$stash_created_var" "1"
+}
+
+pop_update_stash_if_needed() {
+  local stash_created="$1"
+  [[ "$stash_created" -eq 1 ]] || return 0
+
+  info "Restoring stashed changes..."
+  if git stash pop; then
+    ok "stash pop completed"
+    return 0
+  fi
+
+  warn "stash pop failed, likely due to conflicts. Stopping here."
+  print_dirty_summary
+  cat <<'EOF'
+
+確認してください:
+  git status -sb
+  git diff
+  git stash list
+
+競合を解消したら通常の git 手順で続行してください。
+EOF
+  exit 1
+}
+
+run_update_fast_forward() {
+  local upstream=""
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null || true)"
+
+  info "Fetching ${REMOTE_NAME}..."
+  git fetch "${REMOTE_NAME}" || return 1
+
+  if [[ -n "$upstream" ]]; then
+    info "Fast-forwarding from upstream: ${upstream}"
+    git merge --ff-only "$upstream" || return 1
+    return 0
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/${REMOTE_NAME}/${WORK_BRANCH}"; then
+    warn "No upstream is set. Falling back to ${REMOTE_NAME}/${WORK_BRANCH} for compatibility."
+    info "Fast-forwarding from ${REMOTE_NAME}/${WORK_BRANCH}"
+    git merge --ff-only "${REMOTE_NAME}/${WORK_BRANCH}" || return 1
+    return 0
+  fi
+
+  warn "No upstream configured and ${REMOTE_NAME}/${WORK_BRANCH} was not found."
+  return 1
+}
+
+abort_update_failure_with_stash_hint() {
+  local stash_created="$1"
+  warn "Update failed before completion."
+  print_dirty_summary
+  if [[ "$stash_created" -eq 1 ]]; then
+    cat <<'EOF'
+
+変更は stash に残っている可能性があります。確認してください:
+  git status -sb
+  git stash list
+  git stash show --stat stash@{0}
+EOF
+  else
+    cat <<'EOF'
+
+確認してください:
+  git status -sb
+  git log --oneline --decorate -5
+EOF
+  fi
+  exit 1
 }
 
 guard_work_branch() {
@@ -439,7 +611,7 @@ cmd_update() {
   local port="$DEFAULT_PORT"
   local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
-  local no_wip=0
+  local dirty_mode="stop"
   local dry_run=0
 
   while [[ $# -gt 0 ]]; do
@@ -447,7 +619,9 @@ cmd_update() {
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
       --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
-      --no-wip) no_wip=1; shift ;;
+      --stash) dirty_mode="stash"; shift ;;
+      --wip) dirty_mode="wip"; shift ;;
+      --no-wip) dirty_mode="stop"; shift ;;
       --dry-run) dry_run=1; shift ;;
       --verbose|-v) VERBOSE=1; shift ;;
       --help|-h) usage ;;
@@ -464,20 +638,35 @@ cmd_update() {
   echo "📦 Android flavor: ${flavor} ($(install_task_for_flavor "$flavor"))"
   [[ "$clean" -eq 1 ]] && echo "🧼 Clean install: ON (uninstall -> $(install_task_for_flavor "$flavor"))"
   [[ "$dry_run" -eq 1 ]] && echo "Dry-run: ON (stop after fetch/pull)"
+  case "$dirty_mode" in
+    stop) echo "Dirty policy: stop (no automatic commit/stash/reset)" ;;
+    stash) echo "Dirty policy: stash then pop" ;;
+    wip) echo "Dirty policy: legacy / explicit WIP commit" ;;
+  esac
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
 
   local auto_wip_commit=0
-  maybe_auto_wip_commit "$no_wip" auto_wip_commit
+  local auto_stash=0
+  if is_worktree_dirty; then
+    case "$dirty_mode" in
+      stop) abort_dirty_update ;;
+      stash) stash_current_changes_if_dirty auto_stash ;;
+      wip)
+        create_wip_commit_if_dirty
+        auto_wip_commit=1
+        ;;
+      *) die "Internal error: unknown dirty mode: $dirty_mode" ;;
+    esac
+  fi
 
   info "Pulling latest changes..."
-  git fetch "${REMOTE_NAME}" >/dev/null 2>&1 || true
-  if git show-ref --verify --quiet "refs/remotes/${REMOTE_NAME}/${WORK_BRANCH}"; then
-    git pull --ff-only "${REMOTE_NAME}" "$WORK_BRANCH"
-  else
-    warn "No remote branch ${REMOTE_NAME}/${WORK_BRANCH}. Skip pull."
+  if ! run_update_fast_forward; then
+    abort_update_failure_with_stash_hint "$auto_stash"
   fi
+
+  pop_update_stash_if_needed "$auto_stash"
 
   # ★追加: pull後のHEADも表示（追跡しやすい）
   print_head_commit
@@ -486,7 +675,7 @@ cmd_update() {
     ok "dry-run completed (git fetch/pull only)."
     if [[ "$auto_wip_commit" -eq 1 ]]; then
       echo ""
-      warn "NOTE: local WIP commit created: ${WIP_PREFIX} before update.sh"
+      warn "NOTE: local WIP commit created: ${WIP_MESSAGE}"
       warn "Undo: git reset --soft HEAD~1"
     fi
     exit 0
@@ -511,9 +700,42 @@ cmd_update() {
 
   if [[ "$auto_wip_commit" -eq 1 ]]; then
     echo ""
-    warn "NOTE: local WIP commit created: ${WIP_PREFIX} before update.sh"
+    warn "NOTE: local WIP commit created: ${WIP_MESSAGE}"
     warn "Undo: git reset --soft HEAD~1"
   fi
+}
+
+cmd_wip() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help|-h) usage ;;
+      *) die "Unknown option for wip: $1" ;;
+    esac
+  done
+
+  require_cmd git
+  ensure_git_repo
+  current_branch_or_die >/dev/null
+  print_head_commit
+  create_wip_commit_if_dirty
+}
+
+cmd_stash() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help|-h) usage ;;
+      *) die "Unknown option for stash: $1" ;;
+    esac
+  done
+
+  require_cmd git
+  ensure_git_repo
+  current_branch_or_die >/dev/null
+  print_head_commit
+
+  local stash_created=0
+  stash_current_changes_if_dirty stash_created
+  [[ "$stash_created" -eq 1 ]] && ok "stash created: ${STASH_MESSAGE}"
 }
 
 cmd_publish() {
@@ -844,7 +1066,7 @@ cmd_here_install() {
   local port="$DEFAULT_PORT"
   local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
-  local no_wip=0
+  local dirty_mode="stop"
   local build_only=0
 
   while [[ $# -gt 0 ]]; do
@@ -852,7 +1074,8 @@ cmd_here_install() {
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
       --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
-      --no-wip) no_wip=1; shift ;;
+      --wip) dirty_mode="wip"; shift ;;
+      --no-wip) dirty_mode="stop"; shift ;;
       --build-only) build_only=1; shift ;;
       --verbose|-v) VERBOSE=1; shift ;;
       --help|-h) usage ;;
@@ -868,7 +1091,7 @@ cmd_here_install() {
   print_head_commit
 
   local auto_wip_commit=0
-  maybe_auto_wip_commit "$no_wip" auto_wip_commit
+  handle_dirty_wip_mode "here-install" "$dirty_mode" auto_wip_commit
 
   local cur
   cur="$(current_branch_or_die)"
@@ -904,7 +1127,7 @@ cmd_here_install() {
 cmd_promote() {
   local base="main"
   local no_push=0
-  local no_wip=0
+  local dirty_mode="stop"
   local do_install=0
   local port="$DEFAULT_PORT"
   local flavor="$DEFAULT_ANDROID_FLAVOR"
@@ -915,7 +1138,8 @@ cmd_promote() {
     case "$1" in
       --base) base="${2:?Missing base branch}"; shift 2 ;;
       --no-push) no_push=1; shift ;;
-      --no-wip) no_wip=1; shift ;;
+      --wip) dirty_mode="wip"; shift ;;
+      --no-wip) dirty_mode="stop"; shift ;;
       --install) do_install=1; shift ;;
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
       --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
@@ -935,7 +1159,7 @@ cmd_promote() {
   print_head_commit
 
   local auto_wip_commit=0
-  maybe_auto_wip_commit "$no_wip" auto_wip_commit
+  handle_dirty_wip_mode "promote" "$dirty_mode" auto_wip_commit
 
   local from_branch
   from_branch="$(current_branch_or_die)"
@@ -1004,6 +1228,8 @@ fi
 cmd="$1"; shift || true
 case "$cmd" in
   update) cmd_update "$@" ;;
+  wip) cmd_wip "$@" ;;
+  stash) cmd_stash "$@" ;;
   publish) cmd_publish "$@" ;;
   commit-push) cmd_publish "$@" ;;
   switch) cmd_switch "$@" ;;
@@ -1012,6 +1238,6 @@ case "$cmd" in
   promote) cmd_promote "$@" ;;
   --help|-h|help) usage ;;
   *)
-    die "Unknown subcommand: $cmd (use: update|publish|switch|test|here-install|promote)"
+    usage
     ;;
 esac

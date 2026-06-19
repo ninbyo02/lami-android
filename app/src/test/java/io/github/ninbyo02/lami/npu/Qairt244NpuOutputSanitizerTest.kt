@@ -16,6 +16,24 @@ class Qairt244NpuOutputSanitizerTest {
     }
 
     @Test
+    fun `removes spaced end of turn variant after answer`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(">\n2\n< end_of_turn>", "１＋１は？")
+
+        assertEquals("2", result.sanitizedOutput)
+        assertTrue(result.sanitizerApplied)
+        assertTrue(result.removedTemplateTokenCount >= 1)
+    }
+
+    @Test
+    fun `removes closing end of turn variant after answer`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(">答え:2</end_of_turn>", "１＋１は")
+
+        assertEquals("答え:2", result.sanitizedOutput)
+        assertTrue(result.sanitizerApplied)
+        assertTrue(result.removedTemplateTokenCount >= 1)
+    }
+
+    @Test
     fun `removes start of turn user token`() {
         val result = Qairt244NpuOutputSanitizer.sanitize("<start_of_turn>user\nこんにちは！", "こんにちは")
 
@@ -131,5 +149,89 @@ class Qairt244NpuOutputSanitizerTest {
         assertFalse(result.sanitizerApplied)
         assertFalse(result.removedPromptEcho)
         assertEquals(0, result.removedTemplateTokenCount)
+    }
+
+    @Test
+    fun `removes half width spaces between Japanese characters`() {
+        val cases = listOf(
+            "承 知いたしました。" to "承知いたしました。",
+            "短くまとめ る" to "短くまとめる",
+            "日 本 語" to "日本語",
+            "これは テストです" to "これはテストです",
+        )
+
+        cases.forEach { (rawOutput, expected) ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(rawOutput, "箇条書きで3つ教えて")
+
+            assertEquals(expected, result.sanitizedOutput)
+            assertEquals(rawOutput, result.rawOutput)
+            assertTrue(result.sanitizerApplied)
+        }
+    }
+
+    @Test
+    fun `keeps latin term spaces unchanged while normalizing Japanese internal spaces`() {
+        val cases = listOf(
+            "Google AI" to "Google AI",
+            "NPU backend" to "NPU backend",
+            "Python は便利です" to "Python は便利です",
+            "1. 箇条書きの作成" to "1. 箇条書きの作成",
+            "3つの項目" to "3つの項目",
+        )
+
+        cases.forEach { (rawOutput, expected) ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(rawOutput, "箇条書きで3つ教えて")
+
+            assertEquals(expected, result.sanitizedOutput)
+            assertEquals(rawOutput, result.rawOutput)
+        }
+    }
+
+    @Test
+    fun `keeps list newlines while removing Japanese internal spaces`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            "承 知いたしました。\n1. 箇条書きの作成\n3. 短くまとめ る",
+            "箇条書きで3つ教えて",
+        )
+
+        assertEquals(
+            "承知いたしました。\n1. 箇条書きの作成\n3. 短くまとめる",
+            result.sanitizedOutput,
+        )
+        assertTrue(result.sanitizerApplied)
+    }
+
+    @Test
+    fun `keeps standalone greeting responses even when they match the prompt`() {
+        listOf("こんばんは", "こんにちは", "おはよう", "ありがとう").forEach { greeting ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(greeting, greeting)
+
+            assertEquals(greeting, result.sanitizedOutput)
+            assertFalse(result.removedPromptEcho)
+        }
+    }
+
+    @Test
+    fun `keeps observed short prompt comparison responses non empty`() {
+        val cases = listOf(
+            "q" to "どうしますか？",
+            "え" to "どうしますか？",
+            "明日の天気は" to "明日の天気は晴れです。",
+        )
+
+        cases.forEach { (prompt, rawOutput) ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(rawOutput, prompt)
+
+            assertEquals(rawOutput, result.sanitizedOutput)
+            assertFalse(result.removedPromptEcho)
+        }
+    }
+
+    @Test
+    fun `still removes exact non greeting prompt echo`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize("明日の天気は", "明日の天気は")
+
+        assertEquals("", result.sanitizedOutput)
+        assertTrue(result.removedPromptEcho)
     }
 }

@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 
 enum class HiddenQairt244PromptTemplateMode(
@@ -41,5 +42,15 @@ data class SettingsData(
     val developerAccessEnabled: Boolean = false,
     val devEnableNpuChatScreenRoute: Boolean = false,
     val devEnableQairt244Sm8750NpuRoute: Boolean = false,
+    val npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    val npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
+        NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
+    val npuStandardRouteMaxOutputTokens: Int = 128,
     val hiddenQairt244PromptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
-)
+) {
+    val inferenceBackendSelection: InferenceBackendSelection
+        get() = InferenceBackendSelection.userFacingFromSettings(
+            preferredBackend = preferredBackendDryRunSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+        )
+}

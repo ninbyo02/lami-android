@@ -28,7 +28,7 @@ class NpuStandardRouteS5TtsBridgeTest {
     @Test
     fun `bridge applies injected TTS sanitizer`() {
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
-            s1Result = successResult(),
+            s1Result = successResult(sanitizedOutput = "# 見出し\n\n```kotlin\nprintln(\"hello\")\n```"),
             finalAssistantText = "# 見出し\n\n```kotlin\nprintln(\"hello\")\n```",
             ttsEnabled = true,
             sanitizeForTts = { "見出し。コード例があります。" },
@@ -37,6 +37,39 @@ class NpuStandardRouteS5TtsBridgeTest {
 
         assertEquals("# 見出し\n\n```kotlin\nprintln(\"hello\")\n```", candidate.finalAssistantText)
         assertEquals("見出し。コード例があります。", candidate.speakText)
+    }
+
+    @Test
+    fun `bridge uses prepared display output for TTS when sanitized output contains tail leak`() {
+        val s1Result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1Result,
+            finalAssistantText = s1Result.ttsText,
+            ttsEnabled = true,
+        )
+        val candidate = requireNotNull(mapping.ttsCandidate)
+
+        assertEquals("2です。", candidate.finalAssistantText)
+        assertEquals("2です。", candidate.speakText)
+        assertFalse(candidate.speakText.contains("<start_of_turn>"))
+        assertFalse(candidate.speakText.contains("次の計算"))
     }
 
     @Test
@@ -80,9 +113,9 @@ class NpuStandardRouteS5TtsBridgeTest {
     }
 
     @Test
-    fun `bridge returns no candidate for empty final text`() {
+    fun `bridge returns no candidate for empty sanitized output`() {
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
-            s1Result = successResult(),
+            s1Result = successResult(sanitizedOutput = " "),
             finalAssistantText = " ",
             ttsEnabled = true,
         )
@@ -107,13 +140,14 @@ class NpuStandardRouteS5TtsBridgeTest {
     }
 
     private fun successResult(
+        sanitizedOutput: String = "こんにちは。",
         fallbackUsed: Boolean = false,
     ): NpuStandardRouteS1Result = NpuStandardRouteS1Result(
         selection = NpuStandardRouteS1Selection(enabled = true),
         status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
         reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
         rawOutput = "こんにちは。",
-        sanitizedOutput = "こんにちは。",
+        sanitizedOutput = sanitizedOutput,
         qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
         runDecodeReached = true,
         npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,

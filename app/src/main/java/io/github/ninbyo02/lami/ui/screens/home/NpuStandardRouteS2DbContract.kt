@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 internal data class NpuStandardRouteS2DbSideEffects(
     val dbConnected: Boolean = true,
+    val conversationHistorySaved: Boolean = true,
     val tts: Boolean = false,
     val markdown: Boolean = false,
     val streaming: Boolean = false,
@@ -9,6 +10,7 @@ internal data class NpuStandardRouteS2DbSideEffects(
 ) {
     val onlyDbConnected: Boolean
         get() = dbConnected &&
+            conversationHistorySaved &&
             !tts &&
             !markdown &&
             !streaming &&
@@ -56,4 +58,5 @@ internal data class NpuStandardRouteS2DbMapping(
 internal object NpuStandardRouteS2DbContract {
     const val FAILURE_S1_NOT_SUCCESS = "s1_success_criteria_not_met"
     const val FAILURE_BLANK_USER_MESSAGE = "blank_user_message"
+    const val FAILURE_RAW_ROLE_CONTAMINATION = "raw_role_contamination"
 }

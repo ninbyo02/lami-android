@@ -1,11 +1,1262 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import java.io.File
+import java.io.RandomAccessFile
+import java.lang.reflect.InvocationTargetException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalStreamingRunnerChunkAppendTest {
+    @Test
+    fun `Automatic backend policy uses CPU priority`() {
+        val applied = resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT)
+
+        assertEquals("CPU", applied.appliedPreferredBackend)
+        assertEquals("cpu-priority-default-engine-config", applied.preferredBackendApplyResult)
+    }
+
+    @Test
+    fun `GPU edge gallery compatibility uses null cache dir for app model path`() {
+        assertEquals(
+            null,
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU edge gallery compatibility keeps cache dir for data local tmp model path`() {
+        assertEquals(
+            "/data/user/0/io.github.ninbyo02.lami/cache",
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/local/tmp/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU diagnostic experiment modes resolve config variants without changing default`() {
+        val defaultConfig = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+        )
+        val maxTokens32 = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+        )
+        val noSampler = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+        )
+        val appCache = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+        )
+
+        assertEquals(GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE, defaultConfig.experimentMode)
+        assertEquals("1024", defaultConfig.maxTokens)
+        assertEquals("true", defaultConfig.samplerConfigEnabled)
+        assertEquals("null", defaultConfig.cacheDir)
+        assertEquals("32", maxTokens32.maxTokens)
+        assertEquals("false", noSampler.samplerConfigEnabled)
+        assertEquals("conversation_config_without_sampler", noSampler.samplerAccelerationPolicy)
+        assertEquals("/data/user/0/io.github.ninbyo02.lami/cache", appCache.cacheDir)
+    }
+
+    @Test
+    fun `GPU output quality matrix properties resolve sampler and collect only modes`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "sampler_minimal" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "sampler_minimal" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            512,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "512" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU output quality matrix properties resolve Edge Gallery parity modes`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_minimal"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_cache_app_files"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_cache_null"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_sampler_none"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_collect_final"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isEdgeGalleryParityNoHolderReuseModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_no_holder_reuse"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU output quality matrix resolves Edge Gallery final response probe only for GPU candidate flavor`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_final_response_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU output quality matrix resolves Edge Gallery executor probe only for GPU candidate flavor`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(isEdgeGalleryExecutorProbeMode(GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE))
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_executor_probe"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `Edge Gallery final response probe classifies delta and accumulated callback semantics`() {
+        assertEquals(
+            "delta_chunks",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 120,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 2,
+            ),
+        )
+        assertEquals(
+            "accumulated_text",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 12,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 1100,
+            ),
+        )
+        assertEquals(
+            "final_only",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                callbackCount = 1,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 1200,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveEdgeGalleryCallbackTextSemanticsCandidate(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackCount = 120,
+                accumulatedTextLength = 1200,
+                lastNonEmptyTextLength = 2,
+            ),
+        )
+    }
+
+    @Test
+    fun `Edge Gallery final response probe result keeps quality blocker classification`() {
+        assertEquals(
+            "pass",
+            resolveEdgeGalleryFinalResponseProbeResult(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                finalCandidateLength = 400,
+                finalCandidateSuspiciousReason = "none",
+            ),
+        )
+        assertEquals(
+            "fail",
+            resolveEdgeGalleryFinalResponseProbeResult(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                finalCandidateLength = 400,
+                finalCandidateSuspiciousReason = "many_tiny_fragments",
+            ),
+        )
+        assertEquals(
+            "last_non_empty_callback_is_delta_not_final_response",
+            resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                appendAllSuspiciousReason = "many_tiny_fragments",
+                finalCandidateSuspiciousReason = "none",
+                callbackSemanticsCandidate = "delta_chunks",
+                accumulatedTextLength = 1200,
+                finalCandidateLength = 2,
+            ),
+        )
+        assertEquals(
+            "append_all_chunks_and_last_non_empty_both_suspicious",
+            resolveEdgeGalleryFinalResponseProbeDifferenceSummary(
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PROBE,
+                appendAllSuspiciousReason = "many_tiny_fragments",
+                finalCandidateSuspiciousReason = "mixed_language_fragment",
+                callbackSemanticsCandidate = "unknown",
+                accumulatedTextLength = 1200,
+                finalCandidateLength = 400,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU output quality matrix ignores non candidate or non GPU route`() {
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            null,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "512" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality classifier separates severe fragmentation from healthy chunks`() {
+        assertEquals(
+            "pathological_single_char_stream",
+            classifyCallbackQuality(
+                callbackCount = 40,
+                twoCharOrLessRatio = "0.900",
+                averageChunkLength = "1.20",
+            ),
+        )
+        assertEquals(
+            "healthy_large_chunks",
+            classifyCallbackQuality(
+                callbackCount = 8,
+                twoCharOrLessRatio = "0.000",
+                averageChunkLength = "12.50",
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality comparison marks GPU corrupt CPU exception as unavailable GPU corrupt`() {
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                cpuFailureStage = "generate_collect",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality comparison marks healthy GPU CPU exception unavailable`() {
+        assertEquals(
+            "comparison_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_pass",
+                gpuSuspiciousDetected = false,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                cpuFailureStage = "generate_collect",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality comparison handles skipped and timeout CPU compare`() {
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = false,
+                cpuSkippedReason = "not_standard_gpu_minimal_runtime_candidate_flavor",
+                cpuExceptionClass = "none",
+                cpuFailureStage = "none",
+                cpuCallbackCount = null,
+            ),
+        )
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "Timeout",
+                cpuFailureStage = "timeout",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU sampler root cause candidate separates no sampler from streaming join`() {
+        assertEquals(
+            "not_sampler_related",
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+        )
+        assertEquals(
+            "streaming_join_issue",
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "ui_append_or_final_commit",
+                uiAppendChangedText = true,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackQualityClassification = "healthy_large_chunks",
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU quality matrix all fail keeps runtime decode fragmentation candidate`() {
+        val candidates = listOf(
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                "runtime_decode_fragmentation",
+                "runtime_decode_fragmentation",
+                "not_sampler_related",
+            ),
+            candidates,
+        )
+    }
+
+    @Test
+    fun `CPU GPU callback compare request is disabled by default`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { null },
+            standardGpuMinimalRuntimeCandidateFlavor = true,
+        )
+
+        assertFalse(request.requested)
+        assertFalse(request.enabled)
+        assertEquals("not_requested", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request enables only candidate flavor by default`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                if (key == "debug.lami.compare_cpu_gpu_callback") "true" else null
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = true,
+        )
+
+        assertTrue(request.requested)
+        assertTrue(request.enabled)
+        assertEquals("none", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request reports skip reason outside candidate flavor`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                if (key == "debug.lami.compare_cpu_gpu_callback") "true" else null
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = false,
+        )
+
+        assertTrue(request.requested)
+        assertFalse(request.enabled)
+        assertEquals("not_standard_gpu_minimal_runtime_candidate_flavor", request.skippedReason)
+    }
+
+    @Test
+    fun `CPU GPU callback compare request supports explicit debug flavor override`() {
+        val request = resolveCpuGpuCallbackCompareRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.compare_cpu_gpu_callback" -> "true"
+                    "debug.lami.compare_cpu_gpu_callback_allow_any_debug_flavor" -> "true"
+                    else -> null
+                }
+            },
+            standardGpuMinimalRuntimeCandidateFlavor = false,
+        )
+
+        assertTrue(request.requested)
+        assertTrue(request.enabled)
+        assertEquals("none", request.skippedReason)
+    }
+
+    @Test
+    fun `GPU callback raw passthrough is candidate flavor debug gated`() {
+        assertTrue(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertFalse(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+        assertFalse(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
+        assertEquals(
+            null,
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+                gpuExperimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+            ),
+        )
+        assertEquals(
+            "/data/user/0/io.github.ninbyo02.lami/cache",
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+                gpuExperimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU prefill probe is disabled by default and for non GPU backend`() {
+        assertEquals(
+            null,
+            resolveGpuPrefillProbeRequestForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                propertyReader = { null },
+            ),
+        )
+        assertEquals(
+            null,
+            resolveGpuPrefillProbeRequestForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                propertyReader = { key -> if (key == "debug.lami.gpu_prefill_probe") "true" else null },
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU prefill probe request reads debug properties`() {
+        val request = resolveGpuPrefillProbeRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/models/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/cache",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.gpu_prefill_probe" -> "true"
+                    "debug.lami.gpu_prefill_probe_prompt" -> "hi"
+                    "debug.lami.gpu_prefill_probe_max_tokens" -> "1"
+                    "debug.lami.gpu_prefill_probe_sampler" -> "gallery"
+                    "debug.lami.gpu_prefill_probe_cache_dir" -> "app_cache"
+                    else -> null
+                }
+            },
+        )
+
+        requireNotNull(request)
+        assertEquals("hi", request.prompt)
+        assertEquals(1, request.maxTokens)
+        assertTrue(request.samplerEnabled)
+        assertEquals("app_cache", request.cacheDirMode)
+        assertTrue(request.skippedNormalGenerate)
+        assertTrue(request.isolatedEngineUsed)
+        assertFalse(request.sharedEngineUsed)
+        assertTrue(request.invalidatesHeldEngine)
+    }
+
+    @Test
+    fun `GPU held engine prefill probe request is opt in and skips normal generate`() {
+        val request = resolveGpuHeldEnginePrefillProbeRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/models/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/cache",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.gpu_probe_use_held_engine" -> "true"
+                    "debug.lami.gpu_prefill_probe_prompt" -> "hi"
+                    "debug.lami.gpu_prefill_probe_max_tokens" -> "1"
+                    else -> null
+                }
+            },
+        )
+
+        requireNotNull(request)
+        assertEquals("hi", request.prompt)
+        assertEquals(1, request.maxTokens)
+        assertFalse(request.isolatedEngineUsed)
+        assertTrue(request.sharedEngineUsed)
+        assertTrue(request.usedHeldEngine)
+        assertTrue(request.skippedNormalGenerate)
+        assertTrue(request.invalidatesHeldEngine)
+    }
+
+    @Test
+    fun `GPU held engine probe start blocked without held engine reports skip reason`() {
+        val text = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+            reason = "no_held_engine",
+            useHeldEngineRequested = true,
+            heldEnginePresentBefore = false,
+            heldEngineAcquireResult = "blocked_no_held_engine",
+        )
+
+        assertTrue(text.contains("probe_requested=true"))
+        assertTrue(text.contains("probe_run_started=false"))
+        assertTrue(text.contains("probe_skipped_normal_generate=true"))
+        assertTrue(text.contains("probe_start_blocked_reason=no_held_engine"))
+        assertTrue(text.contains("probe_normal_generate_blocked_reason=no_held_engine"))
+        assertTrue(text.contains("probe_use_held_engine_requested=true"))
+        assertTrue(text.contains("probe_used_held_engine=false"))
+        assertTrue(text.contains("probe_held_engine_present_before=false"))
+        assertTrue(text.contains("probe_held_engine_acquire_result=blocked_no_held_engine"))
+        assertTrue(text.contains("probe_held_engine_generate_started=false"))
+    }
+
+    @Test
+    fun `GPU prefill probe diagnostics classify generate before first token`() {
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                prompt = "hi",
+                maxTokens = 1,
+                samplerEnabled = false,
+                cacheDirMode = "null",
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 15_000L,
+        )
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.engineInitializeFinished.set(true)
+        state.conversationCreateStarted.set(true)
+        state.conversationCreateFinished.set(true)
+        state.runStarted.set(true)
+        state.runTimedOut.set(true)
+        state.generateStarted.set(true)
+        state.generateStartedAtMs.set(100L)
+        state.firstTokenReceived.set(false)
+        state.staleCallbackIgnored.set(true)
+        state.cleanupStarted.set(true)
+        state.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("[DEV診断: GPU prefill probe]"))
+        assertTrue(text.contains("probe_requested=true"))
+        assertTrue(text.contains("probe_enabled=true"))
+        assertTrue(text.contains("probe_run_started=true"))
+        assertTrue(text.contains("probe_run_finished=false"))
+        assertTrue(text.contains("probe_run_timed_out=true"))
+        assertTrue(text.contains("probe_skipped_normal_generate=true"))
+        assertTrue(text.contains("probe_isolated_engine_used=true"))
+        assertTrue(text.contains("probe_shared_engine_used=false"))
+        assertTrue(text.contains("probe_prompt_variant=single_ascii"))
+        assertTrue(text.contains("probe_max_tokens=1"))
+        assertTrue(text.contains("probe_sampler_enabled=false"))
+        assertTrue(text.contains("probe_cache_dir_mode=null"))
+        assertTrue(text.contains("probe_generate_started=true"))
+        assertTrue(text.contains("probe_first_token_received=false"))
+        assertTrue(text.contains("probe_timeout_stage=generate_before_first_token"))
+        assertTrue(text.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
+        assertTrue(text.contains("probe_stale_callback_ignored=true"))
+        assertTrue(text.contains("probe_cleanup_started=true"))
+        assertTrue(text.contains("probe_cleanup_finished=false"))
+        assertTrue(text.contains("probe_cleanup_result=cancel_requested_native_generate_may_still_be_processing"))
+        assertTrue(text.contains("probe_invalidated_held_engine=true"))
+        assertTrue(text.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
+        assertTrue(text.contains("previous_invocation_still_processing_detected=false"))
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate is disabled by default`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            propertyReader = { null },
+        )
+
+        assertFalse(isStandardGpuRuntimeAlignmentCandidateEnabledForDebug(propertyReader = { null }))
+        assertFalse(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("candidate_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate eligible selects callback streaming path`() {
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+            val selected = isGpuCallbackStreamingPathSelectedForDebug(
+                probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                normalRouteUseCallbackStreaming = true && eligibility.eligible,
+            )
+
+            assertTrue(eligibility.enabled)
+            assertTrue(eligibility.eligible)
+            assertEquals("none", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_expected", eligibility.modelIdentityHint)
+            assertTrue(selected)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate blocks ineligible model`() {
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val mismatch = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            mismatch.writeText("not a real model")
+
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = mismatch.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("model_size_mismatch", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_size_mismatch", eligibility.modelIdentityHint)
+        } finally {
+            mismatch.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate blocks model identity mismatch`() {
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val otherModel = tempDir.resolve("other-model.litertlm")
+        try {
+            RandomAccessFile(otherModel, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = otherModel.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("model_identity_not_edge_gallery_e2b", eligibility.blockReason)
+            assertEquals("not_edge_gallery_e2b", eligibility.modelIdentityHint)
+        } finally {
+            otherModel.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate requires callback streaming gate`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = false,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("callback_streaming_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate requires normal GPU generate probe mode`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("unsupported_gpu_generate_probe_mode", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate is disabled by default`() {
+        val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+            dispatchPresent = "false",
+            compilerPluginPresent = "false",
+            constraintProviderPresent = "false",
+            propertyReader = { null },
+        )
+
+        assertFalse(isStandardGpuMinimalRuntimeCandidateEnabledForDebug(propertyReader = { null }))
+        assertFalse(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("candidate_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate is eligible for matching core pair`() {
+        val tempDir = File.createTempFile("lami-gpu-minimal-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+                libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+                dispatchPresent = "false",
+                compilerPluginPresent = "false",
+                constraintProviderPresent = "false",
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertTrue(eligibility.eligible)
+            assertEquals("none", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_expected", eligibility.modelIdentityHint)
+            assertEquals("standardDebug_minimal_runtime_dev_gate", eligibility.runtimeStack)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate requires callback streaming gate`() {
+        val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = false,
+            libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+            dispatchPresent = "false",
+            compilerPluginPresent = "false",
+            constraintProviderPresent = "false",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("callback_streaming_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate blocks SHA mismatch`() {
+        val tempDir = File.createTempFile("lami-gpu-minimal-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                libLiteRtSha256 = "sha-mismatch",
+                libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+                dispatchPresent = "false",
+                compilerPluginPresent = "false",
+                constraintProviderPresent = "false",
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("liblitert_sha_mismatch", eligibility.blockReason)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `GPU prefill probe expands invocation target exception at engine initialize`() {
+        val root = IllegalArgumentException("gpu env missing")
+        val target = IllegalStateException("initialize failed", root)
+        val wrapper = InvocationTargetException(target)
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                prompt = "hi",
+                maxTokens = 1,
+                samplerEnabled = false,
+                cacheDirMode = "null",
+                heldEnginePresentBefore = true,
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 3_008L,
+        )
+        state.runStarted.set(true)
+        state.runFinished.set(true)
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.engineInitializeFinished.set(false)
+        state.exceptionClass.set(wrapper.javaClass.name)
+        state.exceptionMessage.set(wrapper.message ?: "none")
+        state.exceptionExpansion.set(
+            buildLocalFailureExceptionExpansion(
+                throwable = wrapper,
+                parsed = emptyMap(),
+                failureExceptionClass = wrapper.javaClass.name,
+                failureExceptionMessage = wrapper.message ?: "none",
+            ),
+        )
+        state.cleanupStarted.set(true)
+        state.cleanupFinished.set(true)
+        state.cleanupResult.set("closed_probe_conversation_and_engine")
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("probe_timeout_stage=engine_initialize"))
+        assertTrue(text.contains("probe_failure_stage=gpu_prefill_probe_engine_initialize_invocation_target_exception"))
+        assertTrue(text.contains("probe_exception_class=java.lang.reflect.InvocationTargetException"))
+        assertTrue(text.contains("probe_exception_message=none"))
+        assertTrue(text.contains("probe_exception_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_exception_cause_message=initialize failed"))
+        assertTrue(text.contains("probe_exception_cause_message_raw=initialize failed"))
+        assertTrue(text.contains("probe_exception_cause_message_sanitized=initialize_failed"))
+        assertTrue(text.contains("probe_exception_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("probe_exception_root_cause_message=gpu env missing"))
+        assertTrue(text.contains("probe_exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:initialize failed -> java.lang.IllegalArgumentException:gpu env missing"))
+        assertTrue(text.contains("probe_reflection_target_exception_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_reflection_target_exception_message=initialize failed"))
+        assertTrue(text.contains("probe_reflection_target_exception_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("probe_reflection_target_exception_root_cause_message=gpu env missing"))
+        assertTrue(text.contains("probe_isolated_engine_used=true"))
+        assertTrue(text.contains("probe_shared_engine_used=false"))
+        assertTrue(text.contains("probe_used_held_engine=false"))
+        assertTrue(text.contains("probe_held_engine_present_before=true"))
+        assertTrue(text.contains("probe_held_engine_invalidated_after=true"))
+        assertTrue(text.contains("normal_gpu_last_known_stage=normal_generate_skipped_before_start"))
+        assertTrue(text.contains("normal_gpu_can_initialize_with_held_engine_hint=true"))
+        assertTrue(text.contains("isolated_gpu_engine_initialize_failed_hint=true"))
+    }
+
+    @Test
+    fun `LiteRT compiled model failure classification extracts file lines`() {
+        val classification = classifyGpuLiteRtFailure(
+            message = "Failed_to_create_engine:_INTERNAL:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:1546] " +
+                "ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]",
+            failureStage = "gpu_prefill_probe_engine_initialize_invocation_target_exception",
+            timeoutStage = "engine_initialize",
+            generateStarted = false,
+            firstTokenReceived = false,
+            engineInitializeFinished = false,
+            conversationCreateFinished = false,
+        )
+
+        assertEquals("runtime/executor/llm_litert_compiled_model_executor.cc", classification.executorErrorFile)
+        assertEquals("1546", classification.executorErrorLine)
+        assertEquals("external/litert/litert/cc/litert_compiled_model.h", classification.compiledModelErrorFile)
+        assertEquals("1140", classification.compiledModelErrorLine)
+        assertTrue(classification.engineInitializeInternalErrorDetected)
+        assertTrue(classification.compiledModelCreationFailed)
+        assertEquals("compiled_model_creation_failed_before_conversation", classification.interpretation)
+    }
+
+    @Test
+    fun `GPU normal route generate before first token is interpreted separately`() {
+        val classification = classifyGpuLiteRtFailure(
+            message = null,
+            failureStage = "gpu_watchdog_timeout_generate_before_first_token",
+            timeoutStage = "generate_before_first_token",
+            generateStarted = true,
+            firstTokenReceived = false,
+            engineInitializeFinished = true,
+            conversationCreateFinished = true,
+        )
+
+        assertEquals("normal_route_generate_hangs_after_successful_initialize", classification.interpretation)
+        assertFalse(classification.compiledModelCreationFailed)
+    }
+
+    @Test
+    fun `GPU prefill probe exception with null message keeps class chain`() {
+        val wrapper = InvocationTargetException(IllegalStateException())
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 1_000L,
+        )
+        state.runStarted.set(true)
+        state.runFinished.set(true)
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.exceptionClass.set(wrapper.javaClass.name)
+        state.exceptionMessage.set(wrapper.message ?: "none")
+        state.exceptionExpansion.set(
+            buildLocalFailureExceptionExpansion(
+                throwable = wrapper,
+                parsed = emptyMap(),
+                failureExceptionClass = wrapper.javaClass.name,
+                failureExceptionMessage = wrapper.message ?: "none",
+            ),
+        )
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("probe_exception_class=java.lang.reflect.InvocationTargetException"))
+        assertTrue(text.contains("probe_exception_message=none"))
+        assertTrue(text.contains("probe_exception_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_exception_cause_message=none"))
+        assertTrue(text.contains("probe_exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:none"))
+    }
 
     @Test
     fun `Hello と World の境界では最小 join を入れる`() {

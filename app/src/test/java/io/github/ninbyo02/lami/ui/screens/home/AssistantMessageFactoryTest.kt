@@ -1,8 +1,10 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.db.entity.toInferenceStats
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class AssistantMessageFactoryTest {
@@ -113,5 +115,41 @@ class AssistantMessageFactoryTest {
         )
 
         assertEquals(3, message.imageInputCount)
+    }
+
+    @Test
+    fun `createAssistantMessage keeps local failure compact stats copyable`() {
+        val compact = """
+            [DEV診断: Local inference failure compact]
+            status=failure
+            reason=local_inference_failure
+            selected_backend=GPU
+            route_family=local_gpu
+            gallery_stack_probe_enabled=true
+        """.trimIndent()
+        val latestStats = InferenceStats(
+            modelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            generationTimeMs = 12_345L,
+            finishReason = "local_inference_failure",
+            localSourceSummary = compact,
+            responseCharCount = 18,
+        )
+
+        val message = createAssistantMessage(
+            chatId = 7,
+            response = "ローカル推論の応答取得に失敗しました",
+            latestInferenceStats = latestStats,
+            localSourceSummary = compact,
+            generationTimeMs = 12_345L,
+        )
+        val restoredStats = message.toInferenceStats()
+
+        assertNotNull(restoredStats)
+        assertEquals("gemma-4-E2B-it-edge-gallery.litertlm", message.modelName)
+        assertEquals("local_inference_failure", message.finishReason)
+        assertEquals(12_345L, message.generationTimeMs)
+        assertEquals(compact, message.localSourceSummary)
+        assertEquals(compact, restoredStats?.localSourceSummary)
+        assertEquals("local_inference_failure", restoredStats?.finishReason)
     }
 }

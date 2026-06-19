@@ -76,6 +76,113 @@ class SpriteBitmapOpsTest {
         assertEquals(0, Color.alpha(resized.getPixel(1, 1)))
     }
 
+    @Test
+    fun calculateCanvasStretchTargetSize_noneReturnsRequestedSize() {
+        val target = calculateCanvasStretchTargetSize(
+            sourceWidth = 100,
+            sourceHeight = 120,
+            requestedWidth = 288,
+            requestedHeight = 288,
+            stretchMode = CanvasStretchMode.None,
+        )
+
+        assertEquals(288, target.width)
+        assertEquals(288, target.height)
+    }
+
+    @Test
+    fun calculateCanvasStretchTargetSize_stretchWidthToHeightUsesRequestedHeight() {
+        val cases = listOf(
+            Triple(100, 120, 120),
+            Triple(40, 20, 20),
+            Triple(1, 3, 3),
+        )
+
+        for ((requestedW, requestedH, expected) in cases) {
+            val target = calculateCanvasStretchTargetSize(
+                sourceWidth = requestedW,
+                sourceHeight = requestedH,
+                requestedWidth = requestedW,
+                requestedHeight = requestedH,
+                stretchMode = CanvasStretchMode.StretchWidthToHeight,
+            )
+
+            assertEquals(expected, target.width)
+            assertEquals(expected, target.height)
+        }
+    }
+
+    @Test
+    fun calculateCanvasStretchTargetSize_stretchHeightToWidthUsesRequestedWidth() {
+        val cases = listOf(
+            Triple(100, 120, 100),
+            Triple(40, 20, 40),
+            Triple(1, 3, 1),
+        )
+
+        for ((requestedW, requestedH, expected) in cases) {
+            val target = calculateCanvasStretchTargetSize(
+                sourceWidth = requestedW,
+                sourceHeight = requestedH,
+                requestedWidth = requestedW,
+                requestedHeight = requestedH,
+                stretchMode = CanvasStretchMode.StretchHeightToWidth,
+            )
+
+            assertEquals(expected, target.width)
+            assertEquals(expected, target.height)
+        }
+    }
+
+    @Test
+    fun calculateCanvasStretchTargetSize_clampsNonPositiveRequestedSizeToOne() {
+        val target = calculateCanvasStretchTargetSize(
+            sourceWidth = 2,
+            sourceHeight = 3,
+            requestedWidth = 0,
+            requestedHeight = -4,
+            stretchMode = CanvasStretchMode.None,
+        )
+
+        assertEquals(1, target.width)
+        assertEquals(1, target.height)
+    }
+
+    @Test
+    fun stretchCanvasToSize_widthToHeightScalesWholeBitmapWithoutPadding() {
+        val bitmap = Bitmap.createBitmap(2, 3, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.RED)
+        bitmap.setPixel(1, 0, Color.BLUE)
+        bitmap.setPixel(0, 1, Color.GREEN)
+        bitmap.setPixel(1, 1, Color.CYAN)
+        bitmap.setPixel(0, 2, Color.MAGENTA)
+        bitmap.setPixel(1, 2, Color.YELLOW)
+
+        val stretched = stretchCanvasToSize(bitmap, newW = 3, newH = 3)
+
+        assertEquals(3, stretched.width)
+        assertEquals(3, stretched.height)
+        assertEquals(Color.BLUE, stretched.getPixel(2, 0))
+        assertEquals(Color.YELLOW, stretched.getPixel(2, 2))
+    }
+
+    @Test
+    fun stretchCanvasToSize_heightToWidthScalesWholeBitmapWithoutCropping() {
+        val bitmap = Bitmap.createBitmap(2, 3, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.RED)
+        bitmap.setPixel(1, 0, Color.BLUE)
+        bitmap.setPixel(0, 1, Color.GREEN)
+        bitmap.setPixel(1, 1, Color.CYAN)
+        bitmap.setPixel(0, 2, Color.MAGENTA)
+        bitmap.setPixel(1, 2, Color.YELLOW)
+
+        val stretched = stretchCanvasToSize(bitmap, newW = 2, newH = 2)
+
+        assertEquals(2, stretched.width)
+        assertEquals(2, stretched.height)
+        assertEquals(Color.MAGENTA, stretched.getPixel(0, 1))
+        assertEquals(Color.YELLOW, stretched.getPixel(1, 1))
+    }
 
     @Test
     fun toGrayscale_convertsRgbAndPreservesAlpha() {

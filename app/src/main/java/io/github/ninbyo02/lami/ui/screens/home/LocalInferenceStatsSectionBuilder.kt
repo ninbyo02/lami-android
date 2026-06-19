@@ -171,6 +171,20 @@ internal fun buildInferenceDetailSections(
         devDebugText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Failure / Debug", value = it))
         }
+        localTraceForDev
+            ?.memorySnapshots
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { snapshots ->
+                add(
+                    InferenceStatItemUi(
+                        label = "App/System memory diagnostics",
+                        value = formatMemoryDiagnosticsForDev(
+                            snapshots = snapshots,
+                            guardBlock = localTraceForDev.safetyGuardBlock,
+                        ),
+                    ),
+                )
+            }
         acceleratorProbeSnapshot?.let { probe ->
             add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
             add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
@@ -269,6 +283,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Holder last recreate reason", value = localTraceForDev?.holderLastRecreateReason ?: "unknown"))
             add(InferenceStatItemUi(label = "Holder held before recreate", value = localTraceForDev?.holderHasHeldEngineBeforeRecreate?.toString() ?: "unknown"))
             add(InferenceStatItemUi(label = "Holder held after recreate", value = localTraceForDev?.holderHasHeldEngineAfterRecreate?.toString() ?: "unknown"))
+            add(InferenceStatItemUi(label = "Held destroy reason", value = localTraceForDev?.heldEngineDestroyReason ?: "unknown"))
+            add(InferenceStatItemUi(label = "Held last owner", value = localTraceForDev?.heldEngineLastOwner ?: "unknown"))
+            add(InferenceStatItemUi(label = "Held last failure stage", value = localTraceForDev?.heldEngineLastFailureStage ?: "unknown"))
+            add(InferenceStatItemUi(label = "Held snapshot before destroy", value = localTraceForDev?.heldEngineSnapshotBeforeDestroy ?: "unknown"))
+            add(InferenceStatItemUi(label = "Held lifecycle history", value = localTraceForDev?.heldEngineLifecycleHistory ?: "unknown"))
             add(InferenceStatItemUi(label = "Held last create source", value = localTraceForDev?.lastHeldEngineCreateSource ?: "unknown"))
             add(InferenceStatItemUi(label = "Held last create reason", value = localTraceForDev?.lastHeldEngineCreateReason ?: "unknown"))
             add(InferenceStatItemUi(label = "Held last create requested preferredBackend", value = localTraceForDev?.lastHeldEngineCreateRequestedPreferredBackend ?: "unknown"))
@@ -572,6 +591,22 @@ internal fun buildInferenceDetailSections(
                 InferenceStatsSectionUi(
                     title = "DEV診断: Gallery Stack Java/Native API Compatibility",
                     items = buildGalleryStackJavaNativeApiCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "galleryStackGpuProbe" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Gallery Stack GPU Probe",
+                    items = buildGalleryStackGpuProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "gpuRuntimeAlignmentProbe" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: GPU Runtime Alignment Probe",
+                    items = buildRuntimeAlignmentProbeItems(probe),
                 )
             },
         acceleratorProbeSnapshot
@@ -1365,9 +1400,30 @@ private fun buildDevDiagnosticSummarySection(
         PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
         else -> "not-supported-or-not-reached"
     }
+    val baselineModelName = resolveLiteRtLmReadinessSelectedModelName(stats, trace)
+    val baselineModelKind = classifyLiteRtLmModelKindForBaseline(baselineModelName)
+    val baselinePreferredBackend = appliedPreferredBackend
+        .takeIf { it.isNotBlank() && it != "not-applied" }
+        ?: requestedPreferredBackend
+    val baselineRole = resolveLiteRtLmBaselineRole(
+        modelKind = baselineModelKind,
+        preferredBackend = baselinePreferredBackend,
+    )
+    val genericModelCpuBaseline = isGenericLiteRtLmCpuStableBaseline(
+        modelKind = baselineModelKind,
+        baselineRole = baselineRole,
+    )
     val items = buildList {
         add(InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)))
         add(InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)))
+        add(InferenceStatItemUi(label = "実行基準", value = formatLiteRtLmBaselineRoleForUi(baselineRole)))
+        add(InferenceStatItemUi(label = "model_kind", value = baselineModelKind))
+        add(InferenceStatItemUi(label = "preferred_backend", value = baselinePreferredBackend))
+        add(InferenceStatItemUi(label = "baseline_role", value = baselineRole))
+        add(InferenceStatItemUi(label = "generic_model_cpu_baseline", value = genericModelCpuBaseline.toString()))
+        if (baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL) {
+            add(InferenceStatItemUi(label = "注意", value = "GPU初期化で停止する場合はCPUを選択してください"))
+        }
         add(InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)))
         add(InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary))
         add(InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary))
@@ -1673,6 +1729,57 @@ private fun buildGalleryStackJavaNativeApiCompatibilityItems(
     )
 }
 
+private fun buildGalleryStackGpuProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    val diagnostics = probe.galleryStackGpuProbeDiagnostics
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "probe enabled", value = diagnostics?.enabled?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "native stack source", value = diagnostics?.nativeStackSource?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so sha256", value = diagnostics?.libLiteRtSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so sha256", value = diagnostics?.libLiteRtLmJniSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libs manifest present", value = diagnostics?.libsManifestPresent?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected model", value = diagnostics?.edgeGalleryModelExpected?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "model path", value = diagnostics?.modelPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "model exists", value = diagnostics?.modelExists ?: "unknown"),
+        InferenceStatItemUi(label = "model size bytes", value = diagnostics?.modelSizeBytes ?: "unknown"),
+        InferenceStatItemUi(label = "model sha256", value = diagnostics?.modelSha256IfAvailable?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist config applied", value = diagnostics?.allowlistConfigApplied ?: "unknown"),
+        InferenceStatItemUi(label = "alignment level", value = diagnostics?.runtimeStackAlignmentLevel?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "thinking API available", value = diagnostics?.thinkingApiAvailable ?: "unknown"),
+        InferenceStatItemUi(label = "speculative decoding API available", value = diagnostics?.speculativeDecodingApiAvailable ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist accelerators", value = diagnostics?.allowlistAccelerators?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist vision accelerator", value = diagnostics?.allowlistVisionAccelerator?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist topK", value = diagnostics?.allowlistTopK?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist topP", value = diagnostics?.allowlistTopP?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist temperature", value = diagnostics?.allowlistTemperature?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist maxTokens", value = diagnostics?.allowlistMaxTokens?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist maxContextLength", value = diagnostics?.allowlistMaxContextLength?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildRuntimeAlignmentProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    val diagnostics = probe.runtimeAlignmentProbeDiagnostics
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime alignment flavor", value = diagnostics?.flavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "stack source", value = diagnostics?.stackSource?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so sha256", value = diagnostics?.libLiteRtSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so sha256", value = diagnostics?.libLiteRtLmJniSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch Qualcomm present", value = diagnostics?.dispatchQualcommPresent ?: "unknown"),
+        InferenceStatItemUi(label = "compiler plugin Qualcomm present", value = diagnostics?.compilerPluginQualcommPresent ?: "unknown"),
+        InferenceStatItemUi(label = "Gemma constraint provider present", value = diagnostics?.gemmaConstraintProviderPresent ?: "unknown"),
+        InferenceStatItemUi(label = "result candidate", value = diagnostics?.resultCandidate?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "success gate", value = diagnostics?.successGate?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime stack note", value = probe.liteRtLmRuntimeStackNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
 private fun buildCustomBuildStackCompatibilityItems(
     probe: AcceleratorProbeSnapshot,
 ): List<InferenceStatItemUi> {
@@ -1853,13 +1960,7 @@ private fun buildEngineInitializeDryRunProbeItems(
 }
 
 private fun classifyLiteRtLmModelKind(selectedModel: String): String {
-    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
-    return when {
-        "qualcomm" in lower && "sm8750" in lower -> "qualcomm-sm8750-litertlm"
-        listOf("qualcomm", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-litertlm"
-        "litertlm" in lower -> "generic-litertlm"
-        else -> "unknown"
-    }
+    return classifyLiteRtLmModelKindForBaseline(selectedModel)
 }
 
 private fun classifyLiteRtLmModelNpuCompatibilityHint(selectedModel: String): String {

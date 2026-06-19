@@ -160,24 +160,27 @@ fun LamiAvatar(
     )
     // センターのスプライトと同じ State<LamiStatus> 経路に合わせる
     val avatarStatusState = rememberUpdatedState(lamiStatus)
-    val statusLabel = remember(lamiStatus) {
-        when (lamiStatus) {
-            LamiStatus.CONNECTING -> "接続中"
-            LamiStatus.READY -> "接続OK"
-            LamiStatus.DEGRADED -> "接続エラー"
-            LamiStatus.NO_MODELS -> "モデルなし"
-            LamiStatus.OFFLINE -> "オフライン"
-            LamiStatus.ERROR -> "接続エラー"
-            LamiStatus.TALKING -> "話し中"
-        }
+    val controlUiText = remember(
+        selectedInferenceTarget,
+        baseUrl,
+        lamiStatus,
+        availableModels,
+    ) {
+        resolveLamiControlUiText(
+            selectedInferenceTarget = selectedInferenceTarget,
+            baseUrl = baseUrl,
+            lamiStatus = lamiStatus,
+            availableModels = availableModels,
+        )
     }
     val latencyMs by produceState<Long?>(
         initialValue = null,
         showSheet,
         baseUrl,
         lamiStatus,
+        selectedInferenceTarget,
     ) {
-        value = if (showSheet) {
+        value = if (showSheet && selectedInferenceTarget == InferenceTarget.SERVER) {
             measureConnectionLatency(baseUrl = baseUrl, lamiStatus = lamiStatus)
         } else {
             null
@@ -339,7 +342,10 @@ fun LamiAvatar(
                                     )
                                 }
                                 Text(
-                                    text = selectedModel ?: "未選択",
+                                    text = when (selectedInferenceTarget) {
+                                        InferenceTarget.LOCAL -> "ローカル推論"
+                                        InferenceTarget.SERVER -> selectedModel ?: "未選択"
+                                    },
                                     modifier = Modifier.padding(start = 20.dp),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -359,7 +365,7 @@ fun LamiAvatar(
                     item {
                         ConnectionSummaryStatusRow(
                             label = "接続状態",
-                            value = statusLabel,
+                            value = controlUiText.connectionLabel,
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
@@ -368,12 +374,13 @@ fun LamiAvatar(
                             ),
                             latencyText = latencyText,
                             qualityLevel = latencyQualityLevel,
+                            showLatency = selectedInferenceTarget == InferenceTarget.SERVER && baseUrl.isNotBlank(),
                         )
                     }
                     item {
                         StatusInfoItem(
                             label = "接続先",
-                            value = baseUrl.ifBlank { "未設定" },
+                            value = controlUiText.destinationLabel,
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
@@ -440,19 +447,24 @@ fun LamiAvatar(
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = "利用可能なモデル",
+                                text = controlUiText.modelListTitle,
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             )
-                            LamiControlSearchPill(
-                                value = searchQuery,
-                                lamiSheetBg = lamiSheetBg,
-                                onValueChange = { query -> searchQuery = query },
-                                onClear = { searchQuery = "" },
-                                onSearch = { scope.launch { listState.animateScrollToItem(0) } },
-                            )
+                            if (controlUiText.showModelSearch) {
+                                LamiControlSearchPill(
+                                    value = searchQuery,
+                                    lamiSheetBg = lamiSheetBg,
+                                    onValueChange = { query -> searchQuery = query },
+                                    onClear = { searchQuery = "" },
+                                    onSearch = { scope.launch { listState.animateScrollToItem(0) } },
+                                )
+                            }
                         }
                     }
-                    if (filteredModels.isEmpty()) {
+                    val modelListMessage = controlUiText.modelListMessage
+                    if (modelListMessage != null) {
+                        item { Text(modelListMessage) }
+                    } else if (filteredModels.isEmpty()) {
                         item { Text("モデルを取得できませんでした") }
                     } else {
                         items(filteredModels, key = { model -> model.name }) { model ->
@@ -499,15 +511,17 @@ fun LamiAvatar(
                         }
                     }
                     item { Spacer(modifier = Modifier.height(8.dp)) }
-                    item {
-                        TextButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                onNavigateSettings?.invoke()
-                                showSheet = false
+                    if (controlUiText.showSettingsButton) {
+                        item {
+                            TextButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    onNavigateSettings?.invoke()
+                                    showSheet = false
+                                }
+                            ) {
+                                Text("設定画面へ移動")
                             }
-                        ) {
-                            Text("設定画面へ移動")
                         }
                     }
                     }
@@ -527,6 +541,69 @@ enum class LocalInferenceEngineState {
     PREPARING,
     READY,
     ERROR,
+}
+
+internal data class LamiControlUiText(
+    val connectionLabel: String,
+    val destinationLabel: String,
+    val modelListTitle: String,
+    val modelListMessage: String?,
+    val showModelSearch: Boolean,
+    val showSettingsButton: Boolean,
+)
+
+internal fun resolveLamiControlUiText(
+    selectedInferenceTarget: InferenceTarget,
+    baseUrl: String,
+    lamiStatus: LamiStatus,
+    availableModels: List<ModelInfo>,
+): LamiControlUiText {
+    val normalizedBaseUrl = baseUrl.trim()
+    if (selectedInferenceTarget == InferenceTarget.LOCAL) {
+        return LamiControlUiText(
+            connectionLabel = "ローカルモード",
+            destinationLabel = "ローカル推論",
+            modelListTitle = "利用可能なモデル",
+            modelListMessage = "ローカルモードではサーバーモデルを使用しません",
+            showModelSearch = false,
+            showSettingsButton = false,
+        )
+    }
+    if (normalizedBaseUrl.isBlank()) {
+        return LamiControlUiText(
+            connectionLabel = "サーバー未設定",
+            destinationLabel = "なし",
+            modelListTitle = "利用可能なモデル",
+            modelListMessage = "サーバーが登録されていません",
+            showModelSearch = false,
+            showSettingsButton = true,
+        )
+    }
+
+    val connectionLabel = when (lamiStatus) {
+        LamiStatus.CONNECTING -> "接続中"
+        LamiStatus.READY,
+        LamiStatus.TALKING,
+        LamiStatus.NO_MODELS -> "接続OK"
+        LamiStatus.DEGRADED,
+        LamiStatus.OFFLINE,
+        LamiStatus.ERROR -> "接続失敗"
+    }
+    val connectionFailed = lamiStatus == LamiStatus.DEGRADED ||
+        lamiStatus == LamiStatus.OFFLINE ||
+        lamiStatus == LamiStatus.ERROR
+    return LamiControlUiText(
+        connectionLabel = connectionLabel,
+        destinationLabel = normalizedBaseUrl,
+        modelListTitle = "利用可能なモデル",
+        modelListMessage = when {
+            connectionFailed -> "モデルを取得できませんでした"
+            availableModels.isEmpty() -> "モデルを取得できませんでした"
+            else -> null
+        },
+        showModelSearch = !connectionFailed && availableModels.isNotEmpty(),
+        showSettingsButton = connectionFailed,
+    )
 }
 
 
@@ -573,6 +650,7 @@ private fun ConnectionSummaryStatusRow(
     valueStyle: TextStyle,
     latencyText: String,
     qualityLevel: Int,
+    showLatency: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -595,25 +673,27 @@ private fun ConnectionSummaryStatusRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.alignByBaseline(),
         )
-        // 接続状態テキストと品質バーを少し離して視認性を整える
-        Spacer(modifier = Modifier.width(12.dp))
-        LatencyQualityIndicator(
-            qualityLevel = qualityLevel,
-            modifier = Modifier.align(Alignment.Bottom).offset(y = (-5).dp),
-        )
-        // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = latencyText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.Normal,
-                letterSpacing = 0.sp,
-            ),
-            maxLines = 1,
-            modifier = Modifier.alignByBaseline(),
-        )
+        if (showLatency) {
+            // 接続状態テキストと品質バーを少し離して視認性を整える
+            Spacer(modifier = Modifier.width(12.dp))
+            LatencyQualityIndicator(
+                qualityLevel = qualityLevel,
+                modifier = Modifier.align(Alignment.Bottom).offset(y = (-5).dp),
+            )
+            // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = latencyText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0.sp,
+                ),
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
     }
 }
 

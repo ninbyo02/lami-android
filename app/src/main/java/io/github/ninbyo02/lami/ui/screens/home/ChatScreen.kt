@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,6 +73,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,6 +84,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
@@ -157,6 +161,7 @@ import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
@@ -182,22 +187,28 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import kotlinx.coroutines.yield
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
@@ -218,11 +229,7 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // gradient → sprite bottom の視覚差分をここで補正している。
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
-private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
-private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
-private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
 private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
-private const val ENABLE_NPU_STANDARD_ROUTE_S5_TTS = false
 private const val ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
@@ -248,6 +255,10 @@ private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
+    "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
+private const val GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE =
+    "GPU raw callback probe を実行しました。通常GPU生成の後段処理はスキップしました。"
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -332,6 +343,11 @@ private data class LocalInferenceRunResult(
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
     val runnerWhitespaceTraceText: String? = null,
+)
+
+private data class GpuExperimentalTimeoutOperationResult<T>(
+    val value: T?,
+    val timedOut: Boolean,
 )
 
 private data class LocalModelResolution(
@@ -484,6 +500,11 @@ internal data class LocalInferenceTrace(
     val holderLastRecreateReason: String? = null,
     val holderHasHeldEngineBeforeRecreate: Boolean? = null,
     val holderHasHeldEngineAfterRecreate: Boolean? = null,
+    val heldEngineLifecycleHistory: String? = null,
+    val heldEngineDestroyReason: String? = null,
+    val heldEngineLastOwner: String? = null,
+    val heldEngineLastFailureStage: String? = null,
+    val heldEngineSnapshotBeforeDestroy: String? = null,
     val lastHeldEngineCreateReason: String? = null,
     val lastHeldEngineCreateSource: String? = null,
     val lastHeldEngineCreateAtElapsedMs: Long? = null,
@@ -493,6 +514,8 @@ internal data class LocalInferenceTrace(
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
     val localFailureDiagnosticsText: String? = null,
+    val memorySnapshots: List<MemorySnapshot> = emptyList(),
+    val safetyGuardBlock: SafetyGuardConversationBlock? = null,
 )
 
 private data class LocalStreamingUiMetricsSnapshot(
@@ -663,6 +686,28 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    LaunchedEffect(context.applicationContext) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        runCatching {
+            android.util.Log.i(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=dev_logcat_probe_started",
+                    "source=ChatScreen",
+                    "debug=${BuildConfig.DEBUG}",
+                    "build_debug=${BuildConfig.DEBUG}",
+                    "build_type=${BuildConfig.BUILD_TYPE}",
+                    "current_flavor=${BuildConfig.CURRENT_FLAVOR}",
+                    "application_id=${BuildConfig.APPLICATION_ID}",
+                    "package_name=${context.packageName}",
+                    "version_name=${BuildConfig.VERSION_NAME}",
+                    "version_code=${BuildConfig.VERSION_CODE}",
+                    "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
+                    "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+                ).joinToString(" "),
+            )
+        }
+    }
     val mediaPipeProbeContext = context.applicationContext ?: context
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
@@ -713,6 +758,25 @@ fun Home(
     val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
         initial = false,
     )
+    val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
+        initial = NpuStandardRouteMode.OFF,
+    )
+    val npuStandardRouteSelectionSource by settingsPreferences.npuStandardRouteSelectionSourceFlow.collectAsState(
+        initial = NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED,
+    )
+    val npuStandardRouteRolloutSelection = resolveNpuStandardRouteRolloutSelection(
+        preferredBackend = preferredBackendDryRunSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        selectionSource = npuStandardRouteSelectionSource,
+    )
+    val effectiveNpuStandardRouteMode = npuStandardRouteRolloutSelection.effectiveMode
+    val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
+        initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    )
+    val npuStandardRouteS2DbEnabled = effectiveNpuStandardRouteMode.isS2Enabled()
+    val npuStandardRouteS3MarkdownEnabled = effectiveNpuStandardRouteMode.isS3Enabled()
+    val npuStandardRouteS4aPseudoStreamingEnabled = effectiveNpuStandardRouteMode.isS4AEnabled()
+    val npuStandardRouteS5TtsEnabled = effectiveNpuStandardRouteMode.isS5Enabled()
     val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
         initial = false,
     )
@@ -736,7 +800,8 @@ fun Home(
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
-    LaunchedEffect(selectedInferenceTarget, effectiveChatId) {
+    LaunchedEffect(selectedInferenceTarget, effectiveChatId, isLocalInferenceRunning) {
+        if (isLocalInferenceRunning) return@LaunchedEffect
         if (selectedInferenceTarget != InferenceTarget.LOCAL) {
             effectiveChatId?.let { currentChatId ->
                 localInferenceEngineHolder.notifyLifecycleEvent(
@@ -754,10 +819,11 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
-    LaunchedEffect(localBaseModelFilePath) {
+    LaunchedEffect(localBaseModelFilePath, isLocalInferenceRunning) {
         if (localBaseModelFilePath.isNullOrBlank()) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
+        if (isLocalInferenceRunning) return@LaunchedEffect
         if (shouldApplyHeldEngineModelPath(localBaseModelFilePath)) {
             localInferenceEngineHolder.clearIfModelChanged(localBaseModelFilePath?.trim().orEmpty())
         }
@@ -790,6 +856,7 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var localGpuWatchdogJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -797,10 +864,20 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRoutePhaseUiAppendText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevInputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevOutputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevCompactCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevFullDumpCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1FallbackText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
+    var npuStandardRouteStreamingSentenceTtsBlocked by remember(effectiveChatId) { mutableStateOf(false) }
+    var npuStandardRouteDevDiagnosticsExpanded by rememberSaveable(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    val safetyGuardBlockedConversations = remember { mutableStateMapOf<Int, SafetyGuardConversationBlock>() }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
@@ -949,6 +1026,29 @@ fun Home(
     var preferredBackendManualRecreateInProgress by remember { mutableStateOf(false) }
     var preferredBackendManualRecreateResult by remember { mutableStateOf("none") }
     var preferredBackendManualRecreateReason by remember { mutableStateOf("user-requested") }
+    var memoryRecoveryCheckState by remember(effectiveChatId) { mutableStateOf(MemoryRecoveryCheckState()) }
+    var memoryRecoveryCheckJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var memoryRecoveryCheckRunId by remember(effectiveChatId) { mutableStateOf(0L) }
+    var npuS1RepeatedRunState by remember(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunState()) }
+    var npuS1RepeatedRunJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1RepeatedRunMode by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_MODE) }
+    var npuS1RepeatedRunPrompt by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_DEFAULT_PROMPT) }
+    var npuS1RepeatedRunCount by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_COUNT) }
+    var npuS1RepeatedRunWaitMs by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS) }
+    var npuS1PersistentEngineState by remember(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentEngineProbeState())
+    }
+    var npuS1PersistentEngineJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1PersistentCustomJniState by remember(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniProbeState())
+    }
+    var npuS1PersistentCustomJniJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1PersistentCustomJniProbeMode by rememberSaveable(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE)
+    }
+    var npuS1PersistentCustomJniQualityPromptProfile by rememberSaveable(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY)
+    }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -956,6 +1056,678 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
+
+    DisposableEffect(effectiveChatId) {
+        onDispose {
+            memoryRecoveryCheckJob?.cancel()
+            memoryRecoveryCheckJob = null
+            npuS1RepeatedRunJob?.cancel()
+            npuS1RepeatedRunJob = null
+            npuS1PersistentEngineJob?.cancel()
+            npuS1PersistentEngineJob = null
+            npuS1PersistentCustomJniJob?.cancel()
+            npuS1PersistentCustomJniJob = null
+        }
+    }
+
+    fun startMemoryRecoveryCheck() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        val nextRunId = memoryRecoveryCheckRunId + 1L
+        memoryRecoveryCheckRunId = nextRunId
+        if (resolveMemoryRecoveryCheckStartPolicy(memoryRecoveryCheckJob?.isActive == true) ==
+            MemoryRecoveryCheckStartPolicy.CANCEL_PREVIOUS_AND_START
+        ) {
+            memoryRecoveryCheckJob?.cancel()
+        }
+        val startedAtMs = System.currentTimeMillis()
+        memoryRecoveryCheckState = MemoryRecoveryCheckState(
+            status = MEMORY_RECOVERY_STATUS_RUNNING,
+            startedAtMs = startedAtMs,
+        )
+        memoryRecoveryCheckJob = coroutineScope.launch {
+            val snapshots = mutableListOf<MemorySnapshot>()
+            suspend fun record(stage: String) {
+                val snapshot = withContext(Dispatchers.Default) {
+                    captureLocalMemorySnapshot(
+                        context = context.applicationContext,
+                        stage = stage,
+                    )
+                }
+                if (memoryRecoveryCheckRunId != nextRunId) return
+                snapshots += snapshot
+                memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                    status = MEMORY_RECOVERY_STATUS_RUNNING,
+                    startedAtMs = startedAtMs,
+                    snapshots = snapshots.toList(),
+                )
+            }
+
+            try {
+                record(MEMORY_STAGE_MEMORY_RECOVERY_CURRENT)
+                delay(1_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S)
+                delay(2_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S)
+                delay(2_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S)
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                        status = MEMORY_RECOVERY_STATUS_COMPLETED,
+                        startedAtMs = startedAtMs,
+                        snapshots = snapshots.toList(),
+                    )
+                }
+            } catch (exception: CancellationException) {
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckState = memoryRecoveryCheckState.copy(
+                        status = MEMORY_RECOVERY_STATUS_CANCELLED,
+                    )
+                }
+                throw exception
+            } finally {
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckJob = null
+                }
+            }
+        }
+    }
+
+    fun startNpuS1RepeatedRun() {
+        val requestedRunCount = npuS1RepeatedRunCount
+        val promptForRun = npuS1RepeatedRunPrompt
+        val runMode = npuS1RepeatedRunMode
+        val selectedBackendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+            backendEvidence = if (
+                npuS1BackendFromPreferredSetting(
+                    setting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                ) == NPU_S1_BACKEND_NPU_S1
+            ) {
+                NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+            } else {
+                NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
+            },
+        )
+        val startGate = npuS1RepeatedRunStartGate(
+            preferredBackendSetting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+            mode = runMode,
+            runCount = requestedRunCount,
+            waitMs = npuS1RepeatedRunWaitMs,
+        )
+        if (BuildConfig.DEBUG) {
+            runCatching {
+                android.util.Log.i(
+                    NPU_S1_LOGCAT_TAG,
+                    listOf(
+                        "event=repeated_run_button_clicked_or_start_invoked",
+                        "source=ChatScreen",
+                        "selected_repeated_run_mode=${runMode.wireValue}",
+                        "prompt_length=${promptForRun.length}",
+                        "run_count_requested=$requestedRunCount",
+                        "repeated_run_wait_ms=$npuS1RepeatedRunWaitMs",
+                        "selected_backend=${selectedBackendDiagnostics.selectedBackend}",
+                        "requested_backend=${selectedBackendDiagnostics.requestedBackend}",
+                        "effective_backend=${selectedBackendDiagnostics.effectiveBackend}",
+                        "backend_evidence=${selectedBackendDiagnostics.backendEvidence}",
+                        "route_family=${selectedBackendDiagnostics.routeFamily}",
+                        "blocked_reason=${startGate.blockedReason}",
+                        "max_output_tokens=${NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS}",
+                        "build_debug=${BuildConfig.DEBUG}",
+                        "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
+                        "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+                    ).joinToString(" "),
+                )
+            }
+        }
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1RepeatedRunJob?.isActive == true) return
+        if (!startGate.allowed) {
+            npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                startedAtMs = System.currentTimeMillis(),
+                startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                finishedAtMs = System.currentTimeMillis(),
+                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                prompt = promptForRun,
+                requestedRunCount = requestedRunCount,
+                maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                repeatedRunMode = runMode,
+                repeatedRunWaitMs = npuS1RepeatedRunWaitMs,
+                selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                routeFamily = selectedBackendDiagnostics.routeFamily,
+                blockedReason = startGate.blockedReason,
+                stopped = true,
+                stopReason = "blocked",
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU) {
+                        "NPU S1 repeated run は NPU S1 選択時のみ実行可能"
+                    } else {
+                        "NPU S1 repeated run safety policy により実行できません"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        val maxTokensForRun = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS
+        val lifecyclePlan = npuS1RepeatedRunLifecyclePlan(runMode)
+            .copy(waitAfterRunMs = npuS1RepeatedRunWaitMs)
+        val startedAtMs = System.currentTimeMillis()
+        val startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        npuS1RepeatedRunState = NpuS1RepeatedRunState(
+            status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
+            startedAtMs = startedAtMs,
+            startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+            prompt = promptForRun,
+            requestedRunCount = requestedRunCount,
+            maxOutputTokens = maxTokensForRun,
+            repeatedRunMode = runMode,
+            repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+            routeFamily = selectedBackendDiagnostics.routeFamily,
+        )
+        npuS1RepeatedRunJob = coroutineScope.launch {
+            logNpuS1RepeatedRunnerEnteredDirectProbe(
+                mode = runMode,
+                requestedRunCount = requestedRunCount,
+                promptLength = promptForRun.length,
+                maxOutputTokens = maxTokensForRun,
+            )
+            val records = mutableListOf<NpuS1RepeatedRunRecord>()
+            try {
+                for (runIndex in 1..requestedRunCount) {
+                    val runStartedAtWallTimeMs = System.currentTimeMillis()
+                    val runStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val logcatContext = NpuS1LogcatContext(
+                        repeatedRunMode = runMode,
+                        runIndex = runIndex,
+                        runCountRequested = requestedRunCount,
+                        promptLength = promptForRun.length,
+                        requestedMaxOutputTokens = maxTokensForRun,
+                        effectiveMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxTokensForRun),
+                    )
+                    NpuS1LogcatDiagnostics.setContext(logcatContext)
+                    NpuS1LogcatDiagnostics.logRepeatedRunStart(
+                        mode = runMode,
+                        runIndex = runIndex,
+                        runCountRequested = requestedRunCount,
+                        promptLength = promptForRun.length,
+                        requestedMaxOutputTokens = maxTokensForRun,
+                        effectiveMaxOutputTokens = logcatContext.effectiveMaxOutputTokens,
+                    )
+                    val memoryBefore = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_before",
+                        )
+                    }
+                    val engineRequestStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val decodeStartedAtMs = engineRequestStartedAtElapsedRealtimeMs
+                    NpuEngineLogcatDiagnostics.i(
+                        event = "s1_engine_request_start",
+                        route = "ChatScreen.startNpuS1RepeatedRun",
+                        probeName = "npu_s1_repeated_run",
+                        backendRequested = "NPU",
+                        maxOutputTokens = maxTokensForRun,
+                        memorySnapshot = memoryBefore,
+                        detail = "run_index=$runIndex repeated_run_mode=${runMode.wireValue} prompt_length=${promptForRun.length} requested_max_output_tokens=$maxTokensForRun effective_max_output_tokens=${logcatContext.effectiveMaxOutputTokens}",
+                    )
+                    val rawResult = withContext(Dispatchers.Default) {
+                        NpuStandardRouteS1Bridge(
+                            mode = effectiveNpuStandardRouteMode,
+                            trace = {},
+                            allowDevNativeRoute = true,
+                        ).run(
+                            userPrompt = promptForRun,
+                            maxOutputTokens = maxTokensForRun,
+                        )
+                    }
+                    val engineRequestFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val engineRequestFinishedAtWallTimeMs = System.currentTimeMillis()
+                    val result = rawResult.withTiming(
+                        buildNpuStandardRouteS1UiTiming(
+                            result = rawResult,
+                            decodeStartedAtMs = decodeStartedAtMs,
+                        ),
+                    )
+                    val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
+                        result = result,
+                        preferredBackendSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                    )
+                    val memoryAfter = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_after",
+                        )
+                    }
+                    delay(5_000L)
+                    val memoryRecovery5s = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_recovery_5s",
+                        )
+                    }
+                    val recreateResult = if (lifecyclePlan.recreateAfterRun) {
+                        val reason = "npu_s1_repeated_run_${runMode.wireValue}_run_$runIndex"
+                        val succeeded = withContext(Dispatchers.IO) {
+                            localInferenceEngineHolder.requestRecreateForDev(
+                                reason = reason,
+                                appendTrace = {
+                                    appendLocalReflectionTrace(
+                                        context = context.applicationContext,
+                                        message = "NPU_S1_REPEATED_RUN recreate mode=${runMode.wireValue} run=$runIndex $it",
+                                    )
+                                },
+                            )
+                        }
+                        if (succeeded) "success" else "failed"
+                    } else {
+                        "not_requested"
+                    }
+                    if (lifecyclePlan.postRecreateDelayMs > 0L) {
+                        delay(lifecyclePlan.postRecreateDelayMs)
+                    }
+                    val telemetry = buildNpuS1ShortOutputTelemetry(promptForRun, result)
+                    val safetyGuardTriggered = isSafetyGuardTriggered(
+                        reasonCode = result.reason,
+                        failureStage = result.status,
+                        stopReason = telemetry.stopReason,
+                    )
+                    val failed = result.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
+                    val failureExceptionClass = if (failed) inferNpuS1FailureExceptionClass(result.reason) else "unavailable"
+                    val nativeDiagnostics = if (failed && result.nativeDiagnostics.nativeErrorClass == "unavailable") {
+                        result.nativeDiagnostics.copy(
+                            nativeErrorClass = failureExceptionClass,
+                            nativeErrorMessage = result.reason,
+                            nativeErrorStage = inferNpuS1FailureStage(
+                                status = result.status,
+                                reason = result.reason,
+                                runDecodeReached = result.runDecodeReached,
+                                timeout = result.timeout,
+                            ),
+                            nativeErrorSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
+                        )
+                    } else {
+                        result.nativeDiagnostics
+                    }
+                    val shouldWaitAfterRun = lifecyclePlan.waitAfterRunMs > 0L &&
+                        !failed &&
+                        runIndex < requestedRunCount
+                    val waitStartedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+                        SystemClock.elapsedRealtime()
+                    } else {
+                        null
+                    }
+                    if (shouldWaitAfterRun) {
+                        delay(lifecyclePlan.waitAfterRunMs)
+                    }
+                    val waitFinishedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+                        SystemClock.elapsedRealtime()
+                    } else {
+                        null
+                    }
+                    val runFinishedAtWallTimeMs = System.currentTimeMillis()
+                    val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val record = NpuS1RepeatedRunRecord(
+                        runIndex = runIndex,
+                        runCount = requestedRunCount,
+                        repeatedRunMode = runMode,
+                        prompt = promptForRun,
+                        requestedMaxOutputTokens = result.selection.requestedMaxOutputTokens,
+                        effectiveMaxOutputTokens = result.selection.effectiveMaxOutputTokens,
+                        status = result.status,
+                        reason = result.reason,
+                        finishReason = telemetry.finishReason,
+                        stopReason = telemetry.stopReason,
+                        eosDetected = telemetry.eosDetected,
+                        rawOutput = result.rawOutput,
+                        sanitizedOutput = result.sanitizedOutput,
+                        qualityClassification = result.qualityClassification,
+                        outputQualityCandidateStatus = result.outputQualityCandidateStatus,
+                        outputQualityCandidateReason = result.outputQualityCandidateReason,
+                        outputQualityCandidatePreparedOutput = result.preparedOutput,
+                        arithmeticTailLeakDetected = result.outputQualityCandidate.arithmeticTailLeakDetected,
+                        arithmeticTailLeakIgnoredForDisplay = result.outputQualityCandidate.arithmeticTailLeakIgnoredForDisplay,
+                        actualDisplayText = result.actualDisplayText,
+                        ttsText = result.ttsText,
+                        npuS1FailureKind = npuStandardRouteS1FailureKind(result),
+                        nativeCrashRiskHint = npuStandardRouteS1NativeCrashRiskHint(result),
+                        selectedBackend = runBackendDiagnostics.selectedBackend,
+                        requestedBackend = runBackendDiagnostics.requestedBackend,
+                        effectiveBackend = runBackendDiagnostics.effectiveBackend,
+                        backendEvidence = runBackendDiagnostics.backendEvidence,
+                        routeFamily = runBackendDiagnostics.routeFamily,
+                        totalMs = result.timing.totalMs,
+                        decodeMs = result.timing.decodeMs,
+                        outputTokens = result.timing.outputTokens,
+                        tokenCountMode = result.timing.tokenCountMode,
+                        tokensPerSecond = result.timing.tokensPerSecond,
+                        runDecodeReached = result.runDecodeReached,
+                        fallbackUsed = result.fallbackUsed,
+                        timeout = result.timeout,
+                        freshCrash = result.freshCrash,
+                        safetyGuardTriggered = safetyGuardTriggered,
+                        memoryBeforeTotalPssMb = memoryBefore.totalPssMb,
+                        memoryBeforeNativeHeapPssMb = memoryBefore.nativeHeapPssMb,
+                        memoryBeforeLowMemory = memoryBefore.lowMemory,
+                        memoryAfterTotalPssMb = memoryAfter.totalPssMb,
+                        memoryAfterNativeHeapPssMb = memoryAfter.nativeHeapPssMb,
+                        memoryAfterLowMemory = memoryAfter.lowMemory,
+                        memoryRecovery5sTotalPssMb = memoryRecovery5s.totalPssMb,
+                        memoryRecovery5sNativeHeapPssMb = memoryRecovery5s.nativeHeapPssMb,
+                        memoryRecovery5sNativeHeapAllocMb = memoryRecovery5s.nativeHeapAllocatedMb,
+                        memoryRecovery5sSystemAvailableMemoryMb = memoryRecovery5s.availableSystemMemoryMb,
+                        memoryRecovery5sLowMemory = memoryRecovery5s.lowMemory,
+                        recreateRequestedAfterRun = lifecyclePlan.recreateAfterRun,
+                        recreateResultAfterRun = recreateResult,
+                        recreateDelayAfterRunMs = lifecyclePlan.postRecreateDelayMs,
+                        waitAfterRunMs = if (shouldWaitAfterRun) lifecyclePlan.waitAfterRunMs else 0L,
+                        waitStartedAtElapsedRealtimeMs = waitStartedAtElapsedRealtimeMs,
+                        waitFinishedAtElapsedRealtimeMs = waitFinishedAtElapsedRealtimeMs,
+                        finalInputLengthChars = telemetry.finalInputLengthChars,
+                        finalInputTailPreview = telemetry.finalInputTailPreview,
+                        tokenizerInputTokens = telemetry.tokenizerInputTokens,
+                        tokenizerOutputTokens = telemetry.tokenizerOutputTokens,
+                        outputTokenCountSource = telemetry.outputTokenCountSource,
+                        promptTokenCountSource = telemetry.promptTokenCountSource,
+                        maxOutputTokensReached = telemetry.maxOutputTokensReached,
+                        stopSequenceMatched = telemetry.stopSequenceMatched,
+                        processPid = android.os.Process.myPid(),
+                        processName = currentNpuS1ProcessName(),
+                        threadName = Thread.currentThread().name.ifBlank { "unavailable" },
+                        runStartedAtWallTimeMs = runStartedAtWallTimeMs,
+                        runStartedAtElapsedRealtimeMs = runStartedAtElapsedRealtimeMs,
+                        runFinishedAtWallTimeMs = runFinishedAtWallTimeMs,
+                        runFinishedAtElapsedRealtimeMs = runFinishedAtElapsedRealtimeMs,
+                        runDurationWallMs = runFinishedAtWallTimeMs - runStartedAtWallTimeMs,
+                        engineRequestStartedAtElapsedRealtimeMs = engineRequestStartedAtElapsedRealtimeMs,
+                        engineCreateStartedAtElapsedRealtimeMs = null,
+                        engineCreateFinishedAtElapsedRealtimeMs = null,
+                        decodeStartedAtElapsedRealtimeMs = decodeStartedAtMs.takeIf { result.runDecodeReached },
+                        decodeFinishedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs.takeIf { result.runDecodeReached },
+                        failureDetectedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs.takeIf { failed },
+                        failureDetectedAtWallTimeMs = engineRequestFinishedAtWallTimeMs.takeIf { failed },
+                        failureExceptionClass = failureExceptionClass,
+                        failureExceptionMessage = if (failed) result.reason else "unavailable",
+                        failureExceptionSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
+                        failureStage = inferNpuS1FailureStage(
+                            status = result.status,
+                            reason = result.reason,
+                            runDecodeReached = result.runDecodeReached,
+                            timeout = result.timeout,
+                        ),
+                        nativeDiagnostics = nativeDiagnostics,
+                    )
+                    records += record
+                    NpuS1LogcatDiagnostics.logRunFinished(record)
+                    NpuEngineLogcatDiagnostics.i(
+                        event = if (record.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) "s1_decode_success" else "s1_decode_failure",
+                        route = "ChatScreen.startNpuS1RepeatedRun",
+                        probeName = "npu_s1_repeated_run",
+                        backendRequested = "NPU",
+                        maxOutputTokens = record.effectiveMaxOutputTokens,
+                        memorySnapshot = memoryRecovery5s,
+                        detail = "run_index=${record.runIndex} repeated_run_mode=${record.repeatedRunMode.wireValue} status=${record.status} reason=${record.reason} run_decode_reached=${record.runDecodeReached} fallback_used=${record.fallbackUsed} timeout=${record.timeout} fresh_crash=${record.freshCrash} safety_guard_triggered=${record.safetyGuardTriggered} total_ms=${record.totalMs ?: "unavailable"} decode_ms=${record.decodeMs ?: "unavailable"} memory_before_total_pss_mb=${record.memoryBeforeTotalPssMb ?: "unavailable"} memory_after_total_pss_mb=${record.memoryAfterTotalPssMb ?: "unavailable"} memory_recovery_5s_total_pss_mb=${record.memoryRecovery5sTotalPssMb ?: "unavailable"}",
+                    )
+                    if (record.reason.startsWith("adapter_failure") || record.reason.contains("LiteRtLmJniException")) {
+                        NpuS1LogcatDiagnostics.logAdapterFailure(
+                            reason = record.reason,
+                            throwable = IllegalStateException(record.reason),
+                            memorySnapshot = memoryRecovery5s,
+                            promptLength = promptForRun.length,
+                            effectiveMaxOutputTokens = record.effectiveMaxOutputTokens,
+                        )
+                        NpuEngineLogcatDiagnostics.e(
+                            event = "s1_adapter_failure",
+                            route = "ChatScreen.startNpuS1RepeatedRun",
+                            throwable = IllegalStateException(record.reason),
+                            probeName = "npu_s1_repeated_run",
+                            backendRequested = "NPU",
+                            maxOutputTokens = record.effectiveMaxOutputTokens,
+                            memorySnapshot = memoryRecovery5s,
+                            detail = "run_index=${record.runIndex} repeated_run_mode=${record.repeatedRunMode.wireValue} status=${record.status} reason=${record.reason} run_decode_reached=${record.runDecodeReached} fallback_used=${record.fallbackUsed} timeout=${record.timeout} fresh_crash=${record.freshCrash} safety_guard_triggered=${record.safetyGuardTriggered} total_ms=${record.totalMs ?: "unavailable"} decode_ms=${record.decodeMs ?: "unavailable"}",
+                        )
+                    }
+                    val stopReason = repeatedRunSafetyStopReason(record)
+                        ?: repeatedRunMemoryThresholdStopReason(memoryRecovery5s)
+                    if (stopReason != null) {
+                        val stoppedState = NpuS1RepeatedRunState(
+                            status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                            startedAtMs = startedAtMs,
+                            startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+                            finishedAtMs = System.currentTimeMillis(),
+                            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                            prompt = promptForRun,
+                            requestedRunCount = requestedRunCount,
+                            maxOutputTokens = maxTokensForRun,
+                            repeatedRunMode = runMode,
+                            repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                            routeFamily = selectedBackendDiagnostics.routeFamily,
+                            records = records.toList(),
+                            stopped = true,
+                            stopReason = stopReason,
+                        )
+                        NpuS1LogcatDiagnostics.logStopped(stoppedState)
+                        npuS1RepeatedRunState = stoppedState
+                        NpuS1LogcatDiagnostics.clearContext(logcatContext)
+                        return@launch
+                    }
+                    npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                        status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
+                        startedAtMs = startedAtMs,
+                        startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+                        prompt = promptForRun,
+                        requestedRunCount = requestedRunCount,
+                        maxOutputTokens = maxTokensForRun,
+                        repeatedRunMode = runMode,
+                        repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                        selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                        requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                        effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                        backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                        routeFamily = selectedBackendDiagnostics.routeFamily,
+                        records = records.toList(),
+                    )
+                    NpuS1LogcatDiagnostics.clearContext(logcatContext)
+                }
+                npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                    status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
+                    startedAtMs = startedAtMs,
+                    startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+                    finishedAtMs = System.currentTimeMillis(),
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    prompt = promptForRun,
+                    requestedRunCount = requestedRunCount,
+                    maxOutputTokens = maxTokensForRun,
+                    repeatedRunMode = runMode,
+                    repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                    selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                    requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                    effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                    backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                    routeFamily = selectedBackendDiagnostics.routeFamily,
+                    records = records.toList(),
+                )
+            } catch (exception: CancellationException) {
+                npuS1RepeatedRunState = npuS1RepeatedRunState.copy(
+                    status = NPU_S1_REPEATED_RUN_STATUS_CANCELLED,
+                    finishedAtMs = System.currentTimeMillis(),
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    stopped = true,
+                    stopReason = "cancelled",
+                )
+                throw exception
+            } finally {
+                NpuS1LogcatDiagnostics.clearCurrentContext()
+                npuS1RepeatedRunJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1RepeatedRun() {
+        npuS1RepeatedRunJob?.cancel()
+    }
+
+    fun startNpuS1PersistentEngineProbe() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1PersistentEngineJob?.isActive == true) return
+        npuS1PersistentEngineState = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
+            runCountRequested = NPU_S1_PERSISTENT_ENGINE_DEFAULT_COUNT,
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            persistentEngineHypothesisResult = "starting",
+        )
+        npuS1PersistentEngineJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuS1PersistentEngineProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuS1PersistentEngineState = npuS1PersistentEngineState.copy(
+                    persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    firstFailureStage = "runner_create",
+                    firstFailureReason = "debug_persistent_engine_probe_unavailable",
+                    persistentEngineHypothesisResult = "engine_initialize_once_failed",
+                )
+                npuS1PersistentEngineJob = null
+                return@launch
+            }
+            try {
+                runner.run(
+                    onUpdate = { state ->
+                        coroutineScope.launch {
+                            npuS1PersistentEngineState = state
+                        }
+                    },
+                    isCancelled = { npuS1PersistentEngineJob?.isActive != true },
+                )
+            } catch (exception: CancellationException) {
+                npuS1PersistentEngineState = npuS1PersistentEngineState.copy(
+                    persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_CANCELLED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    persistentEngineHypothesisResult = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuS1PersistentEngineJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1PersistentEngineProbe() {
+        npuS1PersistentEngineJob?.cancel()
+    }
+
+    fun startNpuS1PersistentCustomJniProbe() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1PersistentCustomJniJob?.isActive == true) return
+        val selectedProbeMode = npuS1PersistentCustomJniProbeMode
+        val selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile
+        npuS1PersistentCustomJniState = NpuS1PersistentCustomJniProbeState(
+            persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_RUNNING,
+            runCountRequested = selectedQualityPromptProfile.runCount,
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            selectedNativeProbeMode = selectedProbeMode.wireValue,
+            selectedQualityPromptProfile = selectedQualityPromptProfile.wireValue,
+            persistentCustomJniHypothesisResult = "starting",
+        )
+        npuS1PersistentCustomJniJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuS1PersistentCustomJniProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState.copy(
+                    persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_STOPPED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    nativeHolderEntrypointAvailable = "false",
+                    holderInvalidated = "true",
+                    firstFailureStage = "runner_create",
+                    firstFailureReason = "debug_persistent_custom_jni_probe_unavailable",
+                    persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
+                )
+                npuS1PersistentCustomJniJob = null
+                return@launch
+            }
+            try {
+                runner.run(
+                    mode = selectedProbeMode,
+                    qualityPromptProfile = selectedQualityPromptProfile,
+                    onUpdate = { state ->
+                        coroutineScope.launch {
+                            npuS1PersistentCustomJniState = state
+                        }
+                    },
+                    isCancelled = { npuS1PersistentCustomJniJob?.isActive != true },
+                )
+            } catch (exception: CancellationException) {
+                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState.copy(
+                    persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_CANCELLED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    persistentCustomJniHypothesisResult = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuS1PersistentCustomJniJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1PersistentCustomJniProbe() {
+        npuS1PersistentCustomJniJob?.cancel()
+    }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
         if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
@@ -1148,6 +1920,196 @@ fun Home(
                 "ui_cleanup_reset_ui_state_called=true",
             ).joinToString(separator = "\n", postfix = "\n"),
         )
+    }
+
+    fun cancelStaleLocalGeneration(reason: String) {
+        localGpuWatchdogJob?.cancel()
+        localGpuWatchdogJob = null
+        localInferenceJob?.cancel()
+        localInferenceJob = null
+        localStreamingResponseText = null
+        showDelayedLocalRespondingPlaceholder = false
+        npuStandardRouteS4PseudoStreamingActive = false
+        npuStandardRouteStreamingSentenceTtsBlocked = false
+        isLocalInferenceRunning = false
+        localInferenceEngineState = LocalInferenceEngineState.READY
+        resetStreamingAssistantPlaceholderId(reason = reason)
+        stopTtsWithCleanup(
+            suppressedMessageId = stopButtonOwnerAssistantMessageId
+                ?: currentSpeakingAssistantMessageId
+                ?: streamingSpeechStartedForMessageId,
+            armTapGuards = false,
+        )
+    }
+
+    fun showSafetyGuardBlockedConversationMessage(chatId: Int?) {
+        coroutineScope.launch {
+            if (chatId != null) {
+                withContext(Dispatchers.IO) {
+                    viewModel.insertAssistantMessageAndReturnId(
+                        createAssistantMessage(
+                            chatId = chatId,
+                            response = SAFETY_GUARD_BLOCKED_USER_MESSAGE,
+                            localSourceSummary = listOf(
+                                "guard_state=blocked",
+                                "last_safety_stage=$MEMORY_STAGE_SAFETY_GUARD_TRIGGERED",
+                                "generate_invoked=false",
+                            ).joinToString("\n"),
+                            latestInferenceStats = InferenceStats(
+                                modelName = "safety_guard_blocked",
+                                finishReason = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                                localSourceSummary = "guard_state=blocked\ngenerate_invoked=false",
+                            ),
+                        ),
+                    )
+                }
+            }
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(
+                message = SAFETY_GUARD_BLOCKED_USER_MESSAGE,
+                duration = SnackbarDuration.Short,
+            )
+        }
+    }
+
+    fun recycleLocalEngineAfterSafetyGuard(chatId: Int?) {
+        coroutineScope.launch(Dispatchers.IO) {
+            chatId?.let { currentChatId ->
+                localInferenceEngineHolder.resetConversation(
+                    chatId = currentChatId,
+                    reason = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                    appendTrace = { message ->
+                        appendLocalReflectionTrace(
+                            context = context.applicationContext,
+                            message = message,
+                        )
+                    },
+                )
+            }
+            localInferenceEngineHolder.requestRecreateForDev(
+                reason = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                appendTrace = { message ->
+                    appendLocalReflectionTrace(
+                        context = context.applicationContext,
+                        message = message,
+                    )
+                },
+            )
+        }
+    }
+
+    fun launchGpuExperimentalLocalRouteWatchdog(
+        currentChatId: Int,
+        diagnosticContext: LocalRouteDiagnosticContext,
+        runGuardEpoch: Long,
+        runStartedAtMs: Long,
+        timedOut: AtomicBoolean,
+        progressFlagsProvider: () -> LocalRouteDiagnosticFlags = { LocalRouteDiagnosticFlags() },
+    ): Job? {
+        if (!shouldApplyGpuExperimentalStageTimeout(diagnosticContext)) return null
+        return coroutineScope.launch {
+            delay(GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS)
+            if (timedOut.get()) return@launch
+            if (runGuardEpoch != streamingGuardEpoch) return@launch
+            if (!isLocalInferenceRunning || didReceiveRealLocalPartial || localStopRequested) return@launch
+
+            timedOut.set(true)
+            val elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs
+            val holderSnapshotBeforeTimeoutCleanup = withContext(Dispatchers.IO) {
+                localInferenceEngineHolder.getDevDiagnosticSnapshot()
+            }
+            val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
+                context = diagnosticContext,
+                failureStage = "gpu_watchdog_timeout",
+                elapsedMs = elapsedMs,
+                staleCallbackIgnored = true,
+                progressFlags = progressFlagsProvider().withHeldEngineSnapshot(holderSnapshotBeforeTimeoutCleanup),
+            )
+            appendLocalReflectionTrace(
+                context = context.applicationContext,
+                message = diagnosticsText,
+            )
+            latestLocalTraceForDev = LocalInferenceTrace(
+                localModelDisplayName = diagnosticContext.selectedModelName,
+                mediaPipeProbeModelPath = diagnosticContext.selectedModelPath,
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "timeout",
+                preferredBackendHookReached = false,
+                preferredBackendHookSource = "gpu-experimental-watchdog",
+                localFailureDiagnosticsText = diagnosticsText,
+            )
+
+            localStreamingResponseText = null
+            showDelayedLocalRespondingPlaceholder = false
+            resetStreamingSpeechState()
+            resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
+            localInferenceEngineState = LocalInferenceEngineState.ERROR
+            isLocalInferenceRunning = false
+            localInferenceJob?.cancel()
+            localInferenceJob = null
+            localGpuWatchdogJob = null
+
+            withContext(Dispatchers.IO) {
+                viewModel.insertAssistantMessageAndReturnId(
+                    createAssistantMessage(
+                        chatId = currentChatId,
+                        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+                        localSourceSummary = diagnosticsText,
+                        generationTimeMs = elapsedMs,
+                    ),
+                )
+                localInferenceEngineHolder.resetConversation(
+                    chatId = currentChatId,
+                    reason = "gpu_watchdog_timeout",
+                )
+                localInferenceEngineHolder.clear(
+                    reason = "gpu_watchdog_timeout_holder_clear",
+                    failureStage = "gpu_watchdog_timeout",
+                    owner = "ChatScreen.gpuExperimentalWatchdog",
+                    appendTrace = { message ->
+                        appendLocalReflectionTrace(
+                            context = context.applicationContext,
+                            message = message,
+                        )
+                    },
+                )
+                val holderSnapshotAfterTimeoutCleanup = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                val cleanupDiagnosticsText = buildLocalRouteDiagnosticTrace(
+                    stage = "gpu_watchdog_holder_cleanup_finished",
+                    context = diagnosticContext,
+                    flags = progressFlagsProvider()
+                        .copy(
+                            failureStage = "gpu_watchdog_timeout",
+                            staleCallbackIgnored = true,
+                        )
+                        .withHeldEngineSnapshot(holderSnapshotAfterTimeoutCleanup),
+                    elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs,
+                )
+                appendLocalReflectionTrace(
+                    context = context.applicationContext,
+                    message = cleanupDiagnosticsText,
+                )
+                latestLocalTraceForDev = latestLocalTraceForDev?.copy(
+                    localFailureDiagnosticsText = diagnosticsText + "\n" + cleanupDiagnosticsText,
+                    holderInstanceHash = holderSnapshotAfterTimeoutCleanup.holderInstanceHash,
+                    heldEngineHash = holderSnapshotAfterTimeoutCleanup.heldEngineHash,
+                    holderLastAcquireAction = holderSnapshotAfterTimeoutCleanup.lastAcquireAction,
+                    holderLastLifecycleEventReason = holderSnapshotAfterTimeoutCleanup.lastLifecycleEventReason,
+                    holderLastLifecycleDecisionAction = holderSnapshotAfterTimeoutCleanup.lastLifecycleDecisionAction,
+                    heldEngineRecreateRequestCount = holderSnapshotAfterTimeoutCleanup.recreateRequestCount,
+                    holderLastRecreateResult = holderSnapshotAfterTimeoutCleanup.lastRecreateResult,
+                    holderLastRecreateReason = holderSnapshotAfterTimeoutCleanup.lastRecreateReason,
+                    holderHasHeldEngineBeforeRecreate = holderSnapshotAfterTimeoutCleanup.hasHeldEngineBeforeRecreate,
+                    holderHasHeldEngineAfterRecreate = holderSnapshotAfterTimeoutCleanup.hasHeldEngineAfterRecreate,
+                    heldEngineLifecycleHistory = holderSnapshotAfterTimeoutCleanup.heldEngineLifecycleHistory,
+                    heldEngineDestroyReason = holderSnapshotAfterTimeoutCleanup.heldEngineDestroyReason,
+                    heldEngineLastOwner = holderSnapshotAfterTimeoutCleanup.heldEngineLastOwner,
+                    heldEngineLastFailureStage = holderSnapshotAfterTimeoutCleanup.heldEngineLastFailureStage,
+                    heldEngineSnapshotBeforeDestroy = holderSnapshotAfterTimeoutCleanup.heldEngineSnapshotBeforeDestroy,
+                )
+            }
+        }
     }
 
     suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
@@ -1434,7 +2396,11 @@ fun Home(
         }
     }
 
-    val effectiveStreamingSentenceTtsEnabled = ttsEnabled && devEnableStreamingSentenceTts
+    val effectiveStreamingSentenceTtsEnabled = shouldEnableStreamingSentenceTts(
+        ttsEnabled = ttsEnabled,
+        devEnableStreamingSentenceTts = devEnableStreamingSentenceTts,
+        blockedByNpuStandardRoute = npuStandardRouteStreamingSentenceTtsBlocked,
+    )
 
     LaunchedEffect(
         effectiveStreamingSentenceTtsEnabled,
@@ -2266,17 +3232,22 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = if (isInferenceRunningUi) {
-                                            true
-                                        } else {
-                                            !selectedModel.isNullOrBlank() &&
-                                                (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty())
-                                        },
+                                        enabled = resolveChatSendAvailability(
+                                            selectedInferenceTarget = selectedInferenceTarget,
+                                            selectedServerModel = selectedModel,
+                                            selectedLocalModelPath = localBaseModelFilePath,
+                                            serverUrl = baseUrl,
+                                            hasPromptText = userPrompt.isNotEmpty(),
+                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                            isInferenceRunning = isInferenceRunningUi,
+                                        ).enabled,
                                         onClick = {
                                             viewModel.onUserInteraction()
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
+                                                        localGpuWatchdogJob?.cancel()
+                                                        localGpuWatchdogJob = null
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -2319,11 +3290,20 @@ fun Home(
                                                     return@IconButton
                                                 }
                                             }
-                                            if (selectedModel.isNullOrBlank()) {
+                                            val sendAvailability = resolveChatSendAvailability(
+                                                selectedInferenceTarget = selectedInferenceTarget,
+                                                selectedServerModel = selectedModel,
+                                                selectedLocalModelPath = localBaseModelFilePath,
+                                                serverUrl = baseUrl,
+                                                hasPromptText = userPrompt.isNotEmpty(),
+                                                hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                isInferenceRunning = false,
+                                            )
+                                            if (!sendAvailability.enabled) {
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
                                                     snackbarHostState.showSnackbar(
-                                                        message = "モデルを選択してください",
+                                                        message = chatSendBlockedSnackbarMessage(sendAvailability.blockedReason),
                                                         duration = SnackbarDuration.Short
                                                     )
                                                 }
@@ -2387,7 +3367,25 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    if (isLocalInferenceRunning || localInferenceJob?.isActive == true) return@IconButton
+                                                    val existingLocalJob = localInferenceJob
+                                                    when (resolveExistingLocalGenerationJobPolicy(
+                                                        isLocalInferenceRunning = isLocalInferenceRunning,
+                                                        existingJobActive = existingLocalJob?.isActive == true,
+                                                    )) {
+                                                        ExistingLocalGenerationJobPolicy.CANCEL_STALE_AND_WAIT -> {
+                                                            cancelStaleLocalGeneration(reason = "stale-local-generation-cancel-before-new-run")
+                                                            coroutineScope.launch {
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "前回のローカル生成を停止しました。もう一度送信してください。",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            }
+                                                            return@IconButton
+                                                        }
+                                                        ExistingLocalGenerationJobPolicy.ALREADY_RUNNING -> return@IconButton
+                                                        ExistingLocalGenerationJobPolicy.START_NEW -> Unit
+                                                    }
                                                     if (selectedImageUriStrings.isNotEmpty()) {
                                                         coroutineScope.launch {
                                                             snackbarHostState.currentSnackbarData?.dismiss()
@@ -2400,53 +3398,844 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    if (
-                                                        shouldEnterNpuStandardRouteS1(
-                                                            enabled = NpuStandardRouteS1GateConfig.enabled,
-                                                            selectedInferenceTarget = selectedInferenceTarget,
-                                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
-                                                            requestPrompt = requestPrompt,
-                                                        )
+                                                    val blockedDecision = runUnlessConversationBlockedBySafetyGuard(
+                                                        chatId = effectiveChatId,
+                                                        blockedConversations = safetyGuardBlockedConversations,
                                                     ) {
-                                                        val s1Result = NpuStandardRouteS1Bridge().run()
-                                                        npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        Unit
+                                                    }
+                                                    if (!blockedDecision.generated) {
+                                                        cancelStaleLocalGeneration(reason = "safety-guard-blocked-conversation")
+                                                        recycleLocalEngineAfterSafetyGuard(chatId = effectiveChatId)
+                                                        showSafetyGuardBlockedConversationMessage(chatId = effectiveChatId)
+                                                        devDebugText = listOf(
+                                                            "guard_state=blocked",
+                                                            "last_safety_stage=$MEMORY_STAGE_SAFETY_GUARD_TRIGGERED",
+                                                            "generate_invoked=false",
+                                                            "message=$SAFETY_GUARD_BLOCKED_USER_MESSAGE",
+                                                        ).joinToString("\n")
+                                                        return@IconButton
+                                                    }
+                                                    val rawNpuStandardRouteRequested =
+                                                        NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode)
+                                                    val effectiveNpuStandardRouteRequested =
+                                                        NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveNpuStandardRouteMode)
+                                                    val normalChatNativeRouteBlocked =
+                                                        rawNpuStandardRouteRequested && !effectiveNpuStandardRouteRequested
+                                                    val normalChatNativeRouteBlockedReason =
+                                                        if (normalChatNativeRouteBlocked) {
+                                                            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
+                                                        } else {
+                                                            "none"
+                                                        }
+                                                    val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
+                                                        enabled = effectiveNpuStandardRouteRequested,
+                                                        selectedInferenceTarget = selectedInferenceTarget,
+                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        requestPrompt = requestPrompt,
+                                                    )
+                                                    val localRouteEnteredAfterNpuDecision = shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+                                                        shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
+                                                        selectedInferenceTarget = selectedInferenceTarget,
+                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        requestPrompt = requestPrompt,
+                                                    )
+                                                    val localRouteDiagnosticContext = buildLocalRouteDiagnosticContext(
+                                                        selectedModelName = localBaseModelDisplayName ?: selectedModel,
+                                                        selectedModelFile = localBaseModelFilePath,
+                                                        preferredBackend = preferredBackendDryRunSetting.name,
+                                                        npuStandardRouteMode = npuStandardRouteMode.name,
+                                                        effectiveNpuStandardRouteMode = effectiveNpuStandardRouteMode.name,
+                                                        shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
+                                                        localRouteEntered = localRouteEnteredAfterNpuDecision,
+                                                        normalChatNativeRouteBlocked = normalChatNativeRouteBlocked,
+                                                        blockedReason = normalChatNativeRouteBlockedReason,
+                                                        nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
+                                                    )
+                                                    appendLocalReflectionTrace(
+                                                        context = context.applicationContext,
+                                                        message = buildLocalRouteDiagnosticTrace(
+                                                            stage = "route_decision",
+                                                            context = localRouteDiagnosticContext,
+                                                        ),
+                                                    )
+                                                    if (shouldEnterNpuS1ForRequest) {
+                                                        val npuModelEligibility = resolveNpuStandardRouteS1ModelEligibility(
+                                                            selectedModelName = localBaseModelDisplayName ?: selectedModel,
+                                                            selectedModelFile = localBaseModelFilePath,
+                                                        )
+                                                        val immediateNpuSendUiUpdate = prepareImmediateNpuSendUiStateUpdate(requestPrompt)
+                                                        prompt = immediateNpuSendUiUpdate.prompt
+                                                        userPrompt = immediateNpuSendUiUpdate.userPrompt
+                                                        selectedImageUriStrings = immediateNpuSendUiUpdate.selectedImageUriStrings
+                                                        npuStandardRouteS1DisplayText = null
+                                                        npuStandardRoutePhaseUiAppendText = null
+                                                        npuStandardRouteS1FallbackText = null
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
-                                                        if (ENABLE_NPU_STANDARD_ROUTE_S2_DB) {
+                                                        npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                        npuStandardRouteDevDiagnosticsExpanded = false
+                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localInferenceEngineState = LocalInferenceEngineState.READY
+                                                        localStopRequested = false
+                                                        isLocalInferenceRunning = true
+                                                        stopTtsWithCleanup(
+                                                            suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                                ?: currentSpeakingAssistantMessageId
+                                                                ?: streamingSpeechStartedForMessageId,
+                                                            armTapGuards = false,
+                                                        )
+                                                        localInferenceJob = coroutineScope.launch {
+                                                            var resolvedNpuChatId: Int? = null
+                                                            var npuS1DecodeStartedAtMs: Long? = null
+                                                            val npuS1MemorySnapshots = mutableListOf<MemorySnapshot>()
+                                                            fun recordNpuS1MemorySnapshot(stage: String) {
+                                                                npuS1MemorySnapshots += captureLocalMemorySnapshot(
+                                                                    context = context.applicationContext,
+                                                                    stage = stage,
+                                                                )
+                                                            }
+                                                            fun appendNpuS1MemoryDiagnostics(displayText: String): String =
+                                                                appendMemoryDiagnosticsForDev(
+                                                                    text = displayText,
+                                                                    snapshots = npuS1MemorySnapshots,
+                                                                )
+                                                            try {
+                                                                recordNpuS1MemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
+                                                                recordNpuS1MemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
+                                                                val npuRealPromptTrace: (String) -> Unit = { message ->
+                                                                    logStreamTrace(message)
+                                                                }
+                                                                val immediateNpuRun = runNpuInferenceAfterImmediateUserMessage(
+                                                                    requestPrompt = requestPrompt,
+                                                                    currentChatId = effectiveChatId,
+                                                                    createChat = {
+                                                                        isCreatingChat = true
+                                                                        try {
+                                                                            withContext(Dispatchers.IO) {
+                                                                                viewModel.insertChatAndReturnId(
+                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                                )
+                                                                            }
+                                                                        } finally {
+                                                                            isCreatingChat = false
+                                                                        }
+                                                                    },
+                                                                    onChatCreated = { newChatId ->
+                                                                        effectiveChatId = newChatId
+                                                                        pendingNavigateChatId = newChatId
+                                                                    },
+                                                                    insertUserMessage = { chatId, promptText ->
+                                                                        withContext(Dispatchers.IO) {
+                                                                            viewModel.insertAssistantMessageAndReturnId(
+                                                                                Message(
+                                                                                    chatId = chatId,
+                                                                                    message = promptText,
+                                                                                    isSendbyMe = true,
+                                                                                )
+                                                                            )
+                                                                        }
+                                                                    },
+                                                                    runInference = {
+                                                                        npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
+                                                                        recordNpuS1MemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
+                                                                        npuRealPromptTrace(
+                                                                            buildNpuRealPromptHandoffTrace(
+                                                                                stage = "chat",
+                                                                                userPrompt = requestPrompt,
+                                                                            ),
+                                                                        )
+                                                                        if (npuStandardRouteRolloutSelection.completedRouteDisabledByProperty) {
+                                                                            buildNpuStandardRouteKillSwitchBlockedResult(
+                                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                selectedModelName = npuModelEligibility.selectedModelName,
+                                                                                selectedModelFile = npuModelEligibility.selectedModelFile,
+                                                                                npuModelEligible = npuModelEligibility.npuModelEligible,
+                                                                                inputPrompt = requestPrompt,
+                                                                            )
+                                                                        } else if (!npuModelEligibility.npuModelEligible) {
+                                                                            buildNpuStandardRouteS1ModelNotCompatibleResult(
+                                                                                eligibility = npuModelEligibility,
+                                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                            )
+                                                                        } else {
+                                                                            NpuStandardRouteS1AppHistory.recordStarted(
+                                                                                context = context.applicationContext,
+                                                                                prompt = requestPrompt,
+                                                                                selectedModelFile = localBaseModelFilePath,
+                                                                            )
+                                                                            withContext(Dispatchers.Default) {
+                                                                                NpuStandardRouteS1Bridge(
+                                                                                    mode = effectiveNpuStandardRouteMode,
+                                                                                    trace = npuRealPromptTrace,
+                                                                                )
+                                                                                    .run(
+                                                                                        userPrompt = requestPrompt,
+                                                                                        maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                    )
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                )
+                                                                val currentChatId = immediateNpuRun.chatId
+                                                                resolvedNpuChatId = currentChatId
+                                                                val s1Result = immediateNpuRun.result.withTiming(
+                                                                    buildNpuStandardRouteS1UiTiming(
+                                                                        result = immediateNpuRun.result,
+                                                                        decodeStartedAtMs = npuS1DecodeStartedAtMs,
+                                                                    ),
+                                                                )
+                                                                if (
+                                                                    npuModelEligibility.npuModelEligible &&
+                                                                    !npuStandardRouteRolloutSelection.completedRouteDisabledByProperty
+                                                                ) {
+                                                                    NpuStandardRouteS1AppHistory.recordFinished(
+                                                                        context = context.applicationContext,
+                                                                        result = s1Result,
+                                                                    )
+                                                                }
+                                                                recordNpuS1MemorySnapshot(
+                                                                    if (s1Result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+                                                                        MEMORY_STAGE_GENERATION_FINISHED
+                                                                    } else {
+                                                                        MEMORY_STAGE_GENERATION_FAILED
+                                                                    },
+                                                                )
+                                                                recordNpuS1MemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
+                                                        npuRealPromptTrace(
+                                                            buildNpuRealPromptResultTrace(
+                                                                status = s1Result.status,
+                                                                reason = s1Result.reason,
+                                                                maxOutputTokens = s1Result.selection.effectiveMaxOutputTokens,
+                                                                rawOutput = s1Result.rawOutput,
+                                                                sanitizedOutput = s1Result.sanitizedOutput,
+                                                                qualityClassification = s1Result.qualityClassification,
+                                                                runDecodeReached = s1Result.runDecodeReached,
+                                                                fallbackUsed = s1Result.fallbackUsed,
+                                                                timeout = s1Result.timeout,
+                                                                freshCrash = s1Result.freshCrash,
+                                                                selectedModelName = s1Result.selectedModelName,
+                                                                selectedModelFile = s1Result.selectedModelFile,
+                                                                npuModelEligible = s1Result.npuModelEligible,
+                                                                timing = s1Result.timing,
+                                                            ),
+                                                        )
+                                                        val npuStandardRoutePhaseDiagnostics =
+                                                            buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
+                                                                result = s1Result,
+                                                                backendDiagnostics = npuS1BackendDiagnosticsForResult(
+                                                                    result = s1Result,
+                                                                    preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                ),
+                                                                rolloutSelection = npuStandardRouteRolloutSelection,
+                                                            )
+                                                        val npuStandardRoutePhaseGateActive =
+                                                            npuStandardRoutePhaseDiagnostics.isNotEmpty()
+                                                        val npuStandardRouteUiAppendAllowed =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_ui_append_allowed"
+                                                            ] == "true"
+                                                        val npuStandardRouteDbSaveAllowed =
+                                                            !npuStandardRoutePhaseGateActive ||
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_db_save_allowed"
+                                                                ] == "true"
+                                                        val npuStandardRouteMarkdownAllowed =
+                                                            !npuStandardRoutePhaseGateActive ||
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_markdown_allowed"
+                                                                ] == "true"
+                                                        val npuStandardRouteStreamingAllowed =
+                                                            !npuStandardRoutePhaseGateActive ||
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_streaming_allowed"
+                                                                ] == "true"
+                                                        val npuStandardRouteTtsAllowed =
+                                                            !npuStandardRoutePhaseGateActive ||
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_tts_allowed"
+                                                                ] == "true"
+                                                        val npuStandardRouteLegacyS5TtsAllowed =
+                                                            npuStandardRouteTtsAllowed && !npuStandardRoutePhaseGateActive
+                                                        val npuStandardRouteLegacyDbSaveAllowed =
+                                                            npuStandardRouteDbSaveAllowed && !npuStandardRoutePhaseGateActive
+                                                        val s1RouteDisplayText = if (npuStandardRouteUiAppendAllowed) {
+                                                            s1Result.actualDisplayText
+                                                        } else {
+                                                            s1Result.displayText
+                                                        }
+                                                        val s1DisplayTextWithMemory = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
+                                                        npuStandardRouteS1DisplayText = s1DisplayTextWithMemory
+                                                        val s1Fallback = resolveNpuStandardRouteS1Fallback(
+                                                            userPrompt = requestPrompt,
+                                                            result = s1Result,
+                                                        )
+                                                        npuStandardRouteS1FallbackText = s1Fallback?.text
+                                                        val npuFailureAssistantText = resolveNpuStandardRouteFailureAssistantMessage(
+                                                            result = s1Result,
+                                                            transientFallback = s1Fallback,
+                                                        )
+                                                        if (npuFailureAssistantText != null && !localStopRequested) {
+                                                            npuStandardRouteS1FallbackText = null
+                                                            withContext(Dispatchers.IO) {
+                                                                viewModel.insertAssistantMessageAndReturnId(
+                                                                    createAssistantMessage(
+                                                                        chatId = currentChatId,
+                                                                        response = npuFailureAssistantText,
+                                                                        localSourceSummary = s1DisplayTextWithMemory,
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+                                                        npuStandardRouteS1DevTraceText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            buildNpuStandardRouteS1DevTraceText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevInputText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            requestPrompt
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevOutputText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            s1Result.actualDisplayText
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevCompactCopyText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            buildNpuStandardRouteS1CompactExplicitCopyText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
+                                                                appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevFullDumpCopyText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            buildNpuStandardRouteS1FullDumpExplicitCopyText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
+                                                        var npuStandardRouteUiAppendExecuted = false
+                                                        var npuStandardRouteUiAppendVisibleCandidate = false
+                                                        var npuStandardRouteUiAppendFailureReason = "none"
+                                                        var npuStandardRouteTtsRequested = false
+                                                        var npuStandardRouteTtsStarted = false
+                                                        var npuStandardRouteDbSaveExecuted = false
+                                                        var npuStandardRouteDbSavedTextLength = 0
+                                                        var npuStandardRouteDbAssistantIdPresent = false
+                                                        var npuStandardRouteDbMessageReplacedTransient = false
+                                                        var npuStandardRouteDbConversationIdPresent = currentChatId > 0
+                                                        var npuStandardRouteDbSaveBlockReason =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_db_save_block_reason"
+                                                            ] ?: "none"
+                                                        var npuStandardRouteMarkdownExecuted = false
+                                                        var npuStandardRouteMarkdownMode = "none"
+                                                        var npuStandardRouteMarkdownBlockReason =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_markdown_block_reason"
+                                                            ] ?: "none"
+                                                        var npuStandardRouteStreamingExecuted = false
+                                                        var npuStandardRouteStreamingMode = "none"
+                                                        var npuStandardRouteStreamingSource = "none"
+                                                        var npuStandardRouteStreamingChunkCount = 0
+                                                        var npuStandardRouteStreamingFinalTextLength = 0
+                                                        var npuStandardRouteStreamingBlockReason =
+                                                            npuStandardRoutePhaseDiagnostics[
+                                                                "npu_standard_route_streaming_block_reason"
+                                                            ] ?: "none"
+                                                        val npuStandardRouteNativeStreamingUsed = false
+                                                        var npuStandardRouteStreamingTextMatchesDb = false
+                                                        var npuStandardRouteStreamingTextMatchesMarkdown = false
+                                                        var npuStandardRouteDeliveryPath = when {
+                                                            npuStandardRoutePhaseGateActive && npuStandardRouteDbSaveAllowed ->
+                                                                "phase6_pending_db_save"
+                                                            npuStandardRouteUiAppendAllowed -> "phase4_5_pending_delivery"
+                                                            npuStandardRoutePhaseGateActive -> "phase_gate_suppressed"
+                                                            else -> "standard_route_legacy"
+                                                        }
+                                                        var npuStandardRouteTtsExecutionBlockReason = "none"
+                                                        val npuStandardRouteSafeUiText = s1Result.actualDisplayText
+                                                            .ifBlank { s1Result.preparedOutput }
+                                                            .ifBlank { s1Result.sanitizedOutput }
+                                                            .trim()
+                                                        var npuStandardRouteAssistantTextForPersist =
+                                                            npuStandardRouteSafeUiText
+                                                        if (
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            npuStandardRouteSafeUiText.isNotBlank() &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            npuStandardRoutePhaseUiAppendText = if (npuStandardRouteDbSaveAllowed) {
+                                                                null
+                                                            } else {
+                                                                npuStandardRouteSafeUiText
+                                                            }
+                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            npuStandardRouteDeliveryPath = if (npuStandardRouteDbSaveAllowed) {
+                                                                "phase6_db_save_pending"
+                                                            } else if (npuStandardRouteTtsAllowed) {
+                                                                "phase5_in_memory_ui_append"
+                                                            } else {
+                                                                "phase4_in_memory_ui_append"
+                                                            }
+                                                            if (!npuStandardRouteDbSaveAllowed) {
+                                                                npuStandardRouteUiAppendExecuted = true
+                                                                npuStandardRouteUiAppendVisibleCandidate = true
+                                                            }
+                                                        } else if (npuStandardRouteUiAppendAllowed) {
+                                                            npuStandardRoutePhaseUiAppendText = null
+                                                            npuStandardRouteUiAppendFailureReason = if (localStopRequested) {
+                                                                "local_stop_requested"
+                                                            } else {
+                                                                "safe_text_empty"
+                                                            }
+                                                            npuStandardRouteDeliveryPath = "phase_ui_append_blocked_empty_or_stopped"
+                                                        } else {
+                                                            npuStandardRoutePhaseUiAppendText = null
+                                                            npuStandardRouteUiAppendFailureReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_ui_append_block_reason"
+                                                                ] ?: "ui_append_not_allowed"
+                                                        }
+                                                        if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteMarkdownAllowed &&
+                                                            npuStandardRouteDbSaveAllowed &&
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            val markdownMapping = NpuStandardRouteS3MarkdownBridge()
+                                                                .prepareMarkdownCandidate(
+                                                                    s1Result = s1Result,
+                                                                    finalizeMarkdown = { text ->
+                                                                        buildFinalizedStreamingResponseForPersist(
+                                                                            response = text,
+                                                                            markdownStreamingMode = markdownStreamingMode,
+                                                                        )
+                                                                    },
+                                                                )
+                                                            val markdownCandidate = markdownMapping
+                                                                .takeIf {
+                                                                    shouldRenderNpuStandardRouteS3Markdown(
+                                                                        enabled = true,
+                                                                        mapping = it,
+                                                                    )
+                                                                }
+                                                                ?.markdownCandidate
+                                                            if (markdownCandidate != null) {
+                                                                npuStandardRouteAssistantTextForPersist =
+                                                                    markdownCandidate.finalizedText
+                                                                npuStandardRouteMarkdownExecuted = true
+                                                                npuStandardRouteMarkdownMode =
+                                                                    markdownStreamingMode.name.lowercase()
+                                                                npuStandardRouteMarkdownBlockReason = "none"
+                                                                npuStandardRouteStreamingSource = "markdown_finalized_text"
+                                                            } else {
+                                                                npuStandardRouteMarkdownExecuted = false
+                                                                npuStandardRouteMarkdownMode = "none"
+                                                                npuStandardRouteMarkdownBlockReason =
+                                                                    markdownMapping.failureReason
+                                                                        ?: "markdown_candidate_unavailable"
+                                                            }
+                                                        } else if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteMarkdownBlockReason == "none"
+                                                        ) {
+                                                            npuStandardRouteMarkdownBlockReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_markdown_block_reason"
+                                                                ] ?: "phase_not_markdown"
+                                                        }
+                                                        if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteStreamingAllowed &&
+                                                            npuStandardRouteMarkdownAllowed &&
+                                                            npuStandardRouteMarkdownExecuted &&
+                                                            npuStandardRouteDbSaveAllowed &&
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            val streamingFinalText = npuStandardRouteAssistantTextForPersist.trim()
+                                                            val pseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                .preparePseudoStreamingCandidate(
+                                                                    s1Result = s1Result,
+                                                                    finalText = streamingFinalText,
+                                                                    sourceDisplayText = s1DisplayTextWithMemory,
+                                                                )
+                                                            val pseudoStreamingCandidate = pseudoStreamingMapping
+                                                                .takeIf {
+                                                                    shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                        enabled = true,
+                                                                        mapping = it,
+                                                                    )
+                                                                }
+                                                                ?.pseudoStreamingCandidate
+                                                            if (pseudoStreamingCandidate != null) {
+                                                                val s4GuardEpoch = streamingGuardEpoch
+                                                                npuStandardRouteS4PseudoStreamingActive = true
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                try {
+                                                                    pseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                        if (
+                                                                            !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                                localStopRequested = localStopRequested,
+                                                                                runGuardEpoch = s4GuardEpoch,
+                                                                                currentGuardEpoch = streamingGuardEpoch,
+                                                                                expectedChatId = currentChatId,
+                                                                                currentChatId = effectiveChatId,
+                                                                            )
+                                                                        ) {
+                                                                            return@launch
+                                                                        }
+                                                                        localStreamingResponseText = chunk
+                                                                        streamingResponseTextForRender = chunk
+                                                                        npuStandardRouteS4PseudoStreamingText = chunk
+                                                                        delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                    }
+                                                                    localStreamingResponseText = pseudoStreamingCandidate.finalText
+                                                                    streamingResponseTextForRender = pseudoStreamingCandidate.finalText
+                                                                    npuStandardRouteS4PseudoStreamingText = pseudoStreamingCandidate.finalText
+                                                                    npuStandardRouteStreamingExecuted = true
+                                                                    npuStandardRouteStreamingMode = "pseudo_final_text"
+                                                                    npuStandardRouteStreamingSource =
+                                                                        if (npuStandardRouteMarkdownExecuted) {
+                                                                            "markdown_finalized_text"
+                                                                        } else {
+                                                                            "safe_final_text"
+                                                                        }
+                                                                    npuStandardRouteStreamingChunkCount =
+                                                                        pseudoStreamingCandidate.chunks.size
+                                                                    npuStandardRouteStreamingFinalTextLength =
+                                                                        pseudoStreamingCandidate.finalText.length
+                                                                    npuStandardRouteStreamingBlockReason = "none"
+                                                                    npuStandardRouteStreamingTextMatchesDb =
+                                                                        pseudoStreamingCandidate.finalText ==
+                                                                            npuStandardRouteAssistantTextForPersist
+                                                                    npuStandardRouteStreamingTextMatchesMarkdown =
+                                                                        !npuStandardRouteMarkdownExecuted ||
+                                                                            pseudoStreamingCandidate.finalText ==
+                                                                            npuStandardRouteAssistantTextForPersist
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        "phase8_pseudo_streaming_pending_db"
+                                                                } finally {
+                                                                    npuStandardRouteS4PseudoStreamingActive = false
+                                                                    npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                }
+                                                            } else {
+                                                                npuStandardRouteStreamingExecuted = false
+                                                                npuStandardRouteStreamingMode = "none"
+                                                                npuStandardRouteStreamingSource = "none"
+                                                                npuStandardRouteStreamingBlockReason =
+                                                                    pseudoStreamingMapping.failureReason
+                                                                        ?: "pseudo_streaming_candidate_unavailable"
+                                                            }
+                                                        } else if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteStreamingBlockReason == "none"
+                                                        ) {
+                                                            npuStandardRouteStreamingBlockReason = when {
+                                                                npuStandardRouteStreamingAllowed && !npuStandardRouteMarkdownExecuted ->
+                                                                    npuStandardRouteMarkdownBlockReason
+                                                                else ->
+                                                                    npuStandardRoutePhaseDiagnostics[
+                                                                        "npu_standard_route_streaming_block_reason"
+                                                                    ] ?: "phase_not_streaming"
+                                                            }
+                                                        }
+                                                        if (
+                                                            npuStandardRoutePhaseGateActive &&
+                                                            npuStandardRouteDbSaveAllowed &&
+                                                            npuStandardRouteUiAppendAllowed &&
+                                                            !localStopRequested
+                                                        ) {
+                                                            if (npuStandardRouteAssistantTextForPersist.isBlank()) {
+                                                                npuStandardRouteDbSaveBlockReason = "safe_text_empty"
+                                                                npuStandardRouteDeliveryPath = "phase6_db_save_blocked_empty_text"
+                                                            } else if (currentChatId <= 0) {
+                                                                npuStandardRouteDbSaveBlockReason = "chat_id_missing"
+                                                                npuStandardRouteDeliveryPath = "phase6_db_save_blocked_chat_id_missing"
+                                                            } else {
+                                                                try {
+                                                                    val assistantId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = currentChatId,
+                                                                                response = npuStandardRouteAssistantTextForPersist,
+                                                                                localSourceSummary = s1DisplayTextWithMemory,
+                                                                            )
+                                                                        ).toInt()
+                                                                    }
+                                                                    lastPersistedStreamingAssistantText =
+                                                                        npuStandardRouteAssistantTextForPersist
+                                                                    localStreamingResponseText = null
+                                                                    streamingResponseTextForRender = null
+                                                                    npuStandardRoutePhaseUiAppendText = null
+                                                                    npuStandardRouteUiAppendExecuted = true
+                                                                    npuStandardRouteUiAppendVisibleCandidate = true
+                                                                    npuStandardRouteDbSaveExecuted = true
+                                                                    npuStandardRouteDbSavedTextLength =
+                                                                        npuStandardRouteAssistantTextForPersist.length
+                                                                    npuStandardRouteDbAssistantIdPresent = assistantId > 0
+                                                                    npuStandardRouteDbMessageReplacedTransient = true
+                                                                    npuStandardRouteDbSaveBlockReason = "none"
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        if (npuStandardRouteStreamingExecuted) {
+                                                                            "phase8_pseudo_streaming_db_backed_ui_append_db_markdown"
+                                                                        } else if (npuStandardRouteMarkdownExecuted) {
+                                                                            "phase7_db_backed_ui_append_db_markdown"
+                                                                        } else {
+                                                                            "phase6_db_backed_ui_append_db"
+                                                                        }
+                                                                } catch (exception: Exception) {
+                                                                    Log.w(
+                                                                        "ChatScreen",
+                                                                        "NPU phase6 DB save failed after gated output",
+                                                                        exception,
+                                                                    )
+                                                                    npuStandardRouteDbSaveBlockReason = "db_save_exception"
+                                                                    npuStandardRouteUiAppendFailureReason = "db_save_exception"
+                                                                    npuStandardRouteDeliveryPath = "phase6_db_save_exception"
+                                                                }
+                                                            }
+                                                        } else if (npuStandardRoutePhaseGateActive && npuStandardRouteDbSaveBlockReason == "none") {
+                                                            npuStandardRouteDbSaveBlockReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_db_save_block_reason"
+                                                                ] ?: "phase_not_db_save"
+                                                        }
+                                                        if (npuStandardRouteTtsAllowed && !localStopRequested) {
+                                                            val npuStandardRouteSafeTtsText = s1Result.ttsText
+                                                                .ifBlank { s1Result.actualDisplayText }
+                                                                .ifBlank { s1Result.preparedOutput }
+                                                                .trim()
+                                                            val phase5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                .prepareTtsCandidate(
+                                                                    s1Result = s1Result,
+                                                                    finalAssistantText = npuStandardRouteSafeTtsText,
+                                                                    ttsEnabled = ttsEnabled,
+                                                                    streamingActive = false,
+                                                                    sanitizeForTts = ::sanitizeTextForTts,
+                                                                )
+                                                            val phase5TtsCandidate = phase5TtsMapping.ttsCandidate
+                                                            npuStandardRouteTtsExecutionBlockReason = when {
+                                                                !ttsEnabled -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_TTS_DISABLED
+                                                                !phase5TtsMapping.hasTtsCandidate ->
+                                                                    phase5TtsMapping.failureReason
+                                                                        ?: NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL
+                                                                ttsController.isInCooldown() -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN
+                                                                else -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE
+                                                            }
+                                                            if (
+                                                                npuStandardRouteTtsExecutionBlockReason ==
+                                                                NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE &&
+                                                                phase5TtsCandidate != null
+                                                            ) {
+                                                                npuStandardRouteTtsRequested = true
+                                                                try {
+                                                                    maybeReleaseHeldEngineForTtsPlayback()
+                                                                    ttsController.speak(phase5TtsCandidate.speakText)
+                                                                    npuStandardRouteTtsStarted = true
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                                "phase8_pseudo_streaming_ui_append_tts_db_markdown"
+                                                                            } else if (npuStandardRouteMarkdownExecuted) {
+                                                                                "phase7_db_backed_ui_append_tts_db_markdown"
+                                                                            } else {
+                                                                                "phase6_db_backed_ui_append_tts_db"
+                                                                            }
+                                                                        } else {
+                                                                            "phase5_in_memory_ui_append_and_tts"
+                                                                        }
+                                                                } catch (exception: Exception) {
+                                                                    Log.w(
+                                                                        "ChatScreen",
+                                                                        "NPU phase5 direct TTS failed after gated output",
+                                                                        exception,
+                                                                    )
+                                                                    npuStandardRouteTtsExecutionBlockReason =
+                                                                        NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
+                                                                    npuStandardRouteDeliveryPath =
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                                "phase8_pseudo_streaming_ui_append_db_markdown_tts_exception"
+                                                                            } else if (npuStandardRouteMarkdownExecuted) {
+                                                                                "phase7_db_backed_ui_append_db_markdown_tts_exception"
+                                                                            } else {
+                                                                                "phase6_db_backed_ui_append_db_tts_exception"
+                                                                            }
+                                                                        } else {
+                                                                            "phase5_in_memory_ui_append_tts_exception"
+                                                                        }
+                                                                }
+                                                            }
+                                                        } else if (npuStandardRoutePhaseGateActive) {
+                                                            npuStandardRouteTtsExecutionBlockReason =
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_tts_block_reason"
+                                                                ] ?: "phase_not_tts"
+                                                        }
+                                                        val npuStandardRouteExecutionDiagnosticsText =
+                                                            buildNpuStandardRoutePhase1DiagnosticLines(
+                                                                buildNpuStandardRouteDeliveryExecutionDiagnostics(
+                                                                    uiAppendExecuted = npuStandardRouteUiAppendExecuted,
+                                                                    uiAppendVisibleCandidate = npuStandardRouteUiAppendVisibleCandidate,
+                                                                    ttsRequested = npuStandardRouteTtsRequested,
+                                                                    ttsStarted = npuStandardRouteTtsStarted,
+                                                                    deliveryPath = npuStandardRouteDeliveryPath,
+                                                                    uiAppendTarget = if (npuStandardRouteUiAppendExecuted) {
+                                                                        if (npuStandardRouteDbSaveExecuted) {
+                                                                            "db_backed_assistant_message"
+                                                                        } else {
+                                                                            "transient_chat_message"
+                                                                        }
+                                                                    } else {
+                                                                        "none"
+                                                                    },
+                                                                    uiAppendFailureReason = npuStandardRouteUiAppendFailureReason,
+                                                                    ttsExecutionBlockReason = npuStandardRouteTtsExecutionBlockReason,
+                                                                    dbSaveExecuted = npuStandardRouteDbSaveExecuted,
+                                                                    dbSaveTarget = if (npuStandardRouteDbSaveExecuted) {
+                                                                        "assistant_message"
+                                                                    } else {
+                                                                        "none"
+                                                                    },
+                                                                    dbSavedTextLength = npuStandardRouteDbSavedTextLength,
+                                                                    dbAssistantIdPresent = npuStandardRouteDbAssistantIdPresent,
+                                                                    dbSaveBlockReason = npuStandardRouteDbSaveBlockReason,
+                                                                    dbMessageReplacedTransient = npuStandardRouteDbMessageReplacedTransient,
+                                                                    dbConversationIdPresent = npuStandardRouteDbConversationIdPresent,
+                                                                    markdownExecuted = npuStandardRouteMarkdownExecuted,
+                                                                    markdownMode = npuStandardRouteMarkdownMode,
+                                                                    markdownBlockReason = npuStandardRouteMarkdownBlockReason,
+                                                                    streamingExecuted = npuStandardRouteStreamingExecuted,
+                                                                    streamingMode = npuStandardRouteStreamingMode,
+                                                                    streamingSource = npuStandardRouteStreamingSource,
+                                                                    streamingChunkCount = npuStandardRouteStreamingChunkCount,
+                                                                    streamingFinalTextLength = npuStandardRouteStreamingFinalTextLength,
+                                                                    streamingBlockReason = npuStandardRouteStreamingBlockReason,
+                                                                    nativeStreamingUsed = npuStandardRouteNativeStreamingUsed,
+                                                                    streamingTextMatchesDb = npuStandardRouteStreamingTextMatchesDb,
+                                                                    streamingTextMatchesMarkdown = npuStandardRouteStreamingTextMatchesMarkdown,
+                                                                ),
+                                                            ).joinToString("\n")
+                                                        fun appendNpuStandardRouteExecutionDiagnostics(text: String?): String? =
+                                                            if (text.isNullOrBlank()) {
+                                                                text
+                                                            } else {
+                                                                "$text\n$npuStandardRouteExecutionDiagnosticsText"
+                                                            }
+                                                        npuStandardRouteS1DisplayText =
+                                                            appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DisplayText)
+                                                        npuStandardRouteS1DevTraceText =
+                                                            appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevTraceText)
+                                                        npuStandardRouteS1DevCompactCopyText =
+                                                            appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevCompactCopyText)
+                                                        npuStandardRouteS1DevFullDumpCopyText =
+                                                            appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevFullDumpCopyText)
+                                                        npuStandardRouteS4PseudoStreamingText = null
+                                                        npuStandardRouteS4PseudoStreamingActive = false
+                                                        if (npuStandardRouteS2DbEnabled && npuStandardRouteLegacyDbSaveAllowed) {
                                                             val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
                                                                 userPrompt = requestPrompt,
                                                                 s1Result = s1Result,
                                                             )
                                                             if (shouldPersistNpuStandardRouteS2Db(
-                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S2_DB,
+                                                                    enabled = npuStandardRouteS2DbEnabled,
                                                                     mapping = s2DbMapping,
                                                                 )
                                                             ) {
                                                                 val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
-                                                                val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
-                                                                    .resolveFinalizedText(
-                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN,
-                                                                        s1Result = s1Result,
-                                                                        fallbackText = saveCandidate.assistantMessage.text,
-                                                                        finalizeMarkdown = { text ->
-                                                                            buildFinalizedStreamingResponseForPersist(
-                                                                                response = text,
-                                                                                markdownStreamingMode = markdownStreamingMode,
-                                                                            )
-                                                                        },
-                                                                    )
+                                                                val s2SavedResult = buildNpuStandardRouteS2DbSavedResult(s1Result)
+                                                                val s3MarkdownMapping =
+                                                                    if (npuStandardRouteS3MarkdownEnabled && npuStandardRouteMarkdownAllowed) {
+                                                                        NpuStandardRouteS3MarkdownBridge().prepareMarkdownCandidate(
+                                                                            s1Result = s1Result,
+                                                                            finalizeMarkdown = { text ->
+                                                                                buildFinalizedStreamingResponseForPersist(
+                                                                                    response = text,
+                                                                                    markdownStreamingMode = markdownStreamingMode,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    } else {
+                                                                        null
+                                                                    }
+                                                                val s3MarkdownCandidate = s3MarkdownMapping
+                                                                    ?.takeIf {
+                                                                        shouldRenderNpuStandardRouteS3Markdown(
+                                                                            enabled = npuStandardRouteS3MarkdownEnabled,
+                                                                            mapping = it,
+                                                                        )
+                                                                    }
+                                                                    ?.markdownCandidate
+                                                                val assistantTextForPersist =
+                                                                    s3MarkdownCandidate?.finalizedText
+                                                                        ?: saveCandidate.assistantMessage.text
+                                                                val npuStandardRouteMarkdownResult =
+                                                                    if (s3MarkdownCandidate != null) {
+                                                                        buildNpuStandardRouteS3MarkdownSavedResult(
+                                                                            s1Result = s1Result,
+                                                                            finalizedText = s3MarkdownCandidate.finalizedText,
+                                                                        )
+                                                                    } else {
+                                                                        s2SavedResult
+                                                                    }
                                                                 val s4PseudoStreamingCandidate =
-                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                    if (
+                                                                        npuStandardRouteS4aPseudoStreamingEnabled &&
+                                                                        npuStandardRouteStreamingAllowed &&
+                                                                        s3MarkdownCandidate != null
+                                                                    ) {
                                                                         val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                             .preparePseudoStreamingCandidate(
                                                                                 s1Result = s1Result,
-                                                                                finalText = assistantTextForPersist,
-                                                                                sourceDisplayText = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                                finalText = s3MarkdownCandidate.finalizedText,
+                                                                                sourceDisplayText = npuStandardRouteMarkdownResult.displayText,
                                                                             )
                                                                         s4PseudoStreamingMapping
                                                                             .takeIf {
                                                                                 shouldStartNpuStandardRouteS4APseudoStreaming(
-                                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                                    enabled = npuStandardRouteS4aPseudoStreamingEnabled,
                                                                                     mapping = it,
                                                                                 )
                                                                             }
@@ -2454,96 +4243,162 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                prompt = ""
-                                                                userPrompt = ""
-                                                                selectedImageUriStrings = emptyList()
-                                                                coroutineScope.launch {
+                                                                val npuStandardRoutePersistedResult =
                                                                     if (s4PseudoStreamingCandidate != null) {
-                                                                        npuStandardRouteS4PseudoStreamingActive = true
+                                                                        buildNpuStandardRouteS4APseudoStreamingSavedResult(
+                                                                            s1Result = s1Result,
+                                                                            finalText = s4PseudoStreamingCandidate.finalText,
+                                                                        )
+                                                                    } else {
+                                                                        npuStandardRouteMarkdownResult
+                                                                    }
+                                                                val npuStandardRoutePersistedDisplayTextWithMemory =
+                                                                    appendNpuS1MemoryDiagnostics(
+                                                                        npuStandardRoutePersistedResult.displayText,
+                                                                    )
+                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedDisplayTextWithMemory
+                                                                if (s4PseudoStreamingCandidate != null) {
+                                                                    val s4GuardEpoch = streamingGuardEpoch
+                                                                    npuStandardRouteS4PseudoStreamingActive = true
+                                                                    npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                    try {
                                                                         s4PseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                            if (
+                                                                                !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                                    localStopRequested = localStopRequested,
+                                                                                    runGuardEpoch = s4GuardEpoch,
+                                                                                    currentGuardEpoch = streamingGuardEpoch,
+                                                                                    expectedChatId = currentChatId,
+                                                                                    currentChatId = effectiveChatId,
+                                                                                )
+                                                                            ) {
+                                                                                return@launch
+                                                                            }
+                                                                            localStreamingResponseText = chunk
+                                                                            streamingResponseTextForRender = chunk
                                                                             npuStandardRouteS4PseudoStreamingText = chunk
                                                                             delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
                                                                         }
+                                                                        localStreamingResponseText = s4PseudoStreamingCandidate.finalText
+                                                                        streamingResponseTextForRender = s4PseudoStreamingCandidate.finalText
                                                                         npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
+                                                                    } finally {
                                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                                     }
-                                                                    var currentChatId = effectiveChatId
-                                                                    if (currentChatId == null) {
-                                                                        isCreatingChat = true
-                                                                        try {
-                                                                            val newChatId = withContext(Dispatchers.IO) {
-                                                                                viewModel.insertChatAndReturnId(
-                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                                                                                )
-                                                                            }
-                                                                            effectiveChatId = newChatId
-                                                                            pendingNavigateChatId = newChatId
-                                                                            currentChatId = newChatId
-                                                                        } finally {
-                                                                            isCreatingChat = false
-                                                                        }
-                                                                    }
-                                                                    val resolvedChatId = currentChatId
-                                                                    val assistantId = withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            Message(
-                                                                                chatId = resolvedChatId,
-                                                                                message = saveCandidate.userMessage.text,
-                                                                                isSendbyMe = saveCandidate.userMessage.isSendByMe,
-                                                                            )
+                                                                    if (
+                                                                        !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                            localStopRequested = localStopRequested,
+                                                                            runGuardEpoch = s4GuardEpoch,
+                                                                            currentGuardEpoch = streamingGuardEpoch,
+                                                                            expectedChatId = currentChatId,
+                                                                            currentChatId = effectiveChatId,
                                                                         )
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            createAssistantMessage(
-                                                                                chatId = resolvedChatId,
-                                                                                response = assistantTextForPersist,
-                                                                                localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
-                                                                            )
-                                                                        ).toInt()
+                                                                    ) {
+                                                                        return@launch
                                                                     }
-                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
-                                                                        val s5TtsMapping = NpuStandardRouteS5TtsBridge()
-                                                                            .prepareTtsCandidate(
-                                                                                s1Result = s1Result,
-                                                                                finalAssistantText = assistantTextForPersist,
-                                                                                ttsEnabled = ttsEnabled,
-                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
-                                                                                sanitizeForTts = ::sanitizeTextForTts,
-                                                                            )
-                                                                        logStreamTrace(
-                                                                            buildNpuStandardRouteS5TtsCandidateTrace(
-                                                                                mapping = s5TtsMapping,
-                                                                                finalTextLength = assistantTextForPersist.length,
-                                                                                ttsEnabled = ttsEnabled,
-                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
-                                                                                assistantId = assistantId,
-                                                                            ),
+                                                                }
+                                                                val resolvedChatId = currentChatId
+                                                                val assistantId = withContext(Dispatchers.IO) {
+                                                                    viewModel.insertAssistantMessageAndReturnId(
+                                                                        createAssistantMessage(
+                                                                            chatId = resolvedChatId,
+                                                                            response = assistantTextForPersist,
+                                                                            localSourceSummary = npuStandardRoutePersistedDisplayTextWithMemory,
                                                                         )
-                                                                        val s5TtsSkipReason = classifyNpuStandardRouteS5TtsSkipReason(
-                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                    ).toInt()
+                                                                }
+                                                                lastPersistedStreamingAssistantText = assistantTextForPersist
+                                                                localStreamingResponseText = null
+                                                                streamingResponseTextForRender = null
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                if (npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed) {
+                                                                    val s5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                        .prepareTtsCandidate(
+                                                                            s1Result = s1Result,
+                                                                            finalAssistantText = s1Result.ttsText,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            sanitizeForTts = ::sanitizeTextForTts,
+                                                                        )
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsCandidateTrace(
                                                                             mapping = s5TtsMapping,
+                                                                            finalTextLength = s1Result.ttsText.length,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             assistantId = assistantId,
-                                                                            suppressedForAssistant = isTtsSuppressedForAssistant(assistantId),
-                                                                            inCooldown = ttsController.isInCooldown(),
+                                                                        ),
+                                                                    )
+                                                                    val s5TtsSkipReason = classifyNpuStandardRouteS5TtsSkipReason(
+                                                                        enabled = npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed,
+                                                                        mapping = s5TtsMapping,
+                                                                        ttsEnabled = ttsEnabled,
+                                                                        streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                        assistantId = assistantId,
+                                                                        suppressedForAssistant = isTtsSuppressedForAssistant(assistantId),
+                                                                        inCooldown = ttsController.isInCooldown(),
+                                                                    )
+                                                                    if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
+                                                                        val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
+                                                                        currentSpeakingAssistantMessageId = assistantId
+                                                                        stopButtonOwnerAssistantMessageId = assistantId
+                                                                        stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                                        maybeReleaseHeldEngineForTtsPlayback()
+                                                                        logStreamTrace(
+                                                                            buildNpuStandardRouteS5TtsSpeakTrace(
+                                                                                stage = "before",
+                                                                                assistantId = assistantId,
+                                                                                speakTextLength = ttsCandidate.speakText.length,
+                                                                            ),
                                                                         )
-                                                                        if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
-                                                                            val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
-                                                                            currentSpeakingAssistantMessageId = assistantId
-                                                                            stopButtonOwnerAssistantMessageId = assistantId
-                                                                            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-                                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                                            val s5SavedResult = try {
+                                                                                ttsController.speak(ttsCandidate.speakText)
+                                                                                buildNpuStandardRouteS5TtsSavedResult(
+                                                                                    s1Result = s1Result,
+                                                                                    finalAssistantText = s1Result.ttsText,
+                                                                                    ttsDiagnostics = NpuStandardRouteS5TtsContract.successDiagnostics(
+                                                                                        s1Result.ttsText,
+                                                                                    ),
+                                                                                )
+                                                                            } catch (exception: Exception) {
+                                                                                Log.w("ChatScreen", "NPU S5 TTS failed after successful inference", exception)
+                                                                                if (currentSpeakingAssistantMessageId == assistantId) {
+                                                                                    currentSpeakingAssistantMessageId = null
+                                                                                }
+                                                                                if (stopButtonOwnerAssistantMessageId == assistantId) {
+                                                                                    stopButtonOwnerAssistantMessageId = null
+                                                                                    stopButtonOwnerSetAtMs = null
+                                                                                }
+                                                                                buildNpuStandardRouteS5TtsSavedResult(
+                                                                                    s1Result = s1Result,
+                                                                                    finalAssistantText = s1Result.ttsText,
+                                                                                    ttsDiagnostics = NpuStandardRouteS5TtsContract.exceptionDiagnostics(
+                                                                                        sanitizedOutput = s1Result.ttsText,
+                                                                                        throwable = exception,
+                                                                                    ),
+                                                                                )
+                                                                            }
+                                                                            val s5SavedDisplayTextWithMemory =
+                                                                                appendNpuS1MemoryDiagnostics(s5SavedResult.displayText)
+                                                                            npuStandardRouteS1DisplayText = s5SavedDisplayTextWithMemory
+                                                                            try {
+                                                                                withContext(Dispatchers.IO) {
+                                                                                    viewModel.getMessageById(assistantId)?.let { message ->
+                                                                                        viewModel.updateMessage(
+                                                                                            message.copy(localSourceSummary = s5SavedDisplayTextWithMemory),
+                                                                                        )
+                                                                                    }
+                                                                                }
+                                                                            } catch (exception: Exception) {
+                                                                                Log.w("ChatScreen", "Failed to update NPU S5 TTS diagnostics", exception)
+                                                                            }
                                                                             logStreamTrace(
                                                                                 buildNpuStandardRouteS5TtsSpeakTrace(
-                                                                                    stage = "before",
-                                                                                    assistantId = assistantId,
-                                                                                    speakTextLength = ttsCandidate.speakText.length,
-                                                                                ),
-                                                                            )
-                                                                            ttsController.speak(ttsCandidate.speakText)
-                                                                            logStreamTrace(
-                                                                                buildNpuStandardRouteS5TtsSpeakTrace(
-                                                                                    stage = "after",
+                                                                                    stage = if (s5SavedResult.s5TtsDiagnostics?.completed == true) {
+                                                                                        "after"
+                                                                                    } else {
+                                                                                        NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
+                                                                                    },
                                                                                     assistantId = assistantId,
                                                                                     speakTextLength = ttsCandidate.speakText.length,
                                                                                 ),
@@ -2564,22 +4419,28 @@ fun Home(
                                                                             ),
                                                                         )
                                                                     }
-                                                                }
-                                                                return@IconButton
+                                                                return@launch
+                                                            } else {
+                                                                npuStandardRouteS1DisplayText = appendNpuS1MemoryDiagnostics(
+                                                                    buildNpuStandardRouteS2DbSkippedResult(
+                                                                        s1Result = s1Result,
+                                                                        failureReason = s2DbMapping.failureReason,
+                                                                    ).displayText,
+                                                                )
                                                             }
                                                         }
-                                                        val s4DisplayOnlyCandidate =
-                                                            if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                val s4DisplayOnlyCandidate =
+                                                            if (npuStandardRouteS4aPseudoStreamingEnabled && npuStandardRouteStreamingAllowed) {
                                                                 val s4DisplayOnlyMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                     .preparePseudoStreamingCandidate(
                                                                         s1Result = s1Result,
-                                                                        finalText = s1Result.displayText,
+                                                                        finalText = s1Result.actualDisplayText,
                                                                         sourceDisplayText = s1Result.displayText,
                                                                     )
                                                                 s4DisplayOnlyMapping
                                                                     .takeIf {
                                                                         shouldStartNpuStandardRouteS4APseudoStreaming(
-                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                            enabled = npuStandardRouteS4aPseudoStreamingEnabled,
                                                                             mapping = it,
                                                                         )
                                                                     }
@@ -2587,10 +4448,7 @@ fun Home(
                                                             } else {
                                                                 null
                                                         }
-                                                        prompt = ""
-                                                        userPrompt = ""
-                                                        selectedImageUriStrings = emptyList()
-                                                        if (!ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                        if (!npuStandardRouteS5TtsEnabled || !npuStandardRouteLegacyS5TtsAllowed) {
                                                             logStreamTrace(
                                                                 buildNpuStandardRouteS5TtsSkipTrace(
                                                                     reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
@@ -2598,7 +4456,10 @@ fun Home(
                                                                 ),
                                                             )
                                                         }
-                                                        if (s4DisplayOnlyCandidate != null || ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                        if (
+                                                            s4DisplayOnlyCandidate != null ||
+                                                            (npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed)
+                                                        ) {
                                                             coroutineScope.launch {
                                                                 if (s4DisplayOnlyCandidate != null) {
                                                                     npuStandardRouteS4PseudoStreamingActive = true
@@ -2609,11 +4470,11 @@ fun Home(
                                                                     npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
                                                                     npuStandardRouteS4PseudoStreamingActive = false
                                                                 }
-                                                                if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                if (npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed) {
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
-                                                                            finalAssistantText = s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText,
+                                                                            finalAssistantText = s1Result.ttsText,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             sanitizeForTts = ::sanitizeTextForTts,
@@ -2621,7 +4482,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsCandidateTrace(
                                                                             mapping = s5TtsMapping,
-                                                                            finalTextLength = (s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText).length,
+                                                                            finalTextLength = s1Result.ttsText.length,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             assistantId = null,
@@ -2630,7 +4491,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsSkipTrace(
                                                                             reason = classifyNpuStandardRouteS5TtsSkipReason(
-                                                                                enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                                enabled = npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed,
                                                                                 mapping = s5TtsMapping,
                                                                                 ttsEnabled = ttsEnabled,
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,
@@ -2649,6 +4510,40 @@ fun Home(
                                                                         ),
                                                                     )
                                                                 }
+                                                            }
+                                                        }
+                                                            } catch (exception: CancellationException) {
+                                                                if (!localStopRequested) throw exception
+                                                            } catch (exception: Exception) {
+                                                                Log.e("ChatScreen", "NPU standard route execution failed", exception)
+                                                                NpuStandardRouteS1AppHistory.recordException(
+                                                                    context = context.applicationContext,
+                                                                    prompt = requestPrompt,
+                                                                    throwable = exception,
+                                                                )
+                                                                val failureChatId = resolvedNpuChatId
+                                                                if (!localStopRequested && failureChatId != null) {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = failureChatId,
+                                                                                response = "NPU推論の応答取得に失敗しました: ${exception.javaClass.simpleName}",
+                                                                                localSourceSummary = exception.message.orEmpty(),
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                }
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "NPU推論の応答取得に失敗しました",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } finally {
+                                                                npuStandardRouteS4PseudoStreamingActive = false
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                isLocalInferenceRunning = false
+                                                                localInferenceJob = null
                                                             }
                                                         }
                                                         return@IconButton
@@ -2711,21 +4606,115 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             try {
+                                                                val devMemorySnapshots = mutableListOf(
+                                                                    captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_BEFORE_GENERATE,
+                                                                    ),
+                                                                    captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_AFTER_PROMPT_BUILD,
+                                                                    ),
+                                                                    captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_BEFORE_ENGINE_CALL,
+                                                                    ),
+                                                                )
                                                                 val devResult = withContext(Dispatchers.IO) {
                                                                     runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
                                                                         context = context.applicationContext,
                                                                         prompt = requestPrompt,
                                                                     )
                                                                 }
-                                                                val assistantText = devResult.assistantMessage.ifBlank {
-                                                                    if (devResult.success) {
-                                                                        devResult.output
+                                                                val safetyGuardBlock = safetyGuardConversationBlockOrNull(
+                                                                    chatId = resolvedChatId,
+                                                                    reasonCode = devResult.reasonCode,
+                                                                    failureStage = devResult.failureStage,
+                                                                    stopReason = devResult.stopReason,
+                                                                )
+                                                                if (safetyGuardBlock != null) {
+                                                                    safetyGuardBlockedConversations[resolvedChatId] = safetyGuardBlock
+                                                                    devMemorySnapshots += captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                                                                    )
+                                                                    devMemorySnapshots += captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_AFTER_CANCEL,
+                                                                    )
+                                                                    npuStandardRouteS4PseudoStreamingActive = false
+                                                                    npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                    stopTtsWithCleanup(
+                                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                                            ?: currentSpeakingAssistantMessageId
+                                                                            ?: streamingSpeechStartedForMessageId,
+                                                                        armTapGuards = false,
+                                                                    )
+                                                                    withContext(Dispatchers.IO) {
+                                                                        localInferenceEngineHolder.resetConversation(
+                                                                            chatId = resolvedChatId,
+                                                                            reason = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                        localInferenceEngineHolder.requestRecreateForDev(
+                                                                            reason = MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                    devMemorySnapshots += captureLocalMemorySnapshot(
+                                                                        context = context.applicationContext,
+                                                                        stage = MEMORY_STAGE_AFTER_ENGINE_RECYCLE,
+                                                                    )
+                                                                }
+                                                                devMemorySnapshots += captureLocalMemorySnapshot(
+                                                                    context = context.applicationContext,
+                                                                    stage = if (devResult.success) {
+                                                                        MEMORY_STAGE_GENERATION_FINISHED
                                                                     } else {
-                                                                        "実験的NPU route failed: ${devResult.reasonCode}"
+                                                                        MEMORY_STAGE_GENERATION_FAILED
+                                                                    },
+                                                                )
+                                                                devMemorySnapshots += captureLocalMemorySnapshot(
+                                                                    context = context.applicationContext,
+                                                                    stage = MEMORY_STAGE_AFTER_RUNNER_DISPOSE,
+                                                                )
+                                                                val assistantText = if (safetyGuardBlock != null) {
+                                                                    SAFETY_GUARD_BLOCKED_USER_MESSAGE
+                                                                } else {
+                                                                    devResult.assistantMessage.ifBlank {
+                                                                        if (devResult.success) {
+                                                                            devResult.output
+                                                                        } else {
+                                                                            "実験的NPU route failed: ${devResult.reasonCode}"
+                                                                        }
                                                                     }
                                                                 }
-                                                                val stats = devResult.toInferenceStats()
-                                                                val sourceSummary = devResult.toLocalSourceSummary()
+                                                                val memoryDiagnostics = formatMemoryDiagnosticsForDev(
+                                                                    snapshots = devMemorySnapshots,
+                                                                    guardBlock = safetyGuardBlock,
+                                                                )
+                                                                val sourceSummary = listOf(
+                                                                    devResult.toLocalSourceSummary(),
+                                                                    memoryDiagnostics,
+                                                                ).filter { it.isNotBlank() }.joinToString("\n\n")
+                                                                val stats = devResult.toInferenceStats().copy(
+                                                                    finishReason = if (safetyGuardBlock != null) {
+                                                                        MEMORY_STAGE_SAFETY_GUARD_TRIGGERED
+                                                                    } else {
+                                                                        devResult.toInferenceStats().finishReason
+                                                                    },
+                                                                    localSourceSummary = sourceSummary,
+                                                                )
                                                                 devDebugText = sourceSummary
                                                                 if (!localStopRequested) {
                                                                     val assistantId = withContext(Dispatchers.IO) {
@@ -2749,10 +4738,16 @@ fun Home(
                                                                         assistantMessageId = assistantId,
                                                                     )
                                                                 }
-                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finish")
+                                                                cleanupDevQairt244NpuUiState(reason = if (safetyGuardBlock != null) {
+                                                                    MEMORY_STAGE_SAFETY_GUARD_TRIGGERED
+                                                                } else {
+                                                                    "dev-qairt244-finish"
+                                                                })
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
-                                                                    message = if (devResult.success) {
+                                                                    message = if (safetyGuardBlock != null) {
+                                                                        SAFETY_GUARD_BLOCKED_USER_MESSAGE
+                                                                    } else if (devResult.success) {
                                                                         "実験的NPU route success"
                                                                     } else {
                                                                         "実験的NPU route failed: ${devResult.reasonCode}"
@@ -2855,6 +4850,13 @@ fun Home(
                                                             context = context.applicationContext,
                                                             message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
                                                         )
+                                                        appendLocalReflectionTrace(
+                                                            context = context.applicationContext,
+                                                            message = buildLocalRouteDiagnosticTrace(
+                                                                stage = "local_route_entered",
+                                                                context = localRouteDiagnosticContext,
+                                                            ),
+                                                        )
                                                         if (isLocalInferenceRunning) return@launch
                                                         localStopRequested = false
                                                         didReceiveRealLocalPartial = false
@@ -2862,6 +4864,14 @@ fun Home(
                                                         localStreamingResponseText = null
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         isLocalInferenceRunning = true
+                                                        val localRunGuardEpoch = streamingGuardEpoch
+                                                        val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                        val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                                        val localRouteTimedOut = AtomicBoolean(false)
+                                                        val gpuRouteProgressTracker = GpuRouteProgressTracker(
+                                                            runStartedAtMs = localRunStartedAtMs,
+                                                        )
+                                                        var localGpuWatchdogForRun: Job? = null
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
@@ -2875,10 +4885,22 @@ fun Home(
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                 devRunnerWhitespaceTraceText = null
                                                             }
-                                                            val localRunGuardEpoch = streamingGuardEpoch
-                                                            val localRunStartedAtMs = SystemClock.elapsedRealtime()
-                                                            val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
                                                             var measuredModelLoadDurationNs: Long? = null
+                                                            localGpuWatchdogJob?.cancel()
+                                                            localGpuWatchdogForRun = launchGpuExperimentalLocalRouteWatchdog(
+                                                                currentChatId = currentChatId,
+                                                                diagnosticContext = localRouteDiagnosticContext,
+                                                                runGuardEpoch = localRunGuardEpoch,
+                                                                runStartedAtMs = localRunStartedAtMs,
+                                                                timedOut = localRouteTimedOut,
+                                                                progressFlagsProvider = {
+                                                                    gpuRouteProgressTracker.snapshot(
+                                                                        failureStage = "gpu_watchdog_timeout",
+                                                                        staleCallbackIgnored = true,
+                                                                    )
+                                                                },
+                                                            )
+                                                            localGpuWatchdogJob = localGpuWatchdogForRun
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
@@ -2901,6 +4923,44 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-skip reason=model-path-unresolved",
                                                                     )
+                                                                    if (isGpuPrefillProbeRequestedForDebug(preferredBackendDryRunSetting)) {
+                                                                        val probeText = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                            reason = "model_path_unresolved",
+                                                                        )
+                                                                        val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                        val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                            stage = "gpu_prefill_probe_start_blocked",
+                                                                            context = localRouteDiagnosticContext,
+                                                                            flags = LocalRouteDiagnosticFlags(
+                                                                                failureStage = "gpu_prefill_probe_start_blocked",
+                                                                                fallbackUsed = false,
+                                                                                gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                            ).withHeldEngineSnapshot(
+                                                                                localInferenceEngineHolder.getDevDiagnosticSnapshot(),
+                                                                            ),
+                                                                            elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                        ) + "\n" + probeText
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = combinedProbeText,
+                                                                        )
+                                                                        writeGpuPrefillProbeDiagnosticsFile(
+                                                                            context = context.applicationContext,
+                                                                            text = combinedProbeText,
+                                                                        )
+                                                                        return@withContext LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                            trace = LocalInferenceTrace(
+                                                                                requestedPreferredBackend = "GPU",
+                                                                                appliedPreferredBackend = "GPU",
+                                                                                preferredBackendApplyResult = "gpu-prefill-probe-start-blocked",
+                                                                                preferredBackendHookReached = true,
+                                                                                preferredBackendHookSource = "gpu-prefill-probe",
+                                                                                localFailureDiagnosticsText = combinedProbeText,
+                                                                            ),
+                                                                        )
+                                                                    }
                                                                     if (useHeldPathOnlyForDev) {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
@@ -2917,6 +4977,275 @@ fun Home(
                                                                     val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
+                                                                val applyGpuExperimentalTimeout =
+                                                                    shouldApplyGpuExperimentalStageTimeout(localRouteDiagnosticContext)
+                                                                val gpuGenerateProbeModeForRun =
+                                                                    resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
+                                                                val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
+                                                                    preferredBackend = preferredBackendDryRunSetting.name,
+                                                                    overrideValue = when (gpuGenerateProbeModeForRun) {
+                                                                        GPU_GENERATE_PROBE_MODE_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+                                                                        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+                                                                        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32,
+                                                                        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 ->
+                                                                            GPU_EXPERIMENT_MODE_MAX_TOKENS_32
+                                                                        GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
+                                                                        GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER
+                                                                        else -> null
+                                                                    },
+                                                                )
+                                                                val gpuConfigDiagnosticsForRun = overrideGpuConfigForGenerateProbeMode(
+                                                                    diagnostics = buildGpuRouteConfigDiagnostics(
+                                                                        modelPath = resolvedModelPath,
+                                                                        cacheDirPath = modelResolution.cacheDirPath,
+                                                                        preferredBackend = preferredBackendDryRunSetting.name,
+                                                                        experimentMode = gpuExperimentModeForRun,
+                                                                    ),
+                                                                    probeMode = gpuGenerateProbeModeForRun,
+                                                                )
+                                                                gpuRouteProgressTracker.setConfig(
+                                                                    gpuConfigDiagnosticsForRun,
+                                                                )
+                                                                resolveGpuHeldEnginePrefillProbeRequestForDebug(
+                                                                    preferredBackend = preferredBackendDryRunSetting,
+                                                                    modelPath = resolvedModelPath,
+                                                                    cacheDirPath = modelResolution.cacheDirPath,
+                                                                )?.let { heldProbeRequest ->
+                                                                    val heldSnapshotBeforeProbe =
+                                                                        localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                    val reusableHeldEngineBeforeProbe =
+                                                                        localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
+                                                                    val probeText = if (!reusableHeldEngineBeforeProbe) {
+                                                                        buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                            reason = "no_held_engine",
+                                                                            useHeldEngineRequested = true,
+                                                                            heldEnginePresentBefore =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            heldEngineAcquireResult = "blocked_no_held_engine",
+                                                                        )
+                                                                    } else {
+                                                                        val diagnosticResult =
+                                                                            localInferenceEngineHolder.acquireWithDiagnostic(
+                                                                                engineKey = modelResolution.engineKey,
+                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                appendTrace = { message ->
+                                                                                    gpuRouteProgressTracker.recordTrace(message)
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        val heldEngine = diagnosticResult.engine
+                                                                        if (heldEngine == null) {
+                                                                            buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                                reason = diagnosticResult.failureStage
+                                                                                    ?: "held_engine_acquire_failed",
+                                                                                useHeldEngineRequested = true,
+                                                                                heldEnginePresentBefore =
+                                                                                    heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                                heldEngineAcquireResult = "failed",
+                                                                            )
+                                                                        } else {
+                                                                            runGpuHeldEnginePrefillProbe(
+                                                                                heldEngine = heldEngine,
+                                                                                request = heldProbeRequest.copy(
+                                                                                    heldEnginePresentBefore =
+                                                                                        heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                                    normalGpuLastKnownStage =
+                                                                                        "held_engine_probe_normal_generate_skipped_before_start",
+                                                                                ),
+                                                                                appendTrace = { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                    val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                    val probeTimedOut = probeDiagnostics["probe_run_timed_out"] == "true"
+                                                                    val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "gpu_held_engine_prefill_probe_completed",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (probeTimedOut) {
+                                                                                "timeout"
+                                                                            } else {
+                                                                                probeDiagnostics["probe_failure_stage"]
+                                                                                    ?: "gpu_held_engine_prefill_probe_completed"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            heldEngineExists =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            heldEngineReused = reusableHeldEngineBeforeProbe,
+                                                                            staleCallbackIgnored =
+                                                                                probeDiagnostics["probe_stale_callback_ignored"]
+                                                                                    ?.toBooleanStrictOrNull(),
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeProbe),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ) + "\n" + probeText
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = combinedProbeText,
+                                                                    )
+                                                                    writeGpuPrefillProbeDiagnosticsFile(
+                                                                        context = context.applicationContext,
+                                                                        text = combinedProbeText,
+                                                                    )
+                                                                    val invalidateHeldEngine =
+                                                                        probeDiagnostics["probe_used_held_engine"] == "true" ||
+                                                                            probeTimedOut ||
+                                                                            probeDiagnostics["probe_held_engine_acquire_result"] == "failed"
+                                                                    if (invalidateHeldEngine) {
+                                                                        localInferenceEngineHolder.requestRecreateForDev(
+                                                                            reason = "gpu_held_engine_prefill_probe_completed_normal_generate_skipped",
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                    return@withContext LocalInferenceRunResult(
+                                                                        state = LocalInferenceEngineState.ERROR,
+                                                                        response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                        trace = LocalInferenceTrace(
+                                                                            localModelDisplayName = modelResolution.displayName,
+                                                                            mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            requestedPreferredBackend = "GPU",
+                                                                            appliedPreferredBackend = "GPU",
+                                                                            preferredBackendApplyResult =
+                                                                                "gpu-held-engine-prefill-probe-skipped-normal-generate",
+                                                                            preferredBackendHookReached = true,
+                                                                            preferredBackendHookSource = "gpu-held-engine-prefill-probe",
+                                                                            localFailureDiagnosticsText = combinedProbeText,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                resolveGpuPrefillProbeRequestForDebug(
+                                                                    preferredBackend = preferredBackendDryRunSetting,
+                                                                    modelPath = resolvedModelPath,
+                                                                    cacheDirPath = modelResolution.cacheDirPath,
+                                                                )?.let { probeRequest ->
+                                                                    val heldSnapshotBeforeProbe =
+                                                                        localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                    val probeText = runGpuPrefillProbe(
+                                                                        request = probeRequest.copy(
+                                                                            heldEnginePresentBefore =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            normalGpuLastKnownStage =
+                                                                                "normal_generate_skipped_before_start",
+                                                                        ),
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                    val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                    val probeTimedOut = probeDiagnostics["probe_run_timed_out"] == "true"
+                                                                    val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "gpu_prefill_probe_completed",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (probeTimedOut) {
+                                                                                "timeout"
+                                                                            } else {
+                                                                                probeDiagnostics["probe_failure_stage"] ?: "gpu_prefill_probe_completed"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            staleCallbackIgnored =
+                                                                                probeDiagnostics["probe_stale_callback_ignored"]?.toBooleanStrictOrNull(),
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeProbe),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ) + "\n" + probeText
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = combinedProbeText,
+                                                                    )
+                                                                    writeGpuPrefillProbeDiagnosticsFile(
+                                                                        context = context.applicationContext,
+                                                                        text = combinedProbeText,
+                                                                    )
+                                                                    localInferenceEngineHolder.requestRecreateForDev(
+                                                                        reason = "gpu_prefill_probe_completed_normal_generate_skipped",
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                    return@withContext LocalInferenceRunResult(
+                                                                        state = LocalInferenceEngineState.ERROR,
+                                                                        response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                        trace = LocalInferenceTrace(
+                                                                            localModelDisplayName = modelResolution.displayName,
+                                                                            mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            requestedPreferredBackend = "GPU",
+                                                                            appliedPreferredBackend = "GPU",
+                                                                            preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
+                                                                            preferredBackendHookReached = true,
+                                                                            preferredBackendHookSource = "gpu-prefill-probe",
+                                                                            localFailureDiagnosticsText = combinedProbeText,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                val lastRouteDiagnosticStage =
+                                                                    AtomicReference<String?>("engine_create_started")
+                                                                if (isEdgeGalleryParityNoHolderReuseModeForDebug(preferredBackendDryRunSetting)) {
+                                                                    localInferenceEngineHolder.requestRecreateForDev(
+                                                                        reason = "edge_gallery_parity_no_holder_reuse_before_acquire",
+                                                                        owner = "ChatScreen.edgeGalleryParityNoHolderReuse",
+                                                                        appendTrace = { message ->
+                                                                            gpuRouteProgressTracker.recordTrace(message)
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                }
+                                                                val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                val reusableHeldEngineBeforeAcquire =
+                                                                    localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
+                                                                val engineCreateStarted = !reusableHeldEngineBeforeAcquire
+                                                                lastRouteDiagnosticStage.set("engine_create_started")
+                                                                gpuRouteProgressTracker.recordStage("engine_create_started")
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "engine_create_started",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            heldEngineExists = heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            heldEngineReused = false,
+                                                                            engineCreateStarted = engineCreateStarted,
+                                                                            engineCreateFinished = false,
+                                                                            engineConfigBuildStarted = if (engineCreateStarted) true else null,
+                                                                            engineConfigBuildFinished = false.takeIf { engineCreateStarted },
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuAlignmentHolderPresentBeforeAcquire =
+                                                                                heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            gpuAlignmentHolderAcquireResult = "pending",
+                                                                            gpuAlignmentHolderReused = false,
+                                                                            gpuAlignmentHolderCreated = false,
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeAcquire),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
                                                                 var legacyFallbackReason: String? = null
                                                                 var heldAcquireFailureStage: String? = null
                                                                 var heldAcquireFailureClassName: String? = null
@@ -2927,67 +5256,157 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
-                                                                val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                    val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
-                                                                        engineKey = modelResolution.engineKey,
-                                                                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-                                                                        appendTrace = { message ->
-                                                                            if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
-                                                                                heldOfficialHelperProgress = message
-                                                                            }
-                                                                            appendLocalReflectionTrace(
-                                                                                context = context.applicationContext,
-                                                                                message = message,
-                                                                            )
-                                                                        },
-                                                                    )
-                                                                    heldAcquireFailureStage = diagnosticResult.failureStage
-                                                                    heldAcquireFailureClassName = diagnosticResult.failureClassName
-                                                                    heldAcquireFailureMessage = diagnosticResult.failureMessage
-                                                                    heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
-                                                                    if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
-                                                                        legacyFallbackReason = "held-acquire-failed"
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
-                                                                        )
-                                                                    }
-                                                                    diagnosticResult.engine
-                                                                } else {
-                                                                    runCatching {
-                                                                        localInferenceEngineHolder.acquireOrCreate(
+                                                                val heldAcquireStartedAtMs = SystemClock.elapsedRealtime()
+                                                                suspend fun acquireHeldEngineForRun(): HeldLocalEngine? =
+                                                                    if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                        val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                             engineKey = modelResolution.engineKey,
-                                                                            context = context.applicationContext,
                                                                             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             appendTrace = { message ->
+                                                                                gpuRouteProgressTracker.recordTrace(message)
+                                                                                if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
+                                                                                    heldOfficialHelperProgress = message
+                                                                                }
                                                                                 appendLocalReflectionTrace(
                                                                                     context = context.applicationContext,
                                                                                     message = message,
                                                                                 )
                                                                             },
                                                                         )
-                                                                    }.getOrElse {
-                                                                        heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
-                                                                            context = context.applicationContext,
-                                                                            stage = "holder-acquire",
-                                                                            throwable = it,
-                                                                            selectedModelName = modelResolution.modelPath,
-                                                                            selectedFallbackPath = "gpu",
-                                                                        )
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "HELD ACQUIRE ERROR: ${it.message}",
-                                                                        )
-                                                                        if (!useHeldPathOnlyForDev) {
+                                                                        heldAcquireFailureStage = diagnosticResult.failureStage
+                                                                        heldAcquireFailureClassName = diagnosticResult.failureClassName
+                                                                        heldAcquireFailureMessage = diagnosticResult.failureMessage
+                                                                        heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
+                                                                        if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
                                                                             legacyFallbackReason = "held-acquire-failed"
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
                                                                                 message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
                                                                             )
                                                                         }
-                                                                        null
+                                                                        diagnosticResult.engine
+                                                                    } else {
+                                                                        runCatching {
+                                                                            localInferenceEngineHolder.acquireOrCreate(
+                                                                                engineKey = modelResolution.engineKey,
+                                                                                context = context.applicationContext,
+                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                appendTrace = { message ->
+                                                                                    gpuRouteProgressTracker.recordTrace(message)
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        }.getOrElse {
+                                                                            heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                                                                                context = context.applicationContext,
+                                                                                stage = "holder-acquire",
+                                                                                throwable = it,
+                                                                                selectedModelName = modelResolution.modelPath,
+                                                                                selectedFallbackPath = "gpu",
+                                                                            )
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "HELD ACQUIRE ERROR: ${it.message}",
+                                                                            )
+                                                                            if (!useHeldPathOnlyForDev) {
+                                                                                legacyFallbackReason = "held-acquire-failed"
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                                )
+                                                                            }
+                                                                            null
+                                                                        }
                                                                     }
+
+                                                                val heldEngine = if (applyGpuExperimentalTimeout) {
+                                                                    val acquireResult = runGpuExperimentalOperationWithTimeout {
+                                                                        acquireHeldEngineForRun()
+                                                                    }
+                                                                    if (acquireResult.timedOut) {
+                                                                        localRouteTimedOut.set(true)
+                                                                        val failureStage = "engine_create_timeout"
+                                                                        val elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = buildGpuExperimentalTimeoutDiagnosticsText(
+                                                                                context = localRouteDiagnosticContext,
+                                                                                failureStage = failureStage,
+                                                                                elapsedMs = elapsedMs,
+                                                                                progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                    failureStage = failureStage,
+                                                                                    staleCallbackIgnored = false,
+                                                                                ),
+                                                                            ),
+                                                                        )
+                                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                                            localInferenceEngineHolder.clear(
+                                                                                reason = "engine_create_timeout_holder_clear",
+                                                                                failureStage = "engine_create_timeout",
+                                                                                owner = "ChatScreen.engineCreateTimeout",
+                                                                                appendTrace = { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        return@withContext buildGpuExperimentalTimeoutRunResult(
+                                                                            context = localRouteDiagnosticContext,
+                                                                            modelResolution = modelResolution,
+                                                                            failureStage = failureStage,
+                                                                            elapsedMs = elapsedMs,
+                                                                            progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                failureStage = failureStage,
+                                                                                staleCallbackIgnored = false,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                    acquireResult.value
+                                                                } else {
+                                                                    acquireHeldEngineForRun()
                                                                 }
+                                                                val heldAcquireElapsedMs =
+                                                                    (SystemClock.elapsedRealtime() - heldAcquireStartedAtMs).coerceAtLeast(0L)
+                                                                val heldSnapshotAfterAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                val heldEngineReused = heldSnapshotAfterAcquire.lastAcquireAction == "reused"
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "engine_create_finished",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            heldEngineExists = heldEngine != null,
+                                                                            heldEngineReused = heldEngineReused,
+                                                                            engineCreateStarted = engineCreateStarted,
+                                                                            engineCreateFinished = if (engineCreateStarted) heldEngine != null else false,
+                                                                            engineCreateDurationMs = heldAcquireElapsedMs,
+                                                                            engineConfigBuildStarted = gpuRouteProgressTracker.snapshot().engineConfigBuildStarted,
+                                                                            engineConfigBuildFinished = gpuRouteProgressTracker.snapshot().engineConfigBuildFinished,
+                                                                            engineInitializeStarted = gpuRouteProgressTracker.snapshot().engineInitializeStarted,
+                                                                            engineInitializeFinished = gpuRouteProgressTracker.snapshot().engineInitializeFinished,
+                                                                            failureStage = if (heldEngine == null) heldAcquireFailureStage ?: "holder-acquire" else null,
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuAlignmentHolderPresentBeforeAcquire =
+                                                                                heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            gpuAlignmentHolderAcquireResult = when {
+                                                                                heldEngine == null -> "failed"
+                                                                                heldEngineReused -> "reused"
+                                                                                else -> "created"
+                                                                            },
+                                                                            gpuAlignmentHolderReused = heldEngineReused.takeIf { heldEngine != null },
+                                                                            gpuAlignmentHolderCreated =
+                                                                                (heldEngine != null && !heldEngineReused),
+                                                                            gpuAlignmentPreviousTurnSuccess =
+                                                                                if (reusableHeldEngineBeforeAcquire) "true" else "unavailable",
+                                                                        ).withHeldEngineSnapshot(heldSnapshotAfterAcquire),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     coroutineScope.launch {
                                                                         devDebugText = buildString {
@@ -3032,7 +5451,9 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
                                                                     )
-                                                                    val heldRunResult = runWithHeldEngine(
+                                                                    suspend fun runHeldEngineForRun(): HeldEngineRunResult? {
+                                                                        lastRouteDiagnosticStage.set("conversation_create_started")
+                                                                        return runWithHeldEngine(
                                                                         heldEngine = held,
                                                                         engineHolder = localInferenceEngineHolder,
                                                                         chatId = currentChatId,
@@ -3041,8 +5462,28 @@ fun Home(
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         markdownStreamingMode = markdownStreamingMode,
+                                                                        routeDiagnosticContext = localRouteDiagnosticContext,
+                                                                        routeRunStartedAtMs = localRunStartedAtMs,
+                                                                        heldEngineReused = heldEngineReused,
+                                                                        heldEnginePresentBeforeAcquire =
+                                                                            heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                        heldEngineAcquireResult = if (heldEngineReused) {
+                                                                            "reused"
+                                                                        } else {
+                                                                            "created"
+                                                                        },
+                                                                        heldEngineAcquireElapsedMs = heldAcquireElapsedMs,
+                                                                        previousTurnSuccess = if (reusableHeldEngineBeforeAcquire) {
+                                                                            "true"
+                                                                        } else {
+                                                                            "unavailable"
+                                                                        },
+                                                                        onRouteDiagnosticStage = { stage ->
+                                                                            lastRouteDiagnosticStage.set(stage)
+                                                                            gpuRouteProgressTracker.recordStage(stage)
+                                                                        },
                                                                         onPartial = { partial ->
-                                                                            if (localStopRequested) return@runWithHeldEngine
+                                                                            if (localRouteTimedOut.get() || localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
                                                                                 markdownStreamingMode = markdownStreamingMode,
@@ -3071,6 +5512,7 @@ fun Home(
                                                                             )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
                                                                             coroutineScope.launch {
+                                                                                if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
@@ -3089,6 +5531,7 @@ fun Home(
                                                                             }
                                                                         },
                                                                         appendTrace = { message ->
+                                                                            gpuRouteProgressTracker.recordTrace(message)
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
                                                                                 message = message,
@@ -3097,7 +5540,62 @@ fun Home(
                                                                         onFailureDiagnostics = { diagnostics ->
                                                                             heldFailureDiagnosticsText = diagnostics
                                                                         },
-                                                                    )
+                                                                        )
+                                                                    }
+                                                                    val heldRunResult = if (applyGpuExperimentalTimeout) {
+                                                                        val runOperation = runGpuExperimentalOperationWithTimeout {
+                                                                            runHeldEngineForRun()
+                                                                        }
+                                                                        if (runOperation.timedOut) {
+                                                                            localRouteTimedOut.set(true)
+                                                                            val failureStage = resolveGpuExperimentalTimeoutFailureStage(
+                                                                                lastRouteDiagnosticStage.get(),
+                                                                            )
+                                                                            val elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = buildGpuExperimentalTimeoutDiagnosticsText(
+                                                                                    context = localRouteDiagnosticContext,
+                                                                                    failureStage = failureStage,
+                                                                                    elapsedMs = elapsedMs,
+                                                                                    progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                        failureStage = failureStage,
+                                                                                        staleCallbackIgnored = false,
+                                                                                    ),
+                                                                                ),
+                                                                            )
+                                                                            coroutineScope.launch(Dispatchers.IO) {
+                                                                                localInferenceEngineHolder.resetConversation(
+                                                                                    chatId = currentChatId,
+                                                                                    reason = failureStage,
+                                                                                )
+                                                                                localInferenceEngineHolder.clear(
+                                                                                    reason = "${failureStage}_holder_clear",
+                                                                                    failureStage = failureStage,
+                                                                                    owner = "ChatScreen.gpuExperimentalOperationTimeout",
+                                                                                    appendTrace = { message ->
+                                                                                        appendLocalReflectionTrace(
+                                                                                            context = context.applicationContext,
+                                                                                            message = message,
+                                                                                        )
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                            return@withContext buildGpuExperimentalTimeoutRunResult(
+                                                                                context = localRouteDiagnosticContext,
+                                                                                modelResolution = modelResolution,
+                                                                                failureStage = failureStage,
+                                                                                elapsedMs = elapsedMs,
+                                                                                progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                    failureStage = failureStage,
+                                                                                    staleCallbackIgnored = false,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        runOperation.value
+                                                                    } else {
+                                                                        runHeldEngineForRun()
+                                                                    }
                                                                     if (heldRunResult != null) {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
@@ -3108,7 +5606,45 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
                                                                         )
-                                                                        heldRunResult.toLocalInferenceRunResult()
+                                                                        val heldLocalRunResult = heldRunResult.toLocalInferenceRunResult()
+                                                                        if (
+                                                                            heldLocalRunResult.state == LocalInferenceEngineState.READY &&
+                                                                            resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting) ==
+                                                                            GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+                                                                        ) {
+                                                                            val elapsedMs =
+                                                                                (SystemClock.elapsedRealtime() - localRunStartedAtMs)
+                                                                                    .coerceAtLeast(0L)
+                                                                            val rawCallbackDiagnosticsText = buildLocalRouteDiagnosticTrace(
+                                                                                stage = "gpu_raw_callback_probe_success",
+                                                                                context = localRouteDiagnosticContext,
+                                                                                flags = gpuRouteProgressTracker.snapshot(
+                                                                                    failureStage = "gpu_raw_callback_probe_success",
+                                                                                    staleCallbackIgnored = false,
+                                                                                ),
+                                                                                elapsedMs = elapsedMs,
+                                                                            )
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = rawCallbackDiagnosticsText,
+                                                                            )
+                                                                            LocalInferenceRunResult(
+                                                                                state = LocalInferenceEngineState.ERROR,
+                                                                                response = GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                                trace = heldLocalRunResult.trace.copy(
+                                                                                    requestedPreferredBackend = "GPU",
+                                                                                    appliedPreferredBackend = "GPU",
+                                                                                    preferredBackendApplyResult = "gpu-raw-callback-probe-success-skipped-post-processing",
+                                                                                    preferredBackendHookReached = true,
+                                                                                    preferredBackendHookSource = "gpu-raw-callback-probe",
+                                                                                    localFailureDiagnosticsText = rawCallbackDiagnosticsText,
+                                                                                ),
+                                                                                closeLifecycleSummary = heldLocalRunResult.closeLifecycleSummary,
+                                                                                runnerWhitespaceTraceText = heldLocalRunResult.runnerWhitespaceTraceText,
+                                                                            )
+                                                                        } else {
+                                                                            heldLocalRunResult
+                                                                        }
                                                                     } else {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
@@ -3303,6 +5839,26 @@ fun Home(
                                                                 }
                                                                 }
                                                             }
+                                                            if (localRouteTimedOut.get() || localRunGuardEpoch != streamingGuardEpoch) {
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "stale_callback_ignored",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (localRouteTimedOut.get()) {
+                                                                                "gpu_watchdog_timeout"
+                                                                            } else {
+                                                                                "stale_callback"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            staleCallbackIgnored = true,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
+                                                                return@launch
+                                                            }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
@@ -3401,6 +5957,16 @@ fun Home(
                                                                 "LOCAL compare recheck: effectiveChatId=$effectiveChatId, recheckedState=$resolvedState, recheckedTimedOut=$recheckedTimedOut, recheckedResponseBlank=$recheckedResponseBlank, recheckedResponseLength=$recheckedResponseLength, recheckedTracePresent=$recheckedTracePresent, resolvedAssistantBlank=$resolvedAssistantBlank, streamingUiLength=$streamingUiLength",
                                                             )
                                                             if (resolvedState == LocalInferenceEngineState.READY && resolvedAssistantResponse.isNotBlank()) {
+                                                                    val generationFinishedAtElapsedMs =
+                                                                        runResultWithUiTrace?.trace?.localTraceCompletedElapsedRealtimeMs
+                                                                            ?: SystemClock.elapsedRealtime()
+                                                                    var statsBuildStartedAtElapsedMs: Long? = null
+                                                                    var statsBuildFinishedAtElapsedMs: Long? = null
+                                                                    var bottomSheetUpdateStartedAtElapsedMs: Long? = null
+                                                                    var bottomSheetUpdateFinishedAtElapsedMs: Long? = null
+                                                                    var ttsRequestedAtElapsedMs: Long? = null
+                                                                    var ttsStartedAtElapsedMs: Long? = null
+                                                                    var ttsCompletedAtElapsedMs: Long? = null
                                                                     val resolvedRunResult = runResultWithUiTrace
                                                                     var resolvedTrace = resolvedRunResult?.trace
                                                                     var localStats = if (resolvedTrace != null) {
@@ -3424,7 +5990,9 @@ fun Home(
                                                                             null
                                                                         }
                                                                     var localSourceSummary =
-                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                        resolvedTrace?.localFailureDiagnosticsText
+                                                                            ?.takeIf { isGpuCallbackStreamingDiagnosticsText(it) }
+                                                                            ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
                                                                     Log.i(
@@ -3441,6 +6009,14 @@ fun Home(
                                                                     )
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
+                                                                        latestLocalTraceForDev = resolvedTrace?.copy(
+                                                                            memorySnapshots = resolvedTrace.memorySnapshots.withMemorySnapshot(
+                                                                                captureLocalMemorySnapshot(
+                                                                                    context = context.applicationContext,
+                                                                                    stage = MEMORY_STAGE_AFTER_CANCEL,
+                                                                                ),
+                                                                            ),
+                                                                        )
                                                                         localStreamingResponseText = null
                                                                         showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
@@ -3496,13 +6072,16 @@ fun Home(
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                     latestLocalTraceForDev = resolvedTrace
                                                                     localStats = if (resolvedTrace != null) {
+                                                                        statsBuildStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                         buildLocalInferenceStatsFromTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = resolvedAssistantResponse.length,
                                                                             responseText = resolvedAssistantResponse,
                                                                             fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                        )
+                                                                        ).also {
+                                                                            statsBuildFinishedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                        }
                                                                     } else {
                                                                         null
                                                                     }
@@ -3516,11 +6095,21 @@ fun Home(
                                                                             null
                                                                         }
                                                                     localSourceSummary =
-                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                        resolvedTrace?.localFailureDiagnosticsText
+                                                                            ?.takeIf { isGpuCallbackStreamingDiagnosticsText(it) }
+                                                                            ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
+                                                                        latestLocalTraceForDev = resolvedTrace?.copy(
+                                                                            memorySnapshots = resolvedTrace.memorySnapshots.withMemorySnapshot(
+                                                                                captureLocalMemorySnapshot(
+                                                                                    context = context.applicationContext,
+                                                                                    stage = MEMORY_STAGE_AFTER_CANCEL,
+                                                                                ),
+                                                                            ),
+                                                                        )
                                                                         localStreamingResponseText = null
                                                                         showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
@@ -3528,6 +6117,7 @@ fun Home(
                                                                         return@launch
                                                                     }
                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                    bottomSheetUpdateStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                     val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = currentChatId,
                                                                         response = resolvedAssistantResponse,
@@ -3535,6 +6125,7 @@ fun Home(
                                                                         localSourceSummary = localSourceSummary,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
+                                                                    bottomSheetUpdateFinishedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                     latestLocalTraceForDev = resolvedTrace
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                         ?: latestLocalTraceForDev
@@ -3547,6 +6138,8 @@ fun Home(
                                                                     isLocalInferenceRunning = false
                                                                     yield()
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
+                                                                        ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                        ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
                                                                         maybeReleaseHeldEngineForTtsPlayback()
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
@@ -3558,6 +6151,8 @@ fun Home(
                                                                         !ttsController.isInCooldown()
                                                                     ) {
                                                                         sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                                            ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                            ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             if (!isTtsSuppressedForAssistant(assistantId)) {
                                                                                 stopButtonOwnerAssistantMessageId = assistantId
@@ -3565,6 +6160,42 @@ fun Home(
                                                                             }
                                                                             maybeReleaseHeldEngineForTtsPlayback()
                                                                             ttsController.speak(speechText)
+                                                                        }
+                                                                    }
+                                                                    if (assistantId != null && localStats != null) {
+                                                                        val timingSummary = buildLocalInferenceSuccessTimingDiagnosticsText(
+                                                                            LocalInferenceSuccessTimingDiagnosticsInput(
+                                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                                generationFinishedAtElapsedMs = generationFinishedAtElapsedMs,
+                                                                                ttsRequestedAtElapsedMs = ttsRequestedAtElapsedMs,
+                                                                                ttsStartedAtElapsedMs = ttsStartedAtElapsedMs,
+                                                                                ttsCompletedAtElapsedMs = ttsCompletedAtElapsedMs,
+                                                                                statsBuildStartedAtElapsedMs = statsBuildStartedAtElapsedMs,
+                                                                                statsBuildFinishedAtElapsedMs = statsBuildFinishedAtElapsedMs,
+                                                                                bottomSheetUpdateStartedAtElapsedMs = bottomSheetUpdateStartedAtElapsedMs,
+                                                                                bottomSheetUpdateFinishedAtElapsedMs = bottomSheetUpdateFinishedAtElapsedMs,
+                                                                                tokenizerCountStartedAtElapsedMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountStartedAtElapsedMs,
+                                                                                tokenizerCountFinishedAtElapsedMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountFinishedAtElapsedMs,
+                                                                                tokenizerCountDurationMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountDurationMs,
+                                                                                tokenCountMode = localStats.tokenCountMode,
+                                                                            ),
+                                                                        )
+                                                                        val finalLocalSourceSummary = listOfNotNull(
+                                                                            localSourceSummary?.takeIf { it.isNotBlank() }?.let { "source_summary=$it" },
+                                                                            timingSummary,
+                                                                        ).joinToString("\n")
+                                                                        val finalStats = localStats.copy(localSourceSummary = finalLocalSourceSummary)
+                                                                        immediateInferenceStatsByMessageId[assistantId] = finalStats
+                                                                        withContext(Dispatchers.IO) {
+                                                                            viewModel.getMessageById(assistantId)?.let { message ->
+                                                                                viewModel.updateMessage(
+                                                                                    message.copy(localSourceSummary = finalLocalSourceSummary),
+                                                                                )
+                                                                            }
                                                                         }
                                                                     }
                                                                     return@launch
@@ -3577,6 +6208,83 @@ fun Home(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
                                                             )
+                                                            val rawCallbackProbeRunResult = runResultWithUiTrace
+                                                                ?.takeIf { it.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE }
+                                                            val timeoutFailureRunResult = runResultWithUiTrace
+                                                                ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
+                                                            val rawCallbackProbeSucceeded = rawCallbackProbeRunResult != null
+                                                            val localFailureStatus = if (rawCallbackProbeSucceeded) {
+                                                                "diagnostic_success"
+                                                            } else {
+                                                                "failure"
+                                                            }
+                                                            val localFailureReason = when {
+                                                                rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
+                                                                recheckedTimedOut -> "local_inference_timeout"
+                                                                resolvedState == LocalInferenceEngineState.UNINITIALIZED -> "local_model_uninitialized"
+                                                                resolvedState == LocalInferenceEngineState.READY -> "local_response_blank"
+                                                                else -> "local_inference_failure"
+                                                            }
+                                                            val localFailureCompactText = buildLocalInferenceFailureCompactDiagnosticsText(
+                                                                buildLocalInferenceFailureCompactInputFromTrace(
+                                                                    inputPrompt = requestPrompt,
+                                                                    preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                    trace = runResultWithUiTrace?.trace,
+                                                                    status = localFailureStatus,
+                                                                    reason = localFailureReason,
+                                                                    failureStage = when {
+                                                                        rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
+                                                                        recheckedTimedOut -> "timeout"
+                                                                        else -> null
+                                                                    },
+                                                                    routeContext = localRouteDiagnosticContext,
+                                                                    timeout = !rawCallbackProbeSucceeded &&
+                                                                        (recheckedTimedOut || timeoutFailureRunResult != null),
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelFile = mediaPipeProbeModelPathForRun ?: localBaseModelFilePath,
+                                                                    ttsRequested = rawCallbackProbeRunResult == null &&
+                                                                        (ttsEnabled || effectiveStreamingSentenceTtsEnabled),
+                                                                    dbRequested = false,
+                                                                    markdownRequested = rawCallbackProbeRunResult == null,
+                                                                    streamingRequested = rawCallbackProbeRunResult == null,
+                                                                    processPid = runCatching { android.os.Process.myPid().toString() }
+                                                                        .getOrDefault("unavailable"),
+                                                                ),
+                                                            )
+                                                            devDebugText = localFailureCompactText
+                                                            latestLocalTraceForDev = runResultWithUiTrace?.trace?.copy(
+                                                                localFailureDiagnosticsText = localFailureCompactText,
+                                                            ) ?: latestLocalTraceForDev
+                                                            if (!localStopRequested) {
+                                                                val failureAssistantText = timeoutFailureRunResult?.response
+                                                                    ?.takeIf { it.isNotBlank() }
+                                                                    ?: when (resolvedState) {
+                                                                        null -> "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                        LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                        else -> "ローカル推論の応答取得に失敗しました"
+                                                                    }
+                                                                val failureStats = InferenceStats(
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                    finishReason = localFailureReason,
+                                                                    localSourceSummary = localFailureCompactText,
+                                                                    model = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                    responseCharCount = failureAssistantText.length,
+                                                                )
+                                                                withContext(Dispatchers.IO) {
+                                                                    viewModel.insertAssistantMessageAndReturnId(
+                                                                        createAssistantMessage(
+                                                                            chatId = currentChatId,
+                                                                            response = failureAssistantText,
+                                                                            latestInferenceStats = failureStats,
+                                                                            localSourceSummary = localFailureCompactText,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            }
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, isLocalInferenceRunning=$isLocalInferenceRunning",
@@ -3598,6 +6306,32 @@ fun Home(
                                                             )
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
+                                                            val localGenerationTimeMs =
+                                                                (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
+                                                            val localFailureCompactText = buildLocalInferenceFailureCompactDiagnosticsText(
+                                                                buildLocalInferenceFailureCompactInputFromTrace(
+                                                                    inputPrompt = requestPrompt,
+                                                                    preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                    trace = null,
+                                                                    reason = "local_inference_exception",
+                                                                    failureStage = "ui_exception",
+                                                                    exceptionClass = exception.javaClass.name,
+                                                                    exceptionMessage = exception.message ?: "none",
+                                                                    throwable = exception,
+                                                                    routeContext = localRouteDiagnosticContext,
+                                                                    timeout = false,
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelFile = localBaseModelFilePath,
+                                                                    ttsRequested = ttsEnabled || effectiveStreamingSentenceTtsEnabled,
+                                                                    dbRequested = false,
+                                                                    markdownRequested = true,
+                                                                    streamingRequested = true,
+                                                                    processPid = runCatching { android.os.Process.myPid().toString() }
+                                                                        .getOrDefault("unavailable"),
+                                                                ),
+                                                            )
+                                                            devDebugText = localFailureCompactText
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
@@ -3616,12 +6350,43 @@ fun Home(
                                                                 "LOCAL inference execution failed",
                                                                 exception,
                                                             )
+                                                            effectiveChatId?.let { chatId ->
+                                                                if (!localStopRequested) {
+                                                                    val failureText = "ローカル推論の応答取得に失敗しました"
+                                                                    val failureStats = InferenceStats(
+                                                                        modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                        generationTimeMs = localGenerationTimeMs,
+                                                                        finishReason = "local_inference_exception",
+                                                                        localSourceSummary = localFailureCompactText,
+                                                                        model = localBaseModelDisplayName ?: selectedModel,
+                                                                        modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                        responseCharCount = failureText.length,
+                                                                    )
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = chatId,
+                                                                                response = failureText,
+                                                                                latestInferenceStats = failureStats,
+                                                                                localSourceSummary = localFailureCompactText,
+                                                                                generationTimeMs = localGenerationTimeMs,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             snackbarHostState.showSnackbar(
                                                                 message = "ローカル推論の応答取得に失敗しました",
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                         } finally {
+                                                            if (!localRouteTimedOut.get()) {
+                                                                localGpuWatchdogForRun?.cancel()
+                                                            }
+                                                            if (localGpuWatchdogJob == localGpuWatchdogForRun) {
+                                                                localGpuWatchdogJob = null
+                                                            }
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
@@ -4213,13 +6978,44 @@ fun Home(
                                         )
                                     }
                                 }
+                                if (!npuStandardRoutePhaseUiAppendText.isNullOrBlank()) {
+                                    item(key = "npu_standard_route_phase_ui_append") {
+                                        PlainAssistantMessage(
+                                            message = npuStandardRoutePhaseUiAppendText!!,
+                                            isStreaming = false,
+                                            contentPadding = PaddingValues(
+                                                start = 16.dp,
+                                                end = 16.dp,
+                                                top = 0.dp,
+                                                bottom = 10.dp,
+                                            ),
+                                        )
+                                    }
+                                }
                                 if (npuStandardRouteS1DisplayText != null) {
                                     item(key = "npu_standard_route_s1_display") {
                                         val s1Text = npuStandardRouteS1DisplayText!!
-                                        CopyableDebugBlock(
-                                            text = s1Text,
-                                            title = "NPU STANDARD ROUTE S1",
-                                            onCopy = {
+                                        val s1DevTraceText = npuStandardRouteS1DevTraceText
+                                        val s1FallbackText = npuStandardRouteS1FallbackText
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText
+                                        if (!s1FallbackText.isNullOrBlank()) {
+                                            PlainAssistantMessage(
+                                                message = s1FallbackText,
+                                                isStreaming = false,
+                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
+                                            )
+                                        }
+                                        NpuStandardRouteDevDiagnosticsBlock(
+                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            preferredBackendSetting = preferredBackendDryRunSetting,
+                                            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                            onToggleExpanded = {
+                                                npuStandardRouteDevDiagnosticsExpanded =
+                                                    !npuStandardRouteDevDiagnosticsExpanded
+                                            },
+                                            routeText = s1Text,
+                                            routeTitle = "NPU STANDARD ROUTE S1",
+                                            onCopyRoute = {
                                                 clipboardManager.setText(AnnotatedString(s1Text))
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -4229,20 +7025,122 @@ fun Home(
                                                     )
                                                 }
                                             },
-                                        )
-                                    }
-                                }
-                                if (npuStandardRouteS4PseudoStreamingText != null) {
-                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
-                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
-                                        CopyableDebugBlock(
-                                            text = s4Text,
-                                            title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                            devTraceText = if (
+                                                BuildConfig.DEBUG &&
+                                                developerAccessEnabled
+                                            ) {
+                                                s1DevTraceText
+                                            } else {
+                                                null
+                                            },
+                                            onCopyInput = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(npuStandardRouteS1DevInputText.orEmpty()),
+                                                )
+                                            },
+                                            onCopyOutput = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(npuStandardRouteS1DevOutputText.orEmpty()),
+                                                )
+                                            },
+                                            onCopyCompact = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        npuStandardRouteS1DevCompactCopyText
+                                                            ?: s1DevTraceText.orEmpty(),
+                                                    ),
+                                                )
+                                            },
+                                            onCopyRepeatedSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuS1RepeatedRunSummaryCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                            },
+                                            onCopyFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        npuStandardRouteS1DevFullDumpCopyText
+                                                            ?: s1DevTraceText.orEmpty(),
+                                                    ),
+                                                )
+                                            },
+                                            memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                            memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                                            isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                                            onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                                            npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunMode = npuS1RepeatedRunMode,
+                                            npuS1RepeatedRunPrompt = npuS1RepeatedRunPrompt,
+                                            npuS1RepeatedRunCount = npuS1RepeatedRunCount,
+                                            npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
+                                            npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                                            isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
+                                            onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
+                                            onNpuS1RepeatedRunCountChange = { npuS1RepeatedRunCount = it },
+                                            onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
+                                            onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                                            onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                            npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                                            onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                                            npuS1PersistentCustomJniQualityPromptProfile =
+                                                npuS1PersistentCustomJniQualityPromptProfile,
+                                            npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                                            isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniProbeModeChange = {
+                                                npuS1PersistentCustomJniProbeMode = it
+                                            },
+                                            onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                                                npuS1PersistentCustomJniQualityPromptProfile = it
+                                            },
+                                            onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                                            onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
+                                            s4Text = s4Text,
+                                            s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
                                             } else {
                                                 "NPU STANDARD ROUTE S4-A FINAL"
                                             },
-                                            onCopy = {
+                                            onCopyS4 = s4Text?.let {
+                                                {
+                                                    clipboardManager.setText(AnnotatedString(it))
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "NPU S4-A result をコピーしました",
+                                                            duration = SnackbarDuration.Short,
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS4PseudoStreamingText != null && npuStandardRouteS1DisplayText == null) {
+                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
+                                        NpuStandardRouteDevDiagnosticsBlock(
+                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            preferredBackendSetting = preferredBackendDryRunSetting,
+                                            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                            onToggleExpanded = {
+                                                npuStandardRouteDevDiagnosticsExpanded =
+                                                    !npuStandardRouteDevDiagnosticsExpanded
+                                            },
+                                            s4Text = s4Text,
+                                            s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                                "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
+                                            } else {
+                                                "NPU STANDARD ROUTE S4-A FINAL"
+                                            },
+                                            onCopyS4 = {
                                                 clipboardManager.setText(AnnotatedString(s4Text))
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -4252,6 +7150,42 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                            memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                                            isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                                            onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                                            npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunMode = npuS1RepeatedRunMode,
+                                            npuS1RepeatedRunPrompt = npuS1RepeatedRunPrompt,
+                                            npuS1RepeatedRunCount = npuS1RepeatedRunCount,
+                                            npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
+                                            npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                                            isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
+                                            onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
+                                            onNpuS1RepeatedRunCountChange = { npuS1RepeatedRunCount = it },
+                                            onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
+                                            onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                                            onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                            npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                                            onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                                            npuS1PersistentCustomJniQualityPromptProfile =
+                                                npuS1PersistentCustomJniQualityPromptProfile,
+                                            npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                                            isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniProbeModeChange = {
+                                                npuS1PersistentCustomJniProbeMode = it
+                                            },
+                                            onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                                                npuS1PersistentCustomJniQualityPromptProfile = it
+                                            },
+                                            onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                                            onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                                         )
                                     }
                                 }
@@ -4455,12 +7389,48 @@ fun Home(
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
                     preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
                     markdownStreamingMode = markdownStreamingMode,
                     showDevManualEngineRecreate = BuildConfig.DEBUG,
                     manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
                     manualEngineRecreateResult = preferredBackendManualRecreateResult,
                     manualEngineRecreateReason = preferredBackendManualRecreateReason,
                     manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    memoryRecoveryCheckState = memoryRecoveryCheckState,
+                    memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                    isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                    onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                    npuS1RepeatedRunState = npuS1RepeatedRunState,
+                    npuS1RepeatedRunMode = npuS1RepeatedRunMode,
+                    npuS1RepeatedRunPrompt = npuS1RepeatedRunPrompt,
+                    npuS1RepeatedRunCount = npuS1RepeatedRunCount,
+                    npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
+                    npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                    isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                    onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
+                    onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
+                    onNpuS1RepeatedRunCountChange = { npuS1RepeatedRunCount = it },
+                    onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
+                    onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                    onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                    npuS1PersistentEngineState = npuS1PersistentEngineState,
+                    npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                    isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                    onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                    onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                    npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                    npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                    npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                    npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                    isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                    onNpuS1PersistentCustomJniProbeModeChange = {
+                        npuS1PersistentCustomJniProbeMode = it
+                    },
+                    onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                        npuS1PersistentCustomJniQualityPromptProfile = it
+                    },
+                    onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                    onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -4668,11 +7638,35 @@ private suspend fun runLocalInferenceOnceEntry(
         context = context,
         message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
     )
+    val memorySnapshots = mutableListOf<MemorySnapshot>()
+    fun recordMemorySnapshot(stage: String) {
+        memorySnapshots += captureLocalMemorySnapshot(
+            context = context,
+            stage = stage,
+        )
+    }
+    fun finishWithMemorySnapshots(
+        result: LocalInferenceRunResult,
+        terminalStage: String,
+        includeDisposeStage: Boolean = true,
+    ): LocalInferenceRunResult {
+        recordMemorySnapshot(terminalStage)
+        if (includeDisposeStage) {
+            recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
+        }
+        return result.copy(
+            trace = result.trace.copy(
+                memorySnapshots = result.trace.memorySnapshots + memorySnapshots,
+            ),
+        )
+    }
+    recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
+    recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
     val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
         LocalModelResolution(
             modelPath = resolvedModelPath,
             displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
-            backendKey = LOCAL_LITERT_BACKEND_KEY,
+            backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
             cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
         )
     } else {
@@ -4681,13 +7675,18 @@ private suspend fun runLocalInferenceOnceEntry(
             settingsPreferences = settingsPreferences,
             localBaseModelFilePath = localBaseModelFilePath,
             localBaseModelDisplayName = localBaseModelDisplayName,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
     } ?: run {
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM resolved-local-model-path success=false",
         )
-        return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+        return finishWithMemorySnapshots(
+            result = LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED),
+            terminalStage = MEMORY_STAGE_GENERATION_FAILED,
+            includeDisposeStage = false,
+        )
     }
     val modelPath = modelResolution.modelPath
     appendLocalReflectionTrace(
@@ -4714,6 +7713,7 @@ private suspend fun runLocalInferenceOnceEntry(
 
     if (officialConversationApiProbe.isAvailable) {
         officialFlowAttempted = true
+        recordMemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM official-flow-streaming attempt",
@@ -4768,15 +7768,64 @@ private suspend fun runLocalInferenceOnceEntry(
                     message = "UPSTREAM fallback used length=${fallback.length}",
                 )
                 emitFinal(fallback)
-                return LocalInferenceRunResult(
+                return finishWithMemorySnapshots(
+                    result = LocalInferenceRunResult(
+                        state = LocalInferenceEngineState.READY,
+                        response = fallback,
+                        trace = LocalInferenceTrace(
+                            localModelDisplayName = modelResolution.displayName,
+                            localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                            localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                            localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                            selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+                            officialFlowAttempted = officialFlowAttempted,
+                            officialFlowUsed = officialFlowUsed,
+                            officialFlowFallbackReason = officialFlowFallbackReason,
+                            officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                            officialFlowChunkCount = officialFlowChunkCount,
+                            preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                            preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                            requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                            appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                            preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                            preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                            preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                            preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                            preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                            preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
+                            localFailureDiagnosticsText = localFailureDiagnosticsText ?: fallbackGenerated.trace.localFailureDiagnosticsText,
+                        ),
+                        closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                            summary = fallbackGenerated.closeLifecycleSummary,
+                            path = "chat-fallback-official-flow-success",
+                        ),
+                    ),
+                    terminalStage = MEMORY_STAGE_GENERATION_FINISHED,
+                )
+            } else {
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "UPSTREAM fallback failed blankOrNull",
+                )
+            }
+        }
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-flow-streaming success=$officialSucceeded responseLength=${officialResponse.length} partialCount=${officialResult?.partialCount ?: 0}",
+        )
+        if (officialSucceeded) {
+            return finishWithMemorySnapshots(
+                result = LocalInferenceRunResult(
                     state = LocalInferenceEngineState.READY,
-                    response = fallback,
+                    response = officialResponse,
                     trace = LocalInferenceTrace(
                         localModelDisplayName = modelResolution.displayName,
                         localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
-                        localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        localTraceFirstResponseElapsedRealtimeMs = officialResult?.firstNonEmptyPartialElapsedRealtimeMs?.let {
+                            localTraceStartElapsedRealtimeMs + it
+                        },
                         localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                        selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+                        selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
                         officialFlowAttempted = officialFlowAttempted,
                         officialFlowUsed = officialFlowUsed,
                         officialFlowFallbackReason = officialFlowFallbackReason,
@@ -4792,58 +7841,15 @@ private suspend fun runLocalInferenceOnceEntry(
                         preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
                         preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
-                        localFailureDiagnosticsText = localFailureDiagnosticsText ?: fallbackGenerated.trace.localFailureDiagnosticsText,
-                        ),
+                        measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
+                        localFailureDiagnosticsText = localFailureDiagnosticsText,
+                    ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
                     closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
-                        summary = fallbackGenerated.closeLifecycleSummary,
-                        path = "chat-fallback-official-flow-success",
+                        summary = officialResult?.closeLifecycleSummary,
+                        path = "chat-official-flow-success",
                     ),
-                )
-            } else {
-                appendLocalReflectionTrace(
-                    context = context,
-                    message = "UPSTREAM fallback failed blankOrNull",
-                )
-            }
-        }
-        appendLocalReflectionTrace(
-            context = context,
-            message = "UPSTREAM official-flow-streaming success=$officialSucceeded responseLength=${officialResponse.length} partialCount=${officialResult?.partialCount ?: 0}",
-        )
-        if (officialSucceeded) {
-                return LocalInferenceRunResult(
-                    state = LocalInferenceEngineState.READY,
-                    response = officialResponse,
-                trace = LocalInferenceTrace(
-                    localModelDisplayName = modelResolution.displayName,
-                    localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
-                    localTraceFirstResponseElapsedRealtimeMs = officialResult?.firstNonEmptyPartialElapsedRealtimeMs?.let {
-                        localTraceStartElapsedRealtimeMs + it
-                    },
-                    localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
-                    officialFlowAttempted = officialFlowAttempted,
-                    officialFlowUsed = officialFlowUsed,
-                    officialFlowFallbackReason = officialFlowFallbackReason,
-                    officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
-                    officialFlowChunkCount = officialFlowChunkCount,
-                    preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
-                    preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
-                    requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
-                    appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
-                    preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
-                    preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
-                    preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
-                    preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
-                    preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
-                    preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
-                    measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
-                    localFailureDiagnosticsText = localFailureDiagnosticsText,
-                ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
-                closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
-                    summary = officialResult?.closeLifecycleSummary,
-                    path = "chat-official-flow-success",
                 ),
+                terminalStage = MEMORY_STAGE_GENERATION_FINISHED,
             )
         }
         appendLocalReflectionTrace(
@@ -4875,37 +7881,40 @@ private suspend fun runLocalInferenceOnceEntry(
         )
         val blockingResponse = blockingResult?.response?.trim().orEmpty()
         if (blockingResponse.isNotBlank()) {
-            return LocalInferenceRunResult(
-                state = LocalInferenceEngineState.READY,
-                response = blockingResponse,
-                trace = LocalInferenceTrace(
-                    localModelDisplayName = modelResolution.displayName,
-                    localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
-                    localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                    localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING,
-                    officialFlowAttempted = officialFlowAttempted,
-                    officialFlowUsed = officialFlowUsed,
-                    officialFlowFallbackReason = officialFlowFallbackReason,
-                    officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
-                    officialFlowChunkCount = officialFlowChunkCount,
-                    preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
-                    preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
-                    requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
-                    appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
-                    preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
-                    preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
-                    preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
-                    preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
-                    preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
-                    preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
-                    measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
-                    localFailureDiagnosticsText = localFailureDiagnosticsText,
+            return finishWithMemorySnapshots(
+                result = LocalInferenceRunResult(
+                    state = LocalInferenceEngineState.READY,
+                    response = blockingResponse,
+                    trace = LocalInferenceTrace(
+                        localModelDisplayName = modelResolution.displayName,
+                        localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                        localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING,
+                        officialFlowAttempted = officialFlowAttempted,
+                        officialFlowUsed = officialFlowUsed,
+                        officialFlowFallbackReason = officialFlowFallbackReason,
+                        officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                        officialFlowChunkCount = officialFlowChunkCount,
+                        preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                        preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                        requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                        appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                        preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                        preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                        preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                        preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                        preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                        preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
+                        measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
+                        localFailureDiagnosticsText = localFailureDiagnosticsText,
+                    ),
+                    closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                        summary = blockingResult?.closeLifecycleSummary,
+                        path = "chat-official-blocking-success",
+                    ),
                 ),
-                closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
-                    summary = blockingResult?.closeLifecycleSummary,
-                    path = "chat-official-blocking-success",
-                ),
+                terminalStage = MEMORY_STAGE_GENERATION_FINISHED,
             )
         }
         appendLocalReflectionTrace(
@@ -4922,6 +7931,7 @@ private suspend fun runLocalInferenceOnceEntry(
 
     appendLocalReflectionTrace(context = context, message = "UPSTREAM legacy start")
     appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
+    recordMemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
     val generated = generateLiteRtResponseViaReflection(
         context = context,
         modelPath = modelPath,
@@ -4969,20 +7979,26 @@ private suspend fun runLocalInferenceOnceEntry(
     )
     emitFinal(response)
     return if (response.isNullOrBlank()) {
-        LocalInferenceRunResult(
-            state = LocalInferenceEngineState.ERROR,
-            trace = traceWithOfficialFlow,
-            closeLifecycleSummary = generated.closeLifecycleSummary,
+        finishWithMemorySnapshots(
+            result = LocalInferenceRunResult(
+                state = LocalInferenceEngineState.ERROR,
+                trace = traceWithOfficialFlow,
+                closeLifecycleSummary = generated.closeLifecycleSummary,
+            ),
+            terminalStage = MEMORY_STAGE_GENERATION_FAILED,
         )
     } else {
-        LocalInferenceRunResult(
-            state = LocalInferenceEngineState.READY,
-            response = response,
-            trace = traceWithOfficialFlow,
-            closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
-                summary = generated.closeLifecycleSummary,
-                path = "chat-legacy-success",
+        finishWithMemorySnapshots(
+            result = LocalInferenceRunResult(
+                state = LocalInferenceEngineState.READY,
+                response = response,
+                trace = traceWithOfficialFlow,
+                closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                    summary = generated.closeLifecycleSummary,
+                    path = "chat-legacy-success",
+                ),
             ),
+            terminalStage = MEMORY_STAGE_GENERATION_FINISHED,
         )
     }
 }
@@ -5040,6 +8056,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
             preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
             localFailureDiagnosticsText = failureDiagnosticsText,
+            memorySnapshots = memorySnapshots,
         ).withOfficialChunkMetrics(officialChunkMetrics),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -5113,6 +8130,541 @@ private fun normalizeStatsProbeAvailability(
         else -> probe
     }
 }
+
+private suspend fun <T> runGpuExperimentalOperationWithTimeout(
+    timeoutMs: Long = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
+    block: suspend () -> T?,
+): GpuExperimentalTimeoutOperationResult<T> {
+    val deferred = CoroutineScope(Dispatchers.IO).async {
+        block()
+    }
+    val startedAtMs = SystemClock.elapsedRealtime()
+    while (!deferred.isCompleted) {
+        if (SystemClock.elapsedRealtime() - startedAtMs >= timeoutMs) {
+            deferred.cancel()
+            return GpuExperimentalTimeoutOperationResult(value = null, timedOut = true)
+        }
+        delay(100L)
+    }
+    return GpuExperimentalTimeoutOperationResult(
+        value = deferred.await(),
+        timedOut = false,
+    )
+}
+
+private fun buildGpuExperimentalTimeoutDiagnosticsText(
+    context: LocalRouteDiagnosticContext,
+    failureStage: String,
+    elapsedMs: Long,
+    staleCallbackIgnored: Boolean = false,
+    progressFlags: LocalRouteDiagnosticFlags? = null,
+): String {
+    val watchdogTimeout = failureStage == "gpu_watchdog_timeout"
+    val engineCreateStarted = true
+    val engineCreateFinished = !watchdogTimeout && failureStage != "engine_create_timeout"
+    val conversationCreateStarted = !watchdogTimeout && failureStage != "engine_create_timeout"
+    val conversationCreateFinished =
+        !watchdogTimeout &&
+            (failureStage == "generate_start_timeout" || failureStage == "first_token_timeout")
+    val generateStarted = !watchdogTimeout && failureStage == "first_token_timeout"
+    val fallbackFlags = LocalRouteDiagnosticFlags(
+        heldEngineExists = engineCreateFinished,
+        heldEngineReused = false,
+        engineCreateStarted = engineCreateStarted,
+        engineCreateFinished = engineCreateFinished,
+        conversationCreateStarted = conversationCreateStarted,
+        conversationCreateFinished = conversationCreateFinished,
+        generateStarted = generateStarted,
+        firstTokenReceived = false,
+        failureStage = failureStage,
+        fallbackUsed = false,
+        staleCallbackIgnored = staleCallbackIgnored,
+    )
+    val flags = mergeGpuTimeoutProgressFlags(
+        progressFlags = progressFlags,
+        fallbackFlags = fallbackFlags,
+        failureStage = failureStage,
+        staleCallbackIgnored = staleCallbackIgnored,
+    )
+    return buildLocalRouteDiagnosticTrace(
+        stage = "timeout_failure",
+        context = context,
+        flags = flags,
+        elapsedMs = elapsedMs,
+    )
+}
+
+private fun mergeGpuTimeoutProgressFlags(
+    progressFlags: LocalRouteDiagnosticFlags?,
+    fallbackFlags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+    staleCallbackIgnored: Boolean,
+): LocalRouteDiagnosticFlags {
+    val progress = progressFlags ?: return fallbackFlags
+    return fallbackFlags.copy(
+        heldEngineExists = progress.heldEngineExists ?: fallbackFlags.heldEngineExists,
+        heldEngineReused = progress.heldEngineReused ?: fallbackFlags.heldEngineReused,
+        engineCreateStarted = progress.engineCreateStarted ?: fallbackFlags.engineCreateStarted,
+        engineCreateFinished = progress.engineCreateFinished ?: fallbackFlags.engineCreateFinished,
+        engineCreateDurationMs = progress.engineCreateDurationMs ?: fallbackFlags.engineCreateDurationMs,
+        conversationCreateStarted = progress.conversationCreateStarted ?: fallbackFlags.conversationCreateStarted,
+        conversationCreateFinished = progress.conversationCreateFinished ?: fallbackFlags.conversationCreateFinished,
+        generateStarted = progress.generateStarted ?: fallbackFlags.generateStarted,
+        generateStartedElapsedMs = progress.generateStartedElapsedMs ?: fallbackFlags.generateStartedElapsedMs,
+        firstTokenReceived = progress.firstTokenReceived ?: fallbackFlags.firstTokenReceived,
+        firstTokenElapsedMs = progress.firstTokenElapsedMs ?: fallbackFlags.firstTokenElapsedMs,
+        failureStage = failureStage,
+        fallbackUsed = progress.fallbackUsed ?: fallbackFlags.fallbackUsed,
+        staleCallbackIgnored = staleCallbackIgnored,
+        engineConfigBuildStarted = progress.engineConfigBuildStarted ?: fallbackFlags.engineConfigBuildStarted,
+        engineConfigBuildFinished = progress.engineConfigBuildFinished ?: fallbackFlags.engineConfigBuildFinished,
+        engineInitializeStarted = progress.engineInitializeStarted ?: fallbackFlags.engineInitializeStarted,
+        engineInitializeFinished = progress.engineInitializeFinished ?: fallbackFlags.engineInitializeFinished,
+        gpuConfigDiagnostics = progress.gpuConfigDiagnostics ?: fallbackFlags.gpuConfigDiagnostics,
+        holderCreated = progress.holderCreated ?: fallbackFlags.holderCreated,
+        holderAcquired = progress.holderAcquired ?: fallbackFlags.holderAcquired,
+        holderReused = progress.holderReused ?: fallbackFlags.holderReused,
+        holderInvalidated = progress.holderInvalidated ?: fallbackFlags.holderInvalidated,
+        holderClosed = progress.holderClosed ?: fallbackFlags.holderClosed,
+        holderTimeoutCleanup = progress.holderTimeoutCleanup ?: fallbackFlags.holderTimeoutCleanup,
+        holderFailureCleanup = progress.holderFailureCleanup ?: fallbackFlags.holderFailureCleanup,
+        holderProcessRestart = progress.holderProcessRestart ?: fallbackFlags.holderProcessRestart,
+        heldEngineLifecycleHistory = progress.heldEngineLifecycleHistory ?: fallbackFlags.heldEngineLifecycleHistory,
+        heldEngineDestroyReason = progress.heldEngineDestroyReason ?: fallbackFlags.heldEngineDestroyReason,
+        heldEngineLastOwner = progress.heldEngineLastOwner ?: fallbackFlags.heldEngineLastOwner,
+        heldEngineLastFailureStage = progress.heldEngineLastFailureStage ?: fallbackFlags.heldEngineLastFailureStage,
+        heldEngineSnapshotBeforeDestroy =
+            progress.heldEngineSnapshotBeforeDestroy ?: fallbackFlags.heldEngineSnapshotBeforeDestroy,
+        gpuGenerateProbeMode = progress.gpuGenerateProbeMode ?: fallbackFlags.gpuGenerateProbeMode,
+        gpuGenerateCallEntered = progress.gpuGenerateCallEntered ?: fallbackFlags.gpuGenerateCallEntered,
+        gpuGenerateCallReturned = progress.gpuGenerateCallReturned ?: fallbackFlags.gpuGenerateCallReturned,
+        gpuCallbackInvokedCount = progress.gpuCallbackInvokedCount ?: fallbackFlags.gpuCallbackInvokedCount,
+        gpuCallbackFirstInvokedAtElapsedMs =
+            progress.gpuCallbackFirstInvokedAtElapsedMs ?: fallbackFlags.gpuCallbackFirstInvokedAtElapsedMs,
+        gpuCallbackLastInvokedAtElapsedMs =
+            progress.gpuCallbackLastInvokedAtElapsedMs ?: fallbackFlags.gpuCallbackLastInvokedAtElapsedMs,
+        gpuCallbackThreadName = progress.gpuCallbackThreadName ?: fallbackFlags.gpuCallbackThreadName,
+        gpuCallbackDoneTrueSeen = progress.gpuCallbackDoneTrueSeen ?: fallbackFlags.gpuCallbackDoneTrueSeen,
+        gpuCallbackErrorSeen = progress.gpuCallbackErrorSeen ?: fallbackFlags.gpuCallbackErrorSeen,
+        gpuCallbackEmptyTextCount = progress.gpuCallbackEmptyTextCount ?: fallbackFlags.gpuCallbackEmptyTextCount,
+        gpuCallbackNonEmptyTextCount =
+            progress.gpuCallbackNonEmptyTextCount ?: fallbackFlags.gpuCallbackNonEmptyTextCount,
+        gpuCallbackLastTextLength = progress.gpuCallbackLastTextLength ?: fallbackFlags.gpuCallbackLastTextLength,
+        gpuCallbackLastTextHead = progress.gpuCallbackLastTextHead ?: fallbackFlags.gpuCallbackLastTextHead,
+        gpuFirstNonEmptyTextElapsedMs =
+            progress.gpuFirstNonEmptyTextElapsedMs ?: fallbackFlags.gpuFirstNonEmptyTextElapsedMs,
+        gpuFirstTokenClassificationReason =
+            progress.gpuFirstTokenClassificationReason ?: fallbackFlags.gpuFirstTokenClassificationReason,
+        gpuCallbackExceptionClass = progress.gpuCallbackExceptionClass ?: fallbackFlags.gpuCallbackExceptionClass,
+        gpuCallbackExceptionMessage = progress.gpuCallbackExceptionMessage ?: fallbackFlags.gpuCallbackExceptionMessage,
+        gpuCallbackExceptionChain = progress.gpuCallbackExceptionChain ?: fallbackFlags.gpuCallbackExceptionChain,
+        gpuCallbackExceptionStage = progress.gpuCallbackExceptionStage ?: fallbackFlags.gpuCallbackExceptionStage,
+        gpuGenerateStallInterpretation =
+            progress.gpuGenerateStallInterpretation ?: fallbackFlags.gpuGenerateStallInterpretation,
+        gpuNormalRouteUseCallbackStreaming =
+            progress.gpuNormalRouteUseCallbackStreaming ?: fallbackFlags.gpuNormalRouteUseCallbackStreaming,
+        gpuCallbackStreamingPathSelected =
+            progress.gpuCallbackStreamingPathSelected ?: fallbackFlags.gpuCallbackStreamingPathSelected,
+        gpuCallbackStreamingPathReason =
+            progress.gpuCallbackStreamingPathReason ?: fallbackFlags.gpuCallbackStreamingPathReason,
+        gpuCallbackStreamingSuccessCount =
+            progress.gpuCallbackStreamingSuccessCount ?: fallbackFlags.gpuCallbackStreamingSuccessCount,
+        gpuCallbackStreamingEmptyCallbackCount =
+            progress.gpuCallbackStreamingEmptyCallbackCount ?: fallbackFlags.gpuCallbackStreamingEmptyCallbackCount,
+        gpuCallbackStreamingNonEmptyCallbackCount =
+            progress.gpuCallbackStreamingNonEmptyCallbackCount
+                ?: fallbackFlags.gpuCallbackStreamingNonEmptyCallbackCount,
+        gpuCallbackStreamingDoneTrueSeen =
+            progress.gpuCallbackStreamingDoneTrueSeen ?: fallbackFlags.gpuCallbackStreamingDoneTrueSeen,
+        gpuCallbackStreamingFinalTextLength =
+            progress.gpuCallbackStreamingFinalTextLength ?: fallbackFlags.gpuCallbackStreamingFinalTextLength,
+        gpuCallbackStreamingReusedHeldEngine =
+            progress.gpuCallbackStreamingReusedHeldEngine ?: fallbackFlags.gpuCallbackStreamingReusedHeldEngine,
+        gpuCallbackStreamingCompletionReason =
+            progress.gpuCallbackStreamingCompletionReason ?: fallbackFlags.gpuCallbackStreamingCompletionReason,
+        gpuCallbackStreamingFailureReason =
+            progress.gpuCallbackStreamingFailureReason ?: fallbackFlags.gpuCallbackStreamingFailureReason,
+        gpuAlignmentHolderPresentBeforeAcquire =
+            progress.gpuAlignmentHolderPresentBeforeAcquire ?: fallbackFlags.gpuAlignmentHolderPresentBeforeAcquire,
+        gpuAlignmentHolderAcquireResult =
+            progress.gpuAlignmentHolderAcquireResult ?: fallbackFlags.gpuAlignmentHolderAcquireResult,
+        gpuAlignmentHolderReused = progress.gpuAlignmentHolderReused ?: fallbackFlags.gpuAlignmentHolderReused,
+        gpuAlignmentHolderCreated = progress.gpuAlignmentHolderCreated ?: fallbackFlags.gpuAlignmentHolderCreated,
+        gpuAlignmentHolderCleared = progress.gpuAlignmentHolderCleared ?: fallbackFlags.gpuAlignmentHolderCleared,
+        gpuAlignmentHolderClearReason =
+            progress.gpuAlignmentHolderClearReason ?: fallbackFlags.gpuAlignmentHolderClearReason,
+        gpuAlignmentHolderCloseStarted =
+            progress.gpuAlignmentHolderCloseStarted ?: fallbackFlags.gpuAlignmentHolderCloseStarted,
+        gpuAlignmentHolderCloseFinished =
+            progress.gpuAlignmentHolderCloseFinished ?: fallbackFlags.gpuAlignmentHolderCloseFinished,
+        gpuAlignmentHolderReuseBlockReason =
+            progress.gpuAlignmentHolderReuseBlockReason ?: fallbackFlags.gpuAlignmentHolderReuseBlockReason,
+        gpuAlignmentHolderModelPathChanged =
+            progress.gpuAlignmentHolderModelPathChanged ?: fallbackFlags.gpuAlignmentHolderModelPathChanged,
+        gpuAlignmentHolderBackendChanged =
+            progress.gpuAlignmentHolderBackendChanged ?: fallbackFlags.gpuAlignmentHolderBackendChanged,
+        gpuAlignmentHolderAppProcessStartMarker =
+            progress.gpuAlignmentHolderAppProcessStartMarker ?: fallbackFlags.gpuAlignmentHolderAppProcessStartMarker,
+        gpuAlignmentTurnIndexIfAvailable =
+            progress.gpuAlignmentTurnIndexIfAvailable ?: fallbackFlags.gpuAlignmentTurnIndexIfAvailable,
+        gpuAlignmentPreviousTurnSuccess =
+            progress.gpuAlignmentPreviousTurnSuccess ?: fallbackFlags.gpuAlignmentPreviousTurnSuccess,
+        gpuAlignmentPreviousTurnFailureStage =
+            progress.gpuAlignmentPreviousTurnFailureStage ?: fallbackFlags.gpuAlignmentPreviousTurnFailureStage,
+    )
+}
+
+private fun buildGpuExperimentalTimeoutRunResult(
+    context: LocalRouteDiagnosticContext,
+    modelResolution: LocalModelResolution,
+    failureStage: String,
+    elapsedMs: Long,
+    progressFlags: LocalRouteDiagnosticFlags? = null,
+): LocalInferenceRunResult {
+    val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
+        context = context,
+        failureStage = failureStage,
+        elapsedMs = elapsedMs,
+        progressFlags = progressFlags,
+    )
+    return LocalInferenceRunResult(
+        state = LocalInferenceEngineState.ERROR,
+        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        trace = LocalInferenceTrace(
+            localModelDisplayName = modelResolution.displayName,
+            mediaPipeProbeModelPath = modelResolution.modelPath,
+            requestedPreferredBackend = "GPU",
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "timeout",
+            preferredBackendHookReached = false,
+            preferredBackendHookSource = "gpu-experimental-timeout",
+            localFailureDiagnosticsText = diagnosticsText,
+        ),
+    )
+}
+
+private fun writeGpuPrefillProbeDiagnosticsFile(
+    context: Context,
+    text: String,
+) {
+    if (!BuildConfig.DEBUG) return
+    runCatching {
+        val dir = File(context.filesDir, "dev_diagnostics")
+        dir.mkdirs()
+        File(dir, "gpu_prefill_probe_latest.txt").writeText(text)
+    }
+}
+
+private class GpuRouteProgressTracker(
+    private val runStartedAtMs: Long,
+) {
+    private val engineConfigBuildStarted = AtomicBoolean(false)
+    private val engineConfigBuildFinished = AtomicBoolean(false)
+    private val engineConstructorStarted = AtomicBoolean(false)
+    private val engineConstructorFinished = AtomicBoolean(false)
+    private val engineInitializeStarted = AtomicBoolean(false)
+    private val engineInitializeFinished = AtomicBoolean(false)
+    private val conversationCreateStarted = AtomicBoolean(false)
+    private val conversationCreateFinished = AtomicBoolean(false)
+    private val generateStarted = AtomicBoolean(false)
+    private val firstTokenReceived = AtomicBoolean(false)
+    private val generateStartedElapsedMs = AtomicLong(-1L)
+    private val firstTokenReceivedElapsedMs = AtomicLong(-1L)
+    private val config = AtomicReference<GpuRouteConfigDiagnostics?>(null)
+    private val gpuGenerateProbeMode = AtomicReference<String?>(null)
+    private val gpuGenerateCallEntered = AtomicReference<Boolean?>(null)
+    private val gpuGenerateCallReturned = AtomicReference<Boolean?>(null)
+    private val gpuCallbackInvokedCount = AtomicReference<Int?>(null)
+    private val gpuCallbackFirstInvokedAtElapsedMs = AtomicReference<Long?>(null)
+    private val gpuCallbackLastInvokedAtElapsedMs = AtomicReference<Long?>(null)
+    private val gpuCallbackThreadName = AtomicReference<String?>(null)
+    private val gpuCallbackDoneTrueSeen = AtomicReference<Boolean?>(null)
+    private val gpuCallbackErrorSeen = AtomicReference<Boolean?>(null)
+    private val gpuCallbackEmptyTextCount = AtomicReference<Int?>(null)
+    private val gpuCallbackNonEmptyTextCount = AtomicReference<Int?>(null)
+    private val gpuCallbackLastTextLength = AtomicReference<Int?>(null)
+    private val gpuCallbackLastTextHead = AtomicReference<String?>(null)
+    private val gpuFirstNonEmptyTextElapsedMs = AtomicReference<Long?>(null)
+    private val gpuFirstTokenClassificationReason = AtomicReference<String?>(null)
+    private val gpuCallbackExceptionClass = AtomicReference<String?>(null)
+    private val gpuCallbackExceptionMessage = AtomicReference<String?>(null)
+    private val gpuCallbackExceptionChain = AtomicReference<String?>(null)
+    private val gpuCallbackExceptionStage = AtomicReference<String?>(null)
+    private val gpuGenerateStallInterpretation = AtomicReference<String?>(null)
+    private val gpuCallbackToUiEnabled = AtomicReference<Boolean?>(null)
+    private val gpuCallbackTextPromotedToUi = AtomicReference<Boolean?>(null)
+    private val gpuCallbackPromotedTextLength = AtomicReference<Int?>(null)
+    private val gpuCallbackPromotedNonEmptyCount = AtomicReference<Int?>(null)
+    private val gpuCallbackSuccessClassification = AtomicReference<String?>(null)
+    private val gpuRawCallbackProbeStatus = AtomicReference<String?>(null)
+    private val gpuUiAppendStarted = AtomicReference<Boolean?>(null)
+    private val gpuUiAppendFinished = AtomicReference<Boolean?>(null)
+    private val gpuUiFirstVisibleTextElapsedMs = AtomicReference<Long?>(null)
+    private val gpuStreamingCompletionReason = AtomicReference<String?>(null)
+    private val gpuNormalRouteUseCallbackStreaming = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingPathSelected = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingPathReason = AtomicReference<String?>(null)
+    private val gpuCallbackStreamingSuccessCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingEmptyCallbackCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingNonEmptyCallbackCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingDoneTrueSeen = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingFinalTextLength = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingReusedHeldEngine = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingCompletionReason = AtomicReference<String?>(null)
+    private val gpuCallbackStreamingFailureReason = AtomicReference<String?>(null)
+
+    fun setConfig(configDiagnostics: GpuRouteConfigDiagnostics) {
+        config.set(configDiagnostics)
+    }
+
+    fun configSnapshot(): GpuRouteConfigDiagnostics? = config.get()
+
+    fun recordStage(stage: String?) {
+        when (stage) {
+            "engine_config_build_started" -> engineConfigBuildStarted.set(true)
+            "engine_config_build_finished" -> {
+                engineConfigBuildStarted.set(true)
+                engineConfigBuildFinished.set(true)
+                engineConstructorStarted.set(true)
+            }
+            "engine_create_started" -> engineConstructorStarted.set(true)
+            "engine_create_finished" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+            }
+            "engine_initialize_started" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+                engineInitializeStarted.set(true)
+            }
+            "engine_initialize_finished" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+                engineInitializeStarted.set(true)
+                engineInitializeFinished.set(true)
+            }
+            "conversation_create_started" -> {
+                engineInitializeStarted.set(true)
+                engineInitializeFinished.set(true)
+                conversationCreateStarted.set(true)
+            }
+            "conversation_create_finished" -> {
+                conversationCreateStarted.set(true)
+                conversationCreateFinished.set(true)
+            }
+            "generate_started" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+            }
+            "generate_call_entered" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+                gpuGenerateCallEntered.set(true)
+            }
+            "generate_call_returned",
+            "generate_call_returned_null" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+                gpuGenerateCallEntered.set(true)
+                gpuGenerateCallReturned.set(true)
+            }
+            "generate_callback_invoked" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+            }
+            "generate_callback_exception" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+                gpuCallbackErrorSeen.set(true)
+            }
+            "first_token_received" -> {
+                firstTokenReceived.set(true)
+                recordElapsedOnce(firstTokenReceivedElapsedMs)
+            }
+        }
+    }
+
+    fun recordTrace(message: String) {
+        when {
+            message.contains("engine-config-create-start") -> recordStage("engine_config_build_started")
+            message.contains("engineConfig-created") ||
+                message.contains("engine-config-created") ||
+                message.contains("engine-config-created non-null") ||
+                message.contains("engineConfig-created") -> recordStage("engine_config_build_finished")
+            message.contains("engine-new-instance-result") ||
+                message.contains("engine-created") ||
+                message.contains("engineCreated") -> recordStage("engine_create_finished")
+            message.contains("engine-initialize-start") -> recordStage("engine_initialize_started")
+            message.contains("engine-initialize-success") ||
+                message.contains("engineInitialized") -> recordStage("engine_initialize_finished")
+            message.contains("conversation-create-start") -> recordStage("conversation_create_started")
+            message.contains("conversation-create-success") ||
+                message.contains("conversationCreated") ||
+                message.contains("official-conversation created") -> recordStage("conversation_create_finished")
+            message.contains("sendMessage") ||
+                message.contains("official-flow invoke") -> recordStage("generate_started")
+            message.contains("first-token") ||
+                message.contains("first partial") -> recordStage("first_token_received")
+        }
+        if (message.contains("LOCAL_ROUTE_DIAG ")) {
+            recordCallbackDiagnosticsFromRoute(message)
+        }
+    }
+
+    fun snapshot(
+        failureStage: String? = null,
+        staleCallbackIgnored: Boolean? = null,
+    ): LocalRouteDiagnosticFlags =
+        LocalRouteDiagnosticFlags(
+            heldEngineExists = engineConstructorFinished.get(),
+            heldEngineReused = false,
+            engineCreateStarted = engineConstructorStarted.get(),
+            engineCreateFinished = engineConstructorFinished.get(),
+            conversationCreateStarted = conversationCreateStarted.get(),
+            conversationCreateFinished = conversationCreateFinished.get(),
+            generateStarted = generateStarted.get(),
+            generateStartedElapsedMs = generateStartedElapsedMs.get().takeIf { it >= 0L },
+            firstTokenReceived = firstTokenReceived.get(),
+            firstTokenElapsedMs = firstTokenReceivedElapsedMs.get().takeIf { it >= 0L },
+            failureStage = failureStage,
+            fallbackUsed = false,
+            staleCallbackIgnored = staleCallbackIgnored,
+            engineConfigBuildStarted = engineConfigBuildStarted.get(),
+            engineConfigBuildFinished = engineConfigBuildFinished.get(),
+            engineInitializeStarted = engineInitializeStarted.get(),
+            engineInitializeFinished = engineInitializeFinished.get(),
+            gpuConfigDiagnostics = config.get(),
+            gpuGenerateProbeMode = gpuGenerateProbeMode.get(),
+            gpuGenerateCallEntered = gpuGenerateCallEntered.get(),
+            gpuGenerateCallReturned = gpuGenerateCallReturned.get(),
+            gpuCallbackInvokedCount = gpuCallbackInvokedCount.get(),
+            gpuCallbackFirstInvokedAtElapsedMs = gpuCallbackFirstInvokedAtElapsedMs.get(),
+            gpuCallbackLastInvokedAtElapsedMs = gpuCallbackLastInvokedAtElapsedMs.get(),
+            gpuCallbackThreadName = gpuCallbackThreadName.get(),
+            gpuCallbackDoneTrueSeen = gpuCallbackDoneTrueSeen.get(),
+            gpuCallbackErrorSeen = gpuCallbackErrorSeen.get(),
+            gpuCallbackEmptyTextCount = gpuCallbackEmptyTextCount.get(),
+            gpuCallbackNonEmptyTextCount = gpuCallbackNonEmptyTextCount.get(),
+            gpuCallbackLastTextLength = gpuCallbackLastTextLength.get(),
+            gpuCallbackLastTextHead = gpuCallbackLastTextHead.get(),
+            gpuFirstNonEmptyTextElapsedMs = gpuFirstNonEmptyTextElapsedMs.get(),
+            gpuFirstTokenClassificationReason = gpuFirstTokenClassificationReason.get(),
+            gpuCallbackExceptionClass = gpuCallbackExceptionClass.get(),
+            gpuCallbackExceptionMessage = gpuCallbackExceptionMessage.get(),
+            gpuCallbackExceptionChain = gpuCallbackExceptionChain.get(),
+            gpuCallbackExceptionStage = gpuCallbackExceptionStage.get(),
+            gpuGenerateStallInterpretation = gpuGenerateStallInterpretation.get(),
+            gpuCallbackToUiEnabled = gpuCallbackToUiEnabled.get(),
+            gpuCallbackTextPromotedToUi = gpuCallbackTextPromotedToUi.get(),
+            gpuCallbackPromotedTextLength = gpuCallbackPromotedTextLength.get(),
+            gpuCallbackPromotedNonEmptyCount = gpuCallbackPromotedNonEmptyCount.get(),
+            gpuCallbackSuccessClassification = gpuCallbackSuccessClassification.get(),
+            gpuRawCallbackProbeStatus = gpuRawCallbackProbeStatus.get(),
+            gpuUiAppendStarted = gpuUiAppendStarted.get(),
+            gpuUiAppendFinished = gpuUiAppendFinished.get(),
+            gpuUiFirstVisibleTextElapsedMs = gpuUiFirstVisibleTextElapsedMs.get(),
+            gpuStreamingCompletionReason = gpuStreamingCompletionReason.get(),
+            gpuNormalRouteUseCallbackStreaming = gpuNormalRouteUseCallbackStreaming.get(),
+            gpuCallbackStreamingPathSelected = gpuCallbackStreamingPathSelected.get(),
+            gpuCallbackStreamingPathReason = gpuCallbackStreamingPathReason.get(),
+            gpuCallbackStreamingSuccessCount = gpuCallbackStreamingSuccessCount.get(),
+            gpuCallbackStreamingEmptyCallbackCount = gpuCallbackStreamingEmptyCallbackCount.get(),
+            gpuCallbackStreamingNonEmptyCallbackCount = gpuCallbackStreamingNonEmptyCallbackCount.get(),
+            gpuCallbackStreamingDoneTrueSeen = gpuCallbackStreamingDoneTrueSeen.get(),
+            gpuCallbackStreamingFinalTextLength = gpuCallbackStreamingFinalTextLength.get(),
+            gpuCallbackStreamingReusedHeldEngine = gpuCallbackStreamingReusedHeldEngine.get(),
+            gpuCallbackStreamingCompletionReason = gpuCallbackStreamingCompletionReason.get(),
+            gpuCallbackStreamingFailureReason = gpuCallbackStreamingFailureReason.get(),
+        )
+
+    private fun recordCallbackDiagnosticsFromRoute(message: String) {
+        val parsed = parseDiagnosticKeyValueText(message)
+        parsed.diagnosticString("debug_lami_gpu_generate_probe_mode")?.let(gpuGenerateProbeMode::set)
+        parsed.diagnosticBoolean("gpu_generate_call_entered")?.let(gpuGenerateCallEntered::set)
+        parsed.diagnosticBoolean("gpu_generate_call_returned")?.let(gpuGenerateCallReturned::set)
+        parsed.diagnosticInt("gpu_callback_invoked_count")?.let(gpuCallbackInvokedCount::set)
+        parsed.diagnosticLong("gpu_callback_first_invoked_at_elapsed_ms")?.let(gpuCallbackFirstInvokedAtElapsedMs::set)
+        parsed.diagnosticLong("gpu_callback_last_invoked_at_elapsed_ms")?.let(gpuCallbackLastInvokedAtElapsedMs::set)
+        parsed.diagnosticString("gpu_callback_thread_name")?.let(gpuCallbackThreadName::set)
+        parsed.diagnosticBoolean("gpu_callback_done_true_seen")?.let(gpuCallbackDoneTrueSeen::set)
+        parsed.diagnosticBoolean("gpu_callback_error_seen")?.let(gpuCallbackErrorSeen::set)
+        parsed.diagnosticInt("gpu_callback_empty_text_count")?.let(gpuCallbackEmptyTextCount::set)
+        parsed.diagnosticInt("gpu_callback_non_empty_text_count")?.let(gpuCallbackNonEmptyTextCount::set)
+        parsed.diagnosticInt("gpu_callback_last_text_length")?.let(gpuCallbackLastTextLength::set)
+        parsed.diagnosticString("gpu_callback_last_text_head")?.let(gpuCallbackLastTextHead::set)
+        parsed.diagnosticLong("gpu_first_non_empty_text_elapsed_ms")?.let(gpuFirstNonEmptyTextElapsedMs::set)
+        parsed.diagnosticString("gpu_first_token_classification_reason")?.let(gpuFirstTokenClassificationReason::set)
+        parsed.diagnosticString("gpu_callback_exception_class")?.let(gpuCallbackExceptionClass::set)
+        parsed.diagnosticString("gpu_callback_exception_message")?.let(gpuCallbackExceptionMessage::set)
+        parsed.diagnosticString("gpu_callback_exception_chain")?.let(gpuCallbackExceptionChain::set)
+        parsed.diagnosticString("gpu_callback_exception_stage")?.let(gpuCallbackExceptionStage::set)
+        parsed.diagnosticString("gpu_generate_stall_interpretation")?.let(gpuGenerateStallInterpretation::set)
+        parsed.diagnosticBoolean("gpu_callback_to_ui_enabled")?.let(gpuCallbackToUiEnabled::set)
+        parsed.diagnosticBoolean("gpu_callback_text_promoted_to_ui")?.let(gpuCallbackTextPromotedToUi::set)
+        parsed.diagnosticInt("gpu_callback_promoted_text_length")?.let(gpuCallbackPromotedTextLength::set)
+        parsed.diagnosticInt("gpu_callback_promoted_non_empty_count")?.let(gpuCallbackPromotedNonEmptyCount::set)
+        parsed.diagnosticString("gpu_callback_success_classification")?.let(gpuCallbackSuccessClassification::set)
+        parsed.diagnosticString("gpu_raw_callback_probe_status")?.let(gpuRawCallbackProbeStatus::set)
+        parsed.diagnosticBoolean("gpu_ui_append_started")?.let(gpuUiAppendStarted::set)
+        parsed.diagnosticBoolean("gpu_ui_append_finished")?.let(gpuUiAppendFinished::set)
+        parsed.diagnosticLong("gpu_ui_first_visible_text_elapsed_ms")?.let(gpuUiFirstVisibleTextElapsedMs::set)
+        parsed.diagnosticString("gpu_streaming_completion_reason")?.let(gpuStreamingCompletionReason::set)
+        parsed.diagnosticBoolean("gpu_normal_route_use_callback_streaming")
+            ?.let(gpuNormalRouteUseCallbackStreaming::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_path_selected")
+            ?.let(gpuCallbackStreamingPathSelected::set)
+        parsed.diagnosticString("gpu_callback_streaming_path_reason")
+            ?.let(gpuCallbackStreamingPathReason::set)
+        parsed.diagnosticInt("gpu_callback_streaming_success_count")
+            ?.let(gpuCallbackStreamingSuccessCount::set)
+        parsed.diagnosticInt("gpu_callback_streaming_empty_callback_count")
+            ?.let(gpuCallbackStreamingEmptyCallbackCount::set)
+        parsed.diagnosticInt("gpu_callback_streaming_non_empty_callback_count")
+            ?.let(gpuCallbackStreamingNonEmptyCallbackCount::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_done_true_seen")
+            ?.let(gpuCallbackStreamingDoneTrueSeen::set)
+        parsed.diagnosticInt("gpu_callback_streaming_final_text_length")
+            ?.let(gpuCallbackStreamingFinalTextLength::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_reused_held_engine")
+            ?.let(gpuCallbackStreamingReusedHeldEngine::set)
+        parsed.diagnosticString("gpu_callback_streaming_completion_reason")
+            ?.let(gpuCallbackStreamingCompletionReason::set)
+        parsed.diagnosticString("gpu_callback_streaming_failure_reason")
+            ?.let(gpuCallbackStreamingFailureReason::set)
+    }
+
+    private fun recordElapsedOnce(target: AtomicLong) {
+        val elapsedMs = (SystemClock.elapsedRealtime() - runStartedAtMs).coerceAtLeast(0L)
+        target.compareAndSet(-1L, elapsedMs)
+    }
+}
+
+private fun Map<String, String>.diagnosticString(key: String): String? =
+    this[key]?.takeUnless { value ->
+        value.isBlank() || value == "unavailable" || value == "unknown"
+    }
+
+private fun Map<String, String>.diagnosticBoolean(key: String): Boolean? =
+    diagnosticString(key)?.toBooleanStrictOrNull()
+
+private fun Map<String, String>.diagnosticInt(key: String): Int? =
+    diagnosticString(key)?.toIntOrNull()
+
+private fun Map<String, String>.diagnosticLong(key: String): Long? =
+    diagnosticString(key)?.toLongOrNull()
+
+private fun shouldInsertLocalFailureAssistantMessage(
+    runResult: LocalInferenceRunResult?,
+): Boolean =
+    runResult?.state == LocalInferenceEngineState.ERROR &&
+        (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
+            runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
+            runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE)
+
+private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
+    text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
+        text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING") ||
+        text.contains("gpu_callback_streaming_path_selected=true")
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,
@@ -5193,6 +8745,19 @@ private suspend fun resolveLocalBaseModelPathOrNull(
 
 private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
 
+private fun buildLocalLiteRtBackendKey(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): String {
+    val textBackend = when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU,
+        PreferredBackendDryRunSetting.DEFAULT -> "CPU"
+        PreferredBackendDryRunSetting.GPU -> "GPU"
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> "GPU"
+    }
+    return "$LOCAL_LITERT_BACKEND_KEY/requested=${preferredBackendDryRunSetting.name}/text=$textBackend"
+}
+
 private fun buildLiteRtCacheDirPath(context: Context): String = context.cacheDir.absolutePath
 
 private fun resolveLocalModelDisplayName(
@@ -5247,6 +8812,7 @@ private suspend fun resolveLocalModelResolutionOrNull(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): LocalModelResolution? {
     val modelPath = resolveLocalBaseModelPathOrNull(
         settingsPreferences = settingsPreferences,
@@ -5255,7 +8821,7 @@ private suspend fun resolveLocalModelResolutionOrNull(
     return LocalModelResolution(
         modelPath = modelPath,
         displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, modelPath),
-        backendKey = LOCAL_LITERT_BACKEND_KEY,
+        backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
         cacheDirPath = buildLiteRtCacheDirPath(context),
     )
 }
@@ -6676,6 +10242,11 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         holderLastRecreateReason = holderLastRecreateReason ?: probe.holderLastRecreateReason,
         holderHasHeldEngineBeforeRecreate = holderHasHeldEngineBeforeRecreate ?: probe.holderHasHeldEngineBeforeRecreate,
         holderHasHeldEngineAfterRecreate = holderHasHeldEngineAfterRecreate ?: probe.holderHasHeldEngineAfterRecreate,
+        heldEngineLifecycleHistory = heldEngineLifecycleHistory ?: probe.heldEngineLifecycleHistory,
+        heldEngineDestroyReason = heldEngineDestroyReason ?: probe.heldEngineDestroyReason,
+        heldEngineLastOwner = heldEngineLastOwner ?: probe.heldEngineLastOwner,
+        heldEngineLastFailureStage = heldEngineLastFailureStage ?: probe.heldEngineLastFailureStage,
+        heldEngineSnapshotBeforeDestroy = heldEngineSnapshotBeforeDestroy ?: probe.heldEngineSnapshotBeforeDestroy,
         lastHeldEngineCreateReason = lastHeldEngineCreateReason ?: probe.lastHeldEngineCreateReason,
         lastHeldEngineCreateSource = lastHeldEngineCreateSource ?: probe.lastHeldEngineCreateSource,
         lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs ?: probe.lastHeldEngineCreateAtElapsedMs,
@@ -7202,6 +10773,335 @@ internal fun createAssistantMessage(
 }
 
 @Composable
+private fun MemoryRecoveryCheckDevSection(
+    state: MemoryRecoveryCheckState,
+    buttonEnabled: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+) {
+    InferenceStatsSection(title = "App/System memory recovery check") {
+        Button(
+            onClick = onStart,
+            enabled = buttonEnabled,
+        ) {
+            Text("メモリ回復確認")
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "この確認はアプリ内API由来の近似値です。adb shell dumpsys meminfo と完全一致しない場合があります。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "App/System memory recovery check",
+            value = formatMemoryRecoveryCheckForDev(state),
+        )
+    }
+}
+
+@Composable
+private fun NpuS1RepeatedRunDevSection(
+    state: NpuS1RepeatedRunState,
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+    selectedMode: NpuS1RepeatedRunMode,
+    selectedPrompt: String,
+    selectedRunCount: Int,
+    selectedWaitMs: Long,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onModeChange: (NpuS1RepeatedRunMode) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onRunCountChange: (Int) -> Unit,
+    onWaitMsChange: (Long) -> Unit,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val startGate = npuS1RepeatedRunStartGate(
+        preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        mode = selectedMode,
+        runCount = selectedRunCount,
+        waitMs = selectedWaitMs,
+    )
+    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+        setting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
+    val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
+    val controlsEnabled = !running && !blockedByGeneration
+    val startEnabled = controlsEnabled && startGate.allowed
+    InferenceStatsSection(title = "NPU S1 repeated run") {
+        Text(
+            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (blockedByBackend) {
+            Text(
+                text = "NPU S1 repeated run は NPU S1 選択時のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (!startGate.allowed) {
+            Text(
+                text = "Safety policy: Recreate / 20 runs / wait 500ms以上のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Text(
+            text = "prompt:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        NPU_S1_REPEATED_RUN_PROMPT_OPTIONS.forEach { prompt ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = selectedPrompt == prompt,
+                    onClick = { onPromptChange(prompt) },
+                    enabled = controlsEnabled,
+                )
+                Text(
+                    text = prompt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        Text(
+            text = "run count:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NPU_S1_REPEATED_RUN_COUNT_OPTIONS.forEach { count ->
+                FilterChip(
+                    selected = selectedRunCount == count,
+                    onClick = { onRunCountChange(count) },
+                    label = { Text(count.toString()) },
+                    enabled = controlsEnabled && count in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS,
+                )
+            }
+        }
+        Text(
+            text = "wait:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS.forEach { waitMs ->
+                FilterChip(
+                    selected = selectedWaitMs == waitMs,
+                    onClick = { onWaitMsChange(waitMs) },
+                    label = { Text("${waitMs}ms") },
+                    enabled = controlsEnabled && waitMs in NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS,
+                )
+            }
+        }
+        Text(
+            text = "実行モード:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        listOf(NpuS1RepeatedRunMode.REUSE, NpuS1RepeatedRunMode.RECREATE).forEach { mode ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = selectedMode == mode,
+                    onClick = { onModeChange(mode) },
+                    enabled = controlsEnabled && mode in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS,
+                )
+                Text(
+                    text = mode.displayLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = startEnabled,
+            ) {
+                Text("NPU S1 repeated run 開始")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用の直列テストです。通常チャット履歴、TTS、DB保存には使いません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 repeated run",
+            value = formatNpuS1RepeatedRunDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
+private fun NpuS1PersistentEngineDevSection(
+    state: NpuS1PersistentEngineProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    InferenceStatsSection(title = "NPU S1 persistent Engine") {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text("NPU S1 persistent Engine 20回テスト")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用PoCです。official Engineを1回だけ初期化し、通常チャット経路には接続しません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 persistent Engine",
+            value = formatNpuS1PersistentEngineDiagnosticsForDev(state),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NpuS1PersistentCustomJniDevSection(
+    state: NpuS1PersistentCustomJniProbeState,
+    selectedMode: NpuS1PersistentCustomJniProbeMode,
+    selectedQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit,
+    onQualityPromptProfileChange: (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    InferenceStatsSection(title = "NPU S1 persistent custom JNI") {
+        Text(
+            text = "クラッシュ切り分け用",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            listOf(
+                NpuS1PersistentCustomJniProbeMode.ENTRYPOINT_ONLY,
+                NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+                NpuS1PersistentCustomJniProbeMode.EDITABLE_ENGINE_CREATE_ONLY,
+                NpuS1PersistentCustomJniProbeMode.EDITABLE_ENGINE_CREATE_ONLY_MINIMAL,
+                NpuS1PersistentCustomJniProbeMode.ENGINE_CREATE_ONLY,
+                NpuS1PersistentCustomJniProbeMode.FULL_20,
+            ).forEach { mode ->
+                FilterChip(
+                    selected = selectedMode == mode,
+                    onClick = { onModeChange(mode) },
+                    enabled = !running && !blockedByGeneration,
+                    label = { Text(mode.wireValue) },
+                )
+            }
+        }
+        Text(
+            text = "品質比較用",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Gemma x20 quality passed; normal chat S1 native route is policy-unblocked for guarded verification",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            NpuS1PersistentCustomJniQualityPromptProfile.entries.forEach { profile ->
+                FilterChip(
+                    selected = selectedQualityPromptProfile == profile,
+                    onClick = { onQualityPromptProfileChange(profile) },
+                    enabled = !running && !blockedByGeneration,
+                    label = { Text(profile.displayLabel) },
+                )
+            }
+        }
+        val startButtonLabel = if (
+            selectedQualityPromptProfile ==
+            NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY
+        ) {
+            "Gemma recommended x20"
+        } else {
+            "NPU S1 persistent custom JNI ${selectedMode.wireValue}"
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text(startButtonLabel)
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用PoCです。custom JNI Engine holder と prompt別の出力品質だけを通常チャットと分離して確認します。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 persistent custom JNI",
+            value = formatNpuS1PersistentCustomJniDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -7213,6 +11113,7 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     showDevManualEngineRecreate: Boolean = false,
     manualEngineRecreateEnabled: Boolean = false,
@@ -7220,6 +11121,40 @@ private fun InferenceStatsSheetContent(
     manualEngineRecreateResult: String = "none",
     manualEngineRecreateReason: String = "user-requested",
     onManualEngineRecreate: () -> Unit = {},
+    memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
+    memoryRecoveryCheckInProgress: Boolean = false,
+    isInferenceRunningForMemoryRecovery: Boolean = false,
+    onMemoryRecoveryCheck: () -> Unit = {},
+    npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
+    npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
+    npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
+    npuS1RepeatedRunInProgress: Boolean = false,
+    isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
+    onNpuS1RepeatedRunPromptChange: (String) -> Unit = {},
+    onNpuS1RepeatedRunCountChange: (Int) -> Unit = {},
+    onNpuS1RepeatedRunWaitMsChange: (Long) -> Unit = {},
+    onNpuS1RepeatedRunStart: () -> Unit = {},
+    onNpuS1RepeatedRunCancel: () -> Unit = {},
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
+    npuS1PersistentEngineInProgress: Boolean = false,
+    isInferenceRunningForPersistentEngine: Boolean = false,
+    onNpuS1PersistentEngineStart: () -> Unit = {},
+    onNpuS1PersistentEngineCancel: () -> Unit = {},
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
+        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+    npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
+    npuS1PersistentCustomJniInProgress: Boolean = false,
+    isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit = {},
+    onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit = {},
+    onNpuS1PersistentCustomJniStart: () -> Unit = {},
+    onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -7314,9 +11249,55 @@ private fun InferenceStatsSheetContent(
                                 displayMode = selectedDisplayMode,
                                 sections = sections,
                                 detailSections = detailSections,
+                                memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                             ),
                         ),
                     )
+                },
+                onCopyGpuDiagnosticKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildGpuDiagnosticKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
+                onCopyGpuInternalSurfaceKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildGpuInternalSurfaceKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
+                onCopyNpuDiagnosticKeys = if (BuildConfig.DEBUG) {
+                    {
+                        clipboardManager.setText(
+                            AnnotatedString(
+                                buildNpuDiagnosticKeysCopyText(
+                                    stats = stats,
+                                    trace = localTraceForDev,
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    null
                 },
             )
 
@@ -7360,6 +11341,52 @@ private fun InferenceStatsSheetContent(
                 }
             }
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                MemoryRecoveryCheckDevSection(
+                    state = memoryRecoveryCheckState,
+                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    ),
+                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                    onStart = onMemoryRecoveryCheck,
+                )
+                NpuS1RepeatedRunDevSection(
+                    state = npuS1RepeatedRunState,
+                    preferredBackendSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    selectedMode = npuS1RepeatedRunMode,
+                    selectedPrompt = npuS1RepeatedRunPrompt,
+                    selectedRunCount = npuS1RepeatedRunCount,
+                    selectedWaitMs = npuS1RepeatedRunWaitMs,
+                    running = npuS1RepeatedRunInProgress,
+                    blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onModeChange = onNpuS1RepeatedRunModeChange,
+                    onPromptChange = onNpuS1RepeatedRunPromptChange,
+                    onRunCountChange = onNpuS1RepeatedRunCountChange,
+                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                    onStart = onNpuS1RepeatedRunStart,
+                    onCancel = onNpuS1RepeatedRunCancel,
+                )
+                if (BuildConfig.DEBUG) {
+                    NpuS1PersistentEngineDevSection(
+                        state = npuS1PersistentEngineState,
+                        running = npuS1PersistentEngineInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentEngine,
+                        onStart = onNpuS1PersistentEngineStart,
+                        onCancel = onNpuS1PersistentEngineCancel,
+                    )
+                    NpuS1PersistentCustomJniDevSection(
+                        state = npuS1PersistentCustomJniState,
+                        selectedMode = npuS1PersistentCustomJniProbeMode,
+                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                        running = npuS1PersistentCustomJniInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                        onStart = onNpuS1PersistentCustomJniStart,
+                        onCancel = onNpuS1PersistentCustomJniCancel,
+                    )
+                }
                 InferenceStatsSection(title = "DEV Markdown") {
                     InferenceStatRow(
                         label = "Markdown mode",
@@ -7405,6 +11432,9 @@ private fun InferenceModelInfoRow(
     stats: InferenceStats,
     inferenceTarget: InferenceTarget,
     onCopyInferenceStats: () -> Unit,
+    onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
+    onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
+    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -7447,6 +11477,48 @@ private fun InferenceModelInfoRow(
                     contentDescription = "推論統計をコピー",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+        if (onCopyGpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyGpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyGpuInternalSurfaceKeys != null) {
+            TextButton(
+                onClick = onCopyGpuInternalSurfaceKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyNpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyNpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
             }
         }
     }
@@ -7494,6 +11566,232 @@ private fun CopyableDebugBlock(
     }
 }
 
+internal fun hasNpuStandardRouteDevDiagnostics(vararg textBlocks: String?): Boolean =
+    textBlocks.any { !it.isNullOrBlank() }
+
+internal fun shouldShowNpuStandardRouteDevDiagnosticsContent(expanded: Boolean): Boolean = expanded
+
+internal fun npuStandardRouteDevDiagnosticsToggleLabel(expanded: Boolean): String =
+    if (expanded) {
+        "▼ DEV診断を隠す"
+    } else {
+        "▶ DEV診断を表示"
+    }
+
+@Composable
+private fun NpuStandardRouteDevDiagnosticsBlock(
+    expanded: Boolean,
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    onToggleExpanded: () -> Unit,
+    routeText: String? = null,
+    routeTitle: String? = null,
+    onCopyRoute: (() -> Unit)? = null,
+    devTraceText: String? = null,
+    onCopyInput: (() -> Unit)? = null,
+    onCopyOutput: (() -> Unit)? = null,
+    onCopyCompact: (() -> Unit)? = null,
+    onCopyRepeatedSummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+    s4Text: String? = null,
+    s4Title: String? = null,
+    onCopyS4: (() -> Unit)? = null,
+    memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
+    memoryRecoveryCheckInProgress: Boolean = false,
+    isInferenceRunningForMemoryRecovery: Boolean = false,
+    onMemoryRecoveryCheck: (() -> Unit)? = null,
+    npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
+    npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
+    npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
+    npuS1RepeatedRunInProgress: Boolean = false,
+    isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunModeChange: ((NpuS1RepeatedRunMode) -> Unit)? = null,
+    onNpuS1RepeatedRunPromptChange: ((String) -> Unit)? = null,
+    onNpuS1RepeatedRunCountChange: ((Int) -> Unit)? = null,
+    onNpuS1RepeatedRunWaitMsChange: ((Long) -> Unit)? = null,
+    onNpuS1RepeatedRunStart: (() -> Unit)? = null,
+    onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
+    npuS1PersistentEngineInProgress: Boolean = false,
+    isInferenceRunningForPersistentEngine: Boolean = false,
+    onNpuS1PersistentEngineStart: (() -> Unit)? = null,
+    onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
+        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+    npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
+    npuS1PersistentCustomJniInProgress: Boolean = false,
+    isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniProbeModeChange: ((NpuS1PersistentCustomJniProbeMode) -> Unit)? = null,
+    onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        ((NpuS1PersistentCustomJniQualityPromptProfile) -> Unit)? = null,
+    onNpuS1PersistentCustomJniStart: (() -> Unit)? = null,
+    onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
+) {
+    if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+    ) {
+        TextButton(onClick = onToggleExpanded) {
+            Text(
+                text = npuStandardRouteDevDiagnosticsToggleLabel(expanded),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (shouldShowNpuStandardRouteDevDiagnosticsContent(expanded)) {
+            if (onMemoryRecoveryCheck != null) {
+                MemoryRecoveryCheckDevSection(
+                    state = memoryRecoveryCheckState,
+                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    ),
+                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                    onStart = onMemoryRecoveryCheck,
+                )
+            }
+            if (
+                onNpuS1RepeatedRunModeChange != null &&
+                onNpuS1RepeatedRunPromptChange != null &&
+                onNpuS1RepeatedRunCountChange != null &&
+                onNpuS1RepeatedRunWaitMsChange != null &&
+                onNpuS1RepeatedRunStart != null &&
+                onNpuS1RepeatedRunCancel != null
+            ) {
+                NpuS1RepeatedRunDevSection(
+                    state = npuS1RepeatedRunState,
+                    preferredBackendSetting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    selectedMode = npuS1RepeatedRunMode,
+                    selectedPrompt = npuS1RepeatedRunPrompt,
+                    selectedRunCount = npuS1RepeatedRunCount,
+                    selectedWaitMs = npuS1RepeatedRunWaitMs,
+                    running = npuS1RepeatedRunInProgress,
+                    blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onModeChange = onNpuS1RepeatedRunModeChange,
+                    onPromptChange = onNpuS1RepeatedRunPromptChange,
+                    onRunCountChange = onNpuS1RepeatedRunCountChange,
+                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                    onStart = onNpuS1RepeatedRunStart,
+                    onCancel = onNpuS1RepeatedRunCancel,
+                )
+            }
+            if (
+                BuildConfig.DEBUG &&
+                onNpuS1PersistentEngineStart != null &&
+                onNpuS1PersistentEngineCancel != null
+            ) {
+                NpuS1PersistentEngineDevSection(
+                    state = npuS1PersistentEngineState,
+                    running = npuS1PersistentEngineInProgress,
+                    blockedByGeneration = isInferenceRunningForPersistentEngine,
+                    onStart = onNpuS1PersistentEngineStart,
+                    onCancel = onNpuS1PersistentEngineCancel,
+                )
+                if (
+                    onNpuS1PersistentCustomJniProbeModeChange != null &&
+                    onNpuS1PersistentCustomJniQualityPromptProfileChange != null &&
+                    onNpuS1PersistentCustomJniStart != null &&
+                    onNpuS1PersistentCustomJniCancel != null
+                ) {
+                    NpuS1PersistentCustomJniDevSection(
+                        state = npuS1PersistentCustomJniState,
+                        selectedMode = npuS1PersistentCustomJniProbeMode,
+                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                        running = npuS1PersistentCustomJniInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                        onStart = onNpuS1PersistentCustomJniStart,
+                        onCancel = onNpuS1PersistentCustomJniCancel,
+                    )
+                }
+            }
+            if (!routeText.isNullOrBlank() && onCopyRoute != null) {
+                CopyableDebugBlock(
+                    text = routeText,
+                    title = routeTitle,
+                    onCopy = onCopyRoute,
+                )
+            }
+            if (
+                !devTraceText.isNullOrBlank() &&
+                onCopyInput != null &&
+                onCopyOutput != null &&
+                onCopyCompact != null &&
+                onCopyRepeatedSummary != null &&
+                onCopyFullDump != null
+            ) {
+                NpuStandardRouteS1DevTraceBlock(
+                    text = devTraceText,
+                    onCopyInput = onCopyInput,
+                    onCopyOutput = onCopyOutput,
+                    onCopyCompact = onCopyCompact,
+                    onCopyRepeatedSummary = onCopyRepeatedSummary,
+                    onCopyFullDump = onCopyFullDump,
+                )
+            }
+            if (!s4Text.isNullOrBlank() && onCopyS4 != null) {
+                CopyableDebugBlock(
+                    text = s4Text,
+                    title = s4Title,
+                    onCopy = onCopyS4,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NpuStandardRouteS1DevTraceBlock(
+    text: String,
+    onCopyInput: () -> Unit,
+    onCopyOutput: () -> Unit,
+    onCopyCompact: () -> Unit,
+    onCopyRepeatedSummary: () -> Unit,
+    onCopyFullDump: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Red,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            TextButton(onClick = onCopyInput) {
+                Text(text = "入力コピー", color = Color.Red)
+            }
+            TextButton(onClick = onCopyOutput) {
+                Text(text = "出力コピー", color = Color.Red)
+            }
+            TextButton(onClick = onCopyCompact) {
+                Text(text = "Copy Compact", color = Color.Red)
+            }
+            TextButton(onClick = onCopyRepeatedSummary) {
+                Text(text = "Copy Repeated Summary", color = Color.Red)
+            }
+            TextButton(onClick = onCopyFullDump) {
+                Text(text = "Copy Full Dump", color = Color.Red)
+            }
+        }
+    }
+}
+
 private fun resolveInferenceTargetForStats(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace?,
@@ -7508,6 +11806,10 @@ internal fun buildInferenceStatsFullCopyText(
     displayMode: InferenceStatsDisplayMode,
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
+    memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
+    npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -7566,6 +11868,22 @@ internal fun buildInferenceStatsFullCopyText(
                     if (index != detailSections.lastIndex) appendLine()
                 }
             }
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && memoryRecoveryCheckState != null) {
+            appendLine()
+            appendLine(formatMemoryRecoveryCheckForDev(memoryRecoveryCheckState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
+            appendLine()
+            appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
+            appendLine()
+            appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
+            appendLine()
+            appendLine(formatNpuS1PersistentCustomJniDiagnosticsForDev(npuS1PersistentCustomJniState))
         }
 
     }.trimEnd()
@@ -8148,6 +12466,150 @@ internal fun shouldEnterNpuStandardRouteS1(
         !hasImageInput &&
         requestPrompt.isNotBlank()
 
+internal fun shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+    shouldEnterNpuS1: Boolean,
+    selectedInferenceTarget: InferenceTarget,
+    hasImageInput: Boolean,
+    requestPrompt: String,
+): Boolean =
+    !shouldEnterNpuS1 &&
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+        !hasImageInput &&
+        requestPrompt.isNotBlank()
+
+internal data class NpuStandardRouteS1ModelEligibility(
+    val selectedModelName: String,
+    val selectedModelFile: String,
+    val npuModelEligible: Boolean,
+)
+
+internal fun resolveNpuStandardRouteS1ModelEligibility(
+    selectedModelName: String?,
+    selectedModelFile: String?,
+): NpuStandardRouteS1ModelEligibility {
+    val modelName = selectedModelName?.trim().orEmpty()
+    val modelFile = selectedModelFile
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { path -> File(path).name.ifBlank { path } }
+        .orEmpty()
+    val eligibleText = listOf(modelName, modelFile)
+        .joinToString(separator = " ")
+        .lowercase(Locale.ROOT)
+    val eligible = NPU_STANDARD_ROUTE_S1_MODEL_ELIGIBLE_MARKERS.any { marker ->
+        marker in eligibleText
+    }
+    return NpuStandardRouteS1ModelEligibility(
+        selectedModelName = modelName.ifBlank { "unknown" },
+        selectedModelFile = modelFile.ifBlank { "unknown" },
+        npuModelEligible = eligible,
+    )
+}
+
+internal fun buildNpuStandardRouteS1ModelNotCompatibleResult(
+    eligibility: NpuStandardRouteS1ModelEligibility,
+    maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+): NpuStandardRouteS1Result {
+    val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+    return NpuStandardRouteS1Result(
+        selection = NpuStandardRouteS1Selection(
+            enabled = true,
+            requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+            effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            sideEffects = NpuStandardRouteS1SideEffects(),
+        ),
+        status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+        reason = NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE,
+        rawOutput = "",
+        sanitizedOutput = "",
+        qualityClassification = FailureNpuStandardRouteS1Provider.QUALITY_UNKNOWN,
+        runDecodeReached = false,
+        npuBackendEvidence = "",
+        fallbackUsed = false,
+        timeout = false,
+        freshCrash = false,
+        selectedModelName = eligibility.selectedModelName,
+        selectedModelFile = eligibility.selectedModelFile,
+        npuModelEligible = false,
+    )
+}
+
+internal fun buildNpuStandardRouteKillSwitchBlockedResult(
+    maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    selectedModelName: String = "unknown",
+    selectedModelFile: String = "unknown",
+    npuModelEligible: Boolean? = null,
+    inputPrompt: String = "",
+): NpuStandardRouteS1Result {
+    val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+    return NpuStandardRouteS1Result(
+        selection = NpuStandardRouteS1Selection(
+            enabled = true,
+            requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+            effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            sideEffects = NpuStandardRouteS1SideEffects(),
+        ),
+        status = NpuStandardRouteS1Contract.STATUS_BLOCKED,
+        reason = NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED,
+        rawOutput = "",
+        sanitizedOutput = "",
+        qualityClassification = FailureNpuStandardRouteS1Provider.QUALITY_UNKNOWN,
+        runDecodeReached = false,
+        npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE_COMPLETED_ROUTE_KILL_SWITCH_BLOCKED,
+        fallbackUsed = false,
+        timeout = false,
+        freshCrash = false,
+        selectedModelName = selectedModelName.ifBlank { "unknown" },
+        selectedModelFile = selectedModelFile.ifBlank { "unknown" },
+        npuModelEligible = npuModelEligible,
+        nativeDiagnostics = NpuS1NativeStageDiagnostics(
+            nativeStage = "kill_switch_blocked_before_generation",
+            nativeStageHistory = "kill_switch_blocked_before_generation",
+            nativeCallReached = "false",
+            nativeCallReturned = "false",
+            nativeDecodeStarted = "false",
+            nativeDecodeFinished = "false",
+            nativeCleanupReached = "false",
+        ),
+        inputPrompt = inputPrompt,
+    )
+}
+
+internal fun buildNpuStandardRouteS1UiTiming(
+    result: NpuStandardRouteS1Result,
+    decodeStartedAtMs: Long?,
+    uiDisplayedAtMs: Long = SystemClock.elapsedRealtime(),
+): NpuStandardRouteS1Timing {
+    val totalMs = decodeStartedAtMs?.let { startedAt ->
+        (uiDisplayedAtMs - startedAt).coerceAtLeast(0L)
+    }
+    val outputTokens = result.timing.outputTokens
+        ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(result.sanitizedOutput)
+    val tokenCountMode = when {
+        result.timing.outputTokens != null -> result.timing.tokenCountMode
+        outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+        else -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
+    }
+    return NpuStandardRouteS1Timing(
+        totalMs = totalMs,
+        decodeMs = result.timing.decodeMs,
+        ttftMs = null,
+        outputTokens = outputTokens,
+        tokenCountMode = tokenCountMode,
+        tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(
+            outputTokens = outputTokens,
+            decodeMs = result.timing.decodeMs,
+        ),
+    )
+}
+
+private val NPU_STANDARD_ROUTE_S1_MODEL_ELIGIBLE_MARKERS = listOf(
+    "qualcomm",
+    "sm8750",
+    "qnn",
+    "npu",
+)
+
 internal fun shouldEnterLegacyQairt244ChatScreenRoute(
     hardGateEnabled: Boolean,
     debugBuild: Boolean,
@@ -8168,17 +12630,183 @@ internal fun shouldPersistNpuStandardRouteS2Db(
 ): Boolean =
     enabled && mapping.hasSaveCandidate
 
+internal fun shouldRenderNpuStandardRouteS3Markdown(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS3MarkdownMapping,
+): Boolean =
+    enabled && mapping.hasMarkdownCandidate
+
+internal data class ImmediateNpuSendUiStateUpdate(
+    val prompt: String = "",
+    val userPrompt: String = "",
+    val selectedImageUriStrings: List<String> = emptyList(),
+)
+
+internal fun prepareImmediateNpuSendUiStateUpdate(
+    requestPrompt: String,
+): ImmediateNpuSendUiStateUpdate {
+    require(requestPrompt.isNotBlank()) { "requestPrompt must not be blank" }
+    return ImmediateNpuSendUiStateUpdate()
+}
+
+internal data class ImmediateNpuInferenceRun<T>(
+    val chatId: Int,
+    val result: T,
+)
+
+internal suspend fun <T> runNpuInferenceAfterImmediateUserMessage(
+    requestPrompt: String,
+    currentChatId: Int?,
+    createChat: suspend () -> Int,
+    onChatCreated: (Int) -> Unit,
+    insertUserMessage: suspend (chatId: Int, promptText: String) -> Unit,
+    runInference: suspend (chatId: Int) -> T,
+): ImmediateNpuInferenceRun<T> {
+    require(requestPrompt.isNotBlank()) { "requestPrompt must not be blank" }
+    val resolvedChatId = currentChatId ?: createChat().also(onChatCreated)
+    insertUserMessage(resolvedChatId, requestPrompt)
+    return ImmediateNpuInferenceRun(
+        chatId = resolvedChatId,
+        result = runInference(resolvedChatId),
+    )
+}
+
 internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
     enabled: Boolean,
     mapping: NpuStandardRouteS4PseudoStreamingMapping,
 ): Boolean =
     enabled && mapping.hasPseudoStreamingCandidate
 
+internal fun shouldEnableStreamingSentenceTts(
+    ttsEnabled: Boolean,
+    devEnableStreamingSentenceTts: Boolean,
+    blockedByNpuStandardRoute: Boolean,
+): Boolean =
+    ttsEnabled &&
+        devEnableStreamingSentenceTts &&
+        !blockedByNpuStandardRoute
+
+internal fun shouldContinueNpuStandardRouteS4APseudoStreaming(
+    localStopRequested: Boolean,
+    runGuardEpoch: Long,
+    currentGuardEpoch: Long,
+    expectedChatId: Int,
+    currentChatId: Int?,
+): Boolean =
+    !localStopRequested &&
+        runGuardEpoch == currentGuardEpoch &&
+        currentChatId == expectedChatId
+
 internal fun shouldPrepareNpuStandardRouteS5Tts(
     enabled: Boolean,
     mapping: NpuStandardRouteS5TtsMapping,
 ): Boolean =
     enabled && mapping.hasTtsCandidate
+
+internal const val NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT =
+    "すみません、応答を生成できませんでした。"
+internal const val NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE =
+    "NPU推論は安全確認中のため、通常チャットでは一時的に無効化されています。"
+
+internal data class NpuStandardRouteS1TransientFallback(
+    val text: String,
+    val kind: String,
+)
+
+internal fun resolveNpuStandardRouteS1Fallback(
+    userPrompt: String,
+    result: NpuStandardRouteS1Result,
+): NpuStandardRouteS1TransientFallback? {
+    val safeGreetingFallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+        userPrompt = userPrompt,
+        result = result,
+    )
+    if (safeGreetingFallback != null) return safeGreetingFallback
+    return if (shouldShowNpuStandardRouteS1Fallback(result)) {
+        NpuStandardRouteS1TransientFallback(
+            text = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+            kind = "generic_failure_fallback",
+        )
+    } else {
+        null
+    }
+}
+
+internal fun resolveNpuStandardRouteFailureAssistantMessage(
+    result: NpuStandardRouteS1Result,
+    transientFallback: NpuStandardRouteS1TransientFallback?,
+): String? {
+    if (result.successCriteriaMet) return null
+    if (
+        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
+        result.usableDisplayOutput.isNotBlank() &&
+        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+    ) {
+        return null
+    }
+    if (
+        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS
+    ) {
+        val qualityReason = if (result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) {
+            result.outputQualityCandidateReason
+        } else {
+            result.qualityClassification
+        }
+        return transientFallback?.text
+            ?: "NPU推論の応答生成に失敗しました: ${qualityReason.ifBlank { "quality_check_failed" }}"
+    }
+    if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
+        return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE
+    }
+    if (result.reason == NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED) {
+        return null
+    }
+    if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) {
+        return NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE
+    }
+    return transientFallback?.text
+        ?: "NPU推論の応答生成に失敗しました: ${result.reason.ifBlank { "unknown" }}"
+}
+
+internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
+    userPrompt: String,
+    result: NpuStandardRouteS1Result,
+): NpuStandardRouteS1TransientFallback? {
+    if (!isNpuStandardRouteS1SafeGreetingFallbackFailure(result)) return null
+    val fallbackText = when (userPrompt.trim().lowercase()) {
+        "こんにちは" -> "こんにちは。"
+        "おはよう" -> "おはようございます。"
+        "こんばんは" -> "こんばんは。"
+        "ハロー", "hello", "hi" -> "こんにちは。"
+        else -> return null
+    }
+    return NpuStandardRouteS1TransientFallback(
+        text = fallbackText,
+        kind = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+    )
+}
+
+private fun isNpuStandardRouteS1SafeGreetingFallbackFailure(
+    result: NpuStandardRouteS1Result,
+): Boolean =
+    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
+        (
+            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
+                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE
+            )
+
+internal fun shouldShowNpuStandardRouteS1Fallback(
+    result: NpuStandardRouteS1Result,
+): Boolean =
+    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
+        (
+            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
+                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE ||
+                result.reason == NpuStandardRouteS1Contract.REASON_QUESTION_ECHO ||
+                result.reason == NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
+            )
 
 internal fun shouldSpeakNpuStandardRouteS5Tts(
     enabled: Boolean,
@@ -8208,6 +12836,7 @@ internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL = "assistant
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN = "cooldown"
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED = "stop_suppressed"
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ROLE_CONTAMINATION = "role_contamination"
 
 internal fun classifyNpuStandardRouteS5TtsSkipReason(
     enabled: Boolean,
@@ -8226,6 +12855,8 @@ internal fun classifyNpuStandardRouteS5TtsSkipReason(
     suppressedForAssistant -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED
     mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_EMPTY_SPEAK_TEXT ->
         NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE
+    mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_ROLE_CONTAMINATION ->
+        NPU_STANDARD_ROUTE_S5_TTS_SKIP_ROLE_CONTAMINATION
     !mapping.hasTtsCandidate -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL
     else -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE
 }
@@ -8400,6 +13031,12 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val markdownMode: String = "",
     val repairApplied: Boolean = false,
 ) {
+    fun isSafetyGuardTriggered(): Boolean = isSafetyGuardTriggered(
+        reasonCode = reasonCode,
+        failureStage = failureStage,
+        stopReason = stopReason,
+    )
+
     fun toInferenceStats(): InferenceStats = InferenceStats(
         modelName = selectedRoute,
         generationTimeMs = elapsedMs,

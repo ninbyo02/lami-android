@@ -8,6 +8,27 @@ import io.github.ninbyo02.lami.BuildConfig
 class NpuExperimentProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NpuEngineLogcatDiagnostics.i(
+            event = "galleryprobe_activity_on_create",
+            route = "NpuExperimentProbeActivity.onCreate",
+            probeName = "galleryprobe",
+            modelPath = intent?.getStringExtra("model_path"),
+            backendRequested = "NPU",
+            detail = "run_backend_npu_attach_probe=${intent?.getBooleanExtra("run_backend_npu_attach_probe", false) == true} run_engine_initialize_dry_run=${intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true} run_id=${intent?.getStringExtra("run_id") ?: "unavailable"}",
+        )
+        if (intent?.getBooleanExtra("run_backend_npu_attach_probe", false) == true) {
+            NpuExperimentProbeLogger.runBackendNpuAttachProbe(
+                context = applicationContext,
+                runId = intent?.getStringExtra("run_id").orEmpty(),
+                phase = intent?.getStringExtra("phase").orEmpty(),
+                modelPath = intent?.getStringExtra("model_path"),
+                engineConfigVariant = intent?.getStringExtra("engine_config_variant"),
+                engineInitializeOptIn = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
+                engineInitializeDiagnosticFilesClearedBeforeRun = intent?.getBooleanExtra("diagnostic_files_cleared_before_run", false) == true,
+            )
+            finish()
+            return
+        }
         if (intent?.getBooleanExtra("run_app_jni_smoke", false) == true) {
             NpuExperimentProbeLogger.runAppJniSmokeOnly(
                 context = applicationContext,
@@ -39,6 +60,105 @@ class NpuExperimentProbeActivity : Activity() {
 internal object NpuExperimentProbeLogger {
     private const val APP_JNI_SMOKE_FILE_NAME = "qairt244_app_jni_smoke.txt"
     private const val SINGLE_TOKEN_SMOKE_FILE_NAME = "qairt244_single_token_smoke_result.txt"
+    private const val BACKEND_NPU_ATTACH_PROBE_LATEST_TXT = "backend_npu_attach_probe_latest.txt"
+    private const val BACKEND_NPU_ATTACH_PROBE_LATEST_MD = "backend_npu_attach_probe_latest.md"
+
+    fun runBackendNpuAttachProbe(
+        context: android.content.Context,
+        runId: String,
+        phase: String,
+        modelPath: String?,
+        engineConfigVariant: String?,
+        engineInitializeOptIn: Boolean,
+        engineInitializeDiagnosticFilesClearedBeforeRun: Boolean,
+    ) {
+        val normalizedRunId = sanitizeProbeRunId(runId.ifBlank { System.currentTimeMillis().toString() })
+        val normalizedPhase = normalizeBackendNpuAttachProbePhase(phase)
+        val normalizedVariant = normalizeEngineConfigVariant(engineConfigVariant)
+        val runEngineInitializeDryRun = BackendNpuAttachProbeReportFormatter.shouldRunEngineInitializeDryRun(
+            phase = normalizedPhase,
+            explicitOptIn = engineInitializeOptIn,
+        )
+        NpuEngineLogcatDiagnostics.i(
+            event = "backend_npu_attach_probe_start",
+            route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+            probeName = "backend_npu_attach_probe",
+            modelPath = modelPath,
+            backendRequested = "NPU",
+            maxOutputTokens = engineConfigMaxNumTokensForVariant(normalizedVariant).toIntOrNull(),
+            memorySnapshot = captureLocalMemorySnapshot(context.applicationContext, "backend_npu_attach_probe_start"),
+            detail = "run_id=$normalizedRunId phase=$normalizedPhase engine_initialize_dry_run=$runEngineInitializeDryRun engine_config_variant=$normalizedVariant",
+        )
+        try {
+        val snapshot = AcceleratorProbe.captureSnapshot(
+            context = context.applicationContext,
+            forceRefresh = true,
+            engineInitializeDryRunOptIn = runEngineInitializeDryRun,
+            engineInitializeDryRunModelPath = modelPath,
+            engineInitializeDryRunRunId = normalizedRunId,
+            engineConfigVariant = normalizedVariant,
+            engineInitializeDiagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
+        )
+        val applicationInfoNativeLibraryDir = context.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+        val hardResolvedNativeLibraryDir = snapshot.dispatchNativeLibraryDir?.takeIf { it.isNotBlank() }
+        val selectedNativeLibraryDir = applicationInfoNativeLibraryDir ?: hardResolvedNativeLibraryDir
+        val trimmedModelPath = modelPath?.trim()?.takeIf { it.isNotBlank() }
+        val request = BackendNpuAttachProbeReportRequest(
+            runId = normalizedRunId,
+            phase = normalizedPhase,
+            engineInitializeOptIn = runEngineInitializeDryRun,
+            processAliveAfterProbe = "alive-inside-app-before-script-pidof",
+            engineConfigVariant = normalizedVariant,
+            engineConfigCacheDir = engineConfigCacheDirForVariant(normalizedVariant, context),
+            engineConfigMaxNumTokens = engineConfigMaxNumTokensForVariant(normalizedVariant),
+            engineConfigMaxNumImages = engineConfigMaxNumImagesForVariant(normalizedVariant),
+            modelCanonicalPath = trimmedModelPath?.let { runCatching { java.io.File(it).canonicalPath }.getOrNull() }.orDashForProbe(),
+            modelPathVariant = modelPathVariantForProbe(trimmedModelPath, normalizedVariant),
+            nativeLibraryDirVariant = when {
+                selectedNativeLibraryDir == applicationInfoNativeLibraryDir -> "applicationInfo.nativeLibraryDir"
+                selectedNativeLibraryDir == hardResolvedNativeLibraryDir -> "hard-resolved-nativeLibraryDir"
+                else -> "-"
+            },
+            applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir.orDashForProbe(),
+            contextApplicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir.orDashForProbe(),
+            hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir.orDashForProbe(),
+        )
+        val txt = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
+        val md = BackendNpuAttachProbeReportFormatter.formatMarkdown(snapshot, request)
+        val txtFile = context.filesDir.resolve("backend_npu_attach_probe_${normalizedRunId}.txt")
+        val mdFile = context.filesDir.resolve("backend_npu_attach_probe_${normalizedRunId}.md")
+        txtFile.writeText(txt)
+        mdFile.writeText(md)
+        context.filesDir.resolve(BACKEND_NPU_ATTACH_PROBE_LATEST_TXT).writeText(txt)
+        context.filesDir.resolve(BACKEND_NPU_ATTACH_PROBE_LATEST_MD).writeText(md)
+        Log.i(
+            LOG_TAG,
+            "Backend.NPU attach probe written runId=$normalizedRunId phase=$normalizedPhase txt=${txtFile.absolutePath} md=${mdFile.absolutePath}",
+        )
+        NpuEngineLogcatDiagnostics.i(
+            event = "backend_npu_attach_probe_end",
+            route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+            probeName = "backend_npu_attach_probe",
+            modelPath = modelPath,
+            backendRequested = "NPU",
+            maxOutputTokens = request.engineConfigMaxNumTokens.toIntOrNull(),
+            detail = "run_id=$normalizedRunId phase=$normalizedPhase txt=${txtFile.absolutePath} md=${mdFile.absolutePath}",
+        )
+        } catch (throwable: Throwable) {
+            NpuEngineLogcatDiagnostics.e(
+                event = "backend_npu_attach_probe_failure",
+                route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+                throwable = throwable,
+                probeName = "backend_npu_attach_probe",
+                modelPath = modelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = engineConfigMaxNumTokensForVariant(normalizedVariant).toIntOrNull(),
+                memorySnapshot = captureLocalMemorySnapshot(context.applicationContext, "backend_npu_attach_probe_failure"),
+                detail = "run_id=$normalizedRunId phase=$normalizedPhase engine_initialize_dry_run=$runEngineInitializeDryRun",
+            )
+            throw throwable
+        }
+    }
 
     fun runAppJniSmokeOnly(
         context: android.content.Context,
@@ -314,6 +434,83 @@ internal object NpuExperimentProbeLogger {
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")
         }
     }
+
+    private fun normalizeBackendNpuAttachProbePhase(phase: String): String =
+        when (phase.trim().lowercase()) {
+            BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE,
+            "initialize",
+            "engine-init",
+            "engine_init",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE
+            BackendNpuAttachProbeReportFormatter.PHASE_CONVERSATION,
+            "conversation-create",
+            "conversation_create",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_CONVERSATION
+            BackendNpuAttachProbeReportFormatter.PHASE_ONE_TOKEN_DECODE,
+            "decode",
+            "one-token",
+            "one_token",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_ONE_TOKEN_DECODE
+            else -> BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY
+        }
+
+    private fun normalizeEngineConfigVariant(value: String?): String =
+        when (value?.trim()?.lowercase(java.util.Locale.US)) {
+            "cache-files" -> "cache-files"
+            "cache-cache" -> "cache-cache"
+            "max128" -> "max128"
+            "max32" -> "max32"
+            "backend-only" -> "backend-only"
+            "backend-null-modalities" -> "backend-null-modalities"
+            "gallery-like-cache" -> "gallery-like-cache"
+            "gallery-like-max128" -> "gallery-like-max128"
+            "gallery-like-all" -> "gallery-like-all"
+            "gallery-like-data-data-path" -> "gallery-like-data-data-path"
+            "gallery-like-canonical-path" -> "gallery-like-canonical-path"
+            else -> "default"
+        }
+
+    private fun engineConfigCacheDirForVariant(
+        variant: String,
+        context: android.content.Context,
+    ): String =
+        when (variant) {
+            "cache-files" -> context.filesDir.resolve("backend_npu_attach_probe_cache").absolutePath
+            "cache-cache" -> context.cacheDir.absolutePath
+            "gallery-like-cache", "gallery-like-all" -> context.cacheDir.absolutePath
+            else -> "null"
+        }
+
+    private fun engineConfigMaxNumTokensForVariant(variant: String): String =
+        when (variant) {
+            "max128" -> "128"
+            "max32" -> "32"
+            "gallery-like-max128", "gallery-like-all" -> "128"
+            else -> "null"
+        }
+
+    private fun engineConfigMaxNumImagesForVariant(variant: String): String =
+        when (variant) {
+            "gallery-like-all" -> "1"
+            else -> "null"
+        }
+
+    private fun modelPathVariantForProbe(modelPath: String?, engineConfigVariant: String): String =
+        when {
+            modelPath == null -> "-"
+            engineConfigVariant == "gallery-like-data-data-path" -> "gallery-like-data-data-path"
+            engineConfigVariant == "gallery-like-canonical-path" -> "gallery-like-canonical-path"
+            modelPath.startsWith("/data/user/0/") -> "/data/user/0"
+            modelPath.startsWith("/data/data/") -> "/data/data"
+            else -> "as-requested"
+        }
+
+    private fun String?.orDashForProbe(): String = this?.takeIf { it.isNotBlank() } ?: "-"
+
+    private fun sanitizeProbeRunId(value: String): String =
+        value.filter { it.isLetterOrDigit() || it == '_' || it == '-' }.ifBlank {
+            System.currentTimeMillis().toString()
+        }
 
     private const val LOG_TAG = "NpuExperimentProbe"
 }

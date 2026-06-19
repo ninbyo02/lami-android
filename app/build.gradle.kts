@@ -41,6 +41,11 @@ val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
+val liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion = "0.11.0"
+val liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion = "0.11.0"
+val liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion = "0.11.0"
+val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
 android {
@@ -67,6 +72,10 @@ android {
         buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
         buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
         buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+        buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+        buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+        buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+        buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
     }
 
@@ -79,6 +88,10 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("npuExperiment") {
@@ -90,6 +103,10 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
@@ -101,6 +118,85 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("galleryStackGpuProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gallerystackgpu"
+            versionNameSuffix = "-galleryStackGpuProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryStackGpuProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only Edge Gallery GPU stack probe staged in app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "true")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("gpuRuntimeAlignmentProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpualignment"
+            versionNameSuffix = "-gpuRuntimeAlignmentProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"gpuRuntimeAlignmentProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only GPU runtime alignment promotion candidate staged in app/src/gpuRuntimeAlignmentProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "true")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("standardGpuRuntimeMinimalProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpuminimalprobe"
+            versionNameSuffix = "-standardGpuRuntimeMinimalProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standardGpuRuntimeMinimalProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only minimal GPU runtime probe using LiteRT/LiteRT-LM core pair only; source set app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a is marker-only\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "true")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("standardGpuMinimalRuntimeCandidate") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpustandardminimal"
+            versionNameSuffix = "-standardGpuMinimalRuntimeCandidate"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standardGpuMinimalRuntimeCandidate\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only standard-like GPU minimal runtime candidate staged in app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "true")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("galleryAlignedNpuProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".galleryprobe"
+            versionNameSuffix = "-galleryAlignedNpuProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryAlignedNpuProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"debug-only Gallery-aligned SM8750 native stack staged in app/src/galleryAlignedNpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("customBuildExperiment") {
@@ -112,6 +208,10 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"custom LiteRT-LM v0.11.0 pinned-source native stack staged in app/src/customBuildExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
         }
     }
@@ -155,6 +255,23 @@ android {
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
         }
+        create("galleryStackGpuProbeDebug") {
+            jniLibs.srcDir("src/galleryStackGpuProbeDebug/jniLibs")
+        }
+        create("gpuRuntimeAlignmentProbeDebug") {
+            jniLibs.srcDir("src/gpuRuntimeAlignmentProbeDebug/jniLibs")
+        }
+        create("standardGpuRuntimeMinimalProbeDebug") {
+            jniLibs.srcDir("src/standardGpuRuntimeMinimalProbeDebug/jniLibs")
+        }
+        create("standardGpuMinimalRuntimeCandidateDebug") {
+            jniLibs.srcDir("src/standardGpuMinimalRuntimeCandidateDebug/jniLibs")
+        }
+        create("galleryAlignedNpuProbeDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/galleryAlignedNpuProbeDebug/jniLibs")
+        }
         create("customBuildExperimentDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             java.srcDir("src/customBuildExperimentDebug/java")
@@ -166,14 +283,36 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        if (variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate") {
+            listOf(
+                "**/libLiteRt.so",
+                "**/liblitertlm_jni.so",
+            ).forEach { pattern ->
+                variant.packaging.jniLibs.pickFirsts.add(pattern)
+            }
+            listOf(
+                "**/libLiteRtDispatch_Qualcomm.so",
+                "**/libLiteRtCompilerPlugin_Qualcomm.so",
+                "**/libGemmaModelConstraintProvider.so",
+                "**/libQnn*.so",
+                "**/libqnn_*.so",
+            ).forEach { pattern ->
+                variant.packaging.jniLibs.excludes.add(pattern)
+            }
+        }
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
+            variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
+            variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate" -> liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion
+            variant.buildType == "debug" && flavor == "standardGpuRuntimeMinimalProbe" -> liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion
+            variant.buildType == "debug" && flavor == "gpuRuntimeAlignmentProbe" -> liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion
+            variant.buildType == "debug" && flavor == "galleryStackGpuProbe" -> liteRtLmAndroidGalleryStackGpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
             variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
             variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
@@ -318,6 +457,54 @@ val qairt244StandardDebugMergedNativeLibDir =
     layout.buildDirectory.dir("intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a")
 val qairt244StandardDebugStrippedNativeLibDir =
     layout.buildDirectory.dir("intermediates/stripped_native_libs/standardDebug/stripStandardDebugDebugSymbols/out/lib/arm64-v8a")
+
+fun prepareQairt244StandardDebugBuildOutputForCopy(
+    outputFile: File,
+    allowedOutputRoots: List<File>,
+    taskName: String,
+) {
+    val canonicalOutput = outputFile.canonicalFile
+    val allowed = allowedOutputRoots.any { root ->
+        val canonicalRoot = root.canonicalFile
+        canonicalOutput == canonicalRoot || canonicalOutput.toPath().startsWith(canonicalRoot.toPath())
+    }
+    require(allowed) {
+        "$taskName refused to modify non-build output file: ${canonicalOutput.absolutePath}"
+    }
+    val parent = canonicalOutput.parentFile
+    parent?.mkdirs()
+    if (parent != null && parent.exists() && !parent.canWrite()) {
+        parent.setWritable(true, true)
+    }
+    if (canonicalOutput.exists()) {
+        if (!canonicalOutput.canWrite()) {
+            canonicalOutput.setWritable(true, true)
+        }
+        if (!canonicalOutput.delete()) {
+            throw GradleException(
+                "$taskName failed to delete stale native lib before overlay: ${canonicalOutput.absolutePath}",
+            )
+        }
+        logger.lifecycle("$taskName removed stale native lib before overlay: ${canonicalOutput.absolutePath}")
+    }
+}
+
+fun prepareQairt244StandardDebugBuildOutputsForCopy(
+    sourceDir: File,
+    outputDir: File,
+    allowedOutputRoots: List<File>,
+    taskName: String,
+) {
+    sourceDir
+        .listFiles { file -> file.isFile && file.extension == "so" }
+        ?.forEach { sourceFile ->
+            prepareQairt244StandardDebugBuildOutputForCopy(
+                outputFile = File(outputDir, sourceFile.name),
+                allowedOutputRoots = allowedOutputRoots,
+                taskName = taskName,
+            )
+        }
+}
 
 fun findAndroidNdkClang(): File? {
     val explicitNdk = listOfNotNull(
@@ -509,6 +696,12 @@ tasks.register("overlayQairt244StandardDebugNativeLibs") {
     doLast {
         val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         val outputDir = qairt244StandardDebugMergedNativeLibDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = sourceDir,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugMergedNativeLibDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(sourceDir) {
@@ -532,6 +725,12 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
 
     doLast {
         val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = qairt244StandardDebugNativeSourceDir.asFile,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugGeneratedJniOutputDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(qairt244StandardDebugNativeSourceDir) {
@@ -558,6 +757,12 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
     doLast {
         val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         val outputDir = qairt244StandardDebugStrippedNativeLibDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = sourceDir,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugStrippedNativeLibDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(sourceDir) {
@@ -573,9 +778,10 @@ tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
 }
 
 tasks.matching {
-    it.name == "mergeStandardDebugJniLibFolders" ||
+        it.name == "mergeStandardDebugJniLibFolders" ||
         it.name == "mergeNpuExperimentDebugJniLibFolders" ||
         it.name == "mergeGalleryStackExperimentDebugJniLibFolders" ||
+        it.name == "mergeGalleryAlignedNpuProbeDebugJniLibFolders" ||
         it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
@@ -599,6 +805,44 @@ tasks.matching {
 
 tasks.matching { it.name == "packageStandardDebug" }.configureEach {
     dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+}
+
+tasks.register("dumpStandardDebugApkNativeLibs") {
+    group = "verification"
+    description = "Dumps final standardDebug APK arm64-v8a native libraries with size, sha256, and likely source."
+    dependsOn("assembleStandardDebug")
+
+    doLast {
+        exec {
+            commandLine(
+                "bash",
+                rootProject.file("scripts/dump_standard_debug_apk_native_libs.sh").absolutePath,
+                layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+tasks.register("compareStandardDebugApkNativeLibsWithEdgeGallery") {
+    group = "verification"
+    description = "Compares Edge Gallery APK arm64-v8a native libraries with LAMI standardDebug."
+    dependsOn("assembleStandardDebug")
+
+    doLast {
+        val edgeGalleryApk = providers.gradleProperty("edgeGalleryApk").orNull
+            ?: System.getenv("EDGE_GALLERY_APK")?.trim()
+        require(!edgeGalleryApk.isNullOrBlank()) {
+            "Set -PedgeGalleryApk=/path/to/gallery.apk or EDGE_GALLERY_APK=/path/to/gallery.apk"
+        }
+        exec {
+            commandLine(
+                "bash",
+                rootProject.file("scripts/compare_edge_gallery_lami_apk_native_libs.sh").absolutePath,
+                edgeGalleryApk,
+                layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath,
+            )
+        }
+    }
 }
 
 afterEvaluate {
@@ -707,6 +951,11 @@ dependencies {
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
+    add("galleryStackGpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackGpuProbeDebugVersion")
+    add("gpuRuntimeAlignmentProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion")
+    add("standardGpuRuntimeMinimalProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion")
+    add("standardGpuMinimalRuntimeCandidateImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion")
+    add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")

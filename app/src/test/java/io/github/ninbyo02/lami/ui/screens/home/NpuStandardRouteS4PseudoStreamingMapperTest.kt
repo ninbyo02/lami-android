@@ -116,6 +116,41 @@ class NpuStandardRouteS4PseudoStreamingMapperTest {
         assertEquals(finalizedMarkdown, candidate.chunks.last())
     }
 
+    @Test
+    fun `markdown bullet list chunks preserve newline boundaries and final text`() {
+        val finalizedMarkdown = "- 箇条書きの項目1\n- 箇条書きの項目2\n- 箇条書きの項目3"
+        val candidate = requireNotNull(
+            NpuStandardRouteS4PseudoStreamingMapper.map(
+                s1Result = successResult(),
+                finalText = finalizedMarkdown,
+            ).pseudoStreamingCandidate,
+        )
+
+        assertEquals(finalizedMarkdown, candidate.finalText)
+        assertEquals(finalizedMarkdown, candidate.chunks.last())
+        assertTrue(candidate.chunks.zipWithNext().all { (previous, next) -> next.startsWith(previous) })
+        assertTrue(candidate.chunks.last().contains("\n- 箇条書きの項目2\n- 箇条書きの項目3"))
+    }
+
+    @Test
+    fun `S4A saved result marks DB markdown and pseudo streaming connected only`() {
+        val result = buildNpuStandardRouteS4APseudoStreamingSavedResult(
+            s1Result = successResult(),
+            finalText = "# 見出し\n\n- 項目1\n- 項目2",
+        )
+
+        assertEquals(NpuStandardRouteS4PseudoStreamingContract.ROUTE_TYPE, result.selection.routeType)
+        assertTrue(result.displayText.contains("route_type=standard_chat_screen_s4a_npu_pseudo_streaming"))
+        assertTrue(result.displayText.contains("db=true"))
+        assertTrue(result.displayText.contains("conversation_history_saved=true"))
+        assertTrue(result.displayText.contains("markdown=true"))
+        assertTrue(result.displayText.contains("streaming=true"))
+        assertTrue(result.displayText.contains("tts=false"))
+        assertTrue(result.displayText.contains("fallback_used=false"))
+        assertTrue(result.displayText.contains("fresh_crash=false"))
+        assertTrue(result.displayText.contains("timeout=false"))
+    }
+
     private fun successResult(
         fallbackUsed: Boolean = false,
     ): NpuStandardRouteS1Result = NpuStandardRouteS1Result(

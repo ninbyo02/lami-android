@@ -2,12 +2,17 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.app.Activity
 import android.os.Bundle
+import android.util.Log
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationMatrix
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
+import io.github.ninbyo02.lami.npu.DevOnlyNpuPromptTemplateMatrix
+import io.github.ninbyo02.lami.npu.DevOnlyNpuPromptTemplateMatrixEntry
 import java.io.File
 import kotlinx.coroutines.runBlocking
 
@@ -30,14 +35,30 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 )
             }
         }
+        val promptTemplateMatrixButton = Button(this).apply {
+            text = "Run dev-only NPU prompt template matrix"
+            setOnClickListener {
+                triggerDevOnlyPromptTemplateMatrixRun(outputView)
+            }
+        }
         setContentView(
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(runButton)
+                addView(promptTemplateMatrixButton)
                 addView(outputView)
             },
         )
-        if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN, false) == true) {
+        if (
+            intent?.getBooleanExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_PROMPT_TEMPLATE_MATRIX,
+                false,
+            ) == true
+        ) {
+            triggerDevOnlyPromptTemplateMatrixRun(outputView)
+        } else if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_MATRIX, false) == true) {
+            triggerDevOnlyMatrixRun(outputView)
+        } else if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN, false) == true) {
             triggerDevOnlyRun(
                 outputView = outputView,
                 trigger = "activity_auto_run",
@@ -126,6 +147,93 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         }, "Qairt244DevOnlyNpuConversation").start()
     }
 
+    private fun triggerDevOnlyMatrixRun(
+        outputView: TextView,
+    ) {
+        if (runStarted) return
+        runStarted = true
+        val request = currentRequest()
+        outputView.text = "DEV ONLY NPU ONE TURN MATRIX\nstatus=starting"
+        Thread({
+            runOnUiThread {
+                outputView.text = "DEV ONLY NPU ONE TURN MATRIX\nstatus=running"
+            }
+            val resultFile = File(
+                applicationContext.filesDir,
+                DevOnlyNpuOneTurnConversationContract.MATRIX_RESULT_FILE_NAME,
+            )
+            val text = try {
+                resultFile.writeText(
+                    DevOnlyNpuOneTurnConversationMatrix.buildHeader(
+                        baseRequest = request,
+                        status = "running",
+                    ).joinToString(separator = "\n", postfix = "\n"),
+                )
+                runBlocking {
+                    DevOnlyNpuOneTurnConversationMatrix.run(
+                        entry = DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity),
+                        baseRequest = request,
+                    )
+                }
+            } catch (throwable: Throwable) {
+                DevOnlyNpuOneTurnConversationMatrix.failureText(
+                    reason = "activity_matrix_failure",
+                    throwable = throwable,
+                    baseRequest = request,
+                )
+            }
+            resultFile.writeText(text)
+            runOnUiThread {
+                outputView.text = text
+            }
+        }, "Qairt244DevOnlyNpuConversationMatrix").start()
+    }
+
+    private fun triggerDevOnlyPromptTemplateMatrixRun(
+        outputView: TextView,
+    ) {
+        if (runStarted) return
+        runStarted = true
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        outputView.text = "DEV ONLY NPU PROMPT TEMPLATE MATRIX\nstatus=starting"
+        Log.i(TAG, "prompt_template_matrix status=starting")
+        Thread({
+            runOnUiThread {
+                outputView.text = "DEV ONLY NPU PROMPT TEMPLATE MATRIX\nstatus=running"
+            }
+            Log.i(TAG, "prompt_template_matrix status=running")
+            val appContext = applicationContext
+            val resultFile = File(
+                appContext.filesDir,
+                DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME,
+            )
+            val text = try {
+                runBlocking {
+                    DevOnlyNpuPromptTemplateMatrixEntry(appContext).run()
+                }
+            } catch (throwable: Throwable) {
+                Log.i(
+                    TAG,
+                    "prompt_template_matrix status=failed exception=${throwable.javaClass.simpleName}",
+                )
+                DevOnlyNpuPromptTemplateMatrix.buildHeader(status = "failure")
+                    .plus(
+                        listOf(
+                            "reason=activity_prompt_template_matrix_failure:${throwable.javaClass.simpleName}",
+                            "message_preview=${throwable.message.orEmpty().take(32)}",
+                        ),
+                    )
+                    .joinToString(separator = "\n", postfix = "\n")
+            }
+            resultFile.writeText(text)
+            Log.i(TAG, "prompt_template_matrix status=finished result_file=${resultFile.name}")
+            runOnUiThread {
+                outputView.text = text
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }, "Qairt244DevOnlyNpuPromptTemplateMatrix").start()
+    }
+
     private fun writeFailureResultFile(
         resultFile: File,
         throwable: Throwable,
@@ -187,5 +295,9 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 ),
             ),
         )
+    }
+
+    private companion object {
+        private const val TAG = "DevOnlyNpuConversation"
     }
 }

@@ -8,6 +8,32 @@ This note tracks the current Qualcomm LiteRT-LM NPU readiness state for Lami.
 - Current readiness is `blocked-dispatch-api-so-missing`.
 - Lami must keep `selected path: gpu` and `NPU apply status: disabled / blocked` until the dispatch API `.so` is present and a CLI proof passes.
 
+## Phase 11 Focus After GPU Investigation
+
+GPU investigation is closed for now as experimental/diagnostics-only:
+
+- Lami minimal GPU can invoke but still corrupts long output at raw callback
+  source.
+- The GPU classifier decision is
+  `GPU_PROMOTION_DECISION=blocked`.
+- The blocker reason is
+  `raw_callback_corruption_and_public_api_gap`.
+- CPU route is restored and remains the stable usable local inference route.
+
+Development focus should return to the NPU safety/promotion track:
+
+- Keep GPU probes for diagnostics only.
+- Keep CPU as stable fallback / usable route.
+- Continue NPU through the existing minimum safe route and standard promotion
+  gates.
+- Use `docs/npu_return_to_standard_route_plan.md` as the current return-to-NPU
+  summary and implementation planning index.
+- Reuse the GPU investigation patterns where helpful: focused copy keys,
+  compact diagnostics, report generation, artifact summaries, and explicit
+  promotion blockers.
+- Do not use GPU callback repair or hidden executor hacks as a shortcut around
+  the NPU plan.
+
 ## Evidence from Lami runtime diagnostics
 
 - External QAIRT GPU diagnostics are passed.

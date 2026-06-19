@@ -35,7 +35,7 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
     }
 
     suspend fun refreshActiveBaseUrl() {
-        val activeUrl = getActiveOrFirst()?.url ?: DEFAULT_BASE_URL
+        val activeUrl = getActiveOrFirst()?.url.orEmpty()
         updateActiveBaseUrl(activeUrl)
     }
 
@@ -44,8 +44,7 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
     }
 
     private companion object {
-        const val DEFAULT_BASE_URL = "http://localhost:13511/"
-        val activeBaseUrlState = MutableStateFlow(DEFAULT_BASE_URL.trimEnd('/'))
+        val activeBaseUrlState = MutableStateFlow("")
         val activeBaseUrlFlow: StateFlow<String> = activeBaseUrlState.asStateFlow()
     }
 }

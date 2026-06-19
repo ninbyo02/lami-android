@@ -16,6 +16,8 @@ import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import io.github.ninbyo02.lami.data.normalize
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
@@ -317,6 +319,7 @@ enum class SpriteState {
 
 class SettingsPreferences(private val context: Context) {
 
+    private val npuStandardRoutePreferences = NpuStandardRoutePreferences(context.dataStore)
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
     private val characterAnimationEnabledKey = booleanPreferencesKey("character_animation_enabled")
@@ -380,6 +383,7 @@ class SettingsPreferences(private val context: Context) {
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
+    private val npuStandardRouteSelectionSourceKey = stringPreferencesKey("npu_standard_route_selection_source")
     private val hiddenQairt244PromptTemplateModeKey = stringPreferencesKey("hidden_qairt244_prompt_template_mode")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
@@ -450,6 +454,15 @@ class SettingsPreferences(private val context: Context) {
                 BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                     (preferences[devEnableNpuChatScreenRouteKey] ?: false),
             devEnableQairt244Sm8750NpuRoute = isQairt244Sm8750NpuRouteEnabled(preferences),
+            npuStandardRouteMode = NpuStandardRoutePreferences.fromDataStoreValue(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            ),
+            npuStandardRouteSelectionSource = NpuStandardRouteSelectionSource.fromStorage(
+                preferences[npuStandardRouteSelectionSourceKey],
+            ),
+            npuStandardRouteMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteMaxOutputTokensKey],
+            ),
             hiddenQairt244PromptTemplateMode = resolveHiddenQairt244PromptTemplateMode(preferences),
         )
     }
@@ -555,6 +568,11 @@ class SettingsPreferences(private val context: Context) {
         PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey])
     }
 
+    val npuStandardRouteSelectionSourceFlow: Flow<NpuStandardRouteSelectionSource> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRouteSelectionSource.fromStorage(preferences[npuStandardRouteSelectionSourceKey])
+        }
+
     val markdownStreamingModeFlow: Flow<MarkdownStreamingMode> = context.dataStore.data.map { preferences ->
         resolveEffectiveMarkdownStreamingMode(
             storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
@@ -579,6 +597,20 @@ class SettingsPreferences(private val context: Context) {
     val hiddenQairt244PromptTemplateModeFlow: Flow<HiddenQairt244PromptTemplateMode> =
         context.dataStore.data.map { preferences ->
             resolveHiddenQairt244PromptTemplateMode(preferences)
+        }
+
+    val npuStandardRouteModeFlow: Flow<NpuStandardRouteMode> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRoutePreferences.fromDataStoreValue(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            )
+        }
+
+    val npuStandardRouteMaxOutputTokensFlow: Flow<Int> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteMaxOutputTokensKey],
+            )
         }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -800,6 +832,16 @@ class SettingsPreferences(private val context: Context) {
     suspend fun savePreferredBackendDryRunSetting(setting: PreferredBackendDryRunSetting) {
         context.dataStore.edit { preferences ->
             preferences[preferredBackendDryRunKey] = setting.name
+            preferences[npuStandardRouteSelectionSourceKey] = NpuStandardRouteSelectionSource.LOCAL_BACKEND.name
+        }
+    }
+
+    suspend fun saveInferenceBackendSelection(selection: InferenceBackendSelection) {
+        context.dataStore.edit { preferences ->
+            preferences[preferredBackendDryRunKey] = selection.preferredBackend.name
+            preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey] = selection.npuStandardRouteMode.name
+            preferences[npuStandardRouteSelectionSourceKey] =
+                NpuStandardRouteSelectionSource.forSelection(selection).name
         }
     }
 
@@ -838,6 +880,14 @@ class SettingsPreferences(private val context: Context) {
                 preferences[hiddenQairt244PromptTemplateModeKey] = HiddenQairt244PromptTemplateMode.RAW.storageValue
             }
         }
+    }
+
+    suspend fun saveNpuStandardRouteMode(mode: NpuStandardRouteMode) {
+        npuStandardRoutePreferences.setMode(mode)
+    }
+
+    suspend fun saveNpuStandardRouteMaxOutputTokens(maxOutputTokens: Int) {
+        npuStandardRoutePreferences.setMaxOutputTokens(maxOutputTokens)
     }
 
     private fun isQairt244Sm8750NpuRouteEnabled(preferences: Preferences): Boolean =

@@ -6,6 +6,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
@@ -480,6 +481,76 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes memory recovery check in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                status = MEMORY_RECOVERY_STATUS_COMPLETED,
+                startedAtMs = 1234L,
+                snapshots = listOf(
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_CURRENT,
+                        totalPssMb = 300,
+                        nativeHeapPssMb = 100,
+                        nativeHeapAllocatedMb = 24,
+                        dalvikHeapPssMb = 50,
+                        availableSystemMemoryMb = 1000,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S,
+                        totalPssMb = 292,
+                        nativeHeapPssMb = 86,
+                        nativeHeapAllocatedMb = 23,
+                        dalvikHeapPssMb = 49,
+                        availableSystemMemoryMb = 1012,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S,
+                        totalPssMb = 280,
+                        nativeHeapPssMb = 70,
+                        nativeHeapAllocatedMb = 22,
+                        dalvikHeapPssMb = 48,
+                        availableSystemMemoryMb = 1024,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S,
+                        totalPssMb = 276,
+                        nativeHeapPssMb = 66,
+                        nativeHeapAllocatedMb = 22,
+                        dalvikHeapPssMb = 48,
+                        availableSystemMemoryMb = 1030,
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: App/System memory recovery check]"))
+        assertTrue(text.contains("recovery_check_status=completed"))
+        assertTrue(text.contains("recovery_check_started_at_ms=1234"))
+        assertTrue(text.contains("measurement_note=api_derived_approximate_may_not_match_adb_dumpsys_meminfo"))
+        assertTrue(text.contains("adb_compare_hint=compare_with_adb_shell_dumpsys_meminfo_package"))
+        assertTrue(text.contains("ui_note="))
+        assertTrue(text.contains("memory_stage=memory_recovery_current"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_1s"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_3s"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_5s"))
+        assertTrue(text.contains("[DEV診断: App/System memory recovery delta]"))
+        assertTrue(text.contains("delta_from_stage=memory_recovery_current"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_1s"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_3s"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_5s"))
+        assertTrue(text.contains("total_pss_delta_mb=-8"))
+        assertTrue(text.contains("native_heap_pss_delta_mb=-14"))
+        assertTrue(text.contains("native_heap_alloc_delta_mb=-1"))
+        assertTrue(text.contains("dalvik_heap_pss_delta_mb=-1"))
+        assertTrue(text.contains("system_available_memory_delta_mb=+12"))
+        assertTrue(!text.contains("NPU memory"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),
@@ -490,6 +561,265 @@ class InferenceStatsSheetContentTest {
 
         assertTrue(text.contains("—"))
     }
+
+    @Test
+    fun `buildGpuDiagnosticKeysCopyText includes executor internal surface and quality keys`() {
+        val traceText = """
+            LOCAL_ROUTE_DIAG preferred_backend=GPU selected_model_name=gemma selected_model_file=gemma.litertlm gpu_output_quality_matrix_mode=edge_gallery_executor_probe edge_gallery_executor_probe_result=same_sampler_different_executor edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected edge_gallery_generate_api_candidate=generateResponse executor_selection_fingerprint=exec runtime_backend_fingerprint=backend runtime_executor_fingerprint=runtime runtime_dispatch_fingerprint=dispatch runtime_compiled_model_fingerprint=compiled engine_config_fingerprint=engine conversation_config_fingerprint=conversation sampler_config_fingerprint=sampler gpu_internal_surface_probe_enabled=true gpu_internal_surface_probe_result=completed gpu_internal_surface_probe_disabled_reason=none gpu_output_quality_candidate_result=quality_candidate_fail gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_output_quality_summary=runtime_callback_source_corruption_suspected gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_source_corruption_stage=raw_callback callback_corruption_earliest_stage=raw_callback callback_quality_classification=severe_fragmentation gpu_fragmentation_score=0.816 gpu_output_suspicious_fragment_detected=true gpu_output_suspicious_fragment_reason=many_tiny_fragments gpu_callback_invoked_count=323 gpu_callback_empty_text_count=13 gpu_callback_non_empty_text_count=310 gpu_output_callback_chunk_count=323 gpu_output_raw_callback_text_head=head gpu_output_raw_callback_text_tail=tail gpu_output_final_assistant_text_head=final_head gpu_output_final_assistant_text_tail=final_tail gpu_perf_engine_acquire_elapsed_ms=10 gpu_perf_engine_create_or_reuse=reuse gpu_perf_generate_to_first_token_ms=300 gpu_perf_callback_total_elapsed_ms=1200 gpu_perf_slow_path_detected=false gpu_perf_slow_path_reason=none
+        """.trimIndent()
+        val text = buildGpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
+        )
+
+        assertTrue(text.startsWith("[GPU diagnostic keys]"))
+        assertTrue(text.contains("selected_backend=GPU"))
+        assertTrue(text.contains("requested_backend=GPU"))
+        assertTrue(text.contains("effective_backend=GPU"))
+        assertTrue(text.contains("route_family=local_gpu"))
+        assertTrue(text.contains("backend_evidence=gpu_route"))
+        assertTrue(text.contains("edge_gallery_executor_probe_result=same_sampler_different_executor"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=true"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=completed"))
+        assertTrue(text.contains("gpu_output_quality_promotion_blocker=true"))
+        assertTrue(text.contains("gpu_sampler_root_cause_candidate=runtime_decode_fragmentation"))
+        assertTrue(text.contains("gpu_output_raw_callback_text_tail=tail"))
+    }
+
+    @Test
+    fun `buildGpuDiagnosticKeysCopyText uses unavailable for missing keys and is CPU safe`() {
+        val text = buildGpuDiagnosticKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=CPU
+                    requested_backend=CPU
+                    effective_backend=CPU
+                    route_family=local_cpu
+                    backend_evidence=cpu_route
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.contains("selected_backend=CPU"))
+        assertTrue(text.contains("route_family=local_cpu"))
+        assertTrue(text.contains("edge_gallery_executor_probe_result=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=unavailable"))
+        assertTrue(text.contains("gpu_output_quality_promotion_blocker=unavailable"))
+    }
+
+    @Test
+    fun `buildGpuInternalSurfaceKeysCopyText only includes internal surface keys`() {
+        val text = buildGpuInternalSurfaceKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    gpu_internal_surface_probe_enabled=true
+                    gpu_internal_surface_probe_result=completed_with_missing_symbols
+                    gpu_internal_surface_probe_disabled_reason=none
+                    gpu_internal_runtime_config_class_present=false
+                    gpu_internal_backend_constraint_class_present=true
+                    gpu_internal_preferred_engine_type_class_present=false
+                    gpu_internal_gpu_options_class_present=true
+                    gpu_internal_artisan_class_present=false
+                    gpu_internal_llm_gpu_artisan_executor_symbol_present=true
+                    gpu_internal_kv_cache_symbol_present=true
+                    gpu_internal_runtime_config_methods=builder,setBackend
+                    gpu_internal_backend_constraint_methods=matchGpu
+                    gpu_internal_gpu_options_methods=createFromToml
+                    gpu_internal_probe_exception_class=none
+                    gpu_internal_probe_exception_message=none
+                    edge_gallery_executor_probe_result=same_sampler_different_executor
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[GPU internal surface keys]"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=true"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=completed_with_missing_symbols"))
+        assertTrue(text.contains("gpu_internal_surface_probe_disabled_reason=none"))
+        assertTrue(text.contains("gpu_internal_runtime_config_class_present=false"))
+        assertTrue(text.contains("gpu_internal_backend_constraint_class_present=true"))
+        assertTrue(text.contains("gpu_internal_preferred_engine_type_class_present=false"))
+        assertTrue(text.contains("gpu_internal_gpu_options_class_present=true"))
+        assertTrue(text.contains("gpu_internal_artisan_class_present=false"))
+        assertTrue(text.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=true"))
+        assertTrue(text.contains("gpu_internal_kv_cache_symbol_present=true"))
+        assertTrue(text.contains("gpu_internal_runtime_config_methods=builder,setBackend"))
+        assertTrue(text.contains("gpu_internal_backend_constraint_methods=matchGpu"))
+        assertTrue(text.contains("gpu_internal_gpu_options_methods=createFromToml"))
+        assertTrue(text.contains("gpu_internal_probe_exception_class=none"))
+        assertTrue(text.contains("gpu_internal_probe_exception_message=none"))
+        assertFalse(text.contains("edge_gallery_executor_probe_result="))
+    }
+
+    @Test
+    fun `buildGpuInternalSurfaceKeysCopyText keeps stable unavailable shape for missing keys`() {
+        val text = buildGpuInternalSurfaceKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=CPU
+                    route_family=local_cpu
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[GPU internal surface keys]"))
+        assertTrue(text.contains("gpu_internal_surface_probe_enabled=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_result=unavailable"))
+        assertTrue(text.contains("gpu_internal_surface_probe_disabled_reason=unavailable"))
+        assertTrue(text.contains("gpu_internal_runtime_config_class_present=unavailable"))
+        assertTrue(text.contains("gpu_internal_llm_gpu_artisan_executor_symbol_present=unavailable"))
+        assertTrue(text.contains("gpu_internal_probe_exception_message=unavailable"))
+    }
+
+    @Test
+    fun `buildNpuDiagnosticKeysCopyText includes NPU promotion gate keys`() {
+        val traceText = """
+            status=success reason=success selected_backend=NPU requested_backend=NPU effective_backend=NPU route_family=standard_chat_screen_s5_npu_tts backend_evidence=QNN_HTP_V79_FastRPC npu_backend_evidence=QNN_HTP_V79_FastRPC fallback_used=false fresh_crash=false timeout=false selected_path_npu_saved=true normal_ui_route_connected=true standard_route_connected=true npu_standard_route_dev_gate_enabled=true npu_standard_route_phase=1 npu_standard_route_phase_name=1_route_entry_diagnostic npu_standard_route_connected=true npu_standard_route_quality_gate_passed=unavailable npu_standard_route_output_suppressed=false npu_standard_route_suppression_reason=none npu_standard_route_generate_diagnostic_only=false npu_standard_route_output_delivery_allowed=false npu_standard_route_candidate_text_present=true npu_standard_route_ui_append_allowed=false npu_standard_route_ui_append_source=not_allowed_before_phase4 npu_standard_route_ui_appended_text_length=0 npu_standard_route_ui_append_block_reason=phase_not_ui_append npu_standard_route_ui_append_executed=false npu_standard_route_ui_append_visible_candidate=false npu_standard_route_ui_append_target=none npu_standard_route_ui_append_failure_reason=phase_not_ui_append npu_standard_route_tts_allowed=false npu_standard_route_tts_source=not_allowed_before_phase5 npu_standard_route_tts_text_length=0 npu_standard_route_tts_block_reason=phase_not_tts npu_standard_route_tts_requested=false npu_standard_route_tts_started=false npu_standard_route_tts_execution_block_reason=phase_not_tts npu_standard_route_db_save_allowed=false npu_standard_route_markdown_allowed=false npu_standard_route_streaming_allowed=false npu_standard_route_output_delivery_executed=false npu_standard_route_delivery_path=phase_gate_suppressed npu_standard_route_rollback_required=false npu_standard_route_rollback_reason=none conversation_created=false generate_response=false quality_classification=natural_japanese db=true tts=true markdown=true streaming=true cleanup_status=success engine_close_evidence=present fresh_tombstone_status=none
+        """.trimIndent()
+        val text = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
+        )
+
+        assertTrue(text.startsWith("[NPU diagnostic keys]"))
+        assertTrue(text.contains("status=success"))
+        assertTrue(text.contains("reason=success"))
+        assertTrue(text.contains("selected_backend=NPU"))
+        assertTrue(text.contains("route_family=standard_chat_screen_s5_npu_tts"))
+        assertTrue(text.contains("backend_evidence=QNN_HTP_V79_FastRPC"))
+        assertTrue(text.contains("npu_backend_evidence=QNN_HTP_V79_FastRPC"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("fresh_crash=false"))
+        assertTrue(text.contains("timeout=false"))
+        assertTrue(text.contains("standard_route_connected=true"))
+        assertTrue(text.contains("npu_standard_route_dev_gate_enabled=true"))
+        assertTrue(text.contains("npu_standard_route_phase=1"))
+        assertTrue(text.contains("npu_standard_route_phase_name=1_route_entry_diagnostic"))
+        assertTrue(text.contains("npu_standard_route_connected=true"))
+        assertTrue(text.contains("npu_standard_route_output_suppressed=false"))
+        assertTrue(text.contains("npu_standard_route_generate_diagnostic_only=false"))
+        assertTrue(text.contains("npu_standard_route_output_delivery_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_candidate_text_present=true"))
+        assertTrue(text.contains("npu_standard_route_ui_append_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_ui_append_source=not_allowed_before_phase4"))
+        assertTrue(text.contains("npu_standard_route_ui_appended_text_length=0"))
+        assertTrue(text.contains("npu_standard_route_ui_append_block_reason=phase_not_ui_append"))
+        assertTrue(text.contains("npu_standard_route_ui_append_executed=false"))
+        assertTrue(text.contains("npu_standard_route_ui_append_visible_candidate=false"))
+        assertTrue(text.contains("npu_standard_route_ui_append_target=none"))
+        assertTrue(text.contains("npu_standard_route_ui_append_failure_reason=phase_not_ui_append"))
+        assertTrue(text.contains("npu_standard_route_tts_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_tts_source=not_allowed_before_phase5"))
+        assertTrue(text.contains("npu_standard_route_tts_text_length=0"))
+        assertTrue(text.contains("npu_standard_route_tts_block_reason=phase_not_tts"))
+        assertTrue(text.contains("npu_standard_route_tts_requested=false"))
+        assertTrue(text.contains("npu_standard_route_tts_started=false"))
+        assertTrue(text.contains("npu_standard_route_tts_execution_block_reason=phase_not_tts"))
+        assertTrue(text.contains("npu_standard_route_db_save_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_db_save_executed=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_save_target=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_saved_text_length=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_assistant_id_present=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_save_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_message_replaced_transient=unavailable"))
+        assertTrue(text.contains("npu_standard_route_db_conversation_id_present=unavailable"))
+        assertTrue(text.contains("npu_standard_route_markdown_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_markdown_executed=unavailable"))
+        assertTrue(text.contains("npu_standard_route_markdown_mode=unavailable"))
+        assertTrue(text.contains("npu_standard_route_markdown_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_allowed=false"))
+        assertTrue(text.contains("npu_standard_route_streaming_executed=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_mode=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_source=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_chunk_count=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_final_text_length=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_native_streaming_used=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_text_matches_db=unavailable"))
+        assertTrue(text.contains("npu_standard_route_streaming_text_matches_markdown=unavailable"))
+        assertTrue(text.contains("npu_standard_route_output_delivery_executed=false"))
+        assertTrue(text.contains("npu_standard_route_delivery_path=phase_gate_suppressed"))
+        assertTrue(text.contains("npu_standard_route_rollback_required=false"))
+        assertTrue(text.contains("quality_classification=natural_japanese"))
+        assertTrue(text.contains("cleanup_status=success"))
+        assertTrue(text.contains("engine_close_evidence=present"))
+    }
+
+    @Test
+    fun `buildNpuDiagnosticKeysCopyText uses unavailable for missing keys and is GPU safe`() {
+        val text = buildNpuDiagnosticKeysCopyText(
+            stats = InferenceStats(
+                localSourceSummary = """
+                    selected_backend=GPU
+                    requested_backend=GPU
+                    effective_backend=GPU
+                    route_family=local_gpu
+                    backend_evidence=gpu_route
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(text.startsWith("[NPU diagnostic keys]"))
+        assertTrue(text.contains("selected_backend=GPU"))
+        assertTrue(text.contains("fallback_used=unavailable"))
+        assertTrue(text.contains("standard_route_connected=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_source=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_executed=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_visible_candidate=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_target=unavailable"))
+        assertTrue(text.contains("npu_standard_route_ui_append_failure_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_tts_source=unavailable"))
+        assertTrue(text.contains("npu_standard_route_tts_block_reason=unavailable"))
+        assertTrue(text.contains("npu_standard_route_tts_started=unavailable"))
+        assertTrue(text.contains("npu_standard_route_output_delivery_executed=unavailable"))
+        assertTrue(text.contains("quality_classification=unavailable"))
+        assertTrue(text.contains("fresh_tombstone_status=unavailable"))
+    }
+
+    @Test
+    fun `route diagnostic copy button labels remain distinct`() {
+        assertEquals("GPU診断キーをコピー", GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+        assertEquals("GPU内部surfaceキーをコピー", GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+        assertEquals("NPU診断キーをコピー", NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL, GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL, NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+        assertNotEquals(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL, NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+    }
+
+    private fun memorySnapshot(
+        stage: String,
+        totalPssMb: Long?,
+        nativeHeapPssMb: Long?,
+        nativeHeapAllocatedMb: Long?,
+        dalvikHeapPssMb: Long?,
+        availableSystemMemoryMb: Long?,
+    ): MemorySnapshot = MemorySnapshot(
+        timestampMs = 1L,
+        stage = stage,
+        javaHeapUsedMb = 1L,
+        javaHeapMaxMb = 2L,
+        totalRssMb = null,
+        totalSwapPssMb = null,
+        nativeHeapPssMb = nativeHeapPssMb,
+        nativeHeapRssMb = null,
+        nativeHeapAllocatedMb = nativeHeapAllocatedMb,
+        nativeHeapSizeMb = 4L,
+        dalvikHeapPssMb = dalvikHeapPssMb,
+        dalvikHeapRssMb = null,
+        dalvikHeapAllocatedMb = 1L,
+        dalvikHeapSizeMb = 2L,
+        totalPssMb = totalPssMb,
+        privateDirtyMb = 1L,
+        privateCleanMb = 1L,
+        graphicsPssMb = null,
+        stackPssMb = null,
+        codePssMb = null,
+        systemPssMb = null,
+        unknownPssMb = null,
+        availableSystemMemoryMb = availableSystemMemoryMb,
+        systemMemoryThresholdMb = 9L,
+        lowMemory = false,
+        threadName = "test",
+    )
 
 
     @Test
@@ -898,6 +1228,56 @@ class InferenceStatsSheetContentTest {
         assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
         assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks Generic LiteRT-LM CPU as stable baseline`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                requestedPreferredBackend = "CPU",
+                appliedPreferredBackend = "CPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.CPU,
+        )
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("CPU stable baseline", summarySection.items.first { it.label == "実行基準" }.value)
+        assertEquals("generic-litertlm", summarySection.items.first { it.label == "model_kind" }.value)
+        assertEquals("CPU", summarySection.items.first { it.label == "preferred_backend" }.value)
+        assertEquals("cpu_stable_baseline", summarySection.items.first { it.label == "baseline_role" }.value)
+        assertEquals("true", summarySection.items.first { it.label == "generic_model_cpu_baseline" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks Generic LiteRT-LM GPU as experimental baseline`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("GPU experimental", summarySection.items.first { it.label == "実行基準" }.value)
+        assertEquals("generic-litertlm", summarySection.items.first { it.label == "model_kind" }.value)
+        assertEquals("GPU", summarySection.items.first { it.label == "preferred_backend" }.value)
+        assertEquals("gpu_experimental", summarySection.items.first { it.label == "baseline_role" }.value)
+        assertEquals("false", summarySection.items.first { it.label == "generic_model_cpu_baseline" }.value)
+        assertEquals(
+            "GPU初期化で停止する場合はCPUを選択してください",
+            summarySection.items.first { it.label == "注意" }.value,
+        )
     }
 
     @Test

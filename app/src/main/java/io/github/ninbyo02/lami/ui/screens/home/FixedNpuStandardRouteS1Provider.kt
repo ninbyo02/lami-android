@@ -1,7 +1,11 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 internal class FixedNpuStandardRouteS1Provider : NpuStandardRouteS1Provider {
-    override fun invoke(): NpuStandardRouteS1RawResult =
+    override fun invoke(
+        userPrompt: String,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult =
         NpuStandardRouteS1RawResult(
             status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
             result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
@@ -15,8 +19,8 @@ internal class FixedNpuStandardRouteS1Provider : NpuStandardRouteS1Provider {
             fallbackUsed = false,
             timeout = false,
             freshCrash = false,
-            requestedMaxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
-            effectiveMaxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+            requestedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens),
+            effectiveMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens),
         )
 
     companion object {

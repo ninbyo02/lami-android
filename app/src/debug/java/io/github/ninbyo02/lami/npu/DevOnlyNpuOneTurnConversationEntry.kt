@@ -2,6 +2,9 @@ package io.github.ninbyo02.lami.npu
 
 import android.content.Context
 import android.util.Base64
+import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 
@@ -54,11 +57,20 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val removedPromptEcho: String,
     val replacementCharCount: String,
     val outputContainsControlChars: String,
+    val rawOutput: String = "",
+    val stopReason: String = "",
+    val finishReason: String = "",
+    val eosDetected: String = "",
+    val outputTokenCount: String = "",
+    val promptTokenCount: String = "",
+    val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
 object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
     const val EXTRA_AUTO_RUN = "auto_run"
+    const val EXTRA_AUTO_RUN_MATRIX = "auto_run_matrix"
+    const val EXTRA_AUTO_RUN_PROMPT_TEMPLATE_MATRIX = "auto_run_prompt_template_matrix"
     const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
     const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
@@ -66,11 +78,14 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
+    const val MATRIX_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_matrix_result.txt"
     const val RECEIVER_RESULT_CODE_RECEIVED = 244
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val RAW_DIALOG_TAIL_VARIANT_A = "raw_dialog_tail_variant_a"
     const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
+    const val RAW_DIALOG_TAIL_VARIANT_C = "raw_dialog_tail_variant_c"
+    const val GEMMA_IT_USER_MODEL_VARIANT = "gemma_it_user_model"
     const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
@@ -80,7 +95,16 @@ object DevOnlyNpuOneTurnConversationContract {
     const val TIMEOUT_MS = 60_000L
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
     const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
+    const val RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION =
+        "日本語で最終回答だけを短く返答してください。「ユーザー:」「アシスタント:」や会話の続きを書かないでください。"
     const val JAPANESE_ASSISTANT_PREFIX_VARIANT_B = "はい、"
+    const val RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION = "あなたは日本語だけで短く答えるアシスタントです。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_FINAL_ONLY_INSTRUCTION =
+        "ユーザーの文を繰り返さず、回答だけを返してください。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_NO_ROLE_LABEL_INSTRUCTION =
+        "ユーザーやアシスタントを示す役割ラベルと会話の続きを書かないでください。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_LENGTH_INSTRUCTION =
+        "箇条書き要求以外は1〜2文で答えてください。"
 
     fun safety(
         promptTailVariant: String = DEFAULT_PROMPT_TAIL_VARIANT,
@@ -114,6 +138,8 @@ object DevOnlyNpuOneTurnConversationContract {
         when (requestedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_A -> RAW_DIALOG_TAIL_VARIANT_A
             RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
+            RAW_DIALOG_TAIL_VARIANT_C -> RAW_DIALOG_TAIL_VARIANT_C
+            GEMMA_IT_USER_MODEL_VARIANT -> GEMMA_IT_USER_MODEL_VARIANT
             else -> DEFAULT_PROMPT_TAIL_VARIANT
         }
 
@@ -124,17 +150,36 @@ object DevOnlyNpuOneTurnConversationContract {
     ): String {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
+        if (sanitizePromptTailVariant(promptTailVariant) == GEMMA_IT_USER_MODEL_VARIANT) {
+            return NpuStandardRouteS1Contract.buildPromptWrapperText(normalizedUserPrompt)
+        }
         val head = if (normalizedContext.isBlank()) {
             ""
         } else {
             "$normalizedContext\n\n"
         }
-        val assistantLine = when (sanitizePromptTailVariant(promptTailVariant)) {
+        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
+        val instructionLines = when (sanitizedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_B -> listOf(RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION)
+            RAW_DIALOG_TAIL_VARIANT_C -> listOf(
+                RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_FINAL_ONLY_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_NO_ROLE_LABEL_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_LENGTH_INSTRUCTION,
+            )
+            else -> listOf(JAPANESE_ONLY_TAIL_INSTRUCTION)
+        }
+        val userLine = when (sanitizedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_C -> "入力文: $normalizedUserPrompt"
+            else -> "ユーザー: $normalizedUserPrompt"
+        }
+        val assistantLine = when (sanitizedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_A -> "アシスタント:"
+            RAW_DIALOG_TAIL_VARIANT_C -> "回答:"
             else -> "アシスタント: $JAPANESE_ASSISTANT_PREFIX_VARIANT_B"
         }
-        return "$head$JAPANESE_ONLY_TAIL_INSTRUCTION\n" +
-            "ユーザー: $normalizedUserPrompt\n" +
+        return "$head${instructionLines.joinToString(separator = "\n")}\n" +
+            "$userLine\n" +
             assistantLine
     }
 
@@ -159,13 +204,14 @@ object DevOnlyNpuOneTurnConversationContract {
         values: Map<String, String>,
         safety: DevOnlyNpuOneTurnConversationSafety = safety(),
     ): DevOnlyNpuOneTurnConversationDisplay {
-        val sanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
+        val rawSanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
             result.output.orEmpty()
         }
+        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(rawSanitizedOutput)
         val rawOutput = values["raw_native_output"].orEmpty().ifBlank {
             values["raw_output"].orEmpty()
         }
-        val sanitizedLen = values["sanitized_output_length"]?.toIntOrNull() ?: sanitizedOutput.length
+        val sanitizedLen = sanitizedOutput.length
         val rawLen = values["raw_native_output_length"]?.toIntOrNull() ?: rawOutput.length
         val rawOutputFirst200Chars = values["output_first_200_chars"].orEmpty().ifBlank {
             rawOutput.take(200)
@@ -196,6 +242,37 @@ object DevOnlyNpuOneTurnConversationContract {
         val removedPromptEcho = values["removed_prompt_echo"].orEmpty().ifBlank { "unknown" }
         val replacementCharCount = values["replacement_char_count"].orEmpty().ifBlank { "unknown" }
         val outputContainsControlChars = values["output_contains_control_chars"].orEmpty().ifBlank { "unknown" }
+        val stopReason = values["stop_reason"].orEmpty()
+        val finishReason = values["finish_reason"].orEmpty()
+        val eosDetected = values["eos_detected"].orEmpty()
+        val outputTokenCount = values["output_token_count"].orEmpty()
+        val promptTokenCount = values["prompt_token_count"].orEmpty()
+        val nativeDiagnostics = NpuS1NativeStageDiagnostics(
+            nativeRunId = values.devValue("native_run_id"),
+            nativeStage = values.devValue("native_stage", default = "unknown"),
+            nativeStageHistory = values.devValue("native_stage_history"),
+            nativeCallStartedAtElapsedRealtimeMs = values.devValue("native_call_started_at_elapsed_realtime_ms"),
+            nativeCallFinishedAtElapsedRealtimeMs = values.devValue("native_call_finished_at_elapsed_realtime_ms"),
+            nativeCallDurationMs = values.devValue("native_call_duration_ms"),
+            nativeCallReached = values.devValue("native_call_reached"),
+            nativeCallReturned = values.devValue("native_call_returned"),
+            nativeDecodeStarted = values.devValue("native_decode_started"),
+            nativeDecodeFinished = values.devValue("native_decode_finished"),
+            nativeCleanupStarted = values.devValue("native_cleanup_started"),
+            nativeCleanupFinished = values.devValue("native_cleanup_finished"),
+            nativeCleanupReached = values.devValue("native_cleanup_reached"),
+            nativeSessionDestroyStarted = values.devValue("native_session_destroy_started"),
+            nativeSessionDestroyFinished = values.devValue("native_session_destroy_finished"),
+            nativeSessionDestroyReached = values.devValue("native_session_destroy_reached"),
+            nativeResultAvailable = values.devValue("native_result_available"),
+            nativeResultTail = values.devValue("native_result_tail"),
+            nativeDiagAvailable = values.devValue("native_diag_available"),
+            nativeDiagTail = values.devValue("native_diag_tail"),
+            nativeErrorClass = values.devValue("native_error_class"),
+            nativeErrorMessage = values.devValue("native_error_message"),
+            nativeErrorStage = values.devValue("native_error_stage"),
+            nativeErrorSource = values.devValue("native_error_source"),
+        )
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
             "DEV ONLY NPU ONE TURN",
@@ -226,6 +303,23 @@ object DevOnlyNpuOneTurnConversationContract {
             "removed_prompt_echo=$removedPromptEcho",
             "replacement_char_count=$replacementCharCount",
             "output_contains_control_chars=$outputContainsControlChars",
+            "stop_reason=${stopReason.ifBlank { "unknown" }}",
+            "finish_reason=${finishReason.ifBlank { "unknown" }}",
+            "eos_detected=${eosDetected.ifBlank { "unknown" }}",
+            "output_token_count=${outputTokenCount.ifBlank { "unavailable" }}",
+            "prompt_token_count=${promptTokenCount.ifBlank { "unavailable" }}",
+            "native_run_id=${nativeDiagnostics.nativeRunId}",
+            "native_stage=${nativeDiagnostics.nativeStage}",
+            "native_stage_history=${nativeDiagnostics.nativeStageHistory}",
+            "native_call_reached=${nativeDiagnostics.nativeCallReached}",
+            "native_call_returned=${nativeDiagnostics.nativeCallReturned}",
+            "native_decode_started=${nativeDiagnostics.nativeDecodeStarted}",
+            "native_decode_finished=${nativeDiagnostics.nativeDecodeFinished}",
+            "native_cleanup_reached=${nativeDiagnostics.nativeCleanupReached}",
+            "native_session_destroy_reached=${nativeDiagnostics.nativeSessionDestroyReached}",
+            "native_error_class=${nativeDiagnostics.nativeErrorClass}",
+            "native_error_stage=${nativeDiagnostics.nativeErrorStage}",
+            "native_error_source=${nativeDiagnostics.nativeErrorSource}",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
@@ -253,6 +347,13 @@ object DevOnlyNpuOneTurnConversationContract {
             removedPromptEcho = removedPromptEcho,
             replacementCharCount = replacementCharCount,
             outputContainsControlChars = outputContainsControlChars,
+            rawOutput = rawOutput,
+            stopReason = stopReason,
+            finishReason = finishReason,
+            eosDetected = eosDetected,
+            outputTokenCount = outputTokenCount,
+            promptTokenCount = promptTokenCount,
+            nativeDiagnostics = nativeDiagnostics,
         )
     }
 
@@ -287,6 +388,11 @@ object DevOnlyNpuOneTurnConversationContract {
             "removed_prompt_echo=${display.removedPromptEcho}",
             "replacement_char_count=${display.replacementCharCount}",
             "output_contains_control_chars=${display.outputContainsControlChars}",
+            "stop_reason=${display.stopReason.ifBlank { "unknown" }}",
+            "finish_reason=${display.finishReason.ifBlank { "unknown" }}",
+            "eos_detected=${display.eosDetected.ifBlank { "unknown" }}",
+            "output_token_count=${display.outputTokenCount.ifBlank { "unavailable" }}",
+            "prompt_token_count=${display.promptTokenCount.ifBlank { "unavailable" }}",
         ).plus(safetyLines(safety)).plus(
             listOf(
                 "sanitized_output=${escapeResultValue(display.output)}",
@@ -374,6 +480,11 @@ object DevOnlyNpuOneTurnConversationContract {
 
     private fun escapeResultValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
+
+    private fun Map<String, String>.devValue(
+        key: String,
+        default: String = "unavailable",
+    ): String = this[key].orEmpty().ifBlank { default }
 }
 
 class DevOnlyNpuOneTurnConversationEntry(
@@ -382,7 +493,7 @@ class DevOnlyNpuOneTurnConversationEntry(
         Qairt244DevOnlyNpuRouteAdapter(
             context = appContext,
             promptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
-            maxOutputTokenRangeLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+            maxOutputTokenRangeLimit = NpuStandardRoutePreferences.MAX_MAX_OUTPUT_TOKENS,
             unsafeDevBypassPromptLengthGate = unsafeBypass,
         )
     },

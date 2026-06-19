@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.SideEffect
@@ -71,6 +72,7 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        invokeStandardDebugLogcatProbeIfPresent()
 
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
@@ -86,7 +88,9 @@ class MainActivity : ComponentActivity() {
         val resolvedBaseUrl = initializationState.baseUrl.trimEnd('/')
         baseUrlRepository.updateActiveBaseUrl(resolvedBaseUrl)
         val initialSelectedModel = runBlocking {
-            modelPreferenceRepository.getSelectedModel(resolvedBaseUrl)
+            resolvedBaseUrl.takeIf { it.isNotBlank() }?.let { baseUrl ->
+                modelPreferenceRepository.getSelectedModel(baseUrl)
+            }
         }
 
         val settingsPreferences = SettingsPreferences(applicationContext)
@@ -249,6 +253,44 @@ class MainActivity : ComponentActivity() {
     override fun onLowMemory() {
         super.onLowMemory()
         heldEngineLifecycleBridge.onLowMemory(scope = lifecycleScope)
+    }
+}
+
+private const val STANDARD_DEBUG_PROBE_LOGCAT_TAG = "LamiNpuEngine"
+private const val STANDARD_DEBUG_PROBE_CLASS_NAME = "io.github.ninbyo02.lami.StandardDebugLogcatProbe"
+private const val STANDARD_DEBUG_PROBE_METHOD_NAME = "logStarted"
+
+private fun invokeStandardDebugLogcatProbeIfPresent() {
+    if (BuildConfig.CURRENT_FLAVOR != "standard" || BuildConfig.BUILD_TYPE != "debug") return
+
+    Log.i(
+        STANDARD_DEBUG_PROBE_LOGCAT_TAG,
+        "event=standard_debug_probe_reflection_start " +
+            "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
+            "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME " +
+            "build_type=${BuildConfig.BUILD_TYPE} " +
+            "current_flavor=${BuildConfig.CURRENT_FLAVOR}"
+    )
+    try {
+        Class.forName(STANDARD_DEBUG_PROBE_CLASS_NAME)
+            .getDeclaredMethod(STANDARD_DEBUG_PROBE_METHOD_NAME)
+            .invoke(null)
+        Log.i(
+            STANDARD_DEBUG_PROBE_LOGCAT_TAG,
+            "event=standard_debug_probe_reflection_success " +
+                "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
+                "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME"
+        )
+    } catch (throwable: Throwable) {
+        Log.e(
+            STANDARD_DEBUG_PROBE_LOGCAT_TAG,
+            "event=standard_debug_probe_reflection_failure " +
+                "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
+                "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME " +
+                "build_type=${BuildConfig.BUILD_TYPE} " +
+                "current_flavor=${BuildConfig.CURRENT_FLAVOR}",
+            throwable
+        )
     }
 }
 
