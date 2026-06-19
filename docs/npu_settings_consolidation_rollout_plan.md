@@ -147,6 +147,29 @@ Phase `0` is treated as no explicit developer override, allowing user-facing
 `NPU Experimental` to resolve to the completed route default phase `8` while the
 dev gate remains enabled.
 
+## R2 Rollout Monitor
+
+Phase R2 adds a separate artifact monitor:
+
+```text
+scripts/review_npu_rollout_monitor.sh --device-runs artifacts/device_runs
+```
+
+This is not a runtime change. It aggregates copied NPU diagnostics and reports
+success count, suppression-pass count, failure count, rollback count, timeout,
+fresh crash, fallback, engine-create failure, quality failure, success rate, and
+risk level.
+
+R1b completed-route keys are useful but optional for this monitor. Older Phase 8
+artifacts still count when the standard route gates, pseudo streaming gates, and
+rollback gates pass. Move toward a later dev-gate removal review only when:
+
+```text
+NPU_ROLLOUT_MONITOR_STATUS=healthy
+NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true
+NPU_ROLLOUT_RISK_LEVEL=low
+```
+
 ## Debug Phase Selector Proposal
 
 Keep the system properties as the canonical DEV gate during rollout:

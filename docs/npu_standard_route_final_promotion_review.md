@@ -77,6 +77,21 @@ The internal compatibility fields may still read `selected_backend=NPU_S5` and
 `route_family=npu_s5`. That is acceptable for final-promotion artifacts as long
 as the completed-route summary keys above are present and phase 8 gates pass.
 
+## Rollout Monitor Relationship
+
+Final promotion review judges one artifact. R2 rollout monitoring aggregates
+multiple artifacts:
+
+```text
+scripts/review_npu_rollout_monitor.sh --device-runs artifacts/device_runs
+```
+
+The monitor treats Phase 8 success artifacts as positive rollout samples and
+quality-candidate-fail suppression artifacts as safety-pass samples. Suppression
+pass is not promotion-ready by itself, but it is required evidence that unsafe
+template output remains blocked from UI / TTS / DB / Markdown / pseudo
+streaming.
+
 Expected output:
 
 ```text

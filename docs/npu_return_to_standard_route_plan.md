@@ -434,6 +434,22 @@ review can produce `NPU_ROLLOUT_READY=true`, but rollout risk remains `medium`
 until the Settings UI consolidation, developer phase selector, and monitoring
 work are implemented in later UI-only tasks.
 
+Phase R2 adds artifact-based rollout monitoring:
+
+```text
+scripts/review_npu_rollout_monitor.sh --device-runs artifacts/device_runs
+```
+
+The monitor counts Phase 8 successes, quality-gate suppression passes, failures,
+rollbacks, timeouts, fresh crashes, fallback, engine-create failures, and unsafe
+delivery regressions. Dev-gate removal review should not start until it reports:
+
+```text
+NPU_ROLLOUT_MONITOR_STATUS=healthy
+NPU_ROLLOUT_RISK_LEVEL=low
+NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true
+```
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:
