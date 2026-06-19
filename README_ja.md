@@ -2,13 +2,13 @@
 
 [English README](README.md)
 
-LAMI（ラミィ）は、Edge AI、LiteRT、ローカル推論、表情豊かなスプライトキャラクター、将来的な共有可能AIパーソナリティを重視する Android-first なローカルAIアシスタントプラットフォームです。
+LAMI（ラミィ）は、Edge AI、LiteRT、オンデバイス推論、Qualcomm NPU アクセラレーション、表情豊かなスプライトキャラクター、将来的な共有可能AIパーソナリティを重視する Android-first なローカルAIアシスタントプラットフォームです。
 
 ## 概要
 
-LAMI は、Android端末上でローカルAIアシスタント体験を作るためのAndroidアプリプロジェクトです。AndroidネイティブのチャットUI、ローカル推論実験、キャラクターUI、音声インタラクション、開発者向け診断、将来的な共有可能AIパーソナリティ形式を主な対象にしています。
+LAMI は、Android端末上でローカルAIアシスタント体験を作るためのAndroidアプリプロジェクトです。AndroidネイティブのチャットUI、オンデバイス推論、Qualcomm NPU アクセラレーション、キャラクターUI、音声インタラクション、開発者向け診断、将来的な共有可能AIパーソナリティ形式を主な対象にしています。
 
-Ollama連携もサポート対象ですが、LAMIはOllama専用クライアントではありません。Ollamaはバックエンドの1つであり、LiteRT / MediaPipe系ローカルLLM APIや将来的なアクセラレータ実験と並ぶ選択肢として扱います。
+Ollama連携もサポート対象ですが、LAMIはOllama専用クライアントではありません。Ollamaはバックエンドの1つであり、LiteRT / MediaPipe系ローカルLLM APIや NPU Beta route と並ぶ選択肢として扱います。
 
 パッケージ名:
 
@@ -28,6 +28,8 @@ LAMIはOllama用UIだけを目的にしたアプリではありません。Andro
 - Ollamaバックエンド連携
 - ストリーミング応答UI
 - Android Text-to-Speech対応
+- **NPU Beta** による明示選択の Qualcomm NPU ローカル推論
+- UI表示、TTS、DB保存、Markdown、疑似ストリーミングまで接続した completed NPU route
 - ローカル推論連携用のフックとプローブ
 - 推論統計と開発者向け診断
 - スプライトアニメーションの状態管理とデバッグ設定
@@ -39,11 +41,11 @@ LAMIはOllama用UIだけを目的にしたアプリではありません。Andro
 - tokenizerベースのローカル推論統計
 - 文単位のストリーミングTTS
 - スプライトアニメーション / デバッグ設定ツール
-- Qualcomm QNN / NPU readiness診断
+- GPU Experimental backend
+- native token streaming研究
 
 ### Planned
 
-- Qualcomm QNN / NPUアクセラレーション経路
 - LAMI ASR連携
 - ユーザー向けスプライトキャラクターエディタ
 - QRによるスプライト / パーソナリティ共有
@@ -57,7 +59,7 @@ LAMIはOllama用UIだけを目的にしたアプリではありません。Andro
 - スプライト状態システムとキャラクターフィードバック
 - チャット、ローカル推論、TTS向けのストリーミングUX
 - ローカル推論診断とランタイム可視化
-- 将来的なQNN / NPU研究方向
+- NPU Beta rollout evidence と互換性cleanup
 
 ## Why LAMI?
 
@@ -87,15 +89,16 @@ LAMIは、単一の大きなAI機能よりも、小さく理解しやすい要�
 - LiteRT / MediaPipe探索
 - ストリーミング応答UI
 - 推論診断と開発者向け統計
+- 対応端末での明示選択型 Qualcomm NPU ローカル推論（NPU Beta）
+- completed NPU route の Markdown / TTS / DB保存 / 疑似ストリーミング
 
 ### Future / Experimental
 
-- Qualcomm QNN delegate研究
-- NPUアクセラレーション実験
+- native token streaming研究
 - ローカルASR連携
 - 共有可能なAIパーソナリティ
 
-これらは研究・統合作業中の領域です。このREADMEだけを根拠に、QNN/NPUアクセラレーション、オフラインだけで完結する動作、安定済みのローカル推論挙動を前提にしないでください。
+NPU Beta は明示的に選択する production candidate route であり、Automatic のデフォルトではありません。端末・モデル・ランタイムに依存する互換性は残り、native token streaming はまだ未実装です。
 
 ## Research Status
 
@@ -105,17 +108,29 @@ LAMIは、単一の大きなAI機能よりも、小さく理解しやすい要�
 | LiteRT integration | Experimental |
 | Local inference diagnostics | Active development |
 | Streaming TTS | Experimental |
-| QNN delegate | Research |
+| Qualcomm NPU route | NPU Beta |
+| GPU backend | Experimental |
 | ASR integration | Planned |
 | Sprite personality sharing | Planned |
 
 ## Non-Goals / Current Limitations
 
-- ローカル推論対応はまだExperimentalであり、モデル、ランタイム、端末によって挙動が変わる可能性があります。
+- completed NPU Beta route 以外のローカル推論対応はまだExperimentalであり、モデル、ランタイム、端末によって挙動が変わる可能性があります。
 - Edge AIやアクセラレータ関連の実験では、端末互換性に差が出る可能性があります。
-- QNN / NPU関連の作業はresearch-stageであり、一般的に対応済みとは扱わないでください。
+- NPU Beta は明示選択であり、Automatic backend にはまだ含めていません。
+- NPU の疑似ストリーミングは安全な finalized text を使います。native token streaming は未実装です。
+- GPU は引き続き Experimental で、production-ready とは扱いません。
 - 完全にオフラインだけで完結するワークフローは、まだ発展中です。
 - このREADMEはプロジェクトの方向性と現在の統合作業を説明するもので、完成済みの安定版を示すものではありません。
+
+## ユーザー向けバックエンド
+
+| Backend | Status | Notes |
+|---|---|---|
+| Automatic | 推奨デフォルト | 最も安全な既定経路を使います。NPU はまだ Automatic には入りません。 |
+| CPU | stable候補 | ローカル fallback / usable route 候補です。 |
+| GPU Experimental | Experimental | GPU route は出力品質の問題により promotion blocked のままです。 |
+| NPU Beta | production candidate | Qualcomm NPU を明示選択する route です。UI、TTS、DB保存、Markdown、疑似ストリーミング、rollout validation、dev gate removal、kill switch まで完了しています。 |
 
 ## Architecture Overview
 
@@ -129,10 +144,15 @@ Backend abstraction and runtime selection
   |
   +-- LiteRT / MediaPipe local inference path (experimental)
   |
-  +-- Future local inference backends (planned / experimental)
+  +-- CPU local route (stable candidate)
+  |
+  +-- GPU backend (experimental)
+  |
+  +-- NPU Beta completed route (Qualcomm NPU, explicit selection)
         |
-        v
-      Future QNN / NPU acceleration direction (planned / experimental)
+        +-- finalized safe text
+        +-- UI / TTS / DB / Markdown
+        +-- pseudo streaming
 ```
 
 現在の構成では、Android UIとバックエンド側の作業を分けています。これにより、Ollama連携、ローカル推論実験、診断、将来的なアクセラレータ経路を、アプリ全体をOllama専用クライアントにせず発展させやすくしています。
@@ -147,9 +167,13 @@ Ollamaバックエンドは、Ollama互換のモデルサービスを利用し�
 
 ローカル推論対応はExperimentalです。リポジトリには、LiteRT-LM / MediaPipe系のプローブ、エンジンライフサイクル、ストリーミング試行、ローカル推論統計のための実装が含まれています。モデル互換性、実行時挙動、性能は継続的な開発対象です。
 
-### Qualcomm QNN / NPU経路
+### Qualcomm NPU Beta経路
 
-QNN / NPU対応はPlannedであり、現状は診断レベルのExperimentalな取り組みです。現在の作業はreadinessチェック、ネイティブライブラリ検出、フォールバック挙動、ドキュメント整備が中心です。NPUアクセラレーションが利用可能またはデフォルトで有効であるとは扱わないでください。
+NPU Beta は、明示選択で使う completed Qualcomm NPU route です。Phase 1〜8 の段階実装により、生成、UI表示、TTS、DB保存、Markdown、疑似ストリーミングまで接続済みです。ただし Automatic backend にはまだ入っておらず、native token streaming も未実装なので、Beta として扱います。
+
+completed route には kill switch と互換性診断が残っています。コピーした診断には parser compatibility のため、`selected_backend=NPU_S5` や `route_family=npu_s5` などの内部互換値が出る場合があります。
+
+NPU Beta milestone の詳細は `docs/release_notes_npu_beta_milestone.md` を参照してください。
 
 ### ASR、TTS、パーソナリティ
 
@@ -159,7 +183,7 @@ TTSは利用可能です。ASR連携、より豊かなスプライト編集、QR
 
 | Device | Status | Notes |
 |---|---|---|
-| Nubia Z70S Ultra | Experimental | Snapdragon Edge AI experiments |
+| Nubia Z70S Ultra | NPU Beta validation device | Snapdragon / Qualcomm NPU route validation |
 | Android Emulator | Supported | Development and testing |
 
 Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診断に関するdevice reportを歓迎します。
@@ -192,7 +216,7 @@ Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診�
 
 <img src="assets/screenshots/litert-experimental.jpg" alt="LiteRT experimental local inference flow" width="360">
 
-バックエンド選択、ローカルランタイム詳細、device compatibility checkなどを示す開発者向け診断スクリーンショットは、今後追加歓迎です。ただし、QNN / NPU対応が完成済みであるような見せ方は避けます。
+バックエンド選択、ローカルランタイム詳細、device compatibility checkなどを示す開発者向け診断スクリーンショットは、今後追加歓迎です。ただし、現在の NPU Beta validation を超えた広範な NPU 対応が完成済みであるような見せ方は避けます。
 
 ## Project Direction
 
@@ -206,7 +230,8 @@ Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診�
 ## Future Directions
 
 - ローカルASR連携（Planned）
-- QNN delegate研究（Research）
+- NPU Beta device compatibility expansion
+- native token streaming研究
 - 共有可能なスプライトパーソナリティ（Planned）
 - QRベースの共有形式（Planned）
 - 複数バックエンドによるローカル推論（Experimental direction）
@@ -216,9 +241,12 @@ Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診�
 ## ロードマップ
 
 - [ ] 古いスクリーンショットを現在のLAMI Android UIへ置き換える
-- [ ] LiteRTローカル推論を安定化する
+- [x] 明示選択の Qualcomm NPU route を NPU Beta milestone まで完了する
+- [ ] NPU Beta の対応端末検証を広げる
+- [ ] NPU を将来 Automatic backend に入れるか評価する
+- [ ] NPU native token streaming を研究する
+- [ ] 残りの LiteRTローカル推論経路を安定化する
 - [ ] ローカル推論統計を改善する
-- [ ] QNN delegate / NPUアクセラレーション実験を追加する
 - [ ] LAMI ASR連携を追加する
 - [ ] ユーザー向けスプライトエディタを追加する
 - [ ] QRによるスプライト / パーソナリティ共有形式を追加する

@@ -2,13 +2,13 @@
 
 [日本語版 README](README_ja.md)
 
-Android-first local AI assistant platform focused on Edge AI, LiteRT, local inference, expressive sprite characters, and future shareable AI personalities.
+Android-first local AI assistant platform focused on Edge AI, LiteRT, on-device inference, Qualcomm NPU acceleration, expressive sprite characters, and future shareable AI personalities.
 
 ## Overview
 
-LAMI (ラミィ) is an Android app project for building a local-first AI assistant experience on mobile devices. The project focuses on Android-native chat, local inference experiments, expressive character UI, voice interaction, developer diagnostics, and future shareable AI personality formats.
+LAMI (ラミィ) is an Android app project for building a local-first AI assistant experience on mobile devices. The project focuses on Android-native chat, on-device inference, Qualcomm NPU acceleration, expressive character UI, voice interaction, developer diagnostics, and future shareable AI personality formats.
 
-LAMI can integrate with Ollama, but it is not intended to be an Ollama-only client. Ollama is one supported backend path alongside Android local inference work based on LiteRT / MediaPipe-style local LLM APIs and future accelerator experiments.
+LAMI can integrate with Ollama, but it is not intended to be an Ollama-only client. Ollama is one supported backend path alongside Android local inference work based on LiteRT / MediaPipe-style local LLM APIs and the NPU Beta route.
 
 Package name:
 
@@ -28,6 +28,8 @@ LAMI is not only an Ollama UI. The project is an Android-native local AI platfor
 - Ollama backend integration
 - Streaming response UI
 - Android text-to-speech support
+- **NPU Beta** for explicit Qualcomm NPU local inference selection
+- Completed NPU route with UI append, TTS, DB persistence, Markdown rendering, and pseudo streaming
 - Local inference integration hooks and probes
 - Inference statistics and developer diagnostics
 - Sprite animation state handling and debug settings
@@ -39,11 +41,11 @@ LAMI is not only an Ollama UI. The project is an Android-native local AI platfor
 - Tokenizer-based local inference statistics
 - Sentence-based streaming TTS
 - Sprite animation/debug configuration tooling
-- Qualcomm QNN / NPU readiness diagnostics
+- GPU Experimental backend
+- Native token streaming research
 
 ### Planned
 
-- Qualcomm QNN / NPU acceleration path
 - LAMI ASR integration
 - User-facing sprite character editor
 - QR-based sprite/personality sharing
@@ -57,7 +59,7 @@ LAMI is not only an Ollama UI. The project is an Android-native local AI platfor
 - Sprite state system and character feedback
 - Streaming UX for chat, local inference, and TTS
 - Local inference diagnostics and runtime visibility
-- Future QNN / NPU research direction
+- NPU Beta rollout evidence and compatibility cleanup
 
 ## Why LAMI?
 
@@ -87,15 +89,16 @@ Sprite characters give LAMI a lightweight way to make assistant state readable o
 - LiteRT / MediaPipe exploration
 - Streaming response UI
 - Inference diagnostics and developer stats
+- NPU Beta for explicit Qualcomm NPU local inference on supported devices
+- Markdown, TTS, DB persistence, and pseudo streaming in the completed NPU route
 
 ### Future / Experimental
 
-- Qualcomm QNN delegate research
-- NPU acceleration experiments
+- Native token streaming research
 - Local ASR integration
 - Shareable AI personalities
 
-These areas are active research and integration work. Do not assume QNN/NPU acceleration, offline-only operation, or stable local inference behavior from this README alone.
+NPU Beta is a production-candidate route for explicit user selection, not the Automatic default. Device compatibility still depends on model/runtime/device behavior, and native token streaming is not implemented yet.
 
 ## Research Status
 
@@ -105,17 +108,29 @@ These areas are active research and integration work. Do not assume QNN/NPU acce
 | LiteRT integration | Experimental |
 | Local inference diagnostics | Active development |
 | Streaming TTS | Experimental |
-| QNN delegate | Research |
+| Qualcomm NPU route | NPU Beta |
+| GPU backend | Experimental |
 | ASR integration | Planned |
 | Sprite personality sharing | Planned |
 
 ## Non-Goals / Current Limitations
 
-- Local inference support is still experimental and may vary by model, runtime, and device.
+- Local inference outside the completed NPU Beta route is still experimental and may vary by model, runtime, and device.
 - Device compatibility may vary, especially for Edge AI and accelerator-related experiments.
-- QNN / NPU work is research-stage and should not be treated as generally supported.
+- NPU Beta is explicit user selection and is not part of Automatic backend selection yet.
+- NPU pseudo streaming uses finalized safe text; native token streaming is not implemented.
+- GPU remains experimental and should not be treated as production-ready.
 - Full offline workflows are still evolving.
 - The README describes project direction and current integration work, not a finished stable release.
+
+## User-Facing Backends
+
+| Backend | Status | Notes |
+|---|---|---|
+| Automatic | Recommended default | Keeps the app on the safest default route. NPU is not automatically selected yet. |
+| CPU | Stable candidate | Local fallback / usable route candidate. |
+| GPU Experimental | Experimental | GPU route remains blocked from promotion due to output quality issues. |
+| NPU Beta | Production candidate | Explicit Qualcomm NPU route with UI, TTS, DB persistence, Markdown, pseudo streaming, rollout validation, dev-gate removal, and kill switch support. |
 
 ## Architecture Overview
 
@@ -129,10 +144,15 @@ Backend abstraction and runtime selection
   |
   +-- LiteRT / MediaPipe local inference path (experimental)
   |
-  +-- Future local inference backends (planned / experimental)
+  +-- CPU local route (stable candidate)
+  |
+  +-- GPU backend (experimental)
+  |
+  +-- NPU Beta completed route (Qualcomm NPU, explicit selection)
         |
-        v
-      Future QNN / NPU acceleration direction (planned / experimental)
+        +-- finalized safe text
+        +-- UI / TTS / DB / Markdown
+        +-- pseudo streaming
 ```
 
 The current architecture keeps backend work separated from the Android UI so that Ollama integration, local inference experiments, diagnostics, and future accelerator paths can evolve without making the app an Ollama-only client.
@@ -147,9 +167,14 @@ The Ollama backend is an available integration path for users who already run an
 
 Local inference support is experimental. The repository contains LiteRT-LM / MediaPipe-style probing, engine lifecycle work, streaming attempts, and local inference statistics plumbing. Model compatibility, runtime behavior, and performance should be treated as active development areas.
 
-### Qualcomm QNN / NPU Path
+### Qualcomm NPU Beta Path
 
-QNN / NPU support is planned and experimental at the diagnostics level. Current work focuses on readiness checks, native library probing, fallback behavior, and documentation. Do not treat NPU acceleration as supported or enabled by default.
+NPU Beta is the completed explicit-selection Qualcomm NPU route. It has passed the staged Phase 1-8 rollout through generation, UI append, TTS, DB persistence, Markdown, and pseudo streaming. It remains a beta route because it is not part of Automatic backend selection and does not use native token streaming yet.
+
+The completed route keeps a kill switch and compatibility diagnostics. Legacy internal values such as `selected_backend=NPU_S5` and `route_family=npu_s5` may still appear in copied diagnostics for parser compatibility.
+
+See `docs/release_notes_npu_beta_milestone.md` for the detailed NPU Beta
+milestone notes.
 
 ### ASR, TTS, and Personalities
 
@@ -159,7 +184,7 @@ TTS support is available. ASR integration, richer sprite editing, QR sharing, an
 
 | Device | Status | Notes |
 |---|---|---|
-| Nubia Z70S Ultra | Experimental | Snapdragon Edge AI experiments |
+| Nubia Z70S Ultra | NPU Beta validation device | Snapdragon / Qualcomm NPU route validation |
 | Android Emulator | Supported | Development and testing |
 
 Device reports are welcome, especially for Android local inference, LiteRT / MediaPipe behavior, and accelerator diagnostics.
@@ -192,7 +217,7 @@ These screenshots are captured from the current LAMI Android app. They are inten
 
 <img src="assets/screenshots/litert-experimental.jpg" alt="LiteRT experimental local inference flow" width="360">
 
-Additional developer diagnostics screenshots are still welcome, especially views that show backend selection, local runtime details, or device compatibility checks without implying QNN / NPU support is complete.
+Additional developer diagnostics screenshots are still welcome, especially views that show backend selection, local runtime details, or device compatibility checks without implying broad NPU support beyond the current NPU Beta validation.
 
 ## Project Direction
 
@@ -206,7 +231,8 @@ Additional developer diagnostics screenshots are still welcome, especially views
 ## Future Directions
 
 - Local ASR integration (planned)
-- QNN delegate research (research)
+- NPU Beta device compatibility expansion
+- Native token streaming research
 - Shareable sprite personalities (planned)
 - QR-based sharing format (planned)
 - Multi-backend local inference (experimental direction)
@@ -216,9 +242,12 @@ Additional developer diagnostics screenshots are still welcome, especially views
 ## Roadmap
 
 - [ ] Replace legacy screenshots with current LAMI Android screenshots
-- [ ] Stabilize LiteRT local inference
+- [x] Complete NPU Beta milestone for explicit Qualcomm NPU selection
+- [ ] Expand NPU Beta device validation
+- [ ] Evaluate NPU for future Automatic backend enrollment
+- [ ] Research native token streaming for NPU
+- [ ] Stabilize remaining LiteRT local inference paths
 - [ ] Improve local inference statistics
-- [ ] Add QNN delegate / NPU acceleration experiments
 - [ ] Add LAMI ASR integration
 - [ ] Add user-facing sprite editor
 - [ ] Add QR sprite/personality sharing format

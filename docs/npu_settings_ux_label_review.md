@@ -132,8 +132,11 @@ The current static inventory reports:
 
 ```text
 NPU_LEGACY_S1_S5_INVENTORY_STATUS=legacy_references_present_with_cleanup_candidates
-NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=50
-NPU_BETA_USER_FACING_REFERENCE_COUNT=56
+NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=0
+NPU_BETA_USER_FACING_REFERENCE_COUNT=82
+USER_FACING_NPU_EXPERIMENTAL_REMAINING=0
+USER_FACING_NPU_BETA_COUNT=82
+LEGACY_USER_FACING_BACKEND_WORDING_COUNT=121
 LEGACY_SAFE_TO_REMOVE_NOW=false
 LEGACY_DEPRECATION_STAGE=stage0_current_hidden_developer_compatibility
 REMOVAL_BLOCKERS=preference_key_compatibility,developer_override_compatibility,artifact_parser_compatibility,route_execution_compatibility
@@ -190,3 +193,21 @@ That rename should be tested as display-only:
 - legacy S1-S5 values remain parseable
 - developer phase labels stay `DEV`
 - diagnostics still expose completed-route keys
+
+## README / Release Notes
+
+After R4b cleanup, README and release notes should use `NPU Beta` for the
+current user-facing label and reserve the old Experimental wording for
+compatibility or migration history. The NPU Beta milestone is documented in:
+
+```text
+README.md
+README_ja.md
+docs/release_notes_npu_beta_milestone.md
+```
+
+Those docs should describe NPU Beta as an explicit-selection production
+candidate with Qualcomm NPU acceleration, pseudo streaming, Markdown, TTS, DB
+persistence, rollout validation, dev-gate removal, and kill switch support. They
+should also keep `Automatic` enrollment and native token streaming in the
+not-yet bucket.

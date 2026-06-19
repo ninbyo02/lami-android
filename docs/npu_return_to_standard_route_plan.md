@@ -597,6 +597,16 @@ R4 inventory after R5c classifies remaining legacy references as:
 - DO_NOT_REMOVE_YET: enum values, preference keys, diagnostics keys, parser
   compatibility, rollout/final-promotion scripts, and sample artifact support.
 
+README / release-note state for the NPU Beta milestone:
+
+- `README.md` and `README_ja.md` describe LAMI as an Android-first local AI
+  assistant with explicit Qualcomm NPU Beta support.
+- `docs/release_notes_npu_beta_milestone.md` records the completed Phase 1-8
+  route, pseudo streaming, Markdown, TTS, DB persistence, rollout validation,
+  dev-gate removal, and kill switch.
+- Automatic backend enrollment, native token streaming, and legacy S1-S5 removal
+  remain explicitly out of scope.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:
