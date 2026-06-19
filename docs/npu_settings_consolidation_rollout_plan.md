@@ -171,10 +171,10 @@ The kill switch remains a rollback control: no native call, generation, UI
 append, TTS, DB save, Markdown, pseudo streaming, or Automatic fallback should
 occur while it is enabled.
 
-R4 inventory after R5c treats `NPU Beta` as the current user-facing label.
-`NPU Experimental` is a cleanup candidate only when used as current Settings
-wording. It remains KEEP when used in diagnostics compatibility contexts such as
-`npu_standard_route_selection_mode=user_facing_npu_experimental`.
+R4/R4b inventory after R5c treats `NPU Beta` as the current user-facing label.
+The old Experimental wording is a cleanup candidate only when used as current
+Settings wording. It remains KEEP when used in diagnostics compatibility
+contexts such as `npu_standard_route_selection_mode=user_facing_npu_experimental`.
 
 ## R1b Diagnostics Polish
 

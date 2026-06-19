@@ -98,7 +98,7 @@ Reason: the completed NPU route is mature enough to avoid the stronger
 `NPU Recommended`. The stored preference value and route mapping should remain
 unchanged. See `docs/npu_settings_ux_label_review.md`.
 
-R4 cleanup inventory after R5c treats `NPU Experimental` as legacy wording
+R4/R4b cleanup inventory after R5c treats old Experimental wording as legacy
 unless it appears as a diagnostics compatibility value. Normal Settings copy
 should use `NPU Beta`.
 

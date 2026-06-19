@@ -46,6 +46,9 @@ LEGACY_TEST_REFERENCE_COUNT
 LEGACY_DOC_REFERENCE_COUNT
 NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT
 NPU_BETA_USER_FACING_REFERENCE_COUNT
+USER_FACING_NPU_EXPERIMENTAL_REMAINING
+USER_FACING_NPU_BETA_COUNT
+LEGACY_USER_FACING_BACKEND_WORDING_COUNT
 KEEP_COUNT
 DEPRECATE_COUNT
 CLEANUP_CANDIDATE_COUNT
@@ -63,24 +66,33 @@ SAFE_NEXT_ACTION
 This is intentionally a lightweight grep inventory, not a compiler-level static
 analyzer.
 
-Current R5c inventory snapshot:
+Current R4b inventory snapshot after user-facing wording cleanup:
 
 ```text
 NPU_LEGACY_S1_S5_INVENTORY_STATUS=legacy_references_present_with_cleanup_candidates
-LEGACY_REFERENCE_COUNT=1567
+LEGACY_REFERENCE_COUNT=1575
 LEGACY_RUNTIME_REFERENCE_COUNT=600
 LEGACY_SETTINGS_REFERENCE_COUNT=24
 LEGACY_TEST_REFERENCE_COUNT=331
-LEGACY_DOC_REFERENCE_COUNT=429
-NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=50
-NPU_BETA_USER_FACING_REFERENCE_COUNT=56
+LEGACY_DOC_REFERENCE_COUNT=419
+NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=0
+NPU_BETA_USER_FACING_REFERENCE_COUNT=82
+USER_FACING_NPU_EXPERIMENTAL_REMAINING=0
+USER_FACING_NPU_BETA_COUNT=82
+LEGACY_USER_FACING_BACKEND_WORDING_COUNT=121
 KEEP_COUNT=442
-DEPRECATE_COUNT=205
-CLEANUP_CANDIDATE_COUNT=205
+DEPRECATE_COUNT=121
+CLEANUP_CANDIDATE_COUNT=121
 DO_NOT_REMOVE_YET_COUNT=600
 LEGACY_SAFE_TO_REMOVE_NOW=false
 SAFE_NEXT_ACTION=rename_or_hide_user_facing_legacy_labels_before_cleanup
 ```
+
+There are no remaining current Settings-display uses of the old Experimental
+NPU label. The larger cleanup count comes from
+legacy S1-S5 wording that can still read like normal backend labels in old docs,
+comments, or tests. Runtime, enum, preference, and diagnostics references remain
+out of scope for immediate cleanup.
 
 ## Why S1-S5 Are Not Removed Now
 
@@ -116,7 +128,7 @@ Keep these until a migration window exists:
 
 Deprecate these as wording, not as parser keys:
 
-- `NPU Experimental` as a current user-facing Settings label
+- the old Experimental wording as a current user-facing Settings label
 - S1-S5 as backend labels in user-facing context
 - docs that imply S1-S5 are normal backend choices
 
@@ -135,9 +147,9 @@ These references are acceptable while the route remains staged:
 Clean these first:
 
 - user-facing labels that still read as separate normal backends
-- outdated docs/comments using `NPU Experimental` where the current Settings
+- outdated docs/comments using the old Experimental wording where the current Settings
   label should be `NPU Beta`
-- tests asserting `NPU Experimental` as a user-facing display label
+- tests asserting the old Experimental wording as a user-facing display label
 - docs that present S1-S5 as current backend choices rather than historical
   phases
 - docs that still describe phase 8 as only developer-gated after R3b/R5c
@@ -260,7 +272,7 @@ or developer phase overrides. It only identifies a later display-label cleanup:
 - DEPRECATE: any normal-user-facing interpretation of S1-S5 as independent
   hardware backends.
 - CLEANUP_CANDIDATE: labels, comments, or docs that mention S1-S5 without
-  `DEV` / `Legacy` context, and old `NPU Experimental` display assertions after
+  `DEV` / `Legacy` context, and old Experimental display assertions after
   R5c.
 
 See `docs/npu_settings_ux_label_review.md` for the option comparison and

@@ -88,7 +88,7 @@ This preserves caution while making NPU feel more mature than GPU.
 
 | Option | Layout | Assessment |
 | --- | --- | --- |
-| A | Automatic / CPU / GPU Experimental / NPU Experimental | Safest wording, matches current implementation, but now too conservative for NPU maturity. |
+| A | Automatic / CPU / GPU Experimental / old Experimental NPU label | Safest wording, matches current implementation, but now too conservative for NPU maturity. |
 | B | Automatic / CPU / GPU / NPU | Too aggressive. It hides GPU blocker status and implies NPU is already fully stable and Automatic-ready. |
 | C | Automatic / CPU / GPU (Experimental) / NPU | Reasonable direction, but `NPU` alone may overstate support maturity before Automatic enrollment and broader device coverage. |
 | D | Automatic / CPU / GPU / NPU (Recommended) | Not appropriate yet. Automatic remains CPU-oriented and NPU is explicit-selection only. |
@@ -121,7 +121,7 @@ R5c implementation policy:
 - Rename only the user-facing display label from `NPU Experimental` to
   `NPU Beta`.
 - Keep diagnostics and artifact parsers compatible with
-  `NPU Experimental`, `NPU_S5`, and `npu_s5`.
+  the old Experimental wording, `NPU_S5`, and `npu_s5`.
 - Do not rename GPU to plain `GPU` until the GPU promotion blocker is cleared.
 - Do not mark NPU as `Recommended` until Automatic enrollment is explicitly
   reviewed.
@@ -140,7 +140,7 @@ REMOVAL_BLOCKERS=preference_key_compatibility,developer_override_compatibility,a
 SAFE_NEXT_ACTION=rename_or_hide_user_facing_legacy_labels_before_cleanup
 ```
 
-`NPU Experimental` references are now split into two groups:
+Old Experimental-label references are now split into two groups:
 
 - KEEP when they are diagnostic compatibility values such as
   `user_facing_npu_experimental`.
@@ -166,7 +166,7 @@ SAFE_NEXT_ACTION=rename_or_hide_user_facing_legacy_labels_before_cleanup
 
 ### CLEANUP_CANDIDATE
 
-- Settings text that still says `NPU Experimental` as a current user-facing
+- Settings text that still uses the old Experimental wording as a current user-facing
   label after R5c
 - docs or comments that mention only `NPU_S5` without the completed-route
   summary keys

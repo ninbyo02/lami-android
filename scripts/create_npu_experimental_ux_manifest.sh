@@ -9,7 +9,7 @@ Usage:
   scripts/create_npu_experimental_ux_manifest.sh [--date YYYYMMDD]
   scripts/create_npu_experimental_ux_manifest.sh --self-test
 
-Prints the R5a NPU Experimental UX acceptance collection manifest as TSV.
+Prints the R5a NPU Beta UX acceptance collection manifest as TSV.
 This is for manual device-run collection only.
 USAGE
 }

@@ -62,7 +62,7 @@ npu_standard_route_rollback_required=false
 ```
 
 After R1b, completed-route diagnostics should also be present in the artifact
-when the run came from user-facing `NPU Experimental`:
+when the run came from user-facing `NPU Beta`:
 
 ```text
 npu_standard_route_selection_mode=user_facing_npu_experimental
@@ -100,7 +100,7 @@ scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_
 
 It requires final promotion GO plus multiple clean rollout samples and a rollback
 plan. Phase R3b uses that evidence to remove the dev gate requirement for
-user-facing `NPU Experimental` completed-route default selection only.
+user-facing `NPU Beta` completed-route default selection only.
 
 Expected output:
 
@@ -187,13 +187,13 @@ For suppression artifacts, rollback is expected and must be tied to
 
 Before making NPU a normal Settings backend, keep the existing developer phase
 keys compatible. The short-term Settings model should present NPU as one
-experimental backend with developer phase controls, not as separate hardware
+Beta backend with developer phase controls, not as separate hardware
 backends for S1-S8.
 
 Phase R1 keeps that compatibility while connecting the user-facing
-`NPU Experimental` selection to the completed standard route. Phase R3b removes
+`NPU Beta` display selection to the completed standard route. Phase R3b removes
 the dev gate requirement for the completed route default only: when
-`NPU Experimental` is selected and `debug.lami.npu_standard_route_phase` is `0`
+`NPU Beta` is selected and `debug.lami.npu_standard_route_phase` is `0`
 or absent, the effective phase is `8` unless the completed-route kill switch is
 enabled.
 
@@ -213,7 +213,7 @@ behavior.
 
 Remaining rollout tasks:
 
-- consolidate Settings display around `NPU Experimental / DEV`
+- consolidate Settings display around `NPU Beta / DEV`
 - keep CPU as stable fallback candidate
 - keep GPU experimental and blocked from promotion
 - keep quality-gate suppression active

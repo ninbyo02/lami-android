@@ -1,4 +1,4 @@
-# NPU Experimental UX Acceptance Checklist
+# NPU Beta UX Acceptance Checklist
 
 Scope: R5a review / docs / scripts only. This does not change Android runtime,
 ChatScreen, Settings UI, NPU route behavior, native libraries, DB schema,
@@ -6,11 +6,11 @@ quality gates, suppression behavior, or Automatic backend selection.
 
 ## Purpose
 
-R5a checks whether user-selected `NPU Experimental` is usable enough to treat as
+R5a checks whether user-selected `NPU Beta` is usable enough to treat as
 nearly complete before any later formal backend promotion work. The completed
 route has already passed Phase 8 pseudo streaming, final promotion review,
 rollout monitoring, dev-gate removal readiness, and R3b dev-gate removal for
-the explicit `NPU Experimental` selection.
+the explicit `NPU Beta` selection.
 
 R5a is not:
 
@@ -24,7 +24,7 @@ R5a is not:
 Use the consolidated Settings UI:
 
 ```text
-Inference backend: NPU Experimental
+Inference backend: NPU Beta
 Developer NPU phase override: none
 ```
 
@@ -263,7 +263,8 @@ Fail:
 
 ## Next Phases
 
-R5b can review formal `NPU Experimental` rollout wording and device evidence.
-R5c can consider whether any remaining developer-only UI cleanup is appropriate.
+R5b reviewed formal rollout wording and R5c renamed the user-facing label to
+`NPU Beta`. Later cleanup can consider whether any remaining developer-only UI
+wording is appropriate.
 Neither phase should add NPU to Automatic until a separate explicit review says
 so.

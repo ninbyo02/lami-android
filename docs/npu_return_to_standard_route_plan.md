@@ -550,7 +550,7 @@ The minimum set is three Phase 8 success samples plus one suppression-pass
 sample. R1b completed-route diagnostics must be present before dev-gate removal
 readiness can move from evidence collection to implementation planning.
 
-R5a adds an explicit `NPU Experimental` UX acceptance checklist after R3b:
+R5a adds an explicit `NPU Beta` UX acceptance checklist after R3b:
 
 ```text
 docs/npu_experimental_ux_acceptance_checklist.md
@@ -590,7 +590,7 @@ R4 inventory after R5c classifies remaining legacy references as:
 - KEEP: S1-S5 enum/preference parsing, developer override,
   `user_facing_npu_experimental`, `selected_backend=NPU_S5`, and
   `route_family=npu_s5`.
-- DEPRECATE: `NPU Experimental` as a current user-facing label, and S1-S5 as
+- DEPRECATE: the old Experimental wording as a current user-facing label, and S1-S5 as
   backend labels in user-facing context.
 - CLEANUP_CANDIDATE: stale docs/comments/tests that still use old user-facing
   wording or omit R3b/R5a/R5c state.

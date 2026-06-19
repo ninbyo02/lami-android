@@ -179,7 +179,7 @@ for the user-facing completed route only.
 R3b does not add NPU to Automatic selection. It allows:
 
 ```text
-Settings: NPU Experimental
+Settings: NPU Beta
 debug.lami.npu_standard_route_phase=0 or absent
 debug.lami.npu_standard_route_completed_route_disabled!=true
 ```
@@ -229,7 +229,7 @@ success artifact includes the R1b completed-route diagnostics.
 ## R5a UX Acceptance
 
 R2 rollout monitoring answers whether Phase 8 artifacts are healthy. R5a adds a
-user-visible acceptance layer for explicit `NPU Experimental`:
+user-visible acceptance layer for explicit `NPU Beta`:
 
 ```text
 scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs

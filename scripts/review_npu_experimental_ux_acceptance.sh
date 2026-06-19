@@ -17,7 +17,7 @@ Usage:
   scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_runs
   scripts/review_npu_experimental_ux_acceptance.sh --self-test
 
-Reviews NPU Experimental completed-route UX acceptance evidence. This is an
+Reviews NPU Beta completed-route UX acceptance evidence. This is an
 artifact-only review; it does not change runtime, ChatScreen, Settings UI, or
 NPU route behavior.
 USAGE

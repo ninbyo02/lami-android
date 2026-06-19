@@ -113,7 +113,7 @@ quality-candidate-fail suppression-pass sample. See
 
 ## R1 / R1b / R2 Dependencies
 
-R1 is required because user-facing `NPU Experimental` must map to the completed
+R1 is required because user-facing `NPU Beta` must map to the completed
 standard route.
 
 R1b is required because diagnostics must distinguish the user-facing completed
@@ -149,7 +149,7 @@ R1B_DIAGNOSTICS_MODE=user_facing_npu_experimental/completed_route_default
 
 R1c additionally requires `debug.lami.npu_standard_route_phase=0` to mean
 "clear explicit developer phase override". With Settings showing
-`NPU Experimental`, phase `0` or an absent phase property must resolve to the
+`NPU Beta`, phase `0` or an absent phase property must resolve to the
 completed route default:
 
 ```text
@@ -186,7 +186,7 @@ Rollback triggers:
 Rollback action:
 
 - restore the dev gate requirement
-- force `NPU Experimental` completed route back to diagnostic / blocked mode
+- force the `NPU Beta` completed route back to diagnostic / blocked mode
 - keep CPU and GPU behavior unaffected
 - keep legacy S1-S5 developer override available
 - preserve quality-candidate-fail suppression
@@ -199,7 +199,7 @@ this runtime kill switch:
 debug.lami.npu_standard_route_completed_route_disabled=true
 ```
 
-When this property is `true`, `NPU Experimental` does not select the completed
+When this property is `true`, `NPU Beta` does not select the completed
 route, delivery gates stay closed, and diagnostics report
 `npu_standard_route_completed_route_block_reason=kill_switch_disabled`.
 
@@ -227,7 +227,7 @@ It does not make NPU part of Automatic backend selection.
 R3b behavior:
 
 ```text
-NPU Experimental + phase=0 or absent + kill switch off
+NPU Beta + phase=0 or absent + kill switch off
   -> completed route default phase=8
   -> dev gate not required
 
@@ -236,7 +236,7 @@ explicit phase=1..8 + dev gate=true
 
 explicit phase=1..8 + dev gate=false
   -> developer override blocked
-  -> user-facing NPU Experimental falls back to completed route phase=8
+  -> user-facing NPU Beta falls back to completed route phase=8
 ```
 
 ## Legacy S1-S5 Cleanup Dependency
@@ -254,7 +254,7 @@ Cleanup must follow the staged deprecation plan in
 
 ## R5a UX Acceptance Dependency
 
-After R3b, use R5a to review the user-visible `NPU Experimental` experience
+After R3b, use R5a to review the user-visible `NPU Beta` experience
 before any formal promotion wording or Automatic-backend discussion:
 
 ```text

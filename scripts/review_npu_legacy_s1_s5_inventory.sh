@@ -61,7 +61,7 @@ count_npu_experimental_user_facing_lines() {
     {
       grep -Ei 'NPU Experimental' "$file" || true
     } |
-      { grep -Eiv 'user_facing_npu_experimental|npu_standard_route_user_facing|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|R1B_DIAGNOSTICS_MODE|selection_mode|source marker|compatibility term|legacy user-facing label' || true; } |
+      { grep -Eiv 'review_npu_legacy_s1_s5_inventory|NpuStandardRouteRolloutSelectionTest|selection\.userFacingBackend|user_facing_npu_experimental|npu_standard_route_user_facing|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|R1B_DIAGNOSTICS_MODE|selection_mode|source marker|compatibility term|legacy user-facing label|legacy wording|cleanup candidate|cleanup_candidate|display-only rename|previous .*label|old .*label|historical|rename only|R5c implements|NPU Experimental -> NPU Beta' || true; } |
       wc -l |
       tr -d ' '
   fi
@@ -76,7 +76,38 @@ paths_npu_experimental_user_facing() {
   {
     grep -Ei 'NPU Experimental' "$file" || true
   } |
-    { grep -Eiv 'user_facing_npu_experimental|npu_standard_route_user_facing|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|R1B_DIAGNOSTICS_MODE|selection_mode|source marker|compatibility term|legacy user-facing label' || true; } |
+    { grep -Eiv 'review_npu_legacy_s1_s5_inventory|NpuStandardRouteRolloutSelectionTest|selection\.userFacingBackend|user_facing_npu_experimental|npu_standard_route_user_facing|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|R1B_DIAGNOSTICS_MODE|selection_mode|source marker|compatibility term|legacy user-facing label|legacy wording|cleanup candidate|cleanup_candidate|display-only rename|previous .*label|old .*label|historical|rename only|R5c implements|NPU Experimental -> NPU Beta' || true; } |
+    cut -d: -f1 |
+    sed "s#^$SCAN_ROOT/##" |
+    sort -u |
+    paste -sd, - |
+    sed 's/^$/none/'
+}
+
+count_legacy_user_facing_backend_lines() {
+  local file="$1"
+  if [[ ! -s "$file" ]]; then
+    printf '0\n'
+  else
+    {
+      grep -Ei 'NPU S[1-5] (response|応答|DB|Markdown|Streaming|TTS)|S[1-5] (response|DB|Markdown|Streaming|TTS)' "$file" || true
+    } |
+      { grep -Eiv 'DEV|developer|legacy|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|historical|deprecated|deprecation' || true; } |
+      wc -l |
+      tr -d ' '
+  fi
+}
+
+paths_legacy_user_facing_backend() {
+  local file="$1"
+  if [[ ! -s "$file" ]]; then
+    printf 'none\n'
+    return 0
+  fi
+  {
+    grep -Ei 'NPU S[1-5] (response|応答|DB|Markdown|Streaming|TTS)|S[1-5] (response|DB|Markdown|Streaming|TTS)' "$file" || true
+  } |
+    { grep -Eiv 'DEV|developer|legacy|diagnostic|diagnostics|artifact|parser|compatib|fixture|self-test|historical|deprecated|deprecation' || true; } |
     cut -d: -f1 |
     sed "s#^$SCAN_ROOT/##" |
     sort -u |
@@ -117,7 +148,7 @@ run_inventory() {
   docs="$(count_matching_lines "$refs_file" '/docs/')"
   keep="$(count_matching_lines "$refs_file" 'preference|persist|enum|fromSettings|fromStorage|compatib|migration|parseable|legacy unspecified|LEGACY_UNSPECIFIED|user_facing_npu_experimental|npu_standard_route_user_facing|selected_backend=NPU_S5|route_family=npu_s5')"
   developer="$(count_matching_lines "$refs_file" 'DEV|developer|debug|diagnostic|legacy|phase selector|compact|full dump|test|fixture')"
-  user_facing="$(count_matching_lines "$refs_file" 'NPU S[1-5] (response|応答|DB|Markdown|Streaming|TTS)|S[1-5] (response|DB|Markdown|Streaming|TTS)')"
+  user_facing="$(count_legacy_user_facing_backend_lines "$refs_file")"
   npu_experimental_user_facing="$(count_npu_experimental_user_facing_lines "$refs_file")"
   npu_beta_user_facing="$(count_matching_lines "$refs_file" 'NPU Beta')"
   cleanup="$((user_facing + npu_experimental_user_facing))"
@@ -153,7 +184,7 @@ run_inventory() {
 
   keep_summary="$(unique_paths_matching "$refs_file" 'preference|persist|enum|fromSettings|fromStorage|compatib|migration|parseable|legacy unspecified|LEGACY_UNSPECIFIED')"
   developer_summary="$(unique_paths_matching "$refs_file" 'DEV|developer|debug|diagnostic|legacy|phase selector|compact|full dump|test|fixture')"
-  cleanup_summary="$(unique_paths_matching "$refs_file" 'NPU S[1-5] (response|応答|DB|Markdown|Streaming|TTS)|S[1-5] (response|DB|Markdown|Streaming|TTS)')"
+  cleanup_summary="$(paths_legacy_user_facing_backend "$refs_file")"
   npu_experimental_cleanup_summary="$(paths_npu_experimental_user_facing "$refs_file")"
   if [[ "$cleanup_summary" == "none" ]]; then
     cleanup_summary="$npu_experimental_cleanup_summary"
@@ -169,6 +200,9 @@ run_inventory() {
   printf 'LEGACY_DOC_REFERENCE_COUNT=%s\n' "$docs"
   printf 'NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=%s\n' "$npu_experimental_user_facing"
   printf 'NPU_BETA_USER_FACING_REFERENCE_COUNT=%s\n' "$npu_beta_user_facing"
+  printf 'USER_FACING_NPU_EXPERIMENTAL_REMAINING=%s\n' "$npu_experimental_user_facing"
+  printf 'USER_FACING_NPU_BETA_COUNT=%s\n' "$npu_beta_user_facing"
+  printf 'LEGACY_USER_FACING_BACKEND_WORDING_COUNT=%s\n' "$user_facing"
   printf 'KEEP_COUNT=%s\n' "$keep_count"
   printf 'DEPRECATE_COUNT=%s\n' "$deprecate_count"
   printf 'CLEANUP_CANDIDATE_COUNT=%s\n' "$cleanup_count"
@@ -224,6 +258,7 @@ self_test() {
   grep -Fq "KEEP_FOR_COMPATIBILITY=" "$out"
   expect_output_contains "$out" "LEGACY_SAFE_TO_REMOVE_NOW=false"
   expect_output_contains "$out" "NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=0"
+  expect_output_contains "$out" "USER_FACING_NPU_EXPERIMENTAL_REMAINING=0"
 
   mkdir -p "$tmpdir/user/docs"
   write_file "$tmpdir/user/docs/settings.md" \
@@ -234,6 +269,8 @@ self_test() {
   run_inventory "$tmpdir/user" >"$out"
   expect_output_contains "$out" "NPU_LEGACY_S1_S5_INVENTORY_STATUS=legacy_references_present_with_cleanup_candidates"
   expect_output_contains "$out" "NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=1"
+  expect_output_contains "$out" "USER_FACING_NPU_EXPERIMENTAL_REMAINING=1"
+  expect_output_contains "$out" "LEGACY_USER_FACING_BACKEND_WORDING_COUNT=2"
   grep -Fq "CLEANUP_CANDIDATES=docs/settings.md" "$out"
 
   mkdir -p "$tmpdir/developer/app/src/test/java"
@@ -250,6 +287,7 @@ self_test() {
   out="$tmpdir/beta.out"
   run_inventory "$tmpdir/beta" >"$out"
   expect_output_contains "$out" "NPU_BETA_USER_FACING_REFERENCE_COUNT=1"
+  expect_output_contains "$out" "USER_FACING_NPU_BETA_COUNT=1"
   expect_output_contains "$out" "NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=0"
 
   mkdir -p "$tmpdir/mixed/app/src/main/java/io/example/settings" "$tmpdir/mixed/docs"
