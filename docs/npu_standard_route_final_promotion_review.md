@@ -92,6 +92,15 @@ pass is not promotion-ready by itself, but it is required evidence that unsafe
 template output remains blocked from UI / TTS / DB / Markdown / pseudo
 streaming.
 
+Phase R3 dev-gate removal readiness builds on this review and the R2 monitor:
+
+```text
+scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_runs
+```
+
+It requires final promotion GO plus multiple clean rollout samples and a rollback
+plan. It does not remove or relax the dev gate.
+
 Expected output:
 
 ```text

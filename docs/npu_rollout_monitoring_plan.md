@@ -140,6 +140,16 @@ NPU_ROLLOUT_BLOCKERS=none
 The monitor is evidence aggregation only. It does not authorize removing the dev
 gate by itself.
 
+The next review layer is:
+
+```text
+scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_runs
+```
+
+That review combines rollout monitor output, final promotion GO evidence, R1b
+completed-route diagnostics, text-consistency evidence, and rollback-plan
+documentation. It still does not remove the dev gate.
+
 ## Rollback Criteria
 
 Stop rollout review and keep the dev gate if any of these become non-zero:

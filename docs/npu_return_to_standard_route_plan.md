@@ -450,6 +450,16 @@ NPU_ROLLOUT_RISK_LEVEL=low
 NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true
 ```
 
+Phase R3 adds a dev-gate removal readiness review without removing the gate:
+
+```text
+scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_runs
+```
+
+It requires low-risk rollout monitoring, final promotion GO, R1b diagnostics,
+text consistency, and rollback-plan documentation before a future R3b runtime
+kill-switch implementation can be considered.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

@@ -170,6 +170,20 @@ NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true
 NPU_ROLLOUT_RISK_LEVEL=low
 ```
 
+## R3 Dev Gate Removal Readiness Review
+
+Phase R3 adds the review script but does not remove the dev gate:
+
+```text
+scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_runs
+```
+
+The review requires low-risk rollout monitoring, at least three Phase 8 success
+samples, at least one suppression-pass sample, final promotion GO, R1b
+completed-route diagnostics, phase 8 text consistency, and a documented rollback
+plan. A positive result only authorizes a future R3b implementation with a
+runtime kill switch.
+
 ## Debug Phase Selector Proposal
 
 Keep the system properties as the canonical DEV gate during rollout:
