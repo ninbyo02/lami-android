@@ -124,6 +124,17 @@ When enabled, the route should produce a NPU completed-route safe block:
 - no pseudo streaming
 - no fallback to `Automatic` / `local_default`
 
+The safe block can report:
+
+```text
+npu_standard_route_rollback_required=true
+npu_standard_route_rollback_reason=kill_switch_disabled_before_generation
+```
+
+That rollback is safety evidence, not a rollout failure. If `fallback=true` or
+`fallback_used=true` appears, the artifact is no longer a safe block and should
+be reviewed as a failure.
+
 ## Badge Candidates
 
 Potential README badges:

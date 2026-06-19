@@ -25,11 +25,34 @@ USAGE
 latest_file_in_dir() {
   local dir="$1"
   [[ -d "$dir" ]] || return 0
-  find "$dir" -type f \
+  find "$dir" -maxdepth 1 -type f \
     ! -name 'NPU_INVESTIGATION_REPORT.md' \
     -printf '%T@ %p\n' 2>/dev/null |
     sort -nr |
     awk 'NR == 1 { $1 = ""; sub(/^ /, ""); print; exit }'
+}
+
+latest_positive_phase8_success_in_dir() {
+  local dir="$1"
+  local file
+  [[ -d "$dir" ]] || return 0
+  while IFS= read -r file; do
+    [[ -n "$file" && -f "$file" ]] || continue
+    [[ "$(diagnostic_get_key_or_unavailable "$file" "status")" == "success" ]] || continue
+    [[ "$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_phase")" == "8" ]] || continue
+    [[ "$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_streaming_executed")" == "true" ]] || continue
+    [[ "$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_rollback_required")" == "false" ]] || continue
+    [[ "$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_quality_gate_passed")" == "true" ||
+      "$(diagnostic_get_key_or_unavailable "$file" "output_quality_candidate_status")" == "quality_candidate_pass" ]] || continue
+    printf '%s\n' "$file"
+    return 0
+  done < <(
+    find "$dir" -maxdepth 1 -type f \
+      ! -name 'NPU_INVESTIGATION_REPORT.md' \
+      -printf '%T@ %p\n' 2>/dev/null |
+      sort -nr |
+      awk '{ $1 = ""; sub(/^ /, ""); print }'
+  )
 }
 
 bool_true() {
@@ -324,6 +347,24 @@ self_test() {
   expect_output_contains "$out" "NPU_STANDARD_ROUTE_FINAL_REVIEW=blocked"
   grep -Fq "rollback_required_expected_false_actual_true" "$out"
 
+  mkdir -p "$tmpdir/latest_selection"
+  write_fixture "$tmpdir/latest_selection/positive_success.txt" \
+    "status=success selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true native_call_returned=true native_decode_finished=true native_cleanup_reached=true output_quality_candidate_status=quality_candidate_pass" \
+    "npu_standard_route_phase=8 npu_standard_route_phase_name=7b_pseudo_streaming_gate npu_standard_route_connected=true conversation_created=true generate_response=true npu_standard_route_quality_gate_passed=true npu_standard_route_output_suppressed=false npu_standard_route_output_delivery_allowed=true npu_standard_route_ui_append_executed=true" \
+    "npu_standard_route_db_save_executed=true npu_standard_route_markdown_executed=true npu_standard_route_streaming_executed=true npu_standard_route_streaming_mode=pseudo_final_text npu_standard_route_native_streaming_used=false npu_standard_route_streaming_text_matches_db=true npu_standard_route_streaming_text_matches_markdown=true npu_standard_route_rollback_required=false"
+  sleep 1
+  write_fixture "$tmpdir/latest_selection/newer_kill_switch_block.txt" \
+    "status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 effective_backend=NPU backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false timeout=false fresh_crash=false" \
+    "npu_standard_route_phase=8 npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled output_quality_candidate_status=quality_candidate_fail" \
+    "npu_standard_route_output_suppressed=false npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false npu_standard_route_native_streaming_used=false npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=kill_switch_disabled_before_generation"
+  local selected
+  selected="$(latest_positive_phase8_success_in_dir "$tmpdir/latest_selection")"
+  [[ "$(basename "$selected")" == "positive_success.txt" ]]
+  out="$tmpdir/latest_selection.out"
+  review_file "$selected" >"$out"
+  expect_output_contains "$out" "NPU_STANDARD_ROUTE_FINAL_REVIEW=ready"
+  expect_output_contains "$out" "PROMOTION_DECISION=go"
+
   printf 'self-test passed\n'
 }
 
@@ -353,7 +394,10 @@ while (($#)); do
 done
 
 if [[ -z "$INPUT" ]]; then
-  INPUT="$(latest_file_in_dir "$DEVICE_RUNS" || true)"
+  INPUT="$(latest_positive_phase8_success_in_dir "$DEVICE_RUNS" || true)"
+  if [[ -z "$INPUT" ]]; then
+    INPUT="$(latest_file_in_dir "$DEVICE_RUNS" || true)"
+  fi
 fi
 
 if [[ -z "$INPUT" || ! -f "$INPUT" ]]; then

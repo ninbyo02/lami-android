@@ -62,6 +62,46 @@ has_quality_candidate_fail_reason() {
     "$suppression_reason" == *"template"* ]]
 }
 
+is_kill_switch_safe_block() {
+  local completed_disabled="$1"
+  local completed_selected="$2"
+  local block_reason="$3"
+  local delivery="$4"
+  local ui="$5"
+  local tts="$6"
+  local db="$7"
+  local markdown="$8"
+  local streaming="$9"
+  local rollback="${10}"
+  local rollback_reason="${11}"
+  local fallback="${12}"
+  local fallback_used="${13}"
+  local timeout="${14}"
+  local fresh_crash="${15}"
+  local selected="${16}"
+  local effective="${17}"
+  local backend_evidence="${18}"
+  local npu_backend_evidence="${19}"
+
+  [[ "$completed_disabled" == "true" &&
+    "$completed_selected" == "false" &&
+    "$block_reason" == "kill_switch_disabled" &&
+    "$delivery" == "false" &&
+    "$ui" == "false" &&
+    "$tts" == "false" &&
+    "$db" == "false" &&
+    "$markdown" == "false" &&
+    "$streaming" == "false" &&
+    "$rollback" == "true" &&
+    "$rollback_reason" == "kill_switch_disabled_before_generation" ]] &&
+    bool_false_or_unavailable "$fallback" &&
+    bool_false_or_unavailable "$fallback_used" &&
+    bool_false_or_unavailable "$timeout" &&
+    bool_false_or_unavailable "$fresh_crash" &&
+    ( value_is_npu "$selected" || value_is_npu "$effective" ) &&
+    backend_evidence_present "$backend_evidence" "$npu_backend_evidence"
+}
+
 artifact_has_npu_evidence() {
   local file="$1"
   grep -Eq '(NPU_|npu_|selected_backend=.*NPU|effective_backend=.*NPU|backend_evidence=.*(QNN|HTP|FastRPC|NPU))' "$file"
@@ -74,12 +114,12 @@ list_input_files() {
   fi
   [[ -d "$DEVICE_RUNS" ]] || return 0
   local ux_files
-  ux_files="$(find "$DEVICE_RUNS" -type f -name 'npu_ux_*.txt' -print 2>/dev/null | sort)"
+  ux_files="$(find "$DEVICE_RUNS" -maxdepth 1 -type f -name 'npu_ux_*.txt' -print 2>/dev/null | sort)"
   if [[ -n "$ux_files" ]]; then
     printf '%s\n' "$ux_files"
     return 0
   fi
-  find "$DEVICE_RUNS" -type f \
+  find "$DEVICE_RUNS" -maxdepth 1 -type f \
     ! -name 'NPU_INVESTIGATION_REPORT.md' \
     ! -name 'GPU_INVESTIGATION_REPORT.md' \
     ! -name '*.png' \
@@ -141,21 +181,11 @@ classify_artifact() {
 
   if [[ "$completed_disabled" == "true" ||
     "$block_reason" == "kill_switch_disabled" ]]; then
-    if [[ "$completed_selected" == "false" &&
-      "$block_reason" == "kill_switch_disabled" &&
-      "$rollout_state" == "disabled_by_kill_switch" &&
-      "$delivery" == "false" &&
-      "$ui" == "false" &&
-      "$tts" == "false" &&
-      "$db" == "false" &&
-      "$markdown" == "false" &&
-      "$streaming" == "false" ]] &&
-      bool_false_or_unavailable "$fallback" &&
-      bool_false_or_unavailable "$fallback_used" &&
-      bool_false_or_unavailable "$timeout" &&
-      bool_false_or_unavailable "$fresh_crash" &&
-      ( value_is_npu "$selected" || value_is_npu "$effective" ) &&
-      backend_evidence_present "$backend_evidence" "$npu_backend_evidence"; then
+    if is_kill_switch_safe_block \
+      "$completed_disabled" "$completed_selected" "$block_reason" "$delivery" \
+      "$ui" "$tts" "$db" "$markdown" "$streaming" "$rollback" \
+      "$rollback_reason" "$fallback" "$fallback_used" "$timeout" "$fresh_crash" \
+      "$selected" "$effective" "$backend_evidence" "$npu_backend_evidence"; then
       printf 'kill_switch_block\n'
     else
       printf 'failure\n'
@@ -322,6 +352,7 @@ emit_review() {
   printf 'UX_MARKDOWN_SUCCESS_COUNT=%s\n' "$markdown_count"
   printf 'UX_STREAMING_SUCCESS_COUNT=%s\n' "$streaming_count"
   printf 'UX_KILL_SWITCH_SAMPLE_COUNT=%s\n' "$kill_switch_count"
+  printf 'UX_KILL_SWITCH_SAFETY_PASS_COUNT=%s\n' "$kill_switch_count"
   printf 'UX_RISK_LEVEL=%s\n' "$risk"
   printf 'UX_PASSED_GATES=%s\n' "$(join_csv "${passed[@]}")"
   printf 'UX_FAILED_GATES=%s\n' "$(join_csv "${failed[@]}")"
@@ -372,7 +403,8 @@ write_kill_switch_fixture() {
   write_fixture "$file" \
     "status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 requested_backend=NPU effective_backend=NPU route_family=npu_s5 backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false timeout=false fresh_crash=false" \
     "npu_standard_route_phase=8 npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled npu_standard_route_completed_route_rollout_state=disabled_by_kill_switch" \
-    "npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false"
+    "output_quality_candidate_status=quality_candidate_fail npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false" \
+    "npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=kill_switch_disabled_before_generation"
 }
 
 self_test() {
@@ -396,6 +428,8 @@ self_test() {
   expect_output_contains "$out" "UX_SUCCESS_COUNT=3"
   expect_output_contains "$out" "UX_SUPPRESSION_PASS_COUNT=1"
   expect_output_contains "$out" "UX_KILL_SWITCH_SAMPLE_COUNT=1"
+  expect_output_contains "$out" "UX_KILL_SWITCH_SAFETY_PASS_COUNT=1"
+  expect_output_contains "$out" "UX_FAILURE_COUNT=0"
   expect_output_contains "$out" "UX_RISK_LEVEL=low"
 
   mkdir -p "$tmpdir/medium"
@@ -434,6 +468,13 @@ self_test() {
   out="$tmpdir/kill.out"
   INPUT="$tmpdir/ready/ux_kill_switch.txt" emit_review >"$out"
   expect_output_contains "$out" "UX_KILL_SWITCH_SAMPLE_COUNT=1"
+  expect_output_contains "$out" "UX_FAILURE_COUNT=0"
+
+  write_kill_switch_fixture "$tmpdir/kill_switch_with_fallback.txt"
+  printf '%s\n' "fallback_used=true" >>"$tmpdir/kill_switch_with_fallback.txt"
+  out="$tmpdir/kill_fallback.out"
+  INPUT="$tmpdir/kill_switch_with_fallback.txt" emit_review >"$out"
+  expect_output_contains "$out" "UX_FAILURE_COUNT=1"
 
   mkdir -p "$tmpdir/tts_disabled"
   write_success_fixture "$tmpdir/tts_disabled/ux_success_1.txt" false tts_disabled

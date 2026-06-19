@@ -204,6 +204,16 @@ not counted as rollout successes, but they also should not appear as
 `npu_standard_route_effective_phase=8`, `fallback=false`, and all delivery
 execution keys set to `false`.
 
+The rollout monitor reports kill-switch safe blocks separately as safety-pass
+evidence. They do not increase positive success count, failure count, or
+non-suppression rollback count. `npu_standard_route_rollback_required=true` is
+expected only when `npu_standard_route_rollback_reason=kill_switch_disabled_before_generation`.
+If `fallback=true` or `fallback_used=true` appears, the artifact remains a
+failure.
+
+The monitor scans direct files under `artifacts/device_runs` and intentionally
+ignores archived artifacts under `artifacts/device_runs/archive/`.
+
 ## Rollback Criteria
 
 Stop rollout review and keep the dev gate if any of these become non-zero:

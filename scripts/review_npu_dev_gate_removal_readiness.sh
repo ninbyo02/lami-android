@@ -91,7 +91,7 @@ list_raw_artifact_files() {
     fi
   fi
   [[ -d "$DEVICE_RUNS" ]] || return 0
-  find "$DEVICE_RUNS" -type f \
+  find "$DEVICE_RUNS" -maxdepth 1 -type f \
     ! -name 'NPU_INVESTIGATION_REPORT.md' \
     ! -name 'GPU_INVESTIGATION_REPORT.md' \
     ! -name '*.png' \
@@ -175,6 +175,7 @@ make_monitor_output() {
       printf 'NPU_ROLLOUT_SAMPLE_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_SUCCESS_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=0\n' >>"$output"
+      printf 'NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_FAILURE_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_ROLLBACK_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_TIMEOUT_COUNT=0\n' >>"$output"
@@ -194,6 +195,7 @@ make_monitor_output() {
       printf 'NPU_ROLLOUT_SAMPLE_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_SUCCESS_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=0\n' >>"$output"
+      printf 'NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_FAILURE_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_ROLLBACK_COUNT=0\n' >>"$output"
       printf 'NPU_ROLLOUT_TIMEOUT_COUNT=0\n' >>"$output"
@@ -284,6 +286,7 @@ emit_review() {
   local final_file="$2"
   local raw_or_combined="$3"
   local monitor_status sample_count success_count suppression_count failure_count rollback_count
+  local kill_switch_safety_count
   local timeout_count fresh_crash_count fallback_count risk monitor_ready final_review final_ready decision
   local native_streaming_used matches_db matches_markdown blockers passed failed review ready removal_decision reason next
   local rollback_plan_required rollback_plan_ok
@@ -292,6 +295,7 @@ emit_review() {
   sample_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_SAMPLE_COUNT")")"
   success_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_SUCCESS_COUNT")")"
   suppression_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_SUPPRESSION_PASS_COUNT")")"
+  kill_switch_safety_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT")")"
   failure_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_FAILURE_COUNT")")"
   rollback_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_ROLLBACK_COUNT")")"
   timeout_count="$(value_or_zero "$(diagnostic_get_key_or_unavailable "$monitor_file" "NPU_ROLLOUT_TIMEOUT_COUNT")")"
@@ -367,6 +371,7 @@ emit_review() {
   printf 'REQUIRED_SAMPLE_COUNT=%s\n' "$REQUIRED_SAMPLE_COUNT"
   printf 'CURRENT_SUCCESS_COUNT=%s\n' "$success_count"
   printf 'CURRENT_SUPPRESSION_PASS_COUNT=%s\n' "$suppression_count"
+  printf 'CURRENT_KILL_SWITCH_SAFETY_PASS_COUNT=%s\n' "$kill_switch_safety_count"
   printf 'CURRENT_FAILURE_COUNT=%s\n' "$failure_count"
   printf 'CURRENT_ROLLBACK_COUNT=%s\n' "$rollback_count"
   printf 'CURRENT_TIMEOUT_COUNT=%s\n' "$timeout_count"
@@ -434,6 +439,7 @@ write_healthy_go_review_input() {
     "NPU_ROLLOUT_SAMPLE_COUNT=5" \
     "NPU_ROLLOUT_SUCCESS_COUNT=4" \
     "NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=1" \
+    "NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=1" \
     "NPU_ROLLOUT_FAILURE_COUNT=0" \
     "NPU_ROLLOUT_ROLLBACK_COUNT=0" \
     "NPU_ROLLOUT_TIMEOUT_COUNT=0" \
@@ -470,6 +476,7 @@ self_test() {
     "NPU_ROLLOUT_SAMPLE_COUNT=4" \
     "NPU_ROLLOUT_SUCCESS_COUNT=3" \
     "NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=1" \
+    "NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=1" \
     "NPU_ROLLOUT_FAILURE_COUNT=0" \
     "NPU_ROLLOUT_ROLLBACK_COUNT=0" \
     "NPU_ROLLOUT_TIMEOUT_COUNT=0" \
@@ -490,6 +497,9 @@ self_test() {
   expect_output_contains "$out" "NPU_DEV_GATE_REMOVAL_REVIEW=ready"
   expect_output_contains "$out" "READY_TO_REMOVE_DEV_GATE=true"
   expect_output_contains "$out" "DEV_GATE_REMOVAL_DECISION=go"
+  expect_output_contains "$out" "CURRENT_KILL_SWITCH_SAFETY_PASS_COUNT=1"
+  expect_output_contains "$out" "CURRENT_FAILURE_COUNT=0"
+  expect_output_contains "$out" "CURRENT_ROLLBACK_COUNT=0"
 
   mkdir -p "$tmpdir/mixed_runs"
   write_phase8_success_artifact \

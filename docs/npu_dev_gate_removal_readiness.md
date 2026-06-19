@@ -210,6 +210,14 @@ not an `Automatic` / `local_default` failure. The artifact should preserve
 while `conversation_created=false`, `generate_response=false`, and every
 delivery execution key remains `false`.
 
+Kill-switch safe blocks are optional safety evidence, not rollout failures.
+They may have `npu_standard_route_rollback_required=true` with
+`npu_standard_route_rollback_reason=kill_switch_disabled_before_generation`.
+Readiness scripts must not count that as `CURRENT_FAILURE_COUNT` or
+`CURRENT_ROLLBACK_COUNT`. If fallback is true, the sample is still a failure.
+Archived artifacts under `artifacts/device_runs/archive/` are not part of the
+current readiness sample set.
+
 ## Next Phase
 
 Phase R3b may be enabled only after:

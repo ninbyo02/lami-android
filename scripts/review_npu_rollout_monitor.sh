@@ -61,6 +61,46 @@ has_quality_candidate_fail_reason() {
     "$suppression_reason" == *"template"* ]]
 }
 
+is_kill_switch_safe_block() {
+  local completed_disabled="$1"
+  local completed_selected="$2"
+  local block_reason="$3"
+  local delivery="$4"
+  local ui="$5"
+  local tts="$6"
+  local db="$7"
+  local markdown="$8"
+  local streaming="$9"
+  local rollback="${10}"
+  local rollback_reason="${11}"
+  local fallback="${12}"
+  local fallback_used="${13}"
+  local timeout="${14}"
+  local fresh_crash="${15}"
+  local selected="${16}"
+  local effective="${17}"
+  local backend_evidence="${18}"
+  local npu_backend_evidence="${19}"
+
+  [[ "$completed_disabled" == "true" &&
+    "$completed_selected" == "false" &&
+    "$block_reason" == "kill_switch_disabled" &&
+    "$delivery" == "false" &&
+    "$ui" == "false" &&
+    "$tts" == "false" &&
+    "$db" == "false" &&
+    "$markdown" == "false" &&
+    "$streaming" == "false" &&
+    "$rollback" == "true" &&
+    "$rollback_reason" == "kill_switch_disabled_before_generation" ]] &&
+    bool_false_or_unavailable "$fallback" &&
+    bool_false_or_unavailable "$fallback_used" &&
+    bool_false_or_unavailable "$timeout" &&
+    bool_false_or_unavailable "$fresh_crash" &&
+    ( value_is_npu "$selected" || value_is_npu "$effective" ) &&
+    backend_evidence_present "$backend_evidence" "$npu_backend_evidence"
+}
+
 has_engine_create_failure() {
   local file="$1"
   local kind last reason failure_message native_message
@@ -87,7 +127,7 @@ list_input_files() {
     return 0
   fi
   [[ -d "$DEVICE_RUNS" ]] || return 0
-  find "$DEVICE_RUNS" -type f \
+  find "$DEVICE_RUNS" -maxdepth 1 -type f \
     ! -name 'NPU_INVESTIGATION_REPORT.md' \
     ! -name 'GPU_INVESTIGATION_REPORT.md' \
     ! -name '*.png' \
@@ -103,6 +143,7 @@ classify_artifact() {
   local status selected effective backend_evidence npu_backend_evidence fallback fallback_used timeout fresh_crash
   local run_decode native_cleanup phase quality_gate candidate_status suppressed suppression_reason ui tts db markdown streaming
   local rollback rollback_reason streaming_block native_streaming matches_db matches_markdown
+  local completed_disabled completed_selected block_reason delivery
 
   status="$(diagnostic_get_key_or_unavailable "$file" "status")"
   selected="$(diagnostic_get_key_or_unavailable "$file" "selected_backend")"
@@ -116,8 +157,12 @@ classify_artifact() {
   run_decode="$(diagnostic_get_key_or_unavailable "$file" "run_decode_reached")"
   native_cleanup="$(diagnostic_get_key_or_unavailable "$file" "native_cleanup_reached")"
   phase="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_phase")"
+  completed_disabled="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_completed_route_disabled_by_property")"
+  completed_selected="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_completed_route_selected")"
+  block_reason="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_completed_route_block_reason")"
   quality_gate="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_quality_gate_passed")"
   candidate_status="$(diagnostic_get_key_or_unavailable "$file" "output_quality_candidate_status")"
+  delivery="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_output_delivery_allowed")"
   suppressed="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_output_suppressed")"
   suppression_reason="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_suppression_reason")"
   ui="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_ui_append_executed")"
@@ -131,6 +176,20 @@ classify_artifact() {
   native_streaming="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_native_streaming_used")"
   matches_db="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_streaming_text_matches_db")"
   matches_markdown="$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_streaming_text_matches_markdown")"
+
+  if [[ "$completed_disabled" == "true" ||
+    "$block_reason" == "kill_switch_disabled" ]]; then
+    if is_kill_switch_safe_block \
+      "$completed_disabled" "$completed_selected" "$block_reason" "$delivery" \
+      "$ui" "$tts" "$db" "$markdown" "$streaming" "$rollback" \
+      "$rollback_reason" "$fallback" "$fallback_used" "$timeout" "$fresh_crash" \
+      "$selected" "$effective" "$backend_evidence" "$npu_backend_evidence"; then
+      printf 'kill_switch_safety_pass\n'
+    else
+      printf 'failure\n'
+    fi
+    return 0
+  fi
 
   if [[ "$quality_gate" == "false" || "$candidate_status" == "quality_candidate_fail" ]]; then
     if [[ "$suppressed" == "true" &&
@@ -184,6 +243,7 @@ classify_artifact() {
 
 emit_monitor() {
   local sample_count=0 success_count=0 suppression_count=0 failure_count=0 rollback_count=0
+  local kill_switch_safety_count=0
   local timeout_count=0 fresh_crash_count=0 fallback_count=0 engine_create_count=0 quality_failure_count=0
   local status rate risk ready blockers next file classification
 
@@ -196,11 +256,13 @@ emit_monitor() {
     case "$classification" in
       success) success_count=$((success_count + 1)) ;;
       suppression_pass) suppression_count=$((suppression_count + 1)) ;;
+      kill_switch_safety_pass) kill_switch_safety_count=$((kill_switch_safety_count + 1)) ;;
       failure) failure_count=$((failure_count + 1)) ;;
     esac
 
     [[ "$(diagnostic_get_key_or_unavailable "$file" "npu_standard_route_rollback_required")" != "true" ||
-      "$classification" == "suppression_pass" ]] || rollback_count=$((rollback_count + 1))
+      "$classification" == "suppression_pass" ||
+      "$classification" == "kill_switch_safety_pass" ]] || rollback_count=$((rollback_count + 1))
     bool_true "$(diagnostic_get_key_or_unavailable "$file" "timeout")" && timeout_count=$((timeout_count + 1))
     bool_true "$(diagnostic_get_key_or_unavailable "$file" "fresh_crash")" && fresh_crash_count=$((fresh_crash_count + 1))
     if ! bool_false_or_unavailable "$(diagnostic_get_key_or_unavailable "$file" "fallback_used")" ||
@@ -255,6 +317,7 @@ emit_monitor() {
   printf 'NPU_ROLLOUT_SAMPLE_COUNT=%s\n' "$sample_count"
   printf 'NPU_ROLLOUT_SUCCESS_COUNT=%s\n' "$success_count"
   printf 'NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=%s\n' "$suppression_count"
+  printf 'NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=%s\n' "$kill_switch_safety_count"
   printf 'NPU_ROLLOUT_FAILURE_COUNT=%s\n' "$failure_count"
   printf 'NPU_ROLLOUT_ROLLBACK_COUNT=%s\n' "$rollback_count"
   printf 'NPU_ROLLOUT_TIMEOUT_COUNT=%s\n' "$timeout_count"
@@ -306,14 +369,33 @@ self_test() {
     "status=success selected_backend=NPU_S5 effective_backend=NPU backend_evidence=QNN_HTP_V79_FastRPC_native_diag fallback=false timeout=false fresh_crash=false run_decode_reached=true native_cleanup_reached=true" \
     "output_quality_candidate_status=quality_candidate_fail npu_standard_route_quality_gate_passed=false npu_standard_route_output_suppressed=true npu_standard_route_suppression_reason=raw_unexpected_start_turn" \
     "npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false npu_standard_route_native_streaming_used=false npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=quality_candidate_fail_output_suppressed_before_ui_tts_db"
+  write_fixture "$tmpdir/phase8_kill_switch_safety_pass.txt" \
+    "status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 requested_backend=NPU effective_backend=NPU route_family=npu_s5 backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false fallback_used=false timeout=false fresh_crash=false" \
+    "output_quality_candidate_status=quality_candidate_fail npu_standard_route_phase=8 npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled" \
+    "npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false npu_standard_route_native_streaming_used=false" \
+    "npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=kill_switch_disabled_before_generation"
   out="$tmpdir/healthy.out"
   DEVICE_RUNS="$tmpdir" emit_monitor >"$out"
   expect_output_contains "$out" "NPU_ROLLOUT_MONITOR_STATUS=healthy"
-  expect_output_contains "$out" "NPU_ROLLOUT_SAMPLE_COUNT=4"
+  expect_output_contains "$out" "NPU_ROLLOUT_SAMPLE_COUNT=5"
   expect_output_contains "$out" "NPU_ROLLOUT_SUCCESS_COUNT=3"
   expect_output_contains "$out" "NPU_ROLLOUT_SUPPRESSION_PASS_COUNT=1"
+  expect_output_contains "$out" "NPU_ROLLOUT_KILL_SWITCH_SAFETY_PASS_COUNT=1"
+  expect_output_contains "$out" "NPU_ROLLOUT_FAILURE_COUNT=0"
+  expect_output_contains "$out" "NPU_ROLLOUT_ROLLBACK_COUNT=0"
   expect_output_contains "$out" "NPU_ROLLOUT_RISK_LEVEL=low"
   expect_output_contains "$out" "NPU_ROLLOUT_READY_FOR_DEV_GATE_REVIEW=true"
+
+  write_fixture "$tmpdir/kill_switch_with_fallback.txt" \
+    "status=blocked reason=kill_switch_disabled selected_backend=NPU_S5 requested_backend=NPU effective_backend=NPU route_family=npu_s5 backend_evidence=NPU_completed_route_kill_switch_blocked fallback=false fallback_used=true timeout=false fresh_crash=false" \
+    "npu_standard_route_phase=8 npu_standard_route_completed_route_disabled_by_property=true npu_standard_route_completed_route_selected=false npu_standard_route_completed_route_block_reason=kill_switch_disabled" \
+    "npu_standard_route_output_delivery_allowed=false npu_standard_route_ui_append_executed=false npu_standard_route_tts_started=false npu_standard_route_db_save_executed=false npu_standard_route_markdown_executed=false npu_standard_route_streaming_executed=false" \
+    "npu_standard_route_rollback_required=true npu_standard_route_rollback_reason=kill_switch_disabled_before_generation"
+  out="$tmpdir/kill_fallback.out"
+  INPUT="$tmpdir/kill_switch_with_fallback.txt" emit_monitor >"$out"
+  expect_output_contains "$out" "NPU_ROLLOUT_MONITOR_STATUS=blocked"
+  expect_output_contains "$out" "NPU_ROLLOUT_FAILURE_COUNT=1"
+  expect_output_contains "$out" "NPU_ROLLOUT_FALLBACK_COUNT=1"
 
   write_fixture "$tmpdir/timeout_failure.txt" \
     "status=failure selected_backend=NPU_S1 effective_backend=NPU backend_evidence=QNN_HTP timeout=true fallback=false fresh_crash=false run_decode_reached=false native_cleanup_reached=true npu_standard_route_phase=8"

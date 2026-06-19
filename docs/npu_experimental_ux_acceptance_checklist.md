@@ -205,6 +205,10 @@ native_call_reached=false
 The kill switch artifact is a NPU completed-route safe block. It must not look
 like `Automatic` / `local_default`, must not fallback, and must not call native
 generation. It is counted as kill-switch evidence, not as a UX failure.
+`npu_standard_route_rollback_required=true` is expected when the rollback reason
+is `kill_switch_disabled_before_generation`; that rollback is a safety pass, not
+an unsafe-delivery rollback. If `fallback=true` or `fallback_used=true` appears,
+the artifact remains a failure.
 
 The kill switch sample is desirable for low-risk UX review, but lack of a kill
 switch artifact can be treated as medium risk when all minimum runtime UX gates
@@ -222,6 +226,7 @@ When `artifacts/device_runs` contains files named `npu_ux_*.txt`, the script
 uses only those R5a UX artifacts so older rollout, DEV, or pre-R3b experiments
 do not affect the UX acceptance result. If no `npu_ux_*.txt` files exist, it
 falls back to all NPU-looking artifacts for ad hoc review.
+Archived files under `artifacts/device_runs/archive/` are intentionally ignored.
 
 Expected low-risk output:
 
