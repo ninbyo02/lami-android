@@ -192,17 +192,20 @@ Rollback action:
 - preserve quality-candidate-fail suppression
 - document an adb property kill switch before implementation
 
-Future implementation should include a runtime kill switch such as:
+Phase R3b implements dev-gate removal for the user-facing completed route with
+this runtime kill switch:
 
 ```text
-debug.lami.npu_standard_route_rollout_enabled=false
+debug.lami.npu_standard_route_completed_route_disabled=true
 ```
 
-This property is a proposed future control. It is not implemented in Phase R3.
+When this property is `true`, `NPU Experimental` does not select the completed
+route, delivery gates stay closed, and diagnostics report
+`npu_standard_route_completed_route_block_reason=kill_switch_disabled`.
 
 ## Next Phase
 
-Phase R3b may implement dev-gate removal only after:
+Phase R3b may be enabled only after:
 
 ```text
 NPU_DEV_GATE_REMOVAL_REVIEW=ready
@@ -210,8 +213,24 @@ READY_TO_REMOVE_DEV_GATE=true
 DEV_GATE_REMOVAL_DECISION=go
 ```
 
-R3b must remain reversible, preserve CPU/GPU behavior, preserve legacy developer
-phase overrides, and keep quality-candidate-fail suppression as the stop line.
+R3b remains reversible, preserves CPU/GPU behavior, preserves legacy developer
+phase overrides, and keeps quality-candidate-fail suppression as the stop line.
+It does not make NPU part of Automatic backend selection.
+
+R3b behavior:
+
+```text
+NPU Experimental + phase=0 or absent + kill switch off
+  -> completed route default phase=8
+  -> dev gate not required
+
+explicit phase=1..8 + dev gate=true
+  -> developer phase override
+
+explicit phase=1..8 + dev gate=false
+  -> developer override blocked
+  -> user-facing NPU Experimental falls back to completed route phase=8
+```
 
 ## Legacy S1-S5 Cleanup Dependency
 

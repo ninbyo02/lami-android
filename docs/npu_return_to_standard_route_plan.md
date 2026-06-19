@@ -405,11 +405,27 @@ npu_standard_route_selection_mode=user_facing_npu_experimental
 npu_standard_route_completed_phase_default=8
 ```
 
-When `debug.lami.npu_standard_route_dev_gate=true` and no explicit phase
-property is set, the effective phase is `8`. If a phase property is set, it wins
-and diagnostics report `npu_standard_route_selection_mode=developer_phase_override`.
-If the dev gate is false, completed route selection is blocked with
-`npu_standard_route_completed_route_block_reason=dev_gate_disabled`.
+After Phase R3b, user-facing `NPU Experimental` no longer requires
+`debug.lami.npu_standard_route_dev_gate=true` for the completed route default.
+When no explicit phase override is present, or the phase property is `0`, the
+effective phase is `8` as long as the completed-route kill switch is off.
+
+Explicit phase values `1` through `8` are still developer overrides. They are
+honored only when `debug.lami.npu_standard_route_dev_gate=true`; if the dev gate
+is false, the override is blocked and user-facing `NPU Experimental` falls back
+to the completed route default phase `8`.
+
+The runtime kill switch is:
+
+```text
+debug.lami.npu_standard_route_completed_route_disabled=true
+```
+
+When enabled, completed-route selection is blocked with:
+
+```text
+npu_standard_route_completed_route_block_reason=kill_switch_disabled
+```
 
 Phase R1b makes that mapping explicit in compact/full dumps and NPU diagnostic
 key copy. `selected_backend=NPU_S5` and `route_family=npu_s5` can still appear
@@ -471,8 +487,8 @@ scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_
 ```
 
 It requires low-risk rollout monitoring, final promotion GO, R1b diagnostics,
-text consistency, and rollback-plan documentation before a future R3b runtime
-kill-switch implementation can be considered.
+text consistency, and rollback-plan documentation before R3b completed-route
+dev-gate removal can be enabled with a runtime kill switch.
 
 Phase R4 inventories legacy S1-S5 references without changing runtime:
 

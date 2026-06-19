@@ -99,7 +99,8 @@ scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_
 ```
 
 It requires final promotion GO plus multiple clean rollout samples and a rollback
-plan. It does not remove or relax the dev gate.
+plan. Phase R3b uses that evidence to remove the dev gate requirement for
+user-facing `NPU Experimental` completed-route default selection only.
 
 Expected output:
 
@@ -190,11 +191,25 @@ experimental backend with developer phase controls, not as separate hardware
 backends for S1-S8.
 
 Phase R1 keeps that compatibility while connecting the user-facing
-`NPU Experimental` selection to the completed standard route. The default
-completed phase is `8` only when `debug.lami.npu_standard_route_dev_gate=true`
-and no explicit phase override is present. Explicit
-`debug.lami.npu_standard_route_phase` values remain developer overrides and
-must continue to be reflected in diagnostics.
+`NPU Experimental` selection to the completed standard route. Phase R3b removes
+the dev gate requirement for the completed route default only: when
+`NPU Experimental` is selected and `debug.lami.npu_standard_route_phase` is `0`
+or absent, the effective phase is `8` unless the completed-route kill switch is
+enabled.
+
+Explicit `debug.lami.npu_standard_route_phase=1..8` values remain developer
+overrides and require `debug.lami.npu_standard_route_dev_gate=true`. If the dev
+gate is false, the override is blocked and diagnostics should include
+`npu_standard_route_developer_phase_override_block_reason=dev_gate_disabled`.
+
+The completed-route kill switch is:
+
+```text
+debug.lami.npu_standard_route_completed_route_disabled=true
+```
+
+This keeps the rollout reversible without changing CPU / GPU / Automatic
+behavior.
 
 Remaining rollout tasks:
 

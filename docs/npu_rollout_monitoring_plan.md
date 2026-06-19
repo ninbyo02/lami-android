@@ -173,7 +173,26 @@ scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_
 
 That review combines rollout monitor output, final promotion GO evidence, R1b
 completed-route diagnostics, text-consistency evidence, and rollback-plan
-documentation. It still does not remove the dev gate.
+documentation. Phase R3b uses that approval to remove the dev gate requirement
+for the user-facing completed route only.
+
+R3b does not add NPU to Automatic selection. It allows:
+
+```text
+Settings: NPU Experimental
+debug.lami.npu_standard_route_phase=0 or absent
+debug.lami.npu_standard_route_completed_route_disabled!=true
+```
+
+to resolve to completed route phase `8` even when
+`debug.lami.npu_standard_route_dev_gate` is false. Explicit developer phase
+overrides `1..8` remain dev-gated.
+
+The rollback property for the completed route is:
+
+```text
+debug.lami.npu_standard_route_completed_route_disabled=true
+```
 
 ## Rollback Criteria
 

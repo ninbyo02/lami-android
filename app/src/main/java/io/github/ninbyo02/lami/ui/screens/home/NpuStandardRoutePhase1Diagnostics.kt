@@ -7,6 +7,8 @@ internal const val NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY =
     "debug.lami.npu_standard_route_dev_gate"
 internal const val NPU_STANDARD_ROUTE_PHASE_PROPERTY =
     "debug.lami.npu_standard_route_phase"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_DISABLED_PROPERTY =
+    "debug.lami.npu_standard_route_completed_route_disabled"
 
 internal const val NPU_STANDARD_ROUTE_PHASE_1 = "1"
 internal const val NPU_STANDARD_ROUTE_PHASE_1_NAME = "1_route_entry_diagnostic"
@@ -49,6 +51,17 @@ internal const val NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT =
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE = "none"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_DEV_GATE_DISABLED =
     "dev_gate_disabled"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED =
+    "kill_switch_disabled"
+internal const val NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_NONE = "none"
+internal const val NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_DEV_GATE_DISABLED =
+    "dev_gate_disabled"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_ENABLED =
+    "enabled"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_DISABLED_BY_PROPERTY =
+    "disabled_by_property"
+internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_NOT_SELECTED =
+    "not_selected"
 internal const val NPU_STANDARD_ROUTE_USER_FACING_BACKEND_NPU_EXPERIMENTAL =
     "NPU Experimental"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_FAMILY =
@@ -57,6 +70,8 @@ internal const val NPU_STANDARD_ROUTE_INTERNAL_LEGACY_BACKEND_NPU_S5 = "NPU_S5"
 internal const val NPU_STANDARD_ROUTE_INTERNAL_LEGACY_ROUTE_FAMILY_NPU_S5 = "npu_s5"
 
 internal data class NpuStandardRouteRolloutSelection(
+    val devGateEnabled: Boolean,
+    val devGateRequired: Boolean,
     val rolloutGateEnabled: Boolean,
     val selectionMode: String,
     val userFacingBackend: String,
@@ -64,6 +79,10 @@ internal data class NpuStandardRouteRolloutSelection(
     val completedRouteSelected: Boolean,
     val developerPhaseOverride: Boolean,
     val completedRouteBlockReason: String,
+    val completedRouteKillSwitchEnabled: Boolean,
+    val completedRouteDisabledByProperty: Boolean,
+    val developerPhaseOverrideBlockReason: String,
+    val completedRouteRolloutState: String,
     val effectivePhaseSource: String,
     val effectivePhase: String,
     val effectiveMode: NpuStandardRouteMode,
@@ -78,6 +97,9 @@ internal fun resolveNpuStandardRouteRolloutSelection(
     val devGateEnabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
         ?.trim()
         ?.equals("true", ignoreCase = true) == true
+    val completedRouteDisabled = propertyReader(NPU_STANDARD_ROUTE_COMPLETED_ROUTE_DISABLED_PROPERTY)
+        ?.trim()
+        ?.equals("true", ignoreCase = true) == true
     val explicitPhase = resolveExplicitNpuStandardRouteDiagnosticPhase(propertyReader)
     val npuExperimentalSettingsShape = preferredBackend == PreferredBackendDryRunSetting.DEFAULT &&
         npuStandardRouteMode == NpuStandardRouteMode.FULL
@@ -86,31 +108,55 @@ internal fun resolveNpuStandardRouteRolloutSelection(
             selectionSource == NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL ||
                 selectionSource == NpuStandardRouteSelectionSource.LEGACY_UNSPECIFIED
             )
-    val developerOverride = explicitPhase != null ||
+    val explicitDeveloperOverrideAllowed = explicitPhase != null && devGateEnabled
+    val explicitDeveloperOverrideBlocked = explicitPhase != null && !devGateEnabled
+    val developerSelectionSourceOverride =
         selectionSource == NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE
+    val developerPhaseOverride = explicitDeveloperOverrideAllowed ||
+        (developerSelectionSourceOverride && devGateEnabled)
     val selectionMode = when {
-        explicitPhase != null -> NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
+        explicitDeveloperOverrideAllowed -> NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
         userFacingNpu -> NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING
-        selectionSource == NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE ->
+        explicitDeveloperOverrideBlocked -> NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
+        developerSelectionSourceOverride ->
             NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE
         selectionSource == NpuStandardRouteSelectionSource.LOCAL_BACKEND ->
             NPU_STANDARD_ROUTE_SELECTION_MODE_LOCAL_BACKEND
         else -> NPU_STANDARD_ROUTE_SELECTION_MODE_LEGACY
     }
-    val completedRouteSelected = userFacingNpu && devGateEnabled && explicitPhase == null
+    val completedRouteSelected = userFacingNpu &&
+        !completedRouteDisabled &&
+        !explicitDeveloperOverrideAllowed
     val effectivePhase = when {
-        explicitPhase != null -> explicitPhase
+        explicitDeveloperOverrideAllowed -> requireNotNull(explicitPhase)
         completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_8
         else -> NPU_STANDARD_ROUTE_PHASE_1
     }
     val effectivePhaseSource = when {
-        explicitPhase != null -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY
+        explicitDeveloperOverrideAllowed -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY
         completedRouteSelected -> NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT
-        userFacingNpu && !devGateEnabled -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT
+        userFacingNpu && completedRouteDisabled -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT
         else -> NPU_STANDARD_ROUTE_PHASE_SOURCE_DEVELOPER_PHASE_SELECTION
     }
+    val completedRouteBlockReason = when {
+        userFacingNpu && completedRouteDisabled -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED
+        else -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE
+    }
+    val completedRouteRolloutState = when {
+        completedRouteSelected -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_ENABLED
+        userFacingNpu && completedRouteDisabled ->
+            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_DISABLED_BY_PROPERTY
+        else -> NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_NOT_SELECTED
+    }
+    val developerPhaseOverrideBlockReason = if (explicitDeveloperOverrideBlocked) {
+        NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_DEV_GATE_DISABLED
+    } else {
+        NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_NONE
+    }
     return NpuStandardRouteRolloutSelection(
-        rolloutGateEnabled = devGateEnabled,
+        devGateEnabled = devGateEnabled,
+        devGateRequired = developerPhaseOverride,
+        rolloutGateEnabled = completedRouteSelected || developerPhaseOverride,
         selectionMode = selectionMode,
         userFacingBackend = if (userFacingNpu) {
             NPU_STANDARD_ROUTE_USER_FACING_BACKEND_NPU_EXPERIMENTAL
@@ -119,18 +165,18 @@ internal fun resolveNpuStandardRouteRolloutSelection(
         },
         completedPhaseDefault = NPU_STANDARD_ROUTE_PHASE_8,
         completedRouteSelected = completedRouteSelected,
-        developerPhaseOverride = developerOverride,
-        completedRouteBlockReason = if (userFacingNpu && !devGateEnabled) {
-            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_DEV_GATE_DISABLED
-        } else {
-            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE
-        },
+        developerPhaseOverride = developerPhaseOverride,
+        completedRouteBlockReason = completedRouteBlockReason,
+        completedRouteKillSwitchEnabled = completedRouteDisabled,
+        completedRouteDisabledByProperty = completedRouteDisabled,
+        developerPhaseOverrideBlockReason = developerPhaseOverrideBlockReason,
+        completedRouteRolloutState = completedRouteRolloutState,
         effectivePhaseSource = effectivePhaseSource,
         effectivePhase = effectivePhase,
-        effectiveMode = if (userFacingNpu && !devGateEnabled) {
-            NpuStandardRouteMode.OFF
-        } else {
-            npuStandardRouteMode
+        effectiveMode = when {
+            userFacingNpu && completedRouteDisabled -> NpuStandardRouteMode.OFF
+            developerSelectionSourceOverride && !devGateEnabled -> NpuStandardRouteMode.OFF
+            else -> npuStandardRouteMode
         },
     )
 }
@@ -152,6 +198,7 @@ internal fun buildNpuStandardRoutePhase1Diagnostics(
         phase = phase,
         connected = connected,
         outputQualityCandidateStatus = outputQualityCandidateStatus,
+        devGateEnabled = enabled,
     )
 }
 
@@ -164,7 +211,7 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
     val enabled = propertyReader(NPU_STANDARD_ROUTE_DEV_GATE_PROPERTY)
         ?.trim()
         ?.equals("true", ignoreCase = true) == true
-    if (!enabled) return emptyMap()
+    if (!enabled && rolloutSelection?.completedRouteSelected != true) return emptyMap()
     if (!isNpuStandardRoutePhase1NpuS1DumpEligible(result, backendDiagnostics)) return emptyMap()
 
     val phase = rolloutSelection?.effectivePhase ?: resolveNpuStandardRouteDiagnosticPhase(propertyReader)
@@ -182,6 +229,7 @@ internal fun buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         candidateTextLength = result.actualDisplayText.length,
         ttsTextPresent = result.ttsText.isNotBlank(),
         ttsTextLength = result.ttsText.length,
+        devGateEnabled = enabled,
     )
 }
 
@@ -189,12 +237,17 @@ internal fun NpuStandardRouteRolloutSelection?.toDiagnosticsMap(): Map<String, S
     if (this == null) return emptyMap()
     return linkedMapOf(
         "npu_standard_route_rollout_gate_enabled" to rolloutGateEnabled.toString(),
+        "npu_standard_route_dev_gate_required" to devGateRequired.toString(),
         "npu_standard_route_selection_mode" to selectionMode,
         "npu_standard_route_user_facing_backend" to userFacingBackend,
         "npu_standard_route_completed_phase_default" to completedPhaseDefault,
         "npu_standard_route_completed_route_selected" to completedRouteSelected.toString(),
         "npu_standard_route_developer_phase_override" to developerPhaseOverride.toString(),
         "npu_standard_route_completed_route_block_reason" to completedRouteBlockReason,
+        "npu_standard_route_completed_route_kill_switch_enabled" to completedRouteKillSwitchEnabled.toString(),
+        "npu_standard_route_completed_route_disabled_by_property" to completedRouteDisabledByProperty.toString(),
+        "npu_standard_route_developer_phase_override_block_reason" to developerPhaseOverrideBlockReason,
+        "npu_standard_route_completed_route_rollout_state" to completedRouteRolloutState,
         "npu_standard_route_effective_phase_source" to effectivePhaseSource,
         "npu_standard_route_effective_phase" to effectivePhase,
         "npu_standard_route_user_facing_selected_backend" to userFacingBackend,
@@ -230,6 +283,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     candidateTextLength: Int? = null,
     ttsTextPresent: Boolean? = null,
     ttsTextLength: Int? = null,
+    devGateEnabled: Boolean = true,
 ): Map<String, String> {
     val phaseName = when (phase) {
         NPU_STANDARD_ROUTE_PHASE_8 -> NPU_STANDARD_ROUTE_PHASE_8_NAME
@@ -428,7 +482,7 @@ private fun buildNpuStandardRoutePhaseDiagnosticsMap(
     val rollbackReason = rollbackReasons.joinToString("+").ifBlank { NPU_STANDARD_ROUTE_ROLLBACK_REASON_NONE }
 
     return linkedMapOf(
-        "npu_standard_route_dev_gate_enabled" to "true",
+        "npu_standard_route_dev_gate_enabled" to devGateEnabled.toString(),
         "npu_standard_route_phase" to phase,
         "npu_standard_route_phase_name" to phaseName,
         "npu_standard_route_connected" to connected.toString(),

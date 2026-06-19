@@ -82,31 +82,53 @@ monitoring and any future production label change are separate tasks.
 
 ## R1 Runtime Mapping
 
-Phase R1 connects the user-facing `NPU Experimental` selection to the completed
-standard route behavior without removing the developer gate. The mapping is:
+Phase R1 connected the user-facing `NPU Experimental` selection to the completed
+standard route behavior behind the developer gate. Phase R3b removes that dev
+gate requirement for the completed route only. The current mapping is:
 
 ```text
-NPU Experimental + debug.lami.npu_standard_route_dev_gate=true + no explicit phase property
+NPU Experimental + no explicit phase property + completed-route kill switch off
   -> effective phase=8
   -> npu_standard_route_phase_name=7b_pseudo_streaming_gate
 ```
 
-If `debug.lami.npu_standard_route_phase` is explicitly set, it wins:
+If `debug.lami.npu_standard_route_phase` is explicitly set to `1..8`, it is a
+developer phase override and still requires
+`debug.lami.npu_standard_route_dev_gate=true`:
 
 ```text
-NPU Experimental + debug.lami.npu_standard_route_phase=5
+NPU Experimental + debug.lami.npu_standard_route_dev_gate=true
+  + debug.lami.npu_standard_route_phase=5
   -> effective phase=5
   -> npu_standard_route_selection_mode=developer_phase_override
 ```
 
-If the dev gate is false, R1 does not silently open the completed route:
+If the dev gate is false and an explicit developer phase is set, the developer
+override is blocked. User-facing `NPU Experimental` falls back to the completed
+route default phase `8` instead of running a partial phase:
+
+```text
+npu_standard_route_developer_phase_override_block_reason=dev_gate_disabled
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+```
+
+This is still not an Automatic-backend rollout. CPU / GPU / Automatic behavior
+remains unchanged.
+
+R3b also adds a completed-route kill switch:
+
+```text
+debug.lami.npu_standard_route_completed_route_disabled=true
+```
+
+When set, user-facing `NPU Experimental` does not select the completed route:
 
 ```text
 npu_standard_route_completed_route_selected=false
-npu_standard_route_completed_route_block_reason=dev_gate_disabled
+npu_standard_route_completed_route_block_reason=kill_switch_disabled
+npu_standard_route_completed_route_disabled_by_property=true
 ```
-
-This keeps R1 as a rollout mapping step, not a full dev-gate removal.
 
 ## R1b Diagnostics Polish
 
@@ -211,8 +233,35 @@ scripts/review_npu_dev_gate_removal_readiness.sh --device-runs artifacts/device_
 The review requires low-risk rollout monitoring, at least three Phase 8 success
 samples, at least one suppression-pass sample, final promotion GO, R1b
 completed-route diagnostics, phase 8 text consistency, and a documented rollback
-plan. A positive result only authorizes a future R3b implementation with a
+plan. A positive result authorizes R3b completed-route dev-gate removal with a
 runtime kill switch.
+
+## R3b Completed Route Dev Gate Removal
+
+Phase R3b implements that authorized change. User-facing `NPU Experimental`
+now uses the completed standard route default phase `8` without requiring
+`debug.lami.npu_standard_route_dev_gate=true`, as long as the completed-route
+kill switch is not enabled. Explicit developer phase overrides remain gated by
+`debug.lami.npu_standard_route_dev_gate=true`.
+
+Expected completed-route diagnostics when the dev gate is off:
+
+```text
+npu_standard_route_dev_gate_enabled=false
+npu_standard_route_dev_gate_required=false
+npu_standard_route_rollout_gate_enabled=true
+npu_standard_route_selection_mode=user_facing_npu_experimental
+npu_standard_route_completed_route_selected=true
+npu_standard_route_completed_route_block_reason=none
+npu_standard_route_completed_route_kill_switch_enabled=false
+npu_standard_route_completed_route_disabled_by_property=false
+npu_standard_route_completed_route_rollout_state=enabled
+npu_standard_route_effective_phase_source=completed_route_default
+npu_standard_route_effective_phase=8
+```
+
+This keeps legacy S1-S5 preference values available for developer compatibility
+and rollback, but they are not normal user-facing backends.
 
 ## R4 Legacy S1-S5 Inventory
 

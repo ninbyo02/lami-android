@@ -53,7 +53,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `NPU Experimental is blocked when dev gate is disabled`() {
+    fun `NPU Experimental maps to completed phase8 when dev gate is disabled`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -61,16 +61,45 @@ class NpuStandardRouteRolloutSelectionTest {
             propertyReader = { null },
         )
 
+        assertEquals(true, selection.rolloutGateEnabled)
+        assertEquals(false, selection.devGateEnabled)
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
+        assertEquals(true, selection.completedRouteSelected)
+        assertEquals(false, selection.devGateRequired)
+        assertEquals(false, selection.developerPhaseOverride)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+        assertEquals(NpuStandardRouteMode.FULL, selection.effectiveMode)
+        assertEquals(
+            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_NONE,
+            selection.completedRouteBlockReason,
+        )
+    }
+
+    @Test
+    fun `completed route kill switch blocks NPU Experimental without changing local backends`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            selectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            propertyReader = { key ->
+                if (key == NPU_STANDARD_ROUTE_COMPLETED_ROUTE_DISABLED_PROPERTY) "true" else null
+            },
+        )
+
+        assertEquals(false, selection.devGateEnabled)
         assertEquals(false, selection.rolloutGateEnabled)
         assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
         assertEquals(false, selection.completedRouteSelected)
+        assertEquals(true, selection.completedRouteKillSwitchEnabled)
+        assertEquals(true, selection.completedRouteDisabledByProperty)
+        assertEquals(
+            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_KILL_SWITCH_DISABLED,
+            selection.completedRouteBlockReason,
+        )
         assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DISABLED_OR_SAFE_DEFAULT, selection.effectivePhaseSource)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_1, selection.effectivePhase)
         assertEquals(NpuStandardRouteMode.OFF, selection.effectiveMode)
-        assertEquals(
-            NPU_STANDARD_ROUTE_COMPLETED_ROUTE_BLOCK_DEV_GATE_DISABLED,
-            selection.completedRouteBlockReason,
-        )
     }
 
     @Test
@@ -127,12 +156,17 @@ class NpuStandardRouteRolloutSelectionTest {
         val diagnostics = selection.toDiagnosticsMap()
 
         assertEquals("true", diagnostics["npu_standard_route_rollout_gate_enabled"])
+        assertEquals("false", diagnostics["npu_standard_route_dev_gate_required"])
         assertEquals(
             "user_facing_npu_experimental",
             diagnostics["npu_standard_route_selection_mode"],
         )
         assertEquals("8", diagnostics["npu_standard_route_completed_phase_default"])
         assertEquals("true", diagnostics["npu_standard_route_completed_route_selected"])
+        assertEquals("false", diagnostics["npu_standard_route_completed_route_kill_switch_enabled"])
+        assertEquals("false", diagnostics["npu_standard_route_completed_route_disabled_by_property"])
+        assertEquals("none", diagnostics["npu_standard_route_developer_phase_override_block_reason"])
+        assertEquals("enabled", diagnostics["npu_standard_route_completed_route_rollout_state"])
         assertEquals("completed_route_default", diagnostics["npu_standard_route_effective_phase_source"])
         assertEquals("8", diagnostics["npu_standard_route_effective_phase"])
         assertEquals("NPU Experimental", diagnostics["npu_standard_route_user_facing_selected_backend"])
@@ -211,6 +245,47 @@ class NpuStandardRouteRolloutSelectionTest {
         assertEquals(false, selection.completedRouteSelected)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DEBUG_PROPERTY, selection.effectivePhaseSource)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+    }
+
+    @Test
+    fun `explicit phase5 is blocked without dev gate and falls back to completed route default`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            selectionSource = NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL,
+            propertyReader = { key ->
+                if (key == NPU_STANDARD_ROUTE_PHASE_PROPERTY) NPU_STANDARD_ROUTE_PHASE_5 else null
+            },
+        )
+
+        assertEquals(false, selection.devGateEnabled)
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
+        assertEquals(true, selection.completedRouteSelected)
+        assertEquals(false, selection.developerPhaseOverride)
+        assertEquals(
+            NPU_STANDARD_ROUTE_DEVELOPER_PHASE_OVERRIDE_BLOCK_DEV_GATE_DISABLED,
+            selection.developerPhaseOverrideBlockReason,
+        )
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.effectivePhase)
+        assertEquals(NpuStandardRouteMode.FULL, selection.effectiveMode)
+    }
+
+    @Test
+    fun `developer phase source is blocked without dev gate`() {
+        val selection = resolveNpuStandardRouteRolloutSelection(
+            preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.S3_MARKDOWN,
+            selectionSource = NpuStandardRouteSelectionSource.DEVELOPER_PHASE_OVERRIDE,
+            propertyReader = { null },
+        )
+
+        assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_DEVELOPER_OVERRIDE, selection.selectionMode)
+        assertEquals(false, selection.developerPhaseOverride)
+        assertEquals(false, selection.completedRouteSelected)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_DEVELOPER_PHASE_SELECTION, selection.effectivePhaseSource)
+        assertEquals(NPU_STANDARD_ROUTE_PHASE_1, selection.effectivePhase)
+        assertEquals(NpuStandardRouteMode.OFF, selection.effectiveMode)
     }
 
     @Test
