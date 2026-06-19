@@ -12,7 +12,7 @@ The user-facing backend selector is consolidated around:
 Automatic
 CPU
 GPU Experimental
-NPU Experimental
+NPU Beta
 ```
 
 The legacy NPU S1-S5 entries remain for internal compatibility and developer
@@ -80,7 +80,7 @@ Keep these until a migration window exists:
 
 - enum values for `NPU_S1` through `NPU_S5`
 - stored preference parsing and migration compatibility
-- source marker handling that distinguishes user-facing `NPU Experimental` from
+- source marker handling that distinguishes user-facing NPU Beta from
   developer legacy phase choices
 - tests that assert legacy values remain parseable
 
@@ -119,7 +119,7 @@ Do not remove:
 Normal users should see one NPU option:
 
 ```text
-NPU Experimental
+NPU Beta
 ```
 
 S1-S5 should remain hidden from normal backend selection and treated as
@@ -163,7 +163,7 @@ selection UI. Developer controls may still expose phase overrides.
 Stage 3:
 
 Keep artifact parser compatibility only. Runtime selection should rely on
-`NPU Experimental` plus completed-route diagnostics.
+NPU Beta plus completed-route diagnostics.
 
 Stage 4:
 
@@ -178,7 +178,7 @@ references, keep them unless a migration plan explicitly covers those paths.
 
 ## R5a Relationship
 
-R5a UX acceptance reviews explicit `NPU Experimental` usability after the
+R5a UX acceptance reviews explicit NPU usability after the
 completed route can run without the dev gate:
 
 ```text
@@ -193,3 +193,32 @@ Legacy cleanup remains staged:
 - keep `selected_backend=NPU_S5` / `route_family=npu_s5` parser compatibility
 - use completed-route summary keys for rollout interpretation
 - do not add NPU to Automatic as part of legacy cleanup
+
+## R5b Settings UX Relationship
+
+R5b reviews wording only. The recommended future user-facing backend list is:
+
+```text
+Automatic
+CPU
+GPU Experimental
+NPU Beta
+```
+
+R5c implements this display-only rename. `NPU Experimental` is now a legacy
+user-facing label and compatibility term in diagnostics/docs, not the current
+Settings label.
+
+This does not remove or rename S1-S5 enum values, preference keys, diagnostics,
+or developer phase overrides. It only identifies a later display-label cleanup:
+
+- KEEP: compatibility references, developer phase controls, parser fixtures,
+  and historical docs.
+- DEPRECATE: any normal-user-facing interpretation of S1-S5 as independent
+  hardware backends.
+- CLEANUP_CANDIDATE: labels, comments, or docs that mention S1-S5 without
+  `DEV` / `Legacy` context, and old `NPU Experimental` display assertions after
+  R5c.
+
+See `docs/npu_settings_ux_label_review.md` for the option comparison and
+recommendation.

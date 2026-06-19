@@ -64,7 +64,7 @@ class SettingsNpuRouteUiTest {
             ),
             InferenceBackendSelection.userFacingEntries,
         )
-        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU Experimental"))
+        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU Beta"))
         assertTrue(InferenceBackendSelection.userFacingEntries.none { isDeveloperNpuPhaseSelection(it) })
     }
 
@@ -237,8 +237,8 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU experimental backend description explains consolidated standard route`() {
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU Experimental"))
+    fun `NPU beta backend description explains consolidated standard route`() {
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU Beta"))
         assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("UI, TTS, DB, Markdown"))
         assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("pseudo streaming"))
     }

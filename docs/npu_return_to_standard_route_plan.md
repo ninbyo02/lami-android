@@ -388,16 +388,16 @@ suppression but is not itself promotion-ready.
 
 Settings should treat S1-S8 as NPU standard-route phases, not separate hardware
 backends. Existing preference keys remain compatible while labels are redesigned
-around `NPU Experimental / DEV` plus a developer phase selector.
+around `NPU Beta / DEV` plus a developer phase selector.
 
 Settings UI consolidation is implemented as a display-only change: the
-user-facing backend selector now shows one `NPU Experimental` option, while the
+user-facing backend selector now shows one `NPU Beta` option, while the
 legacy S1-S5 entries remain developer-only phase choices. Selecting the
 user-facing NPU option keeps the existing standard-route preference shape and
 does not introduce a new runtime path. Phase 6-8 remain governed by
 `debug.lami.npu_standard_route_phase`.
 
-Phase R1 connects `NPU Experimental` to completed standard-route behavior with a
+Phase R1 connects the user-facing NPU entry to completed standard-route behavior with a
 source marker:
 
 ```text
@@ -405,14 +405,14 @@ npu_standard_route_selection_mode=user_facing_npu_experimental
 npu_standard_route_completed_phase_default=8
 ```
 
-After Phase R3b, user-facing `NPU Experimental` no longer requires
+After Phase R3b, user-facing NPU no longer requires
 `debug.lami.npu_standard_route_dev_gate=true` for the completed route default.
 When no explicit phase override is present, or the phase property is `0`, the
 effective phase is `8` as long as the completed-route kill switch is off.
 
 Explicit phase values `1` through `8` are still developer overrides. They are
 honored only when `debug.lami.npu_standard_route_dev_gate=true`; if the dev gate
-is false, the override is blocked and user-facing `NPU Experimental` falls back
+is false, the override is blocked and user-facing NPU falls back
 to the completed route default phase `8`.
 
 The runtime kill switch is:
@@ -429,7 +429,7 @@ npu_standard_route_completed_route_block_reason=kill_switch_disabled
 
 R5a fixes the kill-switch artifact path so this block is reported as an NPU
 completed-route safe block instead of an `Automatic` / `local_default` failure.
-With `NPU Experimental`, phase `0`, and
+With `NPU Beta`, phase `0`, and
 `debug.lami.npu_standard_route_completed_route_disabled=true`, diagnostics
 should show:
 
@@ -478,7 +478,7 @@ To clear an explicit phase override on device, use reboot or
 values are not valid; phase `0` is treated as no explicit override.
 
 Phase R1c fixes the completed-route default resolution for older or
-legacy-unspecified preference state. If Settings shows `NPU Experimental`
+legacy-unspecified preference state. If Settings shows `NPU Beta`
 (`preferredBackend=DEFAULT`, `npuStandardRouteMode=FULL`) and the phase property
 is `0` or absent, the route now resolves to:
 
@@ -560,6 +560,28 @@ scripts/review_npu_experimental_ux_acceptance.sh --device-runs artifacts/device_
 
 R5a checks user-visible behavior only: UI append, TTS ON/OFF handling, DB save,
 Markdown, pseudo streaming, suppression, and the completed-route kill switch.
+
+R5b reviews the Settings label and wording. The recommendation is display-only:
+
+```text
+RECOMMENDED_BACKEND_LABEL=NPU Beta
+RECOMMENDED_SETTINGS_LAYOUT=Automatic / CPU / GPU Experimental / NPU Beta
+```
+
+This reflects the completed explicit-selection NPU route without claiming
+Automatic default readiness. It does not change runtime behavior, phase gates,
+diagnostics, kill switch behavior, or legacy S1-S5 compatibility. Details are
+tracked in `docs/npu_settings_ux_label_review.md`.
+R5c implements that display-only rename:
+
+```text
+NPU Experimental -> NPU Beta
+```
+
+The compatibility diagnostics remain unchanged, including
+`npu_standard_route_selection_mode=user_facing_npu_experimental` and completed
+route summary keys. This is intentional for artifact parser, rollout monitor,
+and final promotion compatibility.
 It does not make NPU a formal backend, does not add NPU to Automatic, and does
 not remove legacy S1-S5 compatibility.
 
