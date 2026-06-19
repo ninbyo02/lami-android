@@ -100,6 +100,17 @@ DEV_GATE_REMOVAL_DECISION_REASON=insufficient_rollout_samples
 SAFE_NEXT_ACTION=collect_phase8_success_and_suppression_samples
 ```
 
+Use the rollout sample collection helper before rerunning readiness:
+
+```text
+scripts/create_npu_rollout_sample_manifest.sh --date YYYYMMDD
+scripts/review_npu_rollout_sample_set.sh --device-runs artifacts/device_runs --date YYYYMMDD
+```
+
+The required minimum collection is three Phase 8 success samples plus one
+quality-candidate-fail suppression-pass sample. See
+`docs/npu_rollout_sample_collection.md`.
+
 ## R1 / R1b / R2 Dependencies
 
 R1 is required because user-facing `NPU Experimental` must map to the completed

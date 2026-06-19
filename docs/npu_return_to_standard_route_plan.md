@@ -470,6 +470,21 @@ S1-S5 remain developer-only compatibility phases. Do not remove enum values,
 preference parsing, route execution compatibility, or artifact parser support
 until the staged deprecation plan explicitly allows it.
 
+Rollout sample collection for dev-gate readiness is tracked in:
+
+- `docs/npu_rollout_sample_collection.md`
+
+Use:
+
+```text
+scripts/create_npu_rollout_sample_manifest.sh --date YYYYMMDD
+scripts/review_npu_rollout_sample_set.sh --device-runs artifacts/device_runs --date YYYYMMDD
+```
+
+The minimum set is three Phase 8 success samples plus one suppression-pass
+sample. R1b completed-route diagnostics must be present before dev-gate removal
+readiness can move from evidence collection to implementation planning.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

@@ -23,6 +23,16 @@ scripts/review_npu_rollout_monitor.sh --device-runs artifacts/device_runs
 scripts/review_npu_rollout_monitor.sh --input artifacts/device_runs/npu_phase8_latest.txt
 ```
 
+Before running the monitor after a manual collection session, generate and check
+the rollout sample set:
+
+```text
+scripts/create_npu_rollout_sample_manifest.sh --date YYYYMMDD
+scripts/review_npu_rollout_sample_set.sh --device-runs artifacts/device_runs --date YYYYMMDD
+```
+
+The collection guide is `docs/npu_rollout_sample_collection.md`.
+
 ## Output Keys
 
 The script emits machine-readable keys:
