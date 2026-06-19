@@ -132,11 +132,20 @@ The current static inventory reports:
 
 ```text
 NPU_LEGACY_S1_S5_INVENTORY_STATUS=legacy_references_present_with_cleanup_candidates
+NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=50
+NPU_BETA_USER_FACING_REFERENCE_COUNT=56
 LEGACY_SAFE_TO_REMOVE_NOW=false
 LEGACY_DEPRECATION_STAGE=stage0_current_hidden_developer_compatibility
 REMOVAL_BLOCKERS=preference_key_compatibility,developer_override_compatibility,artifact_parser_compatibility,route_execution_compatibility
 SAFE_NEXT_ACTION=rename_or_hide_user_facing_legacy_labels_before_cleanup
 ```
+
+`NPU Experimental` references are now split into two groups:
+
+- KEEP when they are diagnostic compatibility values such as
+  `user_facing_npu_experimental`.
+- CLEANUP_CANDIDATE when they describe the current Settings label instead of
+  `NPU Beta`.
 
 ### KEEP
 

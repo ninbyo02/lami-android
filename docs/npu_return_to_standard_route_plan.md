@@ -585,6 +585,18 @@ and final promotion compatibility.
 It does not make NPU a formal backend, does not add NPU to Automatic, and does
 not remove legacy S1-S5 compatibility.
 
+R4 inventory after R5c classifies remaining legacy references as:
+
+- KEEP: S1-S5 enum/preference parsing, developer override,
+  `user_facing_npu_experimental`, `selected_backend=NPU_S5`, and
+  `route_family=npu_s5`.
+- DEPRECATE: `NPU Experimental` as a current user-facing label, and S1-S5 as
+  backend labels in user-facing context.
+- CLEANUP_CANDIDATE: stale docs/comments/tests that still use old user-facing
+  wording or omit R3b/R5a/R5c state.
+- DO_NOT_REMOVE_YET: enum values, preference keys, diagnostics keys, parser
+  compatibility, rollout/final-promotion scripts, and sample artifact support.
+
 ## Next Device Confirmation Keys
 
 When the device is available, collect or preserve:

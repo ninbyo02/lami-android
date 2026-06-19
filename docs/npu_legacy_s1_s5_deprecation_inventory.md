@@ -44,6 +44,12 @@ LEGACY_RUNTIME_REFERENCE_COUNT
 LEGACY_SETTINGS_REFERENCE_COUNT
 LEGACY_TEST_REFERENCE_COUNT
 LEGACY_DOC_REFERENCE_COUNT
+NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT
+NPU_BETA_USER_FACING_REFERENCE_COUNT
+KEEP_COUNT
+DEPRECATE_COUNT
+CLEANUP_CANDIDATE_COUNT
+DO_NOT_REMOVE_YET_COUNT
 LEGACY_SAFE_TO_REMOVE_NOW
 LEGACY_DEPRECATION_STAGE
 KEEP_FOR_COMPATIBILITY
@@ -56,6 +62,25 @@ SAFE_NEXT_ACTION
 
 This is intentionally a lightweight grep inventory, not a compiler-level static
 analyzer.
+
+Current R5c inventory snapshot:
+
+```text
+NPU_LEGACY_S1_S5_INVENTORY_STATUS=legacy_references_present_with_cleanup_candidates
+LEGACY_REFERENCE_COUNT=1567
+LEGACY_RUNTIME_REFERENCE_COUNT=600
+LEGACY_SETTINGS_REFERENCE_COUNT=24
+LEGACY_TEST_REFERENCE_COUNT=331
+LEGACY_DOC_REFERENCE_COUNT=429
+NPU_EXPERIMENTAL_USER_FACING_REFERENCE_COUNT=50
+NPU_BETA_USER_FACING_REFERENCE_COUNT=56
+KEEP_COUNT=442
+DEPRECATE_COUNT=205
+CLEANUP_CANDIDATE_COUNT=205
+DO_NOT_REMOVE_YET_COUNT=600
+LEGACY_SAFE_TO_REMOVE_NOW=false
+SAFE_NEXT_ACTION=rename_or_hide_user_facing_legacy_labels_before_cleanup
+```
 
 ## Why S1-S5 Are Not Removed Now
 
@@ -82,7 +107,18 @@ Keep these until a migration window exists:
 - stored preference parsing and migration compatibility
 - source marker handling that distinguishes user-facing NPU Beta from
   developer legacy phase choices
+- `npu_standard_route_selection_mode=user_facing_npu_experimental`
+- `selected_backend=NPU_S5` / `route_family=npu_s5`
+- `DEV: NPU S1` through `DEV: NPU S5` labels
 - tests that assert legacy values remain parseable
+
+### Deprecate
+
+Deprecate these as wording, not as parser keys:
+
+- `NPU Experimental` as a current user-facing Settings label
+- S1-S5 as backend labels in user-facing context
+- docs that imply S1-S5 are normal backend choices
 
 ### Developer Only
 
@@ -99,8 +135,13 @@ These references are acceptable while the route remains staged:
 Clean these first:
 
 - user-facing labels that still read as separate normal backends
+- outdated docs/comments using `NPU Experimental` where the current Settings
+  label should be `NPU Beta`
+- tests asserting `NPU Experimental` as a user-facing display label
 - docs that present S1-S5 as current backend choices rather than historical
   phases
+- docs that still describe phase 8 as only developer-gated after R3b/R5c
+- docs that omit the kill switch safe block or dev-gate removal status
 - stale comments that imply S1-S5 are hardware backends
 - diagnostics that mention only `NPU_S5` without a completed-route summary key
 
@@ -113,6 +154,8 @@ Do not remove:
 - rollout monitor compatibility
 - legacy debug override
 - preference keys and enum values
+- diagnostics keys and artifact parser compatibility
+- sample artifact compatibility
 
 ## User-Facing Policy
 
