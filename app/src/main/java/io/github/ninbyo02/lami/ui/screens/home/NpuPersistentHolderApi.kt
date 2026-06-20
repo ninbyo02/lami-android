@@ -6,14 +6,14 @@ internal const val NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED = "not_imple
 internal const val NPU_PERSISTENT_HOLDER_API_REASON_NEEDS_NATIVE_JNI_SUPPORT = "needs_native_jni_support"
 internal const val NPU_PERSISTENT_HOLDER_API_RECOMMENDED_NEXT_STEP =
     "implement_dev_only_native_holder_api"
-internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_PROBE_TEST_NAME =
-    "NPU Persistent Holder Native Stub Probe"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_PROBE_TEST_NAME =
+    "NPU Persistent Holder Create Close Probe"
 internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_VERSION =
-    "dev_only_standard_route_adapter_holder_stub_v1"
+    "dev_only_standard_route_adapter_holder_create_close_v1"
 internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON =
     "dev_only_native_holder_stub_no_engine_create"
 internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_RECOMMENDED_NEXT_STEP =
-    "implement_native_create_close_without_decode"
+    "review_create_close_device_result_then_implement_run_once_without_multi_turn"
 
 internal data class NpuPersistentHolderCreateRequest(
     val modelPath: String,
@@ -45,6 +45,7 @@ internal data class NpuPersistentHolderApiDiagnostics(
     val holderApiAvailable: Boolean = false,
     val holderApiReason: String = NPU_PERSISTENT_HOLDER_API_REASON_NEEDS_NATIVE_JNI_SUPPORT,
     val nativeHolderStubAvailable: Boolean = false,
+    val nativeHolderCreateCloseAvailable: Boolean = false,
     val nativeHolderStubVersion: String = "unavailable",
     val nativeCreateDeclared: Boolean = false,
     val nativeRunDeclared: Boolean = false,
@@ -54,10 +55,27 @@ internal data class NpuPersistentHolderApiDiagnostics(
     val nativeRunCalled: Boolean = false,
     val nativeCloseCalled: Boolean = false,
     val nativeDiagnosticsCalled: Boolean = false,
+    val holderCreateRequested: Boolean = false,
+    val holderCreateCalled: Boolean = false,
+    val holderCreateSucceeded: Boolean = false,
+    val holderId: String = "unavailable",
+    val holderOpen: Boolean = false,
+    val holderCloseRequested: Boolean = false,
+    val holderCloseCalled: Boolean = false,
+    val holderCloseSucceeded: Boolean = false,
+    val holderDoubleCloseSafe: Boolean = false,
+    val holderFatalLatch: Boolean = false,
+    val holderFatalReason: String = "unavailable",
+    val engineFactoryCreateCalled: Boolean = false,
     val engineCreateCalled: Boolean = false,
     val modelAssetsCreateCalled: Boolean = false,
+    val engineSettingsCreateCalled: Boolean = false,
     val npuDecodeCalled: Boolean = false,
+    val generateCalled: Boolean = false,
+    val qnnDecodeCalled: Boolean = false,
     val qnnCalled: Boolean = false,
+    val runOnceSupported: Boolean = false,
+    val restartAppRecommended: Boolean = false,
     val status: String = NPU_PERSISTENT_HOLDER_API_STATUS_NOT_EXPOSED,
     val reason: String = NPU_PERSISTENT_HOLDER_API_REASON_NEEDS_NATIVE_JNI_SUPPORT,
     val holderCreateSupported: Boolean = false,
@@ -112,6 +130,7 @@ internal fun formatNpuPersistentHolderApiProbeSummary(
     appendLine("holder_api_available=${diagnostics.holderApiAvailable}")
     appendLine("holder_api_reason=${diagnostics.holderApiReason}")
     appendLine("native_holder_stub_available=${diagnostics.nativeHolderStubAvailable}")
+    appendLine("native_holder_create_close_available=${diagnostics.nativeHolderCreateCloseAvailable}")
     appendLine("native_holder_stub_version=${diagnostics.nativeHolderStubVersion}")
     appendLine("holder_create_supported=${diagnostics.holderCreateSupported}")
     appendLine("holder_run_supported=${diagnostics.holderRunSupported}")
@@ -131,10 +150,11 @@ internal fun formatNpuPersistentHolderApiProbeSummary(
 internal fun formatNpuPersistentHolderNativeStubProbeSummary(
     diagnostics: NpuPersistentHolderApiDiagnostics = npuPersistentHolderNativeStubDiagnostics(),
 ): String = buildString {
-    appendLine("[DEV診断: NPU persistent holder native stub summary]")
-    appendLine("test_name=$NPU_PERSISTENT_HOLDER_NATIVE_STUB_PROBE_TEST_NAME")
+    appendLine("[DEV診断: NPU persistent holder create close summary]")
+    appendLine("test_name=$NPU_PERSISTENT_HOLDER_CREATE_CLOSE_PROBE_TEST_NAME")
     appendLine("holder_api_available=${diagnostics.holderApiAvailable}")
     appendLine("native_holder_stub_available=${diagnostics.nativeHolderStubAvailable}")
+    appendLine("native_holder_create_close_available=${diagnostics.nativeHolderCreateCloseAvailable}")
     appendLine("native_holder_stub_version=${diagnostics.nativeHolderStubVersion}")
     appendLine("native_create_declared=${diagnostics.nativeCreateDeclared}")
     appendLine("native_run_declared=${diagnostics.nativeRunDeclared}")
@@ -144,18 +164,35 @@ internal fun formatNpuPersistentHolderNativeStubProbeSummary(
     appendLine("native_run_called=${diagnostics.nativeRunCalled}")
     appendLine("native_close_called=${diagnostics.nativeCloseCalled}")
     appendLine("native_diagnostics_called=${diagnostics.nativeDiagnosticsCalled}")
+    appendLine("holder_create_requested=${diagnostics.holderCreateRequested}")
+    appendLine("holder_create_called=${diagnostics.holderCreateCalled}")
+    appendLine("holder_create_succeeded=${diagnostics.holderCreateSucceeded}")
+    appendLine("holder_id=${diagnostics.holderId}")
+    appendLine("holder_open=${diagnostics.holderOpen}")
+    appendLine("holder_close_requested=${diagnostics.holderCloseRequested}")
+    appendLine("holder_close_called=${diagnostics.holderCloseCalled}")
+    appendLine("holder_close_succeeded=${diagnostics.holderCloseSucceeded}")
+    appendLine("holder_double_close_safe=${diagnostics.holderDoubleCloseSafe}")
+    appendLine("holder_fatal_latch=${diagnostics.holderFatalLatch}")
+    appendLine("holder_fatal_reason=${diagnostics.holderFatalReason}")
     appendLine("holder_create_supported=${diagnostics.holderCreateSupported}")
     appendLine("holder_run_supported=${diagnostics.holderRunSupported}")
     appendLine("holder_close_supported=${diagnostics.holderCloseSupported}")
     appendLine("holder_diagnostics_supported=${diagnostics.holderDiagnosticsSupported}")
+    appendLine("engine_factory_create_called=${diagnostics.engineFactoryCreateCalled}")
     appendLine("engine_create_called=${diagnostics.engineCreateCalled}")
     appendLine("model_assets_create_called=${diagnostics.modelAssetsCreateCalled}")
+    appendLine("engine_settings_create_called=${diagnostics.engineSettingsCreateCalled}")
     appendLine("npu_decode_called=${diagnostics.npuDecodeCalled}")
+    appendLine("generate_called=${diagnostics.generateCalled}")
+    appendLine("qnn_decode_called=${diagnostics.qnnDecodeCalled}")
     appendLine("qnn_called=${diagnostics.qnnCalled}")
+    appendLine("run_once_supported=${diagnostics.runOnceSupported}")
     appendLine("status=${diagnostics.status}")
     appendLine("reason=${diagnostics.reason}")
     appendLine("persistent_multi_turn_possible=${diagnostics.persistentMultiTurnPossible}")
     appendLine("engine_reuse_observed=${diagnostics.engineReuseObserved}")
+    appendLine("restart_app_recommended=${diagnostics.restartAppRecommended}")
     appendLine("recommended_next_step=${diagnostics.recommendedNextStep}")
 }.trimEnd()
 
@@ -164,10 +201,23 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     nativeRunCalled: Boolean = false,
     nativeCloseCalled: Boolean = false,
     nativeDiagnosticsCalled: Boolean = false,
+    holderCreateRequested: Boolean = nativeCreateCalled,
+    holderCreateSucceeded: Boolean = false,
+    holderId: String = "unavailable",
+    holderOpen: Boolean = false,
+    holderCloseRequested: Boolean = nativeCloseCalled,
+    holderCloseSucceeded: Boolean = false,
+    holderDoubleCloseSafe: Boolean = true,
+    holderFatalLatch: Boolean = false,
+    holderFatalReason: String = "none",
+    restartAppRecommended: Boolean = holderFatalLatch,
+    status: String = NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
+    reason: String = NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
 ): NpuPersistentHolderApiDiagnostics = NpuPersistentHolderApiDiagnostics(
-    holderApiAvailable = false,
+    holderApiAvailable = true,
     holderApiReason = NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
     nativeHolderStubAvailable = true,
+    nativeHolderCreateCloseAvailable = true,
     nativeHolderStubVersion = NPU_PERSISTENT_HOLDER_NATIVE_STUB_VERSION,
     nativeCreateDeclared = true,
     nativeRunDeclared = true,
@@ -177,15 +227,32 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     nativeRunCalled = nativeRunCalled,
     nativeCloseCalled = nativeCloseCalled,
     nativeDiagnosticsCalled = nativeDiagnosticsCalled,
+    holderCreateRequested = holderCreateRequested,
+    holderCreateCalled = nativeCreateCalled,
+    holderCreateSucceeded = holderCreateSucceeded,
+    holderId = holderId,
+    holderOpen = holderOpen,
+    holderCloseRequested = holderCloseRequested,
+    holderCloseCalled = nativeCloseCalled,
+    holderCloseSucceeded = holderCloseSucceeded,
+    holderDoubleCloseSafe = holderDoubleCloseSafe,
+    holderFatalLatch = holderFatalLatch,
+    holderFatalReason = holderFatalReason,
+    engineFactoryCreateCalled = false,
     engineCreateCalled = false,
     modelAssetsCreateCalled = false,
+    engineSettingsCreateCalled = false,
     npuDecodeCalled = false,
+    generateCalled = false,
+    qnnDecodeCalled = false,
     qnnCalled = false,
-    status = NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
-    reason = NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
-    holderCreateSupported = false,
+    runOnceSupported = false,
+    restartAppRecommended = restartAppRecommended,
+    status = status,
+    reason = reason,
+    holderCreateSupported = true,
     holderRunSupported = false,
-    holderCloseSupported = false,
+    holderCloseSupported = true,
     holderDiagnosticsSupported = true,
     persistentMultiTurnPossible = false,
     engineReuseObserved = "unavailable",
@@ -201,6 +268,16 @@ internal fun mergeNpuPersistentHolderNativeStubDiagnostics(
         nativeRunCalled = values.any { it.nativeRunCalled },
         nativeCloseCalled = values.any { it.nativeCloseCalled },
         nativeDiagnosticsCalled = values.any { it.nativeDiagnosticsCalled },
+        holderCreateRequested = values.any { it.holderCreateRequested },
+        holderCreateSucceeded = values.any { it.holderCreateSucceeded },
+        holderId = values.lastOrNull { it.holderId != "unavailable" }?.holderId ?: "unavailable",
+        holderOpen = values.lastOrNull()?.holderOpen == true,
+        holderCloseRequested = values.any { it.holderCloseRequested },
+        holderCloseSucceeded = values.any { it.holderCloseSucceeded },
+        holderDoubleCloseSafe = values.all { it.holderDoubleCloseSafe },
+        holderFatalLatch = values.any { it.holderFatalLatch },
+        holderFatalReason = values.lastOrNull { it.holderFatalLatch }?.holderFatalReason ?: "none",
+        restartAppRecommended = values.any { it.restartAppRecommended },
     )
 }
 
@@ -222,6 +299,18 @@ internal fun parseNpuPersistentHolderNativeStubResult(
         nativeRunCalled = values.booleanValue("native_run_called"),
         nativeCloseCalled = values.booleanValue("native_close_called"),
         nativeDiagnosticsCalled = values.booleanValue("native_diagnostics_called"),
+        holderCreateRequested = values.booleanValue("holder_create_requested"),
+        holderCreateSucceeded = values.booleanValue("holder_create_succeeded"),
+        holderId = values["holder_id"] ?: fallbackHolderId,
+        holderOpen = values.booleanValue("holder_open"),
+        holderCloseRequested = values.booleanValue("holder_close_requested"),
+        holderCloseSucceeded = values.booleanValue("holder_close_succeeded"),
+        holderDoubleCloseSafe = values.booleanValue("holder_double_close_safe"),
+        holderFatalLatch = values.booleanValue("holder_fatal_latch"),
+        holderFatalReason = values["holder_fatal_reason"] ?: "unavailable",
+        restartAppRecommended = values.booleanValue("restart_app_recommended"),
+        status = values["status"] ?: NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
+        reason = values["reason"] ?: NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
     )
     return NpuPersistentHolderApiResult(
         status = values["status"] ?: NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,

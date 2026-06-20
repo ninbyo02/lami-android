@@ -6,9 +6,11 @@ This document defines the DEV-only contract needed to test persistent
 multi-turn NPU generation through the same standard-route/native decode path
 that already succeeds with `QNN_HTP_V79_FastRPC_native_diag`.
 
-This design now has a DEV-only JNI/native stub pass. The stub verifies the
-Kotlin -> JNI -> native call boundary, but it does not create an Engine, create
-ModelAssets, call QNN/LiteRT/NPU decode, or keep a real holder alive.
+This design now has a DEV-only JNI/native create/close pass. The native probe
+verifies Kotlin -> JNI -> native holder lifecycle wiring and can create one app
+JNI holder record and close it explicitly. It still does not create a LiteRT-LM
+Engine, create ModelAssets, call QNN/LiteRT/NPU decode, generate text, or keep
+a real standard-route adapter Engine alive.
 
 ## Goals
 
@@ -58,13 +60,13 @@ Current implementation:
 - `NativeStubNpuPersistentHolderApi` in debug source only
 - `Qairt244ShortMultitokenSmoke` JNI declarations for create/run/close/diagnostics
 - `liblami_npu_persistent_holder_stub.so` app JNI stub in debug builds
-- `holder_api_available=false`
-- `native_holder_stub_available=true` when the debug native stub is called
+- `holder_api_available=true` when the debug create/close native probe is called
+- `native_holder_create_close_available=true` when the debug native probe is called
 - `holder_api_reason=needs_native_jni_support` for the not-exposed default
 - `persistent_multi_turn_possible=false`
 - `engine_reuse_observed=unavailable`
-- `recommended_next_step=implement_native_create_close_without_decode` for the
-  native stub path
+- `recommended_next_step=review_create_close_device_result_then_implement_run_once_without_multi_turn`
+  for the native create/close path
 
 The interface shape is:
 
@@ -77,25 +79,40 @@ interface NpuPersistentHolderApi {
 }
 ```
 
-The default stub deliberately returns `not_exposed`. The debug native stub
-returns `not_implemented` with native declaration/call diagnostics. Neither is
-a working persistent adapter.
+The default stub deliberately returns `not_exposed`. The debug native
+create/close probe returns lifecycle diagnostics. `runOnce` still returns
+`not_implemented`, and this is not a working persistent adapter.
 
 ## Proposed Native/JNI API
 
 The minimum JNI surface should be DEV-only and should sit beside the existing
 `nativeRunEditablePrompt` path.
 
-The first stub pass declares these functions and returns fixed diagnostics:
+The current debug pass declares these functions:
 
 - `nativeCreateStandardRouteAdapterHolder(...)`
 - `nativeRunStandardRouteAdapterHolderOnce(...)`
 - `nativeCloseStandardRouteAdapterHolder(...)`
 - `nativeGetStandardRouteAdapterHolderDiagnostics(...)`
 
-This stub is intentionally implemented in a separate app debug JNI library. It
-does not modify the existing `nativeRunEditablePrompt` behavior in
-`litertlm_jni`.
+`nativeCreateStandardRouteAdapterHolder(...)` and
+`nativeCloseStandardRouteAdapterHolder(...)` now manage one app JNI holder
+record and diagnostics counters. `nativeRunStandardRouteAdapterHolderOnce(...)`
+remains `not_implemented`. This probe is intentionally implemented in a
+separate app debug JNI library. It does not modify the existing
+`nativeRunEditablePrompt` behavior in `litertlm_jni`.
+
+Because this separate app JNI library does not safely link to the LiteRT-LM C++
+symbols inside `litertlm_jni`, the current create reaches only
+`holder_native_create_level=app_jni_holder_lifecycle_only_pre_engine_create`.
+Diagnostics therefore report:
+
+- `engine_factory_create_called=false`
+- `model_assets_create_called=false`
+- `engine_settings_create_called=false`
+- `npu_decode_called=false`
+- `generate_called=false`
+- `qnn_decode_called=false`
 
 Priority order:
 
@@ -234,30 +251,48 @@ required_native_api=create_holder,run_holder_once,close_holder,get_holder_diagno
 recommended_next_step=implement_dev_only_native_holder_api
 ```
 
-The DEV-only native stub probe emits:
+The DEV-only create/close probe emits:
 
 ```text
-[DEV診断: NPU persistent holder native stub summary]
-test_name=NPU Persistent Holder Native Stub Probe
-holder_api_available=false
+[DEV診断: NPU persistent holder create close summary]
+test_name=NPU Persistent Holder Create Close Probe
+holder_api_available=true
 native_holder_stub_available=true
-native_holder_stub_version=dev_only_standard_route_adapter_holder_stub_v1
+native_holder_create_close_available=true
+native_holder_stub_version=dev_only_standard_route_adapter_holder_create_close_v1
 native_create_declared=true
 native_run_declared=true
 native_close_declared=true
 native_diagnostics_declared=true
+holder_create_requested=true
+holder_create_called=true
+holder_create_succeeded=true
+holder_id=native-holder-1
+holder_open=false
+holder_close_requested=true
+holder_close_called=true
+holder_close_succeeded=true
+holder_double_close_safe=true
+holder_fatal_latch=false
+holder_fatal_reason=none
 native_create_called=true
-native_run_called=true
+native_run_called=false
 native_close_called=true
 native_diagnostics_called=true
+engine_factory_create_called=false
 engine_create_called=false
 model_assets_create_called=false
+engine_settings_create_called=false
 npu_decode_called=false
+generate_called=false
+qnn_decode_called=false
 qnn_called=false
-status=not_implemented
-reason=dev_only_native_holder_stub_no_engine_create
+run_once_supported=false
+status=closed
+reason=holder_closed_without_decode
 persistent_multi_turn_possible=false
-recommended_next_step=implement_native_create_close_without_decode
+restart_app_recommended=false
+recommended_next_step=review_create_close_device_result_then_implement_run_once_without_multi_turn
 ```
 
 Do not change these to success values until the native holder API exists and
@@ -297,13 +332,12 @@ Do not change normal NPU chat route until DEV-only holder evidence shows:
 
 ## Next Implementation Units
 
-1. Keep the native stub summary as `not_implemented`.
-2. Implement native create/close only without decode.
-3. Implement run once without persistent reuse.
-4. Implement run once with a holder.
-5. Add a 10-turn persistent probe.
-6. Consider normal NPU chat route integration only after DEV evidence passes.
-7. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
+1. Review create/close only physical-device results.
+2. Implement run once without multi-turn.
+3. Implement run once with a holder only after create/close is safe.
+4. Add a 10-turn persistent probe.
+5. Consider normal NPU chat route integration only after DEV evidence passes.
+6. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
    diagnostics.
-8. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
+7. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
    native diagnostics prove the holder is real.

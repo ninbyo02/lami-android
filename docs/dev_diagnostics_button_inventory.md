@@ -159,10 +159,12 @@ Current behavior:
 - use `NpuPersistentHolderApi` / `NotExposedNpuPersistentHolderApi` as the
   default contract stub; it reports `holder_api_available=false`
 - a separate debug-only `NativeStubNpuPersistentHolderApi` can call
-  `NPU Persistent Holder Native Stub Probe`, which reports
-  `native_holder_stub_available=true` but still `status=not_implemented`
-- the native stub does not create Engine/ModelAssets, does not call QNN or NPU
-  decode, and is not connected to normal chat routing
+  `NPU Persistent Holder Create Close Probe`, which reports
+  `native_holder_create_close_available=true`
+- the native create/close probe only manages one app JNI holder lifecycle
+  record; `runOnce` remains `status=not_implemented`
+- the native probe does not create Engine/ModelAssets/EngineSettings, does not
+  call QNN or NPU decode/generate, and is not connected to normal chat routing
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent

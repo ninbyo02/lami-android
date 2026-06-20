@@ -225,22 +225,25 @@ The proposed holder API contract is documented in
 stub intentionally reports `holder_api_available=false` and
 `persistent_multi_turn_possible=false` until native/JNI support exists.
 
-As of the DEV-only native stub pass, Kotlin can call four holder-shaped JNI
-functions and receive a native key-value diagnostic summary:
+As of the DEV-only native create/close pass, Kotlin can call four holder-shaped
+JNI functions and receive a native key-value diagnostic summary:
 
 - `nativeCreateStandardRouteAdapterHolder(...)`
 - `nativeRunStandardRouteAdapterHolderOnce(...)`
 - `nativeCloseStandardRouteAdapterHolder(...)`
 - `nativeGetStandardRouteAdapterHolderDiagnostics(...)`
 
-This is only `NPU Persistent Holder Native Stub Probe` coverage. It does not
-call `EngineFactory::CreateDefault`, `ModelAssets::Create`, QNN, LiteRT NPU
-decode, or normal NPU chat routing. The required status remains
-`status=not_implemented`, with `persistent_multi_turn_possible=false`.
+This is only `NPU Persistent Holder Create Close Probe` coverage. Create/close
+manage one app JNI holder lifecycle record, but create currently stops at
+`holder_native_create_level=app_jni_holder_lifecycle_only_pre_engine_create`.
+It does not call `EngineFactory::CreateDefault`, `ModelAssets::Create`,
+`EngineSettings::CreateDefault`, QNN, LiteRT NPU decode, generate, or normal
+NPU chat routing. `runOnce` remains `status=not_implemented`, with
+`persistent_multi_turn_possible=false`.
 
-The next allowed implementation unit is create/close only without decode.
-Run-once, 10-turn persistent probing, and normal chat route connection remain
-blocked until later reviews.
+The next allowed implementation unit is run once without multi-turn, but only
+after create/close physical-device results are reviewed. Ten-turn persistent
+probing and normal chat route connection remain blocked until later reviews.
 
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path

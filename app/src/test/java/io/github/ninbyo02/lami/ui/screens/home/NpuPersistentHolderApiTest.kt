@@ -17,6 +17,7 @@ class NpuPersistentHolderApiTest {
         assertTrue(text.contains("holder_close_supported=false"))
         assertTrue(text.contains("holder_diagnostics_supported=false"))
         assertTrue(text.contains("native_holder_stub_available=false"))
+        assertTrue(text.contains("native_holder_create_close_available=false"))
         assertTrue(text.contains("native_holder_stub_version=unavailable"))
         assertTrue(text.contains("persistent_multi_turn_possible=false"))
         assertTrue(text.contains("engine_reuse_observed=unavailable"))
