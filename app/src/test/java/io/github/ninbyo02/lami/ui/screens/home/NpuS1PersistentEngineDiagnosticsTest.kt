@@ -13,6 +13,7 @@ class NpuS1PersistentEngineDiagnosticsTest {
             NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED,
             NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
             NPU_S1_PERSISTENT_ENGINE_STATUS_CANCELLED,
+            NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED,
         ).forEach { status ->
             val text = formatNpuS1PersistentEngineDiagnosticsForDev(
                 NpuS1PersistentEngineProbeState(persistentProbeStatus = status),
@@ -315,6 +316,84 @@ class NpuS1PersistentEngineDiagnosticsTest {
         assertTrue(text.contains("api_mode_used=session"))
         assertTrue(text.contains("streaming_started=false"))
         assertTrue(text.contains("streaming_finished=false"))
+    }
+
+    @Test
+    fun `npu session api can be blocked before repeating logits unsupported failure`() {
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED,
+            firstFailureStage = "api_mode_selection",
+            firstFailureReason = NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON,
+            blockedReason = NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON,
+            persistentEngineHypothesisResult = "blocked_session_api_logits_output_not_supported_on_npu_backend",
+            persistentEngineApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_STANDARD_ROUTE_ADAPTER,
+            attemptedApiModes = "standard_route_adapter,session",
+            selectedApiMode = "unavailable",
+            apiModeSelectionReason = "session_api_blocked_for_npu_standard_route_adapter_not_exposed",
+            logitsOutputRequired = "true",
+            logitsOutputBackendSupported = "false",
+            logitsFailureDetected = "false",
+            sessionApiAvailable = "true",
+            sessionApiUsed = "false",
+            sessionApiBlockedForNpu = "true",
+            sessionApiBlockReason = "logits_output_not_supported_on_npu_backend",
+            standardRouteAdapterAvailable = "false",
+            standardRouteAdapterUsed = "false",
+            standardRouteAdapterReason = "needs_native_adapter_work",
+            persistentStandardRouteAvailable = "false",
+            persistentStandardRouteReason = "needs_native_adapter_work",
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(text.contains("persistent_probe_status=blocked"))
+        assertTrue(text.contains("persistent_engine_available=false"))
+        assertTrue(text.contains("blocked_reason=session_api_logits_output_not_supported_on_npu_backend"))
+        assertTrue(text.contains("persistent_engine_api_mode=standard_route_adapter"))
+        assertTrue(text.contains("attempted_api_modes=standard_route_adapter,session"))
+        assertTrue(text.contains("selected_api_mode=unavailable"))
+        assertTrue(text.contains("api_mode_selection_reason=session_api_blocked_for_npu_standard_route_adapter_not_exposed"))
+        assertTrue(text.contains("session_api_available=true"))
+        assertTrue(text.contains("session_api_used=false"))
+        assertTrue(text.contains("session_api_blocked_for_npu=true"))
+        assertTrue(text.contains("session_api_block_reason=logits_output_not_supported_on_npu_backend"))
+        assertTrue(text.contains("standard_route_adapter_available=false"))
+        assertTrue(text.contains("standard_route_adapter_used=false"))
+        assertTrue(text.contains("standard_route_adapter_reason=needs_native_adapter_work"))
+        assertTrue(text.contains("persistent_standard_route_available=false"))
+        assertTrue(text.contains("persistent_standard_route_reason=needs_native_adapter_work"))
+        assertTrue(text.contains("logits_output_required=true"))
+        assertTrue(text.contains("logits_output_backend_supported=false"))
+        assertTrue(text.contains("restart_app_recommended=false"))
+        assertTrue(text.contains("engine_reuse_observed=unavailable"))
+        assertFalse(text.contains("engine_reuse_observed=true"))
+    }
+
+    @Test
+    fun `Copy Persistent Summary excludes details while Full Dump includes them`() {
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED,
+            blockedReason = NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON,
+            records = listOf(
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 1,
+                    status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                    reason = "blocked",
+                    nativeOrEngineDiagTail = "blocked_before_session_generate_content",
+                ),
+            ),
+        )
+
+        val summary = buildNpuPersistentEngineSummaryCopyText(state)
+        val fullDump = buildNpuPersistentEngineFullDumpCopyText(state)
+
+        assertTrue(summary.contains("[DEV診断: NPU S1 persistent engine summary]"))
+        assertTrue(summary.contains("blocked_reason=session_api_logits_output_not_supported_on_npu_backend"))
+        assertFalse(summary.contains("[DEV診断: NPU S1 persistent engine details]"))
+        assertFalse(summary.contains("\nrun_index=1"))
+        assertTrue(fullDump.contains("[DEV診断: NPU S1 persistent engine summary]"))
+        assertTrue(fullDump.contains("[DEV診断: NPU S1 persistent engine details]"))
+        assertTrue(fullDump.contains("run_index=1"))
+        assertTrue(fullDump.contains("native_or_engine_diag_tail=blocked_before_session_generate_content"))
     }
 
     @Test

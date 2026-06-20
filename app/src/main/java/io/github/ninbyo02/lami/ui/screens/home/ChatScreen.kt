@@ -7307,6 +7307,34 @@ fun Home(
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            onCopyPersistentSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuPersistentEngineSummaryCopyText(npuS1PersistentEngineState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Persistent Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyPersistentFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuPersistentEngineFullDumpCopyText(npuS1PersistentEngineState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Persistent Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                                             npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                                             npuS1PersistentCustomJniQualityPromptProfile =
@@ -7455,6 +7483,34 @@ fun Home(
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            onCopyPersistentSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuPersistentEngineSummaryCopyText(npuS1PersistentEngineState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Persistent Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyPersistentFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuPersistentEngineFullDumpCopyText(npuS1PersistentEngineState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Persistent Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                                             npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                                             npuS1PersistentCustomJniQualityPromptProfile =
@@ -11437,6 +11493,7 @@ private fun DevDiagnosticsAdvancedToggle(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuS1PersistentEngineDevSection(
     state: NpuS1PersistentEngineProbeState,
@@ -11444,6 +11501,8 @@ private fun NpuS1PersistentEngineDevSection(
     blockedByGeneration: Boolean,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
 ) {
     InferenceStatsSection(title = "NPU Persistent Engine Multi-turn Test") {
         Row(
@@ -11463,11 +11522,28 @@ private fun NpuS1PersistentEngineDevSection(
                 Text("キャンセル")
             }
         }
+        if (onCopySummary != null || onCopyFullDump != null) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (onCopySummary != null) {
+                    TextButton(onClick = onCopySummary) {
+                        Text("Copy Persistent Summary")
+                    }
+                }
+                if (onCopyFullDump != null) {
+                    TextButton(onClick = onCopyFullDump) {
+                        Text("Copy Persistent Full Dump")
+                    }
+                }
+            }
+        }
         Text(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
             } else {
-                "DEV専用PoCです。official Engineを1回だけ初期化し、10回generateします。NPU native failure後はアプリ再起動推奨です。通常チャット経路には接続しません。"
+                "DEV専用PoCです。NPU session API は logits 出力未対応のため既定ではブロックします。通常チャット経路には接続しません。"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -11870,6 +11946,18 @@ private fun InferenceStatsSheetContent(
                     blockedByGeneration = isInferenceRunningForPersistentEngine,
                     onStart = onNpuS1PersistentEngineStart,
                     onCancel = onNpuS1PersistentEngineCancel,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            buildNpuPersistentEngineSummaryCopyText(npuS1PersistentEngineState),
+                            "Copy Persistent Summary",
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            buildNpuPersistentEngineFullDumpCopyText(npuS1PersistentEngineState),
+                            "Copy Persistent Full Dump",
+                        )
+                    },
                 )
                 NpuLongGenerationDevSection(
                     state = npuLongGenerationState,
@@ -12180,6 +12268,8 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     isInferenceRunningForPersistentEngine: Boolean = false,
     onNpuS1PersistentEngineStart: (() -> Unit)? = null,
     onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
+    onCopyPersistentSummary: (() -> Unit)? = null,
+    onCopyPersistentFullDump: (() -> Unit)? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -12251,6 +12341,8 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     blockedByGeneration = isInferenceRunningForPersistentEngine,
                     onStart = onNpuS1PersistentEngineStart,
                     onCancel = onNpuS1PersistentEngineCancel,
+                    onCopySummary = onCopyPersistentSummary,
+                    onCopyFullDump = onCopyPersistentFullDump,
                 )
             }
             if (

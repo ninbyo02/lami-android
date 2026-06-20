@@ -177,6 +177,15 @@ holder/session strategy. If it also fails, continue lower-level NPU native
 executor / QNN delegate / prompt path investigation before changing normal chat
 behavior.
 
+Physical-device Persistent evidence showed that the official LiteRT-LM session
+`generateContent` API fails immediately on NPU with
+`logits_output_not_supported_on_npu_backend`. The Persistent diagnostic now
+blocks that session path by default and records
+`persistent_standard_route_available=false` /
+`persistent_standard_route_reason=needs_native_adapter_work` until the
+successful standard-route adapter/native decode path exposes a persistent
+multi-turn entrypoint.
+
 ## Next Steps
 
 Step 3 adds a Long Generation Test runner that compares

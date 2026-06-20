@@ -9,6 +9,7 @@ internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING = "running"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED = "completed"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_CANCELLED = "cancelled"
+internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED = "blocked"
 internal const val NPU_S1_PERSISTENT_ENGINE_DEFAULT_COUNT = 10
 internal const val NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS = 500L
 internal const val NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS = 32
@@ -18,9 +19,12 @@ internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE = "engine_config_
 internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_FIX_NOTE =
     "official_api_uses_max_num_tokens_as_total_input_context_limit_not_output_only"
 internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_AUTO = "auto"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_STANDARD_ROUTE_ADAPTER = "standard_route_adapter"
 internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION = "session"
 internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_STREAMING = "streaming"
 internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_CONVERSATION = "conversation"
+internal const val NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON =
+    "session_api_logits_output_not_supported_on_npu_backend"
 internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_NOTE =
     "auto_prefers_session_generate_content_to_probe_non_conversation_decode_path"
 internal const val NPU_S1_PERSISTENT_ENGINE_CLASS_NAME =
@@ -107,6 +111,7 @@ internal data class NpuS1PersistentEngineProbeState(
     val firstFailureReason: String = "unavailable",
     val firstFailureExceptionClass: String = "unavailable",
     val firstFailureExceptionMessage: String = "unavailable",
+    val blockedReason: String = "none",
     val backendEvidence: String = "unavailable",
     val modelPathOrName: String = "unavailable",
     val cacheDir: String = "unavailable",
@@ -128,8 +133,15 @@ internal data class NpuS1PersistentEngineProbeState(
     val logitsFailureMessage: String = "unavailable",
     val sessionApiAvailable: String = "unavailable",
     val sessionApiUsed: String = "false",
+    val sessionApiBlockedForNpu: String = "false",
+    val sessionApiBlockReason: String = "none",
     val conversationApiUsed: String = "false",
     val streamingApiUsed: String = "false",
+    val standardRouteAdapterAvailable: String = "unavailable",
+    val standardRouteAdapterUsed: String = "false",
+    val standardRouteAdapterReason: String = "unavailable",
+    val persistentStandardRouteAvailable: String = "unavailable",
+    val persistentStandardRouteReason: String = "unavailable",
     val apiModeNote: String = NPU_S1_PERSISTENT_ENGINE_API_MODE_NOTE,
     val records: List<NpuS1PersistentEngineRunRecord> = emptyList(),
 ) {
@@ -219,6 +231,7 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
     appendLine("first_failure_reason=${escapePersistentCopyValue(state.firstFailureReason)}")
     appendLine("first_failure_exception_class=${state.firstFailureExceptionClass}")
     appendLine("first_failure_exception_message=${escapePersistentCopyValue(state.firstFailureExceptionMessage)}")
+    appendLine("blocked_reason=${state.blockedReason}")
     appendLine("backend_evidence=${escapePersistentCopyValue(state.backendEvidence)}")
     appendLine("model_path_or_name=${escapePersistentCopyValue(state.modelPathOrName)}")
     appendLine("cache_dir=${escapePersistentCopyValue(state.cacheDir)}")
@@ -240,8 +253,15 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
     appendLine("logits_failure_message=${escapePersistentCopyValue(state.logitsFailureMessage)}")
     appendLine("session_api_available=${state.sessionApiAvailable}")
     appendLine("session_api_used=${state.sessionApiUsed}")
+    appendLine("session_api_blocked_for_npu=${state.sessionApiBlockedForNpu}")
+    appendLine("session_api_block_reason=${state.sessionApiBlockReason}")
     appendLine("conversation_api_used=${state.conversationApiUsed}")
     appendLine("streaming_api_used=${state.streamingApiUsed}")
+    appendLine("standard_route_adapter_available=${state.standardRouteAdapterAvailable}")
+    appendLine("standard_route_adapter_used=${state.standardRouteAdapterUsed}")
+    appendLine("standard_route_adapter_reason=${state.standardRouteAdapterReason}")
+    appendLine("persistent_standard_route_available=${state.persistentStandardRouteAvailable}")
+    appendLine("persistent_standard_route_reason=${state.persistentStandardRouteReason}")
     appendLine("api_mode_note=${state.apiModeNote}")
     appendLine()
     appendLine("[DEV診断: NPU S1 persistent engine details]")
@@ -296,6 +316,16 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
 }.trimEnd()
 }
 
+internal fun buildNpuPersistentEngineSummaryCopyText(
+    state: NpuS1PersistentEngineProbeState,
+): String = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+    .substringBefore("\n[DEV診断: NPU S1 persistent engine details]")
+    .trimEnd()
+
+internal fun buildNpuPersistentEngineFullDumpCopyText(
+    state: NpuS1PersistentEngineProbeState,
+): String = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
 internal fun appendNpuS1PersistentEngineDiagnosticsForDev(
     text: String,
     state: NpuS1PersistentEngineProbeState,
@@ -337,6 +367,7 @@ private fun persistentEngineAvailable(state: NpuS1PersistentEngineProbeState): S
         state.engineInitializeFinishedAtElapsedRealtimeMs != null -> "true"
         state.firstFailureStage == "engine_initialize" || state.firstFailureStage == "runner_create" ||
             state.firstFailureStage == "model_resolve" -> "false"
+        state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED -> "false"
         state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_IDLE -> "unavailable"
         else -> "unavailable"
     }

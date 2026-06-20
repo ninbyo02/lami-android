@@ -33,6 +33,8 @@ Current NPU status:
 | `Copy Stability Full Dump` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuBetaStabilityFullDumpCopyText(...)` | Copy the current Stability Test diagnostics text, including failure detail blocks when present. | KEEP_PRIMARY | Needed when 10-run stability output needs exact failure context. It does not change the repeated-run runner. | `NpuS1RepeatedRunDiagnosticsTest` (`Copy Stability Full Dump...`) | Keep; future report scripts can consume this artifact. |
 | `Copy Long Summary` | `ChatScreen.kt`, `NpuLongGenerationDiagnostics.kt` | `buildNpuLongGenerationSummaryCopyText(...)` | Copy the NPU Beta Long Generation summary only. | KEEP_PRIMARY | Long-generation case output can be large, especially 512+ tokens; summary copy keeps reviewable aggregate keys. | `NpuLongGenerationDiagnosticsTest` (`Copy Long Summary...`) | Keep beside the Long Generation runner. |
 | `Copy Long Full Dump` | `ChatScreen.kt`, `NpuLongGenerationDiagnostics.kt` | `buildNpuLongGenerationFullDumpCopyText(...)` | Copy the Long Generation summary plus all per-token-plan case blocks. | KEEP_PRIMARY | Required for detailed 32/128/512 comparison and future 1024-token investigation. | `NpuLongGenerationDiagnosticsTest` (`Copy Long Full Dump...`) | Keep; use for physical-device artifacts when output quality or performance differs by token limit. |
+| `Copy Persistent Summary` | `ChatScreen.kt`, `NpuS1PersistentEngineDiagnostics.kt` | `buildNpuPersistentEngineSummaryCopyText(...)` | Copy Persistent Engine Multi-turn summary only. | KEEP_PRIMARY | Persistent diagnostics can now block before generation when the NPU session API would require unsupported logits output; summary copy captures the API mode and block reason in one tap. | `NpuS1PersistentEngineDiagnosticsTest` | Keep beside the Persistent Engine Multi-turn runner. |
+| `Copy Persistent Full Dump` | `ChatScreen.kt`, `NpuS1PersistentEngineDiagnostics.kt` | `buildNpuPersistentEngineFullDumpCopyText(...)` | Copy Persistent Engine Multi-turn summary plus detail/native/API diagnostics. | KEEP_PRIMARY | Needed to share the full blocked/session/API evidence or future per-run adapter evidence. | `NpuS1PersistentEngineDiagnosticsTest` | Keep; future persistent adapter artifacts should use this path. |
 | `Copy Repeated Summary` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuS1RepeatedRunSummaryCopyText(...)` | Legacy/compatibility repeated-run summary copy path. | KEEP_ADVANCED | Retained for existing DEV trace affordances and tests while the Primary label moves to `Copy Stability Summary`. | `NpuS1RepeatedRunDiagnosticsTest` | Keep as compatibility; prefer `Copy Stability Summary` in Primary. |
 | `Copy Full Dump` | `ChatScreen.kt` | `npuStandardRouteS1DevFullDumpCopyText` / full dump formatter | Copy full NPU diagnostic dump. | KEEP_ADVANCED | Required for root-cause detail, but too verbose for routine one-shot checks. | `NpuStandardRouteS1ProviderTest` (`Copy Full Dump...`) | Keep advanced; report generator can consume full dumps when needed. |
 | `メモリ回復確認` | `ChatScreen.kt`, `LocalMemoryDiagnostics.kt` | `startMemoryRecoveryCheck()` / `captureLocalMemorySnapshot(...)` | Capture current and delayed memory snapshots after local/NPU activity. | KEEP_ADVANCED | Useful for lifecycle/memory regression and repeated-run stabilization; not a primary NPU route gate. | `LocalMemoryDiagnosticsTest` | Keep advanced; include only aggregate memory deltas in stability report. |
@@ -66,6 +68,9 @@ Primary is visible by default and contains only:
 - `Copy Stability Summary`
 - `Copy Stability Full Dump`
 - `NPU Beta安定性テスト開始`
+- `Copy Persistent Summary`
+- `Copy Persistent Full Dump`
+- `NPU永続Engine複数会話テスト`
 - `Copy Long Summary`
 - `Copy Long Full Dump`
 - `NPU Beta長文生成テスト開始`
@@ -142,11 +147,18 @@ stability investigation rather than a low-level lifecycle-only button.
 
 Current behavior:
 
-- initialize one official NPU Engine where available
-- run `こんにちは` for 10 turns with 500ms wait
+- prefer the standard-route adapter path if a persistent entrypoint is exposed
+- block the official session API on NPU because real-device evidence shows
+  `logits_output_not_supported_on_npu_backend`
+- report `persistent_standard_route_available=false` and
+  `persistent_standard_route_reason=needs_native_adapter_work` when the
+  successful native adapter decode path cannot yet be reused persistently
+- run `こんにちは` for 10 turns with 500ms wait only when a safe persistent
+  adapter path is available
 - stop on first fatal failure
 - report `engine_reuse_observed=unavailable` unless a real API signal exists
 - report `restart_app_recommended=true` when engine-create failure is detected
+- provide `Copy Persistent Summary` and `Copy Persistent Full Dump`
 
 ### Long Generation Test
 
