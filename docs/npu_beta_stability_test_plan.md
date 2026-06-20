@@ -168,7 +168,7 @@ Hold promotion or investigate if any of these appear:
 `NPU Beta Stability Test` in Recreate mode is now treated as an Engine recreate
 stress test. When it stops after several successful decodes with
 `engine_create_failed`, the next diagnostic should be
-`NPU Persistent Engine Multi-turn Test`, not a larger token-count test.
+`NPU Persistent Engine Multi-turn Probe`, not a larger token-count test.
 
 Persistent Multi-turn initializes one official NPU Engine and attempts ten
 short generations. If it passes while Recreate fails near run 7, the next
@@ -185,6 +185,11 @@ blocks that session path by default and records
 `persistent_standard_route_reason=needs_native_adapter_work` until the
 successful standard-route adapter/native decode path exposes a persistent
 multi-turn entrypoint.
+
+This means the current expected Persistent result is
+`persistent_probe_status=blocked` with `run_count_completed=0`. That is a safe
+API-selection stop, not a UI failure. Use `Copy Persistent Full Dump` to share
+the blocked reason.
 
 ## Next Steps
 

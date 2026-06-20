@@ -11443,7 +11443,7 @@ private fun NpuBetaDevPrimaryIntroSection(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Persistent Engine Multi-turn Test 3. NPU Beta Long Generation Test",
+            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Persistent Probe状態確認 3. NPU Beta Long Generation Test",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -11504,7 +11504,7 @@ private fun NpuS1PersistentEngineDevSection(
     onCopySummary: (() -> Unit)? = null,
     onCopyFullDump: (() -> Unit)? = null,
 ) {
-    InferenceStatsSection(title = "NPU Persistent Engine Multi-turn Test") {
+    InferenceStatsSection(title = "NPU Persistent Engine Multi-turn Probe (blocked)") {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -11513,7 +11513,7 @@ private fun NpuS1PersistentEngineDevSection(
                 onClick = onStart,
                 enabled = !running && !blockedByGeneration,
             ) {
-                Text("NPU永続Engine複数会話テスト")
+                Text("NPU永続Engine状態確認")
             }
             TextButton(
                 onClick = onCancel,
@@ -11543,13 +11543,13 @@ private fun NpuS1PersistentEngineDevSection(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
             } else {
-                "DEV専用PoCです。NPU session API は logits 出力未対応のため既定ではブロックします。通常チャット経路には接続しません。"
+                "DEV専用の状態確認です。NPU session API は logits 出力未対応のためブロック中です。NPU standard route adapter/native decode経路はpersistent用に未露出なので、現在は run_count_completed=0 が期待値です。Copy Persistent Full Dump でblocked理由を共有できます。通常チャット経路には接続していません。"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InferenceStatRow(
-            label = "NPU Persistent Engine Multi-turn Test",
+            label = "NPU Persistent Engine Multi-turn Probe",
             value = formatNpuS1PersistentEngineDiagnosticsForDev(state),
         )
     }

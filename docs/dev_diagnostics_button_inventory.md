@@ -42,7 +42,7 @@ Current NPU status:
 | `NPU Beta長文生成テスト開始` | `ChatScreen.kt`, `NpuLongGenerationDiagnostics.kt` | `startNpuLongGenerationTest()` -> `NpuStandardRouteS1Bridge(...).run(maxOutputTokens=32/128/512)` | Compare NPU Beta behavior at larger output-token limits. Records status, fallback, timeout, fresh crash, decode reach, timing, tokens/sec, quality, backend evidence, raw/sanitized output, and non-exposed stop/EOS fields as `unavailable`. | KEEP_PRIMARY | This is the minimal Long Generation Test entry. It uses the existing S1 bridge and does not change NPU route behavior, fallback policy, persistent engine behavior, custom JNI, UI/TTS/DB delivery, or native streaming. | `NpuLongGenerationDiagnosticsTest`, `NpuS1RepeatedRunDiagnosticsTest` | Later add 1024 as Advanced after 32/128/512 physical-device evidence is stable. |
 | `キャンセル` under repeated run | `ChatScreen.kt` | `cancelNpuS1RepeatedRun()` | Cancel active repeated-run job. | KEEP_PRIMARY | Required safety control for long-running stability tests. | Cancellation status covered in `NpuS1RepeatedRunDiagnosticsTest`. | Keep with Stability Test. |
 | `キャンセル` under Long Generation Test | `ChatScreen.kt` | `cancelNpuLongGenerationTest()` | Cancel active long generation comparison. | KEEP_PRIMARY | Required safety control because 512-token runs can take materially longer than one-shot diagnostics. | Formatter/state cancellation is represented in `NpuLongGenerationDiagnostics.kt`; UI execution requires physical NPU. | Keep with Long Generation Test. |
-| `NPU永続Engine複数会話テスト` / `NPU Persistent Engine Multi-turn Test` | `ChatScreen.kt`, `NpuS1PersistentEngineDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentEngineDevProbe.kt` | `startNpuS1PersistentEngineProbe()` -> `NpuS1PersistentEngineProbeRunner.run(...)` | Initializes one official NPU Engine and runs 10 short generations to separate recreate stress from persistent Engine multi-turn stability. | KEEP_PRIMARY | Recreate and Reuse stability modes can still hit `engine_create_failed` near run 7. This test is closer to normal chat stability and should run before longer output exploration. It reports non-exposed identity/reuse fields as `not_exposed`/`unavailable`. | `NpuS1PersistentEngineDiagnosticsTest` | If this passes while recreate fails, review moving normal NPU chat toward persistent Engine holder/session design. |
+| `NPU永続Engine状態確認` / `NPU Persistent Engine Multi-turn Probe (blocked)` | `ChatScreen.kt`, `NpuS1PersistentEngineDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentEngineDevProbe.kt` | `startNpuS1PersistentEngineProbe()` -> `NpuS1PersistentEngineProbeRunner.run(...)` | Confirm current persistent-NPU API exposure state and copy the blocked reason. | KEEP_PRIMARY | Current NPU state is expected to block before generation: session API requires unsupported logits output, and the standard-route adapter/native decode path is not yet exposed for persistent multi-turn. `run_count_completed=0` is expected, not a UI failure. | `NpuS1PersistentEngineDiagnosticsTest` | Next work is exposing/investigating the successful standard-route adapter/native decode path for persistent multi-turn. |
 | `キャンセル` under persistent Engine | `ChatScreen.kt` | `cancelNpuS1PersistentEngineProbe()` | Cancel persistent Engine probe. | KEEP_ADVANCED | Safety control while the advanced probe remains visible. | Status/cancel formatting in `NpuS1PersistentEngineDiagnosticsTest`. | Keep with advanced probe until hidden/removed. |
 | `NPU S1 persistent custom JNI <mode>` / `Gemma recommended x20` | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentCustomJniDevProbe.kt` | `startNpuS1PersistentCustomJniProbe()` -> `NpuS1PersistentCustomJniProbeRunner.run(...)` | Custom JNI holder / prompt wrapper / quality profile investigation. | KEEP_ADVANCED | Historically critical for quality and engine-create root cause work. Today it is too specialized for primary health checks. | `NpuS1PersistentCustomJniDiagnosticsTest`, `Qairt244NpuDiagnosticPromptValidatorTest` | Move to Advanced "legacy quality investigation"; retire after NPU Beta quality/stability/long-generation runners cover the same gates. |
 | Filter chips under `NPU S1 persistent custom JNI` (`entrypoint_only`, `before_engine_create`, `engine_create_only`, `full_20`, etc.) | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt` | `NpuS1PersistentCustomJniProbeMode` | Select custom JNI crash/lifecycle probe depth. | KEEP_ADVANCED | Useful only for native/JNI fault isolation. | `NpuS1PersistentCustomJniDiagnosticsTest` | Hide inside Advanced by default; keep until R6/native cleanup decision. |
@@ -70,7 +70,7 @@ Primary is visible by default and contains only:
 - `NPU Beta安定性テスト開始`
 - `Copy Persistent Summary`
 - `Copy Persistent Full Dump`
-- `NPU永続Engine複数会話テスト`
+- `NPU永続Engine状態確認`
 - `Copy Long Summary`
 - `Copy Long Full Dump`
 - `NPU Beta長文生成テスト開始`
@@ -78,7 +78,7 @@ Primary is visible by default and contains only:
 Primary starts with a short safety note:
 
 - Safe entry points for NPU Beta validation.
-- Recommended order: Stability Test, Persistent Engine Multi-turn Test, then
+- Recommended order: Stability Test, Persistent Probe state check, then
   Long Generation Test.
 - Diagnostics stop on timeout, fallback, crash suspicion, or decode failure.
 
@@ -139,11 +139,11 @@ Current Step 2 behavior:
 - preserve cancel and safety stop behavior
 - leave 50/100 disabled by safety policy until a later review
 
-### Persistent Engine Multi-turn Test
+### Persistent Engine Multi-turn Probe
 
-`NPU Persistent Engine Multi-turn Test` is now a Primary diagnostic. It reuses
-the existing persistent Engine DEV probe but presents it as a normal-chat
-stability investigation rather than a low-level lifecycle-only button.
+`NPU Persistent Engine Multi-turn Probe` is now a Primary diagnostic. It reuses
+the existing persistent Engine DEV probe but presents the current NPU state as a
+blocked API exposure check rather than a button that should generate ten turns.
 
 Current behavior:
 
@@ -153,8 +153,10 @@ Current behavior:
 - report `persistent_standard_route_available=false` and
   `persistent_standard_route_reason=needs_native_adapter_work` when the
   successful native adapter decode path cannot yet be reused persistently
-- run `こんにちは` for 10 turns with 500ms wait only when a safe persistent
-  adapter path is available
+- report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
+  `run_count_completed=0` as the expected current state
+- run `こんにちは` for 10 turns with 500ms wait only after a safe persistent
+  adapter path is exposed
 - stop on first fatal failure
 - report `engine_reuse_observed=unavailable` unless a real API signal exists
 - report `restart_app_recommended=true` when engine-create failure is detected

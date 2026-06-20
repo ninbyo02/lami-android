@@ -346,6 +346,12 @@ class NpuS1PersistentEngineDiagnosticsTest {
         val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
 
         assertTrue(text.contains("persistent_probe_status=blocked"))
+        assertTrue(text.contains("ui_action_label=NPU Persistent Probe状態確認"))
+        assertTrue(text.contains("ui_execution_expected=false"))
+        assertTrue(text.contains("ui_blocked_expected=true"))
+        assertTrue(text.contains("ui_blocked_explanation=session_api_blocked_and_standard_route_adapter_not_exposed"))
+        assertTrue(text.contains("user_next_action=copy_persistent_full_dump_or_investigate_standard_route_adapter"))
+        assertTrue(text.contains("run_count_completed=0"))
         assertTrue(text.contains("persistent_engine_available=false"))
         assertTrue(text.contains("blocked_reason=session_api_logits_output_not_supported_on_npu_backend"))
         assertTrue(text.contains("persistent_engine_api_mode=standard_route_adapter"))
@@ -387,6 +393,8 @@ class NpuS1PersistentEngineDiagnosticsTest {
         val fullDump = buildNpuPersistentEngineFullDumpCopyText(state)
 
         assertTrue(summary.contains("[DEV診断: NPU S1 persistent engine summary]"))
+        assertTrue(summary.contains("ui_execution_expected=false"))
+        assertTrue(summary.contains("ui_blocked_expected=true"))
         assertTrue(summary.contains("blocked_reason=session_api_logits_output_not_supported_on_npu_backend"))
         assertFalse(summary.contains("[DEV診断: NPU S1 persistent engine details]"))
         assertFalse(summary.contains("\nrun_index=1"))

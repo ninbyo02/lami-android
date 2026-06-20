@@ -4,6 +4,11 @@ import android.content.Context
 import java.util.Locale
 
 internal const val NPU_PERSISTENT_ENGINE_MULTI_TURN_TEST_NAME = "NPU Persistent Engine Multi-turn Test"
+internal const val NPU_PERSISTENT_ENGINE_UI_ACTION_LABEL = "NPU Persistent Probe状態確認"
+internal const val NPU_PERSISTENT_ENGINE_UI_BLOCKED_EXPLANATION =
+    "session_api_blocked_and_standard_route_adapter_not_exposed"
+internal const val NPU_PERSISTENT_ENGINE_USER_NEXT_ACTION =
+    "copy_persistent_full_dump_or_investigate_standard_route_adapter"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_IDLE = "idle"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING = "running"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED = "completed"
@@ -175,9 +180,21 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
     } else {
         "unavailable"
     }
+    val uiExecutionExpected = persistentUiExecutionExpected(state)
+    val uiBlockedExpected = persistentUiBlockedExpected(state)
+    val uiBlockedExplanation = if (uiBlockedExpected == "true") {
+        NPU_PERSISTENT_ENGINE_UI_BLOCKED_EXPLANATION
+    } else {
+        "unavailable"
+    }
     return buildString {
     appendLine("[DEV診断: NPU S1 persistent engine summary]")
     appendLine("test_name=$NPU_PERSISTENT_ENGINE_MULTI_TURN_TEST_NAME")
+    appendLine("ui_action_label=$NPU_PERSISTENT_ENGINE_UI_ACTION_LABEL")
+    appendLine("ui_execution_expected=$uiExecutionExpected")
+    appendLine("ui_blocked_expected=$uiBlockedExpected")
+    appendLine("ui_blocked_explanation=$uiBlockedExplanation")
+    appendLine("user_next_action=$NPU_PERSISTENT_ENGINE_USER_NEXT_ACTION")
     appendLine("persistent_engine_requested=true")
     appendLine("persistent_engine_available=${persistentEngineAvailable(state)}")
     appendLine("engine_reuse_observed=unavailable")
@@ -370,6 +387,27 @@ private fun persistentEngineAvailable(state: NpuS1PersistentEngineProbeState): S
         state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED -> "false"
         state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_IDLE -> "unavailable"
         else -> "unavailable"
+    }
+
+private fun persistentUiExecutionExpected(state: NpuS1PersistentEngineProbeState): String =
+    if (
+        state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED ||
+        state.sessionApiBlockedForNpu == "true" ||
+        state.persistentStandardRouteAvailable == "false"
+    ) {
+        "false"
+    } else {
+        "unavailable"
+    }
+
+private fun persistentUiBlockedExpected(state: NpuS1PersistentEngineProbeState): String =
+    if (
+        state.persistentProbeStatus == NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED ||
+        state.sessionApiBlockedForNpu == "true"
+    ) {
+        "true"
+    } else {
+        "unavailable"
     }
 
 private fun isPersistentEngineCreateFailed(record: NpuS1PersistentEngineRunRecord): Boolean =

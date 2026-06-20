@@ -22,9 +22,11 @@ may hit LiteRT/QNN/HTP resource constraints or delayed release behavior. Normal
 chat should not depend on repeatedly creating and destroying the NPU Engine if a
 persistent holder/session design is viable.
 
-`NPU Persistent Engine Multi-turn Test` is closer to the normal-chat stability
-question: can one Engine or standard-route adapter be kept alive and then
-generate ten times?
+`NPU Persistent Engine Multi-turn Test` is currently closer to a blocked-state
+probe than an executable generation test. The intended question remains: can
+one Engine or standard-route adapter be kept alive and then generate ten times?
+At the moment, the required persistent standard-route adapter/native decode
+entrypoint is not exposed.
 
 ## Current Physical-device Finding
 
@@ -47,9 +49,13 @@ standard-route adapter as explicit follow-up work.
 
 ## Current Scope
 
-- UI label: `NPU永続Engine複数会話テスト`
+- UI label: `NPU永続Engine状態確認`
+- UI section title: `NPU Persistent Engine Multi-turn Probe (blocked)`
 - DEV diagnostics group: Primary
 - Summary test name: `test_name=NPU Persistent Engine Multi-turn Test`
+- UI action key: `ui_action_label=NPU Persistent Probe状態確認`
+- Expected current status: `persistent_probe_status=blocked`
+- Expected current run count: `run_count_completed=0`
 - Prompt: `こんにちは`
 - Run count: `10`
 - Wait: `500ms`
@@ -67,7 +73,12 @@ the summary must report `restart_app_recommended=true` and
 When session API is the only exposed persistent official API, the test should
 stop before generation with:
 
+- `ui_execution_expected=false`
+- `ui_blocked_expected=true`
+- `ui_blocked_explanation=session_api_blocked_and_standard_route_adapter_not_exposed`
+- `user_next_action=copy_persistent_full_dump_or_investigate_standard_route_adapter`
 - `persistent_probe_status=blocked`
+- `run_count_completed=0`
 - `blocked_reason=session_api_logits_output_not_supported_on_npu_backend`
 - `session_api_blocked_for_npu=true`
 - `session_api_used=false`
@@ -82,6 +93,11 @@ stop before generation with:
 The summary should include:
 
 - `test_name`
+- `ui_action_label`
+- `ui_execution_expected`
+- `ui_blocked_expected`
+- `ui_blocked_explanation`
+- `user_next_action`
 - `persistent_engine_requested`
 - `persistent_engine_available`
 - `engine_reuse_observed`
@@ -211,15 +227,19 @@ The DEV screen includes:
 
 If no generation ran because session API was blocked, the copied artifact still
 contains `persistent_probe_status=blocked`, `blocked_reason`, and
-`records=empty`.
+`records=empty`. `run_count_completed=0` is expected in this state and is not a
+UI execution failure.
 
 ## Physical-device Procedure
 
 1. Select `NPU Beta`.
 2. Open DEV diagnostics.
-3. Run `NPU Persistent Engine Multi-turn Test` for ten turns.
-4. Run `NPU Beta Stability Test` in recreate mode for comparison.
-5. Compare `engine_create_failed_count`, `run_decode_reached_count`,
+3. Press `NPU永続Engine状態確認`.
+4. Confirm that the current expected result is
+   `persistent_probe_status=blocked` and `run_count_completed=0`.
+5. Use `Copy Persistent Full Dump` to share the blocked reason.
+6. Run `NPU Beta Stability Test` in recreate mode for comparison.
+7. Compare `engine_create_failed_count`, `run_decode_reached_count`,
    `quality_classification_summary`, and backend evidence.
 
 `not run: requires physical NPU device`
