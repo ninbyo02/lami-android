@@ -145,6 +145,14 @@ internal fun buildNpuStandardRouteS1DevTraceText(
             listOf(
                 "max_output_tokens=$maxOutputTokens",
                 "route_type=${result.selection.routeType}",
+                "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+                "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+                "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+                "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+                "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+                "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+                "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+                "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
                 "input_hash=${npuRealPromptHash(input)}",
                 "input_prompt=${npuStandardRouteS1DevPreview(input)}",
                 "input_preview=${npuStandardRouteS1DevPreview(input)}",
@@ -360,6 +368,12 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
         "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
         "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+        "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+        "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+        "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+        "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
         "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
         "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
         "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
@@ -456,6 +470,14 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         add("native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}")
         add("native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}")
         add("native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}")
+        add("requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
+        add("effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
+        add("max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}")
+        add("max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}")
+        add("max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}")
+        add("app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
+        add("native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
+        add("native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
         add("npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}")
         add("npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}")
         add("npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}")
@@ -517,6 +539,12 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "max_output_tokens=$maxOutputTokens",
             "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+            "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+            "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+            "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+            "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+            "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+            "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
             "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
             "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
             "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
@@ -687,6 +715,16 @@ internal fun npuStandardRouteS1DevPreview(text: String): String {
 internal fun npuStandardRouteS1EscapeCopyValue(text: String): String =
     text.replace("\\", "\\\\").replace("\n", "\\n")
 
+internal fun npuStandardRouteMaxOutputTokensClamped(result: NpuStandardRouteS1Result): Boolean =
+    result.selection.requestedMaxOutputTokens != result.selection.effectiveMaxOutputTokens
+
+internal fun npuStandardRouteMaxOutputTokensClampReason(result: NpuStandardRouteS1Result): String =
+    if (npuStandardRouteMaxOutputTokensClamped(result)) {
+        NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
+    } else {
+        NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
+    }
+
 internal fun npuStandardRouteS1FailureExceptionClass(result: NpuStandardRouteS1Result): String =
     result.nativeDiagnostics.nativeErrorClass.takeUnless { it == "unavailable" || it.isBlank() }
         ?: inferNpuS1FailureExceptionClass(result.reason)
@@ -705,24 +743,24 @@ internal fun npuStandardRouteS1FailureStage(result: NpuStandardRouteS1Result): S
         )
 
 internal fun npuStandardRouteS1FailureKind(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "invalid_max_output_tokens"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1FailureLayer(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        "litert_npu_compiled_model_executor"
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "native_input_validation"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> "litert_npu_compiled_model_executor"
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1FailureRecoveryHint(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        "recreate_app_or_wait_before_retry"
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "clamp_max_output_tokens_to_512"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> "recreate_app_or_wait_before_retry"
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1NativeCrashRiskHint(result: NpuStandardRouteS1Result): String =
@@ -745,6 +783,16 @@ internal fun isNpuStandardRouteS1EngineCreateFailed(result: NpuStandardRouteS1Re
         message.contains("engine-create-failed", ignoreCase = true)
     }
 }
+
+internal fun isNpuStandardRouteS1InvalidMaxOutputTokens(result: NpuStandardRouteS1Result): Boolean =
+    listOf(
+        result.reason,
+        result.nativeDiagnostics.nativeResultTail,
+        result.nativeDiagnostics.nativeDiagTail,
+        result.nativeDiagnostics.nativeErrorMessage,
+    ).any { message ->
+        message.contains("invalid_max_output_tokens", ignoreCase = true)
+    }
 
 internal const val NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED = "engine_create_failed"
 

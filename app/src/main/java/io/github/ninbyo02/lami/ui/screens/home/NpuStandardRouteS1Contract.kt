@@ -294,6 +294,12 @@ internal object NpuStandardRouteS1Contract {
             sanitizedOutput = sanitizedOutput,
             inputPrompt = inputPrompt,
         )
+        val maxOutputTokensClamped = selection.requestedMaxOutputTokens != selection.effectiveMaxOutputTokens
+        val maxOutputTokensClampReason = if (maxOutputTokensClamped) {
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
+        } else {
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
+        }
         return listOfNotNull(
             "NPU STANDARD ROUTE S1",
             "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
@@ -322,6 +328,12 @@ internal object NpuStandardRouteS1Contract {
             "requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens=${selection.effectiveMaxOutputTokens}",
+            "max_output_tokens_clamped=$maxOutputTokensClamped",
+            "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+            "max_output_tokens_clamp_reason=$maxOutputTokensClampReason",
+            "app_requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
+            "native_requested_max_output_tokens=${selection.effectiveMaxOutputTokens}",
+            "native_effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "run_decode_reached=$runDecodeReached",
             "npu_backend_evidence=$npuBackendEvidence",
             "fallback_used=$fallbackUsed",

@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
@@ -159,6 +160,83 @@ class NpuStandardRouteS1ProviderTest {
 
         assertEquals("failure", raw.status)
         assertEquals("dev_only_entry_unavailable", raw.reason)
+    }
+
+    @Test
+    fun `real provider clamps native max output tokens to native limit`() {
+        val cases = listOf(
+            4096 to 512,
+            512 to 512,
+            128 to 128,
+            32 to 32,
+        )
+
+        cases.forEach { (requested, expectedEffective) ->
+            var nativeRequestedMaxOutputTokens: Int? = null
+            val provider = RealNpuStandardRouteS1Provider(
+                requestRunner = { request ->
+                    nativeRequestedMaxOutputTokens = request.maxOutputTokens
+                    npuStandardRouteDisplayForMaxOutputTokens(request.maxOutputTokens)
+                },
+            )
+
+            val raw = provider.invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = requested,
+                trace = {},
+            )
+
+            assertEquals(requested, raw.requestedMaxOutputTokens)
+            assertEquals(expectedEffective, raw.effectiveMaxOutputTokens)
+            assertEquals(expectedEffective, nativeRequestedMaxOutputTokens)
+            assertFalse(raw.fallbackUsed)
+        }
+    }
+
+    @Test
+    fun `S1 diagnostic copy records max output token clamp`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 4096,
+                effectiveMaxOutputTokens = 512,
+            ),
+        )
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+        )
+
+        listOf(compact, fullDump, trace).forEach { text ->
+            assertTrue(text.contains("requested_max_output_tokens=4096"))
+            assertTrue(text.contains("effective_max_output_tokens=512"))
+            assertTrue(text.contains("max_output_tokens_clamped=true"))
+            assertTrue(text.contains("max_output_tokens_clamp_limit=512"))
+            assertTrue(text.contains("max_output_tokens_clamp_reason=native_limit"))
+            assertTrue(text.contains("app_requested_max_output_tokens=4096"))
+            assertTrue(text.contains("native_requested_max_output_tokens=512"))
+            assertTrue(text.contains("native_effective_max_output_tokens=512"))
+        }
     }
 
     @Test
@@ -1844,4 +1922,44 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("failure_after_successful_npu_s1_request_count=4"))
         assertFalse(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
     }
+
+    private fun npuStandardRouteDisplayForMaxOutputTokens(maxOutputTokens: Int): DevOnlyNpuOneTurnConversationDisplay =
+        DevOnlyNpuOneTurnConversationDisplay(
+            text = "test display",
+            output = "こんにちは。",
+            status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+            reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+            nativeReached = true,
+            decodeReached = true,
+            npuEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            fallback = false,
+            freshCrash = false,
+            timeout = false,
+            requestedMaxOutputTokens = maxOutputTokens,
+            effectiveMaxOutputTokens = maxOutputTokens,
+            nativeMaxOutputTokensLimit = NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT.toString(),
+            rawLen = "こんにちは。".length,
+            sanitizedLen = "こんにちは。".length,
+            quality = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+            controlCharSummary = "none",
+            rawOutputFirst200Chars = "こんにちは。",
+            rawOutputLast200Chars = "こんにちは。",
+            rawUnicodeSummary = "unavailable",
+            sanitizerApplied = "true",
+            removedTemplateTokenCount = "0",
+            removedPromptEcho = "false",
+            replacementCharCount = "0",
+            outputContainsControlChars = "false",
+            rawOutput = "こんにちは。",
+            outputTokenCount = "5",
+            nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                nativeStage = NPU_S1_NATIVE_STAGE_ADAPTER_SUCCESS,
+                nativeStageHistory = "adapter_success",
+                nativeCallReached = "true",
+                nativeCallReturned = "true",
+                nativeDecodeStarted = "true",
+                nativeDecodeFinished = "true",
+                nativeCleanupReached = "true",
+            ),
+        )
 }
