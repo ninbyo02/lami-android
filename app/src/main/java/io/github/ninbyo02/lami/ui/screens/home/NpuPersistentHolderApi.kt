@@ -1,5 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.content.Context
+
 internal const val NPU_PERSISTENT_HOLDER_API_PROBE_TEST_NAME = "NPU Persistent Holder API Probe"
 internal const val NPU_PERSISTENT_HOLDER_API_STATUS_NOT_EXPOSED = "not_exposed"
 internal const val NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED = "not_implemented"
@@ -14,6 +16,18 @@ internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON =
     "dev_only_native_holder_stub_no_engine_create"
 internal const val NPU_PERSISTENT_HOLDER_NATIVE_STUB_RECOMMENDED_NEXT_STEP =
     "review_create_close_device_result_then_implement_run_once_without_multi_turn"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_CLASS_NAME =
+    "io.github.ninbyo02.lami.ui.screens.home.NpuPersistentHolderCreateCloseDevProbe"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_NO_RESULT =
+    "no holder create/close probe result available"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_UI_TITLE =
+    "NPU Persistent Holder Create/Close Probe"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_RUN_LABEL =
+    "Run Holder Create/Close Probe"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL =
+    "Copy Holder Create/Close Summary"
+internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL =
+    "Copy Holder Create/Close Full Dump"
 
 internal data class NpuPersistentHolderCreateRequest(
     val modelPath: String,
@@ -106,6 +120,51 @@ internal interface NpuPersistentHolderApi {
     fun getDiagnostics(holderId: String): NpuPersistentHolderApiDiagnostics
 }
 
+internal interface NpuPersistentHolderCreateCloseProbeRunner {
+    suspend fun run(): NpuPersistentHolderCreateCloseProbeState
+}
+
+internal fun createNpuPersistentHolderCreateCloseProbeRunner(
+    context: Context,
+): NpuPersistentHolderCreateCloseProbeRunner? =
+    runCatching {
+        Class.forName(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_CLASS_NAME)
+            .getDeclaredConstructor(Context::class.java)
+            .newInstance(context.applicationContext) as? NpuPersistentHolderCreateCloseProbeRunner
+    }.getOrNull()
+
+internal data class NpuPersistentHolderCreateCloseProbeState(
+    val status: String = "idle",
+    val reason: String = "not_run",
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
+    val modelPathOrReason: String = "unavailable",
+    val createResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterCreate: NpuPersistentHolderApiDiagnostics? = null,
+    val closeResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterClose: NpuPersistentHolderApiDiagnostics? = null,
+    val secondCloseResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterSecondClose: NpuPersistentHolderApiDiagnostics? = null,
+    val throwableClass: String = "unavailable",
+    val throwableMessage: String = "unavailable",
+) {
+    val hasResult: Boolean
+        get() = createResult != null ||
+            diagnosticsAfterCreate != null ||
+            closeResult != null ||
+            diagnosticsAfterClose != null ||
+            secondCloseResult != null ||
+            diagnosticsAfterSecondClose != null
+
+    val latestDiagnostics: NpuPersistentHolderApiDiagnostics?
+        get() = diagnosticsAfterSecondClose
+            ?: secondCloseResult?.diagnostics
+            ?: diagnosticsAfterClose
+            ?: closeResult?.diagnostics
+            ?: diagnosticsAfterCreate
+            ?: createResult?.diagnostics
+}
+
 internal object NotExposedNpuPersistentHolderApi : NpuPersistentHolderApi {
     override fun createHolder(request: NpuPersistentHolderCreateRequest): NpuPersistentHolderApiResult =
         NpuPersistentHolderApiResult()
@@ -195,6 +254,72 @@ internal fun formatNpuPersistentHolderNativeStubProbeSummary(
     appendLine("restart_app_recommended=${diagnostics.restartAppRecommended}")
     appendLine("recommended_next_step=${diagnostics.recommendedNextStep}")
 }.trimEnd()
+
+internal fun formatNpuPersistentHolderCreateCloseSummaryForCopy(
+    state: NpuPersistentHolderCreateCloseProbeState,
+): String {
+    val diagnostics = state.latestDiagnostics
+        ?: return "$NPU_PERSISTENT_HOLDER_CREATE_CLOSE_NO_RESULT\n" +
+            "test_name=$NPU_PERSISTENT_HOLDER_CREATE_CLOSE_PROBE_TEST_NAME"
+    return formatNpuPersistentHolderNativeStubProbeSummary(diagnostics)
+}
+
+internal fun formatNpuPersistentHolderCreateCloseFullDumpForCopy(
+    state: NpuPersistentHolderCreateCloseProbeState,
+): String = buildString {
+    appendLine("[DEV診断: NPU persistent holder create close full dump]")
+    appendLine("test_name=$NPU_PERSISTENT_HOLDER_CREATE_CLOSE_PROBE_TEST_NAME")
+    appendLine("probe_status=${state.status}")
+    appendLine("probe_reason=${state.reason}")
+    appendLine("model_path_or_reason=${state.modelPathOrReason}")
+    appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("throwable_class=${state.throwableClass}")
+    appendLine("throwable_message=${state.throwableMessage}")
+    if (!state.hasResult) {
+        appendLine(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_NO_RESULT)
+        return@buildString
+    }
+    appendHolderResultBlock("create_result", state.createResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_create", state.diagnosticsAfterCreate)
+    appendHolderResultBlock("close_result", state.closeResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_close", state.diagnosticsAfterClose)
+    appendHolderResultBlock("second_close_result", state.secondCloseResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_second_close", state.diagnosticsAfterSecondClose)
+    appendLine()
+    appendLine(formatNpuPersistentHolderCreateCloseSummaryForCopy(state))
+}.trimEnd()
+
+private fun StringBuilder.appendHolderResultBlock(
+    label: String,
+    result: NpuPersistentHolderApiResult?,
+) {
+    appendLine()
+    appendLine("[$label]")
+    if (result == null) {
+        appendLine("result=unavailable")
+        return
+    }
+    appendLine("status=${result.status}")
+    appendLine("reason=${result.reason}")
+    appendLine("holder_id=${result.holderId}")
+    appendLine("native_summary_begin")
+    appendLine(result.nativeSummary.ifBlank { "unavailable" })
+    appendLine("native_summary_end")
+}
+
+private fun StringBuilder.appendHolderDiagnosticsBlock(
+    label: String,
+    diagnostics: NpuPersistentHolderApiDiagnostics?,
+) {
+    appendLine()
+    appendLine("[$label]")
+    if (diagnostics == null) {
+        appendLine("diagnostics=unavailable")
+        return
+    }
+    appendLine(formatNpuPersistentHolderNativeStubProbeSummary(diagnostics))
+}
 
 internal fun npuPersistentHolderNativeStubDiagnostics(
     nativeCreateCalled: Boolean = false,

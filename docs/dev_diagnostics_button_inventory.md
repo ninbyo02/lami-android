@@ -165,6 +165,18 @@ Current behavior:
   record; `runOnce` remains `status=not_implemented`
 - the native probe does not create Engine/ModelAssets/EngineSettings, does not
   call QNN or NPU decode/generate, and is not connected to normal chat routing
+- DEV diagnostics now exposes `NPU Persistent Holder Create/Close Probe` with
+  `Run Holder Create/Close Probe`, `Copy Holder Create/Close Summary`, and
+  `Copy Holder Create/Close Full Dump`
+- that UI entry runs create, diagnostics, close, diagnostics, and a second close
+  safety check only; it does not call `runHolderOnce`
+- pass on device requires `holder_create_called=true`,
+  `holder_close_called=true`, `npu_decode_called=false`,
+  `generate_called=false`, `qnn_decode_called=false`, and
+  `holder_fatal_latch=false`
+- hold device promotion when `holder_fatal_latch=true`,
+  `holder_create_succeeded=false`, `holder_close_succeeded=false`,
+  `npu_decode_called=true`, or `generate_called=true`
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent

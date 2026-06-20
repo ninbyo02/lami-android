@@ -6,6 +6,27 @@ import org.junit.Test
 
 class NpuPersistentHolderApiTest {
     @Test
+    fun `create close dev ui labels are stable`() {
+        assertTrue(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_UI_TITLE.contains("NPU Persistent Holder Create/Close Probe"))
+        assertTrue(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_RUN_LABEL.contains("Run Holder Create/Close Probe"))
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL.contains(
+                "Copy Holder Create/Close Summary",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL.contains(
+                "Copy Holder Create/Close Full Dump",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_NO_RESULT.contains(
+                "no holder create/close probe result available",
+            ),
+        )
+    }
+
+    @Test
     fun `not exposed holder api summary does not infer persistent support`() {
         val text = formatNpuPersistentHolderApiProbeSummary()
 

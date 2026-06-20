@@ -274,6 +274,16 @@ The native create/close summary uses
 report `persistent_multi_turn_possible=false` until a real Engine-backed holder
 exists and physical-device evidence confirms the lifecycle.
 
+The DEV diagnostics UI now has a dedicated
+`NPU Persistent Holder Create/Close Probe` entry for physical-device collection.
+It runs create/diagnostics/close/diagnostics plus a second close safety check,
+and offers `Copy Holder Create/Close Summary` and
+`Copy Holder Create/Close Full Dump`. This UI entry is not a generation test:
+`runHolderOnce`, native decode/generate, QNN/HTP/FastRPC decode, and normal NPU
+chat routing remain forbidden. Pass requires create and close to be called,
+decode/generate flags to remain false, and `holder_fatal_latch=false`; any
+fatal latch, create/close failure, or decode/generate flag is a hold condition.
+
 ## Required Safety Conditions
 
 Before persistent standard-route adapter execution is enabled:

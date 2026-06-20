@@ -1042,6 +1042,10 @@ fun Home(
         mutableStateOf(NpuS1PersistentEngineProbeState())
     }
     var npuS1PersistentEngineJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuPersistentHolderCreateCloseState by remember(effectiveChatId) {
+        mutableStateOf(NpuPersistentHolderCreateCloseProbeState())
+    }
+    var npuPersistentHolderCreateCloseJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuS1PersistentCustomJniState by remember(effectiveChatId) {
         mutableStateOf(NpuS1PersistentCustomJniProbeState())
     }
@@ -1070,6 +1074,8 @@ fun Home(
             npuLongGenerationJob = null
             npuS1PersistentEngineJob?.cancel()
             npuS1PersistentEngineJob = null
+            npuPersistentHolderCreateCloseJob?.cancel()
+            npuPersistentHolderCreateCloseJob = null
             npuS1PersistentCustomJniJob?.cancel()
             npuS1PersistentCustomJniJob = null
         }
@@ -1753,6 +1759,7 @@ fun Home(
     fun startNpuS1PersistentEngineProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuS1PersistentCustomJniJob?.isActive == true
         if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
@@ -1815,6 +1822,59 @@ fun Home(
 
     fun cancelNpuS1PersistentEngineProbe() {
         npuS1PersistentEngineJob?.cancel()
+    }
+
+    fun startNpuPersistentHolderCreateCloseProbe() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuPersistentHolderCreateCloseJob?.isActive == true) return
+        npuPersistentHolderCreateCloseState = NpuPersistentHolderCreateCloseProbeState(
+            status = "running",
+            reason = "starting",
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
+        npuPersistentHolderCreateCloseJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuPersistentHolderCreateCloseProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState.copy(
+                    status = "stopped",
+                    reason = "debug_holder_create_close_probe_unavailable",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                npuPersistentHolderCreateCloseJob = null
+                return@launch
+            }
+            try {
+                npuPersistentHolderCreateCloseState = runner.run()
+            } catch (exception: CancellationException) {
+                npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState.copy(
+                    status = "cancelled",
+                    reason = "cancelled",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                throw exception
+            } finally {
+                npuPersistentHolderCreateCloseJob = null
+            }
+        }
     }
 
     fun startNpuS1PersistentCustomJniProbe() {
@@ -7307,6 +7367,48 @@ fun Home(
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
+                                            npuPersistentHolderCreateCloseInProgress =
+                                                npuPersistentHolderCreateCloseJob?.isActive == true,
+                                            isInferenceRunningForHolderCreateClose = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuPersistentHolderCreateCloseStart =
+                                                ::startNpuPersistentHolderCreateCloseProbe,
+                                            onCopyHolderCreateCloseSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuPersistentHolderCreateCloseSummaryForCopy(
+                                                            npuPersistentHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Holder Create/Close Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyHolderCreateCloseFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuPersistentHolderCreateCloseFullDumpForCopy(
+                                                            npuPersistentHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Holder Create/Close Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             onCopyPersistentSummary = {
                                                 clipboardManager.setText(
                                                     AnnotatedString(
@@ -7765,6 +7867,15 @@ fun Home(
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                    npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
+                    npuPersistentHolderCreateCloseInProgress =
+                        npuPersistentHolderCreateCloseJob?.isActive == true,
+                    isInferenceRunningForHolderCreateClose = isInferenceRunningUi ||
+                        npuS1RepeatedRunJob?.isActive == true ||
+                        npuLongGenerationJob?.isActive == true ||
+                        npuS1PersistentEngineJob?.isActive == true ||
+                        npuS1PersistentCustomJniJob?.isActive == true,
+                    onNpuPersistentHolderCreateCloseStart = ::startNpuPersistentHolderCreateCloseProbe,
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                     npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                     npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
@@ -11557,6 +11668,73 @@ private fun NpuS1PersistentEngineDevSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun NpuPersistentHolderCreateCloseDevSection(
+    state: NpuPersistentHolderCreateCloseProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+) {
+    val diagnostics = state.latestDiagnostics
+    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
+        "holder_fatal_latch=true: アプリ再起動推奨"
+    } else {
+        null
+    }
+    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_CREATE_CLOSE_UI_TITLE) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_RUN_LABEL)
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (onCopySummary != null) {
+                TextButton(onClick = onCopySummary) {
+                    Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL)
+                }
+            }
+            if (onCopyFullDump != null) {
+                TextButton(onClick = onCopyFullDump) {
+                    Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL)
+                }
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "他の生成またはDEV診断完了後に実行してください"
+            } else {
+                "DEV専用診断です。create/close のみを実行し、run/decode/generate は実行しません。通常チャット経路には接続しません。fatal latch が立った場合はアプリ再起動推奨です。npu_decode_called=false / generate_called=false をsummaryで確認してください。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (warningText != null) {
+            Text(
+                text = warningText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        InferenceStatRow(
+            label = "Holder Create/Close Summary",
+            value = formatNpuPersistentHolderCreateCloseSummaryForCopy(state),
+            emphasizeValue = diagnostics?.holderFatalLatch == true,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun NpuS1PersistentCustomJniDevSection(
     state: NpuS1PersistentCustomJniProbeState,
     selectedMode: NpuS1PersistentCustomJniProbeMode,
@@ -11705,6 +11883,11 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForPersistentEngine: Boolean = false,
     onNpuS1PersistentEngineStart: () -> Unit = {},
     onNpuS1PersistentEngineCancel: () -> Unit = {},
+    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState =
+        NpuPersistentHolderCreateCloseProbeState(),
+    npuPersistentHolderCreateCloseInProgress: Boolean = false,
+    isInferenceRunningForHolderCreateClose: Boolean = false,
+    onNpuPersistentHolderCreateCloseStart: () -> Unit = {},
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -11861,6 +12044,7 @@ private fun InferenceStatsSheetContent(
                                 memoryRecoveryCheckState = memoryRecoveryCheckState,
                                 npuS1RepeatedRunState = npuS1RepeatedRunState,
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
                                 npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                             ),
                         ),
@@ -11956,6 +12140,28 @@ private fun InferenceStatsSheetContent(
                         copyDevDiagnosticText(
                             buildNpuPersistentEngineFullDumpCopyText(npuS1PersistentEngineState),
                             "Copy Persistent Full Dump",
+                        )
+                    },
+                )
+                NpuPersistentHolderCreateCloseDevSection(
+                    state = npuPersistentHolderCreateCloseState,
+                    running = npuPersistentHolderCreateCloseInProgress,
+                    blockedByGeneration = isInferenceRunningForHolderCreateClose,
+                    onStart = onNpuPersistentHolderCreateCloseStart,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            formatNpuPersistentHolderCreateCloseSummaryForCopy(
+                                npuPersistentHolderCreateCloseState,
+                            ),
+                            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            formatNpuPersistentHolderCreateCloseFullDumpForCopy(
+                                npuPersistentHolderCreateCloseState,
+                            ),
+                            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
                         )
                     },
                 )
@@ -12270,6 +12476,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
     onCopyPersistentSummary: (() -> Unit)? = null,
     onCopyPersistentFullDump: (() -> Unit)? = null,
+    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState =
+        NpuPersistentHolderCreateCloseProbeState(),
+    npuPersistentHolderCreateCloseInProgress: Boolean = false,
+    isInferenceRunningForHolderCreateClose: Boolean = false,
+    onNpuPersistentHolderCreateCloseStart: (() -> Unit)? = null,
+    onCopyHolderCreateCloseSummary: (() -> Unit)? = null,
+    onCopyHolderCreateCloseFullDump: (() -> Unit)? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -12343,6 +12556,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onCancel = onNpuS1PersistentEngineCancel,
                     onCopySummary = onCopyPersistentSummary,
                     onCopyFullDump = onCopyPersistentFullDump,
+                )
+            }
+            if (
+                BuildConfig.DEBUG &&
+                onNpuPersistentHolderCreateCloseStart != null
+            ) {
+                NpuPersistentHolderCreateCloseDevSection(
+                    state = npuPersistentHolderCreateCloseState,
+                    running = npuPersistentHolderCreateCloseInProgress,
+                    blockedByGeneration = isInferenceRunningForHolderCreateClose,
+                    onStart = onNpuPersistentHolderCreateCloseStart,
+                    onCopySummary = onCopyHolderCreateCloseSummary,
+                    onCopyFullDump = onCopyHolderCreateCloseFullDump,
                 )
             }
             if (
@@ -12486,6 +12712,7 @@ internal fun buildInferenceStatsFullCopyText(
     memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
+    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
 ): String {
     return buildString {
@@ -12557,6 +12784,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
             appendLine()
             appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderCreateCloseState != null) {
+            appendLine()
+            appendLine(formatNpuPersistentHolderCreateCloseFullDumpForCopy(npuPersistentHolderCreateCloseState))
         }
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
             appendLine()

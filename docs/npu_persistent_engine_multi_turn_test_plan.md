@@ -241,6 +241,21 @@ It does not call `EngineFactory::CreateDefault`, `ModelAssets::Create`,
 NPU chat routing. `runOnce` remains `status=not_implemented`, with
 `persistent_multi_turn_possible=false`.
 
+The DEV diagnostics UI now exposes this check as
+`NPU Persistent Holder Create/Close Probe`, near the blocked persistent Engine
+probe. `Run Holder Create/Close Probe` performs create, diagnostics, close,
+diagnostics, and a second close safety check. It must not call `runHolderOnce`
+or any decode/generate path. The copy actions are:
+
+- `Copy Holder Create/Close Summary`
+- `Copy Holder Create/Close Full Dump`
+
+Use the UI result for physical-device triage. Pass requires
+`holder_create_called=true`, `holder_close_called=true`,
+`npu_decode_called=false`, `generate_called=false`, `qnn_decode_called=false`,
+and `holder_fatal_latch=false`. Hold if the fatal latch is set, create/close
+fails, or any decode/generate flag becomes true.
+
 The next allowed implementation unit is run once without multi-turn, but only
 after create/close physical-device results are reviewed. Ten-turn persistent
 probing and normal chat route connection remain blocked until later reviews.

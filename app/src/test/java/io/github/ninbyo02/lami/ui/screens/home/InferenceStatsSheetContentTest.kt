@@ -551,6 +551,60 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes holder create close dump in developer copy`() {
+        val diagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            nativeCloseCalled = true,
+            nativeDiagnosticsCalled = true,
+            holderCreateRequested = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = false,
+            holderCloseRequested = true,
+            holderCloseSucceeded = true,
+            holderDoubleCloseSafe = true,
+            status = "closed",
+            reason = "holder_closed_without_decode",
+        )
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderCreateCloseState = NpuPersistentHolderCreateCloseProbeState(
+                status = "completed",
+                reason = "holder_closed_without_decode",
+                createResult = NpuPersistentHolderApiResult(
+                    status = "created",
+                    reason = "app_jni_holder_lifecycle_created_without_engine_create",
+                    holderId = "native-holder-1",
+                    diagnostics = diagnostics,
+                    nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(diagnostics),
+                ),
+                diagnosticsAfterCreate = diagnostics,
+                closeResult = NpuPersistentHolderApiResult(
+                    status = "closed",
+                    reason = "holder_closed_without_decode",
+                    holderId = "native-holder-1",
+                    diagnostics = diagnostics,
+                    nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(diagnostics),
+                ),
+                diagnosticsAfterClose = diagnostics,
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder create close full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Create Close Probe"))
+        assertTrue(text.contains("holder_create_called=true"))
+        assertTrue(text.contains("holder_close_called=true"))
+        assertTrue(text.contains("native_run_called=false"))
+        assertTrue(text.contains("npu_decode_called=false"))
+        assertTrue(text.contains("generate_called=false"))
+        assertTrue(text.contains("qnn_decode_called=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),

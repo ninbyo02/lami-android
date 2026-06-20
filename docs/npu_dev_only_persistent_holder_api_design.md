@@ -295,6 +295,38 @@ restart_app_recommended=false
 recommended_next_step=review_create_close_device_result_then_implement_run_once_without_multi_turn
 ```
 
+The DEV diagnostics screen exposes this create/close probe as
+`NPU Persistent Holder Create/Close Probe`. The button runs only:
+
+1. `createHolder`
+2. diagnostics after create
+3. `closeHolder`
+4. diagnostics after close
+5. a second close for double-close safety
+
+It does not call `runHolderOnce`, native decode, generate, QNN/HTP/FastRPC
+decode, or the normal NPU chat route. `Copy Holder Create/Close Summary` copies
+the key safety fields; `Copy Holder Create/Close Full Dump` copies create,
+close, second-close, and diagnostics blocks. If the probe has not been run, the
+copy text must say `no holder create/close probe result available`.
+
+Physical-device pass conditions for this UI probe are:
+
+- `holder_create_called=true`
+- `holder_close_called=true`
+- `npu_decode_called=false`
+- `generate_called=false`
+- `qnn_decode_called=false`
+- `holder_fatal_latch=false`
+
+Hold conditions are:
+
+- `holder_fatal_latch=true`
+- `holder_create_succeeded=false`
+- `holder_close_succeeded=false`
+- `npu_decode_called=true`
+- `generate_called=true`
+
 Do not change these to success values until the native holder API exists and
 physical-device evidence proves reuse.
 

@@ -7,6 +7,89 @@ import org.junit.Test
 
 class NpuPersistentHolderNativeStubTest {
     @Test
+    fun `create close copy text reports no result before run`() {
+        val state = NpuPersistentHolderCreateCloseProbeState()
+
+        val summary = formatNpuPersistentHolderCreateCloseSummaryForCopy(state)
+        val fullDump = formatNpuPersistentHolderCreateCloseFullDumpForCopy(state)
+
+        assertTrue(summary.contains("no holder create/close probe result available"))
+        assertTrue(summary.contains("test_name=NPU Persistent Holder Create Close Probe"))
+        assertTrue(fullDump.contains("no holder create/close probe result available"))
+        assertTrue(fullDump.contains("probe_status=idle"))
+        assertTrue(fullDump.contains("probe_reason=not_run"))
+    }
+
+    @Test
+    fun `create close full dump includes lifecycle results without run once`() {
+        val createDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = true,
+            status = "created",
+            reason = "app_jni_holder_lifecycle_created_without_engine_create",
+        )
+        val closeDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            nativeCloseCalled = true,
+            nativeDiagnosticsCalled = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = false,
+            holderCloseRequested = true,
+            holderCloseSucceeded = true,
+            holderDoubleCloseSafe = true,
+            status = "closed",
+            reason = "holder_closed_without_decode",
+        )
+        val state = NpuPersistentHolderCreateCloseProbeState(
+            status = "completed",
+            reason = "holder_closed_without_decode",
+            modelPathOrReason = "/models/gemma.task",
+            createResult = NpuPersistentHolderApiResult(
+                status = "created",
+                reason = "app_jni_holder_lifecycle_created_without_engine_create",
+                holderId = "native-holder-1",
+                diagnostics = createDiagnostics,
+                nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(createDiagnostics),
+            ),
+            diagnosticsAfterCreate = createDiagnostics,
+            closeResult = NpuPersistentHolderApiResult(
+                status = "closed",
+                reason = "holder_closed_without_decode",
+                holderId = "native-holder-1",
+                diagnostics = closeDiagnostics,
+                nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(closeDiagnostics),
+            ),
+            diagnosticsAfterClose = closeDiagnostics,
+            secondCloseResult = NpuPersistentHolderApiResult(
+                status = "closed",
+                reason = "holder_already_closed_double_close_safe",
+                holderId = "native-holder-1",
+                diagnostics = closeDiagnostics,
+                nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(closeDiagnostics),
+            ),
+            diagnosticsAfterSecondClose = closeDiagnostics,
+        )
+
+        val text = formatNpuPersistentHolderCreateCloseFullDumpForCopy(state)
+
+        assertTrue(text.contains("[create_result]"))
+        assertTrue(text.contains("[close_result]"))
+        assertTrue(text.contains("[second_close_result]"))
+        assertTrue(text.contains("holder_create_called=true"))
+        assertTrue(text.contains("holder_close_called=true"))
+        assertTrue(text.contains("holder_double_close_safe=true"))
+        assertTrue(text.contains("native_run_called=false"))
+        assertTrue(text.contains("npu_decode_called=false"))
+        assertTrue(text.contains("generate_called=false"))
+        assertTrue(text.contains("qnn_decode_called=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+        assertFalse(text.contains("persistent_multi_turn_possible=true"))
+    }
+
+    @Test
     fun `native holder create close summary reports lifecycle without decode`() {
         val diagnostics = npuPersistentHolderNativeStubDiagnostics(
             nativeCreateCalled = true,
