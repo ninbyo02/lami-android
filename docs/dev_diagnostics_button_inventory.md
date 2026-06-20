@@ -156,9 +156,13 @@ Current behavior:
 - refer to `docs/npu_standard_route_adapter_persistent_exposure_review.md` for
   the current conclusion: Kotlin can call the successful one-shot native
   adapter, but true Engine reuse needs a DEV-only native/JNI holder API
-- use `NpuPersistentHolderApi` / `NotExposedNpuPersistentHolderApi` only as the
-  current contract stub; it reports `holder_api_available=false` until native
-  support exists
+- use `NpuPersistentHolderApi` / `NotExposedNpuPersistentHolderApi` as the
+  default contract stub; it reports `holder_api_available=false`
+- a separate debug-only `NativeStubNpuPersistentHolderApi` can call
+  `NPU Persistent Holder Native Stub Probe`, which reports
+  `native_holder_stub_available=true` but still `status=not_implemented`
+- the native stub does not create Engine/ModelAssets, does not call QNN or NPU
+  decode, and is not connected to normal chat routing
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent

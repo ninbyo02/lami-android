@@ -109,6 +109,20 @@ contains the app JNI smoke stub. The actual `nativeRunEditablePrompt` /
 `nativeRunPersistentProbe` implementation is provided by the `litertlm_jni`
 stack and is not editable from Kotlin alone.
 
+The repository now also has a DEV-only app JNI holder stub:
+
+- Kotlin declarations are on `Qairt244ShortMultitokenSmoke`.
+- The native stub library is `liblami_npu_persistent_holder_stub.so`.
+- The functions are create/run-once/close/diagnostics for the standard-route
+  adapter holder contract.
+- The stub always reports `status=not_implemented` and
+  `reason=dev_only_native_holder_stub_no_engine_create`.
+- It does not call `EngineFactory::CreateDefault`, `ModelAssets::Create`,
+  QNN/LiteRT/NPU decode, or the normal NPU chat route.
+
+This proves only that Kotlin can reach a native stub symbol. It is not evidence
+of persistent reuse.
+
 ## Lifecycle Visibility
 
 Current standard-route lifecycle visibility is partial.
@@ -225,6 +239,10 @@ Recommended shape for a DEV-only persistent standard-route adapter:
    - `nativeCloseStandardRouteAdapterHolder(holderId, reason)`
    - `nativeGetStandardRouteAdapterHolderDiagnostics(holderId)`
 
+   Current status: the four JNI declarations and a debug native stub exist, but
+   all return `not_implemented`. Create/close do not yet create or destroy a
+   native holder.
+
 2. Keep the same standard-route prompt/quality contract:
    - Use `NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT`.
    - Use the same `Qairt244DevOnlyNpuRouteAdapter` final model input rules.
@@ -244,6 +262,11 @@ An intermediate Kotlin summary builder can report
 `persistent_adapter_available=false` / `needs_native_adapter_work`, but it
 would not prove persistent reuse. It should be treated as an exposure review,
 not as a multi-turn execution path.
+
+The native stub summary uses `test_name=NPU Persistent Holder Native Stub Probe`
+and should continue to report `persistent_multi_turn_possible=false` until a
+real create/close implementation exists and physical-device evidence confirms
+the lifecycle.
 
 ## Required Safety Conditions
 

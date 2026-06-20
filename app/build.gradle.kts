@@ -447,6 +447,8 @@ tasks.register("printQnnNpuReadiness") {
 }
 
 val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/qnn_direct_probe_debug.cpp")
+val npuPersistentHolderStubDebugJniSource =
+    layout.projectDirectory.file("src/debug/cpp/lami_npu_persistent_holder_stub.cpp")
 val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
 val qairt244AppJniSmokeSource = layout.projectDirectory.file("src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp")
 val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
@@ -597,6 +599,78 @@ tasks.register("buildQnnDirectProbeDebugJni") {
                             "build/generated/qnnDirectProbeDebugJniLibs/arm64-v8a/libqnn_direct_probe_debug.so",
                             "-llog",
                             "-ldl",
+                        ),
+                )
+            }
+        }
+        exec {
+            commandLine("readelf", "-d", outputFile.absolutePath)
+            isIgnoreExitValue = true
+        }
+    }
+}
+
+tasks.register("buildNpuPersistentHolderStubDebugJni") {
+    group = "build"
+    description = "Builds the debug-only NPU persistent holder JNI stub library."
+    inputs.file(npuPersistentHolderStubDebugJniSource)
+    outputs.file(qnnDirectProbeDebugJniOutputDir.map { it.file("liblami_npu_persistent_holder_stub.so") })
+
+    doLast {
+        val outputDir = qnnDirectProbeDebugJniOutputDir.get().asFile
+        outputDir.mkdirs()
+        val outputFile = File(outputDir, "liblami_npu_persistent_holder_stub.so")
+        val clangArgs = listOf(
+            "-shared",
+            "-fPIC",
+            "-std=c++17",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-nostdlib++",
+            "-Wl,--build-id=sha1",
+        )
+        val localClang = findAndroidNdkClang()
+        if (localClang != null) {
+            exec {
+                commandLine(
+                    listOf(localClang.absolutePath) +
+                        clangArgs +
+                        listOf(
+                            npuPersistentHolderStubDebugJniSource.asFile.absolutePath,
+                            "-o",
+                            outputFile.absolutePath,
+                        ),
+                )
+            }
+        } else {
+            val uid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:uid").toString() }
+                .getOrDefault("1000")
+            val gid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:gid").toString() }
+                .getOrDefault("1000")
+            exec {
+                commandLine(
+                    listOf(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--user",
+                        "$uid:$gid",
+                        "-v",
+                        "${projectDir.parentFile.absolutePath}:/work",
+                        "-w",
+                        "/work/${projectDir.name}",
+                        "litert-build:ubuntu22",
+                        "/opt/android-sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++",
+                    ) +
+                        clangArgs +
+                        listOf(
+                            "src/debug/cpp/lami_npu_persistent_holder_stub.cpp",
+                            "-o",
+                            "build/generated/qnnDirectProbeDebugJniLibs/arm64-v8a/liblami_npu_persistent_holder_stub.so",
                         ),
                 )
             }
@@ -775,6 +849,7 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
+    dependsOn("buildNpuPersistentHolderStubDebugJni")
 }
 
 tasks.matching {
@@ -785,6 +860,7 @@ tasks.matching {
         it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
+    dependsOn("buildNpuPersistentHolderStubDebugJni")
 }
 
 tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {

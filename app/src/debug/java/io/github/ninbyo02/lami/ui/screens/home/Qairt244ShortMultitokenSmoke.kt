@@ -15,6 +15,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
 
         init {
             System.loadLibrary("litertlm_jni")
+            System.loadLibrary("lami_npu_persistent_holder_stub")
         }
 
         @JvmStatic
@@ -22,6 +23,59 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
 
         @JvmStatic
         fun supportsPersistentCustomJniProbeExecution(): Boolean = true
+
+        @JvmStatic
+        fun supportsPersistentHolderNativeStubExecution(): Boolean = true
+
+        @JvmStatic
+        fun createStandardRouteAdapterHolder(
+            request: NpuPersistentHolderCreateRequest,
+        ): String {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeCreateStandardRouteAdapterHolder(
+                modelPath = request.modelPath,
+                nativeLibraryDir = request.nativeLibraryDir,
+                cacheDir = request.cacheDir,
+                maxTokens = request.maxTokens,
+            )
+        }
+
+        @JvmStatic
+        fun runStandardRouteAdapterHolderOnce(
+            request: NpuPersistentHolderRunRequest,
+        ): String {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeRunStandardRouteAdapterHolderOnce(
+                holderId = request.holderId,
+                prompt = request.prompt,
+                maxOutputTokens = request.maxOutputTokens,
+            )
+        }
+
+        @JvmStatic
+        fun closeStandardRouteAdapterHolder(
+            request: NpuPersistentHolderCloseRequest,
+        ): String {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeCloseStandardRouteAdapterHolder(
+                holderId = request.holderId,
+                reason = request.reason,
+            )
+        }
+
+        @JvmStatic
+        fun getStandardRouteAdapterHolderDiagnostics(holderId: String): String {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeGetStandardRouteAdapterHolderDiagnostics(holderId = holderId)
+        }
 
         @JvmStatic
         fun run(
@@ -260,6 +314,32 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             prompt: String,
             promptInputLimitMode: String,
             maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeCreateStandardRouteAdapterHolder(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            maxTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunStandardRouteAdapterHolderOnce(
+            holderId: String,
+            prompt: String,
+            maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeCloseStandardRouteAdapterHolder(
+            holderId: String,
+            reason: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeGetStandardRouteAdapterHolderDiagnostics(
+            holderId: String,
         ): String
     }
 }
