@@ -23,6 +23,138 @@ class NpuS1PersistentEngineDiagnosticsTest {
     }
 
     @Test
+    fun `multi turn summary exposes persistent engine test keys without inferring reuse`() {
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED,
+            runCountRequested = 10,
+            waitMs = 500L,
+            engineInitializeCount = 1,
+            engineInitializeFinishedAtElapsedRealtimeMs = 1_100L,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            records = listOf(
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 1,
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = "success",
+                    prompt = "こんにちは",
+                    sessionCreated = "true",
+                    sessionClosed = "true",
+                    decodeStarted = "true",
+                    decodeFinished = "true",
+                    rawOutput = "こんにちは。",
+                    sanitizedOutput = "こんにちは。",
+                    qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                    fallbackUsed = "false",
+                    timeout = "false",
+                    freshCrash = "false",
+                    totalMs = 120L,
+                    decodeMs = 100L,
+                    backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                ),
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 2,
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = "success",
+                    prompt = "こんにちは",
+                    sessionCreated = "true",
+                    sessionClosed = "true",
+                    decodeStarted = "true",
+                    decodeFinished = "true",
+                    rawOutput = "こんにちは。",
+                    sanitizedOutput = "こんにちは。",
+                    qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                    fallbackUsed = "false",
+                    timeout = "false",
+                    freshCrash = "false",
+                    totalMs = 180L,
+                    decodeMs = 140L,
+                    backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                ),
+            ),
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(text.contains("test_name=NPU Persistent Engine Multi-turn Test"))
+        assertTrue(text.contains("persistent_engine_requested=true"))
+        assertTrue(text.contains("persistent_engine_available=true"))
+        assertTrue(text.contains("engine_reuse_observed=unavailable"))
+        assertFalse(text.contains("engine_reuse_observed=true"))
+        assertTrue(text.contains("engine_holder_id=not_exposed"))
+        assertTrue(text.contains("provider_instance_id=not_exposed"))
+        assertTrue(text.contains("adapter_instance_id=not_exposed"))
+        assertTrue(text.contains("session_id=not_exposed"))
+        assertTrue(text.contains("run_count_requested=10"))
+        assertTrue(text.contains("run_count_completed=2"))
+        assertTrue(text.contains("success_count=2"))
+        assertTrue(text.contains("failure_count=0"))
+        assertTrue(text.contains("success_rate=1.00"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("timeout_count=0"))
+        assertTrue(text.contains("fresh_crash_count=0"))
+        assertTrue(text.contains("engine_create_failed_count=0"))
+        assertTrue(text.contains("run_decode_reached_count=2"))
+        assertTrue(text.contains("run_decode_reached_rate=1.00"))
+        assertTrue(text.contains("average_total_ms=150.00"))
+        assertTrue(text.contains("average_decode_ms=120.00"))
+        assertTrue(text.contains("average_tokens_per_second=unavailable"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:2"))
+        assertTrue(text.contains("quality_classification_summary=natural_japanese:2"))
+        assertTrue(text.contains("restart_app_recommended=false"))
+        assertTrue(text.contains("prompt=こんにちは"))
+        assertTrue(text.contains("run_decode_reached=true"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("holder_identity=not_exposed"))
+        assertTrue(text.contains("native_stage_history=unavailable"))
+    }
+
+    @Test
+    fun `engine create failure recommends app restart and exposes native diag tail`() {
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
+            runCountRequested = 10,
+            engineInitializeCount = 1,
+            engineInitializeFinishedAtElapsedRealtimeMs = 1_100L,
+            firstFailureRunIndex = 7,
+            firstFailureReason = "adapter_failure:LiteRtLmJniException",
+            records = (1..6).map { index ->
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = index,
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = "success",
+                    decodeStarted = "true",
+                    decodeFinished = "true",
+                    fallbackUsed = "false",
+                    timeout = "false",
+                    backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                    qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                )
+            } + NpuS1PersistentEngineRunRecord(
+                runIndex = 7,
+                status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                reason = "adapter_failure:LiteRtLmJniException",
+                decodeStarted = "false",
+                decodeFinished = "false",
+                fallbackUsed = "false",
+                timeout = "false",
+                failureExceptionClass = "LiteRtLmJniException",
+                failureExceptionMessage = "engine-create-failed:INTERNAL",
+                nativeOrEngineDiagTail = "before EngineFactory::CreateDefault engine-create-failed:INTERNAL runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725",
+                backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            ),
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(text.contains("engine_create_failed_count=1"))
+        assertTrue(text.contains("restart_app_recommended=true"))
+        assertTrue(text.contains("guard_recommendation=disable_npu_until_app_restart_or_cooldown"))
+        assertTrue(text.contains("first_failure_run_index=7"))
+        assertTrue(text.contains("first_failure_reason=adapter_failure:LiteRtLmJniException"))
+        assertTrue(text.contains("first_failure_native_diag_tail=before EngineFactory::CreateDefault engine-create-failed:INTERNAL"))
+        assertTrue(text.contains("run_index=7"))
+        assertTrue(text.contains("native_or_engine_diag_tail=before EngineFactory::CreateDefault engine-create-failed:INTERNAL"))
+    }
+
+    @Test
     fun `summary includes engine initialize count and first failure`() {
         val state = NpuS1PersistentEngineProbeState(
             persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,

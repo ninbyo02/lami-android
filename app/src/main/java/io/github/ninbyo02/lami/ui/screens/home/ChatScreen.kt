@@ -1751,11 +1751,18 @@ fun Home(
     }
 
     fun startNpuS1PersistentEngineProbe() {
-        if (isInferenceRunningUi) {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
-                    message = "生成完了後に実行してください",
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -1765,6 +1772,7 @@ fun Home(
         npuS1PersistentEngineState = NpuS1PersistentEngineProbeState(
             persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
             runCountRequested = NPU_S1_PERSISTENT_ENGINE_DEFAULT_COUNT,
+            waitMs = NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS,
             startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
             persistentEngineHypothesisResult = "starting",
         )
@@ -7293,7 +7301,10 @@ fun Home(
                                             },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
-                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
@@ -7438,7 +7449,10 @@ fun Home(
                                             },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
-                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
@@ -7689,7 +7703,10 @@ fun Home(
                     onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
                     npuS1PersistentEngineState = npuS1PersistentEngineState,
                     npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
-                    isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                    isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
+                        npuS1RepeatedRunJob?.isActive == true ||
+                        npuLongGenerationJob?.isActive == true ||
+                        npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
@@ -11370,7 +11387,7 @@ private fun NpuBetaDevPrimaryIntroSection(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Beta Long Generation Test",
+            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Persistent Engine Multi-turn Test 3. NPU Beta Long Generation Test",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -11428,7 +11445,7 @@ private fun NpuS1PersistentEngineDevSection(
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    InferenceStatsSection(title = "NPU S1 persistent Engine") {
+    InferenceStatsSection(title = "NPU Persistent Engine Multi-turn Test") {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -11437,7 +11454,7 @@ private fun NpuS1PersistentEngineDevSection(
                 onClick = onStart,
                 enabled = !running && !blockedByGeneration,
             ) {
-                Text("NPU S1 persistent Engine 20回テスト")
+                Text("NPU永続Engine複数会話テスト")
             }
             TextButton(
                 onClick = onCancel,
@@ -11450,13 +11467,13 @@ private fun NpuS1PersistentEngineDevSection(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
             } else {
-                "DEV専用PoCです。official Engineを1回だけ初期化し、通常チャット経路には接続しません。"
+                "DEV専用PoCです。official Engineを1回だけ初期化し、10回generateします。NPU native failure後はアプリ再起動推奨です。通常チャット経路には接続しません。"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InferenceStatRow(
-            label = "NPU S1 persistent Engine",
+            label = "NPU Persistent Engine Multi-turn Test",
             value = formatNpuS1PersistentEngineDiagnosticsForDev(state),
         )
     }
@@ -11847,6 +11864,13 @@ private fun InferenceStatsSheetContent(
                         )
                     },
                 )
+                NpuS1PersistentEngineDevSection(
+                    state = npuS1PersistentEngineState,
+                    running = npuS1PersistentEngineInProgress,
+                    blockedByGeneration = isInferenceRunningForPersistentEngine,
+                    onStart = onNpuS1PersistentEngineStart,
+                    onCancel = onNpuS1PersistentEngineCancel,
+                )
                 NpuLongGenerationDevSection(
                     state = npuLongGenerationState,
                     preferredBackendSetting = preferredBackendDryRunSetting,
@@ -11903,13 +11927,6 @@ private fun InferenceStatsSheetContent(
                         onStart = onMemoryRecoveryCheck,
                     )
                     if (BuildConfig.DEBUG) {
-                        NpuS1PersistentEngineDevSection(
-                            state = npuS1PersistentEngineState,
-                            running = npuS1PersistentEngineInProgress,
-                            blockedByGeneration = isInferenceRunningForPersistentEngine,
-                            onStart = onNpuS1PersistentEngineStart,
-                            onCancel = onNpuS1PersistentEngineCancel,
-                        )
                         NpuS1PersistentCustomJniDevSection(
                             state = npuS1PersistentCustomJniState,
                             selectedMode = npuS1PersistentCustomJniProbeMode,
@@ -12224,6 +12241,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 )
             }
             if (
+                BuildConfig.DEBUG &&
+                onNpuS1PersistentEngineStart != null &&
+                onNpuS1PersistentEngineCancel != null
+            ) {
+                NpuS1PersistentEngineDevSection(
+                    state = npuS1PersistentEngineState,
+                    running = npuS1PersistentEngineInProgress,
+                    blockedByGeneration = isInferenceRunningForPersistentEngine,
+                    onStart = onNpuS1PersistentEngineStart,
+                    onCancel = onNpuS1PersistentEngineCancel,
+                )
+            }
+            if (
                 onNpuLongGenerationStart != null &&
                 onNpuLongGenerationCancel != null
             ) {
@@ -12257,34 +12287,22 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
             }
             if (
                 BuildConfig.DEBUG &&
-                onNpuS1PersistentEngineStart != null &&
-                onNpuS1PersistentEngineCancel != null
+                onNpuS1PersistentCustomJniProbeModeChange != null &&
+                onNpuS1PersistentCustomJniQualityPromptProfileChange != null &&
+                onNpuS1PersistentCustomJniStart != null &&
+                onNpuS1PersistentCustomJniCancel != null
             ) {
-                NpuS1PersistentEngineDevSection(
-                    state = npuS1PersistentEngineState,
-                    running = npuS1PersistentEngineInProgress,
-                    blockedByGeneration = isInferenceRunningForPersistentEngine,
-                    onStart = onNpuS1PersistentEngineStart,
-                    onCancel = onNpuS1PersistentEngineCancel,
+                NpuS1PersistentCustomJniDevSection(
+                    state = npuS1PersistentCustomJniState,
+                    selectedMode = npuS1PersistentCustomJniProbeMode,
+                    selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                    running = npuS1PersistentCustomJniInProgress,
+                    blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                    onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                    onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                    onStart = onNpuS1PersistentCustomJniStart,
+                    onCancel = onNpuS1PersistentCustomJniCancel,
                 )
-                if (
-                    onNpuS1PersistentCustomJniProbeModeChange != null &&
-                    onNpuS1PersistentCustomJniQualityPromptProfileChange != null &&
-                    onNpuS1PersistentCustomJniStart != null &&
-                    onNpuS1PersistentCustomJniCancel != null
-                ) {
-                    NpuS1PersistentCustomJniDevSection(
-                        state = npuS1PersistentCustomJniState,
-                        selectedMode = npuS1PersistentCustomJniProbeMode,
-                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
-                        running = npuS1PersistentCustomJniInProgress,
-                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
-                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
-                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
-                        onStart = onNpuS1PersistentCustomJniStart,
-                        onCancel = onNpuS1PersistentCustomJniCancel,
-                    )
-                }
             }
             if (!routeText.isNullOrBlank() && onCopyRoute != null) {
                 CopyableDebugBlock(

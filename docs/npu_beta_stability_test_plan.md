@@ -163,6 +163,20 @@ Hold promotion or investigate if any of these appear:
 - Reuse still reports `engine_create_failed`, `LiteRtLmJniException`,
   timeout, fresh crash, fallback, or `run_decode_reached=false`
 
+## Relationship To Persistent Multi-turn
+
+`NPU Beta Stability Test` in Recreate mode is now treated as an Engine recreate
+stress test. When it stops after several successful decodes with
+`engine_create_failed`, the next diagnostic should be
+`NPU Persistent Engine Multi-turn Test`, not a larger token-count test.
+
+Persistent Multi-turn initializes one official NPU Engine and attempts ten
+short generations. If it passes while Recreate fails near run 7, the next
+design review should consider moving normal NPU chat toward a persistent Engine
+holder/session strategy. If it also fails, continue lower-level NPU native
+executor / QNN delegate / prompt path investigation before changing normal chat
+behavior.
+
 ## Next Steps
 
 Step 3 adds a Long Generation Test runner that compares
@@ -170,9 +184,13 @@ Step 3 adds a Long Generation Test runner that compares
 `unavailable` when native finish telemetry is not exposed. The 1024-token case
 remains an Advanced follow-up until physical-device evidence is stable.
 
+Before extending long generation beyond the current plan, collect Persistent
+Multi-turn evidence if recreate/reuse stability runs show repeated
+`engine_create_failed`.
+
 Later stability work can add guarded 50/100-run modes after the 10-run path has
 physical-device evidence and cancellation/safety behavior remains stable.
 
 Step 4 places this test in the Primary DEV diagnostics group. Low-level
-persistent Engine, custom JNI, full dump, GPU investigation, and route debug
-controls remain available under Advanced.
+custom JNI, full dump, GPU investigation, and route debug controls remain
+available under Advanced.

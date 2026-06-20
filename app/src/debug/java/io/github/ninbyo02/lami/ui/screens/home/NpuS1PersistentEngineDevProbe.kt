@@ -18,6 +18,7 @@ import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -41,6 +42,7 @@ internal class NpuS1PersistentEngineDevProbe(
         var state = NpuS1PersistentEngineProbeState(
             persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
             runCountRequested = requestedRunCount,
+            waitMs = NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS,
             startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
             modelPathOrName = modelPath ?: modelResolution.reasonCode,
             cacheDir = cacheDir,
@@ -217,6 +219,9 @@ internal class NpuS1PersistentEngineDevProbe(
                     ),
                 )
                 if (failed) return@withContext state
+                if (runIndex < requestedRunCount && NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS > 0L) {
+                    delay(NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS)
+                }
             }
             state.copy(
                 persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED,
@@ -226,7 +231,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 conversationCloseCount = conversationCloseCount,
                 sessionCreateCount = sessionCreateCount.toString(),
                 sessionCloseCount = sessionCloseCount.toString(),
-                persistentEngineHypothesisResult = "engine_initialize_once_20_runs_success",
+                persistentEngineHypothesisResult = "engine_initialize_once_10_runs_success",
             ).also(::update)
         } catch (throwable: Throwable) {
             if (throwable is CancellationException && throwable !is TimeoutCancellationException) {
@@ -340,6 +345,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 runIndex = runIndex,
                 status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 reason = "success",
+                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
                 conversationCreated = conversationCreated,
                 conversationClosed = conversationClosed,
                 sessionCreated = "unavailable",
@@ -353,6 +359,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 } else {
                     NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
                 },
+                fallbackUsed = "false",
+                timeout = "false",
+                freshCrash = "unavailable",
                 totalMs = decodeFinishedAt - runStartedAt,
                 decodeMs = decodeFinishedAt - decodeStartedAt,
                 failureStage = "unavailable",
@@ -454,6 +463,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 runIndex = runIndex,
                 status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 reason = "success",
+                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
                 conversationCreated = "false",
                 conversationClosed = "unavailable",
                 sessionCreated = sessionCreated,
@@ -467,6 +477,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 } else {
                     NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
                 },
+                fallbackUsed = "false",
+                timeout = "false",
+                freshCrash = "unavailable",
                 totalMs = decodeFinishedAt - runStartedAt,
                 decodeMs = decodeFinishedAt - decodeStartedAt,
                 failureStage = "unavailable",
@@ -572,12 +585,16 @@ internal class NpuS1PersistentEngineDevProbe(
             runIndex = runIndex,
             status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
             reason = reason,
+            prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
             conversationCreated = conversationCreated,
             conversationClosed = conversationClosed,
             sessionCreated = sessionCreated,
             sessionClosed = sessionClosed,
             decodeStarted = decodeStarted,
             decodeFinished = decodeFinished,
+            fallbackUsed = "false",
+            timeout = (throwable is TimeoutCancellationException).toString(),
+            freshCrash = "unavailable",
             totalMs = totalMs,
             failureStage = stage,
             failureExceptionClass = throwable?.javaClass?.simpleName ?: inferPersistentFailureExceptionClass(reason),
