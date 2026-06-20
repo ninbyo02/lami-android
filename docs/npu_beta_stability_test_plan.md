@@ -3,9 +3,9 @@
 ## Purpose
 
 `NPU Beta Stability Test` is the primary DEV entry for repeated NPU health
-checks. The first implementation is intentionally small: it reuses the existing
-NPU S1 repeated-run runner, keeps the same safety stop lines, and only changes
-the user-facing label plus summary keys.
+checks. The implementation is intentionally small: it reuses the existing NPU
+S1 repeated-run runner, keeps the same safety stop lines, and exposes the
+current NPU Beta route with clearer user-facing labels plus summary keys.
 
 This does not change the NPU route, persistent engine behavior, custom JNI
 behavior, fallback policy, or completed standard-route delivery path.
@@ -15,11 +15,19 @@ behavior, fallback policy, or completed standard-route delivery path.
 - UI label: `NPU Beta安定性テスト開始`
 - DEV diagnostics group: Primary
 - Summary test name: `test_name=NPU Beta Stability Test`
-- Initial mode: `mode=safe_recreate`
+- Modes exposed in Primary: `Recreate` and `Reuse`
+- Default mode: `mode=safe_recreate`
 - Initial requested runs: `requested_runs=10`
+- Reuse scope: DEV-only, NPU Beta / NPU standard route only, 10 runs, wait
+  500ms or 2000ms, stop on first failure
 - Existing runner: `startNpuS1RepeatedRun()` via `NpuStandardRouteS1Bridge`
 - Existing compatibility names remain: `NPU S1 repeated run`, `NPU_S1`, and
   `npu_s1` may still appear in internal diagnostics and tests.
+
+`Reuse` requests the existing stability runner path without the post-run
+recreate request. The lower-level engine reuse signal is not fully exposed, so
+artifacts should report `engine_reuse_requested=true` and
+`engine_reused=unavailable` until a native/persistent-engine signal is added.
 
 ## Why 10 Runs First
 
@@ -53,6 +61,16 @@ The summary should expose these keys for artifact review:
 - `first_failure_reason`
 - `backend_evidence_summary`
 - `quality_classification_summary`
+- `reuse_enabled`
+- `reuse_gate_allowed`
+- `reuse_gate_reason`
+- `engine_reuse_requested`
+- `engine_reused`
+- `engine_request_count`
+- `engine_create_count`
+- `adapter_call_count`
+- `decode_attempt_count`
+- `decode_success_count`
 
 Unavailable metrics must be written as `unavailable`; they should not be
 inferred from unrelated fields.
@@ -108,6 +126,10 @@ Expected observations:
 - `average_tokens_per_second`
 - backend evidence containing `QNN_HTP` or `FastRPC`
 - quality classification summary
+- `repeated_run_mode=reuse` when Reuse is selected
+- `reuse_gate_allowed=true` for NPU Beta / NPU standard route Reuse runs
+- `effective_max_output_tokens=512` when the Settings max output value is
+  above the current native limit
 
 `not run: requires physical NPU device`
 
@@ -123,6 +145,9 @@ Initial 10-run pass candidate:
 - `fresh_crash_count=0`
 - `run_decode_reached_count=10`
 - backend evidence contains `QNN_HTP` or `FastRPC`
+- Reuse investigation pass: `repeated_run_mode=reuse`, `completed_runs=10`,
+  `success_count=10`, `fallback_used_count=0`, `timeout_count=0`,
+  `fresh_crash_count=0`, `effective_max_output_tokens=512`
 
 ## Fail Or Hold Conditions
 
@@ -135,6 +160,8 @@ Hold promotion or investigate if any of these appear:
 - `run_decode_reached_count < completed_runs`
 - backend evidence missing or not NPU/QNN/HTP/FastRPC
 - repeated `quality_classification` failure patterns
+- Reuse still reports `engine_create_failed`, `LiteRtLmJniException`,
+  timeout, fresh crash, fallback, or `run_decode_reached=false`
 
 ## Next Steps
 

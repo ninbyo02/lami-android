@@ -1190,7 +1190,7 @@ fun Home(
                         "backend_evidence=${selectedBackendDiagnostics.backendEvidence}",
                         "route_family=${selectedBackendDiagnostics.routeFamily}",
                         "blocked_reason=${startGate.blockedReason}",
-                        "max_output_tokens=${NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS}",
+                        "requested_max_output_tokens=$npuStandardRouteMaxOutputTokens",
                         "build_debug=${BuildConfig.DEBUG}",
                         "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
                         "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
@@ -11140,7 +11140,7 @@ private fun NpuS1RepeatedRunDevSection(
             )
         } else if (!startGate.allowed) {
             Text(
-                text = "Safety policy: Recreate / 10 runs / wait 500ms以上のみ実行可能",
+                text = "Safety policy: Reuse or Recreate / 10 runs / wait 500ms以上のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -11253,7 +11253,7 @@ private fun NpuS1RepeatedRunDevSection(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
             } else {
-                "DEV専用の直列テストです。通常チャット履歴、TTS、DB保存には使いません。"
+                "DEV専用の直列テストです。Reuse は既存NPUエンジン再利用の安定性検証用です。失敗時は停止します。通常チャット履歴、TTS、DB保存には使いません。"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -34,7 +34,10 @@ internal val NPU_S1_REPEATED_RUN_COUNT_OPTIONS = listOf(10, 50, 100)
 internal val NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS = listOf(0L, 500L, 2_000L)
 internal val NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_COUNT)
 internal val NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS, 2_000L)
-internal val NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_MODE)
+internal val NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS = listOf(
+    NpuS1RepeatedRunMode.REUSE,
+    NPU_S1_REPEATED_RUN_SAFE_MODE,
+)
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
 internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
     "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
@@ -313,8 +316,6 @@ internal fun npuS1RepeatedRunStartGate(
 ): NpuS1RepeatedRunStartGate = when {
     !isNpuS1RepeatedRunBackendAllowed(npuS1BackendFromPreferredSetting(preferredBackendSetting, npuStandardRouteMode)) ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU)
-    mode == NpuS1RepeatedRunMode.REUSE ->
-        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED)
     mode !in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_MODE)
     runCount !in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS ->
@@ -1046,11 +1047,18 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         ?: maxOutputTokensResolution.requestedMaxOutputTokens
     val summaryEffectiveMaxOutputTokens = state.records.firstOrNull()?.effectiveMaxOutputTokens
         ?: maxOutputTokensResolution.effectiveMaxOutputTokens
+    val reuseRequested = summary.repeatedRunMode == NpuS1RepeatedRunMode.REUSE
+    val reuseGateReason = if (reuseRequested) summary.blockedReason else "not_reuse_mode"
     return buildString {
         appendLine("[DEV診断: NPU S1 repeated run summary]")
         appendLine("test_name=$NPU_BETA_STABILITY_TEST_NAME")
         appendLine("stability_test_gate_allowed=$gateAllowed")
         appendLine("stability_test_gate_reason=${summary.blockedReason}")
+        appendLine("reuse_enabled=$reuseRequested")
+        appendLine("reuse_gate_allowed=${reuseRequested && gateAllowed}")
+        appendLine("reuse_gate_reason=$reuseGateReason")
+        appendLine("engine_reuse_requested=$reuseRequested")
+        appendLine("engine_reused=unavailable")
         appendLine("mode=${npuBetaStabilityMode(summary.repeatedRunMode)}")
         appendLine("requested_runs=${summary.runCountRequested}")
         appendLine("completed_runs=${summary.runCountCompleted}")
@@ -1145,6 +1153,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("engine_request_count=${summary.counterSnapshot.engineRequestCount}")
         appendLine("engine_request_success_count=${summary.counterSnapshot.engineRequestSuccessCount}")
         appendLine("engine_request_failure_count=${summary.counterSnapshot.engineRequestFailureCount}")
+        appendLine("engine_create_count=${summary.counterSnapshot.engineCreateAttemptCount}")
         appendLine("engine_create_attempt_count=${summary.counterSnapshot.engineCreateAttemptCount}")
         appendLine("engine_create_success_count=${summary.counterSnapshot.engineCreateSuccessCount}")
         appendLine("engine_create_failure_count=${summary.counterSnapshot.engineCreateFailureCount}")

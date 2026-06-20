@@ -714,7 +714,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
     }
 
     @Test
-    fun `repeated run start gate allows NPU beta standard route recreate ten runs with wait`() {
+    fun `repeated run start gate allows NPU beta standard route recreate and reuse ten runs with wait`() {
         listOf(
             NpuStandardRouteMode.S1_ONLY,
             NpuStandardRouteMode.S2_DB,
@@ -727,6 +727,15 @@ class NpuS1RepeatedRunDiagnosticsTest {
                     preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                     npuStandardRouteMode = mode,
                     mode = NpuS1RepeatedRunMode.RECREATE,
+                    runCount = 10,
+                    waitMs = 500L,
+                ).allowed,
+            )
+            assertTrue(
+                npuS1RepeatedRunStartGate(
+                    preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                    npuStandardRouteMode = mode,
+                    mode = NpuS1RepeatedRunMode.REUSE,
                     runCount = 10,
                     waitMs = 500L,
                 ).allowed,
@@ -762,11 +771,21 @@ class NpuS1RepeatedRunDiagnosticsTest {
             ).blockedReason,
         )
         assertEquals(
-            NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED,
+            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+                mode = NpuS1RepeatedRunMode.REUSE,
+                runCount = 10,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_MODE,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 npuStandardRouteMode = NpuStandardRouteMode.FULL,
-                mode = NpuS1RepeatedRunMode.REUSE,
+                mode = NpuS1RepeatedRunMode.REUSE_10S,
                 runCount = 10,
                 waitMs = 500L,
             ).blockedReason,
@@ -776,7 +795,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
                 npuStandardRouteMode = NpuStandardRouteMode.FULL,
-                mode = NpuS1RepeatedRunMode.RECREATE,
+                mode = NpuS1RepeatedRunMode.REUSE,
                 runCount = 50,
                 waitMs = 500L,
             ).blockedReason,
@@ -839,13 +858,18 @@ class NpuS1RepeatedRunDiagnosticsTest {
             routeFamily = NPU_S1_ROUTE_FAMILY_NPU_S5,
             blockedReason = "none",
             maxOutputTokens = 4096,
-            repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
+            repeatedRunMode = NpuS1RepeatedRunMode.REUSE,
             repeatedRunWaitMs = 500L,
         )
         val text = formatNpuS1RepeatedRunDiagnosticsForDev(state)
 
         assertTrue(text.contains("stability_test_gate_allowed=true"))
         assertTrue(text.contains("stability_test_gate_reason=none"))
+        assertTrue(text.contains("reuse_enabled=true"))
+        assertTrue(text.contains("reuse_gate_allowed=true"))
+        assertTrue(text.contains("reuse_gate_reason=none"))
+        assertTrue(text.contains("engine_reuse_requested=true"))
+        assertTrue(text.contains("engine_reused=unavailable"))
         assertTrue(text.contains("selected_backend=NPU_S5"))
         assertTrue(text.contains("requested_backend=NPU"))
         assertTrue(text.contains("effective_backend=NPU"))
@@ -854,7 +878,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("requested_max_output_tokens=4096"))
         assertTrue(text.contains("effective_max_output_tokens=512"))
         assertTrue(text.contains("max_output_tokens_clamped=true"))
-        assertTrue(text.contains("run_mode=recreate"))
+        assertTrue(text.contains("run_mode=reuse"))
         assertTrue(text.contains("run_count=10"))
         assertTrue(text.contains("wait_ms=500"))
     }

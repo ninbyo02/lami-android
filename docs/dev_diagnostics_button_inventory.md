@@ -124,9 +124,12 @@ Current Step 2 behavior:
 
 - present as `NPU Beta Stability Test`
 - default to 10 runs
-- keep safe recreate mode and 500ms wait
+- keep guarded Recreate/Reuse modes, 10 runs, and 500ms or 2000ms wait
 - aggregate success rate, fallback rate, timeout rate, fresh crash rate,
   average decode time, average total time, and average tokens/sec
+- expose Reuse diagnostics (`reuse_gate_allowed`, `engine_reuse_requested`,
+  `engine_reused=unavailable`) for EngineFactory::CreateDefault failure
+  investigation
 - preserve cancel and safety stop behavior
 - leave 50/100 disabled by safety policy until a later review
 
