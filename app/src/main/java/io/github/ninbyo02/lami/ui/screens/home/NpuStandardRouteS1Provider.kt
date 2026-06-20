@@ -144,6 +144,7 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         addAll(
             listOf(
                 "max_output_tokens=$maxOutputTokens",
+                "route_type=${result.selection.routeType}",
                 "input_hash=${npuRealPromptHash(input)}",
                 "input_prompt=${npuStandardRouteS1DevPreview(input)}",
                 "input_preview=${npuStandardRouteS1DevPreview(input)}",
@@ -182,10 +183,20 @@ internal fun buildNpuStandardRouteS1DevTraceText(
                 "failure_stage=${npuStandardRouteS1FailureStage(result)}",
                 "native_stage=${result.nativeDiagnostics.nativeStage}",
                 "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+                "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+                "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+                "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
                 "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
                 "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
                 "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
                 "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+                "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+                "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
+                "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+                "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+                "native_result_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeResultTail)}",
+                "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+                "native_diag_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeDiagTail)}",
                 "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
                 "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
                 "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
@@ -343,9 +354,15 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
             listOf(
         "[DEV診断: NPU S1 compact]",
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+        "route_type=${result.selection.routeType}",
         "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
         "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
         "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
+        "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+        "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
+        "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
+        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
         "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
         "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
         "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
@@ -390,11 +407,23 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "failure_exception_message=${npuStandardRouteS1EscapeCopyValue(npuStandardRouteS1FailureExceptionMessage(result))}",
         "native_stage=${result.nativeDiagnostics.nativeStage}",
         "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+        "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+        "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+        "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
         "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
         "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
         "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
         "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+        "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+        "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
         "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+        "native_session_destroy_started=${result.nativeDiagnostics.nativeSessionDestroyStarted}",
+        "native_session_destroy_finished=${result.nativeDiagnostics.nativeSessionDestroyFinished}",
+        "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+        "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+        "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
+        "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+        "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
             ),
         )
     }.joinToString("\n")
@@ -415,6 +444,18 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         add("native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}")
         add("native_error_stage=${result.nativeDiagnostics.nativeErrorStage}")
         add("native_error_source=${result.nativeDiagnostics.nativeErrorSource}")
+        add("native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}")
+        add("native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}")
+        add("native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}")
+        add("native_call_reached=${result.nativeDiagnostics.nativeCallReached}")
+        add("native_call_returned=${result.nativeDiagnostics.nativeCallReturned}")
+        add("native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}")
+        add("native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}")
+        add("native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}")
+        add("native_result_available=${result.nativeDiagnostics.nativeResultAvailable}")
+        add("native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}")
+        add("native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}")
+        add("native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}")
         add("npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}")
         add("npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}")
         add("npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}")
@@ -464,6 +505,7 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
                 listOf(
             "[DEV診断: NPU S1 full dump]",
             "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+            "route_type=${result.selection.routeType}",
             "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
             "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
             "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
@@ -473,6 +515,8 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}",
             "rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}",
             "max_output_tokens=$maxOutputTokens",
+            "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+            "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
             "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
             "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
             "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
@@ -509,12 +553,23 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "failure_stage=${npuStandardRouteS1FailureStage(result)}",
             "native_stage=${result.nativeDiagnostics.nativeStage}",
             "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+            "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+            "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+            "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
             "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
             "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
             "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
             "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+            "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+            "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
             "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+            "native_session_destroy_started=${result.nativeDiagnostics.nativeSessionDestroyStarted}",
+            "native_session_destroy_finished=${result.nativeDiagnostics.nativeSessionDestroyFinished}",
             "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+            "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+            "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
+            "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+            "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
             "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
             "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
             "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",

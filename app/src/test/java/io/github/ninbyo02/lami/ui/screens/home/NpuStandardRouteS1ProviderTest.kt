@@ -414,8 +414,9 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=false"))
         assertTrue(copyText.contains("actual_display_text=こんばんは。"))
         assertTrue(copyText.contains("tts_text=こんばんは。"))
-        assertFalse(copyText.contains("max_output_tokens=256"))
-        assertFalse(copyText.contains("selected_model_name=unknown"))
+        assertTrue(copyText.contains("requested_max_output_tokens=256"))
+        assertTrue(copyText.contains("effective_max_output_tokens=256"))
+        assertTrue(copyText.contains("selected_model_name=unknown"))
         assertFalse(copyText.contains("finish_reason="))
         assertFalse(copyText.contains("tokenizer_output_tokens="))
         assertTrue(copyText.contains("raw_output=raw\\noutput"))
@@ -1637,10 +1638,18 @@ class NpuStandardRouteS1ProviderTest {
                 nativeDiagnostics = NpuS1NativeStageDiagnostics(
                     nativeStage = NPU_S1_NATIVE_STAGE_NATIVE_CALL,
                     nativeStageHistory = "provider_start>adapter_start>before_native_call>native_call>adapter_failure",
+                    nativeCallStartedAtElapsedRealtimeMs = "1000",
+                    nativeCallFinishedAtElapsedRealtimeMs = "1050",
+                    nativeCallDurationMs = "50",
                     nativeCallReached = "true",
                     nativeCallReturned = "false",
                     nativeDecodeStarted = "false",
                     nativeDecodeFinished = "false",
+                    nativeCleanupReached = "true",
+                    nativeResultAvailable = "true",
+                    nativeResultTail = "result=failure\\nreason=native_decode_failed",
+                    nativeDiagAvailable = "true",
+                    nativeDiagTail = "RunDecode failed before output",
                     nativeErrorClass = "LiteRtLmJniException",
                     nativeErrorMessage = "engine-create-failed:INTERNAL",
                     nativeErrorStage = NPU_S1_NATIVE_STAGE_NATIVE_CALL,
@@ -1692,10 +1701,18 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("npu_s1_failure_recovery_hint=recreate_app_or_wait_before_retry"))
         assertTrue(copyText.contains("failure_stage=native_call"))
         assertTrue(copyText.contains("native_stage=native_call"))
+        assertTrue(copyText.contains("native_call_started_at_elapsed_realtime_ms=1000"))
+        assertTrue(copyText.contains("native_call_finished_at_elapsed_realtime_ms=1050"))
+        assertTrue(copyText.contains("native_call_duration_ms=50"))
         assertTrue(copyText.contains("native_call_reached=true"))
         assertTrue(copyText.contains("native_call_returned=false"))
         assertTrue(copyText.contains("native_decode_started=false"))
         assertTrue(copyText.contains("native_decode_finished=false"))
+        assertTrue(copyText.contains("native_cleanup_reached=true"))
+        assertTrue(copyText.contains("native_result_available=true"))
+        assertTrue(copyText.contains("native_result_tail=result=failure\\\\nreason=native_decode_failed"))
+        assertTrue(copyText.contains("native_diag_available=true"))
+        assertTrue(copyText.contains("native_diag_tail=RunDecode failed before output"))
         assertTrue(copyText.contains("engine_create_failure_count=1"))
         assertTrue(copyText.contains("failure_after_successful_npu_s1_request_count=3"))
         assertTrue(
@@ -1710,6 +1727,84 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("successful_npu_s1_request_count=3"))
         assertTrue(copyText.contains("last_engine_create_failure_at_elapsed_realtime_ms=789"))
         assertFalse(copyText.contains("last_npu_s1_model_path=hidden_from_failure_details"))
+    }
+
+    @Test
+    fun `S1 normal chat diagnostic surfaces route model and native result tail`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "native_result:failure",
+                rawOutput = "",
+                sanitizedOutput = "",
+                qualityClassification = "unknown",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 128,
+                effectiveMaxOutputTokens = 128,
+                nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                    nativeStage = NPU_S1_NATIVE_STAGE_NATIVE_RESULT_PARSE,
+                    nativeStageHistory = "provider_start>adapter_start>native_call>native_result_parse",
+                    nativeCallStartedAtElapsedRealtimeMs = "2000",
+                    nativeCallFinishedAtElapsedRealtimeMs = "2123",
+                    nativeCallDurationMs = "123",
+                    nativeCallReached = "true",
+                    nativeCallReturned = "true",
+                    nativeDecodeStarted = "true",
+                    nativeDecodeFinished = "true",
+                    nativeCleanupReached = "true",
+                    nativeResultAvailable = "true",
+                    nativeResultTail = "result=failure\\nerror_code=decode_failed",
+                    nativeDiagAvailable = "true",
+                    nativeDiagTail = "QNN_HTP decode failed tail",
+                ),
+                inputPrompt = "こんにちは",
+            ),
+        ).copy(
+            selectedModelName = "gemma-4-E2B-it_qual",
+            selectedModelFile = "/models/gemma-4-E2B-it_qual.task",
+            npuModelEligible = true,
+        )
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+        )
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+        )
+
+        listOf(compact, fullDump).forEach { copyText ->
+            assertTrue(copyText.contains("route_type=standard_chat_screen_s1_npu_display_only"))
+            assertTrue(copyText.contains("requested_max_output_tokens=128"))
+            assertTrue(copyText.contains("effective_max_output_tokens=128"))
+            assertTrue(copyText.contains("selected_model_name=gemma-4-E2B-it_qual"))
+            assertTrue(copyText.contains("selected_model_file=/models/gemma-4-E2B-it_qual.task"))
+            assertTrue(copyText.contains("npu_model_eligible=true"))
+            assertTrue(copyText.contains("native_call_reached=true"))
+            assertTrue(copyText.contains("native_call_returned=true"))
+            assertTrue(copyText.contains("native_result_available=true"))
+            assertTrue(copyText.contains("native_result_tail=result=failure\\\\nerror_code=decode_failed"))
+            assertTrue(copyText.contains("native_diag_available=true"))
+            assertTrue(copyText.contains("native_diag_tail=QNN_HTP decode failed tail"))
+        }
+        assertTrue(trace.contains("route_type=standard_chat_screen_s1_npu_display_only"))
+        assertTrue(trace.contains("selected_model_name=gemma-4-E2B-it_qual"))
+        assertTrue(trace.contains("selected_model_file=/models/gemma-4-E2B-it_qual.task"))
+        assertTrue(trace.contains("npu_model_eligible=true"))
+        assertTrue(trace.contains("native_result_available=true"))
+        assertTrue(trace.contains("native_result_tail=result=failure"))
+        assertTrue(trace.contains("native_diag_tail=QNN_HTP decode failed tail"))
     }
 
     @Test
