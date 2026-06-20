@@ -298,6 +298,11 @@ Recommended next implementation unit for Codex:
    `NPU Persistent Engine Multi-turn Probe` for 10 turns and compare it against
    the recreate Stability Test.
 
+The concrete DEV-only holder contract is now captured in
+`docs/npu_dev_only_persistent_holder_api_design.md`. That document defines the
+Kotlin wrapper stub, lifecycle, failure transitions, diagnostics summary, and
+minimum native/JNI function list without implementing native behavior.
+
 Do not connect this to the normal NPU chat route until the DEV probe has
 physical-device evidence and the safety conditions below are satisfied.
 

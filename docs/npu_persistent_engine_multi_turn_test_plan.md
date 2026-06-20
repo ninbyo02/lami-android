@@ -220,6 +220,11 @@ evidence, but it cannot hold or reuse the underlying Engine. True persistent
 multi-turn execution therefore needs a DEV-only native/JNI holder API before it
 can be connected to this probe.
 
+The proposed holder API contract is documented in
+`docs/npu_dev_only_persistent_holder_api_design.md`. The current Kotlin wrapper
+stub intentionally reports `holder_api_available=false` and
+`persistent_multi_turn_possible=false` until native/JNI support exists.
+
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path
 instability and continue native-focused investigation before changing normal
