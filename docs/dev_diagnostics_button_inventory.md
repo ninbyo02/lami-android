@@ -29,7 +29,11 @@ Current NPU status:
 | `入力コピー` | `ChatScreen.kt` | `NpuStandardRouteS1DevTraceBlock.onCopyInput` | Copy input prompt for an NPU S1/standard-route diagnostic run. | KEEP_ADVANCED | Useful when reproducing a bad output or quality mismatch. Less important than NPU key copy. | `NpuStandardRouteS1ProviderTest` covers full/compact trace content. | Keep advanced; primary output should prefer diagnostic key copy. |
 | `出力コピー` | `ChatScreen.kt` | `NpuStandardRouteS1DevTraceBlock.onCopyOutput` | Copy raw/sanitized output from the DEV trace. | KEEP_ADVANCED | Important for quality investigations and R6 streaming prep, but not a primary health gate. | `NpuStandardRouteS1ProviderTest`, `NpuS1PersistentCustomJniDiagnosticsTest` quality cases. | Keep advanced; consider a single "copy output bundle" later. |
 | `Copy Compact` | `ChatScreen.kt` | `npuStandardRouteS1DevCompactCopyText` / compact formatter | Copy compact NPU S1/standard-route diagnostic dump. | KEEP_PRIMARY | Best artifact for one-shot NPU health and rollout sample collection. | `NpuStandardRouteS1ProviderTest` (`Copy Compact uses compact formatter explicitly`) | Keep as primary beside `NPU診断キーをコピー`; align naming to Japanese later. |
-| `Copy Repeated Summary` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuS1RepeatedRunSummaryCopyText(...)` | Copy repeated-run aggregate summary. | KEEP_PRIMARY | Stability evidence is a primary NPU health requirement. | `NpuS1RepeatedRunDiagnosticsTest` (`Copy Repeated Summary...`) | Keep; Step 2 should generalize from S1 naming to NPU Beta stability. |
+| `Copy Stability Summary` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuBetaStabilitySummaryCopyText(...)` | Copy the NPU Beta Stability Test aggregate summary only. | KEEP_PRIMARY | Repeated-run evidence can be long; summary copy captures pass/fail/fallback/timeout/crash/decode/timing/backend/quality keys without the detail body. | `NpuS1RepeatedRunDiagnosticsTest` (`Copy Stability Summary...`) | Keep beside the Stability Test runner. |
+| `Copy Stability Full Dump` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuBetaStabilityFullDumpCopyText(...)` | Copy the current Stability Test diagnostics text, including failure detail blocks when present. | KEEP_PRIMARY | Needed when 10-run stability output needs exact failure context. It does not change the repeated-run runner. | `NpuS1RepeatedRunDiagnosticsTest` (`Copy Stability Full Dump...`) | Keep; future report scripts can consume this artifact. |
+| `Copy Long Summary` | `ChatScreen.kt`, `NpuLongGenerationDiagnostics.kt` | `buildNpuLongGenerationSummaryCopyText(...)` | Copy the NPU Beta Long Generation summary only. | KEEP_PRIMARY | Long-generation case output can be large, especially 512+ tokens; summary copy keeps reviewable aggregate keys. | `NpuLongGenerationDiagnosticsTest` (`Copy Long Summary...`) | Keep beside the Long Generation runner. |
+| `Copy Long Full Dump` | `ChatScreen.kt`, `NpuLongGenerationDiagnostics.kt` | `buildNpuLongGenerationFullDumpCopyText(...)` | Copy the Long Generation summary plus all per-token-plan case blocks. | KEEP_PRIMARY | Required for detailed 32/128/512 comparison and future 1024-token investigation. | `NpuLongGenerationDiagnosticsTest` (`Copy Long Full Dump...`) | Keep; use for physical-device artifacts when output quality or performance differs by token limit. |
+| `Copy Repeated Summary` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `buildNpuS1RepeatedRunSummaryCopyText(...)` | Legacy/compatibility repeated-run summary copy path. | KEEP_ADVANCED | Retained for existing DEV trace affordances and tests while the Primary label moves to `Copy Stability Summary`. | `NpuS1RepeatedRunDiagnosticsTest` | Keep as compatibility; prefer `Copy Stability Summary` in Primary. |
 | `Copy Full Dump` | `ChatScreen.kt` | `npuStandardRouteS1DevFullDumpCopyText` / full dump formatter | Copy full NPU diagnostic dump. | KEEP_ADVANCED | Required for root-cause detail, but too verbose for routine one-shot checks. | `NpuStandardRouteS1ProviderTest` (`Copy Full Dump...`) | Keep advanced; report generator can consume full dumps when needed. |
 | `メモリ回復確認` | `ChatScreen.kt`, `LocalMemoryDiagnostics.kt` | `startMemoryRecoveryCheck()` / `captureLocalMemorySnapshot(...)` | Capture current and delayed memory snapshots after local/NPU activity. | KEEP_ADVANCED | Useful for lifecycle/memory regression and repeated-run stabilization; not a primary NPU route gate. | `LocalMemoryDiagnosticsTest` | Keep advanced; include only aggregate memory deltas in stability report. |
 | `NPU Beta安定性テスト開始` | `ChatScreen.kt`, `NpuS1RepeatedRunDiagnostics.kt` | `startNpuS1RepeatedRun()` -> `NpuStandardRouteS1Bridge(...).run(...)` | Serial NPU runs with prompt/count/wait/mode controls; records success/fallback/timeout/crash/decode/quality/timing/memory. | KEEP_PRIMARY | Step 2 adds the `NPU Beta Stability Test` label and summary keys while reusing the existing S1 repeated-run runner. The initial primary entry is safe recreate mode, 10 runs, wait 500ms. Internal S1 naming remains for compatibility. | `NpuS1RepeatedRunDiagnosticsTest`, `NpuStandardRouteS1BridgeTest`, `NpuStandardRouteS1ProviderTest` | Step 3 should add a Long Generation Test. Later stability work can enable 50/100 only after explicit safety review. |
@@ -59,7 +63,11 @@ Primary is visible by default and contains only:
 
 - `NPU診断キーをコピー`
 - `Copy Compact`
+- `Copy Stability Summary`
+- `Copy Stability Full Dump`
 - `NPU Beta安定性テスト開始`
+- `Copy Long Summary`
+- `Copy Long Full Dump`
 - `NPU Beta長文生成テスト開始`
 
 Primary starts with a short safety note:
@@ -74,7 +82,6 @@ Advanced is collapsed by default and contains low-level diagnostics:
 - memory recovery checks
 - route/debug text
 - input/output copy
-- `Copy Repeated Summary`
 - `Copy Full Dump`
 - persistent Engine probes
 - custom JNI probes

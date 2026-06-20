@@ -57,6 +57,31 @@ The summary should expose these keys for artifact review:
 Unavailable metrics must be written as `unavailable`; they should not be
 inferred from unrelated fields.
 
+## Copy Actions
+
+Primary DEV diagnostics now expose two one-tap copy actions next to the Stability
+Test runner:
+
+- `Copy Stability Summary`
+- `Copy Stability Full Dump`
+
+`Copy Stability Summary` copies only the
+`[DEV診断: NPU S1 repeated run summary]` block. It includes
+`test_name=NPU Beta Stability Test`, safe recreate mode, requested/completed
+runs, success/failure counts, fallback/timeout/fresh-crash/decode rates,
+average total/decode time, average tokens/sec, first failure reason, backend
+evidence summary, quality classification summary, selected/requested/effective
+backend, route family, stop state, safety policy, and guard counters.
+
+`Copy Stability Full Dump` copies the current Stability Test diagnostics text.
+When failure detail blocks exist, they are included in the copied text. If no
+per-run detail block exists yet, the copy still captures the current displayed
+summary/idle/unavailable state.
+
+Both copy actions are UI/export affordances only. They do not change the
+repeated-run runner, NPU route, fallback policy, persistent engine behavior,
+custom JNI behavior, telemetry meaning, or output quality classifier.
+
 ## Physical Device Checks
 
 Run on a physical NPU device:
@@ -64,7 +89,9 @@ Run on a physical NPU device:
 1. Select `NPU Beta`.
 2. Open DEV diagnostics.
 3. Start `NPU Beta安定性テスト開始`.
-4. Save `Copy Repeated Summary` output as an artifact.
+4. Save `Copy Stability Summary` output for quick review.
+5. Save `Copy Stability Full Dump` if any failure or unexpected timing/quality
+   signal appears.
 
 Expected observations:
 

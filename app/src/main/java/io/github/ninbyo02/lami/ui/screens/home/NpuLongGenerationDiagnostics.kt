@@ -114,6 +114,11 @@ internal fun npuLongGenerationCaseFromResult(
 
 internal fun formatNpuLongGenerationDiagnosticsForDev(
     state: NpuLongGenerationState,
+): String = formatNpuLongGenerationDiagnosticsForDev(state, includeCases = true)
+
+private fun formatNpuLongGenerationDiagnosticsForDev(
+    state: NpuLongGenerationState,
+    includeCases: Boolean,
 ): String {
     val cases = state.cases.sortedBy { it.caseIndex }
     val completedCases = cases.size
@@ -153,37 +158,43 @@ internal fun formatNpuLongGenerationDiagnosticsForDev(
         appendLine("stop_reason=${state.stopReason}")
         appendLine("started_at_ms=${formatNpuLongGenerationLong(state.startedAtMs)}")
         appendLine("finished_at_ms=${formatNpuLongGenerationLong(state.finishedAtMs)}")
-        cases.forEach { case ->
-            appendLine("[DEV診断: NPU Beta Long Generation case]")
-            appendLine("case_index=${case.caseIndex}")
-            appendLine("requested_max_output_tokens=${case.requestedMaxOutputTokens}")
-            appendLine("effective_max_output_tokens=${case.effectiveMaxOutputTokens}")
-            appendLine("status=${case.status}")
-            appendLine("reason=${case.reason}")
-            appendLine("fallback_used=${case.fallbackUsed}")
-            appendLine("timeout=${case.timeout}")
-            appendLine("fresh_crash=${case.freshCrash}")
-            appendLine("run_decode_reached=${case.runDecodeReached}")
-            appendLine("total_ms=${formatNpuLongGenerationLong(case.totalMs)}")
-            appendLine("decode_ms=${formatNpuLongGenerationLong(case.decodeMs)}")
-            appendLine("output_tokens=${case.outputTokens?.toString() ?: "unavailable"}")
-            appendLine("token_count_mode=${case.tokenCountMode}")
-            appendLine("tokens_per_second=${formatNpuLongGenerationDouble(case.tokensPerSecond)}")
-            appendLine("raw_output=${case.rawOutput}")
-            appendLine("sanitized_output=${case.sanitizedOutput}")
-            appendLine("quality_classification=${case.qualityClassification}")
-            appendLine("backend_evidence=${case.backendEvidence}")
-            appendLine("finish_reason=${case.finishReason}")
-            appendLine("stop_reason=${case.stopReason}")
-            appendLine("eos_detected=${case.eosDetected}")
-            appendLine("tokenizer_output_tokens=${case.tokenizerOutputTokens}")
+        if (includeCases) {
+            cases.forEach { case ->
+                appendLine("[DEV診断: NPU Beta Long Generation case]")
+                appendLine("case_index=${case.caseIndex}")
+                appendLine("requested_max_output_tokens=${case.requestedMaxOutputTokens}")
+                appendLine("effective_max_output_tokens=${case.effectiveMaxOutputTokens}")
+                appendLine("status=${case.status}")
+                appendLine("reason=${case.reason}")
+                appendLine("fallback_used=${case.fallbackUsed}")
+                appendLine("timeout=${case.timeout}")
+                appendLine("fresh_crash=${case.freshCrash}")
+                appendLine("run_decode_reached=${case.runDecodeReached}")
+                appendLine("total_ms=${formatNpuLongGenerationLong(case.totalMs)}")
+                appendLine("decode_ms=${formatNpuLongGenerationLong(case.decodeMs)}")
+                appendLine("output_tokens=${case.outputTokens?.toString() ?: "unavailable"}")
+                appendLine("token_count_mode=${case.tokenCountMode}")
+                appendLine("tokens_per_second=${formatNpuLongGenerationDouble(case.tokensPerSecond)}")
+                appendLine("raw_output=${case.rawOutput}")
+                appendLine("sanitized_output=${case.sanitizedOutput}")
+                appendLine("quality_classification=${case.qualityClassification}")
+                appendLine("backend_evidence=${case.backendEvidence}")
+                appendLine("finish_reason=${case.finishReason}")
+                appendLine("stop_reason=${case.stopReason}")
+                appendLine("eos_detected=${case.eosDetected}")
+                appendLine("tokenizer_output_tokens=${case.tokenizerOutputTokens}")
+            }
         }
     }.trimEnd()
 }
 
 internal fun buildNpuLongGenerationSummaryCopyText(
     state: NpuLongGenerationState,
-): String = formatNpuLongGenerationDiagnosticsForDev(state)
+): String = formatNpuLongGenerationDiagnosticsForDev(state, includeCases = false)
+
+internal fun buildNpuLongGenerationFullDumpCopyText(
+    state: NpuLongGenerationState,
+): String = formatNpuLongGenerationDiagnosticsForDev(state, includeCases = true)
 
 private fun formatNpuLongGenerationLong(value: Long?): String = value?.toString() ?: "unavailable"
 

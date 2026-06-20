@@ -1308,6 +1308,16 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
 
 internal fun buildNpuS1RepeatedRunSummaryCopyText(
     state: NpuS1RepeatedRunState,
+): String = buildNpuBetaStabilitySummaryCopyText(state)
+
+internal fun buildNpuBetaStabilitySummaryCopyText(
+    state: NpuS1RepeatedRunState,
+): String = formatNpuS1RepeatedRunDiagnosticsForDev(state)
+    .substringBefore("\n[DEV診断: NPU S1 repeated run details]")
+    .trimEnd()
+
+internal fun buildNpuBetaStabilityFullDumpCopyText(
+    state: NpuS1RepeatedRunState,
 ): String = formatNpuS1RepeatedRunDiagnosticsForDev(state)
 
 internal fun appendNpuS1RepeatedRunDiagnosticsForDev(

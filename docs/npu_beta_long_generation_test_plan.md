@@ -76,6 +76,33 @@ Per-case keys:
 Finish and EOS fields must remain `unavailable` when not exposed by the current
 NPU route. The test must not infer a successful stop condition from output text.
 
+## Copy Actions
+
+Primary DEV diagnostics now expose two one-tap copy actions next to the Long
+Generation runner:
+
+- `Copy Long Summary`
+- `Copy Long Full Dump`
+
+`Copy Long Summary` copies only the `[DEV診断: NPU Beta Long Generation summary]`
+block. It is intended for quick artifact review and includes aggregate keys such
+as `completed_cases`, `success_count`, `fallback_used_count`, `timeout_count`,
+`fresh_crash_count`, `run_decode_reached_count`,
+`average_tokens_per_second`, backend evidence, selected/requested/effective
+backend, route family, and start/finish timestamps.
+
+`Copy Long Full Dump` copies the same summary plus every
+`[DEV診断: NPU Beta Long Generation case]` block. Each case includes
+`requested_max_output_tokens`, `effective_max_output_tokens`, status/reason,
+fallback/timeout/fresh-crash/decode flags, timing, token count mode,
+tokens/sec, raw output, sanitized output, quality classification, backend
+evidence, and finish/stop/EOS/tokenizer fields. Unexposed values remain
+`unavailable`; the copy path does not infer stop or EOS state.
+
+Both copy actions are formatting/UI affordances only. They do not change the
+NPU route, token plan, `max_output_tokens`, fallback policy, telemetry meaning,
+or output quality classifier.
+
 ## Pass Conditions
 
 Initial pass candidate:

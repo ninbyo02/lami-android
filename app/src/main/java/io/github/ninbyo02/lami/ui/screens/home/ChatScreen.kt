@@ -7,6 +7,7 @@ import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
+import android.widget.Toast
 import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -7201,6 +7202,34 @@ fun Home(
                                                     ),
                                                 )
                                             },
+                                            onCopyStabilitySummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Stability Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyStabilityFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Stability Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             onCopyFullDump = {
                                                 clipboardManager.setText(
                                                     AnnotatedString(
@@ -7231,6 +7260,34 @@ fun Home(
                                             isInferenceRunningForLongGeneration = isInferenceRunningUi,
                                             onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                                             onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
+                                            onCopyLongSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuLongGenerationSummaryCopyText(npuLongGenerationState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Long Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyLongFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuLongGenerationFullDumpCopyText(npuLongGenerationState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Long Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
@@ -7315,11 +7372,67 @@ fun Home(
                                             onNpuS1RepeatedRunWaitMsChange = { npuS1RepeatedRunWaitMs = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            onCopyStabilitySummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Stability Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyStabilityFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Stability Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuLongGenerationState = npuLongGenerationState,
                                             npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
                                             isInferenceRunningForLongGeneration = isInferenceRunningUi,
                                             onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                                             onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
+                                            onCopyLongSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuLongGenerationSummaryCopyText(npuLongGenerationState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Long Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyLongFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuLongGenerationFullDumpCopyText(npuLongGenerationState),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Long Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
@@ -10960,6 +11073,7 @@ private fun MemoryRecoveryCheckDevSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuS1RepeatedRunDevSection(
     state: NpuS1RepeatedRunState,
@@ -10977,6 +11091,8 @@ private fun NpuS1RepeatedRunDevSection(
     onWaitMsChange: (Long) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
 ) {
     val startGate = npuS1RepeatedRunStartGate(
         preferredBackendSetting = preferredBackendSetting,
@@ -11098,6 +11214,23 @@ private fun NpuS1RepeatedRunDevSection(
                 Text("キャンセル")
             }
         }
+        if (onCopySummary != null || onCopyFullDump != null) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (onCopySummary != null) {
+                    TextButton(onClick = onCopySummary) {
+                        Text("Copy Stability Summary")
+                    }
+                }
+                if (onCopyFullDump != null) {
+                    TextButton(onClick = onCopyFullDump) {
+                        Text("Copy Stability Full Dump")
+                    }
+                }
+            }
+        }
         Text(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
@@ -11114,6 +11247,7 @@ private fun NpuS1RepeatedRunDevSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuLongGenerationDevSection(
     state: NpuLongGenerationState,
@@ -11123,6 +11257,8 @@ private fun NpuLongGenerationDevSection(
     blockedByGeneration: Boolean,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
 ) {
     val startGate = npuLongGenerationStartGate(
         preferredBackendSetting = preferredBackendSetting,
@@ -11168,6 +11304,23 @@ private fun NpuLongGenerationDevSection(
                 enabled = running,
             ) {
                 Text("キャンセル")
+            }
+        }
+        if (onCopySummary != null || onCopyFullDump != null) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (onCopySummary != null) {
+                    TextButton(onClick = onCopySummary) {
+                        Text("Copy Long Summary")
+                    }
+                }
+                if (onCopyFullDump != null) {
+                    TextButton(onClick = onCopyFullDump) {
+                        Text("Copy Long Full Dump")
+                    }
+                }
             }
         }
         Text(
@@ -11539,6 +11692,10 @@ private fun InferenceStatsSheetContent(
     } else {
         null
     }
+    fun copyDevDiagnosticText(text: String, label: String) {
+        clipboardManager.setText(AnnotatedString(text))
+        Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+    }
 
     Column(
         modifier = Modifier
@@ -11659,6 +11816,18 @@ private fun InferenceStatsSheetContent(
                     onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
+                            "Copy Stability Summary",
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
+                            "Copy Stability Full Dump",
+                        )
+                    },
                 )
                 NpuLongGenerationDevSection(
                     state = npuLongGenerationState,
@@ -11668,6 +11837,18 @@ private fun InferenceStatsSheetContent(
                     blockedByGeneration = isInferenceRunningForLongGeneration,
                     onStart = onNpuLongGenerationStart,
                     onCancel = onNpuLongGenerationCancel,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            buildNpuLongGenerationSummaryCopyText(npuLongGenerationState),
+                            "Copy Long Summary",
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            buildNpuLongGenerationFullDumpCopyText(npuLongGenerationState),
+                            "Copy Long Full Dump",
+                        )
+                    },
                 )
                 DevDiagnosticsAdvancedToggle(
                     expanded = devDiagnosticsAdvancedExpanded,
@@ -11950,11 +12131,15 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1RepeatedRunWaitMsChange: ((Long) -> Unit)? = null,
     onNpuS1RepeatedRunStart: (() -> Unit)? = null,
     onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
+    onCopyStabilitySummary: (() -> Unit)? = null,
+    onCopyStabilityFullDump: (() -> Unit)? = null,
     npuLongGenerationState: NpuLongGenerationState = NpuLongGenerationState(),
     npuLongGenerationInProgress: Boolean = false,
     isInferenceRunningForLongGeneration: Boolean = false,
     onNpuLongGenerationStart: (() -> Unit)? = null,
     onNpuLongGenerationCancel: (() -> Unit)? = null,
+    onCopyLongSummary: (() -> Unit)? = null,
+    onCopyLongFullDump: (() -> Unit)? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
     npuS1PersistentEngineInProgress: Boolean = false,
     isInferenceRunningForPersistentEngine: Boolean = false,
@@ -12016,6 +12201,8 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
+                    onCopySummary = onCopyStabilitySummary,
+                    onCopyFullDump = onCopyStabilityFullDump,
                 )
             }
             if (
@@ -12030,6 +12217,8 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     blockedByGeneration = isInferenceRunningForLongGeneration,
                     onStart = onNpuLongGenerationStart,
                     onCancel = onNpuLongGenerationCancel,
+                    onCopySummary = onCopyLongSummary,
+                    onCopyFullDump = onCopyLongFullDump,
                 )
             }
             DevDiagnosticsAdvancedToggle(

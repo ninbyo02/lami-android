@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class NpuLongGenerationDiagnosticsTest {
@@ -72,6 +73,44 @@ class NpuLongGenerationDiagnosticsTest {
         assertTrue(text.contains("finish_reason=unavailable"))
         assertTrue(text.contains("stop_reason=unavailable"))
         assertTrue(text.contains("eos_detected=unavailable"))
+        assertTrue(text.contains("tokenizer_output_tokens=unavailable"))
+    }
+
+    @Test
+    fun `Copy Long Summary includes summary keys without cases`() {
+        val text = buildNpuLongGenerationSummaryCopyText(
+            NpuLongGenerationState(
+                status = NPU_LONG_GENERATION_STATUS_COMPLETED,
+                tokenPlan = NPU_LONG_GENERATION_TOKEN_PLAN,
+                cases = listOf(case(1, requestedMaxOutputTokens = 32)),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU Beta Long Generation summary]"))
+        assertTrue(text.contains("test_name=NPU Beta Long Generation Test"))
+        assertTrue(text.contains("status=completed"))
+        assertTrue(text.contains("token_plan=32,128,512"))
+        assertTrue(text.contains("completed_cases=1"))
+        assertTrue(text.contains("selected_backend="))
+        assertTrue(text.contains("finished_at_ms=unavailable"))
+        assertFalse(text.contains("[DEV診断: NPU Beta Long Generation case]"))
+        assertFalse(text.contains("requested_max_output_tokens=32"))
+    }
+
+    @Test
+    fun `Copy Long Full Dump includes summary and case keys`() {
+        val text = buildNpuLongGenerationFullDumpCopyText(
+            NpuLongGenerationState(
+                status = NPU_LONG_GENERATION_STATUS_COMPLETED,
+                tokenPlan = NPU_LONG_GENERATION_TOKEN_PLAN,
+                cases = listOf(case(1, requestedMaxOutputTokens = 32)),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU Beta Long Generation summary]"))
+        assertTrue(text.contains("[DEV診断: NPU Beta Long Generation case]"))
+        assertTrue(text.contains("case_index=1"))
+        assertTrue(text.contains("requested_max_output_tokens=32"))
         assertTrue(text.contains("tokenizer_output_tokens=unavailable"))
     }
 

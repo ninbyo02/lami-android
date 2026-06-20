@@ -628,7 +628,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
     }
 
     @Test
-    fun `Copy Repeated Summary uses repeated summary formatter without compact body`() {
+    fun `Copy Stability Summary uses repeated summary formatter without detail body`() {
         val state = NpuS1RepeatedRunState(
             requestedRunCount = 50,
             selectedBackend = NPU_S1_BACKEND_NPU_S1,
@@ -636,6 +636,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             effectiveBackend = NPU_S1_BACKEND_NPU,
             backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
             routeFamily = NPU_S1_ROUTE_FAMILY_NPU_S1,
+            repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
             records = listOf(
                 record(runIndex = 1),
                 record(
@@ -658,10 +659,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
             stopReason = "adapter_failure",
         )
 
-        val copy = buildNpuS1RepeatedRunSummaryCopyText(state)
+        val copy = buildNpuBetaStabilitySummaryCopyText(state)
 
-        assertEquals(formatNpuS1RepeatedRunDiagnosticsForDev(state), copy)
         assertTrue(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+        assertTrue(copy.contains("test_name=NPU Beta Stability Test"))
+        assertTrue(copy.contains("mode=safe_recreate"))
         assertTrue(copy.contains("run_count_requested=50"))
         assertTrue(copy.contains("run_count_completed=3"))
         assertTrue(copy.contains("success_count=1"))
@@ -676,8 +678,39 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(copy.contains("first_failure_run_index=2"))
         assertTrue(copy.contains("last_failure_run_index=3"))
         assertTrue(copy.contains("stop_reason=adapter_failure"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 repeated run details]"))
+        assertFalse(copy.contains("\nrun_index=2\n"))
         assertFalse(copy.contains("[DEV診断: NPU S1 compact]"))
         assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
+    }
+
+    @Test
+    fun `Copy Stability Full Dump uses currently displayed diagnostics text`() {
+        val state = NpuS1RepeatedRunState(
+            requestedRunCount = 10,
+            selectedBackend = NPU_S1_BACKEND_NPU_S1,
+            requestedBackend = NPU_S1_BACKEND_NPU,
+            effectiveBackend = NPU_S1_BACKEND_NPU,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            routeFamily = NPU_S1_ROUTE_FAMILY_NPU_S1,
+            records = listOf(
+                record(runIndex = 1),
+                record(
+                    runIndex = 2,
+                    status = "failure",
+                    reason = "quality_candidate_fail",
+                    outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+                ),
+            ),
+        )
+
+        val copy = buildNpuBetaStabilityFullDumpCopyText(state)
+
+        assertEquals(formatNpuS1RepeatedRunDiagnosticsForDev(state), copy)
+        assertTrue(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+        assertTrue(copy.contains("[DEV診断: NPU S1 repeated run details]"))
+        assertTrue(copy.contains("run_index=2"))
+        assertTrue(copy.contains("reason=quality_candidate_fail"))
     }
 
     @Test
