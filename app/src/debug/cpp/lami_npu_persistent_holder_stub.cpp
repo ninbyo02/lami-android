@@ -20,7 +20,9 @@ typedef struct LamiNpuHolderState {
     int close_called_count;
     int close_succeeded_count;
     int diagnostics_called_count;
+    int run_requested_count;
     int run_called_count;
+    int run_succeeded_count;
     int double_close_observed;
     int fatal_latch;
     char fatal_reason[LAMI_NPU_HOLDER_MAX_TEXT];
@@ -33,6 +35,8 @@ static LamiNpuHolderState g_lami_npu_holder_state = {
     0,
     0,
     "unavailable",
+    0,
+    0,
     0,
     0,
     0,
@@ -88,7 +92,10 @@ static jstring lami_npu_holder_summary(
     int close_called,
     int close_succeeded,
     int diagnostics_called,
+    int run_requested,
     int run_called,
+    int run_supported,
+    int run_decode_reached,
     const char* status,
     const char* reason
 ) {
@@ -124,6 +131,10 @@ static jstring lami_npu_holder_summary(
         "holder_close_success_count=%d\n"
         "holder_double_close_safe=true\n"
         "holder_double_close_observed=%s\n"
+        "holder_open_before_run=%s\n"
+        "run_once_requested=%s\n"
+        "run_once_called=%s\n"
+        "run_once_count=%d\n"
         "holder_fatal_latch=%s\n"
         "holder_fatal_reason=%s\n"
         "last_status=%s\n"
@@ -136,7 +147,10 @@ static jstring lami_npu_holder_summary(
         "generate_called=false\n"
         "qnn_decode_called=false\n"
         "qnn_called=false\n"
-        "run_once_supported=false\n"
+        "run_once_supported=%s\n"
+        "run_once_succeeded=%s\n"
+        "run_once_reason=%s\n"
+        "run_decode_reached=%s\n"
         "native_run_called=%s\n"
         "native_create_called=%s\n"
         "native_close_called=%s\n"
@@ -164,10 +178,18 @@ static jstring lami_npu_holder_summary(
         g_lami_npu_holder_state.close_called_count,
         g_lami_npu_holder_state.close_succeeded_count,
         lami_npu_bool(g_lami_npu_holder_state.double_close_observed),
+        lami_npu_bool(g_lami_npu_holder_state.holder_open),
+        lami_npu_bool(run_requested),
+        lami_npu_bool(run_called),
+        g_lami_npu_holder_state.run_called_count,
         lami_npu_bool(g_lami_npu_holder_state.fatal_latch),
         g_lami_npu_holder_state.fatal_reason,
         g_lami_npu_holder_state.last_status,
         g_lami_npu_holder_state.last_error,
+        lami_npu_bool(run_supported),
+        lami_npu_bool(g_lami_npu_holder_state.run_succeeded_count > 0),
+        reason,
+        lami_npu_bool(run_decode_reached),
         lami_npu_bool(run_called),
         lami_npu_bool(create_called),
         lami_npu_bool(close_called),
@@ -206,6 +228,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             0,
             0,
+            0,
+            0,
+            0,
             "busy",
             "holder_create_or_close_already_in_progress"
         );
@@ -216,6 +241,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         jstring result = lami_npu_holder_summary(
             env,
             1,
+            0,
+            0,
+            0,
             0,
             0,
             0,
@@ -241,6 +269,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             0,
             0,
+            0,
+            0,
+            0,
             "blocked",
             "holder_already_open"
         );
@@ -253,6 +284,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         jstring result = lami_npu_holder_summary(
             env,
             1,
+            0,
+            0,
+            0,
             0,
             0,
             0,
@@ -283,6 +317,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         0,
         0,
         0,
+        0,
+        0,
+        0,
         "created",
         "app_jni_holder_lifecycle_created_without_engine_create"
     );
@@ -294,10 +331,14 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunStandardRouteAdapterHolderOnce(
     JNIEnv* env,
     jclass,
-    jstring,
+    jstring holder_id,
     jstring,
     jint
 ) {
+    char holder_id_chars[LAMI_NPU_HOLDER_MAX_TEXT];
+    if (!lami_npu_jstring_to_c(env, holder_id, holder_id_chars, sizeof(holder_id_chars))) {
+        return env->NewStringUTF("status=error\nreason=holder_id_jstring_conversion_failed");
+    }
     if (pthread_mutex_trylock(&g_lami_npu_holder_mutex) != 0) {
         return lami_npu_holder_summary(
             env,
@@ -309,12 +350,104 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             0,
             1,
+            1,
+            0,
+            0,
             "busy",
             "holder_create_or_close_already_in_progress"
         );
     }
+    g_lami_npu_holder_state.run_requested_count++;
+    if (g_lami_npu_holder_state.fatal_latch) {
+        lami_npu_set_last("blocked", "holder_fatal_latch_active");
+        jstring result = lami_npu_holder_summary(
+            env,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            "blocked",
+            "holder_fatal_latch_active"
+        );
+        pthread_mutex_unlock(&g_lami_npu_holder_mutex);
+        return result;
+    }
+    if (!g_lami_npu_holder_state.holder_open) {
+        lami_npu_set_last("blocked", "holder_not_open");
+        jstring result = lami_npu_holder_summary(
+            env,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            "blocked",
+            "holder_not_open"
+        );
+        pthread_mutex_unlock(&g_lami_npu_holder_mutex);
+        return result;
+    }
+    if (
+        holder_id_chars[0] == '\0' ||
+        strcmp(holder_id_chars, "unavailable") == 0 ||
+        strcmp(holder_id_chars, g_lami_npu_holder_state.holder_id) != 0
+    ) {
+        lami_npu_set_last("blocked", "holder_id_mismatch");
+        jstring result = lami_npu_holder_summary(
+            env,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            "blocked",
+            "holder_id_mismatch"
+        );
+        pthread_mutex_unlock(&g_lami_npu_holder_mutex);
+        return result;
+    }
+    if (g_lami_npu_holder_state.run_called_count > 0) {
+        lami_npu_set_last("blocked", "run_once_already_consumed");
+        jstring result = lami_npu_holder_summary(
+            env,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            "blocked",
+            "run_once_already_consumed"
+        );
+        pthread_mutex_unlock(&g_lami_npu_holder_mutex);
+        return result;
+    }
     g_lami_npu_holder_state.run_called_count++;
-    lami_npu_set_last("not_implemented", "run_once_not_implemented_create_close_only_probe");
+    lami_npu_set_last("run_ready", "holder_open_existing_one_shot_decode_may_run_once");
     jstring result = lami_npu_holder_summary(
         env,
         0,
@@ -325,8 +458,11 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         0,
         0,
         1,
-        "not_implemented",
-        "run_once_not_implemented_create_close_only_probe"
+        1,
+        1,
+        0,
+        "run_ready",
+        "holder_open_existing_one_shot_decode_may_run_once"
     );
     pthread_mutex_unlock(&g_lami_npu_holder_mutex);
     return result;
@@ -354,6 +490,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             0,
             0,
+            0,
+            0,
+            0,
             "busy",
             "holder_create_or_close_already_in_progress"
         );
@@ -372,6 +511,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             1,
             1,
             1,
+            0,
+            0,
+            0,
             0,
             0,
             "closed_noop",
@@ -396,6 +538,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             0,
             0,
+            0,
+            0,
+            0,
             "blocked",
             "holder_id_mismatch"
         );
@@ -414,6 +559,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         1,
         1,
         1,
+        0,
+        0,
+        0,
         0,
         0,
         "closed",
@@ -440,6 +588,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             1,
             0,
+            0,
+            0,
+            0,
             "busy",
             "holder_create_or_close_already_in_progress"
         );
@@ -454,6 +605,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
         0,
         0,
         1,
+        0,
+        0,
+        0,
         0,
         g_lami_npu_holder_state.last_status,
         g_lami_npu_holder_state.last_error

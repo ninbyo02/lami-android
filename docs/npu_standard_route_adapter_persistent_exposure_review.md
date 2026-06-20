@@ -284,6 +284,22 @@ chat routing remain forbidden. Pass requires create and close to be called,
 decode/generate flags to remain false, and `holder_fatal_latch=false`; any
 fatal latch, create/close failure, or decode/generate flag is a hold condition.
 
+After the physical-device Create/Close pass, the next DEV-only exposure step is
+`NPU Persistent Holder Run Once Probe`. It runs one create -> run once -> close
+sequence with prompt `こんにちは` and `max_output_tokens=32`. This does not
+claim persistent reuse: the holder native call verifies the open-holder/run-once
+gate, while decode still uses the existing one-shot standard-route adapter
+success path. Normal NPU chat routing, 10-turn probing, Long Generation, and R6
+streaming remain out of scope.
+
+Run Once pass requires create success, `run_once_called=true`,
+`run_once_succeeded=true`, `run_decode_reached=true`, no fallback, no timeout,
+no fresh crash, close success, no fatal latch, and QNN HTP / FastRPC evidence.
+Hold on create failure, unsupported/failed run once, fallback, timeout, fresh
+crash, close failure, fatal latch, or missing backend evidence. Multi-turn is
+still blocked because `engine_reuse_observed=unavailable` and the test only
+proves one holder-gated one-shot decode.
+
 ## Required Safety Conditions
 
 Before persistent standard-route adapter execution is enabled:

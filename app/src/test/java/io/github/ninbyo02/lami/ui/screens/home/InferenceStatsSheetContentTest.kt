@@ -605,6 +605,57 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes holder run once dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderRunOnceState = NpuPersistentHolderRunOnceProbeState(
+                status = "completed",
+                reason = "success",
+                runResult = NpuPersistentHolderApiResult(
+                    status = "run_ready",
+                    reason = "holder_open_existing_one_shot_decode_may_run_once",
+                    holderId = "native-holder-1",
+                    diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                        nativeRunCalled = true,
+                        holderId = "native-holder-1",
+                        holderOpenBeforeRun = true,
+                        runOnceRequested = true,
+                        runOnceSupported = true,
+                        status = "run_ready",
+                        reason = "holder_open_existing_one_shot_decode_may_run_once",
+                    ),
+                ),
+                decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                    status = "success",
+                    reason = "success",
+                    runDecodeReached = "true",
+                    rawOutput = "raw",
+                    sanitizedOutput = "sanitized",
+                    qualityClassification = "natural_japanese",
+                    backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                    fallbackUsed = "false",
+                    timeout = "false",
+                    freshCrash = "false",
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder run once full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Run Once Probe"))
+        assertTrue(text.contains("run_once_requested=true"))
+        assertTrue(text.contains("run_once_called=true"))
+        assertTrue(text.contains("run_once_supported=true"))
+        assertTrue(text.contains("run_once_succeeded=true"))
+        assertTrue(text.contains("run_decode_reached=true"))
+        assertTrue(text.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),

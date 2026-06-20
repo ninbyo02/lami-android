@@ -233,13 +233,17 @@ JNI functions and receive a native key-value diagnostic summary:
 - `nativeCloseStandardRouteAdapterHolder(...)`
 - `nativeGetStandardRouteAdapterHolderDiagnostics(...)`
 
-This is only `NPU Persistent Holder Create Close Probe` coverage. Create/close
+Create/close physical-device coverage passed for
+`NPU Persistent Holder Create Close Probe`: create succeeded, close succeeded,
+double close was safe, fatal latch stayed false, and Engine/ModelAssets/
+EngineSettings/decode/QNN flags stayed false.
+
+This started as `NPU Persistent Holder Create Close Probe` coverage. Create/close
 manage one app JNI holder lifecycle record, but create currently stops at
 `holder_native_create_level=app_jni_holder_lifecycle_only_pre_engine_create`.
 It does not call `EngineFactory::CreateDefault`, `ModelAssets::Create`,
 `EngineSettings::CreateDefault`, QNN, LiteRT NPU decode, generate, or normal
-NPU chat routing. `runOnce` remains `status=not_implemented`, with
-`persistent_multi_turn_possible=false`.
+NPU chat routing.
 
 The DEV diagnostics UI now exposes this check as
 `NPU Persistent Holder Create/Close Probe`, near the blocked persistent Engine
@@ -256,9 +260,21 @@ Use the UI result for physical-device triage. Pass requires
 and `holder_fatal_latch=false`. Hold if the fatal latch is set, create/close
 fails, or any decode/generate flag becomes true.
 
-The next allowed implementation unit is run once without multi-turn, but only
-after create/close physical-device results are reviewed. Ten-turn persistent
-probing and normal chat route connection remain blocked until later reviews.
+The next DEV-only implementation unit is now
+`NPU Persistent Holder Run Once Probe`. It performs exactly one create -> run
+once -> close flow with prompt `こんにちは` and `max_output_tokens=32`. This is
+still not a persistent multi-turn test: the native holder gate records that a
+holder was open, while the decode remains the existing one-shot standard route
+adapter path. Ten-turn persistent probing and normal chat route connection
+remain blocked.
+
+Run Once pass requires `holder_create_succeeded=true`,
+`run_once_called=true`, `run_once_succeeded=true`,
+`run_decode_reached=true`, `fallback_used=false`, `timeout=false`,
+`fresh_crash=false`, `holder_close_succeeded=true`,
+`holder_fatal_latch=false`, and QNN HTP / FastRPC backend evidence. Hold if
+create fails, run once is unsupported or fails, fallback is used, timeout or
+fresh crash is observed, close fails, or the fatal latch is set.
 
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path

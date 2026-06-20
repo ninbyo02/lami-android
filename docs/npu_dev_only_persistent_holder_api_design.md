@@ -327,6 +327,44 @@ Hold conditions are:
 - `npu_decode_called=true`
 - `generate_called=true`
 
+The latest physical-device Create/Close Probe passed with
+`holder_create_succeeded=true`, `holder_close_succeeded=true`,
+`holder_double_close_safe=true`, `holder_fatal_latch=false`, and all
+decode/generate/QNN flags false. The next DEV-only UI entry is therefore
+`NPU Persistent Holder Run Once Probe`.
+
+`Run Holder Run Once Probe` performs a single create -> run once -> close flow
+using prompt `こんにちは` and `max_output_tokens=32`. It is not a multi-turn
+probe, does not run 10 turns, does not connect normal NPU chat routing, and
+does not enable R6 native streaming. The holder native call is used as a
+single-flight/open-holder gate; the decode is still the existing one-shot
+standard route adapter path. `engine_reuse_observed` must remain `unavailable`
+and `persistent_multi_turn_possible=false`.
+
+Run Once pass conditions:
+
+- `holder_create_succeeded=true`
+- `run_once_called=true`
+- `run_once_succeeded=true`
+- `run_decode_reached=true`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `holder_close_succeeded=true`
+- `holder_fatal_latch=false`
+- `backend_evidence` includes QNN HTP / FastRPC evidence
+
+Run Once hold conditions:
+
+- holder create failed
+- `run_once_supported=false`
+- `run_once_succeeded=false`
+- `fallback_used=true`
+- `timeout=true`
+- `fresh_crash=true`
+- holder close failed
+- `holder_fatal_latch=true`
+
 Do not change these to success values until the native holder API exists and
 physical-device evidence proves reuse.
 

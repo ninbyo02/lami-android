@@ -24,6 +24,23 @@ class NpuPersistentHolderApiTest {
                 "no holder create/close probe result available",
             ),
         )
+        assertTrue(NPU_PERSISTENT_HOLDER_RUN_ONCE_UI_TITLE.contains("NPU Persistent Holder Run Once Probe"))
+        assertTrue(NPU_PERSISTENT_HOLDER_RUN_ONCE_RUN_LABEL.contains("Run Holder Run Once Probe"))
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL.contains(
+                "Copy Holder Run Once Summary",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL.contains(
+                "Copy Holder Run Once Full Dump",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_RUN_ONCE_NO_RESULT.contains(
+                "no holder run once probe result available",
+            ),
+        )
     }
 
     @Test

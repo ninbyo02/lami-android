@@ -177,6 +177,19 @@ Current behavior:
 - hold device promotion when `holder_fatal_latch=true`,
   `holder_create_succeeded=false`, `holder_close_succeeded=false`,
   `npu_decode_called=true`, or `generate_called=true`
+- Create/Close has passed on device, so DEV diagnostics also exposes
+  `NPU Persistent Holder Run Once Probe` with `Run Holder Run Once Probe`,
+  `Copy Holder Run Once Summary`, and `Copy Holder Run Once Full Dump`
+- Run Once executes only one create -> run once -> close flow with prompt
+  `こんにちは`; it is not multi-turn, does not run 10 turns, does not connect
+  normal chat routing, and keeps `engine_reuse_observed=unavailable`
+- Run Once pass requires `holder_create_succeeded=true`,
+  `run_once_called=true`, `run_once_succeeded=true`,
+  `run_decode_reached=true`, `fallback_used=false`, `timeout=false`,
+  `fresh_crash=false`, `holder_close_succeeded=true`,
+  `holder_fatal_latch=false`, and QNN HTP / FastRPC backend evidence
+- Run Once hold conditions are create failure, unsupported/failed run once,
+  fallback, timeout, fresh crash, close failure, or fatal latch
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent

@@ -28,6 +28,24 @@ internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL =
     "Copy Holder Create/Close Summary"
 internal const val NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL =
     "Copy Holder Create/Close Full Dump"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_PROBE_TEST_NAME =
+    "NPU Persistent Holder Run Once Probe"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_CLASS_NAME =
+    "io.github.ninbyo02.lami.ui.screens.home.NpuPersistentHolderRunOnceDevProbe"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_NO_RESULT =
+    "no holder run once probe result available"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_UI_TITLE =
+    "NPU Persistent Holder Run Once Probe"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_RUN_LABEL =
+    "Run Holder Run Once Probe"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL =
+    "Copy Holder Run Once Summary"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL =
+    "Copy Holder Run Once Full Dump"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_PROMPT = "こんにちは"
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_MAX_OUTPUT_TOKENS = 32
+internal const val NPU_PERSISTENT_HOLDER_RUN_ONCE_RECOMMENDED_NEXT_STEP =
+    "review_run_once_device_result_then_plan_10_turn_probe"
 
 internal data class NpuPersistentHolderCreateRequest(
     val modelPath: String,
@@ -74,6 +92,7 @@ internal data class NpuPersistentHolderApiDiagnostics(
     val holderCreateSucceeded: Boolean = false,
     val holderId: String = "unavailable",
     val holderOpen: Boolean = false,
+    val holderOpenBeforeRun: Boolean = false,
     val holderCloseRequested: Boolean = false,
     val holderCloseCalled: Boolean = false,
     val holderCloseSucceeded: Boolean = false,
@@ -88,7 +107,26 @@ internal data class NpuPersistentHolderApiDiagnostics(
     val generateCalled: Boolean = false,
     val qnnDecodeCalled: Boolean = false,
     val qnnCalled: Boolean = false,
+    val runOnceRequested: Boolean = false,
+    val runOnceCalled: Boolean = false,
     val runOnceSupported: Boolean = false,
+    val runOnceSucceeded: Boolean = false,
+    val runOnceReason: String = "unavailable",
+    val runDecodeReached: String = "unavailable",
+    val rawOutput: String = "unavailable",
+    val sanitizedOutput: String = "unavailable",
+    val qualityClassification: String = "unavailable",
+    val backendEvidence: String = "unavailable",
+    val fallbackUsed: String = "unavailable",
+    val timeout: String = "unavailable",
+    val freshCrash: String = "unavailable",
+    val totalMs: String = "unavailable",
+    val decodeMs: String = "unavailable",
+    val outputTokens: String = "unavailable",
+    val tokensPerSecond: String = "unavailable",
+    val finishReason: String = "unavailable",
+    val stopReason: String = "unavailable",
+    val eosDetected: String = "unavailable",
     val restartAppRecommended: Boolean = false,
     val status: String = NPU_PERSISTENT_HOLDER_API_STATUS_NOT_EXPOSED,
     val reason: String = NPU_PERSISTENT_HOLDER_API_REASON_NEEDS_NATIVE_JNI_SUPPORT,
@@ -124,6 +162,10 @@ internal interface NpuPersistentHolderCreateCloseProbeRunner {
     suspend fun run(): NpuPersistentHolderCreateCloseProbeState
 }
 
+internal interface NpuPersistentHolderRunOnceProbeRunner {
+    suspend fun run(): NpuPersistentHolderRunOnceProbeState
+}
+
 internal fun createNpuPersistentHolderCreateCloseProbeRunner(
     context: Context,
 ): NpuPersistentHolderCreateCloseProbeRunner? =
@@ -131,6 +173,15 @@ internal fun createNpuPersistentHolderCreateCloseProbeRunner(
         Class.forName(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_CLASS_NAME)
             .getDeclaredConstructor(Context::class.java)
             .newInstance(context.applicationContext) as? NpuPersistentHolderCreateCloseProbeRunner
+    }.getOrNull()
+
+internal fun createNpuPersistentHolderRunOnceProbeRunner(
+    context: Context,
+): NpuPersistentHolderRunOnceProbeRunner? =
+    runCatching {
+        Class.forName(NPU_PERSISTENT_HOLDER_RUN_ONCE_CLASS_NAME)
+            .getDeclaredConstructor(Context::class.java)
+            .newInstance(context.applicationContext) as? NpuPersistentHolderRunOnceProbeRunner
     }.getOrNull()
 
 internal data class NpuPersistentHolderCreateCloseProbeState(
@@ -161,6 +212,60 @@ internal data class NpuPersistentHolderCreateCloseProbeState(
             ?: secondCloseResult?.diagnostics
             ?: diagnosticsAfterClose
             ?: closeResult?.diagnostics
+            ?: diagnosticsAfterCreate
+            ?: createResult?.diagnostics
+}
+
+internal data class NpuPersistentHolderRunOnceDecodeResult(
+    val status: String = "unavailable",
+    val reason: String = "unavailable",
+    val runDecodeReached: String = "unavailable",
+    val rawOutput: String = "unavailable",
+    val sanitizedOutput: String = "unavailable",
+    val qualityClassification: String = "unavailable",
+    val backendEvidence: String = "unavailable",
+    val fallbackUsed: String = "unavailable",
+    val timeout: String = "unavailable",
+    val freshCrash: String = "unavailable",
+    val totalMs: String = "unavailable",
+    val decodeMs: String = "unavailable",
+    val outputTokens: String = "unavailable",
+    val tokensPerSecond: String = "unavailable",
+    val finishReason: String = "unavailable",
+    val stopReason: String = "unavailable",
+    val eosDetected: String = "unavailable",
+    val fullText: String = "",
+)
+
+internal data class NpuPersistentHolderRunOnceProbeState(
+    val status: String = "idle",
+    val reason: String = "not_run",
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
+    val modelPathOrReason: String = "unavailable",
+    val prompt: String = NPU_PERSISTENT_HOLDER_RUN_ONCE_PROMPT,
+    val maxOutputTokens: Int = NPU_PERSISTENT_HOLDER_RUN_ONCE_MAX_OUTPUT_TOKENS,
+    val createResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterCreate: NpuPersistentHolderApiDiagnostics? = null,
+    val runResult: NpuPersistentHolderApiResult? = null,
+    val decodeResult: NpuPersistentHolderRunOnceDecodeResult? = null,
+    val closeResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterClose: NpuPersistentHolderApiDiagnostics? = null,
+    val throwableClass: String = "unavailable",
+    val throwableMessage: String = "unavailable",
+) {
+    val hasResult: Boolean
+        get() = createResult != null ||
+            diagnosticsAfterCreate != null ||
+            runResult != null ||
+            decodeResult != null ||
+            closeResult != null ||
+            diagnosticsAfterClose != null
+
+    val latestDiagnostics: NpuPersistentHolderApiDiagnostics?
+        get() = diagnosticsAfterClose
+            ?: closeResult?.diagnostics
+            ?: runResult?.diagnostics
             ?: diagnosticsAfterCreate
             ?: createResult?.diagnostics
 }
@@ -246,7 +351,13 @@ internal fun formatNpuPersistentHolderNativeStubProbeSummary(
     appendLine("generate_called=${diagnostics.generateCalled}")
     appendLine("qnn_decode_called=${diagnostics.qnnDecodeCalled}")
     appendLine("qnn_called=${diagnostics.qnnCalled}")
+    appendLine("holder_open_before_run=${diagnostics.holderOpenBeforeRun}")
+    appendLine("run_once_requested=${diagnostics.runOnceRequested}")
+    appendLine("run_once_called=${diagnostics.runOnceCalled}")
     appendLine("run_once_supported=${diagnostics.runOnceSupported}")
+    appendLine("run_once_succeeded=${diagnostics.runOnceSucceeded}")
+    appendLine("run_once_reason=${diagnostics.runOnceReason}")
+    appendLine("run_decode_reached=${diagnostics.runDecodeReached}")
     appendLine("status=${diagnostics.status}")
     appendLine("reason=${diagnostics.reason}")
     appendLine("persistent_multi_turn_possible=${diagnostics.persistentMultiTurnPossible}")
@@ -290,6 +401,97 @@ internal fun formatNpuPersistentHolderCreateCloseFullDumpForCopy(
     appendLine(formatNpuPersistentHolderCreateCloseSummaryForCopy(state))
 }.trimEnd()
 
+internal fun formatNpuPersistentHolderRunOnceSummaryForCopy(
+    state: NpuPersistentHolderRunOnceProbeState,
+): String {
+    if (!state.hasResult) {
+        return "$NPU_PERSISTENT_HOLDER_RUN_ONCE_NO_RESULT\n" +
+            "test_name=$NPU_PERSISTENT_HOLDER_RUN_ONCE_PROBE_TEST_NAME"
+    }
+    val createDiagnostics = state.diagnosticsAfterCreate ?: state.createResult?.diagnostics
+    val runDiagnostics = state.runResult?.diagnostics
+    val closeDiagnostics = state.diagnosticsAfterClose ?: state.closeResult?.diagnostics
+    val latestDiagnostics = state.latestDiagnostics
+    val decode = state.decodeResult
+    val createRequested = state.createResult != null || createDiagnostics?.holderCreateRequested == true
+    val closeRequested = state.closeResult != null || closeDiagnostics?.holderCloseRequested == true
+    val runRequested = state.runResult != null || runDiagnostics?.runOnceRequested == true
+    val runCalled = runDiagnostics?.runOnceCalled == true || runDiagnostics?.nativeRunCalled == true
+    val runSupported = runDiagnostics?.runOnceSupported == true
+    val runSucceeded = decode?.status == "success"
+    val runReason = decode?.reason
+        ?: runDiagnostics?.runOnceReason
+        ?: state.runResult?.reason
+        ?: "unavailable"
+    return buildString {
+        appendLine("[DEV診断: NPU persistent holder run once summary]")
+        appendLine("test_name=$NPU_PERSISTENT_HOLDER_RUN_ONCE_PROBE_TEST_NAME")
+        appendLine("probe_status=${state.status}")
+        appendLine("holder_create_requested=$createRequested")
+        appendLine("holder_create_called=${createDiagnostics?.holderCreateCalled ?: state.createResult?.diagnostics?.nativeCreateCalled ?: false}")
+        appendLine("holder_create_succeeded=${createDiagnostics?.holderCreateSucceeded ?: false}")
+        appendLine("holder_id=${state.runResult?.holderId ?: state.createResult?.holderId ?: "unavailable"}")
+        appendLine("holder_open_before_run=${createDiagnostics?.holderOpen ?: runDiagnostics?.holderOpenBeforeRun ?: false}")
+        appendLine("run_once_requested=$runRequested")
+        appendLine("run_once_called=$runCalled")
+        appendLine("run_once_supported=$runSupported")
+        appendLine("run_once_succeeded=$runSucceeded")
+        appendLine("run_once_reason=$runReason")
+        appendLine("run_decode_reached=${decode?.runDecodeReached ?: "unavailable"}")
+        appendLine("raw_output=${decode?.rawOutput ?: "unavailable"}")
+        appendLine("sanitized_output=${decode?.sanitizedOutput ?: "unavailable"}")
+        appendLine("quality_classification=${decode?.qualityClassification ?: "unavailable"}")
+        appendLine("backend_evidence=${decode?.backendEvidence ?: "unavailable"}")
+        appendLine("fallback_used=${decode?.fallbackUsed ?: "unavailable"}")
+        appendLine("timeout=${decode?.timeout ?: "unavailable"}")
+        appendLine("fresh_crash=${decode?.freshCrash ?: "unavailable"}")
+        appendLine("total_ms=${decode?.totalMs ?: "unavailable"}")
+        appendLine("decode_ms=${decode?.decodeMs ?: "unavailable"}")
+        appendLine("output_tokens=${decode?.outputTokens ?: "unavailable"}")
+        appendLine("tokens_per_second=${decode?.tokensPerSecond ?: "unavailable"}")
+        appendLine("finish_reason=${decode?.finishReason ?: "unavailable"}")
+        appendLine("stop_reason=${decode?.stopReason ?: "unavailable"}")
+        appendLine("eos_detected=${decode?.eosDetected ?: "unavailable"}")
+        appendLine("holder_close_requested=$closeRequested")
+        appendLine("holder_close_called=${closeDiagnostics?.holderCloseCalled ?: state.closeResult?.diagnostics?.nativeCloseCalled ?: false}")
+        appendLine("holder_close_succeeded=${closeDiagnostics?.holderCloseSucceeded ?: false}")
+        appendLine("holder_fatal_latch=${latestDiagnostics?.holderFatalLatch ?: false}")
+        appendLine("holder_fatal_reason=${latestDiagnostics?.holderFatalReason ?: "unavailable"}")
+        appendLine("engine_reuse_observed=unavailable")
+        appendLine("persistent_multi_turn_possible=false")
+        appendLine("restart_app_recommended=${latestDiagnostics?.restartAppRecommended ?: false}")
+        appendLine("recommended_next_step=$NPU_PERSISTENT_HOLDER_RUN_ONCE_RECOMMENDED_NEXT_STEP")
+    }.trimEnd()
+}
+
+internal fun formatNpuPersistentHolderRunOnceFullDumpForCopy(
+    state: NpuPersistentHolderRunOnceProbeState,
+): String = buildString {
+    appendLine("[DEV診断: NPU persistent holder run once full dump]")
+    appendLine("test_name=$NPU_PERSISTENT_HOLDER_RUN_ONCE_PROBE_TEST_NAME")
+    appendLine("probe_status=${state.status}")
+    appendLine("probe_reason=${state.reason}")
+    appendLine("model_path_or_reason=${state.modelPathOrReason}")
+    appendLine("prompt=${state.prompt}")
+    appendLine("max_output_tokens=${state.maxOutputTokens}")
+    appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("throwable_class=${state.throwableClass}")
+    appendLine("throwable_message=${state.throwableMessage}")
+    if (!state.hasResult) {
+        appendLine(NPU_PERSISTENT_HOLDER_RUN_ONCE_NO_RESULT)
+        return@buildString
+    }
+    appendHolderResultBlock("create_result", state.createResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_create", state.diagnosticsAfterCreate)
+    appendHolderResultBlock("run_once_native_gate_result", state.runResult)
+    appendHolderRunOnceDecodeBlock(state.decodeResult)
+    appendHolderResultBlock("close_result", state.closeResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_close", state.diagnosticsAfterClose)
+    appendLine()
+    appendLine(formatNpuPersistentHolderRunOnceSummaryForCopy(state))
+}.trimEnd()
+
 private fun StringBuilder.appendHolderResultBlock(
     label: String,
     result: NpuPersistentHolderApiResult?,
@@ -306,6 +508,37 @@ private fun StringBuilder.appendHolderResultBlock(
     appendLine("native_summary_begin")
     appendLine(result.nativeSummary.ifBlank { "unavailable" })
     appendLine("native_summary_end")
+}
+
+private fun StringBuilder.appendHolderRunOnceDecodeBlock(
+    decode: NpuPersistentHolderRunOnceDecodeResult?,
+) {
+    appendLine()
+    appendLine("[run_once_decode_result]")
+    if (decode == null) {
+        appendLine("decode_result=unavailable")
+        return
+    }
+    appendLine("status=${decode.status}")
+    appendLine("reason=${decode.reason}")
+    appendLine("run_decode_reached=${decode.runDecodeReached}")
+    appendLine("raw_output=${decode.rawOutput}")
+    appendLine("sanitized_output=${decode.sanitizedOutput}")
+    appendLine("quality_classification=${decode.qualityClassification}")
+    appendLine("backend_evidence=${decode.backendEvidence}")
+    appendLine("fallback_used=${decode.fallbackUsed}")
+    appendLine("timeout=${decode.timeout}")
+    appendLine("fresh_crash=${decode.freshCrash}")
+    appendLine("total_ms=${decode.totalMs}")
+    appendLine("decode_ms=${decode.decodeMs}")
+    appendLine("output_tokens=${decode.outputTokens}")
+    appendLine("tokens_per_second=${decode.tokensPerSecond}")
+    appendLine("finish_reason=${decode.finishReason}")
+    appendLine("stop_reason=${decode.stopReason}")
+    appendLine("eos_detected=${decode.eosDetected}")
+    appendLine("display_text_begin")
+    appendLine(decode.fullText.ifBlank { "unavailable" })
+    appendLine("display_text_end")
 }
 
 private fun StringBuilder.appendHolderDiagnosticsBlock(
@@ -330,6 +563,7 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     holderCreateSucceeded: Boolean = false,
     holderId: String = "unavailable",
     holderOpen: Boolean = false,
+    holderOpenBeforeRun: Boolean = holderOpen,
     holderCloseRequested: Boolean = nativeCloseCalled,
     holderCloseSucceeded: Boolean = false,
     holderDoubleCloseSafe: Boolean = true,
@@ -338,6 +572,25 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     restartAppRecommended: Boolean = holderFatalLatch,
     status: String = NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
     reason: String = NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
+    runOnceRequested: Boolean = nativeRunCalled,
+    runOnceSupported: Boolean = false,
+    runOnceSucceeded: Boolean = false,
+    runOnceReason: String = reason,
+    runDecodeReached: String = "unavailable",
+    rawOutput: String = "unavailable",
+    sanitizedOutput: String = "unavailable",
+    qualityClassification: String = "unavailable",
+    backendEvidence: String = "unavailable",
+    fallbackUsed: String = "unavailable",
+    timeout: String = "unavailable",
+    freshCrash: String = "unavailable",
+    totalMs: String = "unavailable",
+    decodeMs: String = "unavailable",
+    outputTokens: String = "unavailable",
+    tokensPerSecond: String = "unavailable",
+    finishReason: String = "unavailable",
+    stopReason: String = "unavailable",
+    eosDetected: String = "unavailable",
 ): NpuPersistentHolderApiDiagnostics = NpuPersistentHolderApiDiagnostics(
     holderApiAvailable = true,
     holderApiReason = NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
@@ -357,6 +610,7 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     holderCreateSucceeded = holderCreateSucceeded,
     holderId = holderId,
     holderOpen = holderOpen,
+    holderOpenBeforeRun = holderOpenBeforeRun,
     holderCloseRequested = holderCloseRequested,
     holderCloseCalled = nativeCloseCalled,
     holderCloseSucceeded = holderCloseSucceeded,
@@ -371,12 +625,31 @@ internal fun npuPersistentHolderNativeStubDiagnostics(
     generateCalled = false,
     qnnDecodeCalled = false,
     qnnCalled = false,
-    runOnceSupported = false,
+    runOnceRequested = runOnceRequested,
+    runOnceCalled = nativeRunCalled,
+    runOnceSupported = runOnceSupported,
+    runOnceSucceeded = runOnceSucceeded,
+    runOnceReason = runOnceReason,
+    runDecodeReached = runDecodeReached,
+    rawOutput = rawOutput,
+    sanitizedOutput = sanitizedOutput,
+    qualityClassification = qualityClassification,
+    backendEvidence = backendEvidence,
+    fallbackUsed = fallbackUsed,
+    timeout = timeout,
+    freshCrash = freshCrash,
+    totalMs = totalMs,
+    decodeMs = decodeMs,
+    outputTokens = outputTokens,
+    tokensPerSecond = tokensPerSecond,
+    finishReason = finishReason,
+    stopReason = stopReason,
+    eosDetected = eosDetected,
     restartAppRecommended = restartAppRecommended,
     status = status,
     reason = reason,
     holderCreateSupported = true,
-    holderRunSupported = false,
+    holderRunSupported = runOnceSupported,
     holderCloseSupported = true,
     holderDiagnosticsSupported = true,
     persistentMultiTurnPossible = false,
@@ -397,12 +670,20 @@ internal fun mergeNpuPersistentHolderNativeStubDiagnostics(
         holderCreateSucceeded = values.any { it.holderCreateSucceeded },
         holderId = values.lastOrNull { it.holderId != "unavailable" }?.holderId ?: "unavailable",
         holderOpen = values.lastOrNull()?.holderOpen == true,
+        holderOpenBeforeRun = values.any { it.holderOpenBeforeRun },
         holderCloseRequested = values.any { it.holderCloseRequested },
         holderCloseSucceeded = values.any { it.holderCloseSucceeded },
         holderDoubleCloseSafe = values.all { it.holderDoubleCloseSafe },
         holderFatalLatch = values.any { it.holderFatalLatch },
         holderFatalReason = values.lastOrNull { it.holderFatalLatch }?.holderFatalReason ?: "none",
         restartAppRecommended = values.any { it.restartAppRecommended },
+        runOnceRequested = values.any { it.runOnceRequested },
+        runOnceSupported = values.any { it.runOnceSupported },
+        runOnceSucceeded = values.any { it.runOnceSucceeded },
+        runOnceReason = values.lastOrNull { it.runOnceReason != "unavailable" }?.runOnceReason
+            ?: NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
+        runDecodeReached = values.lastOrNull { it.runDecodeReached != "unavailable" }?.runDecodeReached
+            ?: "unavailable",
     )
 }
 
@@ -428,6 +709,7 @@ internal fun parseNpuPersistentHolderNativeStubResult(
         holderCreateSucceeded = values.booleanValue("holder_create_succeeded"),
         holderId = values["holder_id"] ?: fallbackHolderId,
         holderOpen = values.booleanValue("holder_open"),
+        holderOpenBeforeRun = values.booleanValue("holder_open_before_run"),
         holderCloseRequested = values.booleanValue("holder_close_requested"),
         holderCloseSucceeded = values.booleanValue("holder_close_succeeded"),
         holderDoubleCloseSafe = values.booleanValue("holder_double_close_safe"),
@@ -436,6 +718,27 @@ internal fun parseNpuPersistentHolderNativeStubResult(
         restartAppRecommended = values.booleanValue("restart_app_recommended"),
         status = values["status"] ?: NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
         reason = values["reason"] ?: NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
+        runOnceRequested = values.booleanValue("run_once_requested"),
+        runOnceSupported = values.booleanValue("run_once_supported"),
+        runOnceSucceeded = values.booleanValue("run_once_succeeded"),
+        runOnceReason = values["run_once_reason"]
+            ?: values["reason"]
+            ?: NPU_PERSISTENT_HOLDER_NATIVE_STUB_REASON,
+        runDecodeReached = values["run_decode_reached"] ?: "unavailable",
+        rawOutput = values["raw_output"] ?: "unavailable",
+        sanitizedOutput = values["sanitized_output"] ?: "unavailable",
+        qualityClassification = values["quality_classification"] ?: "unavailable",
+        backendEvidence = values["backend_evidence"] ?: values["npu_backend_evidence"] ?: "unavailable",
+        fallbackUsed = values["fallback_used"] ?: "unavailable",
+        timeout = values["timeout"] ?: "unavailable",
+        freshCrash = values["fresh_crash"] ?: "unavailable",
+        totalMs = values["total_ms"] ?: values["elapsed_ms"] ?: "unavailable",
+        decodeMs = values["decode_ms"] ?: values["decode_elapsed_ms"] ?: "unavailable",
+        outputTokens = values["output_tokens"] ?: values["output_token_count"] ?: "unavailable",
+        tokensPerSecond = values["tokens_per_second"] ?: values["npu_s1_tokens_per_second"] ?: "unavailable",
+        finishReason = values["finish_reason"] ?: "unavailable",
+        stopReason = values["stop_reason"] ?: "unavailable",
+        eosDetected = values["eos_detected"] ?: "unavailable",
     )
     return NpuPersistentHolderApiResult(
         status = values["status"] ?: NPU_PERSISTENT_HOLDER_API_STATUS_NOT_IMPLEMENTED,
