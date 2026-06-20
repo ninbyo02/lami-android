@@ -211,6 +211,15 @@ retry session mode. Instead, expose or add a persistent standard-route
 adapter/native decode API that can reuse the same successful path as NPU Beta
 Stability Test and normal NPU standard route.
 
+The current exposure review is documented in
+`docs/npu_standard_route_adapter_persistent_exposure_review.md`. That review
+concludes that the successful standard-route path is available today only as a
+one-shot native adapter call (`nativeRunEditablePrompt` through
+`litertlm_jni`). Kotlin can observe native stage diagnostics and backend
+evidence, but it cannot hold or reuse the underlying Engine. True persistent
+multi-turn execution therefore needs a DEV-only native/JNI holder API before it
+can be connected to this probe.
+
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path
 instability and continue native-focused investigation before changing normal
