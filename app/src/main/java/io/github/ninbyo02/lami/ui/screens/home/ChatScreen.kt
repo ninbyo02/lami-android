@@ -1154,10 +1154,12 @@ fun Home(
             setting = preferredBackendDryRunSetting,
             npuStandardRouteMode = effectiveNpuStandardRouteMode,
             backendEvidence = if (
-                npuS1BackendFromPreferredSetting(
-                    setting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
-                ) == NPU_S1_BACKEND_NPU_S1
+                isNpuS1RepeatedRunBackendAllowed(
+                    npuS1BackendFromPreferredSetting(
+                        setting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                    ),
+                )
             ) {
                 NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
             } else {
@@ -1216,7 +1218,7 @@ fun Home(
                 finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                 prompt = promptForRun,
                 requestedRunCount = requestedRunCount,
-                maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                maxOutputTokens = npuStandardRouteMaxOutputTokens,
                 repeatedRunMode = runMode,
                 repeatedRunWaitMs = npuS1RepeatedRunWaitMs,
                 selectedBackend = selectedBackendDiagnostics.selectedBackend,
@@ -1232,16 +1234,17 @@ fun Home(
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
                     message = if (startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU) {
-                        "NPU S1 repeated run は NPU S1 選択時のみ実行可能"
+                        "NPU Beta Stability Test は NPU Beta / NPU standard route 選択時のみ実行可能"
                     } else {
-                        "NPU S1 repeated run safety policy により実行できません"
+                        "NPU Beta Stability Test safety policy により実行できません"
                     },
                     duration = SnackbarDuration.Short,
                 )
             }
             return
         }
-        val maxTokensForRun = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS
+        val maxTokensForRun = npuStandardRouteMaxOutputTokens
+        val maxTokensResolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(maxTokensForRun)
         val lifecyclePlan = npuS1RepeatedRunLifecyclePlan(runMode)
             .copy(waitAfterRunMs = npuS1RepeatedRunWaitMs)
         val startedAtMs = System.currentTimeMillis()
@@ -1278,8 +1281,8 @@ fun Home(
                         runIndex = runIndex,
                         runCountRequested = requestedRunCount,
                         promptLength = promptForRun.length,
-                        requestedMaxOutputTokens = maxTokensForRun,
-                        effectiveMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxTokensForRun),
+                        requestedMaxOutputTokens = maxTokensResolution.requestedMaxOutputTokens,
+                        effectiveMaxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
                     )
                     NpuS1LogcatDiagnostics.setContext(logcatContext)
                     NpuS1LogcatDiagnostics.logRepeatedRunStart(
@@ -1303,7 +1306,7 @@ fun Home(
                         route = "ChatScreen.startNpuS1RepeatedRun",
                         probeName = "npu_s1_repeated_run",
                         backendRequested = "NPU",
-                        maxOutputTokens = maxTokensForRun,
+                        maxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
                         memorySnapshot = memoryBefore,
                         detail = "run_index=$runIndex repeated_run_mode=${runMode.wireValue} prompt_length=${promptForRun.length} requested_max_output_tokens=$maxTokensForRun effective_max_output_tokens=${logcatContext.effectiveMaxOutputTokens}",
                     )
@@ -11104,19 +11107,34 @@ private fun NpuS1RepeatedRunDevSection(
     val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
         setting = preferredBackendSetting,
         npuStandardRouteMode = npuStandardRouteMode,
+        backendEvidence = if (
+            isNpuS1RepeatedRunBackendAllowed(
+                npuS1BackendFromPreferredSetting(
+                    setting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                ),
+            )
+        ) {
+            NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+        } else {
+            NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
+        },
     )
     val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
     val controlsEnabled = !running && !blockedByGeneration
     val startEnabled = controlsEnabled && startGate.allowed
     InferenceStatsSection(title = "NPU Beta Stability Test") {
         Text(
-            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
+            text = "selected_backend=${backendDiagnostics.selectedBackend} " +
+                "requested_backend=${backendDiagnostics.requestedBackend} " +
+                "effective_backend=${backendDiagnostics.effectiveBackend} " +
+                "route_family=${backendDiagnostics.routeFamily}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (blockedByBackend) {
             Text(
-                text = "NPU S1 repeated run は NPU S1 選択時のみ実行可能",
+                text = "NPU Beta Stability Test は NPU Beta / NPU standard route 選択時のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
