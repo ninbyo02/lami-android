@@ -489,6 +489,10 @@ Isolation decision:
   first proven not to feed any `standardDebug` staging or overlay task.
 - Held Engine run once remains blocked until create/close-only passes in the
   isolated flavor.
+- The `trueEngineNpuProbeDebug` flavor/sourceSet shell is allowed to exist while
+  `isolated_native_execution_enabled=false`; it must still return
+  `probe_execution_available=false` until isolated native staging is added in a
+  later step.
 
 Scope:
 

@@ -47,6 +47,7 @@ val liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
 
 android {
 
@@ -77,6 +78,8 @@ android {
         buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
         buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+        buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
     }
 
     flavorDimensions += "dispatchExperiment"
@@ -93,6 +96,8 @@ android {
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
         create("npuExperiment") {
             dimension = "dispatchExperiment"
@@ -213,6 +218,25 @@ android {
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
+        }
+        create("trueEngineNpuProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".trueengineprobe"
+            versionNameSuffix = "-trueEngineNpuProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"trueEngineNpuProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"isolated true Engine NPU probe shell; native execution disabled; future stack path app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
     }
 
@@ -278,12 +302,15 @@ android {
             manifest.srcFile("src/customBuildExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/customBuildExperimentDebug/jniLibs")
         }
+        create("trueEngineNpuProbeDebug") {
+            jniLibs.srcDir("src/trueEngineNpuProbeDebug/jniLibs")
+        }
     }
 }
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment" || it.second == "trueEngineNpuProbe") }) {
             variantBuilder.enable = false
         }
     }
@@ -308,6 +335,7 @@ androidComponents {
         }
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
+            variant.buildType == "debug" && flavor == "trueEngineNpuProbe" -> liteRtLmAndroidTrueEngineNpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate" -> liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion
             variant.buildType == "debug" && flavor == "standardGpuRuntimeMinimalProbe" -> liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion
@@ -1033,6 +1061,7 @@ dependencies {
     add("standardGpuMinimalRuntimeCandidateImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion")
     add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
+    add("trueEngineNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidTrueEngineNpuProbeDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")

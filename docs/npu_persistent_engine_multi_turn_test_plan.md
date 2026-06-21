@@ -383,6 +383,9 @@ Startup recovery gate:
 - Long Generation, R6 streaming, fallback policy, normal NPU chat route, and
   held Engine run once remain out of scope until isolated create/close-only
   passes.
+- The initial `trueEngineNpuProbeDebug` shell does not enable native execution.
+  Its next step is isolated `jniLibs` / native staging task wiring while the Run
+  path remains gated.
 
 The current implementation reaches native Engine create/close through the
 existing `litertlm_jni` persistent custom JNI path with

@@ -1,7 +1,9 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
-Status: design only. Do not implement Gradle, Kotlin, JNI, native packaging, or
-patch changes from this document in the docs-only planning step.
+Status: isolation shell in progress. `trueEngineNpuProbeDebug` has a Gradle
+flavor/sourceSet shell, but native execution remains disabled. Do not add JNI,
+native packaging, native overlay tasks, or patch changes until the next gated
+implementation step.
 
 ## Why Isolation Is Required
 
@@ -107,6 +109,15 @@ Create a dedicated debug-only flavor:
 - sourceSet: `app/src/trueEngineNpuProbeDebug`
 - jniLibs root: `app/src/trueEngineNpuProbeDebug/jniLibs`
 - native stack scope: true Engine create/close-only probe only
+
+Current shell status:
+
+- The flavor/sourceSet name is reserved.
+- `BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR=true` only for this flavor.
+- `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`.
+- No isolated `jniLibs` payload is staged yet.
+- No isolated native overlay task exists yet.
+- The Run button still returns a blocked summary.
 
 Purpose:
 

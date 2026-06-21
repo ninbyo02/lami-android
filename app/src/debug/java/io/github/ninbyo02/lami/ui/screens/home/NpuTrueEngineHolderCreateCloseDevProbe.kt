@@ -16,7 +16,7 @@ internal class NpuTrueEngineHolderCreateCloseDevProbe(
         val holderId = "true-engine-holder-create-close-dev"
         NpuTrueEngineHolderCreateCloseProbeState(
             status = "blocked",
-            reason = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON,
+            reason = npuTrueEngineHolderCreateCloseProbeExecutionBlockReason(),
             startedAtElapsedRealtimeMs = startedAt,
             finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
             modelPathOrReason = "not_resolved_startup_safe_block",

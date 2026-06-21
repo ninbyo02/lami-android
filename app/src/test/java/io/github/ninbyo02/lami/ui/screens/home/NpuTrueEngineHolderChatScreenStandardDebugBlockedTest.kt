@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import kotlinx.coroutines.test.runTest
@@ -14,7 +15,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
-class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
+class NpuTrueEngine {
     @Test
     fun `standardDebug no-result summary is startup safe before DEV probe run`() {
         val state = NpuTrueEngineHolderCreateCloseProbeState()
@@ -23,11 +24,18 @@ class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
         val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
 
         assertTrue(summary.contains("no true engine holder create/close probe result available"))
+        assertTrue(summary.contains("true_engine_probe_flavor=${expectedVariantName()}"))
+        assertTrue(summary.contains("isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}"))
+        assertTrue(
+            summary.contains(
+                "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}",
+            ),
+        )
         assertTrue(summary.contains("true_engine_create_close_probe_startup_safe=true"))
         assertTrue(summary.contains("native_call_deferred_until_button_click=true"))
         assertTrue(summary.contains("startup_native_call_blocked=true"))
         assertTrue(summary.contains("probe_execution_available=false"))
-        assertTrue(summary.contains("probe_execution_block_reason=temporarily_blocked_to_restore_startup"))
+        assertTrue(summary.contains("probe_execution_block_reason=${expectedBlockReason()}"))
         assertTrue(fullDump.contains("probe_status=idle"))
         assertTrue(fullDump.contains("startup_native_call_blocked=true"))
     }
@@ -56,7 +64,7 @@ class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
         val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
 
         assertEquals("blocked", state.status)
-        assertEquals(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON, state.reason)
+        assertEquals(expectedBlockReason(), state.reason)
         assertEquals("not_resolved_startup_safe_block", state.modelPathOrReason)
         assertStandardDebugBlockedSummary(summary)
     }
@@ -78,7 +86,7 @@ class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
     private fun blockedState(): NpuTrueEngineHolderCreateCloseProbeState =
         NpuTrueEngineHolderCreateCloseProbeState(
             status = "blocked",
-            reason = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON,
+            reason = expectedBlockReason(),
             modelPathOrReason = "not_resolved_startup_safe_block",
             holderId = "true-engine-holder-create-close-dev",
             nativeResult = blockedNpuTrueEngineHolderCreateCloseNativeResult(),
@@ -87,13 +95,20 @@ class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
     private fun assertStandardDebugBlockedSummary(text: String) {
         assertTrue(text.contains("test_name=NPU True Engine Holder Create Close Probe"))
         assertTrue(text.contains("probe_status=blocked"))
-        assertTrue(text.contains("probe_reason=temporarily_blocked_to_restore_startup"))
+        assertTrue(text.contains("probe_reason=${expectedBlockReason()}"))
         assertTrue(text.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(text.contains("true_engine_probe_flavor=${expectedVariantName()}"))
+        assertTrue(text.contains("isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}"))
+        assertTrue(
+            text.contains(
+                "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}",
+            ),
+        )
         assertTrue(text.contains("true_engine_create_close_probe_startup_safe=true"))
         assertTrue(text.contains("native_call_deferred_until_button_click=true"))
         assertTrue(text.contains("startup_native_call_blocked=true"))
         assertTrue(text.contains("probe_execution_available=false"))
-        assertTrue(text.contains("probe_execution_block_reason=temporarily_blocked_to_restore_startup"))
+        assertTrue(text.contains("probe_execution_block_reason=${expectedBlockReason()}"))
         assertTrue(text.contains("session_create_count=0"))
         assertTrue(text.contains("decode_count=0"))
         assertTrue(text.contains("generate_count=0"))
@@ -103,4 +118,14 @@ class NpuTrueEngineHolderChatScreenStandardDebugBlockedTest {
         assertTrue(text.contains("true_engine_persistent_reuse=false"))
         assertTrue(text.contains("engine_reuse_observed=unavailable"))
     }
+
+    private fun expectedVariantName(): String =
+        BuildConfig.CURRENT_FLAVOR + BuildConfig.BUILD_TYPE.replaceFirstChar { it.uppercaseChar() }
+
+    private fun expectedBlockReason(): String =
+        if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON
+        } else {
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON
+        }
 }

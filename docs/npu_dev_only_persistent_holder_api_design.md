@@ -421,6 +421,10 @@ Temporary startup recovery status:
   `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
 - Held Engine run once must wait until isolated create/close-only passes on
   device.
+- `trueEngineNpuProbeDebug` may report
+  `isolated_flavor_available=true`, but the current shell must also report
+  `isolated_native_execution_enabled=false` and
+  `probe_execution_available=false`.
 
 This probe is not the app JNI holder stub. It wraps the existing
 `litertlm_jni` persistent custom JNI path with
