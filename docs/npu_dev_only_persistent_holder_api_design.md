@@ -10,7 +10,7 @@ This design now has DEV-only JNI/native create/close and run-once gate passes.
 The native probe verifies Kotlin -> JNI -> native holder lifecycle wiring and
 can create one app JNI holder record, accept holder run requests while that
 record is open, and close it explicitly. The decode used by the Run Once,
-Two-Turn, and Five-Turn probes is still the existing one-shot standard-route
+Two-Turn, Five-Turn, and Ten-Turn probes is still the existing one-shot standard-route
 adapter path, so this is not evidence that a real standard-route adapter Engine
 is reused.
 
@@ -67,8 +67,8 @@ Current implementation:
 - `holder_api_reason=needs_native_jni_support` for the not-exposed default
 - `persistent_multi_turn_possible=false`
 - `engine_reuse_observed=unavailable`
-- `recommended_next_step=review_five_turn_device_result_then_implement_ten_turn_probe`
-  for the current Five-Turn path
+- `recommended_next_step=compare_with_recreate_stability_then_design_true_engine_persistent_reuse_api`
+  for the current Ten-Turn path
 
 The interface shape is:
 
@@ -102,7 +102,7 @@ The current debug pass declares these functions:
 `nativeCloseStandardRouteAdapterHolder(...)` manage one app JNI holder record
 and diagnostics counters. `nativeRunStandardRouteAdapterHolderOnce(...)` now
 acts as a DEV-only open-holder run gate and records run request/call counters.
-It does not decode by itself. The Run Once, Two-Turn, and Five-Turn probes call
+It does not decode by itself. The Run Once, Two-Turn, Five-Turn, and Ten-Turn probes call
 the existing one-shot `nativeRunEditablePrompt` route after the holder gate
 accepts each run. This probe is intentionally implemented in a separate app
 debug JNI library. It does not modify the existing `nativeRunEditablePrompt`
@@ -429,7 +429,8 @@ FastRPC backend evidence on both turns, natural Japanese quality on both turns,
 zero fallback/timeout/fresh-crash counts, no fatal latch, and no restart
 recommendation.
 
-The next DEV-only UI entry is `NPU Persistent Holder Five-Turn Probe`.
+After Two-Turn passed, the next DEV-only UI entry was
+`NPU Persistent Holder Five-Turn Probe`.
 
 `Run Holder Five-Turn Probe` performs:
 
@@ -469,9 +470,61 @@ Five-Turn hold conditions:
 - holder close failed
 - `holder_fatal_latch=true`
 
-Do not advance to 10-turn persistent testing from a single Two-Turn result. A
-clean Five-Turn physical-device result is the gate for considering the fixed
-Ten-Turn Probe.
+Five-Turn physical-device coverage passed cleanly enough to add the fixed
+Ten-Turn DEV UI entry. This is still holder lifecycle plus repeated existing
+one-shot decode, not true Engine persistent reuse.
+
+The current DEV-only UI entry is `NPU Persistent Holder Ten-Turn Probe`.
+
+`Run Holder Ten-Turn Probe` performs:
+
+1. create holder once
+2. run turn 1 with `こんにちは`
+3. run turn 2 with `あなたは誰ですか`
+4. run turn 3 with `Pythonとは何ですか`
+5. run turn 4 with `Androidについて一言で説明して`
+6. run turn 5 with `ありがとう`
+7. run turn 6 with `今日の気分を一言で`
+8. run turn 7 with `1足す1は`
+9. run turn 8 with `日本語で短く返答して`
+10. run turn 9 with `LAMIとは何ですか`
+11. run turn 10 with `またね`
+12. close holder once
+13. copy summary/full dump diagnostics
+
+The run count is fixed at ten. If any turn fails, later turns are not
+attempted. Close is still attempted when a holder id is available. The probe
+does not connect normal NPU chat routing and does not prove true Engine
+persistent reuse. `engine_reuse_observed=unavailable`,
+`true_engine_persistent_reuse=false`, and
+`persistent_multi_turn_possible=false` remain mandatory.
+
+Ten-Turn pass conditions:
+
+- `holder_create_succeeded=true`
+- `run_count_completed=10`
+- `run_decode_reached_count=10`
+- backend evidence summary contains QNN HTP / FastRPC evidence
+- quality classification summary is generally natural Japanese
+- `fallback_used_count=0`
+- `timeout_count=0`
+- `fresh_crash_count=0`
+- `holder_close_succeeded=true`
+- `holder_fatal_latch=false`
+
+Ten-Turn hold conditions:
+
+- any turn failed
+- any fallback
+- any timeout
+- any fresh crash
+- holder close failed
+- `holder_fatal_latch=true`
+- missing QNN HTP / FastRPC backend evidence
+
+Do not advance directly from Ten-Turn to normal chat route persistentization.
+Next compare with the recreate Stability Test, then design a true Engine
+persistent reuse API before implementing a real persistent holder.
 
 ## Safety Requirements
 
@@ -507,11 +560,13 @@ Do not change normal NPU chat route until DEV-only holder evidence shows:
 
 ## Next Implementation Units
 
-1. Review Five-Turn physical-device results.
-2. Implement a fixed Ten-Turn Persistent Probe only if Five-Turn is clean.
-3. Consider a Conversation Stability Test after Ten-Turn evidence.
-4. Consider normal NPU chat route integration only after DEV evidence passes.
-5. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
+1. Run and review Ten-Turn physical-device results.
+2. Compare Ten-Turn evidence against the recreate Stability Test.
+3. Consider a Conversation Stability Test only after Ten-Turn evidence is clean.
+4. Design the true Engine persistent reuse API before implementing a real
+   persistent holder.
+5. Consider normal NPU chat route integration only after DEV evidence passes.
+6. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
    diagnostics.
-6. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
+7. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
    native diagnostics prove the holder is real.

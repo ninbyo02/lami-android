@@ -305,11 +305,11 @@ FastRPC, quality classification was natural Japanese, fallback/timeout/
 fresh-crash counts were zero, and no fatal latch or restart recommendation was
 observed.
 
-The next DEV-only exposure step is `NPU Persistent Holder Five-Turn Probe`. It
-creates one holder record, runs five fixed prompts, and closes once. It is
-fixed at five turns, stops before later turns if any turn fails, always
-attempts close when a holder id is available, and does not connect to normal
-NPU chat routing.
+Five-Turn physical-device coverage passed cleanly enough to add the fixed
+`NPU Persistent Holder Ten-Turn Probe`. It creates one holder record, runs ten
+fixed prompts, and closes once. It is fixed at ten turns, stops before later
+turns if any turn fails, always attempts close when a holder id is available,
+and does not connect to normal NPU chat routing.
 
 Two-Turn pass requires create success, `turn1_run_decode_reached=true`,
 `turn2_run_decode_reached=true`, QNN HTP / FastRPC backend evidence,
@@ -325,8 +325,20 @@ FastRPC backend evidence, generally natural Japanese quality classification
 summary, `fallback_used_count=0`, `timeout_count=0`,
 `fresh_crash_count=0`, close success, and no fatal latch. Hold on any turn
 failure, fallback, timeout, fresh crash, close failure, fatal latch, or missing
-backend evidence. A clean Five-Turn result should lead to the fixed Ten-Turn
-Probe, not directly to normal chat route persistentization.
+backend evidence.
+
+Ten-Turn pass requires create success, `run_count_completed=10`,
+`run_decode_reached_count=10`, QNN HTP / FastRPC backend evidence, generally
+natural Japanese quality classification summary, `fallback_used_count=0`,
+`timeout_count=0`, `fresh_crash_count=0`, close success, and no fatal latch.
+Hold on any turn failure, fallback, timeout, fresh crash, close failure, fatal
+latch, or missing backend evidence.
+
+Ten-Turn is still holder lifecycle plus repeated existing one-shot decode, not
+true Engine persistent reuse. Keep `engine_reuse_observed=unavailable`,
+`true_engine_persistent_reuse=false`, and
+`persistent_multi_turn_possible=false`; do not use a clean Ten-Turn result as a
+normal chat route persistentization approval.
 
 ## Required Safety Conditions
 
@@ -371,13 +383,12 @@ Current feasibility:
 
 Recommended next implementation unit for Codex:
 
-1. Review Five-Turn device evidence.
-2. Implement a fixed Ten-Turn Probe if Five-Turn has no fallback, timeout,
-   fresh crash, close failure, or fatal latch.
+1. Run and review Ten-Turn device evidence.
+2. Compare Ten-Turn against the recreate Stability Test.
 3. Align holder output with `NpuStandardRouteS1RawResult` before connecting it
    to the Persistent Probe.
-4. Only after Five-Turn passes, consider the physical-device 10-turn persistent
-   probe and compare it against the recreate Stability Test.
+4. Design the true Engine persistent reuse API before implementing a real
+   persistent holder or normal chat route persistentization.
 
 The concrete DEV-only holder contract is now captured in
 `docs/npu_dev_only_persistent_holder_api_design.md`. That document defines the

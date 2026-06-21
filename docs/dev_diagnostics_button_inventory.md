@@ -49,6 +49,9 @@ Current NPU status:
 | `Run Holder Five-Turn Probe` | `ChatScreen.kt`, `NpuPersistentHolderFiveTurnDevProbe.kt` | `startNpuPersistentHolderFiveTurnProbe()` -> `NativeStubNpuPersistentHolderApi` + existing one-shot NPU adapter decode | Create one DEV holder record, run exactly five holder-gated one-shot decodes, then close once. | KEEP_PRIMARY | This is the next smallest persistent-holder exposure step after Two-Turn passed. It is not 10-turn, not normal chat routing, and not proof of Engine reuse. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | If device evidence is clean, add a fixed Ten-Turn Probe. |
 | `Copy Holder Five-Turn Summary` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderFiveTurnSummaryForCopy(...)` | Copy Five-Turn aggregate keys. | KEEP_PRIMARY | Captures create/five-run/close status, backend evidence summary, quality summary, fallback/timeout/fresh-crash counts, fatal latch, and `engine_reuse_observed=unavailable`. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep as the compact artifact for Ten-Turn readiness review. |
 | `Copy Holder Five-Turn Full Dump` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderFiveTurnFullDumpForCopy(...)` | Copy create, per-turn, close, diagnostics, and summary blocks for the Five-Turn probe. | KEEP_PRIMARY | Required for device artifact review when any turn fails or backend evidence changes across the five turns. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep until report scripts consume the Five-Turn artifact directly. |
+| `Run Holder Ten-Turn Probe` | `ChatScreen.kt`, `NpuPersistentHolderTenTurnDevProbe.kt` | `startNpuPersistentHolderTenTurnProbe()` -> `NativeStubNpuPersistentHolderApi` + existing one-shot NPU adapter decode | Create one DEV holder record, run exactly ten holder-gated one-shot decodes, then close once. | KEEP_PRIMARY | This validates ten holder-managed decode calls after Five-Turn passed. It is not normal chat routing and not true Engine persistent reuse. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Compare clean device evidence with recreate Stability Test before true Engine persistent reuse API design. |
+| `Copy Holder Ten-Turn Summary` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderTenTurnSummaryForCopy(...)` | Copy Ten-Turn aggregate keys. | KEEP_PRIMARY | Captures create/ten-run/close status, success/failure/rate fields, backend evidence summary, quality summary, fallback/timeout/fresh-crash counts/rates, fatal latch, `engine_reuse_observed=unavailable`, and `true_engine_persistent_reuse=false`. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep as the compact artifact for Ten-Turn pass/hold review. |
+| `Copy Holder Ten-Turn Full Dump` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderTenTurnFullDumpForCopy(...)` | Copy create, per-turn, close, diagnostics, and summary blocks for the Ten-Turn probe. | KEEP_PRIMARY | Required for device artifact review when any turn fails, any rate is nonzero, or backend evidence changes across the ten turns. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep until report scripts consume the Ten-Turn artifact directly. |
 | `キャンセル` under persistent Engine | `ChatScreen.kt` | `cancelNpuS1PersistentEngineProbe()` | Cancel persistent Engine probe. | KEEP_ADVANCED | Safety control while the advanced probe remains visible. | Status/cancel formatting in `NpuS1PersistentEngineDiagnosticsTest`. | Keep with advanced probe until hidden/removed. |
 | `NPU S1 persistent custom JNI <mode>` / `Gemma recommended x20` | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentCustomJniDevProbe.kt` | `startNpuS1PersistentCustomJniProbe()` -> `NpuS1PersistentCustomJniProbeRunner.run(...)` | Custom JNI holder / prompt wrapper / quality profile investigation. | KEEP_ADVANCED | Historically critical for quality and engine-create root cause work. Today it is too specialized for primary health checks. | `NpuS1PersistentCustomJniDiagnosticsTest`, `Qairt244NpuDiagnosticPromptValidatorTest` | Move to Advanced "legacy quality investigation"; retire after NPU Beta quality/stability/long-generation runners cover the same gates. |
 | Filter chips under `NPU S1 persistent custom JNI` (`entrypoint_only`, `before_engine_create`, `engine_create_only`, `full_20`, etc.) | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt` | `NpuS1PersistentCustomJniProbeMode` | Select custom JNI crash/lifecycle probe depth. | KEEP_ADVANCED | Useful only for native/JNI fault isolation. | `NpuS1PersistentCustomJniDiagnosticsTest` | Hide inside Advanced by default; keep until R6/native cleanup decision. |
@@ -225,8 +228,23 @@ Current behavior:
   `holder_fatal_latch=false`
 - Five-Turn hold conditions are any turn failure, fallback, timeout, fresh
   crash, close failure, fatal latch, or missing backend evidence
-- a clean Five-Turn result should lead to a fixed Ten-Turn Probe, not directly
-  to normal chat route persistentization
+- DEV diagnostics now exposes `NPU Persistent Holder Ten-Turn Probe` with
+  `Run Holder Ten-Turn Probe`, `Copy Holder Ten-Turn Summary`, and
+  `Copy Holder Ten-Turn Full Dump`
+- Ten-Turn performs one create, ten holder-gated one-shot decodes, and one
+  close; it does not connect normal chat routing and is not true Engine
+  persistent reuse
+- Ten-Turn pass requires `holder_create_succeeded=true`,
+  `run_count_completed=10`, `run_decode_reached_count=10`, QNN HTP / FastRPC
+  backend evidence, generally natural quality summary,
+  `fallback_used_count=0`, `timeout_count=0`, `fresh_crash_count=0`,
+  `holder_close_succeeded=true`, and `holder_fatal_latch=false`
+- Ten-Turn hold conditions are any turn failure, fallback, timeout, fresh
+  crash, close failure, fatal latch, or missing backend evidence
+- `engine_reuse_observed=unavailable`, `true_engine_persistent_reuse=false`,
+  and `persistent_multi_turn_possible=false` remain mandatory
+- a clean Ten-Turn result should be compared with recreate Stability Test
+  before true Engine persistent reuse API design
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent
