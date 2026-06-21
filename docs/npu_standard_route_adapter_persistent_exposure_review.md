@@ -340,6 +340,14 @@ true Engine persistent reuse. Keep `engine_reuse_observed=unavailable`,
 `persistent_multi_turn_possible=false`; do not use a clean Ten-Turn result as a
 normal chat route persistentization approval.
 
+Physical-device Ten-Turn evidence did not become clean: it completed seven
+runs, with six successes and one failure, matching the Stability Test failure
+shape around run 7. Backend evidence remained QNN HTP / FastRPC and there was
+no fallback, timeout, or fresh crash evidence. This strengthens the conclusion
+that the current holder is still exercising repeated one-shot native adapter
+work. The follow-up design is
+`docs/npu_true_engine_persistent_reuse_design.md`.
+
 ## Required Safety Conditions
 
 Before persistent standard-route adapter execution is enabled:
@@ -383,12 +391,15 @@ Current feasibility:
 
 Recommended next implementation unit for Codex:
 
-1. Run and review Ten-Turn device evidence.
-2. Compare Ten-Turn against the recreate Stability Test.
-3. Align holder output with `NpuStandardRouteS1RawResult` before connecting it
+1. Use `docs/npu_true_engine_persistent_reuse_design.md` to define the true
+   native Engine holder contract.
+2. Implement create/close only for a native-held Engine PoC.
+3. Add held-Engine run-once only after create/close is stable.
+4. Align holder output with `NpuStandardRouteS1RawResult` before connecting it
    to the Persistent Probe.
-4. Design the true Engine persistent reuse API before implementing a real
-   persistent holder or normal chat route persistentization.
+5. Keep normal chat route persistentization blocked until native diagnostics
+   prove `engine_create_count=1` and successful repeated decode through the
+   held Engine.
 
 The concrete DEV-only holder contract is now captured in
 `docs/npu_dev_only_persistent_holder_api_design.md`. That document defines the

@@ -336,10 +336,28 @@ backend evidence. A clean Ten-Turn result should be compared with the recreate
 Stability Test before Conversation Stability Test work or true Engine
 persistent reuse API design.
 
+The first Ten-Turn physical-device result was not clean: it completed seven
+runs, with six successes and one adapter failure around the same point as the
+recreate Stability Test. It still reported
+`true_engine_persistent_reuse=false` and
+`engine_reuse_observed=unavailable`. Treat this as evidence that app JNI holder
+lifecycle plus repeated one-shot decode is not sufficient.
+
+The next plan is design-only first, then a native-held Engine PoC as defined in
+`docs/npu_true_engine_persistent_reuse_design.md`.
+
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path
 instability and continue native-focused investigation before changing normal
 chat behavior.
+
+Do not add another Kotlin-only multi-turn holder probe before the true Engine
+holder PoC. The next executable units should be:
+
+1. true Engine holder create/close only
+2. held-Engine run once with per-run Session
+3. held-Engine two/five/ten probes
+4. Conversation Stability Test only after held-Engine Ten-Turn passes
 
 ## Copy Actions
 

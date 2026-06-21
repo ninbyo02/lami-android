@@ -10,9 +10,14 @@ This design now has DEV-only JNI/native create/close and run-once gate passes.
 The native probe verifies Kotlin -> JNI -> native holder lifecycle wiring and
 can create one app JNI holder record, accept holder run requests while that
 record is open, and close it explicitly. The decode used by the Run Once,
-Two-Turn, Five-Turn, and Ten-Turn probes is still the existing one-shot standard-route
-adapter path, so this is not evidence that a real standard-route adapter Engine
-is reused.
+Two-Turn, Five-Turn, and Ten-Turn probes is still the existing one-shot
+standard-route adapter path, so this is not evidence that a real standard-route
+adapter Engine is reused.
+
+The next design step is captured in
+`docs/npu_true_engine_persistent_reuse_design.md`. That document separates the
+current app JNI holder lifecycle from the future native-held ModelAssets /
+EngineSettings / Engine lifecycle required for true Engine persistent reuse.
 
 ## Goals
 
@@ -526,6 +531,14 @@ Do not advance directly from Ten-Turn to normal chat route persistentization.
 Next compare with the recreate Stability Test, then design a true Engine
 persistent reuse API before implementing a real persistent holder.
 
+Physical-device Ten-Turn evidence matched the Stability Test failure shape:
+both paths reached six successful NPU decodes and then failed around run 7
+without fallback, timeout, or fresh crash evidence. The Ten-Turn probe reported
+`true_engine_persistent_reuse=false` and
+`engine_reuse_observed=unavailable`, so holder lifecycle alone should not be
+treated as an improvement. The follow-up is a design and PoC plan for a
+native-held Engine, not another Kotlin-only holder wrapper.
+
 ## Safety Requirements
 
 Before connecting the holder to an executable Persistent Probe:
@@ -560,13 +573,15 @@ Do not change normal NPU chat route until DEV-only holder evidence shows:
 
 ## Next Implementation Units
 
-1. Run and review Ten-Turn physical-device results.
-2. Compare Ten-Turn evidence against the recreate Stability Test.
-3. Consider a Conversation Stability Test only after Ten-Turn evidence is clean.
-4. Design the true Engine persistent reuse API before implementing a real
-   persistent holder.
-5. Consider normal NPU chat route integration only after DEV evidence passes.
-6. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
+1. Use `docs/npu_true_engine_persistent_reuse_design.md` as the contract for
+   the next native/JNI work.
+2. Implement create/close only for a true native Engine holder.
+3. Add run-once with held Engine only after create/close is stable.
+4. Add two/five/ten held-Engine probes only after run-once passes.
+5. Consider a Conversation Stability Test only after held-Engine Ten-Turn
+   evidence is clean.
+6. Consider normal NPU chat route integration only after DEV evidence passes.
+7. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
    diagnostics.
-7. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
+8. Connect `NPU Persistent Engine Multi-turn Probe` to the holder only after
    native diagnostics prove the holder is real.
