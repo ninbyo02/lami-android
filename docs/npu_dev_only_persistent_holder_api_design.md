@@ -414,6 +414,9 @@ Temporary startup recovery status:
 - This blocked state is the correct `standardDebug` expectation. Native
   create/close-only execution must be isolated to the planned
   `trueEngineNpuProbeDebug` flavor before it is re-enabled.
+- Treat `standardDebug` blocked behavior as a regression-tested specification:
+  startup, DEV diagnostics display, initial summary/full-dump generation, and
+  the current Run button must not call native/JNI for this probe.
 - The flavor/sourceSet/native-packaging separation plan is in
   `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
 - Held Engine run once must wait until isolated create/close-only passes on

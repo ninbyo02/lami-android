@@ -50,6 +50,12 @@ library load-path review.
 `standardDebug` must keep the true Engine create/close probe blocked until an
 isolated flavor has passed create/close-only execution on device.
 
+This is a specification, not a temporary test weakness. Until
+`trueEngineNpuProbeDebug` exists and passes device create/close-only validation,
+`standardDebug` must continue to report the blocked state and must not enter the
+native true Engine probe from startup, DEV diagnostics rendering, copy actions,
+or the Run button.
+
 Expected `standardDebug` summary values:
 
 - `true_engine_create_close_probe_startup_safe=true`
@@ -295,4 +301,3 @@ Do not change these while adding the isolated create/close-only flavor:
 7. Copy Full Dump.
 8. Confirm create/close-only pass conditions and zero Session/decode/generate
    counts.
-
