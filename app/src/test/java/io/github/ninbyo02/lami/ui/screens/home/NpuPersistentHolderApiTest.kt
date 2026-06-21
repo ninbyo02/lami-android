@@ -92,6 +92,31 @@ class NpuPersistentHolderApiTest {
                 "no holder ten-turn probe result available",
             ),
         )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_UI_TITLE.contains(
+                "NPU True Engine Holder Create/Close Probe",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RUN_LABEL.contains(
+                "Run True Engine Holder Create/Close Probe",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL.contains(
+                "Copy True Engine Holder Summary",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL.contains(
+                "Copy True Engine Holder Full Dump",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NO_RESULT.contains(
+                "no true engine holder create/close probe result available",
+            ),
+        )
     }
 
     @Test

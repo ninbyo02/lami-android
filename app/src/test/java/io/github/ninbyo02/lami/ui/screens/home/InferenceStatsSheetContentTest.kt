@@ -605,6 +605,51 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes true engine holder create close dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuTrueEngineHolderCreateCloseState = NpuTrueEngineHolderCreateCloseProbeState(
+                status = "completed",
+                reason = "engine_create_once_zero_runs_success",
+                holderId = "true-engine-holder-create-close-dev",
+                nativeResult = NpuTrueEngineHolderNativeResult(
+                    nativeReturn = "persistent_custom_jni_status=completed",
+                    resultText = """
+                        persistent_custom_jni_status=completed
+                        model_assets_create_reached=true
+                        model_assets_create_returned=true
+                        engine_settings_create_reached=true
+                        engine_settings_create_returned=true
+                        engine_create_reached=true
+                        engine_create_returned=true
+                        engine_create_count=1
+                        engine_close_reached=true
+                        engine_close_success=true
+                        session_create_reached=false
+                        decode_reached=false
+                        decode_attempt_count=0
+                    """.trimIndent(),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU true engine holder create close full dump]"))
+        assertTrue(text.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(text.contains("model_assets_create_succeeded=true"))
+        assertTrue(text.contains("engine_settings_create_succeeded=true"))
+        assertTrue(text.contains("engine_create_succeeded=true"))
+        assertTrue(text.contains("engine_close_succeeded=true"))
+        assertTrue(text.contains("session_create_count=0"))
+        assertTrue(text.contains("decode_count=0"))
+        assertTrue(text.contains("generate_count=0"))
+        assertTrue(text.contains("true_engine_persistent_reuse=false"))
+        assertTrue(text.contains("engine_reuse_observed=unavailable"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText includes holder run once dump in developer copy`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(modelName = "local-dev"),

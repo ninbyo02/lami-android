@@ -391,6 +391,54 @@ Run Once hold conditions:
 Do not change these to success values until the native holder API exists and
 physical-device evidence proves reuse.
 
+## True Engine Holder Create/Close Probe
+
+The next DEV-only step is now exposed separately as
+`NPU True Engine Holder Create/Close Probe`.
+
+This probe is not the app JNI holder stub. It wraps the existing
+`litertlm_jni` persistent custom JNI path with `runCount=0` so the native side
+can execute only:
+
+1. `ModelAssets::Create`
+2. `EngineSettings::CreateDefault`
+3. `EngineFactory::CreateDefault`
+4. Engine close/release
+
+It must not create a Session, run prefill, run decode, generate text, call the
+normal NPU chat route, or infer true persistent reuse. The summary must keep
+`true_engine_persistent_reuse=false` and `engine_reuse_observed=unavailable`.
+
+DEV UI controls:
+
+- `Run True Engine Holder Create/Close Probe`
+- `Copy True Engine Holder Summary`
+- `Copy True Engine Holder Full Dump`
+
+Pass conditions:
+
+- `model_assets_create_succeeded=true`
+- `engine_settings_create_succeeded=true`
+- `engine_create_succeeded=true`
+- `engine_close_succeeded=true`
+- `session_create_count=0`
+- `decode_count=0`
+- `generate_count=0`
+- `engine_fatal_latch=false`
+
+Hold conditions:
+
+- create failure at any native stage
+- close failure
+- fatal latch
+- `session_create_count>0`
+- `decode_count>0`
+- `generate_count>0`
+
+This probe validates native Engine create/close safety only. The next step is a
+split held-Engine create/close API that keeps the Engine open across JNI
+returns, then held-Engine run once with a per-run Session.
+
 The next DEV-only UI entry is `NPU Persistent Holder Two-Turn Probe`.
 
 `Run Holder Two-Turn Probe` performs:

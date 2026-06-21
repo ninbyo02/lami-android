@@ -1046,6 +1046,10 @@ fun Home(
         mutableStateOf(NpuPersistentHolderCreateCloseProbeState())
     }
     var npuPersistentHolderCreateCloseJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuTrueEngineHolderCreateCloseState by remember(effectiveChatId) {
+        mutableStateOf(NpuTrueEngineHolderCreateCloseProbeState())
+    }
+    var npuTrueEngineHolderCreateCloseJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuPersistentHolderRunOnceState by remember(effectiveChatId) {
         mutableStateOf(NpuPersistentHolderRunOnceProbeState())
     }
@@ -1092,6 +1096,8 @@ fun Home(
             npuS1PersistentEngineJob = null
             npuPersistentHolderCreateCloseJob?.cancel()
             npuPersistentHolderCreateCloseJob = null
+            npuTrueEngineHolderCreateCloseJob?.cancel()
+            npuTrueEngineHolderCreateCloseJob = null
             npuPersistentHolderRunOnceJob?.cancel()
             npuPersistentHolderRunOnceJob = null
             npuPersistentHolderTwoTurnJob?.cancel()
@@ -1856,6 +1862,7 @@ fun Home(
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
+            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -1909,11 +1916,70 @@ fun Home(
         }
     }
 
+    fun startNpuTrueEngineHolderCreateCloseProbe() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
+            npuPersistentHolderFiveTurnJob?.isActive == true ||
+            npuPersistentHolderTenTurnJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuTrueEngineHolderCreateCloseJob?.isActive == true) return
+        npuTrueEngineHolderCreateCloseState = NpuTrueEngineHolderCreateCloseProbeState(
+            status = "running",
+            reason = "starting",
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
+        npuTrueEngineHolderCreateCloseJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuTrueEngineHolderCreateCloseProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState.copy(
+                    status = "stopped",
+                    reason = "debug_true_engine_holder_create_close_probe_unavailable",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                npuTrueEngineHolderCreateCloseJob = null
+                return@launch
+            }
+            try {
+                npuTrueEngineHolderCreateCloseState = runner.run()
+            } catch (exception: CancellationException) {
+                npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState.copy(
+                    status = "cancelled",
+                    reason = "cancelled",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                throw exception
+            } finally {
+                npuTrueEngineHolderCreateCloseJob = null
+            }
+        }
+    }
+
     fun startNpuPersistentHolderRunOnceProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
             npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -7648,6 +7714,7 @@ fun Home(
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -7687,6 +7754,54 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuTrueEngineHolderCreateCloseState =
+                                                npuTrueEngineHolderCreateCloseState,
+                                            npuTrueEngineHolderCreateCloseInProgress =
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineHolderCreateCloseStart =
+                                                ::startNpuTrueEngineHolderCreateCloseProbe,
+                                            onCopyTrueEngineHolderSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
+                                                            npuTrueEngineHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Holder Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineHolderFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
+                                                            npuTrueEngineHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Holder Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
                                             npuPersistentHolderRunOnceInProgress =
                                                 npuPersistentHolderRunOnceJob?.isActive == true,
@@ -7695,6 +7810,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuPersistentHolderFiveTurnJob?.isActive == true ||
                                                 npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -7741,6 +7857,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuPersistentHolderFiveTurnJob?.isActive == true ||
                                                 npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -7787,6 +7904,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -7833,6 +7951,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -8315,7 +8434,8 @@ fun Home(
                     npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
                     npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                     isInferenceRunningForRepeatedRun = isInferenceRunningUi ||
-                                                npuPersistentHolderRunOnceJob?.isActive == true,
+                        npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                     onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
                     onNpuS1RepeatedRunCountChange = { npuS1RepeatedRunCount = it },
@@ -8325,7 +8445,8 @@ fun Home(
                     npuLongGenerationState = npuLongGenerationState,
                     npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
                     isInferenceRunningForLongGeneration = isInferenceRunningUi ||
-                                                npuPersistentHolderRunOnceJob?.isActive == true,
+                        npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                     onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
                     npuS1PersistentEngineState = npuS1PersistentEngineState,
@@ -8333,6 +8454,7 @@ fun Home(
                     isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -8347,12 +8469,27 @@ fun Home(
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
                         npuPersistentHolderTenTurnJob?.isActive == true ||
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuPersistentHolderCreateCloseStart = ::startNpuPersistentHolderCreateCloseProbe,
+                    npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
+                    npuTrueEngineHolderCreateCloseInProgress =
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true,
+                    isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
+                        npuS1RepeatedRunJob?.isActive == true ||
+                        npuLongGenerationJob?.isActive == true ||
+                        npuS1PersistentEngineJob?.isActive == true ||
+                        npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuPersistentHolderTwoTurnJob?.isActive == true ||
+                        npuPersistentHolderFiveTurnJob?.isActive == true ||
+                        npuPersistentHolderTenTurnJob?.isActive == true ||
+                        npuS1PersistentCustomJniJob?.isActive == true,
+                    onNpuTrueEngineHolderCreateCloseStart = ::startNpuTrueEngineHolderCreateCloseProbe,
                     npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
                     npuPersistentHolderRunOnceInProgress =
                         npuPersistentHolderRunOnceJob?.isActive == true,
@@ -8361,6 +8498,7 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
                         npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -8374,6 +8512,7 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
                         npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -8387,6 +8526,7 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderTenTurnJob?.isActive == true ||
@@ -8400,6 +8540,7 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -8410,6 +8551,7 @@ fun Home(
                     npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
                     npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                     isInferenceRunningForPersistentCustomJni = isInferenceRunningUi ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -12268,6 +12410,75 @@ private fun NpuPersistentHolderCreateCloseDevSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun NpuTrueEngineHolderCreateCloseDevSection(
+    state: NpuTrueEngineHolderCreateCloseProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+) {
+    val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+    val warningText = if (summary.contains("engine_fatal_latch=true") ||
+        summary.contains("restart_app_recommended=true")
+    ) {
+        "engine_fatal_latch=true: アプリ再起動推奨"
+    } else {
+        null
+    }
+    InferenceStatsSection(title = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_UI_TITLE) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RUN_LABEL)
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (onCopySummary != null) {
+                TextButton(onClick = onCopySummary) {
+                    Text(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL)
+                }
+            }
+            if (onCopyFullDump != null) {
+                TextButton(onClick = onCopyFullDump) {
+                    Text(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL)
+                }
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "他の生成またはDEV診断完了後に実行してください"
+            } else {
+                "DEV専用診断です。ModelAssets / EngineSettings / Engine create と Engine close のみを確認します。Sessionは作成せず、decode/generateは実行しません。通常チャット経路には接続しません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (warningText != null) {
+            Text(
+                text = warningText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        InferenceStatRow(
+            label = "True Engine Holder Summary",
+            value = summary,
+            emphasizeValue = warningText != null,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun NpuPersistentHolderRunOnceDevSection(
     state: NpuPersistentHolderRunOnceProbeState,
     running: Boolean,
@@ -12689,6 +12900,11 @@ private fun InferenceStatsSheetContent(
     npuPersistentHolderCreateCloseInProgress: Boolean = false,
     isInferenceRunningForHolderCreateClose: Boolean = false,
     onNpuPersistentHolderCreateCloseStart: () -> Unit = {},
+    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState =
+        NpuTrueEngineHolderCreateCloseProbeState(),
+    npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineHolderCreateClose: Boolean = false,
+    onNpuTrueEngineHolderCreateCloseStart: () -> Unit = {},
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -12866,6 +13082,7 @@ private fun InferenceStatsSheetContent(
                                 npuS1RepeatedRunState = npuS1RepeatedRunState,
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
                                 npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
+                                npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
                                 npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
                                 npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
                                 npuPersistentHolderFiveTurnState = npuPersistentHolderFiveTurnState,
@@ -12987,6 +13204,28 @@ private fun InferenceStatsSheetContent(
                                 npuPersistentHolderCreateCloseState,
                             ),
                             NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
+                        )
+                    },
+                )
+                NpuTrueEngineHolderCreateCloseDevSection(
+                    state = npuTrueEngineHolderCreateCloseState,
+                    running = npuTrueEngineHolderCreateCloseInProgress,
+                    blockedByGeneration = isInferenceRunningForTrueEngineHolderCreateClose,
+                    onStart = onNpuTrueEngineHolderCreateCloseStart,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
+                                npuTrueEngineHolderCreateCloseState,
+                            ),
+                            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
+                                npuTrueEngineHolderCreateCloseState,
+                            ),
+                            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
                         )
                     },
                 )
@@ -13396,6 +13635,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuPersistentHolderCreateCloseStart: (() -> Unit)? = null,
     onCopyHolderCreateCloseSummary: (() -> Unit)? = null,
     onCopyHolderCreateCloseFullDump: (() -> Unit)? = null,
+    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState =
+        NpuTrueEngineHolderCreateCloseProbeState(),
+    npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineHolderCreateClose: Boolean = false,
+    onNpuTrueEngineHolderCreateCloseStart: (() -> Unit)? = null,
+    onCopyTrueEngineHolderSummary: (() -> Unit)? = null,
+    onCopyTrueEngineHolderFullDump: (() -> Unit)? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -13510,6 +13756,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onNpuPersistentHolderCreateCloseStart,
                     onCopySummary = onCopyHolderCreateCloseSummary,
                     onCopyFullDump = onCopyHolderCreateCloseFullDump,
+                )
+            }
+            if (
+                BuildConfig.DEBUG &&
+                onNpuTrueEngineHolderCreateCloseStart != null
+            ) {
+                NpuTrueEngineHolderCreateCloseDevSection(
+                    state = npuTrueEngineHolderCreateCloseState,
+                    running = npuTrueEngineHolderCreateCloseInProgress,
+                    blockedByGeneration = isInferenceRunningForTrueEngineHolderCreateClose,
+                    onStart = onNpuTrueEngineHolderCreateCloseStart,
+                    onCopySummary = onCopyTrueEngineHolderSummary,
+                    onCopyFullDump = onCopyTrueEngineHolderFullDump,
                 )
             }
             if (
@@ -13706,6 +13965,7 @@ internal fun buildInferenceStatsFullCopyText(
     npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
     npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
+    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState? = null,
     npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState? = null,
     npuPersistentHolderFiveTurnState: NpuPersistentHolderFiveTurnProbeState? = null,
@@ -13785,6 +14045,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderCreateCloseState != null) {
             appendLine()
             appendLine(formatNpuPersistentHolderCreateCloseFullDumpForCopy(npuPersistentHolderCreateCloseState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuTrueEngineHolderCreateCloseState != null) {
+            appendLine()
+            appendLine(formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(npuTrueEngineHolderCreateCloseState))
         }
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderRunOnceState != null) {
             appendLine()

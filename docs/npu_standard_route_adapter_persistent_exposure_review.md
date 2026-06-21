@@ -130,6 +130,17 @@ The repository now also has a DEV-only app JNI holder create/close probe:
 This proves that Kotlin can reach native holder lifecycle/run-gate symbols. It
 is not evidence of persistent Engine reuse.
 
+The next DEV-only entry, `NPU True Engine Holder Create/Close Probe`, uses the
+already-linked `liblitertlm_jni` persistent custom JNI path with `runCount=0`
+to exercise `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+`EngineFactory::CreateDefault`, and Engine close without Session creation or
+decode. This is still not normal chat routing and still not true persistent
+reuse across JNI calls; it is the create/close safety check needed before a
+split held-Engine API is implemented. Required safety fields are
+`session_create_count=0`, `decode_count=0`, `generate_count=0`,
+`true_engine_persistent_reuse=false`, and
+`engine_reuse_observed=unavailable`.
+
 ## Lifecycle Visibility
 
 Current standard-route lifecycle visibility is partial.

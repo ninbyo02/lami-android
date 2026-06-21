@@ -454,6 +454,81 @@ Difference from current holder方式:
 | Reuse proof | unavailable | native Engine generation stable |
 | `true_engine_persistent_reuse` | false | true only after native counters prove it |
 
+## Implemented First PoC: True Engine Holder Create/Close Probe
+
+The first executable unit is now exposed as
+`NPU True Engine Holder Create/Close Probe` in DEV diagnostics.
+
+Scope:
+
+- DEV-only.
+- Calls the existing `litertlm_jni` persistent custom JNI path with
+  `nativeProbeMode=full_20` and `runCount=0`.
+- Exercises `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+  `EngineFactory::CreateDefault`, and native Engine close/release in that
+  path.
+- Does not create a Session.
+- Does not run prefill, decode, or generate.
+- Does not connect to the normal NPU chat route.
+
+This is intentionally a create/close-only safety probe. It is not yet the
+split native API that keeps an Engine holder open across multiple JNI calls.
+The selected implementation avoids adding LiteRT-LM C++ symbol dependencies to
+`liblami_npu_persistent_holder_stub.so`; that debug app JNI stub remains an app
+holder/run-gate library. The actual Engine create/close check runs in the
+already-linked `liblitertlm_jni` persistent custom JNI implementation.
+
+UI controls:
+
+- `Run True Engine Holder Create/Close Probe`
+- `Copy True Engine Holder Summary`
+- `Copy True Engine Holder Full Dump`
+
+Required summary keys include:
+
+- `test_name=NPU True Engine Holder Create Close Probe`
+- `model_assets_create_called`
+- `model_assets_create_succeeded`
+- `engine_settings_create_called`
+- `engine_settings_create_succeeded`
+- `engine_factory_create_called`
+- `engine_create_succeeded`
+- `engine_close_succeeded`
+- `session_create_count=0`
+- `decode_count=0`
+- `generate_count=0`
+- `npu_decode_called=false`
+- `qnn_decode_called=false`
+- `true_engine_persistent_reuse=false`
+- `engine_reuse_observed=unavailable`
+
+Pass conditions:
+
+- `model_assets_create_succeeded=true`
+- `engine_settings_create_succeeded=true`
+- `engine_create_succeeded=true`
+- `engine_close_succeeded=true`
+- `session_create_count=0`
+- `decode_count=0`
+- `generate_count=0`
+- `engine_fatal_latch=false`
+
+Hold conditions:
+
+- ModelAssets create failure.
+- EngineSettings create failure.
+- EngineFactory create failure.
+- close failure.
+- fatal latch.
+- `session_create_count>0`
+- `decode_count>0`
+- `generate_count>0`
+
+If this passes on device, the next implementation unit is a real split
+held-Engine API for `createEngineHolder` and `closeEngineHolder` that keeps the
+Engine open across JNI returns, followed by held-Engine run once with a
+per-run Session. Do not implement or run decode in the create/close-only probe.
+
 ## Diagnostics proposal
 
 Review summary:

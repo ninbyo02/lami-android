@@ -359,6 +359,50 @@ holder PoC. The next executable units should be:
 3. held-Engine two/five/ten probes
 4. Conversation Stability Test only after held-Engine Ten-Turn passes
 
+### True Engine Holder Create/Close Probe
+
+`NPU True Engine Holder Create/Close Probe` is the first executable unit after
+the design review. It is DEV-only and create/close-only.
+
+The current implementation reaches native Engine create/close through the
+existing `litertlm_jni` persistent custom JNI path with `runCount=0`. This
+lets the device check:
+
+- `ModelAssets::Create`
+- `EngineSettings::CreateDefault`
+- `EngineFactory::CreateDefault`
+- Engine close/release
+
+It does not create a Session, does not run prefill/decode/generate, does not
+connect the normal NPU chat route, and does not prove true Engine persistent
+reuse across JNI calls. Summary/copy output must keep
+`true_engine_persistent_reuse=false` and
+`engine_reuse_observed=unavailable`.
+
+Pass conditions:
+
+- `model_assets_create_succeeded=true`
+- `engine_settings_create_succeeded=true`
+- `engine_create_succeeded=true`
+- `engine_close_succeeded=true`
+- `session_create_count=0`
+- `decode_count=0`
+- `generate_count=0`
+- `engine_fatal_latch=false`
+
+Hold conditions:
+
+- ModelAssets/EngineSettings/Engine create failure.
+- Engine close failure.
+- fatal latch.
+- `session_create_count>0`
+- `decode_count>0`
+- `generate_count>0`
+
+If this passes on device, proceed only to held-Engine run once with a per-run
+Session. Do not connect normal chat routing or mark persistent reuse true from
+this create/close result.
+
 ## Copy Actions
 
 The DEV screen includes:

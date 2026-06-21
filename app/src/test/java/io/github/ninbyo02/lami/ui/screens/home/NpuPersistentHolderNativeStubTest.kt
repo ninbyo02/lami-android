@@ -7,6 +7,117 @@ import org.junit.Test
 
 class NpuPersistentHolderNativeStubTest {
     @Test
+    fun `true engine holder copy text reports no result before run`() {
+        val state = NpuTrueEngineHolderCreateCloseProbeState()
+
+        val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+        val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
+
+        assertTrue(summary.contains("no true engine holder create/close probe result available"))
+        assertTrue(summary.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(fullDump.contains("no true engine holder create/close probe result available"))
+        assertTrue(fullDump.contains("probe_status=idle"))
+        assertTrue(fullDump.contains("probe_reason=not_run"))
+    }
+
+    @Test
+    fun `true engine holder summary reports create close only without session decode or generate`() {
+        val state = NpuTrueEngineHolderCreateCloseProbeState(
+            status = "completed",
+            reason = "engine_create_once_zero_runs_success",
+            holderId = "true-engine-holder-create-close-dev",
+            nativeResult = NpuTrueEngineHolderNativeResult(
+                nativeReturn = "persistent_custom_jni_status=completed",
+                resultText = """
+                    persistent_custom_jni_status=completed
+                    model_assets_create_reached=true
+                    model_assets_create_returned=true
+                    engine_settings_create_reached=true
+                    engine_settings_create_returned=true
+                    engine_create_reached=true
+                    engine_create_returned=true
+                    engine_create_count=1
+                    engine_close_reached=true
+                    engine_close_success=true
+                    session_create_reached=false
+                    decode_reached=false
+                    decode_attempt_count=0
+                    persistent_custom_jni_hypothesis_result=engine_create_once_zero_runs_success
+                """.trimIndent(),
+            ),
+        )
+
+        val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+        val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
+
+        assertTrue(summary.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(summary.contains("holder_create_called=true"))
+        assertTrue(summary.contains("holder_create_succeeded=true"))
+        assertTrue(summary.contains("model_assets_create_called=true"))
+        assertTrue(summary.contains("model_assets_create_succeeded=true"))
+        assertTrue(summary.contains("engine_settings_create_called=true"))
+        assertTrue(summary.contains("engine_settings_create_succeeded=true"))
+        assertTrue(summary.contains("engine_factory_create_called=true"))
+        assertTrue(summary.contains("engine_create_called=true"))
+        assertTrue(summary.contains("engine_create_succeeded=true"))
+        assertTrue(summary.contains("engine_holder_open=false"))
+        assertTrue(summary.contains("engine_holder_id=true-engine-holder-create-close-dev"))
+        assertTrue(summary.contains("engine_create_count=1"))
+        assertTrue(summary.contains("engine_close_count=1"))
+        assertTrue(summary.contains("engine_close_succeeded=true"))
+        assertTrue(summary.contains("engine_double_close_safe=true"))
+        assertTrue(summary.contains("engine_fatal_latch=false"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(summary.contains("npu_decode_called=false"))
+        assertTrue(summary.contains("qnn_decode_called=false"))
+        assertTrue(summary.contains("true_engine_persistent_reuse_possible=true"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertTrue(summary.contains("engine_reuse_observed=unavailable"))
+        assertTrue(summary.contains("restart_app_recommended=false"))
+        assertTrue(fullDump.contains("native_result_begin"))
+        assertTrue(fullDump.contains("persistent_custom_jni_hypothesis_result=engine_create_once_zero_runs_success"))
+        assertFalse(summary.contains("true_engine_persistent_reuse=true"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
+    }
+
+    @Test
+    fun `true engine holder failure recommends restart and does not infer reuse`() {
+        val state = NpuTrueEngineHolderCreateCloseProbeState(
+            status = "failed",
+            reason = "engine_create_failed",
+            nativeResult = NpuTrueEngineHolderNativeResult(
+                throwableClass = "java.lang.IllegalStateException",
+                throwableMessage = "engine_create_failed",
+                resultText = """
+                    persistent_custom_jni_status=stopped
+                    model_assets_create_reached=true
+                    model_assets_create_returned=false
+                    engine_settings_create_reached=false
+                    engine_create_reached=false
+                    engine_close_reached=false
+                    session_create_reached=false
+                    decode_reached=false
+                    decode_attempt_count=0
+                """.trimIndent(),
+            ),
+        )
+
+        val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+
+        assertTrue(summary.contains("engine_fatal_latch=true"))
+        assertTrue(summary.contains("engine_fatal_reason=engine_create_failed"))
+        assertTrue(summary.contains("restart_app_recommended=true"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(summary.contains("true_engine_persistent_reuse_possible=false"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertFalse(summary.contains("true_engine_persistent_reuse=true"))
+    }
+
+    @Test
     fun `ten turn copy text reports no result before run`() {
         val state = NpuPersistentHolderTenTurnProbeState()
 

@@ -78,6 +78,49 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         }
 
         @JvmStatic
+        fun runTrueEngineHolderCreateCloseProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            maxOutputTokens: Int,
+            holderKey: String,
+        ): NpuTrueEngineHolderNativeResult {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "true engine holder create/close probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(holderKey.isNotBlank()) { "holderKey is required" }
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val nativeResult = runCatching {
+                nativeRunPersistentProbe(
+                    modelPath = modelPath,
+                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                    cacheDir = appContext.cacheDir.absolutePath,
+                    resultPath = resultFile.absolutePath,
+                    diagPath = diagFile.absolutePath,
+                    prompt = "こんにちは",
+                    promptInputLimitMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+                    maxOutputTokens = maxOutputTokens,
+                    runCount = 0,
+                    holderKey = holderKey,
+                    nativeProbeMode = "full_20",
+                )
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return NpuTrueEngineHolderNativeResult(
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
+        @JvmStatic
         fun run(
             context: Context,
             modelPath: String,
