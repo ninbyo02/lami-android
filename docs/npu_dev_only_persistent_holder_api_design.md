@@ -397,8 +397,9 @@ The next DEV-only step is now exposed separately as
 `NPU True Engine Holder Create/Close Probe`.
 
 This probe is not the app JNI holder stub. It wraps the existing
-`litertlm_jni` persistent custom JNI path with `runCount=0` so the native side
-can execute only:
+`litertlm_jni` persistent custom JNI path with
+`nativeProbeMode=true_engine_create_close_only` and `runCount=0` so the native
+side can execute only:
 
 1. `ModelAssets::Create`
 2. `EngineSettings::CreateDefault`
@@ -409,6 +410,12 @@ It must not create a Session, run prefill, run decode, generate text, call the
 normal NPU chat route, or infer true persistent reuse. The summary must keep
 `true_engine_persistent_reuse=false` and `engine_reuse_observed=unavailable`.
 
+The first device attempt used `full_20` with `runCount=0` and failed at
+argument validation (`invalid_run_count`) before `ModelAssets::Create`.
+`true_engine_create_close_only` exists specifically to avoid that by allowing
+`runCount=0` only for create/close-only execution. Decode modes still require
+the existing 1..100 run-count validation.
+
 DEV UI controls:
 
 - `Run True Engine Holder Create/Close Probe`
@@ -417,6 +424,9 @@ DEV UI controls:
 
 Pass conditions:
 
+- `selected_native_probe_mode=true_engine_create_close_only`
+- `argument_validation_passed=true`
+- `run_count_validation_skipped_for_create_close_only=true`
 - `model_assets_create_succeeded=true`
 - `engine_settings_create_succeeded=true`
 - `engine_create_succeeded=true`
@@ -428,6 +438,7 @@ Pass conditions:
 
 Hold conditions:
 
+- argument failure
 - create failure at any native stage
 - close failure
 - fatal latch

@@ -463,7 +463,7 @@ Scope:
 
 - DEV-only.
 - Calls the existing `litertlm_jni` persistent custom JNI path with
-  `nativeProbeMode=full_20` and `runCount=0`.
+  `nativeProbeMode=true_engine_create_close_only` and `runCount=0`.
 - Exercises `ModelAssets::Create`, `EngineSettings::CreateDefault`,
   `EngineFactory::CreateDefault`, and native Engine close/release in that
   path.
@@ -478,6 +478,15 @@ The selected implementation avoids adding LiteRT-LM C++ symbol dependencies to
 holder/run-gate library. The actual Engine create/close check runs in the
 already-linked `liblitertlm_jni` persistent custom JNI implementation.
 
+The first physical-device attempt used `nativeProbeMode=full_20` with
+`runCount=0` and failed before Engine create at the native argument gate:
+`first_failure_stage=argument`, `first_failure_reason=invalid_run_count`,
+`first_failure_diag_tail=run_count must be 1..100`. That was not an NPU or
+Engine create failure. The fix is to split create/close-only behavior into the
+dedicated `true_engine_create_close_only` mode. In that mode `runCount=0` is
+valid, `run_count_validation_skipped_for_create_close_only=true` is reported,
+and the 1..100 run-count validation remains limited to decode/run modes.
+
 UI controls:
 
 - `Run True Engine Holder Create/Close Probe`
@@ -487,6 +496,9 @@ UI controls:
 Required summary keys include:
 
 - `test_name=NPU True Engine Holder Create Close Probe`
+- `selected_native_probe_mode=true_engine_create_close_only`
+- `argument_validation_passed=true`
+- `run_count_validation_skipped_for_create_close_only=true`
 - `model_assets_create_called`
 - `model_assets_create_succeeded`
 - `engine_settings_create_called`
@@ -504,6 +516,7 @@ Required summary keys include:
 
 Pass conditions:
 
+- `argument_validation_passed=true`
 - `model_assets_create_succeeded=true`
 - `engine_settings_create_succeeded=true`
 - `engine_create_succeeded=true`
@@ -515,6 +528,7 @@ Pass conditions:
 
 Hold conditions:
 
+- argument failure.
 - ModelAssets create failure.
 - EngineSettings create failure.
 - EngineFactory create failure.

@@ -107,7 +107,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     maxOutputTokens = maxOutputTokens,
                     runCount = 0,
                     holderKey = holderKey,
-                    nativeProbeMode = "full_20",
+                    nativeProbeMode = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE,
                 )
             }
             val throwable = nativeResult.exceptionOrNull()

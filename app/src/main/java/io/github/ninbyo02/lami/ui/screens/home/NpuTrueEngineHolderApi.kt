@@ -16,6 +16,8 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL =
     "Copy True Engine Holder Summary"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL =
     "Copy True Engine Holder Full Dump"
+internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE =
+    "true_engine_create_close_only"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RECOMMENDED_NEXT_STEP =
     "review_true_engine_create_close_device_result_then_implement_held_engine_run_once"
 
@@ -64,16 +66,22 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
             "test_name=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_TEST_NAME"
     }
     val values = state.values
+    val selectedNativeProbeMode = values["selected_native_probe_mode"] ?: "unavailable"
+    val argumentValidationPassed = values.boolText("argument_validation_passed")
+    val runCountValidationSkipped = values.boolText("run_count_validation_skipped_for_create_close_only")
     val modelAssetsCalled = values.boolText("model_assets_create_reached")
-    val modelAssetsSucceeded = values.boolText("model_assets_create_returned")
+    val modelAssetsReturned = values.boolText("model_assets_create_returned")
+    val modelAssetsSucceeded = values.boolText("model_assets_create_succeeded", modelAssetsReturned)
     val settingsCalled = values.boolText("engine_settings_create_reached")
-    val settingsSucceeded = values.boolText("engine_settings_create_returned")
+    val settingsReturned = values.boolText("engine_settings_create_returned")
+    val settingsSucceeded = values.boolText("engine_settings_create_succeeded", settingsReturned)
     val engineCreateCalled = values.boolText("engine_create_reached")
-    val engineCreateSucceeded = values.boolText("engine_create_returned")
+    val engineCreateReturned = values.boolText("engine_create_returned")
+    val engineCreateSucceeded = values.boolText("engine_create_succeeded", engineCreateReturned)
     val closeSucceeded = values.boolText("engine_close_success")
-    val sessionCreateCount = values.countFromReachedFlag("session_create_reached")
-    val decodeCount = values["decode_attempt_count"] ?: values.countFromReachedFlag("decode_reached")
-    val generateCount = "0"
+    val sessionCreateCount = values["session_create_count"] ?: values.countFromReachedFlag("session_create_reached")
+    val decodeCount = values["decode_count"] ?: values["decode_attempt_count"] ?: values.countFromReachedFlag("decode_reached")
+    val generateCount = values["generate_count"] ?: "0"
     val throwableClass = state.nativeResult?.throwableClass ?: "unavailable"
     val fatalLatch = throwableClass != "unavailable" ||
         state.status == "failed" ||
@@ -91,15 +99,21 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("test_name=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_TEST_NAME")
         appendLine("probe_status=${state.status}")
         appendLine("probe_reason=${state.reason}")
+        appendLine("selected_native_probe_mode=$selectedNativeProbeMode")
+        appendLine("argument_validation_passed=$argumentValidationPassed")
+        appendLine("run_count_validation_skipped_for_create_close_only=$runCountValidationSkipped")
         appendLine("holder_create_requested=${state.nativeResult != null}")
         appendLine("holder_create_called=$engineCreateCalled")
         appendLine("holder_create_succeeded=$engineCreateSucceeded")
         appendLine("model_assets_create_called=$modelAssetsCalled")
+        appendLine("model_assets_create_returned=$modelAssetsReturned")
         appendLine("model_assets_create_succeeded=$modelAssetsSucceeded")
         appendLine("engine_settings_create_called=$settingsCalled")
+        appendLine("engine_settings_create_returned=$settingsReturned")
         appendLine("engine_settings_create_succeeded=$settingsSucceeded")
         appendLine("engine_factory_create_called=$engineCreateCalled")
         appendLine("engine_create_called=$engineCreateCalled")
+        appendLine("engine_create_returned=$engineCreateReturned")
         appendLine("engine_create_succeeded=$engineCreateSucceeded")
         appendLine("engine_holder_open=false")
         appendLine("engine_holder_id=${state.holderId}")
@@ -109,7 +123,10 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("engine_double_close_safe=true")
         appendLine("engine_fatal_latch=$fatalLatch")
         appendLine("engine_fatal_reason=${if (fatalLatch) state.reason else "unavailable"}")
+        appendLine("session_create_reached=${values.boolText("session_create_reached")}")
         appendLine("session_create_count=$sessionCreateCount")
+        appendLine("prefill_reached=${values.boolText("prefill_reached")}")
+        appendLine("decode_reached=${values.boolText("decode_reached")}")
         appendLine("decode_count=$decodeCount")
         appendLine("generate_count=$generateCount")
         appendLine("npu_decode_called=false")
@@ -166,6 +183,9 @@ private fun parseNpuTrueEngineHolderKeyValueText(text: String): Map<String, Stri
 
 private fun Map<String, String>.boolText(key: String): String =
     this[key]?.takeIf { it == "true" || it == "false" } ?: "unavailable"
+
+private fun Map<String, String>.boolText(key: String, fallback: String): String =
+    this[key]?.takeIf { it == "true" || it == "false" } ?: fallback
 
 private fun Map<String, String>.countFromReachedFlag(key: String): String =
     when (this[key]) {

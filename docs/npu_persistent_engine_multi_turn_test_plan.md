@@ -365,8 +365,9 @@ holder PoC. The next executable units should be:
 the design review. It is DEV-only and create/close-only.
 
 The current implementation reaches native Engine create/close through the
-existing `litertlm_jni` persistent custom JNI path with `runCount=0`. This
-lets the device check:
+existing `litertlm_jni` persistent custom JNI path with
+`nativeProbeMode=true_engine_create_close_only` and `runCount=0`. This lets the
+device check:
 
 - `ModelAssets::Create`
 - `EngineSettings::CreateDefault`
@@ -379,8 +380,16 @@ reuse across JNI calls. Summary/copy output must keep
 `true_engine_persistent_reuse=false` and
 `engine_reuse_observed=unavailable`.
 
+The initial device result failed at the native argument gate because
+`full_20 + runCount=0` violated the decode-mode `run_count must be 1..100`
+check. The fixed create/close-only mode allows `runCount=0` only for this
+non-run probe and reports
+`run_count_validation_skipped_for_create_close_only=true`.
+
 Pass conditions:
 
+- `argument_validation_passed=true`
+- `run_count_validation_skipped_for_create_close_only=true`
 - `model_assets_create_succeeded=true`
 - `engine_settings_create_succeeded=true`
 - `engine_create_succeeded=true`
@@ -392,6 +401,7 @@ Pass conditions:
 
 Hold conditions:
 
+- argument failure.
 - ModelAssets/EngineSettings/Engine create failure.
 - Engine close failure.
 - fatal latch.

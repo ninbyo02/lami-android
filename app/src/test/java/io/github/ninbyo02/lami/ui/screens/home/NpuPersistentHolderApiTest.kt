@@ -117,6 +117,11 @@ class NpuPersistentHolderApiTest {
                 "no true engine holder create/close probe result available",
             ),
         )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE.contains(
+                "true_engine_create_close_only",
+            ),
+        )
     }
 
     @Test

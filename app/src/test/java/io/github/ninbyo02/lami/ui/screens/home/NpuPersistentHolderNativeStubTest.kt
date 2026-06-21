@@ -29,6 +29,9 @@ class NpuPersistentHolderNativeStubTest {
             nativeResult = NpuTrueEngineHolderNativeResult(
                 nativeReturn = "persistent_custom_jni_status=completed",
                 resultText = """
+                    selected_native_probe_mode=true_engine_create_close_only
+                    argument_validation_passed=true
+                    run_count_validation_skipped_for_create_close_only=true
                     persistent_custom_jni_status=completed
                     model_assets_create_reached=true
                     model_assets_create_returned=true
@@ -51,6 +54,9 @@ class NpuPersistentHolderNativeStubTest {
         val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
 
         assertTrue(summary.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(summary.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(summary.contains("argument_validation_passed=true"))
+        assertTrue(summary.contains("run_count_validation_skipped_for_create_close_only=true"))
         assertTrue(summary.contains("holder_create_called=true"))
         assertTrue(summary.contains("holder_create_succeeded=true"))
         assertTrue(summary.contains("model_assets_create_called=true"))
@@ -91,6 +97,9 @@ class NpuPersistentHolderNativeStubTest {
                 throwableClass = "java.lang.IllegalStateException",
                 throwableMessage = "engine_create_failed",
                 resultText = """
+                    selected_native_probe_mode=true_engine_create_close_only
+                    argument_validation_passed=true
+                    run_count_validation_skipped_for_create_close_only=true
                     persistent_custom_jni_status=stopped
                     model_assets_create_reached=true
                     model_assets_create_returned=false
