@@ -6,11 +6,12 @@ This document defines the DEV-only contract needed to test persistent
 multi-turn NPU generation through the same standard-route/native decode path
 that already succeeds with `QNN_HTP_V79_FastRPC_native_diag`.
 
-This design now has a DEV-only JNI/native create/close pass. The native probe
-verifies Kotlin -> JNI -> native holder lifecycle wiring and can create one app
-JNI holder record and close it explicitly. It still does not create a LiteRT-LM
-Engine, create ModelAssets, call QNN/LiteRT/NPU decode, generate text, or keep
-a real standard-route adapter Engine alive.
+This design now has DEV-only JNI/native create/close and run-once gate passes.
+The native probe verifies Kotlin -> JNI -> native holder lifecycle wiring and
+can create one app JNI holder record, accept holder run requests while that
+record is open, and close it explicitly. The decode used by the Run Once and
+Two-Turn probes is still the existing one-shot standard-route adapter path, so
+this is not evidence that a real standard-route adapter Engine is reused.
 
 ## Goals
 
@@ -65,8 +66,8 @@ Current implementation:
 - `holder_api_reason=needs_native_jni_support` for the not-exposed default
 - `persistent_multi_turn_possible=false`
 - `engine_reuse_observed=unavailable`
-- `recommended_next_step=review_create_close_device_result_then_implement_run_once_without_multi_turn`
-  for the native create/close path
+- `recommended_next_step=review_two_turn_device_result_then_implement_five_turn_probe`
+  for the current Two-Turn path
 
 The interface shape is:
 
@@ -80,8 +81,9 @@ interface NpuPersistentHolderApi {
 ```
 
 The default stub deliberately returns `not_exposed`. The debug native
-create/close probe returns lifecycle diagnostics. `runOnce` still returns
-`not_implemented`, and this is not a working persistent adapter.
+create/close probe returns lifecycle diagnostics. The debug `runOnce` path now
+acts as an open-holder gate for the DEV probes, but it does not decode inside
+the holder stub and is not a working persistent adapter.
 
 ## Proposed Native/JNI API
 
@@ -96,14 +98,17 @@ The current debug pass declares these functions:
 - `nativeGetStandardRouteAdapterHolderDiagnostics(...)`
 
 `nativeCreateStandardRouteAdapterHolder(...)` and
-`nativeCloseStandardRouteAdapterHolder(...)` now manage one app JNI holder
-record and diagnostics counters. `nativeRunStandardRouteAdapterHolderOnce(...)`
-remains `not_implemented`. This probe is intentionally implemented in a
-separate app debug JNI library. It does not modify the existing
-`nativeRunEditablePrompt` behavior in `litertlm_jni`.
+`nativeCloseStandardRouteAdapterHolder(...)` manage one app JNI holder record
+and diagnostics counters. `nativeRunStandardRouteAdapterHolderOnce(...)` now
+acts as a DEV-only open-holder run gate and records run request/call counters.
+It does not decode by itself. The Run Once and Two-Turn probes call the existing
+one-shot `nativeRunEditablePrompt` route after the holder gate accepts the run.
+This probe is intentionally implemented in a separate app debug JNI library. It
+does not modify the existing `nativeRunEditablePrompt` behavior in
+`litertlm_jni`.
 
 Because this separate app JNI library does not safely link to the LiteRT-LM C++
-symbols inside `litertlm_jni`, the current create reaches only
+symbols inside `litertlm_jni`, create reaches only
 `holder_native_create_level=app_jni_holder_lifecycle_only_pre_engine_create`.
 Diagnostics therefore report:
 
@@ -341,6 +346,18 @@ single-flight/open-holder gate; the decode is still the existing one-shot
 standard route adapter path. `engine_reuse_observed` must remain `unavailable`
 and `persistent_multi_turn_possible=false`.
 
+Run Once physical-device coverage passed with:
+
+- `run_once_succeeded=true`
+- `run_decode_reached=true`
+- `backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `holder_create_succeeded=true`
+- `holder_close_succeeded=true`
+- `holder_fatal_latch=false`
+
 Run Once pass conditions:
 
 - `holder_create_succeeded=true`
@@ -367,6 +384,48 @@ Run Once hold conditions:
 
 Do not change these to success values until the native holder API exists and
 physical-device evidence proves reuse.
+
+The next DEV-only UI entry is `NPU Persistent Holder Two-Turn Probe`.
+
+`Run Holder Two-Turn Probe` performs:
+
+1. create holder once
+2. run turn 1 with `こんにちは`
+3. run turn 2 with `あなたは誰ですか`
+4. close holder once
+5. copy summary/full dump diagnostics
+
+The run count is fixed at two. If turn 1 fails, turn 2 is not attempted. If
+turn 2 fails, close is still attempted. The probe does not run 10 turns, does
+not connect normal NPU chat routing, and is not a persistent-reuse proof.
+`engine_reuse_observed=unavailable` and
+`persistent_multi_turn_possible=false` remain mandatory.
+
+Two-Turn pass conditions:
+
+- `holder_create_succeeded=true`
+- `turn1_run_decode_reached=true`
+- `turn2_run_decode_reached=true`
+- backend evidence summary contains QNN HTP / FastRPC evidence
+- `fallback_used_count=0`
+- `timeout_count=0`
+- `fresh_crash_count=0`
+- `holder_close_succeeded=true`
+- `holder_fatal_latch=false`
+
+Two-Turn hold conditions:
+
+- turn 1 failed
+- turn 2 failed
+- any fallback
+- any timeout
+- any fresh crash
+- holder close failed
+- `holder_fatal_latch=true`
+
+Do not advance to 10-turn persistent testing from a single Two-Turn pass. The
+next smallest step is a fixed Five-Turn Probe with the same holder lifecycle
+and the same no-normal-chat-route rule.
 
 ## Safety Requirements
 
@@ -402,10 +461,10 @@ Do not change normal NPU chat route until DEV-only holder evidence shows:
 
 ## Next Implementation Units
 
-1. Review create/close only physical-device results.
-2. Implement run once without multi-turn.
-3. Implement run once with a holder only after create/close is safe.
-4. Add a 10-turn persistent probe.
+1. Review Two-Turn physical-device results.
+2. Implement a fixed Five-Turn Probe only if Two-Turn is clean.
+3. Implement a fixed Ten-Turn Persistent Probe only if Five-Turn is clean.
+4. Consider a Conversation Stability Test after Ten-Turn evidence.
 5. Consider normal NPU chat route integration only after DEV evidence passes.
 6. Map holder run results into `NpuStandardRouteS1RawResult`-compatible
    diagnostics.

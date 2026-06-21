@@ -221,9 +221,11 @@ multi-turn execution therefore needs a DEV-only native/JNI holder API before it
 can be connected to this probe.
 
 The proposed holder API contract is documented in
-`docs/npu_dev_only_persistent_holder_api_design.md`. The current Kotlin wrapper
-stub intentionally reports `holder_api_available=false` and
-`persistent_multi_turn_possible=false` until native/JNI support exists.
+`docs/npu_dev_only_persistent_holder_api_design.md`. The default production
+wrapper still reports `holder_api_available=false`, but debug builds now expose
+DEV-only holder lifecycle/run-gate probes. These probes must continue to report
+`persistent_multi_turn_possible=false` until a real persistent holder proves
+reuse safely.
 
 As of the DEV-only native create/close pass, Kotlin can call four holder-shaped
 JNI functions and receive a native key-value diagnostic summary:
@@ -260,13 +262,24 @@ Use the UI result for physical-device triage. Pass requires
 and `holder_fatal_latch=false`. Hold if the fatal latch is set, create/close
 fails, or any decode/generate flag becomes true.
 
+Run Once physical-device coverage passed for
+`NPU Persistent Holder Run Once Probe`: create succeeded, run once succeeded,
+decode was reached, backend evidence reported QNN HTP / FastRPC, no fallback,
+timeout, or fresh crash was observed, close succeeded, and the fatal latch
+stayed false.
+
 The next DEV-only implementation unit is now
-`NPU Persistent Holder Run Once Probe`. It performs exactly one create -> run
-once -> close flow with prompt `こんにちは` and `max_output_tokens=32`. This is
-still not a persistent multi-turn test: the native holder gate records that a
-holder was open, while the decode remains the existing one-shot standard route
-adapter path. Ten-turn persistent probing and normal chat route connection
-remain blocked.
+`NPU Persistent Holder Two-Turn Probe`. It performs exactly one create, two
+holder-gated decode attempts, and one close:
+
+1. turn 1 prompt: `こんにちは`
+2. turn 2 prompt: `あなたは誰ですか`
+
+This is still not the 10-turn persistent probe. The native holder gate records
+that the same app JNI holder record was open for both calls, while each decode
+still uses the existing one-shot standard route adapter path. Normal chat route
+connection remains blocked, and `engine_reuse_observed=unavailable` must not be
+changed.
 
 Run Once pass requires `holder_create_succeeded=true`,
 `run_once_called=true`, `run_once_succeeded=true`,
@@ -275,6 +288,17 @@ Run Once pass requires `holder_create_succeeded=true`,
 `holder_fatal_latch=false`, and QNN HTP / FastRPC backend evidence. Hold if
 create fails, run once is unsupported or fails, fallback is used, timeout or
 fresh crash is observed, close fails, or the fatal latch is set.
+
+Two-Turn pass requires `holder_create_succeeded=true`,
+`turn1_run_decode_reached=true`, `turn2_run_decode_reached=true`,
+backend evidence containing QNN HTP / FastRPC, `fallback_used_count=0`,
+`timeout_count=0`, `fresh_crash_count=0`, `holder_close_succeeded=true`, and
+`holder_fatal_latch=false`.
+
+Two-Turn hold conditions are turn 1 failure, turn 2 failure, any fallback, any
+timeout, any fresh crash, holder close failure, or `holder_fatal_latch=true`.
+Do not advance directly to 10 turns from this result; the next step is a fixed
+Five-Turn Probe.
 
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path

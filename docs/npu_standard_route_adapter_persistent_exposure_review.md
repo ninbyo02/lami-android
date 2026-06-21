@@ -117,17 +117,18 @@ The repository now also has a DEV-only app JNI holder create/close probe:
   adapter holder contract.
 - The create/close probe can create one app JNI holder record, report a
   `holderId`, and close it explicitly.
-- `run once` still reports `status=not_implemented`.
+- `run once` now reports a DEV-only open-holder gate result; decode remains the
+  existing one-shot standard-route adapter path.
 - It does not call `EngineFactory::CreateDefault`, `ModelAssets::Create`,
   `EngineSettings::CreateDefault`, QNN/LiteRT/NPU decode, generate, or the
-  normal NPU chat route.
+  normal NPU chat route inside the holder stub.
 - Current create depth is
   `holder_native_create_level=app_jni_holder_lifecycle_only_pre_engine_create`
   because this separate app JNI library does not safely link to the LiteRT-LM
   C++ symbols inside `litertlm_jni`.
 
-This proves that Kotlin can reach native create/close holder lifecycle symbols.
-It is not evidence of persistent Engine reuse.
+This proves that Kotlin can reach native holder lifecycle/run-gate symbols. It
+is not evidence of persistent Engine reuse.
 
 ## Lifecycle Visibility
 
@@ -246,8 +247,9 @@ Recommended shape for a DEV-only persistent standard-route adapter:
    - `nativeGetStandardRouteAdapterHolderDiagnostics(holderId)`
 
    Current status: the four JNI declarations exist. Create/close manage one
-   app JNI holder lifecycle record and safety diagnostics. Run-once remains
-   `not_implemented`, and no decode/generate path is implemented.
+   app JNI holder lifecycle record and safety diagnostics. Run-once is a
+   DEV-only open-holder gate that records run counters; the decode still uses
+   the existing one-shot standard-route adapter path.
 
 2. Keep the same standard-route prompt/quality contract:
    - Use `NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT`.
@@ -284,21 +286,35 @@ chat routing remain forbidden. Pass requires create and close to be called,
 decode/generate flags to remain false, and `holder_fatal_latch=false`; any
 fatal latch, create/close failure, or decode/generate flag is a hold condition.
 
-After the physical-device Create/Close pass, the next DEV-only exposure step is
-`NPU Persistent Holder Run Once Probe`. It runs one create -> run once -> close
-sequence with prompt `こんにちは` and `max_output_tokens=32`. This does not
-claim persistent reuse: the holder native call verifies the open-holder/run-once
-gate, while decode still uses the existing one-shot standard-route adapter
-success path. Normal NPU chat routing, 10-turn probing, Long Generation, and R6
-streaming remain out of scope.
+After the physical-device Create/Close pass, `NPU Persistent Holder Run Once
+Probe` passed on device. It ran one create -> run once -> close sequence with
+prompt `こんにちは` and `max_output_tokens=32`, reached decode through the
+existing one-shot standard-route adapter path, observed QNN HTP / FastRPC
+backend evidence, and did not observe fallback, timeout, fresh crash, close
+failure, or fatal latch.
 
 Run Once pass requires create success, `run_once_called=true`,
 `run_once_succeeded=true`, `run_decode_reached=true`, no fallback, no timeout,
 no fresh crash, close success, no fatal latch, and QNN HTP / FastRPC evidence.
 Hold on create failure, unsupported/failed run once, fallback, timeout, fresh
-crash, close failure, fatal latch, or missing backend evidence. Multi-turn is
-still blocked because `engine_reuse_observed=unavailable` and the test only
-proves one holder-gated one-shot decode.
+crash, close failure, fatal latch, or missing backend evidence.
+
+The next DEV-only exposure step is `NPU Persistent Holder Two-Turn Probe`. It
+creates one holder record, runs turn 1 with `こんにちは`, runs turn 2 with
+`あなたは誰ですか`, and closes once. It is fixed at two turns, stops before
+turn 2 if turn 1 fails, always attempts close when a holder id is available,
+and does not connect to normal NPU chat routing.
+
+Two-Turn pass requires create success, `turn1_run_decode_reached=true`,
+`turn2_run_decode_reached=true`, QNN HTP / FastRPC backend evidence,
+`fallback_used_count=0`, `timeout_count=0`, `fresh_crash_count=0`, close
+success, and no fatal latch. Hold on either turn failure, fallback, timeout,
+fresh crash, close failure, fatal latch, or missing backend evidence.
+
+Multi-turn remains blocked because `engine_reuse_observed=unavailable` and
+these probes only prove holder-gated one-shot decodes. A clean Two-Turn result
+should lead to a fixed Five-Turn Probe, not directly to a 10-turn persistent
+probe or normal chat route persistentization.
 
 ## Required Safety Conditions
 
@@ -343,20 +359,18 @@ Current feasibility:
 
 Recommended next implementation unit for Codex:
 
-1. Add a DEV-only native holder interface proposal and Kotlin wrapper stubs that
-   can return `not_exposed` until the native side exists.
-2. Align the holder output with `NpuStandardRouteS1RawResult` before connecting
-   it to the Persistent Probe.
-3. Add unit tests for the wrapper's `not_exposed` and fatal-error latch
-   behavior.
-4. Only after native holder support exists, run the physical-device
-   `NPU Persistent Engine Multi-turn Probe` for 10 turns and compare it against
-   the recreate Stability Test.
+1. Review Two-Turn device evidence.
+2. Implement a fixed Five-Turn Probe if Two-Turn has no fallback, timeout,
+   fresh crash, close failure, or fatal latch.
+3. Align holder output with `NpuStandardRouteS1RawResult` before connecting it
+   to the Persistent Probe.
+4. Only after Five-Turn passes, consider the physical-device 10-turn persistent
+   probe and compare it against the recreate Stability Test.
 
 The concrete DEV-only holder contract is now captured in
 `docs/npu_dev_only_persistent_holder_api_design.md`. That document defines the
-Kotlin wrapper stub, lifecycle, failure transitions, diagnostics summary, and
-minimum native/JNI function list without implementing native behavior.
+Kotlin wrapper, lifecycle, failure transitions, diagnostics summary, and
+minimum native/JNI function list for the DEV-only holder probes.
 
 Do not connect this to the normal NPU chat route until the DEV probe has
 physical-device evidence and the safety conditions below are satisfied.

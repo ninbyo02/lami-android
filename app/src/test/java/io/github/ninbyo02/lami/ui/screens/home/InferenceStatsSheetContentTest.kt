@@ -656,6 +656,79 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes holder two turn dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderTwoTurnState = NpuPersistentHolderTwoTurnProbeState(
+                status = "completed",
+                reason = "success",
+                turns = listOf(
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = 1,
+                        prompt = "こんにちは",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    ),
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = 2,
+                        prompt = "あなたは誰ですか",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder two turn full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Two Turn Probe"))
+        assertTrue(text.contains("run_count_requested=2"))
+        assertTrue(text.contains("turn1_run_decode_reached=true"))
+        assertTrue(text.contains("turn2_run_decode_reached=true"))
+        assertTrue(text.contains("run_decode_reached_count=2"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),

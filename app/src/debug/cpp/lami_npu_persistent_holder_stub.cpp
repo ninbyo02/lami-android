@@ -305,6 +305,9 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
     g_lami_npu_holder_state.create_succeeded_count++;
     g_lami_npu_holder_state.holder_open = 1;
     g_lami_npu_holder_state.holder_generation++;
+    g_lami_npu_holder_state.run_requested_count = 0;
+    g_lami_npu_holder_state.run_called_count = 0;
+    g_lami_npu_holder_state.run_succeeded_count = 0;
     snprintf(g_lami_npu_holder_state.holder_id, sizeof(g_lami_npu_holder_state.holder_id), "%s", LAMI_NPU_HOLDER_ID);
     lami_npu_set_last("created", "none");
     jstring result = lami_npu_holder_summary(
@@ -421,27 +424,6 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
             0,
             "blocked",
             "holder_id_mismatch"
-        );
-        pthread_mutex_unlock(&g_lami_npu_holder_mutex);
-        return result;
-    }
-    if (g_lami_npu_holder_state.run_called_count > 0) {
-        lami_npu_set_last("blocked", "run_once_already_consumed");
-        jstring result = lami_npu_holder_summary(
-            env,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            "blocked",
-            "run_once_already_consumed"
         );
         pthread_mutex_unlock(&g_lami_npu_holder_mutex);
         return result;

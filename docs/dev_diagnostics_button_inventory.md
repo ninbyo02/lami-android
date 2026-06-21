@@ -43,6 +43,9 @@ Current NPU status:
 | `キャンセル` under repeated run | `ChatScreen.kt` | `cancelNpuS1RepeatedRun()` | Cancel active repeated-run job. | KEEP_PRIMARY | Required safety control for long-running stability tests. | Cancellation status covered in `NpuS1RepeatedRunDiagnosticsTest`. | Keep with Stability Test. |
 | `キャンセル` under Long Generation Test | `ChatScreen.kt` | `cancelNpuLongGenerationTest()` | Cancel active long generation comparison. | KEEP_PRIMARY | Required safety control because 512-token runs can take materially longer than one-shot diagnostics. | Formatter/state cancellation is represented in `NpuLongGenerationDiagnostics.kt`; UI execution requires physical NPU. | Keep with Long Generation Test. |
 | `NPU永続Engine状態確認` / `NPU Persistent Engine Multi-turn Probe (blocked)` | `ChatScreen.kt`, `NpuS1PersistentEngineDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentEngineDevProbe.kt` | `startNpuS1PersistentEngineProbe()` -> `NpuS1PersistentEngineProbeRunner.run(...)` | Confirm current persistent-NPU API exposure state and copy the blocked reason. | KEEP_PRIMARY | Current NPU state is expected to block before generation: session API requires unsupported logits output, and the standard-route adapter/native decode path is not yet exposed for persistent multi-turn. `run_count_completed=0` is expected, not a UI failure. | `NpuS1PersistentEngineDiagnosticsTest`, `NpuPersistentHolderApiTest` | Next work is the standard-route adapter exposure review and DEV-only holder contract in `docs/npu_standard_route_adapter_persistent_exposure_review.md` and `docs/npu_dev_only_persistent_holder_api_design.md`. |
+| `Run Holder Two-Turn Probe` | `ChatScreen.kt`, `NpuPersistentHolderTwoTurnDevProbe.kt` | `startNpuPersistentHolderTwoTurnProbe()` -> `NativeStubNpuPersistentHolderApi` + existing one-shot NPU adapter decode | Create one DEV holder record, run exactly two holder-gated one-shot decodes, then close once. | KEEP_PRIMARY | This is the next smallest persistent-holder exposure step after Run Once passed. It is not 10-turn, not normal chat routing, and not proof of Engine reuse. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | If device evidence is clean, add a fixed Five-Turn Probe before 10-turn persistent testing. |
+| `Copy Holder Two-Turn Summary` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderTwoTurnSummaryForCopy(...)` | Copy Two-Turn aggregate keys. | KEEP_PRIMARY | Captures create/run1/run2/close status, backend evidence summary, fallback/timeout/fresh-crash counts, fatal latch, and `engine_reuse_observed=unavailable`. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep as the compact artifact for physical-device pass/hold review. |
+| `Copy Holder Two-Turn Full Dump` | `ChatScreen.kt`, `NpuPersistentHolderApi.kt` | `formatNpuPersistentHolderTwoTurnFullDumpForCopy(...)` | Copy create, per-turn, close, diagnostics, and summary blocks for the Two-Turn probe. | KEEP_PRIMARY | Required for device artifact review when a turn fails or backend evidence changes. | `NpuPersistentHolderNativeStubTest`, `InferenceStatsSheetContentTest` | Keep until report scripts consume the Two-Turn artifact directly. |
 | `キャンセル` under persistent Engine | `ChatScreen.kt` | `cancelNpuS1PersistentEngineProbe()` | Cancel persistent Engine probe. | KEEP_ADVANCED | Safety control while the advanced probe remains visible. | Status/cancel formatting in `NpuS1PersistentEngineDiagnosticsTest`. | Keep with advanced probe until hidden/removed. |
 | `NPU S1 persistent custom JNI <mode>` / `Gemma recommended x20` | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt`, `app/src/debug/.../NpuS1PersistentCustomJniDevProbe.kt` | `startNpuS1PersistentCustomJniProbe()` -> `NpuS1PersistentCustomJniProbeRunner.run(...)` | Custom JNI holder / prompt wrapper / quality profile investigation. | KEEP_ADVANCED | Historically critical for quality and engine-create root cause work. Today it is too specialized for primary health checks. | `NpuS1PersistentCustomJniDiagnosticsTest`, `Qairt244NpuDiagnosticPromptValidatorTest` | Move to Advanced "legacy quality investigation"; retire after NPU Beta quality/stability/long-generation runners cover the same gates. |
 | Filter chips under `NPU S1 persistent custom JNI` (`entrypoint_only`, `before_engine_create`, `engine_create_only`, `full_20`, etc.) | `ChatScreen.kt`, `NpuS1PersistentCustomJniDiagnostics.kt` | `NpuS1PersistentCustomJniProbeMode` | Select custom JNI crash/lifecycle probe depth. | KEEP_ADVANCED | Useful only for native/JNI fault isolation. | `NpuS1PersistentCustomJniDiagnosticsTest` | Hide inside Advanced by default; keep until R6/native cleanup decision. |
@@ -162,9 +165,11 @@ Current behavior:
   `NPU Persistent Holder Create Close Probe`, which reports
   `native_holder_create_close_available=true`
 - the native create/close probe only manages one app JNI holder lifecycle
-  record; `runOnce` remains `status=not_implemented`
+  record; `runOnce` is now a DEV-only open-holder gate for Run Once and
+  Two-Turn probes
 - the native probe does not create Engine/ModelAssets/EngineSettings, does not
-  call QNN or NPU decode/generate, and is not connected to normal chat routing
+  call QNN or NPU decode/generate inside the holder stub, and is not connected
+  to normal chat routing
 - DEV diagnostics now exposes `NPU Persistent Holder Create/Close Probe` with
   `Run Holder Create/Close Probe`, `Copy Holder Create/Close Summary`, and
   `Copy Holder Create/Close Full Dump`
@@ -190,6 +195,22 @@ Current behavior:
   `holder_fatal_latch=false`, and QNN HTP / FastRPC backend evidence
 - Run Once hold conditions are create failure, unsupported/failed run once,
   fallback, timeout, fresh crash, close failure, or fatal latch
+- DEV diagnostics now exposes `NPU Persistent Holder Two-Turn Probe` with
+  `Run Holder Two-Turn Probe`, `Copy Holder Two-Turn Summary`, and
+  `Copy Holder Two-Turn Full Dump`
+- Two-Turn performs one create, two holder-gated one-shot decodes using
+  `こんにちは` and `あなたは誰ですか`, and one close; it is not a 10-turn probe,
+  does not connect normal chat routing, and keeps
+  `engine_reuse_observed=unavailable`
+- Two-Turn pass requires `holder_create_succeeded=true`,
+  `turn1_run_decode_reached=true`, `turn2_run_decode_reached=true`, QNN HTP /
+  FastRPC backend evidence, `fallback_used_count=0`, `timeout_count=0`,
+  `fresh_crash_count=0`, `holder_close_succeeded=true`, and
+  `holder_fatal_latch=false`
+- Two-Turn hold conditions are turn 1 failure, turn 2 failure, fallback,
+  timeout, fresh crash, close failure, fatal latch, or missing backend evidence
+- a clean Two-Turn result should lead to a fixed Five-Turn Probe, not directly
+  to 10-turn persistent testing or normal chat route persistentization
 - report `ui_execution_expected=false`, `ui_blocked_expected=true`, and
   `run_count_completed=0` as the expected current state
 - run `こんにちは` for 10 turns with 500ms wait only after a safe persistent

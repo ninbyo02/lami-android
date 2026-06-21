@@ -1050,6 +1050,10 @@ fun Home(
         mutableStateOf(NpuPersistentHolderRunOnceProbeState())
     }
     var npuPersistentHolderRunOnceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuPersistentHolderTwoTurnState by remember(effectiveChatId) {
+        mutableStateOf(NpuPersistentHolderTwoTurnProbeState())
+    }
+    var npuPersistentHolderTwoTurnJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuS1PersistentCustomJniState by remember(effectiveChatId) {
         mutableStateOf(NpuS1PersistentCustomJniProbeState())
     }
@@ -1082,6 +1086,8 @@ fun Home(
             npuPersistentHolderCreateCloseJob = null
             npuPersistentHolderRunOnceJob?.cancel()
             npuPersistentHolderRunOnceJob = null
+            npuPersistentHolderTwoTurnJob?.cancel()
+            npuPersistentHolderTwoTurnJob = null
             npuS1PersistentCustomJniJob?.cancel()
             npuS1PersistentCustomJniJob = null
         }
@@ -1767,6 +1773,7 @@ fun Home(
             npuLongGenerationJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuS1PersistentCustomJniJob?.isActive == true
         if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
@@ -1836,6 +1843,7 @@ fun Home(
             npuLongGenerationJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuS1PersistentCustomJniJob?.isActive == true
         if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
@@ -1890,6 +1898,7 @@ fun Home(
             npuLongGenerationJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuS1PersistentCustomJniJob?.isActive == true
         if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
@@ -1939,8 +1948,64 @@ fun Home(
         }
     }
 
+    fun startNpuPersistentHolderTwoTurnProbe() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuPersistentHolderTwoTurnJob?.isActive == true) return
+        npuPersistentHolderTwoTurnState = NpuPersistentHolderTwoTurnProbeState(
+            status = "running",
+            reason = "starting",
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
+        npuPersistentHolderTwoTurnJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuPersistentHolderTwoTurnProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState.copy(
+                    status = "stopped",
+                    reason = "debug_holder_two_turn_probe_unavailable",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                npuPersistentHolderTwoTurnJob = null
+                return@launch
+            }
+            try {
+                npuPersistentHolderTwoTurnState = runner.run()
+            } catch (exception: CancellationException) {
+                npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState.copy(
+                    status = "cancelled",
+                    reason = "cancelled",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                throw exception
+            } finally {
+                npuPersistentHolderTwoTurnJob = null
+            }
+        }
+    }
+
     fun startNpuS1PersistentCustomJniProbe() {
-        val blockedByOtherDevDiagnostics = npuPersistentHolderRunOnceJob?.isActive == true
+        val blockedByOtherDevDiagnostics = npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true
         if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
@@ -7434,6 +7499,7 @@ fun Home(
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
@@ -7445,6 +7511,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuPersistentHolderCreateCloseStart =
                                                 ::startNpuPersistentHolderCreateCloseProbe,
@@ -7488,6 +7555,7 @@ fun Home(
                                                 npuLongGenerationJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuPersistentHolderRunOnceStart =
                                                 ::startNpuPersistentHolderRunOnceProbe,
@@ -7519,6 +7587,50 @@ fun Home(
                                                     snackbarHostState.currentSnackbarData?.dismiss()
                                                     snackbarHostState.showSnackbar(
                                                         message = "Copy Holder Run Once Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
+                                            npuPersistentHolderTwoTurnInProgress =
+                                                npuPersistentHolderTwoTurnJob?.isActive == true,
+                                            isInferenceRunningForHolderTwoTurn = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuPersistentHolderTwoTurnStart =
+                                                ::startNpuPersistentHolderTwoTurnProbe,
+                                            onCopyHolderTwoTurnSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuPersistentHolderTwoTurnSummaryForCopy(
+                                                            npuPersistentHolderTwoTurnState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Holder Two-Turn Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyHolderTwoTurnFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuPersistentHolderTwoTurnFullDumpForCopy(
+                                                            npuPersistentHolderTwoTurnState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Holder Two-Turn Full Dump copied",
                                                         duration = SnackbarDuration.Short,
                                                     )
                                                 }
@@ -7997,6 +8109,7 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuPersistentHolderCreateCloseStart = ::startNpuPersistentHolderCreateCloseProbe,
                     npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
@@ -8007,8 +8120,20 @@ fun Home(
                         npuLongGenerationJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuPersistentHolderTwoTurnJob?.isActive == true ||
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuPersistentHolderRunOnceStart = ::startNpuPersistentHolderRunOnceProbe,
+                    npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
+                    npuPersistentHolderTwoTurnInProgress =
+                        npuPersistentHolderTwoTurnJob?.isActive == true,
+                    isInferenceRunningForHolderTwoTurn = isInferenceRunningUi ||
+                        npuS1RepeatedRunJob?.isActive == true ||
+                        npuLongGenerationJob?.isActive == true ||
+                        npuS1PersistentEngineJob?.isActive == true ||
+                        npuPersistentHolderCreateCloseJob?.isActive == true ||
+                        npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuS1PersistentCustomJniJob?.isActive == true,
+                    onNpuPersistentHolderTwoTurnStart = ::startNpuPersistentHolderTwoTurnProbe,
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                     npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                     npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
@@ -11936,6 +12061,73 @@ private fun NpuPersistentHolderRunOnceDevSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun NpuPersistentHolderTwoTurnDevSection(
+    state: NpuPersistentHolderTwoTurnProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+) {
+    val diagnostics = state.latestDiagnostics
+    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
+        "holder_fatal_latch=true: アプリ再起動推奨"
+    } else {
+        null
+    }
+    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_TWO_TURN_UI_TITLE) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text(NPU_PERSISTENT_HOLDER_TWO_TURN_RUN_LABEL)
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (onCopySummary != null) {
+                TextButton(onClick = onCopySummary) {
+                    Text(NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL)
+                }
+            }
+            if (onCopyFullDump != null) {
+                TextButton(onClick = onCopyFullDump) {
+                    Text(NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL)
+                }
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "他の生成またはDEV診断完了後に実行してください"
+            } else {
+                "DEV専用診断です。create 1回、decode 2回、close 1回だけを確認します。10-turnではなく、通常チャット経路には接続しません。persistent reuse証明ではなく、engine_reuse_observed は unavailable のままです。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (warningText != null) {
+            Text(
+                text = warningText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        InferenceStatRow(
+            label = "Holder Two-Turn Summary",
+            value = formatNpuPersistentHolderTwoTurnSummaryForCopy(state),
+            emphasizeValue = diagnostics?.holderFatalLatch == true,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun NpuS1PersistentCustomJniDevSection(
     state: NpuS1PersistentCustomJniProbeState,
     selectedMode: NpuS1PersistentCustomJniProbeMode,
@@ -12094,6 +12286,11 @@ private fun InferenceStatsSheetContent(
     npuPersistentHolderRunOnceInProgress: Boolean = false,
     isInferenceRunningForHolderRunOnce: Boolean = false,
     onNpuPersistentHolderRunOnceStart: () -> Unit = {},
+    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState =
+        NpuPersistentHolderTwoTurnProbeState(),
+    npuPersistentHolderTwoTurnInProgress: Boolean = false,
+    isInferenceRunningForHolderTwoTurn: Boolean = false,
+    onNpuPersistentHolderTwoTurnStart: () -> Unit = {},
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -12252,6 +12449,7 @@ private fun InferenceStatsSheetContent(
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
                                 npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
                                 npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
+                                npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
                                 npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                             ),
                         ),
@@ -12391,6 +12589,28 @@ private fun InferenceStatsSheetContent(
                                 npuPersistentHolderRunOnceState,
                             ),
                             NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL,
+                        )
+                    },
+                )
+                NpuPersistentHolderTwoTurnDevSection(
+                    state = npuPersistentHolderTwoTurnState,
+                    running = npuPersistentHolderTwoTurnInProgress,
+                    blockedByGeneration = isInferenceRunningForHolderTwoTurn,
+                    onStart = onNpuPersistentHolderTwoTurnStart,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            formatNpuPersistentHolderTwoTurnSummaryForCopy(
+                                npuPersistentHolderTwoTurnState,
+                            ),
+                            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL,
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            formatNpuPersistentHolderTwoTurnFullDumpForCopy(
+                                npuPersistentHolderTwoTurnState,
+                            ),
+                            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL,
                         )
                     },
                 )
@@ -12719,6 +12939,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuPersistentHolderRunOnceStart: (() -> Unit)? = null,
     onCopyHolderRunOnceSummary: (() -> Unit)? = null,
     onCopyHolderRunOnceFullDump: (() -> Unit)? = null,
+    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState =
+        NpuPersistentHolderTwoTurnProbeState(),
+    npuPersistentHolderTwoTurnInProgress: Boolean = false,
+    isInferenceRunningForHolderTwoTurn: Boolean = false,
+    onNpuPersistentHolderTwoTurnStart: (() -> Unit)? = null,
+    onCopyHolderTwoTurnSummary: (() -> Unit)? = null,
+    onCopyHolderTwoTurnFullDump: (() -> Unit)? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -12818,6 +13045,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onNpuPersistentHolderRunOnceStart,
                     onCopySummary = onCopyHolderRunOnceSummary,
                     onCopyFullDump = onCopyHolderRunOnceFullDump,
+                )
+            }
+            if (
+                BuildConfig.DEBUG &&
+                onNpuPersistentHolderTwoTurnStart != null
+            ) {
+                NpuPersistentHolderTwoTurnDevSection(
+                    state = npuPersistentHolderTwoTurnState,
+                    running = npuPersistentHolderTwoTurnInProgress,
+                    blockedByGeneration = isInferenceRunningForHolderTwoTurn,
+                    onStart = onNpuPersistentHolderTwoTurnStart,
+                    onCopySummary = onCopyHolderTwoTurnSummary,
+                    onCopyFullDump = onCopyHolderTwoTurnFullDump,
                 )
             }
             if (
@@ -12963,6 +13203,7 @@ internal fun buildInferenceStatsFullCopyText(
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
     npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState? = null,
+    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
 ): String {
     return buildString {
@@ -13042,6 +13283,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderRunOnceState != null) {
             appendLine()
             appendLine(formatNpuPersistentHolderRunOnceFullDumpForCopy(npuPersistentHolderRunOnceState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderTwoTurnState != null) {
+            appendLine()
+            appendLine(formatNpuPersistentHolderTwoTurnFullDumpForCopy(npuPersistentHolderTwoTurnState))
         }
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
             appendLine()

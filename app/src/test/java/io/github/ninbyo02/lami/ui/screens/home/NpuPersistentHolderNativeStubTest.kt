@@ -7,6 +7,138 @@ import org.junit.Test
 
 class NpuPersistentHolderNativeStubTest {
     @Test
+    fun `two turn copy text reports no result before run`() {
+        val state = NpuPersistentHolderTwoTurnProbeState()
+
+        val summary = formatNpuPersistentHolderTwoTurnSummaryForCopy(state)
+        val fullDump = formatNpuPersistentHolderTwoTurnFullDumpForCopy(state)
+
+        assertTrue(summary.contains("no holder two-turn probe result available"))
+        assertTrue(summary.contains("test_name=NPU Persistent Holder Two Turn Probe"))
+        assertTrue(fullDump.contains("no holder two-turn probe result available"))
+        assertTrue(fullDump.contains("probe_status=idle"))
+        assertTrue(fullDump.contains("probe_reason=not_run"))
+    }
+
+    @Test
+    fun `two turn summary includes both turns and keeps persistence unproven`() {
+        val createDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = true,
+            status = "created",
+            reason = "app_jni_holder_lifecycle_created_without_engine_create",
+        )
+        val runDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeRunCalled = true,
+            holderId = "native-holder-1",
+            holderOpenBeforeRun = true,
+            runOnceRequested = true,
+            runOnceSupported = true,
+            status = "run_ready",
+            reason = "holder_open_existing_one_shot_decode_may_run_once",
+        )
+        val closeDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCloseCalled = true,
+            holderCloseRequested = true,
+            holderCloseSucceeded = true,
+            status = "closed",
+            reason = "holder_closed_without_decode",
+        )
+        val state = NpuPersistentHolderTwoTurnProbeState(
+            status = "completed",
+            reason = "success",
+            createResult = NpuPersistentHolderApiResult(
+                status = "created",
+                reason = "app_jni_holder_lifecycle_created_without_engine_create",
+                holderId = "native-holder-1",
+                diagnostics = createDiagnostics,
+            ),
+            diagnosticsAfterCreate = createDiagnostics,
+            turns = listOf(
+                NpuPersistentHolderTwoTurnRecord(
+                    turnIndex = 1,
+                    prompt = "こんにちは",
+                    runResult = NpuPersistentHolderApiResult(
+                        status = "run_ready",
+                        reason = "holder_open_existing_one_shot_decode_may_run_once",
+                        holderId = "native-holder-1",
+                        diagnostics = runDiagnostics,
+                    ),
+                    decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                        status = "success",
+                        reason = "success",
+                        runDecodeReached = "true",
+                        rawOutput = "raw1",
+                        sanitizedOutput = "こんにちは。",
+                        qualityClassification = "natural_japanese",
+                        backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                        fallbackUsed = "false",
+                        timeout = "false",
+                        freshCrash = "false",
+                    ),
+                ),
+                NpuPersistentHolderTwoTurnRecord(
+                    turnIndex = 2,
+                    prompt = "あなたは誰ですか",
+                    runResult = NpuPersistentHolderApiResult(
+                        status = "run_ready",
+                        reason = "holder_open_existing_one_shot_decode_may_run_once",
+                        holderId = "native-holder-1",
+                        diagnostics = runDiagnostics,
+                    ),
+                    decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                        status = "success",
+                        reason = "success",
+                        runDecodeReached = "true",
+                        rawOutput = "raw2",
+                        sanitizedOutput = "アシスタントです。",
+                        qualityClassification = "natural_japanese",
+                        backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                        fallbackUsed = "false",
+                        timeout = "false",
+                        freshCrash = "false",
+                    ),
+                ),
+            ),
+            closeResult = NpuPersistentHolderApiResult(
+                status = "closed",
+                reason = "holder_closed_without_decode",
+                holderId = "native-holder-1",
+                diagnostics = closeDiagnostics,
+            ),
+            diagnosticsAfterClose = closeDiagnostics,
+        )
+
+        val summary = formatNpuPersistentHolderTwoTurnSummaryForCopy(state)
+        val fullDump = formatNpuPersistentHolderTwoTurnFullDumpForCopy(state)
+
+        assertTrue(summary.contains("test_name=NPU Persistent Holder Two Turn Probe"))
+        assertTrue(summary.contains("run_count_requested=2"))
+        assertTrue(summary.contains("run_count_completed=2"))
+        assertTrue(summary.contains("turn1_run_called=true"))
+        assertTrue(summary.contains("turn1_run_succeeded=true"))
+        assertTrue(summary.contains("turn1_run_decode_reached=true"))
+        assertTrue(summary.contains("turn2_run_called=true"))
+        assertTrue(summary.contains("turn2_run_succeeded=true"))
+        assertTrue(summary.contains("turn2_run_decode_reached=true"))
+        assertTrue(summary.contains("run_decode_reached_count=2"))
+        assertTrue(summary.contains("fallback_used_count=0"))
+        assertTrue(summary.contains("timeout_count=0"))
+        assertTrue(summary.contains("fresh_crash_count=0"))
+        assertTrue(summary.contains("holder_close_succeeded=true"))
+        assertTrue(summary.contains("engine_reuse_observed=unavailable"))
+        assertTrue(summary.contains("persistent_multi_turn_possible=false"))
+        assertTrue(fullDump.contains("turn_index=1"))
+        assertTrue(fullDump.contains("turn_index=2"))
+        assertTrue(fullDump.contains("prompt=こんにちは"))
+        assertTrue(fullDump.contains("prompt=あなたは誰ですか"))
+        assertFalse(summary.contains("persistent_multi_turn_possible=true"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
+    }
+
+    @Test
     fun `run once copy text reports no result before run`() {
         val state = NpuPersistentHolderRunOnceProbeState()
 
@@ -371,26 +503,30 @@ class NpuPersistentHolderNativeStubTest {
     }
 
     @Test
-    fun `native holder run once remains not implemented`() {
+    fun `native holder run once gate is supported without native decode`() {
         val result = parseNpuPersistentHolderNativeStubResult(
             nativeSummary = """
                 native_holder_create_close_available=true
                 native_run_called=true
                 holder_id=native-holder-1
+                holder_open_before_run=true
+                run_once_requested=true
                 npu_decode_called=false
                 generate_called=false
                 qnn_decode_called=false
-                run_once_supported=false
-                status=not_implemented
-                reason=run_once_not_implemented_create_close_only_probe
+                run_once_supported=true
+                status=run_ready
+                reason=holder_open_existing_one_shot_decode_may_run_once
                 persistent_multi_turn_possible=false
             """.trimIndent(),
         )
 
-        assertEquals("not_implemented", result.status)
-        assertEquals("run_once_not_implemented_create_close_only_probe", result.reason)
+        assertEquals("run_ready", result.status)
+        assertEquals("holder_open_existing_one_shot_decode_may_run_once", result.reason)
         assertTrue(result.diagnostics.nativeRunCalled)
-        assertFalse(result.diagnostics.runOnceSupported)
+        assertTrue(result.diagnostics.holderOpenBeforeRun)
+        assertTrue(result.diagnostics.runOnceRequested)
+        assertTrue(result.diagnostics.runOnceSupported)
         assertFalse(result.diagnostics.npuDecodeCalled)
         assertFalse(result.diagnostics.generateCalled)
         assertFalse(result.diagnostics.qnnDecodeCalled)

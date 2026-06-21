@@ -41,6 +41,23 @@ class NpuPersistentHolderApiTest {
                 "no holder run once probe result available",
             ),
         )
+        assertTrue(NPU_PERSISTENT_HOLDER_TWO_TURN_UI_TITLE.contains("NPU Persistent Holder Two-Turn Probe"))
+        assertTrue(NPU_PERSISTENT_HOLDER_TWO_TURN_RUN_LABEL.contains("Run Holder Two-Turn Probe"))
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL.contains(
+                "Copy Holder Two-Turn Summary",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL.contains(
+                "Copy Holder Two-Turn Full Dump",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_TWO_TURN_NO_RESULT.contains(
+                "no holder two-turn probe result available",
+            ),
+        )
     }
 
     @Test
