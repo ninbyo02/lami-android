@@ -619,6 +619,11 @@ class InferenceStatsSheetContentTest {
                     nativeReturn = "persistent_custom_jni_status=completed",
                     resultText = """
                         selected_native_probe_mode=true_engine_create_close_only
+                        true_engine_create_close_probe_startup_safe=true
+                        native_call_deferred_until_button_click=true
+                        startup_native_call_blocked=true
+                        probe_execution_available=true
+                        probe_execution_block_reason=unavailable
                         argument_validation_passed=true
                         run_count_validation_skipped_for_create_close_only=true
                         persistent_custom_jni_status=completed
@@ -642,6 +647,10 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("[DEV診断: NPU true engine holder create close full dump]"))
         assertTrue(text.contains("test_name=NPU True Engine Holder Create Close Probe"))
         assertTrue(text.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(text.contains("true_engine_create_close_probe_startup_safe=true"))
+        assertTrue(text.contains("native_call_deferred_until_button_click=true"))
+        assertTrue(text.contains("startup_native_call_blocked=true"))
+        assertTrue(text.contains("probe_execution_available=true"))
         assertTrue(text.contains("run_count_validation_skipped_for_create_close_only=true"))
         assertTrue(text.contains("model_assets_create_succeeded=true"))
         assertTrue(text.contains("engine_settings_create_succeeded=true"))

@@ -396,6 +396,22 @@ physical-device evidence proves reuse.
 The next DEV-only step is now exposed separately as
 `NPU True Engine Holder Create/Close Probe`.
 
+Temporary startup recovery status:
+
+- The native create/close-only execution path is blocked in the DEV runner to
+  recover from the post-`63bfacfa` startup crash loop.
+- The section, summary copy, and full-dump copy remain visible and are pure
+  Kotlin until the user explicitly runs a future unblocked probe.
+- In the current recovery build, pressing
+  `Run True Engine Holder Create/Close Probe` returns a blocked summary and
+  does not resolve model paths, load `Qairt244ShortMultitokenSmoke`, or call
+  native/JNI.
+- Required safety fields are
+  `true_engine_create_close_probe_startup_safe=true`,
+  `native_call_deferred_until_button_click=true`,
+  `startup_native_call_blocked=true`, `probe_execution_available=false`, and
+  `probe_execution_block_reason=temporarily_blocked_to_restore_startup`.
+
 This probe is not the app JNI holder stub. It wraps the existing
 `litertlm_jni` persistent custom JNI path with
 `nativeProbeMode=true_engine_create_close_only` and `runCount=0` so the native

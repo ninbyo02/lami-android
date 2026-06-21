@@ -20,6 +20,10 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE =
     "true_engine_create_close_only"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RECOMMENDED_NEXT_STEP =
     "review_true_engine_create_close_device_result_then_implement_held_engine_run_once"
+internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON =
+    "temporarily_blocked_to_restore_startup"
+internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP =
+    "restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor"
 
 internal data class NpuTrueEngineHolderNativeResult(
     val nativeReturn: String = "unavailable",
@@ -49,6 +53,44 @@ internal interface NpuTrueEngineHolderCreateCloseProbeRunner {
     suspend fun run(): NpuTrueEngineHolderCreateCloseProbeState
 }
 
+internal fun blockedNpuTrueEngineHolderCreateCloseNativeResult(): NpuTrueEngineHolderNativeResult =
+    NpuTrueEngineHolderNativeResult(
+        nativeReturn = "blocked",
+        resultText = """
+            selected_native_probe_mode=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE
+            true_engine_create_close_probe_startup_safe=true
+            native_call_deferred_until_button_click=true
+            startup_native_call_blocked=true
+            probe_execution_available=false
+            probe_execution_block_reason=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON
+            argument_validation_passed=false
+            run_count_validation_skipped_for_create_close_only=unavailable
+            persistent_custom_jni_status=blocked
+            model_assets_create_reached=false
+            model_assets_create_returned=false
+            model_assets_create_succeeded=false
+            engine_settings_create_reached=false
+            engine_settings_create_returned=false
+            engine_settings_create_succeeded=false
+            engine_create_reached=false
+            engine_create_returned=false
+            engine_create_succeeded=false
+            engine_close_reached=false
+            engine_close_success=false
+            session_create_reached=false
+            session_create_count=0
+            prefill_reached=false
+            decode_reached=false
+            decode_count=0
+            generate_count=0
+            npu_decode_called=false
+            qnn_decode_called=false
+            true_engine_persistent_reuse=false
+            engine_reuse_observed=unavailable
+            recommended_next_step=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP
+        """.trimIndent(),
+    )
+
 internal fun createNpuTrueEngineHolderCreateCloseProbeRunner(
     context: Context,
 ): NpuTrueEngineHolderCreateCloseProbeRunner? =
@@ -63,10 +105,24 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
 ): String {
     if (!state.hasResult) {
         return "$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NO_RESULT\n" +
-            "test_name=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_TEST_NAME"
+            "test_name=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_TEST_NAME\n" +
+            "true_engine_create_close_probe_startup_safe=true\n" +
+            "native_call_deferred_until_button_click=true\n" +
+            "startup_native_call_blocked=true\n" +
+            "probe_execution_available=false\n" +
+            "probe_execution_block_reason=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON"
     }
     val values = state.values
     val selectedNativeProbeMode = values["selected_native_probe_mode"] ?: "unavailable"
+    val startupSafe = values.boolText("true_engine_create_close_probe_startup_safe", "true")
+    val nativeCallDeferred = values.boolText("native_call_deferred_until_button_click", "true")
+    val startupNativeCallBlocked = values.boolText("startup_native_call_blocked", "true")
+    val probeExecutionAvailable = values.boolText(
+        key = "probe_execution_available",
+        fallback = if (state.status == "blocked") "false" else "true",
+    )
+    val probeExecutionBlockReason = values["probe_execution_block_reason"]
+        ?: if (state.status == "blocked") NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON else "unavailable"
     val argumentValidationPassed = values.boolText("argument_validation_passed")
     val runCountValidationSkipped = values.boolText("run_count_validation_skipped_for_create_close_only")
     val modelAssetsCalled = values.boolText("model_assets_create_reached")
@@ -86,6 +142,12 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
     val fatalLatch = throwableClass != "unavailable" ||
         state.status == "failed" ||
         values["persistent_custom_jni_status"] == "stopped"
+    val recommendedNextStep = values["recommended_next_step"]
+        ?: if (state.status == "blocked") {
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP
+        } else {
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RECOMMENDED_NEXT_STEP
+        }
     val createClosePossible = modelAssetsSucceeded == "true" &&
         settingsSucceeded == "true" &&
         engineCreateSucceeded == "true" &&
@@ -100,6 +162,11 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("probe_status=${state.status}")
         appendLine("probe_reason=${state.reason}")
         appendLine("selected_native_probe_mode=$selectedNativeProbeMode")
+        appendLine("true_engine_create_close_probe_startup_safe=$startupSafe")
+        appendLine("native_call_deferred_until_button_click=$nativeCallDeferred")
+        appendLine("startup_native_call_blocked=$startupNativeCallBlocked")
+        appendLine("probe_execution_available=$probeExecutionAvailable")
+        appendLine("probe_execution_block_reason=$probeExecutionBlockReason")
         appendLine("argument_validation_passed=$argumentValidationPassed")
         appendLine("run_count_validation_skipped_for_create_close_only=$runCountValidationSkipped")
         appendLine("holder_create_requested=${state.nativeResult != null}")
@@ -135,7 +202,7 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("true_engine_persistent_reuse=false")
         appendLine("engine_reuse_observed=unavailable")
         appendLine("restart_app_recommended=$fatalLatch")
-        appendLine("recommended_next_step=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RECOMMENDED_NEXT_STEP")
+        appendLine("recommended_next_step=$recommendedNextStep")
     }.trimEnd()
 }
 
@@ -153,6 +220,8 @@ internal fun formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
     val result = state.nativeResult
     if (result == null) {
         appendLine(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NO_RESULT)
+        appendLine()
+        appendLine(formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state))
         return@buildString
     }
     appendLine("native_return=${result.nativeReturn}")

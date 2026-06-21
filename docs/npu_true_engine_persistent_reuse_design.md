@@ -459,6 +459,24 @@ Difference from current holder方式:
 The first executable unit is now exposed as
 `NPU True Engine Holder Create/Close Probe` in DEV diagnostics.
 
+Startup safety update after commit `63bfacfa`:
+
+- A physical install after the `true_engine_create_close_only` native stack
+  update caused the app to stop before DEV diagnostics could be used.
+- No logcat, dropbox, or tombstone evidence was used for this recovery path.
+  The rollback is based on static diff review and staged native library
+  comparison.
+- The DEV UI entry is temporarily blocked to restore startup safety. Showing
+  DEV diagnostics, copying the initial summary/full dump, and pressing the
+  Run button must not load `litertlm_jni` through this probe path.
+- Copy output now reports
+  `true_engine_create_close_probe_startup_safe=true`,
+  `native_call_deferred_until_button_click=true`,
+  `startup_native_call_blocked=true`, and
+  `probe_execution_block_reason=temporarily_blocked_to_restore_startup`.
+- Re-enable native execution only after the create/close-only mode is rebuilt
+  and staged in isolation without destabilizing `standardDebug` startup.
+
 Scope:
 
 - DEV-only.

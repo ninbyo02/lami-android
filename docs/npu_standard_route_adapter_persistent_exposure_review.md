@@ -141,6 +141,15 @@ split held-Engine API is implemented. Required safety fields are
 `true_engine_persistent_reuse=false`, and
 `engine_reuse_observed=unavailable`.
 
+Current recovery build note: the True Engine Create/Close probe is temporarily
+blocked in the DEV runner after the post-`63bfacfa` startup crash loop. The
+section and copy outputs are still present, but they must remain pure Kotlin
+and report `startup_native_call_blocked=true`,
+`probe_execution_available=false`, and
+`probe_execution_block_reason=temporarily_blocked_to_restore_startup` until the
+native create/close-only stack is rebuilt and staged without destabilizing
+`standardDebug` startup.
+
 ## Lifecycle Visibility
 
 Current standard-route lifecycle visibility is partial.

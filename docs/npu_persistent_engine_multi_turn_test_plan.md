@@ -364,6 +364,19 @@ holder PoC. The next executable units should be:
 `NPU True Engine Holder Create/Close Probe` is the first executable unit after
 the design review. It is DEV-only and create/close-only.
 
+Startup recovery gate:
+
+- Native execution for this probe is temporarily blocked after the
+  post-`63bfacfa` startup crash loop.
+- The DEV diagnostics section and copy actions must be startup-safe and must
+  not load `litertlm_jni` or call the persistent custom JNI path.
+- The current Run button returns a blocked summary with
+  `probe_execution_available=false` and
+  `probe_execution_block_reason=temporarily_blocked_to_restore_startup`.
+- Do not resume the native create/close-only path until `standardDebug`
+  startup is confirmed stable with the rebuilt native stack isolated from the
+  normal app startup path.
+
 The current implementation reaches native Engine create/close through the
 existing `litertlm_jni` persistent custom JNI path with
 `nativeProbeMode=true_engine_create_close_only` and `runCount=0`. This lets the

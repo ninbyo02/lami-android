@@ -122,6 +122,11 @@ class NpuPersistentHolderApiTest {
                 "true_engine_create_close_only",
             ),
         )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON.contains(
+                "temporarily_blocked_to_restore_startup",
+            ),
+        )
     }
 
     @Test

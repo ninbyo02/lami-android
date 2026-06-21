@@ -15,9 +15,59 @@ class NpuPersistentHolderNativeStubTest {
 
         assertTrue(summary.contains("no true engine holder create/close probe result available"))
         assertTrue(summary.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(summary.contains("true_engine_create_close_probe_startup_safe=true"))
+        assertTrue(summary.contains("native_call_deferred_until_button_click=true"))
+        assertTrue(summary.contains("startup_native_call_blocked=true"))
+        assertTrue(summary.contains("probe_execution_available=false"))
+        assertTrue(summary.contains("probe_execution_block_reason=temporarily_blocked_to_restore_startup"))
         assertTrue(fullDump.contains("no true engine holder create/close probe result available"))
         assertTrue(fullDump.contains("probe_status=idle"))
         assertTrue(fullDump.contains("probe_reason=not_run"))
+        assertTrue(fullDump.contains("startup_native_call_blocked=true"))
+    }
+
+    @Test
+    fun `true engine holder blocked summary is startup safe and does not enter native run`() {
+        val state = NpuTrueEngineHolderCreateCloseProbeState(
+            status = "blocked",
+            reason = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON,
+            modelPathOrReason = "not_resolved_startup_safe_block",
+            holderId = "true-engine-holder-create-close-dev",
+            nativeResult = blockedNpuTrueEngineHolderCreateCloseNativeResult(),
+        )
+
+        val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+        val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
+
+        assertTrue(summary.contains("probe_status=blocked"))
+        assertTrue(summary.contains("probe_reason=temporarily_blocked_to_restore_startup"))
+        assertTrue(summary.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(summary.contains("true_engine_create_close_probe_startup_safe=true"))
+        assertTrue(summary.contains("native_call_deferred_until_button_click=true"))
+        assertTrue(summary.contains("startup_native_call_blocked=true"))
+        assertTrue(summary.contains("probe_execution_available=false"))
+        assertTrue(summary.contains("probe_execution_block_reason=temporarily_blocked_to_restore_startup"))
+        assertTrue(summary.contains("argument_validation_passed=false"))
+        assertTrue(summary.contains("model_assets_create_called=false"))
+        assertTrue(summary.contains("engine_settings_create_called=false"))
+        assertTrue(summary.contains("engine_create_called=false"))
+        assertTrue(summary.contains("engine_close_succeeded=false"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(summary.contains("npu_decode_called=false"))
+        assertTrue(summary.contains("qnn_decode_called=false"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertTrue(summary.contains("engine_reuse_observed=unavailable"))
+        assertTrue(
+            summary.contains(
+                "recommended_next_step=restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor",
+            ),
+        )
+        assertTrue(fullDump.contains("native_return=blocked"))
+        assertTrue(fullDump.contains("model_path_or_reason=not_resolved_startup_safe_block"))
+        assertFalse(summary.contains("true_engine_persistent_reuse=true"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
     }
 
     @Test
