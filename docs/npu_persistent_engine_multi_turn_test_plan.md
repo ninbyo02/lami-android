@@ -376,6 +376,13 @@ Startup recovery gate:
 - Do not resume the native create/close-only path until `standardDebug`
   startup is confirmed stable with the rebuilt native stack isolated from the
   normal app startup path.
+- `standardDebug` pass now explicitly means the probe remains blocked:
+  `startup_native_call_blocked=true` and `probe_execution_available=false`.
+- The next implementation target is `trueEngineNpuProbeDebug`, described in
+  `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
+- Long Generation, R6 streaming, fallback policy, normal NPU chat route, and
+  held Engine run once remain out of scope until isolated create/close-only
+  passes.
 
 The current implementation reaches native Engine create/close through the
 existing `litertlm_jni` persistent custom JNI path with

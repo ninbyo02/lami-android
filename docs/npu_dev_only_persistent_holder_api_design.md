@@ -411,6 +411,13 @@ Temporary startup recovery status:
   `native_call_deferred_until_button_click=true`,
   `startup_native_call_blocked=true`, `probe_execution_available=false`, and
   `probe_execution_block_reason=temporarily_blocked_to_restore_startup`.
+- This blocked state is the correct `standardDebug` expectation. Native
+  create/close-only execution must be isolated to the planned
+  `trueEngineNpuProbeDebug` flavor before it is re-enabled.
+- The flavor/sourceSet/native-packaging separation plan is in
+  `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
+- Held Engine run once must wait until isolated create/close-only passes on
+  device.
 
 This probe is not the app JNI holder stub. It wraps the existing
 `litertlm_jni` persistent custom JNI path with

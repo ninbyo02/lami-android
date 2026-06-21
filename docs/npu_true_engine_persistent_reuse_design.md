@@ -477,6 +477,19 @@ Startup safety update after commit `63bfacfa`:
 - Re-enable native execution only after the create/close-only mode is rebuilt
   and staged in isolation without destabilizing `standardDebug` startup.
 
+Isolation decision:
+
+- `standardDebug` must keep this probe blocked. The correct expectation is
+  `probe_execution_available=false` and `startup_native_call_blocked=true`.
+- Native `true_engine_create_close_only` execution should resume only in the
+  planned `trueEngineNpuProbeDebug` isolated flavor.
+- The isolation plan is documented in
+  `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
+- `customBuildExperimentDebug` is not sufficient unless its `jniLibs` source is
+  first proven not to feed any `standardDebug` staging or overlay task.
+- Held Engine run once remains blocked until create/close-only passes in the
+  isolated flavor.
+
 Scope:
 
 - DEV-only.
