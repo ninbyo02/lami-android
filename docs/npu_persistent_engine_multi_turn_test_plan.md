@@ -268,15 +268,24 @@ decode was reached, backend evidence reported QNN HTP / FastRPC, no fallback,
 timeout, or fresh crash was observed, close succeeded, and the fatal latch
 stayed false.
 
+Two-Turn physical-device coverage passed for
+`NPU Persistent Holder Two-Turn Probe`: both turns succeeded, both decodes were
+reached, backend evidence reported `QNN_HTP_V79_FastRPC_native_diag:2`, quality
+classification reported `natural_japanese:2`, fallback/timeout/fresh-crash
+counts were zero, and the fatal latch stayed false.
+
 The next DEV-only implementation unit is now
-`NPU Persistent Holder Two-Turn Probe`. It performs exactly one create, two
+`NPU Persistent Holder Five-Turn Probe`. It performs exactly one create, five
 holder-gated decode attempts, and one close:
 
 1. turn 1 prompt: `こんにちは`
 2. turn 2 prompt: `あなたは誰ですか`
+3. turn 3 prompt: `Pythonとは何ですか`
+4. turn 4 prompt: `Androidについて一言で説明して`
+5. turn 5 prompt: `ありがとう`
 
 This is still not the 10-turn persistent probe. The native holder gate records
-that the same app JNI holder record was open for both calls, while each decode
+that the same app JNI holder record was open for the calls, while each decode
 still uses the existing one-shot standard route adapter path. Normal chat route
 connection remains blocked, and `engine_reuse_observed=unavailable` must not be
 changed.
@@ -297,8 +306,17 @@ backend evidence containing QNN HTP / FastRPC, `fallback_used_count=0`,
 
 Two-Turn hold conditions are turn 1 failure, turn 2 failure, any fallback, any
 timeout, any fresh crash, holder close failure, or `holder_fatal_latch=true`.
-Do not advance directly to 10 turns from this result; the next step is a fixed
-Five-Turn Probe.
+
+Five-Turn pass requires `holder_create_succeeded=true`,
+`run_decode_reached_count=5`, backend evidence containing QNN HTP / FastRPC,
+generally natural Japanese quality classification summary,
+`fallback_used_count=0`, `timeout_count=0`, `fresh_crash_count=0`,
+`holder_close_succeeded=true`, and `holder_fatal_latch=false`.
+
+Five-Turn hold conditions are any turn failure, fallback, timeout, fresh crash,
+holder close failure, or `holder_fatal_latch=true`. Do not advance directly to
+conversation stability or normal chat persistentization from this result; the
+next step is the fixed Ten-Turn Probe.
 
 If Persistent Multi-turn also fails through a standard-route adapter, treat the
 issue as lower-level NPU native executor / QNN delegate / prompt path

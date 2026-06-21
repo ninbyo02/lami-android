@@ -65,6 +65,28 @@ internal const val NPU_PERSISTENT_HOLDER_TWO_TURN_PROMPT_2 = "あなたは誰で
 internal const val NPU_PERSISTENT_HOLDER_TWO_TURN_COUNT = 2
 internal const val NPU_PERSISTENT_HOLDER_TWO_TURN_RECOMMENDED_NEXT_STEP =
     "review_two_turn_device_result_then_implement_five_turn_probe"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROBE_TEST_NAME =
+    "NPU Persistent Holder Five Turn Probe"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_CLASS_NAME =
+    "io.github.ninbyo02.lami.ui.screens.home.NpuPersistentHolderFiveTurnDevProbe"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_NO_RESULT =
+    "no holder five-turn probe result available"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_UI_TITLE =
+    "NPU Persistent Holder Five-Turn Probe"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_RUN_LABEL =
+    "Run Holder Five-Turn Probe"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL =
+    "Copy Holder Five-Turn Summary"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL =
+    "Copy Holder Five-Turn Full Dump"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_1 = "こんにちは"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_2 = "あなたは誰ですか"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_3 = "Pythonとは何ですか"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_4 = "Androidについて一言で説明して"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_5 = "ありがとう"
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_COUNT = 5
+internal const val NPU_PERSISTENT_HOLDER_FIVE_TURN_RECOMMENDED_NEXT_STEP =
+    "review_five_turn_device_result_then_implement_ten_turn_probe"
 
 internal data class NpuPersistentHolderCreateRequest(
     val modelPath: String,
@@ -189,6 +211,10 @@ internal interface NpuPersistentHolderTwoTurnProbeRunner {
     suspend fun run(): NpuPersistentHolderTwoTurnProbeState
 }
 
+internal interface NpuPersistentHolderFiveTurnProbeRunner {
+    suspend fun run(): NpuPersistentHolderFiveTurnProbeState
+}
+
 internal fun createNpuPersistentHolderCreateCloseProbeRunner(
     context: Context,
 ): NpuPersistentHolderCreateCloseProbeRunner? =
@@ -214,6 +240,15 @@ internal fun createNpuPersistentHolderTwoTurnProbeRunner(
         Class.forName(NPU_PERSISTENT_HOLDER_TWO_TURN_CLASS_NAME)
             .getDeclaredConstructor(Context::class.java)
             .newInstance(context.applicationContext) as? NpuPersistentHolderTwoTurnProbeRunner
+    }.getOrNull()
+
+internal fun createNpuPersistentHolderFiveTurnProbeRunner(
+    context: Context,
+): NpuPersistentHolderFiveTurnProbeRunner? =
+    runCatching {
+        Class.forName(NPU_PERSISTENT_HOLDER_FIVE_TURN_CLASS_NAME)
+            .getDeclaredConstructor(Context::class.java)
+            .newInstance(context.applicationContext) as? NpuPersistentHolderFiveTurnProbeRunner
     }.getOrNull()
 
 internal data class NpuPersistentHolderCreateCloseProbeState(
@@ -310,6 +345,36 @@ internal data class NpuPersistentHolderTwoTurnRecord(
 )
 
 internal data class NpuPersistentHolderTwoTurnProbeState(
+    val status: String = "idle",
+    val reason: String = "not_run",
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
+    val modelPathOrReason: String = "unavailable",
+    val maxOutputTokens: Int = NPU_PERSISTENT_HOLDER_RUN_ONCE_MAX_OUTPUT_TOKENS,
+    val createResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterCreate: NpuPersistentHolderApiDiagnostics? = null,
+    val turns: List<NpuPersistentHolderTwoTurnRecord> = emptyList(),
+    val closeResult: NpuPersistentHolderApiResult? = null,
+    val diagnosticsAfterClose: NpuPersistentHolderApiDiagnostics? = null,
+    val throwableClass: String = "unavailable",
+    val throwableMessage: String = "unavailable",
+) {
+    val hasResult: Boolean
+        get() = createResult != null ||
+            diagnosticsAfterCreate != null ||
+            turns.isNotEmpty() ||
+            closeResult != null ||
+            diagnosticsAfterClose != null
+
+    val latestDiagnostics: NpuPersistentHolderApiDiagnostics?
+        get() = diagnosticsAfterClose
+            ?: closeResult?.diagnostics
+            ?: turns.lastOrNull()?.runResult?.diagnostics
+            ?: diagnosticsAfterCreate
+            ?: createResult?.diagnostics
+}
+
+internal data class NpuPersistentHolderFiveTurnProbeState(
     val status: String = "idle",
     val reason: String = "not_run",
     val startedAtElapsedRealtimeMs: Long? = null,
@@ -638,6 +703,81 @@ internal fun formatNpuPersistentHolderTwoTurnFullDumpForCopy(
     appendHolderDiagnosticsBlock("diagnostics_after_close", state.diagnosticsAfterClose)
     appendLine()
     appendLine(formatNpuPersistentHolderTwoTurnSummaryForCopy(state))
+}.trimEnd()
+
+internal fun formatNpuPersistentHolderFiveTurnSummaryForCopy(
+    state: NpuPersistentHolderFiveTurnProbeState,
+): String {
+    if (!state.hasResult) {
+        return "$NPU_PERSISTENT_HOLDER_FIVE_TURN_NO_RESULT\n" +
+            "test_name=$NPU_PERSISTENT_HOLDER_FIVE_TURN_PROBE_TEST_NAME"
+    }
+    val createDiagnostics = state.diagnosticsAfterCreate ?: state.createResult?.diagnostics
+    val closeDiagnostics = state.diagnosticsAfterClose ?: state.closeResult?.diagnostics
+    val latestDiagnostics = state.latestDiagnostics
+    val completed = state.turns.count { it.decodeResult?.status == "success" }
+    val decodeReachedCount = state.turns.count { it.decodeResult?.runDecodeReached == "true" }
+    val fallbackCount = state.turns.count { it.decodeResult?.fallbackUsed == "true" }
+    val timeoutCount = state.turns.count { it.decodeResult?.timeout == "true" }
+    val freshCrashCount = state.turns.count { it.decodeResult?.freshCrash == "true" }
+    return buildString {
+        appendLine("[DEV診断: NPU persistent holder five turn summary]")
+        appendLine("test_name=$NPU_PERSISTENT_HOLDER_FIVE_TURN_PROBE_TEST_NAME")
+        appendLine("probe_status=${state.status}")
+        appendLine("holder_create_requested=${state.createResult != null || createDiagnostics?.holderCreateRequested == true}")
+        appendLine("holder_create_called=${createDiagnostics?.holderCreateCalled ?: state.createResult?.diagnostics?.nativeCreateCalled ?: false}")
+        appendLine("holder_create_succeeded=${createDiagnostics?.holderCreateSucceeded ?: false}")
+        appendLine("holder_id=${state.createResult?.holderId ?: "unavailable"}")
+        appendLine("run_count_requested=$NPU_PERSISTENT_HOLDER_FIVE_TURN_COUNT")
+        appendLine("run_count_completed=$completed")
+        (1..NPU_PERSISTENT_HOLDER_FIVE_TURN_COUNT).forEach { index ->
+            val turn = state.turns.firstOrNull { it.turnIndex == index }
+            appendLine("turn${index}_run_decode_reached=${turn?.decodeResult?.runDecodeReached ?: "unavailable"}")
+        }
+        appendLine("run_decode_reached_count=$decodeReachedCount")
+        appendLine("backend_evidence_summary=${summarizeHolderTwoTurnValues(state.turns.map { it.decodeResult?.backendEvidence })}")
+        appendLine("quality_classification_summary=${summarizeHolderTwoTurnValues(state.turns.map { it.decodeResult?.qualityClassification })}")
+        appendLine("fallback_used_count=$fallbackCount")
+        appendLine("timeout_count=$timeoutCount")
+        appendLine("fresh_crash_count=$freshCrashCount")
+        appendLine("holder_close_requested=${state.closeResult != null || closeDiagnostics?.holderCloseRequested == true}")
+        appendLine("holder_close_called=${closeDiagnostics?.holderCloseCalled ?: state.closeResult?.diagnostics?.nativeCloseCalled ?: false}")
+        appendLine("holder_close_succeeded=${closeDiagnostics?.holderCloseSucceeded ?: false}")
+        appendLine("holder_fatal_latch=${latestDiagnostics?.holderFatalLatch ?: false}")
+        appendLine("holder_fatal_reason=${latestDiagnostics?.holderFatalReason ?: "unavailable"}")
+        appendLine("engine_reuse_observed=unavailable")
+        appendLine("persistent_multi_turn_possible=false")
+        appendLine("restart_app_recommended=${latestDiagnostics?.restartAppRecommended ?: false}")
+        appendLine("recommended_next_step=$NPU_PERSISTENT_HOLDER_FIVE_TURN_RECOMMENDED_NEXT_STEP")
+    }.trimEnd()
+}
+
+internal fun formatNpuPersistentHolderFiveTurnFullDumpForCopy(
+    state: NpuPersistentHolderFiveTurnProbeState,
+): String = buildString {
+    appendLine("[DEV診断: NPU persistent holder five turn full dump]")
+    appendLine("test_name=$NPU_PERSISTENT_HOLDER_FIVE_TURN_PROBE_TEST_NAME")
+    appendLine("probe_status=${state.status}")
+    appendLine("probe_reason=${state.reason}")
+    appendLine("model_path_or_reason=${state.modelPathOrReason}")
+    appendLine("max_output_tokens=${state.maxOutputTokens}")
+    appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("throwable_class=${state.throwableClass}")
+    appendLine("throwable_message=${state.throwableMessage}")
+    if (!state.hasResult) {
+        appendLine(NPU_PERSISTENT_HOLDER_FIVE_TURN_NO_RESULT)
+        return@buildString
+    }
+    appendHolderResultBlock("create_result", state.createResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_create", state.diagnosticsAfterCreate)
+    state.turns.forEach { turn ->
+        appendHolderTwoTurnRecordBlock(turn)
+    }
+    appendHolderResultBlock("close_result", state.closeResult)
+    appendHolderDiagnosticsBlock("diagnostics_after_close", state.diagnosticsAfterClose)
+    appendLine()
+    appendLine(formatNpuPersistentHolderFiveTurnSummaryForCopy(state))
 }.trimEnd()
 
 private fun StringBuilder.appendHolderResultBlock(

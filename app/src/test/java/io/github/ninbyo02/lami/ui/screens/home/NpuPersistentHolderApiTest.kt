@@ -58,6 +58,23 @@ class NpuPersistentHolderApiTest {
                 "no holder two-turn probe result available",
             ),
         )
+        assertTrue(NPU_PERSISTENT_HOLDER_FIVE_TURN_UI_TITLE.contains("NPU Persistent Holder Five-Turn Probe"))
+        assertTrue(NPU_PERSISTENT_HOLDER_FIVE_TURN_RUN_LABEL.contains("Run Holder Five-Turn Probe"))
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL.contains(
+                "Copy Holder Five-Turn Summary",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL.contains(
+                "Copy Holder Five-Turn Full Dump",
+            ),
+        )
+        assertTrue(
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_NO_RESULT.contains(
+                "no holder five-turn probe result available",
+            ),
+        )
     }
 
     @Test

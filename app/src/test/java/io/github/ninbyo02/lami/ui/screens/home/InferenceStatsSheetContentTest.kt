@@ -729,6 +729,56 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes holder five turn dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderFiveTurnState = NpuPersistentHolderFiveTurnProbeState(
+                status = "completed",
+                reason = "success",
+                turns = (1..5).map { index ->
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = index,
+                        prompt = "prompt$index",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    )
+                },
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder five turn full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Five Turn Probe"))
+        assertTrue(text.contains("run_count_requested=5"))
+        assertTrue(text.contains("turn1_run_decode_reached=true"))
+        assertTrue(text.contains("turn5_run_decode_reached=true"))
+        assertTrue(text.contains("run_decode_reached_count=5"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:5"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),

@@ -7,6 +7,119 @@ import org.junit.Test
 
 class NpuPersistentHolderNativeStubTest {
     @Test
+    fun `five turn copy text reports no result before run`() {
+        val state = NpuPersistentHolderFiveTurnProbeState()
+
+        val summary = formatNpuPersistentHolderFiveTurnSummaryForCopy(state)
+        val fullDump = formatNpuPersistentHolderFiveTurnFullDumpForCopy(state)
+
+        assertTrue(summary.contains("no holder five-turn probe result available"))
+        assertTrue(summary.contains("test_name=NPU Persistent Holder Five Turn Probe"))
+        assertTrue(fullDump.contains("no holder five-turn probe result available"))
+        assertTrue(fullDump.contains("probe_status=idle"))
+        assertTrue(fullDump.contains("probe_reason=not_run"))
+    }
+
+    @Test
+    fun `five turn summary includes five decode attempts and keeps persistence unproven`() {
+        val createDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = true,
+            status = "created",
+            reason = "app_jni_holder_lifecycle_created_without_engine_create",
+        )
+        val runDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeRunCalled = true,
+            holderId = "native-holder-1",
+            holderOpenBeforeRun = true,
+            runOnceRequested = true,
+            runOnceSupported = true,
+            status = "run_ready",
+            reason = "holder_open_existing_one_shot_decode_may_run_once",
+        )
+        val closeDiagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCloseCalled = true,
+            holderCloseRequested = true,
+            holderCloseSucceeded = true,
+            status = "closed",
+            reason = "holder_closed_without_decode",
+        )
+        val prompts = listOf(
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_1,
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_2,
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_3,
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_4,
+            NPU_PERSISTENT_HOLDER_FIVE_TURN_PROMPT_5,
+        )
+        val state = NpuPersistentHolderFiveTurnProbeState(
+            status = "completed",
+            reason = "success",
+            createResult = NpuPersistentHolderApiResult(
+                status = "created",
+                reason = "app_jni_holder_lifecycle_created_without_engine_create",
+                holderId = "native-holder-1",
+                diagnostics = createDiagnostics,
+            ),
+            diagnosticsAfterCreate = createDiagnostics,
+            turns = prompts.mapIndexed { index, prompt ->
+                NpuPersistentHolderTwoTurnRecord(
+                    turnIndex = index + 1,
+                    prompt = prompt,
+                    runResult = NpuPersistentHolderApiResult(
+                        status = "run_ready",
+                        reason = "holder_open_existing_one_shot_decode_may_run_once",
+                        holderId = "native-holder-1",
+                        diagnostics = runDiagnostics,
+                    ),
+                    decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                        status = "success",
+                        reason = "success",
+                        runDecodeReached = "true",
+                        rawOutput = "raw${index + 1}",
+                        sanitizedOutput = "sanitized${index + 1}",
+                        qualityClassification = "natural_japanese",
+                        backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                        fallbackUsed = "false",
+                        timeout = "false",
+                        freshCrash = "false",
+                    ),
+                )
+            },
+            closeResult = NpuPersistentHolderApiResult(
+                status = "closed",
+                reason = "holder_closed_without_decode",
+                holderId = "native-holder-1",
+                diagnostics = closeDiagnostics,
+            ),
+            diagnosticsAfterClose = closeDiagnostics,
+        )
+
+        val summary = formatNpuPersistentHolderFiveTurnSummaryForCopy(state)
+        val fullDump = formatNpuPersistentHolderFiveTurnFullDumpForCopy(state)
+
+        assertTrue(summary.contains("test_name=NPU Persistent Holder Five Turn Probe"))
+        assertTrue(summary.contains("run_count_requested=5"))
+        assertTrue(summary.contains("run_count_completed=5"))
+        (1..5).forEach { index ->
+            assertTrue(summary.contains("turn${index}_run_decode_reached=true"))
+            assertTrue(fullDump.contains("turn_index=$index"))
+        }
+        assertTrue(summary.contains("run_decode_reached_count=5"))
+        assertTrue(summary.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:5"))
+        assertTrue(summary.contains("quality_classification_summary=natural_japanese:5"))
+        assertTrue(summary.contains("fallback_used_count=0"))
+        assertTrue(summary.contains("timeout_count=0"))
+        assertTrue(summary.contains("fresh_crash_count=0"))
+        assertTrue(summary.contains("holder_close_succeeded=true"))
+        assertTrue(summary.contains("engine_reuse_observed=unavailable"))
+        assertTrue(summary.contains("persistent_multi_turn_possible=false"))
+        assertFalse(summary.contains("persistent_multi_turn_possible=true"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
+    }
+
+    @Test
     fun `two turn copy text reports no result before run`() {
         val state = NpuPersistentHolderTwoTurnProbeState()
 

@@ -299,11 +299,17 @@ no fresh crash, close success, no fatal latch, and QNN HTP / FastRPC evidence.
 Hold on create failure, unsupported/failed run once, fallback, timeout, fresh
 crash, close failure, fatal latch, or missing backend evidence.
 
-The next DEV-only exposure step is `NPU Persistent Holder Two-Turn Probe`. It
-creates one holder record, runs turn 1 with `こんにちは`, runs turn 2 with
-`あなたは誰ですか`, and closes once. It is fixed at two turns, stops before
-turn 2 if turn 1 fails, always attempts close when a holder id is available,
-and does not connect to normal NPU chat routing.
+Two-Turn physical-device coverage passed for `NPU Persistent Holder Two-Turn
+Probe`: both turns reached decode, backend evidence reported QNN HTP /
+FastRPC, quality classification was natural Japanese, fallback/timeout/
+fresh-crash counts were zero, and no fatal latch or restart recommendation was
+observed.
+
+The next DEV-only exposure step is `NPU Persistent Holder Five-Turn Probe`. It
+creates one holder record, runs five fixed prompts, and closes once. It is
+fixed at five turns, stops before later turns if any turn fails, always
+attempts close when a holder id is available, and does not connect to normal
+NPU chat routing.
 
 Two-Turn pass requires create success, `turn1_run_decode_reached=true`,
 `turn2_run_decode_reached=true`, QNN HTP / FastRPC backend evidence,
@@ -312,9 +318,15 @@ success, and no fatal latch. Hold on either turn failure, fallback, timeout,
 fresh crash, close failure, fatal latch, or missing backend evidence.
 
 Multi-turn remains blocked because `engine_reuse_observed=unavailable` and
-these probes only prove holder-gated one-shot decodes. A clean Two-Turn result
-should lead to a fixed Five-Turn Probe, not directly to a 10-turn persistent
-probe or normal chat route persistentization.
+these probes only prove holder-gated one-shot decodes.
+
+Five-Turn pass requires create success, `run_decode_reached_count=5`, QNN HTP /
+FastRPC backend evidence, generally natural Japanese quality classification
+summary, `fallback_used_count=0`, `timeout_count=0`,
+`fresh_crash_count=0`, close success, and no fatal latch. Hold on any turn
+failure, fallback, timeout, fresh crash, close failure, fatal latch, or missing
+backend evidence. A clean Five-Turn result should lead to the fixed Ten-Turn
+Probe, not directly to normal chat route persistentization.
 
 ## Required Safety Conditions
 
@@ -359,8 +371,8 @@ Current feasibility:
 
 Recommended next implementation unit for Codex:
 
-1. Review Two-Turn device evidence.
-2. Implement a fixed Five-Turn Probe if Two-Turn has no fallback, timeout,
+1. Review Five-Turn device evidence.
+2. Implement a fixed Ten-Turn Probe if Five-Turn has no fallback, timeout,
    fresh crash, close failure, or fatal latch.
 3. Align holder output with `NpuStandardRouteS1RawResult` before connecting it
    to the Persistent Probe.
