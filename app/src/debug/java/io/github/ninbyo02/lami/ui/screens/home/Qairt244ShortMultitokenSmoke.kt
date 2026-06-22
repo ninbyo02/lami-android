@@ -12,6 +12,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         private const val PERSISTENT_PROBE_DIAG_FILE_NAME =
             "qairt244_persistent_custom_jni_probe_diag.txt"
         private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
+        private val allowedTrueEngineCreateCloseFlavors = allowedDebugFlavors + "trueEngineNpuProbe"
 
         init {
             System.loadLibrary("litertlm_jni")
@@ -85,7 +86,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             maxOutputTokens: Int,
             holderKey: String,
         ): NpuTrueEngineHolderNativeResult {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.CURRENT_FLAVOR in allowedTrueEngineCreateCloseFlavors) {
                 "true engine holder create/close probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }

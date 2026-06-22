@@ -423,12 +423,13 @@ Temporary startup recovery status:
   device.
 - `trueEngineNpuProbeDebug` may report
   `isolated_flavor_available=true` and
-  `isolated_native_payload_staged=true`, but the current packaging-only step
-  must also report `isolated_native_execution_enabled=false` and
-  `probe_execution_available=false`.
-- The staged payload is isolated to the `trueEngineNpuProbeDebug` APK. It is a
-  marker native library only; it does not enable `true_engine_create_close_only`
-  execution and must not appear in the `standardDebug` APK.
+  `isolated_native_payload_staged=true`. In the isolated execution step it may
+  also report `isolated_native_execution_enabled=true` and
+  `probe_execution_available=true`.
+- The staged payload is isolated to the `trueEngineNpuProbeDebug` APK and does
+  not appear in the `standardDebug` APK. It enables only
+  `true_engine_create_close_only` after an explicit Run button press; Session,
+  prefill, decode, and generate remain forbidden.
 
 This probe is not the app JNI holder stub. It wraps the existing
 `litertlm_jni` persistent custom JNI path with

@@ -384,10 +384,11 @@ Startup recovery gate:
   held Engine run once remain out of scope until isolated create/close-only
   passes.
 - The `trueEngineNpuProbeDebug` shell now has isolated `jniLibs` / native
-  staging task wiring for a marker payload, but it still does not enable native
-  execution. The Run path remains gated with `probe_execution_available=false`.
-- APK validation must confirm the marker payload is present only in
-  `trueEngineNpuProbeDebug` and absent from `standardDebug`.
+  staging task wiring for the patched qairt244 create/close-only stack. It
+  enables the Run path only in that flavor with `probe_execution_available=true`
+  while keeping startup native calls blocked.
+- APK validation must confirm the staged true Engine probe payload is present
+  only in `trueEngineNpuProbeDebug` and absent from `standardDebug`.
 
 The current implementation reaches native Engine create/close through the
 existing `litertlm_jni` persistent custom JNI path with

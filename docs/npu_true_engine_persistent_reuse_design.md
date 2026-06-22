@@ -489,14 +489,14 @@ Isolation decision:
   first proven not to feed any `standardDebug` staging or overlay task.
 - Held Engine run once remains blocked until create/close-only passes in the
   isolated flavor.
-- The `trueEngineNpuProbeDebug` flavor/sourceSet now stages an isolated marker
-  native payload through `stageTrueEngineNpuProbeDebugNativeLibs`, but
-  `isolated_native_execution_enabled=false`; it must still return
-  `probe_execution_available=false` until the next explicit execution gate is
-  added.
+- The `trueEngineNpuProbeDebug` flavor/sourceSet now stages the isolated
+  patched qairt244 native stack through
+  `stageTrueEngineNpuProbeDebugNativeLibs` and enables only the
+  button-triggered create/close-only gate. It must still block startup native
+  calls and must not create a Session, decode, or generate.
 - Packaging validation must prove that
-  `liblami_true_engine_npu_probe_payload.so` appears only in the
-  `trueEngineNpuProbeDebug` APK and never in `standardDebug`.
+  `liblami_true_engine_npu_probe_payload.so` and the true Engine probe staging
+  appear only in the `trueEngineNpuProbeDebug` APK and never in `standardDebug`.
 
 Scope:
 

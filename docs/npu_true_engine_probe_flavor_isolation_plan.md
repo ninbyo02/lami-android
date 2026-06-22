@@ -1,10 +1,11 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
-Status: isolated native payload staging in progress. `trueEngineNpuProbeDebug`
-has a Gradle flavor/sourceSet shell and a variant-only marker native payload,
-but native execution remains disabled. Do not add JNI, enable
-`true_engine_create_close_only`, or change patches until the next gated
-implementation step.
+Status: isolated create/close-only execution in progress.
+`trueEngineNpuProbeDebug` has a Gradle flavor/sourceSet shell, variant-only
+native staging, and button-triggered `true_engine_create_close_only` execution.
+`standardDebug` remains blocked. Do not add decode, Session creation, generate,
+held Engine run once, route changes, fallback changes, or patch changes in this
+step.
 
 ## Why Isolation Is Required
 
@@ -117,11 +118,15 @@ Current shell status:
 - `BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR=true` only for this flavor.
 - `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED=true` only for this
   flavor.
-- `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`.
-- `stageTrueEngineNpuProbeDebugNativeLibs` builds a marker-only payload into
+- `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=true` only for
+  this flavor.
+- `stageTrueEngineNpuProbeDebugNativeLibs` stages the patched qairt244 native
+  stack plus a marker payload into
   `app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a`.
-- The marker payload is packaged only by `mergeTrueEngineNpuProbeDebugJniLibFolders`.
-- The Run button still returns a blocked summary.
+- The staged payload is packaged only by
+  `mergeTrueEngineNpuProbeDebugJniLibFolders`.
+- The Run button may enter create/close-only native execution only in this
+  flavor.
 
 Purpose:
 
@@ -152,8 +157,10 @@ Gradle requirements:
 - Add isolated native staging/overlay tasks whose source and outputs are not
   used by `standardDebug`.
 - The current staging task is `stageTrueEngineNpuProbeDebugNativeLibs`; it
-  builds `liblami_true_engine_npu_probe_payload.so`, which has no JNI entrypoint
-  and is not loaded by Kotlin. The generated `.so` is ignored by git.
+  stages the patched `liblitertlm_jni.so` and related qairt244 native stack plus
+  `liblami_true_engine_npu_probe_payload.so`. The marker library has no JNI
+  entrypoint and is not loaded by Kotlin. Generated `.so` files are ignored by
+  git.
 - Do not point `standardDebug` tasks at
   `app/src/trueEngineNpuProbeDebug/jniLibs`.
 - Do not point `trueEngineNpuProbeDebug` tasks at
@@ -178,23 +185,21 @@ Both variants must defer native work until user action:
 
 - `startup_native_call_blocked=true`
 - `native_call_deferred_until_button_click=true`
-- `probe_execution_available=false` while
-  `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`.
+- `probe_execution_available=true`.
 - `isolated_native_payload_staged=true`.
-- `isolated_native_execution_enabled=false`.
-- `probe_execution_block_reason=isolated_native_payload_staged_but_execution_not_enabled`.
+- `isolated_native_execution_enabled=true`.
+- `probe_execution_block_reason=unavailable`.
 - No native call during app start.
 - No native call during DEV diagnostics rendering.
 - No native call during initial Summary / Full Dump copy.
-- The current Run button still returns a blocked summary and must not resolve
-  the model path or enter the native create/close-only path.
+- The Run button may resolve the model path and enter only the isolated
+  create/close-only native path.
 - Exceptions must be captured into Summary / Full Dump, not thrown through UI
   startup.
 
 ## Create/Close-Only Native Rules
 
-Allowed only in a future gated `trueEngineNpuProbeDebug` step after packaging
-is verified:
+Allowed only in `trueEngineNpuProbeDebug` after explicit Run button press:
 
 - `nativeProbeMode=true_engine_create_close_only`
 - `runCount=0`
@@ -220,27 +225,20 @@ Forbidden:
 
 ## TrueEngineNpuProbeDebug Pass Conditions
 
-Current packaging-only pass conditions:
+Current create/close-only pass conditions:
 
 - Installs with a separate application id.
 - Can coexist with `standardDebug`.
 - App starts without native call from this probe.
 - DEV diagnostics opens.
 - `isolated_native_payload_staged=true`.
-- `isolated_native_execution_enabled=false`.
-- `probe_execution_available=false`.
-- `probe_execution_block_reason=isolated_native_payload_staged_but_execution_not_enabled`.
-- APK contains `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
+- `isolated_native_execution_enabled=true`.
+- `probe_execution_available=true`.
+- `probe_execution_block_reason=unavailable`.
+- APK contains the staged patched qairt244 native stack and
+  `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
 - `standardDebug` APK does not contain
   `liblami_true_engine_npu_probe_payload.so`.
-
-Future execution-enabled pass conditions:
-
-- Installs with a separate application id.
-- Can coexist with `standardDebug`.
-- App starts without native call from this probe.
-- DEV diagnostics opens.
-- `probe_execution_available=true`.
 - Button press is the first point where the create/close native path is allowed.
 - `selected_native_probe_mode=true_engine_create_close_only`.
 - `argument_validation_passed=true`.
@@ -317,7 +315,8 @@ Do not change these while adding the isolated create/close-only flavor:
 1. Keep `standardDebug` blocked and add regression tests for that expectation.
 2. Add `trueEngineNpuProbeDebug` flavor/sourceSet with no native execution.
 3. Add isolated jniLibs path and staging task, still with no Run execution.
-4. Enable `probe_execution_available=true` only in the isolated flavor.
+4. Enable `probe_execution_available=true` only in the isolated flavor and
+   keep startup native calls blocked.
 5. Enable button-triggered `true_engine_create_close_only` in the isolated
    flavor only.
 6. Run physical-device create/close-only validation.
@@ -343,10 +342,9 @@ Do not change these while adding the isolated create/close-only flavor:
 4. Open DEV diagnostics.
 5. Confirm no native work has run before button press.
 6. Confirm `isolated_native_payload_staged=true`,
-   `isolated_native_execution_enabled=false`, and
-   `probe_execution_available=false`.
-7. Pressing `Run True Engine Holder Create/Close Probe` still returns a blocked
-   summary in the current packaging-only step.
+   `isolated_native_execution_enabled=true`, and
+   `probe_execution_available=true`.
+7. Press `Run True Engine Holder Create/Close Probe`.
 8. Separately inspect the APK and confirm only the isolated APK contains
    `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
 9. Confirm zero Session/decode/generate counts remain in Summary / Full Dump.

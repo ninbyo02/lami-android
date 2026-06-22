@@ -30,6 +30,11 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_D
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP =
     "restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor"
 
+internal fun npuTrueEngineHolderCreateCloseProbeExecutionAvailable(): Boolean =
+    BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
+
 internal data class NpuTrueEngineHolderNativeResult(
     val nativeReturn: String = "unavailable",
     val resultText: String = "",
@@ -59,7 +64,9 @@ internal interface NpuTrueEngineHolderCreateCloseProbeRunner {
 }
 
 internal fun npuTrueEngineHolderCreateCloseProbeExecutionBlockReason(): String =
-    if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+    if (npuTrueEngineHolderCreateCloseProbeExecutionAvailable()) {
+        "unavailable"
+    } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
         !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
     ) {
@@ -87,7 +94,7 @@ internal fun blockedNpuTrueEngineHolderCreateCloseNativeResult(): NpuTrueEngineH
             true_engine_create_close_probe_startup_safe=true
             native_call_deferred_until_button_click=true
             startup_native_call_blocked=true
-            probe_execution_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}
+            probe_execution_available=${npuTrueEngineHolderCreateCloseProbeExecutionAvailable()}
             probe_execution_block_reason=${npuTrueEngineHolderCreateCloseProbeExecutionBlockReason()}
             argument_validation_passed=false
             run_count_validation_skipped_for_create_close_only=unavailable
@@ -139,7 +146,7 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
             "true_engine_create_close_probe_startup_safe=true\n" +
             "native_call_deferred_until_button_click=true\n" +
             "startup_native_call_blocked=true\n" +
-            "probe_execution_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}\n" +
+            "probe_execution_available=${npuTrueEngineHolderCreateCloseProbeExecutionAvailable()}\n" +
             "probe_execution_block_reason=${npuTrueEngineHolderCreateCloseProbeExecutionBlockReason()}"
     }
     val values = state.values
@@ -163,7 +170,7 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
     val startupNativeCallBlocked = values.boolText("startup_native_call_blocked", "true")
     val probeExecutionAvailable = values.boolText(
         key = "probe_execution_available",
-        fallback = BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED.toString(),
+        fallback = npuTrueEngineHolderCreateCloseProbeExecutionAvailable().toString(),
     )
     val probeExecutionBlockReason = values["probe_execution_block_reason"]
         ?: if (state.status == "blocked") {

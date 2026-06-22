@@ -39,7 +39,7 @@ class NpuTrueEngine {
         assertTrue(summary.contains("true_engine_create_close_probe_startup_safe=true"))
         assertTrue(summary.contains("native_call_deferred_until_button_click=true"))
         assertTrue(summary.contains("startup_native_call_blocked=true"))
-        assertTrue(summary.contains("probe_execution_available=false"))
+        assertTrue(summary.contains("probe_execution_available=${expectedExecutionAvailable()}"))
         assertTrue(summary.contains("probe_execution_block_reason=${expectedBlockReason()}"))
         assertTrue(fullDump.contains("probe_status=idle"))
         assertTrue(fullDump.contains("startup_native_call_blocked=true"))
@@ -52,10 +52,10 @@ class NpuTrueEngine {
         val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
         val fullDump = formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(state)
 
-        assertStandardDebugBlockedSummary(summary)
+        assertBlockedSummary(summary)
         assertTrue(fullDump.contains("native_return=blocked"))
         assertTrue(fullDump.contains("model_path_or_reason=not_resolved_startup_safe_block"))
-        assertTrue(fullDump.contains("probe_execution_available=false"))
+        assertTrue(fullDump.contains("probe_execution_available=${expectedExecutionAvailable()}"))
     }
 
     @Test
@@ -68,10 +68,21 @@ class NpuTrueEngine {
         val state = runner!!.run()
         val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
 
-        assertEquals("blocked", state.status)
-        assertEquals(expectedBlockReason(), state.reason)
-        assertEquals("not_resolved_startup_safe_block", state.modelPathOrReason)
-        assertStandardDebugBlockedSummary(summary)
+        if (expectedExecutionAvailable()) {
+            assertEquals("failed", state.status)
+            assertTrue(state.reason.startsWith("model_resolution_failed:"))
+            assertTrue(summary.contains("probe_execution_available=true"))
+            assertTrue(summary.contains("session_create_count=0"))
+            assertTrue(summary.contains("decode_count=0"))
+            assertTrue(summary.contains("generate_count=0"))
+            assertTrue(summary.contains("npu_decode_called=false"))
+            assertTrue(summary.contains("qnn_decode_called=false"))
+        } else {
+            assertEquals("blocked", state.status)
+            assertEquals(expectedBlockReason(), state.reason)
+            assertEquals("not_resolved_startup_safe_block", state.modelPathOrReason)
+            assertBlockedSummary(summary)
+        }
     }
 
     @Test
@@ -85,7 +96,7 @@ class NpuTrueEngine {
         )
 
         assertTrue(text.contains("[DEV診断: NPU true engine holder create close full dump]"))
-        assertStandardDebugBlockedSummary(text)
+        assertBlockedSummary(text)
     }
 
     private fun blockedState(): NpuTrueEngineHolderCreateCloseProbeState =
@@ -97,7 +108,7 @@ class NpuTrueEngine {
             nativeResult = blockedNpuTrueEngineHolderCreateCloseNativeResult(),
         )
 
-    private fun assertStandardDebugBlockedSummary(text: String) {
+    private fun assertBlockedSummary(text: String) {
         assertTrue(text.contains("test_name=NPU True Engine Holder Create Close Probe"))
         assertTrue(text.contains("probe_status=blocked"))
         assertTrue(text.contains("probe_reason=${expectedBlockReason()}"))
@@ -117,7 +128,7 @@ class NpuTrueEngine {
         assertTrue(text.contains("true_engine_create_close_probe_startup_safe=true"))
         assertTrue(text.contains("native_call_deferred_until_button_click=true"))
         assertTrue(text.contains("startup_native_call_blocked=true"))
-        assertTrue(text.contains("probe_execution_available=false"))
+        assertTrue(text.contains("probe_execution_available=${expectedExecutionAvailable()}"))
         assertTrue(text.contains("probe_execution_block_reason=${expectedBlockReason()}"))
         assertTrue(text.contains("session_create_count=0"))
         assertTrue(text.contains("decode_count=0"))
@@ -132,8 +143,15 @@ class NpuTrueEngine {
     private fun expectedVariantName(): String =
         BuildConfig.CURRENT_FLAVOR + BuildConfig.BUILD_TYPE.replaceFirstChar { it.uppercaseChar() }
 
+    private fun expectedExecutionAvailable(): Boolean =
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+            BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+            BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
+
     private fun expectedBlockReason(): String =
-        if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        if (expectedExecutionAvailable()) {
+            "unavailable"
+        } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
             BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED
         ) {
             NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON

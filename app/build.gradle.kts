@@ -240,7 +240,7 @@ android {
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
-            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "true")
         }
     }
 
@@ -794,13 +794,31 @@ tasks.register("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni") {
 
 tasks.register("stageTrueEngineNpuProbeDebugNativeLibs") {
     group = "build"
-    description = "Stages a trueEngineNpuProbeDebug-only marker native payload; probe execution remains disabled."
+    description = "Stages trueEngineNpuProbeDebug-only native payloads for create/close-only execution."
     inputs.file(trueEngineNpuProbeDebugNativePayloadSource)
+    inputs.files(
+        fileTree(qairt244StandardDebugNativeSourceDir) {
+            include("*.so")
+            exclude("liblami_qairt244_smoke.so")
+        },
+    )
     outputs.file(trueEngineNpuProbeDebugNativePayloadOutputDir.file("liblami_true_engine_npu_probe_payload.so"))
+    outputs.files(
+        fileTree(trueEngineNpuProbeDebugNativePayloadOutputDir) {
+            include("*.so")
+        },
+    )
 
     doLast {
         val outputDir = trueEngineNpuProbeDebugNativePayloadOutputDir.asFile
         outputDir.mkdirs()
+        copy {
+            from(qairt244StandardDebugNativeSourceDir) {
+                include("*.so")
+                exclude("liblami_qairt244_smoke.so")
+            }
+            into(outputDir)
+        }
         val outputFile = File(outputDir, "liblami_true_engine_npu_probe_payload.so")
         val clangArgs = listOf(
             "-shared",
