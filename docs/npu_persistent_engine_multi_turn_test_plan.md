@@ -383,9 +383,11 @@ Startup recovery gate:
 - Long Generation, R6 streaming, fallback policy, normal NPU chat route, and
   held Engine run once remain out of scope until isolated create/close-only
   passes.
-- The initial `trueEngineNpuProbeDebug` shell does not enable native execution.
-  Its next step is isolated `jniLibs` / native staging task wiring while the Run
-  path remains gated.
+- The `trueEngineNpuProbeDebug` shell now has isolated `jniLibs` / native
+  staging task wiring for a marker payload, but it still does not enable native
+  execution. The Run path remains gated with `probe_execution_available=false`.
+- APK validation must confirm the marker payload is present only in
+  `trueEngineNpuProbeDebug` and absent from `standardDebug`.
 
 The current implementation reaches native Engine create/close through the
 existing `litertlm_jni` persistent custom JNI path with

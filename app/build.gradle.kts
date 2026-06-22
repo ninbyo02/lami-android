@@ -79,6 +79,7 @@ android {
         buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+        buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
     }
 
@@ -97,6 +98,7 @@ android {
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
         create("npuExperiment") {
@@ -219,6 +221,7 @@ android {
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
         create("trueEngineNpuProbe") {
@@ -236,6 +239,7 @@ android {
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
     }
@@ -477,7 +481,11 @@ tasks.register("printQnnNpuReadiness") {
 val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/qnn_direct_probe_debug.cpp")
 val npuPersistentHolderStubDebugJniSource =
     layout.projectDirectory.file("src/debug/cpp/lami_npu_persistent_holder_stub.cpp")
+val trueEngineNpuProbeDebugNativePayloadSource =
+    layout.projectDirectory.file("src/trueEngineNpuProbeDebug/cpp/lami_true_engine_npu_probe_payload.cpp")
 val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
+val trueEngineNpuProbeDebugNativePayloadOutputDir =
+    layout.projectDirectory.dir("src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a")
 val qairt244AppJniSmokeSource = layout.projectDirectory.file("src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp")
 val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
 val qairt244StandardDebugNativeSourceDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
@@ -784,6 +792,78 @@ tasks.register("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni") {
     }
 }
 
+tasks.register("stageTrueEngineNpuProbeDebugNativeLibs") {
+    group = "build"
+    description = "Stages a trueEngineNpuProbeDebug-only marker native payload; probe execution remains disabled."
+    inputs.file(trueEngineNpuProbeDebugNativePayloadSource)
+    outputs.file(trueEngineNpuProbeDebugNativePayloadOutputDir.file("liblami_true_engine_npu_probe_payload.so"))
+
+    doLast {
+        val outputDir = trueEngineNpuProbeDebugNativePayloadOutputDir.asFile
+        outputDir.mkdirs()
+        val outputFile = File(outputDir, "liblami_true_engine_npu_probe_payload.so")
+        val clangArgs = listOf(
+            "-shared",
+            "-fPIC",
+            "-std=c++17",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-nostdlib++",
+            "-Wl,--build-id=sha1",
+        )
+        val localClang = findAndroidNdkClang()
+        if (localClang != null) {
+            exec {
+                commandLine(
+                    listOf(localClang.absolutePath) +
+                        clangArgs +
+                        listOf(
+                            trueEngineNpuProbeDebugNativePayloadSource.asFile.absolutePath,
+                            "-o",
+                            outputFile.absolutePath,
+                        ),
+                )
+            }
+        } else {
+            val uid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:uid").toString() }
+                .getOrDefault("1000")
+            val gid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:gid").toString() }
+                .getOrDefault("1000")
+            exec {
+                commandLine(
+                    listOf(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--user",
+                        "$uid:$gid",
+                        "-v",
+                        "${projectDir.parentFile.absolutePath}:/work",
+                        "-w",
+                        "/work/${projectDir.name}",
+                        "litert-build:ubuntu22",
+                        "/opt/android-sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++",
+                    ) +
+                        clangArgs +
+                        listOf(
+                            "src/trueEngineNpuProbeDebug/cpp/lami_true_engine_npu_probe_payload.cpp",
+                            "-o",
+                            "src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a/liblami_true_engine_npu_probe_payload.so",
+                        ),
+                )
+            }
+        }
+        exec {
+            commandLine("readelf", "-d", outputFile.absolutePath)
+            isIgnoreExitValue = true
+        }
+    }
+}
+
 tasks.register("overlayQairt244StandardDebugNativeLibs") {
     group = "build"
     description = "Overlays the existing qairt244 SM8750 custom native stack into standardDebug for the hidden experiment."
@@ -893,6 +973,10 @@ tasks.matching {
 
 tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
     dependsOn("stageQairt244StandardDebugNativeLibs")
+}
+
+tasks.matching { it.name == "mergeTrueEngineNpuProbeDebugJniLibFolders" }.configureEach {
+    dependsOn("stageTrueEngineNpuProbeDebugNativeLibs")
 }
 
 tasks.matching {

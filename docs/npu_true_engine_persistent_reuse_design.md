@@ -489,10 +489,14 @@ Isolation decision:
   first proven not to feed any `standardDebug` staging or overlay task.
 - Held Engine run once remains blocked until create/close-only passes in the
   isolated flavor.
-- The `trueEngineNpuProbeDebug` flavor/sourceSet shell is allowed to exist while
+- The `trueEngineNpuProbeDebug` flavor/sourceSet now stages an isolated marker
+  native payload through `stageTrueEngineNpuProbeDebugNativeLibs`, but
   `isolated_native_execution_enabled=false`; it must still return
-  `probe_execution_available=false` until isolated native staging is added in a
-  later step.
+  `probe_execution_available=false` until the next explicit execution gate is
+  added.
+- Packaging validation must prove that
+  `liblami_true_engine_npu_probe_payload.so` appears only in the
+  `trueEngineNpuProbeDebug` APK and never in `standardDebug`.
 
 Scope:
 

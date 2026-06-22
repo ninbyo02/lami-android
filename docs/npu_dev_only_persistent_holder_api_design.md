@@ -422,9 +422,13 @@ Temporary startup recovery status:
 - Held Engine run once must wait until isolated create/close-only passes on
   device.
 - `trueEngineNpuProbeDebug` may report
-  `isolated_flavor_available=true`, but the current shell must also report
-  `isolated_native_execution_enabled=false` and
+  `isolated_flavor_available=true` and
+  `isolated_native_payload_staged=true`, but the current packaging-only step
+  must also report `isolated_native_execution_enabled=false` and
   `probe_execution_available=false`.
+- The staged payload is isolated to the `trueEngineNpuProbeDebug` APK. It is a
+  marker native library only; it does not enable `true_engine_create_close_only`
+  execution and must not appear in the `standardDebug` APK.
 
 This probe is not the app JNI holder stub. It wraps the existing
 `litertlm_jni` persistent custom JNI path with

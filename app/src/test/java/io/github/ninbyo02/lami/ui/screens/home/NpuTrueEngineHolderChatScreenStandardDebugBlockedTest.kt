@@ -28,6 +28,11 @@ class NpuTrueEngine {
         assertTrue(summary.contains("isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}"))
         assertTrue(
             summary.contains(
+                "isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}",
+            ),
+        )
+        assertTrue(
+            summary.contains(
                 "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}",
             ),
         )
@@ -101,6 +106,11 @@ class NpuTrueEngine {
         assertTrue(text.contains("isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}"))
         assertTrue(
             text.contains(
+                "isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}",
+            ),
+        )
+        assertTrue(
+            text.contains(
                 "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}",
             ),
         )
@@ -123,7 +133,11 @@ class NpuTrueEngine {
         BuildConfig.CURRENT_FLAVOR + BuildConfig.BUILD_TYPE.replaceFirstChar { it.uppercaseChar() }
 
     private fun expectedBlockReason(): String =
-        if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+        if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+            BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED
+        ) {
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON
+        } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
             NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON
         } else {
             NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON

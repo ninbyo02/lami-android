@@ -25,6 +25,8 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON =
     "temporarily_blocked_to_restore_startup"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON =
     "isolated_flavor_created_but_native_execution_not_enabled"
+internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON =
+    "isolated_native_payload_staged_but_execution_not_enabled"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP =
     "restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor"
 
@@ -58,6 +60,11 @@ internal interface NpuTrueEngineHolderCreateCloseProbeRunner {
 
 internal fun npuTrueEngineHolderCreateCloseProbeExecutionBlockReason(): String =
     if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+        !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
+    ) {
+        NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON
+    } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
         !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
     ) {
         NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON
@@ -75,6 +82,7 @@ internal fun blockedNpuTrueEngineHolderCreateCloseNativeResult(): NpuTrueEngineH
             selected_native_probe_mode=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE
             true_engine_probe_flavor=${npuTrueEngineHolderCreateCloseProbeVariantName()}
             isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}
+            isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}
             isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}
             true_engine_create_close_probe_startup_safe=true
             native_call_deferred_until_button_click=true
@@ -126,6 +134,7 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
             "test_name=$NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_TEST_NAME\n" +
             "true_engine_probe_flavor=${npuTrueEngineHolderCreateCloseProbeVariantName()}\n" +
             "isolated_flavor_available=${BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR}\n" +
+            "isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}\n" +
             "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}\n" +
             "true_engine_create_close_probe_startup_safe=true\n" +
             "native_call_deferred_until_button_click=true\n" +
@@ -140,6 +149,10 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
     val isolatedFlavorAvailable = values.boolText(
         "isolated_flavor_available",
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR.toString(),
+    )
+    val isolatedNativePayloadStaged = values.boolText(
+        "isolated_native_payload_staged",
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED.toString(),
     )
     val isolatedNativeExecutionEnabled = values.boolText(
         "isolated_native_execution_enabled",
@@ -199,6 +212,7 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("selected_native_probe_mode=$selectedNativeProbeMode")
         appendLine("true_engine_probe_flavor=$trueEngineProbeFlavor")
         appendLine("isolated_flavor_available=$isolatedFlavorAvailable")
+        appendLine("isolated_native_payload_staged=$isolatedNativePayloadStaged")
         appendLine("isolated_native_execution_enabled=$isolatedNativeExecutionEnabled")
         appendLine("true_engine_create_close_probe_startup_safe=$startupSafe")
         appendLine("native_call_deferred_until_button_click=$nativeCallDeferred")
