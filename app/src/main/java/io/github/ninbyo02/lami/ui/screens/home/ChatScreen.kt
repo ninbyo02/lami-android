@@ -8216,6 +8216,71 @@ fun Home(
                                         )
                                     }
                                 }
+                                if (
+                                    shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
+                                        routeText = npuStandardRouteS1DisplayText,
+                                        devTraceText = npuStandardRouteS1DevTraceText,
+                                        s4Text = npuStandardRouteS4PseudoStreamingText,
+                                    )
+                                ) {
+                                    item(key = "true_engine_npu_probe_dev_diagnostics") {
+                                        NpuStandardRouteDevDiagnosticsBlock(
+                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            onToggleExpanded = {
+                                                npuStandardRouteDevDiagnosticsExpanded =
+                                                    !npuStandardRouteDevDiagnosticsExpanded
+                                            },
+                                            npuTrueEngineHolderCreateCloseState =
+                                                npuTrueEngineHolderCreateCloseState,
+                                            npuTrueEngineHolderCreateCloseInProgress =
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineHolderCreateCloseStart =
+                                                ::startNpuTrueEngineHolderCreateCloseProbe,
+                                            onCopyTrueEngineHolderSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
+                                                            npuTrueEngineHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Holder Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineHolderFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
+                                                            npuTrueEngineHolderCreateCloseState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Holder Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devWhitespaceTraceText != null) {
                                     item(key = "dev_whitespace_trace") {
                                         val whitespaceTraceText = devWhitespaceTraceText!!
@@ -13568,6 +13633,15 @@ private fun CopyableDebugBlock(
 internal fun hasNpuStandardRouteDevDiagnostics(vararg textBlocks: String?): Boolean =
     textBlocks.any { !it.isNullOrBlank() }
 
+internal fun shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
+    routeText: String?,
+    devTraceText: String?,
+    s4Text: String?,
+): Boolean =
+    BuildConfig.DEBUG &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        !hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
+
 internal fun shouldShowNpuStandardRouteDevDiagnosticsContent(expanded: Boolean): Boolean = expanded
 
 internal fun npuStandardRouteDevDiagnosticsToggleLabel(expanded: Boolean): String =
@@ -13683,7 +13757,10 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1PersistentCustomJniStart: (() -> Unit)? = null,
     onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
 ) {
-    if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
+    val hasStandardRouteDiagnostics = hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
+    val hasStandaloneTrueEngineProbe =
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR && onNpuTrueEngineHolderCreateCloseStart != null
+    if (!hasStandardRouteDiagnostics && !hasStandaloneTrueEngineProbe) return
     var advancedExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(

@@ -5,6 +5,7 @@ import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -97,6 +98,44 @@ class NpuTrueEngine {
 
         assertTrue(text.contains("[DEV診断: NPU true engine holder create close full dump]"))
         assertBlockedSummary(text)
+    }
+
+    @Test
+    fun `trueEngineNpuProbeDebug keeps standalone DEV diagnostics visible without standard route text`() {
+        val shouldShow = shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
+            routeText = null,
+            devTraceText = null,
+            s4Text = null,
+        )
+
+        assertEquals(BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR, shouldShow)
+        assertTrue(NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_UI_TITLE.contains("NPU True Engine Holder Create/Close Probe"))
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RUN_LABEL.contains(
+                "Run True Engine Holder Create/Close Probe",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL.contains(
+                "Copy True Engine Holder Summary",
+            ),
+        )
+        assertTrue(
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL.contains(
+                "Copy True Engine Holder Full Dump",
+            ),
+        )
+    }
+
+    @Test
+    fun `standalone true engine DEV diagnostics do not duplicate standard route diagnostics`() {
+        assertFalse(
+            shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
+                routeText = "route_type=standard_chat_screen_s1",
+                devTraceText = null,
+                s4Text = null,
+            ),
+        )
     }
 
     private fun blockedState(): NpuTrueEngineHolderCreateCloseProbeState =
