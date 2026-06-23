@@ -151,6 +151,10 @@ class NpuPersistentHolderNativeStubTest {
                     argument_validation_passed=true
                     run_count_validation_skipped_for_create_close_only=true
                     persistent_custom_jni_status=stopped
+                    first_failure_stage=engine_create
+                    first_failure_reason=engine-create-failed:internal
+                    first_failure_exception_class=absl::Status
+                    first_failure_exception_message=engine create failed
                     model_assets_create_reached=true
                     model_assets_create_returned=false
                     engine_settings_create_reached=false
@@ -167,6 +171,10 @@ class NpuPersistentHolderNativeStubTest {
 
         assertTrue(summary.contains("engine_fatal_latch=true"))
         assertTrue(summary.contains("engine_fatal_reason=engine_create_failed"))
+        assertTrue(summary.contains("first_failure_stage=engine_create"))
+        assertTrue(summary.contains("first_failure_reason=engine-create-failed:internal"))
+        assertTrue(summary.contains("first_failure_exception_class=absl::Status"))
+        assertTrue(summary.contains("first_failure_exception_message=engine create failed"))
         assertTrue(summary.contains("restart_app_recommended=true"))
         assertTrue(summary.contains("decode_count=0"))
         assertTrue(summary.contains("session_create_count=0"))

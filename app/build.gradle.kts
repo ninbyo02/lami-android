@@ -230,7 +230,7 @@ android {
             versionNameSuffix = "-trueEngineNpuProbe"
             buildConfigField("String", "CURRENT_FLAVOR", "\"trueEngineNpuProbe\"")
             buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
-            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"isolated true Engine NPU probe shell; native execution disabled; future stack path app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"isolated true Engine NPU probe shell; native execution temporarily disabled after startup crash; stack path app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
@@ -240,7 +240,7 @@ android {
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
-            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "true")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
     }
 
@@ -812,6 +812,11 @@ tasks.register("stageTrueEngineNpuProbeDebugNativeLibs") {
     doLast {
         val outputDir = trueEngineNpuProbeDebugNativePayloadOutputDir.asFile
         outputDir.mkdirs()
+        delete(
+            fileTree(outputDir) {
+                include("*.so")
+            },
+        )
         copy {
             from(qairt244StandardDebugNativeSourceDir) {
                 include("*.so")

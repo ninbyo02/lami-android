@@ -138,6 +138,64 @@ class NpuTrueEngine {
         )
     }
 
+    @Test
+    fun `true engine create close native mode summary is valid and keeps generation paths unused`() {
+        val state = NpuTrueEngineHolderCreateCloseProbeState(
+            status = "completed",
+            reason = "true_engine_create_close_only_success",
+            holderId = "true-engine-holder-create-close-dev",
+            nativeResult = NpuTrueEngineHolderNativeResult(
+                nativeReturn = "completed",
+                resultText = """
+                    selected_native_probe_mode=true_engine_create_close_only
+                    argument_validation_passed=true
+                    run_count_validation_skipped_for_create_close_only=true
+                    persistent_custom_jni_status=completed
+                    model_assets_create_reached=true
+                    model_assets_create_returned=true
+                    model_assets_create_succeeded=true
+                    engine_settings_create_reached=true
+                    engine_settings_create_returned=true
+                    engine_settings_create_succeeded=true
+                    engine_create_reached=true
+                    engine_create_returned=true
+                    engine_create_succeeded=true
+                    engine_create_count=1
+                    engine_close_reached=true
+                    engine_close_success=true
+                    session_create_reached=false
+                    session_create_count=0
+                    prefill_reached=false
+                    decode_reached=false
+                    decode_count=0
+                    generate_count=0
+                    npu_decode_called=false
+                    qnn_decode_called=false
+                """.trimIndent(),
+            ),
+        )
+
+        val summary = formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state)
+
+        assertTrue(summary.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(summary.contains("argument_validation_passed=true"))
+        assertTrue(summary.contains("run_count_validation_skipped_for_create_close_only=true"))
+        assertFalse(summary.contains("invalid_native_probe_mode"))
+        assertFalse(summary.contains("invalid persistent probe native_probe_mode"))
+        assertTrue(summary.contains("model_assets_create_called=true"))
+        assertTrue(summary.contains("engine_settings_create_called=true"))
+        assertTrue(summary.contains("engine_create_called=true"))
+        assertTrue(summary.contains("engine_close_count=1"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(summary.contains("npu_decode_called=false"))
+        assertTrue(summary.contains("qnn_decode_called=false"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertFalse(summary.contains("true_engine_persistent_reuse=true"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
+    }
+
     private fun blockedState(): NpuTrueEngineHolderCreateCloseProbeState =
         NpuTrueEngineHolderCreateCloseProbeState(
             status = "blocked",
@@ -193,7 +251,7 @@ class NpuTrueEngine {
         } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
             BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED
         ) {
-            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON
+            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_CRASH_DISABLED_REASON
         } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
             NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON
         } else {

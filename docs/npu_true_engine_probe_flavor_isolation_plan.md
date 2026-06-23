@@ -1,11 +1,18 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
-Status: isolated create/close-only execution in progress.
+Status: isolated create/close-only execution temporarily disabled after startup
+crash.
 `trueEngineNpuProbeDebug` has a Gradle flavor/sourceSet shell, variant-only
-native staging, and button-triggered `true_engine_create_close_only` execution.
-`standardDebug` remains blocked. Do not add decode, Session creation, generate,
-held Engine run once, route changes, fallback changes, or patch changes in this
-step.
+native staging, but `true_engine_create_close_only` execution is currently
+blocked before native class load. `standardDebug` remains blocked. Do not add
+decode, Session creation, generate, held Engine run once, route changes,
+fallback changes, or patch changes in this step.
+
+Current native staging note: a physical-device startup crash was observed after
+staging the `20260621_181952_true_engine_create_close_only` LiteRT-LM core
+artifacts into `trueEngineNpuProbeDebug`. The startup-recovery build stages the
+previous qairt244 stack again and reports
+`probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
 
 ## Why Isolation Is Required
 
@@ -118,19 +125,20 @@ Current shell status:
 - `BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR=true` only for this flavor.
 - `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED=true` only for this
   flavor.
-- `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=true` only for
+- `BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false` for
   this flavor.
-- `stageTrueEngineNpuProbeDebugNativeLibs` stages the patched qairt244 native
-  stack plus a marker payload into
+- `stageTrueEngineNpuProbeDebugNativeLibs` stages the previous qairt244 stack
+  and a marker payload into
   `app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a`.
 - The staged payload is packaged only by
   `mergeTrueEngineNpuProbeDebugJniLibFolders`.
-- The Run button may enter create/close-only native execution only in this
-  flavor.
+- The Run button currently returns a blocked startup-safe result in this flavor.
 
 Purpose:
 
-- Run `true_engine_create_close_only` in isolation.
+- Keep startup safe after the cold-start crash.
+- Keep `probe_execution_available=false` and
+  `probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
 - Exercise only `ModelAssets::Create`, `EngineSettings::CreateDefault`,
   `EngineFactory::CreateDefault`, and Engine close/release.
 - Keep startup safe by deferring native load and native call until explicit

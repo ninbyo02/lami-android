@@ -526,6 +526,17 @@ dedicated `true_engine_create_close_only` mode. In that mode `runCount=0` is
 valid, `run_count_validation_skipped_for_create_close_only=true` is reported,
 and the 1..100 run-count validation remains limited to decode/run modes.
 
+The next physical-device attempt reached the native entrypoint with
+`nativeProbeMode=true_engine_create_close_only`, but the staged
+`liblitertlm_jni.so` still had the older allowlist and failed with
+`first_failure_reason=invalid_native_probe_mode`. The isolated
+`trueEngineNpuProbeDebug` staging was then pointed at the
+`20260621_181952_true_engine_create_close_only` patched core stack, whose
+native allowlist includes `true_engine_create_close_only`, but that APK crashed
+on cold start before the Run button. The startup-recovery build disables native
+execution again and reports
+`probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
+
 UI controls:
 
 - `Run True Engine Holder Create/Close Probe`

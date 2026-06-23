@@ -23,6 +23,8 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_RECOMMENDED_NEXT_STEP =
     "review_true_engine_create_close_device_result_then_implement_held_engine_run_once"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_BLOCK_REASON =
     "temporarily_blocked_to_restore_startup"
+internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_CRASH_DISABLED_REASON =
+    "temporarily_disabled_after_startup_crash"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_DISABLED_REASON =
     "isolated_flavor_created_but_native_execution_not_enabled"
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON =
@@ -70,7 +72,7 @@ internal fun npuTrueEngineHolderCreateCloseProbeExecutionBlockReason(): String =
         BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
         !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
     ) {
-        NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_DISABLED_REASON
+        NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_CRASH_DISABLED_REASON
     } else if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
         !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
     ) {
@@ -193,6 +195,10 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
     val sessionCreateCount = values["session_create_count"] ?: values.countFromReachedFlag("session_create_reached")
     val decodeCount = values["decode_count"] ?: values["decode_attempt_count"] ?: values.countFromReachedFlag("decode_reached")
     val generateCount = values["generate_count"] ?: "0"
+    val firstFailureStage = values["first_failure_stage"] ?: "unavailable"
+    val firstFailureReason = values["first_failure_reason"] ?: "unavailable"
+    val firstFailureExceptionClass = values["first_failure_exception_class"] ?: "unavailable"
+    val firstFailureExceptionMessage = values["first_failure_exception_message"] ?: "unavailable"
     val throwableClass = state.nativeResult?.throwableClass ?: "unavailable"
     val fatalLatch = throwableClass != "unavailable" ||
         state.status == "failed" ||
@@ -249,6 +255,10 @@ internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
         appendLine("engine_double_close_safe=true")
         appendLine("engine_fatal_latch=$fatalLatch")
         appendLine("engine_fatal_reason=${if (fatalLatch) state.reason else "unavailable"}")
+        appendLine("first_failure_stage=$firstFailureStage")
+        appendLine("first_failure_reason=$firstFailureReason")
+        appendLine("first_failure_exception_class=$firstFailureExceptionClass")
+        appendLine("first_failure_exception_message=$firstFailureExceptionMessage")
         appendLine("session_create_reached=${values.boolText("session_create_reached")}")
         appendLine("session_create_count=$sessionCreateCount")
         appendLine("prefill_reached=${values.boolText("prefill_reached")}")
