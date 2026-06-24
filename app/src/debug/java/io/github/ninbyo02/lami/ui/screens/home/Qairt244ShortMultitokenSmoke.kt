@@ -224,8 +224,10 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                 BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors ||
                     (
                         BuildConfig.CURRENT_FLAVOR == "trueEngineNpuProbe" &&
-                            BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED &&
-                            nativeProbeMode == NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE
+                            ((BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED &&
+                                nativeProbeMode == NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE) ||
+                                (BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED &&
+                                    nativeProbeMode == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE))
                     ),
             ) {
                 "persistent custom JNI probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"

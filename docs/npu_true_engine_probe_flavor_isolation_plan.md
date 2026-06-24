@@ -1,10 +1,12 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
-Status: Phase 2 button-only `entrypoint_only` is enabled only in
+Status: Phase 2 button-only `entrypoint_only` passed on a physical device.
+Phase 3 button-only `model_assets_only` is now enabled only in
 `trueEngineNpuProbeDebug`; isolated create/close-only execution remains
 disabled after the startup crash.
 `trueEngineNpuProbeDebug` has a Gradle flavor/sourceSet shell, variant-only
-native staging, and a dedicated `entrypoint_only` button path.
+native staging, a dedicated `entrypoint_only` button path, and a dedicated
+`model_assets_only` button path.
 `true_engine_create_close_only` execution is still blocked before native class
 load. `standardDebug` remains blocked. Do not add
 decode, Session creation, generate, held Engine run once, route changes,
@@ -137,6 +139,11 @@ Current shell status:
 - The create/close Run button still returns a blocked startup-safe result in this flavor.
 - The separate `Run True Engine Entrypoint Probe` button is available only in
   this flavor and only calls the existing `entrypoint_only` mode after button
+  press. Physical-device evidence completed with `native_entrypoint_reached=true`
+  and no ModelAssets/EngineSettings/EngineFactory/Session/decode/generate
+  reach.
+- The separate `Run True Engine ModelAssets Probe` button is available only in
+  this flavor and only calls the existing `model_assets_only` mode after button
   press.
 
 Purpose:
@@ -433,37 +440,40 @@ Do not change these while adding the isolated create/close-only flavor:
    execution re-enable.
 8. Only after passing, design held Engine run once.
 
-## Current Phase 2 Implementation Scope
+## Current Phase 3 Implementation Scope
 
-`trueEngineNpuProbeDebug` now enables only the Phase 2 button-only
-`entrypoint_only` probe. This is intentionally narrower than
+`entrypoint_only` passed on a physical device with `probe_status=completed`,
+`native_entrypoint_reached=true`, and all ModelAssets/EngineSettings/
+EngineFactory/Session/decode/generate reach counters false or zero.
+
+`trueEngineNpuProbeDebug` now also enables only the Phase 3 button-only
+`model_assets_only` probe. This is still narrower than
 `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=true` and does not reopen
 `true_engine_create_close_only`.
 
 Implementation scope:
 
-- `app/build.gradle.kts`: `TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED=true`
+- `app/build.gradle.kts`: `TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED=true`
   only for `trueEngineNpuProbeDebug`; `standardDebug` and the default config keep
   it `false`.
 - `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false` remains unchanged, so
   broad create/close-only execution still reports blocked.
-- `NpuTrueEngineHolderApi.kt` exposes `selected_native_probe_mode=entrypoint_only`,
-  `entrypoint_only_probe_execution_available`, startup-blocked keys, and zero
-  ModelAssets/EngineSettings/EngineFactory/Session/decode/generate counters.
-- `NpuTrueEngineHolderCreateCloseDevProbe.kt` adds a separate entrypoint runner
+- `NpuTrueEngineHolderApi.kt` exposes `selected_native_probe_mode=model_assets_only`,
+  `model_assets_only_probe_execution_available`, startup-blocked keys,
+  `model_assets_create_reached`, `model_assets_create_returned`, and
+  `model_assets_create_succeeded`, while keeping EngineSettings/EngineFactory/
+  Session/decode/generate counters false or zero.
+- `NpuTrueEngineHolderCreateCloseDevProbe.kt` adds a separate ModelAssets runner
   that resolves the model and calls native only after the Run button is pressed.
 - `Qairt244ShortMultitokenSmoke.kt` allows the isolated flavor only for the
-  existing `entrypoint_only` mode and only when the dedicated flag is true. No
-  native allowlist value was added.
-- `ChatScreen.kt` shows `Run True Engine Entrypoint Probe`,
-  `Copy True Engine Entrypoint Summary`, and
-  `Copy True Engine Entrypoint Full Dump` only for the true Engine probe flavor.
-- Unit tests assert `standardDebug` remains unavailable/blocked and the
-  entrypoint summary cannot be confused with `true_engine_create_close_only`.
+  existing `entrypoint_only` or `model_assets_only` modes and only when the
+  matching dedicated flag is true. No native allowlist value was added.
+- `ChatScreen.kt` shows `Run True Engine ModelAssets Probe`,
+  `Copy True Engine ModelAssets Summary`, and
+  `Copy True Engine ModelAssets Full Dump` only for the true Engine probe flavor.
 
 Still forbidden in this phase:
 
-- `ModelAssets::Create`
 - `EngineSettings::CreateDefault`
 - `EngineFactory::CreateDefault`
 - Session creation
@@ -472,7 +482,7 @@ Still forbidden in this phase:
 - normal NPU chat-route or fallback changes
 
 The next minimum implementation step after a successful device artifact is
-Phase 3, button-only `model_assets_only`.
+Phase 4, button-only `engine_settings_only`.
 
 ## Device Verification Procedure
 
@@ -496,18 +506,26 @@ Phase 3, button-only `model_assets_only`.
    `isolated_native_execution_enabled=false`, `probe_execution_available=false`,
    `startup_native_call_blocked=true`, and
    `native_call_deferred_until_button_click=true`.
-6. Press `Run True Engine Entrypoint Probe`.
-7. Copy `Copy True Engine Entrypoint Full Dump`.
-8. Expected keys:
-   - `probe_status=completed`
-   - `selected_native_probe_mode=entrypoint_only`
+6. Press `Run True Engine Entrypoint Probe` and confirm the known-good Phase 2
+   keys remain: `selected_native_probe_mode=entrypoint_only`,
+   `native_entrypoint_reached=true`, `model_assets_create_reached=false`,
+   `engine_settings_create_reached=false`, `engine_create_reached=false`,
+   `session_create_count=0`, `decode_count=0`, `generate_count=0`, and
+   `restart_app_recommended=false`.
+7. Press `Run True Engine ModelAssets Probe`.
+8. Copy `Copy True Engine ModelAssets Full Dump`.
+9. Expected ModelAssets keys:
+   - `probe_status=completed` or a precise ModelAssets failure
+   - `selected_native_probe_mode=model_assets_only`
    - `native_entrypoint_reached=true`
-   - `model_assets_create_reached=false`
+   - `model_assets_create_reached=true`
+   - `model_assets_create_returned=true`
+   - `model_assets_create_succeeded=true`
    - `engine_settings_create_reached=false`
    - `engine_create_reached=false`
    - `session_create_count=0`
    - `decode_count=0`
    - `generate_count=0`
-   - `restart_app_recommended=false`
-9. Separately inspect the APK and confirm only the isolated APK contains
+   - `restart_app_recommended=false` unless native fatal
+10. Separately inspect the APK and confirm only the isolated APK contains
    `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.

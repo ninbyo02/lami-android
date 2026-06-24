@@ -81,6 +81,7 @@ android {
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED", "false")
+        buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
     }
 
@@ -101,6 +102,7 @@ android {
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
         create("npuExperiment") {
@@ -225,6 +227,7 @@ android {
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED", "false")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
         create("trueEngineNpuProbe") {
@@ -244,6 +247,7 @@ android {
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED", "true")
+            buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
         }
     }

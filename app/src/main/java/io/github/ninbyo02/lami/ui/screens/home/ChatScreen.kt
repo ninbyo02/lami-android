@@ -1058,6 +1058,10 @@ fun Home(
         mutableStateOf(NpuTrueEngineEntrypointProbeState())
     }
     var npuTrueEngineEntrypointJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuTrueEngineModelAssetsState by remember(effectiveChatId) {
+        mutableStateOf(NpuTrueEngineModelAssetsProbeState())
+    }
+    var npuTrueEngineModelAssetsJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuPersistentHolderRunOnceState by remember(effectiveChatId) {
         mutableStateOf(NpuPersistentHolderRunOnceProbeState())
     }
@@ -1110,6 +1114,8 @@ fun Home(
             npuTrueEngineHolderCreateCloseJob = null
             npuTrueEngineEntrypointJob?.cancel()
             npuTrueEngineEntrypointJob = null
+            npuTrueEngineModelAssetsJob?.cancel()
+            npuTrueEngineModelAssetsJob = null
             npuPersistentHolderRunOnceJob?.cancel()
             npuPersistentHolderRunOnceJob = null
             npuPersistentHolderTwoTurnJob?.cancel()
@@ -1935,6 +1941,7 @@ fun Home(
             npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuTrueEngineEntrypointJob?.isActive == true ||
+            npuTrueEngineModelAssetsJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -2122,6 +2129,68 @@ fun Home(
         }
     }
 
+
+    fun startNpuTrueEngineModelAssetsProbe() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineEntrypointJob?.isActive == true ||
+            npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
+            npuPersistentHolderFiveTurnJob?.isActive == true ||
+            npuPersistentHolderTenTurnJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuTrueEngineModelAssetsJob?.isActive == true) return
+        npuTrueEngineModelAssetsState = NpuTrueEngineModelAssetsProbeState(
+            status = "running",
+            reason = "starting",
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
+        npuTrueEngineModelAssetsJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuTrueEngineModelAssetsProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState.copy(
+                    status = "stopped",
+                    reason = "debug_true_engine_model_assets_probe_unavailable",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                npuTrueEngineModelAssetsJob = null
+                return@launch
+            }
+            try {
+                npuTrueEngineModelAssetsState = runner.run()
+            } catch (exception: CancellationException) {
+                npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState.copy(
+                    status = "cancelled",
+                    reason = "cancelled",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                throw exception
+            } finally {
+                npuTrueEngineModelAssetsJob = null
+            }
+        }
+    }
+
     fun startNpuTrueEngineHolderCreateCloseProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
@@ -2129,6 +2198,7 @@ fun Home(
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuTrueEngineEntrypointJob?.isActive == true ||
+            npuTrueEngineModelAssetsJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -8066,6 +8136,57 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState,
+                                            npuTrueEngineModelAssetsInProgress =
+                                                npuTrueEngineModelAssetsJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineModelAssets = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineEntrypointJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineModelAssetsStart =
+                                                ::startNpuTrueEngineModelAssetsProbe,
+                                            onCopyTrueEngineModelAssetsSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsSummaryForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineModelAssetsFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsFullDumpForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+
                                             npuTrueEngineHolderCreateCloseInProgress =
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true,
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -8644,6 +8765,57 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState,
+                                            npuTrueEngineModelAssetsInProgress =
+                                                npuTrueEngineModelAssetsJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineModelAssets = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineEntrypointJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineModelAssetsStart =
+                                                ::startNpuTrueEngineModelAssetsProbe,
+                                            onCopyTrueEngineModelAssetsSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsSummaryForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineModelAssetsFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsFullDumpForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+
                                             npuTrueEngineHolderCreateCloseInProgress =
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true,
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -9020,6 +9192,57 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState,
+                                            npuTrueEngineModelAssetsInProgress =
+                                                npuTrueEngineModelAssetsJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineModelAssets = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineEntrypointJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineModelAssetsStart =
+                                                ::startNpuTrueEngineModelAssetsProbe,
+                                            onCopyTrueEngineModelAssetsSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsSummaryForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineModelAssetsFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineModelAssetsFullDumpForCopy(
+                                                            npuTrueEngineModelAssetsState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine ModelAssets Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+
                     npuTrueEngineHolderCreateCloseInProgress =
                         npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -13053,7 +13276,11 @@ private fun NpuPersistentHolderCreateCloseDevSection(
 
 
 @Composable
+private fun NpuTrueEngineModelAssetsDevSection(state: NpuTrueEngineModelAssetsProbeState, running: Boolean, blockedByGeneration: Boolean, onStart: () -> Unit, onCopySummary: (() -> Unit)? = null, onCopyFullDump: (() -> Unit)? = null) { val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(state); InferenceStatsSection(title = NPU_TRUE_ENGINE_MODEL_ASSETS_UI_TITLE) { Button(onClick = onStart, enabled = !running && !blockedByGeneration) { Text(NPU_TRUE_ENGINE_MODEL_ASSETS_RUN_LABEL) }; if (onCopySummary != null) TextButton(onClick = onCopySummary) { Text(NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_SUMMARY_LABEL) }; if (onCopyFullDump != null) TextButton(onClick = onCopyFullDump) { Text(NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_FULL_DUMP_LABEL) }; Text(text = if (blockedByGeneration) "他の生成またはDEV診断完了後に実行してください" else "DEV専用診断です。button押下時だけ ModelAssets::Create まで入り、EngineSettings / EngineFactory / Session / decode / generate へ進みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); InferenceStatRow(label = "True Engine ModelAssets Summary", value = summary, emphasizeValue = summary.contains("restart_app_recommended=true")) } }
+
+@Composable
 private fun NpuTrueEngineEntrypointDevSection(state: NpuTrueEngineEntrypointProbeState, running: Boolean, blockedByGeneration: Boolean, onStart: () -> Unit, onCopySummary: (() -> Unit)? = null, onCopyFullDump: (() -> Unit)? = null) { val summary = formatNpuTrueEngineEntrypointSummaryForCopy(state); InferenceStatsSection(title = NPU_TRUE_ENGINE_ENTRYPOINT_UI_TITLE) { Button(onClick = onStart, enabled = !running && !blockedByGeneration) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_RUN_LABEL) }; if (onCopySummary != null) TextButton(onClick = onCopySummary) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL) }; if (onCopyFullDump != null) TextButton(onClick = onCopyFullDump) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL) }; Text(text = if (blockedByGeneration) "他の生成またはDEV診断完了後に実行してください" else "DEV専用診断です。button押下時だけ native entrypoint に入り、ModelAssets / EngineSettings / EngineFactory / Session / decode / generate へ進みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); InferenceStatRow(label = "True Engine Entrypoint Summary", value = summary, emphasizeValue = summary.contains("restart_app_recommended=true")) } }
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuTrueEngineHolderCreateCloseDevSection(
@@ -13564,6 +13791,13 @@ private fun InferenceStatsSheetContent(
     onNpuTrueEngineEntrypointStart: () -> Unit = {},
     onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
     onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
+    npuTrueEngineModelAssetsState: NpuTrueEngineModelAssetsProbeState =
+        NpuTrueEngineModelAssetsProbeState(),
+    npuTrueEngineModelAssetsInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineModelAssets: Boolean = false,
+    onNpuTrueEngineModelAssetsStart: () -> Unit = {},
+    onCopyTrueEngineModelAssetsSummary: (() -> Unit)? = null,
+    onCopyTrueEngineModelAssetsFullDump: (() -> Unit)? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -13909,6 +14143,26 @@ private fun InferenceStatsSheetContent(
                             copyDevDiagnosticText(
                                 formatNpuTrueEngineEntrypointFullDumpForCopy(npuTrueEngineEntrypointState),
                                 NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    )
+                }
+                if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+                    NpuTrueEngineModelAssetsDevSection(
+                        state = npuTrueEngineModelAssetsState,
+                        running = npuTrueEngineModelAssetsInProgress,
+                        blockedByGeneration = isInferenceRunningForTrueEngineModelAssets,
+                        onStart = onNpuTrueEngineModelAssetsStart,
+                        onCopySummary = onCopyTrueEngineModelAssetsSummary ?: {
+                            copyDevDiagnosticText(
+                                formatNpuTrueEngineModelAssetsSummaryForCopy(npuTrueEngineModelAssetsState),
+                                NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = onCopyTrueEngineModelAssetsFullDump ?: {
+                            copyDevDiagnosticText(
+                                formatNpuTrueEngineModelAssetsFullDumpForCopy(npuTrueEngineModelAssetsState),
+                                NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_FULL_DUMP_LABEL,
                             )
                         },
                     )
@@ -14372,6 +14626,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuTrueEngineEntrypointStart: (() -> Unit)? = null,
     onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
     onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
+    npuTrueEngineModelAssetsState: NpuTrueEngineModelAssetsProbeState =
+        NpuTrueEngineModelAssetsProbeState(),
+    npuTrueEngineModelAssetsInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineModelAssets: Boolean = false,
+    onNpuTrueEngineModelAssetsStart: (() -> Unit)? = null,
+    onCopyTrueEngineModelAssetsSummary: (() -> Unit)? = null,
+    onCopyTrueEngineModelAssetsFullDump: (() -> Unit)? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -14416,7 +14677,9 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     val hasStandardRouteDiagnostics = hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
     val hasStandaloneTrueEngineProbe =
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
-            (onNpuTrueEngineHolderCreateCloseStart != null || onNpuTrueEngineEntrypointStart != null)
+            (onNpuTrueEngineHolderCreateCloseStart != null ||
+                onNpuTrueEngineEntrypointStart != null ||
+                onNpuTrueEngineModelAssetsStart != null)
     if (!hasStandardRouteDiagnostics && !hasStandaloneTrueEngineProbe) return
     var advancedExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -14519,6 +14782,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onNpuTrueEngineEntrypointStart,
                     onCopySummary = onCopyTrueEngineEntrypointSummary,
                     onCopyFullDump = onCopyTrueEngineEntrypointFullDump,
+                )
+            }
+            if (
+                BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+                onNpuTrueEngineModelAssetsStart != null
+            ) {
+                NpuTrueEngineModelAssetsDevSection(
+                    state = npuTrueEngineModelAssetsState,
+                    running = npuTrueEngineModelAssetsInProgress,
+                    blockedByGeneration = isInferenceRunningForTrueEngineModelAssets,
+                    onStart = onNpuTrueEngineModelAssetsStart,
+                    onCopySummary = onCopyTrueEngineModelAssetsSummary,
+                    onCopyFullDump = onCopyTrueEngineModelAssetsFullDump,
                 )
             }
             if (

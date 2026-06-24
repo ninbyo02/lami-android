@@ -281,6 +281,95 @@ class NpuTrueEngine {
     }
 
 
+    @Test
+    fun `model assets only summary is gated by dedicated flag and keeps startup safe`() {
+        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(NpuTrueEngineModelAssetsProbeState())
+        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(NpuTrueEngineModelAssetsProbeState())
+
+        assertTrue(summary.contains("test_name=NPU True Engine ModelAssets Probe"))
+        assertTrue(summary.contains("probe_status=idle"))
+        assertTrue(summary.contains("selected_native_probe_mode=model_assets_only"))
+        assertTrue(summary.contains("model_assets_only_probe_available=${expectedModelAssetsAvailable()}"))
+        assertTrue(
+            summary.contains(
+                "model_assets_only_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED}",
+            ),
+        )
+        assertTrue(summary.contains("isolated_native_execution_enabled=false"))
+        assertTrue(summary.contains("probe_execution_available=${expectedExecutionAvailable()}"))
+        assertTrue(summary.contains("model_assets_only_probe_execution_available=${expectedModelAssetsAvailable()}"))
+        assertTrue(summary.contains("startup_native_call_blocked=true"))
+        assertTrue(summary.contains("native_call_deferred_until_button_click=true"))
+        assertTrue(summary.contains("native_entrypoint_reached=false"))
+        assertTrue(summary.contains("model_assets_create_reached=false"))
+        assertTrue(summary.contains("model_assets_create_returned=false"))
+        assertTrue(summary.contains("model_assets_create_succeeded=false"))
+        assertTrue(summary.contains("engine_settings_create_reached=false"))
+        assertTrue(summary.contains("engine_create_reached=false"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(fullDump.contains("no true engine model assets probe result available"))
+    }
+
+    @Test
+    fun `model assets only completed summary stops before settings and engine create`() {
+        val state = NpuTrueEngineModelAssetsProbeState(
+            status = "completed",
+            reason = "model_assets_only_completed",
+            modelPathOrReason = "/models/gemma.task",
+            nativeResult = NpuTrueEngineHolderNativeResult(
+                nativeReturn = "completed",
+                resultText = """
+                    selected_native_probe_mode=model_assets_only
+                    true_engine_probe_flavor=trueEngineNpuProbeDebug
+                    persistent_custom_jni_status=completed
+                    hypothesis_result=model_assets_only_success
+                    last_native_stage=model_assets_create_returned
+                    native_entrypoint_reached=true
+                    model_assets_create_reached=true
+                    model_assets_create_returned=true
+                    model_assets_create_succeeded=true
+                    engine_settings_create_reached=false
+                    engine_create_reached=false
+                    session_create_reached=false
+                    session_create_count=0
+                    prefill_reached=false
+                    decode_reached=false
+                    decode_count=0
+                    generate_count=0
+                """.trimIndent(),
+            ),
+        )
+
+        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(state)
+        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(state)
+
+        assertTrue(summary.contains("probe_status=completed"))
+        assertTrue(summary.contains("probe_reason=model_assets_only_completed"))
+        assertTrue(summary.contains("selected_native_probe_mode=model_assets_only"))
+        assertTrue(summary.contains("native_entrypoint_reached=true"))
+        assertTrue(summary.contains("model_assets_create_reached=true"))
+        assertTrue(summary.contains("model_assets_create_returned=true"))
+        assertTrue(summary.contains("model_assets_create_succeeded=true"))
+        assertTrue(summary.contains("engine_settings_create_reached=false"))
+        assertTrue(summary.contains("engine_create_reached=false"))
+        assertTrue(summary.contains("session_create_count=0"))
+        assertTrue(summary.contains("prefill_reached=false"))
+        assertTrue(summary.contains("decode_count=0"))
+        assertTrue(summary.contains("generate_count=0"))
+        assertTrue(summary.contains("npu_decode_called=false"))
+        assertTrue(summary.contains("qnn_decode_called=false"))
+        assertTrue(summary.contains("restart_app_recommended=false"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertTrue(summary.contains("engine_reuse_observed=unavailable"))
+        assertTrue(fullDump.contains("native_result_begin"))
+        assertFalse(summary.contains("true_engine_create_close_only"))
+        assertFalse(summary.contains("engine_settings_create_reached=true"))
+        assertFalse(summary.contains("engine_create_reached=true"))
+    }
+
+
     private fun blockedState(): NpuTrueEngineHolderCreateCloseProbeState =
         NpuTrueEngineHolderCreateCloseProbeState(
             status = "blocked",
@@ -334,6 +423,11 @@ class NpuTrueEngine {
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
             BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
             BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED
+
+    private fun expectedModelAssetsAvailable(): Boolean =
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+            BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+            BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED
 
     private fun expectedBlockReason(): String =
         if (expectedExecutionAvailable()) {
