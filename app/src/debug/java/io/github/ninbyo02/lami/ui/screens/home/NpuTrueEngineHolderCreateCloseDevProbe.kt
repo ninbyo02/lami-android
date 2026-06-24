@@ -239,7 +239,8 @@ internal class NpuTrueEngineModelAssetsDevProbe(
         val throwableRaised = nativeResult.throwableClass != "unavailable"
         val entrypointReached = values["native_entrypoint_reached"] == "true" ||
             values["last_native_stage"]?.startsWith("model_assets") == true ||
-            values["hypothesis_result"] == "model_assets_only_success"
+            values["hypothesis_result"] == "model_assets_only_success" ||
+            values["persistent_custom_jni_hypothesis_result"] == "model_assets_only_success"
         val modelAssetsReached = values["model_assets_create_reached"] == "true"
         val completed = !throwableRaised &&
             (nativeResult.nativeReturn == "completed" || values["persistent_custom_jni_status"] == "completed") &&

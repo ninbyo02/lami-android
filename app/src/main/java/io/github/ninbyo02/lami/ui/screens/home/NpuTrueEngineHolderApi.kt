@@ -407,10 +407,16 @@ internal fun formatNpuTrueEngineModelAssetsSummaryForCopy(
             "engine_reuse_observed=unavailable"
     }
     val values = state.values
+    val modelAssetsCompleted = modelAssetsOnlyCompleted(values, state.nativeResult)
+    val displayStatus = if (modelAssetsCompleted) "completed" else state.status
+    val displayReason = if (modelAssetsCompleted) "model_assets_only_completed" else state.reason
+    val selectedNativeProbeMode = modelAssetsNativeProbeMode(values) ?: NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE
+    val hypothesisResult = values["hypothesis_result"] ?: values["persistent_custom_jni_hypothesis_result"] ?: "unavailable"
     val nativeEntrypointReached = when {
         values.boolText("native_entrypoint_reached") == "true" -> "true"
         values["last_native_stage"]?.startsWith("model_assets") == true -> "true"
         values["hypothesis_result"] == "model_assets_only_success" -> "true"
+        values["persistent_custom_jni_hypothesis_result"] == "model_assets_only_success" -> "true"
         else -> values.boolText("native_entrypoint_reached", "false")
     }
     val modelAssetsReached = values.boolText("model_assets_create_reached", "false")
@@ -433,10 +439,10 @@ internal fun formatNpuTrueEngineModelAssetsSummaryForCopy(
     return buildString {
         appendLine("[DEV診断: NPU true engine model assets summary]")
         appendLine("test_name=$NPU_TRUE_ENGINE_MODEL_ASSETS_TEST_NAME")
-        appendLine("probe_status=${state.status}")
-        appendLine("probe_reason=${state.reason}")
+        appendLine("probe_status=$displayStatus")
+        appendLine("probe_reason=$displayReason")
         appendLine("true_engine_probe_flavor=${values["true_engine_probe_flavor"] ?: npuTrueEngineHolderCreateCloseProbeVariantName()}")
-        appendLine("selected_native_probe_mode=${values["selected_native_probe_mode"] ?: NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE}")
+        appendLine("selected_native_probe_mode=$selectedNativeProbeMode")
         appendLine("model_assets_only_probe_available=${npuTrueEngineModelAssetsProbeExecutionAvailable()}")
         appendLine("model_assets_only_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED}")
         appendLine("isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}")
@@ -447,7 +453,7 @@ internal fun formatNpuTrueEngineModelAssetsSummaryForCopy(
         appendLine("native_call_deferred_until_button_click=true")
         appendLine("native_entrypoint_reached=$nativeEntrypointReached")
         appendLine("last_native_stage=${values["last_native_stage"] ?: "unavailable"}")
-        appendLine("hypothesis_result=${values["hypothesis_result"] ?: "unavailable"}")
+        appendLine("hypothesis_result=$hypothesisResult")
         appendLine("model_assets_create_reached=$modelAssetsReached")
         appendLine("model_assets_create_returned=$modelAssetsReturned")
         appendLine("model_assets_create_succeeded=$modelAssetsSucceeded")
@@ -667,6 +673,33 @@ internal fun formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
     appendLine()
     appendLine(formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state))
 }.trimEnd()
+
+
+private fun modelAssetsNativeProbeMode(values: Map<String, String>): String? =
+    values["selected_native_probe_mode"] ?: values["native_probe_mode"]
+
+private fun modelAssetsNativeReturnCompleted(
+    values: Map<String, String>,
+    result: NpuTrueEngineHolderNativeResult?,
+): Boolean =
+    result?.nativeReturn == "completed" ||
+        values["native_return"] == "completed" ||
+        values["persistent_custom_jni_status"] == "completed"
+
+private fun modelAssetsOnlyCompleted(
+    values: Map<String, String>,
+    result: NpuTrueEngineHolderNativeResult?,
+): Boolean =
+    modelAssetsNativeProbeMode(values) == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE &&
+        modelAssetsNativeReturnCompleted(values, result) &&
+        values.boolText("model_assets_create_reached", "false") == "true" &&
+        values.boolText("model_assets_create_returned", "false") == "true" &&
+        values.boolText("model_assets_create_succeeded", "false") == "true" &&
+        values.boolText("engine_settings_create_reached", "false") == "false" &&
+        values.boolText("engine_create_reached", "false") == "false" &&
+        (values["session_create_count"] ?: "0") == "0" &&
+        (values["decode_count"] ?: values["decode_attempt_count"] ?: "0") == "0" &&
+        (values["generate_count"] ?: "0") == "0"
 
 private fun parseNpuTrueEngineHolderKeyValueText(text: String): Map<String, String> =
     linkedMapOf<String, String>().apply {

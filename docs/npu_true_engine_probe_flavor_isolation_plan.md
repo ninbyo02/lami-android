@@ -1,9 +1,10 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
 Status: Phase 2 button-only `entrypoint_only` passed on a physical device.
-Phase 3 button-only `model_assets_only` is now enabled only in
-`trueEngineNpuProbeDebug`; isolated create/close-only execution remains
-disabled after the startup crash.
+Phase 3 button-only `model_assets_only` also passed on a physical device;
+the app summary now maps the successful native artifact to `probe_status=completed`
+and `probe_reason=model_assets_only_completed`. Isolated create/close-only
+execution remains disabled after the startup crash.
 `trueEngineNpuProbeDebug` has a Gradle flavor/sourceSet shell, variant-only
 native staging, a dedicated `entrypoint_only` button path, and a dedicated
 `model_assets_only` button path.
@@ -144,7 +145,9 @@ Current shell status:
   reach.
 - The separate `Run True Engine ModelAssets Probe` button is available only in
   this flavor and only calls the existing `model_assets_only` mode after button
-  press.
+  press. Physical-device evidence reached and returned from `ModelAssets::Create`
+  successfully, while `EngineSettings::CreateDefault`, `EngineFactory::CreateDefault`,
+  Session, decode, and generate remained unreached.
 
 Purpose:
 
@@ -213,6 +216,12 @@ Phase 2: button-only `entrypoint_only`.
 Phase 3: `model_assets_only`.
 
 - Stop after `ModelAssets::Create`.
+- Physical-device result succeeded with `native_return=completed`,
+  `persistent_custom_jni_status=completed`, `model_assets_create_reached=true`,
+  `model_assets_create_returned=true`, and `model_assets_create_succeeded=true`.
+- Summary display maps that artifact to `probe_status=completed` and
+  `probe_reason=model_assets_only_completed`, even if the provisional Kotlin
+  state entered as `failed`/`unavailable`.
 - Do not call `EngineSettings::CreateDefault`.
 - Do not call `EngineFactory::CreateDefault`.
 
@@ -482,7 +491,8 @@ Still forbidden in this phase:
 - normal NPU chat-route or fallback changes
 
 The next minimum implementation step after a successful device artifact is
-Phase 4, button-only `engine_settings_only`.
+Phase 4, button-only `engine_settings_only`. The current change only corrects
+Phase 3 status mapping and does not implement Phase 4.
 
 ## Device Verification Procedure
 

@@ -315,8 +315,8 @@ class NpuTrueEngine {
     @Test
     fun `model assets only completed summary stops before settings and engine create`() {
         val state = NpuTrueEngineModelAssetsProbeState(
-            status = "completed",
-            reason = "model_assets_only_completed",
+            status = "failed",
+            reason = "unavailable",
             modelPathOrReason = "/models/gemma.task",
             nativeResult = NpuTrueEngineHolderNativeResult(
                 nativeReturn = "completed",
@@ -324,7 +324,7 @@ class NpuTrueEngine {
                     selected_native_probe_mode=model_assets_only
                     true_engine_probe_flavor=trueEngineNpuProbeDebug
                     persistent_custom_jni_status=completed
-                    hypothesis_result=model_assets_only_success
+                    persistent_custom_jni_hypothesis_result=model_assets_only_success
                     last_native_stage=model_assets_create_returned
                     native_entrypoint_reached=true
                     model_assets_create_reached=true

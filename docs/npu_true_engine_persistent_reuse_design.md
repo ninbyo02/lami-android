@@ -796,16 +796,20 @@ Current Phase 3 safety state:
   model path, class-load `Qairt244ShortMultitokenSmoke`, or load native libraries.
 - The entrypoint physical-device summary completed with `native_entrypoint_reached=true`
   and no ModelAssets/EngineSettings/EngineFactory/Session/decode/generate reach.
-- The expected ModelAssets summary reaches `ModelAssets::Create` and reports
-  `model_assets_create_reached`, `model_assets_create_returned`, and
-  `model_assets_create_succeeded`, while keeping `engine_settings_create_reached=false`,
-  `engine_create_reached=false`, `session_create_count=0`, `decode_count=0`,
-  `generate_count=0`, `true_engine_persistent_reuse=false`, and
-  `engine_reuse_observed=unavailable`.
+- The physical-device ModelAssets artifact reached and returned from
+  `ModelAssets::Create` successfully. The summary display now maps
+  `native_return=completed` or `persistent_custom_jni_status=completed` plus
+  `model_assets_create_reached=true`, `model_assets_create_returned=true`,
+  and `model_assets_create_succeeded=true` to `probe_status=completed` and
+  `probe_reason=model_assets_only_completed`, while keeping
+  `engine_settings_create_reached=false`, `engine_create_reached=false`,
+  `session_create_count=0`, `decode_count=0`, `generate_count=0`,
+  `true_engine_persistent_reuse=false`, and `engine_reuse_observed=unavailable`.
 
-The next minimum implementation step after a successful ModelAssets device
-artifact is Phase 4, button-only `engine_settings_only`, not
-`true_engine_create_close_only` revival.
+The next minimum implementation step after the corrected ModelAssets completed
+summary is Phase 4, button-only `engine_settings_only`, not
+`true_engine_create_close_only` revival. This document change does not implement
+Phase 4.
 
 ## Eventual Held Engine PoC Plan
 
@@ -914,11 +918,10 @@ reset, conversation memory, and prompt accumulation semantics.
 ## Recommendation
 
 Kotlin-only work is insufficient. Keep the DEV-only true Engine holder design,
-but restart native execution through the isolated staged probe plan. Phase 2 `entrypoint_only` has passed on device, and Phase 3 now adds
-button-only `model_assets_only`; after a successful ModelAssets artifact,
-advance through `engine_settings_only`,
-`engine_settings_only`, and `before_engine_create` before any create/close or
-held-Engine work. The eventual native holder implementation unit, after
+but restart native execution through the isolated staged probe plan. Phase 2 `entrypoint_only` has passed on device, and Phase 3
+`model_assets_only` has also passed on device after the summary mapping fix.
+Next, advance to button-only `engine_settings_only`, then `before_engine_create`
+before any create/close or held-Engine work. The eventual native holder implementation unit, after
 button-only staged probe artifacts are reviewed, is:
 
 1. Add native holder state in the LiteRT-LM JNI build or another safely linked
