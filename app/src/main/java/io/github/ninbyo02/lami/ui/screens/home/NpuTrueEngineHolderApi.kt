@@ -407,9 +407,8 @@ internal fun formatNpuTrueEngineModelAssetsSummaryForCopy(
             "engine_reuse_observed=unavailable"
     }
     val values = state.values
-    val modelAssetsCompleted = modelAssetsOnlyCompleted(values, state.nativeResult)
-    val displayStatus = if (modelAssetsCompleted) "completed" else state.status
-    val displayReason = if (modelAssetsCompleted) "model_assets_only_completed" else state.reason
+    val displayStatus = modelAssetsDisplayStatus(state)
+    val displayReason = modelAssetsDisplayReason(state)
     val selectedNativeProbeMode = modelAssetsNativeProbeMode(values) ?: NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE
     val hypothesisResult = values["hypothesis_result"] ?: values["persistent_custom_jni_hypothesis_result"] ?: "unavailable"
     val nativeEntrypointReached = when {
@@ -477,8 +476,8 @@ internal fun formatNpuTrueEngineModelAssetsFullDumpForCopy(
 ): String = buildString {
     appendLine("[DEV診断: NPU true engine model assets full dump]")
     appendLine("test_name=$NPU_TRUE_ENGINE_MODEL_ASSETS_TEST_NAME")
-    appendLine("probe_status=${state.status}")
-    appendLine("probe_reason=${state.reason}")
+    appendLine("probe_status=${modelAssetsDisplayStatus(state)}")
+    appendLine("probe_reason=${modelAssetsDisplayReason(state)}")
     appendLine("model_path_or_reason=${state.modelPathOrReason}")
     appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
     appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
@@ -674,6 +673,16 @@ internal fun formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
     appendLine(formatNpuTrueEngineHolderCreateCloseSummaryForCopy(state))
 }.trimEnd()
 
+
+private fun modelAssetsDisplayStatus(state: NpuTrueEngineModelAssetsProbeState): String =
+    if (modelAssetsOnlyCompleted(state.values, state.nativeResult)) "completed" else state.status
+
+private fun modelAssetsDisplayReason(state: NpuTrueEngineModelAssetsProbeState): String =
+    if (modelAssetsOnlyCompleted(state.values, state.nativeResult)) {
+        "model_assets_only_completed"
+    } else {
+        state.reason
+    }
 
 private fun modelAssetsNativeProbeMode(values: Map<String, String>): String? =
     values["selected_native_probe_mode"] ?: values["native_probe_mode"]
