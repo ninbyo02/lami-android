@@ -225,6 +225,18 @@ internal data class NpuTrueEngineModelAssetsProbeState(
         get() = parseNpuTrueEngineHolderKeyValueText(nativeResult?.resultText.orEmpty())
 }
 
+internal fun normalizeNpuTrueEngineModelAssetsProbeState(
+    state: NpuTrueEngineModelAssetsProbeState,
+): NpuTrueEngineModelAssetsProbeState =
+    if (modelAssetsOnlyCompleted(state.values, state.nativeResult)) {
+        state.copy(
+            status = "completed",
+            reason = "model_assets_only_completed",
+        )
+    } else {
+        state
+    }
+
 internal interface NpuTrueEngineModelAssetsProbeRunner {
     suspend fun run(): NpuTrueEngineModelAssetsProbeState
 }
@@ -675,14 +687,10 @@ internal fun formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
 
 
 private fun modelAssetsDisplayStatus(state: NpuTrueEngineModelAssetsProbeState): String =
-    if (modelAssetsOnlyCompleted(state.values, state.nativeResult)) "completed" else state.status
+    normalizeNpuTrueEngineModelAssetsProbeState(state).status
 
 private fun modelAssetsDisplayReason(state: NpuTrueEngineModelAssetsProbeState): String =
-    if (modelAssetsOnlyCompleted(state.values, state.nativeResult)) {
-        "model_assets_only_completed"
-    } else {
-        state.reason
-    }
+    normalizeNpuTrueEngineModelAssetsProbeState(state).reason
 
 private fun modelAssetsNativeProbeMode(values: Map<String, String>): String? =
     values["selected_native_probe_mode"] ?: values["native_probe_mode"]

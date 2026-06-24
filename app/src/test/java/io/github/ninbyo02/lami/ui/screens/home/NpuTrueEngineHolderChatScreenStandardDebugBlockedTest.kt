@@ -340,9 +340,14 @@ class NpuTrueEngine {
             ),
         )
 
-        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(state)
-        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(state)
+        val normalized = normalizeNpuTrueEngineModelAssetsProbeState(state)
+        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(normalized)
+        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(normalized)
+        val rawStateSummary = formatNpuTrueEngineModelAssetsSummaryForCopy(state)
+        val rawStateFullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(state)
 
+        assertEquals("completed", normalized.status)
+        assertEquals("model_assets_only_completed", normalized.reason)
         assertTrue(summary.contains("probe_status=completed"))
         assertTrue(summary.contains("probe_reason=model_assets_only_completed"))
         assertTrue(summary.lineSequence().any { it == "probe_status=completed" })
@@ -351,6 +356,10 @@ class NpuTrueEngine {
         assertTrue(fullDump.lineSequence().take(4).any { it == "probe_status=completed" })
         assertTrue(fullDump.lineSequence().take(4).any { it == "probe_reason=model_assets_only_completed" })
         assertTrue(fullDump.lineSequence().none { it == "probe_status=failed" })
+        assertTrue(rawStateSummary.lineSequence().any { it == "probe_status=completed" })
+        assertTrue(rawStateSummary.lineSequence().none { it == "probe_status=failed" })
+        assertTrue(rawStateFullDump.lineSequence().take(4).any { it == "probe_status=completed" })
+        assertTrue(rawStateFullDump.lineSequence().none { it == "probe_status=failed" })
         assertTrue(summary.contains("selected_native_probe_mode=model_assets_only"))
         assertTrue(summary.contains("hypothesis_result=model_assets_only_success"))
         assertTrue(summary.contains("native_entrypoint_reached=true"))
@@ -400,9 +409,12 @@ class NpuTrueEngine {
             ),
         )
 
-        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(state)
-        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(state)
+        val normalized = normalizeNpuTrueEngineModelAssetsProbeState(state)
+        val summary = formatNpuTrueEngineModelAssetsSummaryForCopy(normalized)
+        val fullDump = formatNpuTrueEngineModelAssetsFullDumpForCopy(normalized)
 
+        assertEquals("completed", normalized.status)
+        assertEquals("model_assets_only_completed", normalized.reason)
         assertTrue(summary.lineSequence().any { it == "probe_status=completed" })
         assertTrue(summary.lineSequence().any { it == "probe_reason=model_assets_only_completed" })
         assertTrue(summary.lineSequence().none { it == "probe_status=failed" })

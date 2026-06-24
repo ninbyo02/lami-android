@@ -263,13 +263,15 @@ internal class NpuTrueEngineModelAssetsDevProbe(
             values["first_failure_reason"] != null -> values["first_failure_reason"] ?: "native_failure"
             else -> "model_assets_only_result_unavailable"
         }
-        NpuTrueEngineModelAssetsProbeState(
-            status = if (completed) "completed" else "failed",
-            reason = reason,
-            startedAtElapsedRealtimeMs = startedAt,
-            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-            modelPathOrReason = modelPath,
-            nativeResult = nativeResult,
+        normalizeNpuTrueEngineModelAssetsProbeState(
+            NpuTrueEngineModelAssetsProbeState(
+                status = if (completed) "completed" else "failed",
+                reason = reason,
+                startedAtElapsedRealtimeMs = startedAt,
+                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                modelPathOrReason = modelPath,
+                nativeResult = nativeResult,
+            ),
         )
     }
 }

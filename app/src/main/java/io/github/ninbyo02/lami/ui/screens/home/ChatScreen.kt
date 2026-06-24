@@ -2177,7 +2177,7 @@ fun Home(
                 return@launch
             }
             try {
-                npuTrueEngineModelAssetsState = runner.run()
+                npuTrueEngineModelAssetsState = normalizeNpuTrueEngineModelAssetsProbeState(runner.run())
             } catch (exception: CancellationException) {
                 npuTrueEngineModelAssetsState = npuTrueEngineModelAssetsState.copy(
                     status = "cancelled",
