@@ -8,11 +8,20 @@ native Engine ownership, decode, normal chat routing, Long Generation changes,
 R6 streaming, fallback changes, or official session API re-enablement.
 
 The current evidence shows that holder lifecycle alone does not improve the
-failure shape:
+failure shape, and the non-streaming repeat check reproduces the same run-7
+engine-create failure without UI/streaming side effects:
 
 - `NPU Beta Stability Test`: `success_count=6`, `failure_count=1`,
   `first_failure_run_index=7`, `first_failure_reason=adapter_failure:LiteRtLmJniException`,
   backend evidence `QNN_HTP_V79_FastRPC_native_diag`
+- `NPU Non-Streaming Repeated Stability Test`: two physical-device checks both
+  stopped at `run_count_completed=7`, with `success_count=6`,
+  `failure_count=1`, `first_failure_run_index=7`,
+  `first_failure_stage=native_call`, `engine_create_failure_detected=true`,
+  `suspected_failure_area=engine_create`, `repeated_recreate_suspected=true`,
+  `fallback_used_count=0`, `timeout_count=0`, and `fresh_crash_count=0`.
+  Streaming, pseudo streaming, TTS, DB, markdown, and normal UI side effects
+  are therefore lower-probability primary causes.
 - `NPU Persistent Holder Ten Turn Probe`: `run_count_completed=7`,
   `success_count=6`, `failure_count=1`, `success_rate=0.86`,
   backend evidence `QNN_HTP_V79_FastRPC_native_diag:7`,
@@ -189,7 +198,7 @@ There are two candidate phases:
    - This must be a later design because reset/clear-context semantics are not
      currently exposed in Kotlin diagnostics.
 
-Recommended first PoC: Engine reuse with per-turn Session.
+Recommended eventual PoC: Engine reuse with per-turn Session.
 
 Reason: it is the smallest native change that can disprove the repeated Engine
 create hypothesis while keeping conversation behavior close to the existing
@@ -487,8 +496,9 @@ Isolation decision:
   `docs/npu_true_engine_probe_flavor_isolation_plan.md`.
 - `customBuildExperimentDebug` is not sufficient unless its `jniLibs` source is
   first proven not to feed any `standardDebug` staging or overlay task.
-- Held Engine run once remains blocked until create/close-only passes in the
-  isolated flavor.
+- Held Engine run once remains blocked until Phase 2-5 staged artifacts are
+  reviewed and the later create-only/close check passes in the isolated
+  flavor.
 - The `trueEngineNpuProbeDebug` flavor/sourceSet now stages the isolated
   qairt244 native stack through `stageTrueEngineNpuProbeDebugNativeLibs`, but
   native execution is disabled after the cold-start crash. It must still block
@@ -497,7 +507,7 @@ Isolation decision:
   `liblami_true_engine_npu_probe_payload.so` and the true Engine probe staging
   appear only in the `trueEngineNpuProbeDebug` APK and never in `standardDebug`.
 
-Future Phase C create/close-only scope:
+Future Phase 6 create-only/close scope:
 
 - DEV-only.
 - Calls the existing `litertlm_jni` persistent custom JNI path with
@@ -551,12 +561,13 @@ markdown, fallback, holder/session creation, or true Engine reuse. Its artifact
 should be compared with recreate stability, persistent holder, and true Engine
 blocked summaries before true Engine create/close is re-enabled.
 
-The first Non-Streaming Repeated Stability physical-device run strengthens the
+Two Non-Streaming Repeated Stability physical-device runs strengthen the
 reuse hypothesis:
 
-- 6 one-shot NPU decodes succeeded.
-- run 7 failed at `native_call` with
-  `adapter_failure:LiteRtLmJniException`.
+- 6 one-shot NPU decodes succeeded in both checks.
+- run 7 failed in both checks at `native_call` with
+  `adapter_failure:LiteRtLmJniException`, making `first_failure_run_index=7`
+  reproducible.
 - the native tail reached `before ModelAssets::Create`,
   `before EngineSettings::CreateDefault`, and
   `before EngineFactory::CreateDefault`.
@@ -564,6 +575,10 @@ reuse hypothesis:
   `runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725` and
   `external/litert/litert/cc/litert_compiled_model.h:1140`.
 - fallback, timeout, and fresh-crash counts were all zero.
+- summaries report `engine_create_failure_detected=true`,
+  `suspected_failure_area=engine_create`, `repeated_recreate_suspected=true`,
+  `true_engine_reuse_investigation_recommended=true`, and
+  `guard_recommendation=investigate_true_engine_reuse_with_staged_probe`.
 
 That means pseudo streaming, UI coroutine updates, TTS, DB writes, markdown
 rendering, fallback, and app-side timeout are unlikely to be the primary cause.
@@ -573,42 +588,62 @@ startup safety gate.
 
 ## Staged True Engine Reopen Order
 
-Phase A keeps `trueEngineNpuProbeDebug` startup-stable:
+Phase 1 keeps `trueEngineNpuProbeDebug` startup-stable:
 
+- `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`
 - `probe_execution_available=false`
 - `isolated_native_execution_enabled=false`
 - `probe_reason=temporarily_disabled_after_startup_crash`
+- `startup_native_call_blocked=true`
+- `native_call_deferred_until_button_click=true`
+- `session_create_count=0`
+- `decode_count=0`
+- `generate_count=0`
+- `restart_app_recommended=false`
 - no model path resolution or native class load from UI rendering or copy
   actions.
 
-Phase B reopens only existing native modes, button-triggered and one at a time:
+Phase 2 reopens button-only `entrypoint_only`:
 
-- `entrypoint_only`
-- `model_assets_only`
-- `engine_settings_only`
-- `before_engine_create`
-- `engine_create_only`
+- native entrypoint reach only.
+- no `ModelAssets::Create`.
+- no `EngineSettings::CreateDefault`.
+- no `EngineFactory::CreateDefault`.
+- no startup native call.
 
-Phase C designs create/close-only v2. Do not revive
-`true_engine_create_close_only` first; use Phase B artifacts to decide the
-native mode and staging shape. Native load must stay lazy until Run button
-press.
+Phase 3 is `model_assets_only`:
 
-Phase D is held Engine run once:
+- stop after `ModelAssets::Create`.
+- do not call `EngineSettings::CreateDefault` or
+  `EngineFactory::CreateDefault`.
+
+Phase 4 is `engine_settings_only`:
+
+- stop after `EngineSettings::CreateDefault`.
+- do not call `EngineFactory::CreateDefault`.
+
+Phase 5 is `before_engine_create`:
+
+- reach the point immediately before `EngineFactory::CreateDefault`.
+- do not call `EngineFactory::CreateDefault`.
+
+Phase 6 is `engine_create_only`:
+
+- call `EngineFactory::CreateDefault` once.
+- no Session, prefill, decode, generate, or normal route delivery.
+- close and verify zero Session/decode/generate counters.
+
+Phase 7 is held Engine run once:
 
 - `engine_create_count=1`
 - one Session
 - one decode
 - close
 
-Phase E is held Engine repeated:
+Do not revive `true_engine_create_close_only` before Phase 2-5 artifacts are
+reviewed.
 
-- 2 / 5 / 10 turns
-- `engine_create_count=1`
-- `decode_success_count=N`
-- `true_engine_persistent_reuse=true` only after native counters prove it.
-
-Future Phase C summary keys include:
+Future Phase 6 summary keys include:
 
 - `test_name=NPU True Engine Holder Create Close Probe`
 - `selected_native_probe_mode=true_engine_create_close_only`
@@ -722,13 +757,49 @@ used_held_engine=true|false
 called_one_shot_native_run=false
 ```
 
-## Minimal PoC plan
+## Staged Probe Entry Plan
 
-### Phase 0: design-only review
+The two reproduced Non-Streaming Repeat results justify moving toward true
+Engine reuse investigation, but they do not justify restoring native execution
+all at once. `trueEngineNpuProbeDebug` previously crashed at startup after the
+create/close-only stack was staged, so the entry plan is:
+
+1. Phase 1: startup stability only. Keep execution disabled and blocked.
+2. Phase 2: button-only `entrypoint_only`. Confirm only native entrypoint
+   reach. Do not call `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+   or `EngineFactory::CreateDefault`.
+3. Phase 3: `model_assets_only`. Stop after `ModelAssets::Create`; do not call
+   `EngineSettings::CreateDefault` or `EngineFactory::CreateDefault`.
+4. Phase 4: `engine_settings_only`. Stop after
+   `EngineSettings::CreateDefault`; do not call `EngineFactory::CreateDefault`.
+5. Phase 5: `before_engine_create`. Reach the point immediately before
+   `EngineFactory::CreateDefault`; do not call it.
+6. Phase 6: `engine_create_only`. Call `EngineFactory::CreateDefault` exactly
+   once, with no Session, prefill, decode, generate, or normal route delivery,
+   then close.
+7. Phase 7: held Engine run once. Keep `engine_create_count=1`, create one
+   Session, decode once, and close.
+
+Current safety state remains:
+
+- `standardDebug` keeps the true Engine probe blocked, receives no isolated
+  native payload, and leaves the normal NPU route unchanged.
+- `trueEngineNpuProbeDebug` keeps
+  `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`,
+  `probe_execution_available=false`, `startup_native_call_blocked=true`,
+  `native_call_deferred_until_button_click=true`, `session_create_count=0`,
+  `decode_count=0`, `generate_count=0`, and `restart_app_recommended=false`.
+
+The next minimum implementation step is Phase 2, button-only `entrypoint_only`,
+not `true_engine_create_close_only` revival.
+
+## Eventual Held Engine PoC Plan
+
+### PoC Phase 0: design-only review
 
 This document. No implementation.
 
-### Phase 1: create/close true Engine holder without decode
+### PoC Phase 1: create/close true Engine holder without decode
 
 Goal: prove that a DEV-only native holder can create and close ModelAssets and
 Engine exactly once.
@@ -756,7 +827,7 @@ Pass:
 - `decode_count=0`
 - `holder_fatal_latch=false`
 
-### Phase 2: run once with held Engine, per-run Session
+### PoC Phase 2: run once with held Engine, per-run Session
 
 Goal: prove one decode can use the held Engine.
 
@@ -781,7 +852,7 @@ Pass:
 - `called_one_shot_native_run=false`
 - backend evidence includes QNN HTP / FastRPC
 
-### Phase 3: two/five/ten with held Engine, per-run Session
+### PoC Phase 3: two/five/ten with held Engine, per-run Session
 
 Goal: test whether removing repeated Engine create improves the run 7 failure.
 
@@ -804,7 +875,7 @@ engine_reuse_observed=true
 true_engine_persistent_reuse=true
 ```
 
-### Phase 4: optional Engine + Session reuse design
+### PoC Phase 4: optional Engine + Session reuse design
 
 This is not part of the minimum PoC. It needs a separate review of context
 reset, conversation memory, and prompt accumulation semantics.
@@ -828,8 +899,12 @@ reset, conversation memory, and prompt accumulation semantics.
 
 ## Recommendation
 
-Kotlin-only work is insufficient. Add a DEV-only native/JNI true Engine holder
-surface and start with create/close only. The smallest implementation unit is:
+Kotlin-only work is insufficient. Keep the DEV-only true Engine holder design,
+but restart native execution through the isolated staged probe plan. Start with
+button-only `entrypoint_only`, then advance through `model_assets_only`,
+`engine_settings_only`, and `before_engine_create` before any create/close or
+held-Engine work. The eventual native holder implementation unit, after
+button-only staged probe artifacts are reviewed, is:
 
 1. Add native holder state in the LiteRT-LM JNI build or another safely linked
    native target.

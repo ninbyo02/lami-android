@@ -29,12 +29,19 @@ The first version is intentionally fixed at 10 runs. Future 30/100 variants
 should be added only after reviewing physical-device evidence from the 10-run
 artifact.
 
-## Physical-device Result: Run 7 Engine Create Failure
+## Physical-device Results: Reproduced Run 7 Engine Create Failure
 
-The first physical-device result stopped on the 7th one-shot decode:
+Two physical-device runs have now reproduced the same failure shape. Both
+stopped on the 7th one-shot decode after 6 successful NPU runs:
 
 - `status=stopped`
 - `reason=adapter_failure:LiteRtLmJniException`
+- `streaming=false`
+- `pseudo_streaming=false`
+- `tts=false`
+- `db=false`
+- `markdown=false`
+- `fallback_allowed=false`
 - `run_count_requested=10`
 - `run_count_completed=7`
 - `success_count=6`
@@ -51,6 +58,15 @@ The first physical-device result stopped on the 7th one-shot decode:
 - `first_failure_stage=native_call`
 - `first_failure_reason=adapter_failure:LiteRtLmJniException`
 - `first_failure_exception_class=LiteRtLmJniException`
+- `engine_create_failure_detected=true`
+- `suspected_failure_area=engine_create`
+- `repeated_recreate_suspected=true`
+- `streaming_ruled_out=true`
+- `pseudo_streaming_ruled_out=true`
+- `ui_side_effects_ruled_out=true`
+- `true_engine_reuse_investigation_recommended=true`
+- `true_engine_probe_blocked_for_startup_safety=true`
+- `guard_recommendation=investigate_true_engine_reuse_with_staged_probe`
 - `restart_app_recommended=false`
 - `true_engine_probe_status=disabled_or_blocked`
 - `true_engine_persistent_reuse=false`
@@ -67,6 +83,8 @@ The first failure native diagnostic tail included:
 
 Interpretation:
 
+- `first_failure_run_index=7` is now reproducible across two device checks,
+  not a one-off artifact from the first run.
 - Streaming, pseudo streaming, UI coroutine updates, TTS, DB writes, and
   markdown rendering are unlikely to be the primary cause because this test
   excludes them and still reproduces the failure.
@@ -75,12 +93,39 @@ Interpretation:
 - The leading suspect is repeated short-interval one-shot NPU recreate:
   each run creates `ModelAssets`, `EngineSettings`, and reaches
   `EngineFactory::CreateDefault`, then the 7th run returns an INTERNAL error.
-- This strengthens the reason to investigate true Engine reuse, but the prior
+- The repeated recreate suspicion is stronger because the second run ruled out
+  the same non-native side-effect set while `fallback_used_count=0`,
+  `timeout_count=0`, and `fresh_crash_count=0` remained unchanged.
+- This is the decision point for staged true Engine probing, but the prior
   `true_engine_create_close_only` isolated stack crashed on cold start. The next
   true Engine work must restart with staged, button-only probe phases rather
   than re-enabling create/close directly.
 - `trueEngineNpuProbeDebug` native execution remains disabled and blocked while
   this result is being used for design decisions.
+
+## Next True Engine Probe Entry
+
+The next investigation must stay staged and must not add a new
+`EngineFactory::CreateDefault` call in this documentation/diagnostics cleanup.
+Planned phases:
+
+1. Phase 1: `trueEngineNpuProbeDebug` startup stability check only. Execution
+   stays disabled and blocked.
+2. Phase 2: button-only `entrypoint_only`. Confirm native entrypoint reach only.
+   Do not call `ModelAssets::Create`, `EngineSettings::CreateDefault`, or
+   `EngineFactory::CreateDefault`. Startup native calls remain forbidden.
+3. Phase 3: `model_assets_only`. Stop after `ModelAssets::Create`; do not call
+   `EngineSettings::CreateDefault` or `EngineFactory::CreateDefault`.
+4. Phase 4: `engine_settings_only`. Stop after
+   `EngineSettings::CreateDefault`; do not call `EngineFactory::CreateDefault`.
+5. Phase 5: `before_engine_create`. Reach the point immediately before
+   `EngineFactory::CreateDefault`; do not call it.
+6. Phase 6: `engine_create_only`. Call `EngineFactory::CreateDefault` exactly
+   once, with no Session, decode, prefill, generate, or normal route delivery,
+   then verify close.
+7. Phase 7: held Engine run once. Create count must be 1, then one
+   Session/decode, then close. This is future work, not part of the current
+   cleanup.
 
 ## Safety Contract
 

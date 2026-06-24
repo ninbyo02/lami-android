@@ -118,6 +118,7 @@ class NonStreaming {
                     status = "failure",
                     reason = "adapter_failure:LiteRtLmJniException",
                     runDecodeReached = false,
+                    qualityClassification = "unknown",
                     nativeStage = "native_call",
                     nativeErrorClass = "LiteRtLmJniException",
                     nativeDiagTail = "before ModelAssets::Create; " +
@@ -132,12 +133,16 @@ class NonStreaming {
             ),
         )
 
+        assertTrue(text.contains("status=stopped"))
+        assertTrue(text.contains("reason=adapter_failure:LiteRtLmJniException"))
         assertTrue(text.contains("run_count_completed=7"))
         assertTrue(text.contains("success_count=6"))
         assertTrue(text.contains("failure_count=1"))
         assertTrue(text.contains("success_rate=0.86"))
         assertTrue(text.contains("run_decode_reached_count=6"))
         assertTrue(text.contains("run_decode_reached_rate=0.86"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:7"))
+        assertTrue(text.contains("quality_classification_summary=natural_japanese:6,unknown:1"))
         assertTrue(text.contains("fallback_used_count=0"))
         assertTrue(text.contains("timeout_count=0"))
         assertTrue(text.contains("fresh_crash_count=0"))
@@ -156,6 +161,8 @@ class NonStreaming {
         assertTrue(text.contains("restart_app_recommended=false"))
         assertTrue(text.contains("guard_recommendation=investigate_true_engine_reuse_with_staged_probe"))
         assertTrue(text.contains("true_engine_probe_status=disabled_or_blocked"))
+        assertTrue(text.contains("true_engine_persistent_reuse=false"))
+        assertTrue(text.contains("engine_reuse_observed=unavailable"))
     }
 
     @Test
@@ -189,6 +196,7 @@ class NonStreaming {
         nativeErrorStage: String = "unavailable",
         nativeErrorClass: String = "unavailable",
         nativeDiagTail: String = "unavailable",
+        qualityClassification: String = "natural_japanese",
     ): NpuNonStreamingRepeatedStabilityRecord =
         NpuNonStreamingRepeatedStabilityRecord(
             runIndex = runIndex,
@@ -197,7 +205,7 @@ class NonStreaming {
             reason = reason,
             runDecodeReached = runDecodeReached,
             backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
-            qualityClassification = "natural_japanese",
+            qualityClassification = qualityClassification,
             fallbackUsed = fallbackUsed,
             timeout = timeout,
             freshCrash = freshCrash,
