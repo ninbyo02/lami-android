@@ -22,6 +22,17 @@ may hit LiteRT/QNN/HTP resource constraints or delayed release behavior. Normal
 chat should not depend on repeatedly creating and destroying the NPU Engine if a
 persistent holder/session design is viable.
 
+The `NPU Non-Streaming Repeated Stability Test` reproduced the same class of
+failure while excluding pseudo streaming, TTS, DB writes, markdown rendering,
+and normal chat UI side effects. It completed 6 successful one-shot NPU decodes
+and failed on run 7 with `adapter_failure:LiteRtLmJniException`; the native tail
+reached `before ModelAssets::Create`, `before EngineSettings::CreateDefault`,
+and `before EngineFactory::CreateDefault`, then reported
+`engine-create-failed: INTERNAL`. Fallback, timeout, and fresh-crash counts were
+all zero. This makes repeated one-shot recreate the leading suspect and
+strengthens the case for true Engine reuse investigation, while still requiring
+`trueEngineNpuProbeDebug` to stay disabled until staged probes are safe.
+
 `NPU Persistent Engine Multi-turn Test` is currently closer to a blocked-state
 probe than an executable generation test. The intended question remains: can
 one Engine or standard-route adapter be kept alive and then generate ten times?
@@ -384,14 +395,15 @@ Startup recovery gate:
   held Engine run once remain out of scope until isolated create/close-only
   passes.
 - The `trueEngineNpuProbeDebug` shell now has isolated `jniLibs` / native
-  staging task wiring for the patched qairt244 create/close-only stack. It
-  enables the Run path only in that flavor with `probe_execution_available=true`
-  while keeping startup native calls blocked.
+  staging task wiring for the patched qairt244 create/close-only stack, but
+  native execution is disabled after the cold-start crash. Its Run path must
+  keep returning a blocked summary with `probe_execution_available=false` until
+  staged Phase B probes are explicitly reopened.
 - APK validation must confirm the staged true Engine probe payload is present
   only in `trueEngineNpuProbeDebug` and absent from `standardDebug`.
 
-The current implementation reaches native Engine create/close through the
-existing `litertlm_jni` persistent custom JNI path with
+The future create/close-only implementation should reach native Engine
+create/close through the existing `litertlm_jni` persistent custom JNI path with
 `nativeProbeMode=true_engine_create_close_only` and `runCount=0`. This lets the
 device check:
 
@@ -460,7 +472,9 @@ UI execution failure.
 The Non-Streaming Repeat Test is a comparison artifact, not persistent Engine
 reuse. It uses the existing one-shot NPU decode route for 10 fixed prompts and
 keeps pseudo streaming, TTS, DB, markdown, fallback, held Engine, Session, and
-true Engine reuse out of scope.
+true Engine reuse out of scope. The current device artifact stopped at
+`run_count_completed=7`, with `success_count=6`, `failure_count=1`,
+`run_decode_reached_count=6`, and `suspected_failure_area=engine_create`.
 
 ## Physical-device Procedure
 

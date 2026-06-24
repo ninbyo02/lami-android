@@ -139,12 +139,80 @@ Purpose:
 - Keep startup safe after the cold-start crash.
 - Keep `probe_execution_available=false` and
   `probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
-- Exercise only `ModelAssets::Create`, `EngineSettings::CreateDefault`,
-  `EngineFactory::CreateDefault`, and Engine close/release.
+- Do not exercise `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+  `EngineFactory::CreateDefault`, or Engine close/release while the recovery
+  flag keeps native execution disabled.
 - Keep startup safe by deferring native load and native call until explicit
   button press.
 - Avoid touching normal chat, one-shot NPU route, Stability Test, Long
   Generation, R6 streaming, fallback policy, and `standardDebug` native stack.
+
+## Device Finding Driving The Next Probe Shape
+
+`NPU Non-Streaming Repeated Stability Test` reproduced the run-7 failure even
+with pseudo streaming, TTS, DB writes, markdown rendering, and normal chat UI
+side effects excluded:
+
+- 6 successful one-shot NPU decodes.
+- failure on run 7.
+- `first_failure_stage=native_call`.
+- `first_failure_reason=adapter_failure:LiteRtLmJniException`.
+- native tail reached `before ModelAssets::Create`,
+  `before EngineSettings::CreateDefault`, and
+  `before EngineFactory::CreateDefault`.
+- native tail reported `engine-create-failed: INTERNAL`.
+- fallback, timeout, and fresh crash counts were all zero.
+
+This strengthens the suspicion that repeated short-interval one-shot recreate
+and `EngineFactory::CreateDefault` pressure are involved. It does not justify
+re-enabling true Engine create/close immediately because the previous
+`true_engine_create_close_only` stack caused a cold-start crash. The next work
+must be staged and button-only.
+
+## Staged Probe Reopen Plan
+
+Phase A: startup stability only.
+
+- `trueEngineNpuProbeDebug` remains installable and launchable.
+- `probe_execution_available=false`.
+- `isolated_native_execution_enabled=false`.
+- `startup_native_call_blocked=true`.
+- `native_call_deferred_until_button_click=true`.
+- `session_create_count=0`.
+- `decode_count=0`.
+- `generate_count=0`.
+
+Phase B: existing native modes only, button-triggered and one at a time.
+
+- `entrypoint_only`
+- `model_assets_only`
+- `engine_settings_only`
+- `before_engine_create`
+- `engine_create_only`
+
+Do not add new native allowlist values in this phase. Do not call
+`EngineFactory::CreateDefault` from app startup or diagnostics rendering.
+
+Phase C: create/close-only v2 design.
+
+- Do not revive `true_engine_create_close_only` first.
+- Review Phase B artifacts before deciding whether create/close-only needs a
+  new native mode, a split process, or a different staging shape.
+- Native class load and native call must remain lazy until Run button press.
+
+Phase D: held Engine run once.
+
+- `engine_create_count=1`.
+- one Session.
+- one decode.
+- close.
+
+Phase E: held Engine repeated.
+
+- 2 / 5 / 10 turns.
+- `engine_create_count=1`.
+- `decode_success_count=N`.
+- `true_engine_persistent_reuse=true` only after native counters prove it.
 
 ## SourceSet And Native Packaging Design
 
@@ -193,21 +261,22 @@ Both variants must defer native work until user action:
 
 - `startup_native_call_blocked=true`
 - `native_call_deferred_until_button_click=true`
-- `probe_execution_available=true`.
+- `probe_execution_available=false`.
 - `isolated_native_payload_staged=true`.
-- `isolated_native_execution_enabled=true`.
-- `probe_execution_block_reason=unavailable`.
+- `isolated_native_execution_enabled=false`.
+- `probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
 - No native call during app start.
 - No native call during DEV diagnostics rendering.
 - No native call during initial Summary / Full Dump copy.
-- The Run button may resolve the model path and enter only the isolated
-  create/close-only native path.
+- The Run button currently returns a blocked summary and must not resolve the
+  model path or enter the isolated native path while recovery is active.
 - Exceptions must be captured into Summary / Full Dump, not thrown through UI
   startup.
 
 ## Create/Close-Only Native Rules
 
-Allowed only in `trueEngineNpuProbeDebug` after explicit Run button press:
+Future allowed shape only after Phase B evidence is reviewed and native
+execution is explicitly re-enabled in `trueEngineNpuProbeDebug`:
 
 - `nativeProbeMode=true_engine_create_close_only`
 - `runCount=0`
@@ -231,22 +300,28 @@ Forbidden:
 - `true_engine_persistent_reuse=true`
 - `engine_reuse_observed=true`
 
-## TrueEngineNpuProbeDebug Pass Conditions
+## TrueEngineNpuProbeDebug Current Pass Conditions
 
-Current create/close-only pass conditions:
+Current startup-recovery pass conditions:
 
 - Installs with a separate application id.
 - Can coexist with `standardDebug`.
 - App starts without native call from this probe.
 - DEV diagnostics opens.
 - `isolated_native_payload_staged=true`.
-- `isolated_native_execution_enabled=true`.
-- `probe_execution_available=true`.
-- `probe_execution_block_reason=unavailable`.
+- `isolated_native_execution_enabled=false`.
+- `probe_execution_available=false`.
+- `probe_execution_block_reason=temporarily_disabled_after_startup_crash`.
 - APK contains the staged patched qairt244 native stack and
   `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
 - `standardDebug` APK does not contain
   `liblami_true_engine_npu_probe_payload.so`.
+- Run button returns a blocked summary and does not enter the native path.
+- Summary / Full Dump report zero Session/decode/generate counts.
+
+Future Phase C create/close-only pass conditions, after Phase B evidence and an
+explicit execution re-enable:
+
 - Button press is the first point where the create/close native path is allowed.
 - `selected_native_probe_mode=true_engine_create_close_only`.
 - `argument_validation_passed=true`.
@@ -323,11 +398,12 @@ Do not change these while adding the isolated create/close-only flavor:
 1. Keep `standardDebug` blocked and add regression tests for that expectation.
 2. Add `trueEngineNpuProbeDebug` flavor/sourceSet with no native execution.
 3. Add isolated jniLibs path and staging task, still with no Run execution.
-4. Enable `probe_execution_available=true` only in the isolated flavor and
-   keep startup native calls blocked.
-5. Enable button-triggered `true_engine_create_close_only` in the isolated
-   flavor only.
-6. Run physical-device create/close-only validation.
+4. Reopen Phase B button-only probes with existing native modes, starting with
+   `entrypoint_only` and `model_assets_only`.
+5. Design create/close-only v2 from Phase B artifacts; do not directly revive
+   `true_engine_create_close_only`.
+6. Run physical-device create/close-only validation only after explicit
+   execution re-enable.
 7. Only after passing, design held Engine run once.
 
 ## Device Verification Procedure
@@ -350,9 +426,10 @@ Do not change these while adding the isolated create/close-only flavor:
 4. Open DEV diagnostics.
 5. Confirm no native work has run before button press.
 6. Confirm `isolated_native_payload_staged=true`,
-   `isolated_native_execution_enabled=true`, and
-   `probe_execution_available=true`.
-7. Press `Run True Engine Holder Create/Close Probe`.
+   `isolated_native_execution_enabled=false`, and
+   `probe_execution_available=false`.
+7. Press `Run True Engine Holder Create/Close Probe` and confirm the blocked
+   summary remains startup-safe.
 8. Separately inspect the APK and confirm only the isolated APK contains
    `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
 9. Confirm zero Session/decode/generate counts remain in Summary / Full Dump.

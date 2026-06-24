@@ -490,15 +490,14 @@ Isolation decision:
 - Held Engine run once remains blocked until create/close-only passes in the
   isolated flavor.
 - The `trueEngineNpuProbeDebug` flavor/sourceSet now stages the isolated
-  patched qairt244 native stack through
-  `stageTrueEngineNpuProbeDebugNativeLibs` and enables only the
-  button-triggered create/close-only gate. It must still block startup native
-  calls and must not create a Session, decode, or generate.
+  qairt244 native stack through `stageTrueEngineNpuProbeDebugNativeLibs`, but
+  native execution is disabled after the cold-start crash. It must still block
+  startup native calls and must not create a Session, decode, or generate.
 - Packaging validation must prove that
   `liblami_true_engine_npu_probe_payload.so` and the true Engine probe staging
   appear only in the `trueEngineNpuProbeDebug` APK and never in `standardDebug`.
 
-Scope:
+Future Phase C create/close-only scope:
 
 - DEV-only.
 - Calls the existing `litertlm_jni` persistent custom JNI path with
@@ -552,7 +551,64 @@ markdown, fallback, holder/session creation, or true Engine reuse. Its artifact
 should be compared with recreate stability, persistent holder, and true Engine
 blocked summaries before true Engine create/close is re-enabled.
 
-Required summary keys include:
+The first Non-Streaming Repeated Stability physical-device run strengthens the
+reuse hypothesis:
+
+- 6 one-shot NPU decodes succeeded.
+- run 7 failed at `native_call` with
+  `adapter_failure:LiteRtLmJniException`.
+- the native tail reached `before ModelAssets::Create`,
+  `before EngineSettings::CreateDefault`, and
+  `before EngineFactory::CreateDefault`.
+- the native tail reported `engine-create-failed: INTERNAL` at
+  `runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725` and
+  `external/litert/litert/cc/litert_compiled_model.h:1140`.
+- fallback, timeout, and fresh-crash counts were all zero.
+
+That means pseudo streaming, UI coroutine updates, TTS, DB writes, markdown
+rendering, fallback, and app-side timeout are unlikely to be the primary cause.
+The likely pressure point is repeated short-interval one-shot Engine recreate.
+This is a reason to investigate true Engine reuse, not a reason to bypass the
+startup safety gate.
+
+## Staged True Engine Reopen Order
+
+Phase A keeps `trueEngineNpuProbeDebug` startup-stable:
+
+- `probe_execution_available=false`
+- `isolated_native_execution_enabled=false`
+- `probe_reason=temporarily_disabled_after_startup_crash`
+- no model path resolution or native class load from UI rendering or copy
+  actions.
+
+Phase B reopens only existing native modes, button-triggered and one at a time:
+
+- `entrypoint_only`
+- `model_assets_only`
+- `engine_settings_only`
+- `before_engine_create`
+- `engine_create_only`
+
+Phase C designs create/close-only v2. Do not revive
+`true_engine_create_close_only` first; use Phase B artifacts to decide the
+native mode and staging shape. Native load must stay lazy until Run button
+press.
+
+Phase D is held Engine run once:
+
+- `engine_create_count=1`
+- one Session
+- one decode
+- close
+
+Phase E is held Engine repeated:
+
+- 2 / 5 / 10 turns
+- `engine_create_count=1`
+- `decode_success_count=N`
+- `true_engine_persistent_reuse=true` only after native counters prove it.
+
+Future Phase C summary keys include:
 
 - `test_name=NPU True Engine Holder Create Close Probe`
 - `selected_native_probe_mode=true_engine_create_close_only`

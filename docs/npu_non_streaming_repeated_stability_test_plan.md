@@ -29,6 +29,59 @@ The first version is intentionally fixed at 10 runs. Future 30/100 variants
 should be added only after reviewing physical-device evidence from the 10-run
 artifact.
 
+## Physical-device Result: Run 7 Engine Create Failure
+
+The first physical-device result stopped on the 7th one-shot decode:
+
+- `status=stopped`
+- `reason=adapter_failure:LiteRtLmJniException`
+- `run_count_requested=10`
+- `run_count_completed=7`
+- `success_count=6`
+- `failure_count=1`
+- `success_rate=0.86`
+- `run_decode_reached_count=6`
+- `run_decode_reached_rate=0.86`
+- `fallback_used_count=0`
+- `timeout_count=0`
+- `fresh_crash_count=0`
+- `backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:7`
+- `quality_classification_summary=natural_japanese:6,unknown:1`
+- `first_failure_run_index=7`
+- `first_failure_stage=native_call`
+- `first_failure_reason=adapter_failure:LiteRtLmJniException`
+- `first_failure_exception_class=LiteRtLmJniException`
+- `restart_app_recommended=false`
+- `true_engine_probe_status=disabled_or_blocked`
+- `true_engine_persistent_reuse=false`
+- `engine_reuse_observed=unavailable`
+
+The first failure native diagnostic tail included:
+
+- `before ModelAssets::Create`
+- `before EngineSettings::CreateDefault`
+- `before EngineFactory::CreateDefault`
+- `engine-create-failed: INTERNAL`
+- `runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725`
+- `external/litert/litert/cc/litert_compiled_model.h:1140`
+
+Interpretation:
+
+- Streaming, pseudo streaming, UI coroutine updates, TTS, DB writes, and
+  markdown rendering are unlikely to be the primary cause because this test
+  excludes them and still reproduces the failure.
+- App-side timeout and fallback are unlikely to be the primary cause because
+  `timeout_count=0`, `fallback_used_count=0`, and `fresh_crash_count=0`.
+- The leading suspect is repeated short-interval one-shot NPU recreate:
+  each run creates `ModelAssets`, `EngineSettings`, and reaches
+  `EngineFactory::CreateDefault`, then the 7th run returns an INTERNAL error.
+- This strengthens the reason to investigate true Engine reuse, but the prior
+  `true_engine_create_close_only` isolated stack crashed on cold start. The next
+  true Engine work must restart with staged, button-only probe phases rather
+  than re-enabling create/close directly.
+- `trueEngineNpuProbeDebug` native execution remains disabled and blocked while
+  this result is being used for design decisions.
+
 ## Safety Contract
 
 The test records:
@@ -88,6 +141,14 @@ Summary keys:
 - `first_failure_reason`
 - `first_failure_exception_class`
 - `first_failure_native_diag_tail`
+- `engine_create_failure_detected`
+- `suspected_failure_area`
+- `repeated_recreate_suspected`
+- `streaming_ruled_out`
+- `pseudo_streaming_ruled_out`
+- `ui_side_effects_ruled_out`
+- `true_engine_reuse_investigation_recommended`
+- `true_engine_probe_blocked_for_startup_safety`
 - `restart_app_recommended`
 - `guard_recommendation`
 - `true_engine_probe_status=disabled_or_blocked`

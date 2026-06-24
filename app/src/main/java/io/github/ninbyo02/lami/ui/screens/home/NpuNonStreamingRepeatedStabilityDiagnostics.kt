@@ -120,10 +120,19 @@ private fun formatNpuNonStreamingRepeatedStabilityDiagnosticsForDev(
     val freshCrashCount = records.count { it.freshCrash }
     val runDecodeReachedCount = records.count { it.runDecodeReached }
     val firstFailure = records.firstOrNull { it.status != "success" }
+    val engineCreateFailureDetected = records.any { it.engineCreateFailureDetected() }
+    val suspectedFailureArea = when {
+        engineCreateFailureDetected -> "engine_create"
+        firstFailure != null -> firstFailure.suspectedFailureArea()
+        else -> "unavailable"
+    }
+    val repeatedRecreateSuspected = engineCreateFailureDetected && completed > 1
+    val trueEngineReuseInvestigationRecommended = repeatedRecreateSuspected
     val restartAppRecommended = records.any { it.freshCrash } ||
         firstFailure?.reason.orEmpty().contains("native", ignoreCase = true)
     val guardRecommendation = when {
         restartAppRecommended -> "restart_app_before_next_npu_probe"
+        trueEngineReuseInvestigationRecommended -> "investigate_true_engine_reuse_with_staged_probe"
         failureCount > 0 -> "review_first_failure_before_true_engine_reuse"
         else -> "none"
     }
@@ -161,6 +170,14 @@ private fun formatNpuNonStreamingRepeatedStabilityDiagnosticsForDev(
         appendLine("first_failure_reason=${firstFailure?.reason ?: "unavailable"}")
         appendLine("first_failure_exception_class=${firstFailure?.nativeErrorClass ?: "unavailable"}")
         appendLine("first_failure_native_diag_tail=${firstFailure?.nativeDiagTail ?: "unavailable"}")
+        appendLine("engine_create_failure_detected=$engineCreateFailureDetected")
+        appendLine("suspected_failure_area=$suspectedFailureArea")
+        appendLine("repeated_recreate_suspected=$repeatedRecreateSuspected")
+        appendLine("streaming_ruled_out=true")
+        appendLine("pseudo_streaming_ruled_out=true")
+        appendLine("ui_side_effects_ruled_out=true")
+        appendLine("true_engine_reuse_investigation_recommended=$trueEngineReuseInvestigationRecommended")
+        appendLine("true_engine_probe_blocked_for_startup_safety=${trueEngineProbeBlockedForStartupSafety()}")
         appendLine("restart_app_recommended=$restartAppRecommended")
         appendLine("guard_recommendation=$guardRecommendation")
         appendLine("true_engine_probe_status=${trueEngineProbeStatusForNonStreamingRepeat()}")
@@ -209,6 +226,31 @@ private fun trueEngineProbeStatusForNonStreamingRepeat(): String =
         "available"
     } else {
         "disabled_or_blocked"
+    }
+
+private fun trueEngineProbeBlockedForStartupSafety(): Boolean =
+    !BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED
+
+private fun NpuNonStreamingRepeatedStabilityRecord.engineCreateFailureDetected(): Boolean {
+    val haystack = listOf(
+        reason,
+        nativeStage,
+        nativeStageHistory,
+        nativeErrorStage,
+        nativeErrorClass,
+        nativeDiagTail,
+    ).joinToString("\n")
+    return haystack.contains("engine-create-failed", ignoreCase = true) ||
+        haystack.contains("EngineFactory::CreateDefault", ignoreCase = true) ||
+        haystack.contains("compiled_model", ignoreCase = true)
+}
+
+private fun NpuNonStreamingRepeatedStabilityRecord.suspectedFailureArea(): String =
+    when {
+        engineCreateFailureDetected() -> "engine_create"
+        nativeErrorStage.isNotBlank() && nativeErrorStage != "unavailable" -> nativeErrorStage
+        nativeStage.isNotBlank() && nativeStage != "unavailable" -> nativeStage
+        else -> "unavailable"
     }
 
 private fun formatRate(numerator: Int, denominator: Int): String =

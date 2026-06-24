@@ -48,6 +48,14 @@ class NonStreaming {
         assertTrue(text.contains("average_decode_ms=55"))
         assertTrue(text.contains("restart_app_recommended=false"))
         assertTrue(text.contains("guard_recommendation=none"))
+        assertTrue(text.contains("engine_create_failure_detected=false"))
+        assertTrue(text.contains("suspected_failure_area=unavailable"))
+        assertTrue(text.contains("repeated_recreate_suspected=false"))
+        assertTrue(text.contains("streaming_ruled_out=true"))
+        assertTrue(text.contains("pseudo_streaming_ruled_out=true"))
+        assertTrue(text.contains("ui_side_effects_ruled_out=true"))
+        assertTrue(text.contains("true_engine_reuse_investigation_recommended=false"))
+        assertTrue(text.contains("true_engine_probe_blocked_for_startup_safety=true"))
         assertTrue(text.contains("true_engine_probe_status=disabled_or_blocked"))
         assertTrue(text.contains("true_engine_persistent_reuse=false"))
         assertTrue(text.contains("engine_reuse_observed=unavailable"))
@@ -96,6 +104,58 @@ class NonStreaming {
         assertTrue(text.contains("native_stage_history=adapter_start>native_call"))
         assertTrue(text.contains("native_error_stage=decode"))
         assertTrue(text.contains("native_error_class=TimeoutCancellationException"))
+    }
+
+    @Test
+    fun `engine create failure in native diag recommends true engine reuse investigation`() {
+        val text = buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
+            NpuNonStreamingRepeatedStabilityState(
+                status = NPU_NON_STREAMING_REPEATED_STABILITY_STATUS_STOPPED,
+                reason = "adapter_failure:LiteRtLmJniException",
+                runCountRequested = 10,
+                records = (1..6).map { index -> record(runIndex = index) } + record(
+                    runIndex = 7,
+                    status = "failure",
+                    reason = "adapter_failure:LiteRtLmJniException",
+                    runDecodeReached = false,
+                    nativeStage = "native_call",
+                    nativeErrorClass = "LiteRtLmJniException",
+                    nativeDiagTail = "before ModelAssets::Create; " +
+                        "before EngineSettings::CreateDefault; " +
+                        "before EngineFactory::CreateDefault; " +
+                        "engine-create-failed: INTERNAL; " +
+                        "runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725; " +
+                        "external/litert/litert/cc/litert_compiled_model.h:1140",
+                ),
+                stopped = true,
+                stopReason = "adapter_failure:LiteRtLmJniException",
+            ),
+        )
+
+        assertTrue(text.contains("run_count_completed=7"))
+        assertTrue(text.contains("success_count=6"))
+        assertTrue(text.contains("failure_count=1"))
+        assertTrue(text.contains("success_rate=0.86"))
+        assertTrue(text.contains("run_decode_reached_count=6"))
+        assertTrue(text.contains("run_decode_reached_rate=0.86"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("timeout_count=0"))
+        assertTrue(text.contains("fresh_crash_count=0"))
+        assertTrue(text.contains("first_failure_run_index=7"))
+        assertTrue(text.contains("first_failure_stage=native_call"))
+        assertTrue(text.contains("first_failure_reason=adapter_failure:LiteRtLmJniException"))
+        assertTrue(text.contains("first_failure_exception_class=LiteRtLmJniException"))
+        assertTrue(text.contains("engine_create_failure_detected=true"))
+        assertTrue(text.contains("suspected_failure_area=engine_create"))
+        assertTrue(text.contains("repeated_recreate_suspected=true"))
+        assertTrue(text.contains("streaming_ruled_out=true"))
+        assertTrue(text.contains("pseudo_streaming_ruled_out=true"))
+        assertTrue(text.contains("ui_side_effects_ruled_out=true"))
+        assertTrue(text.contains("true_engine_reuse_investigation_recommended=true"))
+        assertTrue(text.contains("true_engine_probe_blocked_for_startup_safety=true"))
+        assertTrue(text.contains("restart_app_recommended=false"))
+        assertTrue(text.contains("guard_recommendation=investigate_true_engine_reuse_with_staged_probe"))
+        assertTrue(text.contains("true_engine_probe_status=disabled_or_blocked"))
     }
 
     @Test
