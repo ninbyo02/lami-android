@@ -695,6 +695,9 @@ private fun modelAssetsDisplayReason(state: NpuTrueEngineModelAssetsProbeState):
 private fun modelAssetsNativeProbeMode(values: Map<String, String>): String? =
     values["selected_native_probe_mode"] ?: values["native_probe_mode"]
 
+private fun modelAssetsEffectiveProbeMode(values: Map<String, String>): String =
+    modelAssetsNativeProbeMode(values) ?: NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE
+
 private fun modelAssetsNativeReturnCompleted(
     values: Map<String, String>,
     result: NpuTrueEngineHolderNativeResult?,
@@ -711,7 +714,7 @@ private fun modelAssetsOnlyCompleted(
     values: Map<String, String>,
     result: NpuTrueEngineHolderNativeResult?,
 ): Boolean =
-    modelAssetsNativeProbeMode(values) == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE &&
+    modelAssetsEffectiveProbeMode(values) == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE &&
         modelAssetsNativeReturnCompleted(values, result) &&
         modelAssetsHypothesisSucceeded(values) &&
         values.boolText("model_assets_create_reached", "false") == "true" &&

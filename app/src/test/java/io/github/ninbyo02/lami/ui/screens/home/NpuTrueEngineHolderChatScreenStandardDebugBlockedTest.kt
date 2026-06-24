@@ -384,7 +384,7 @@ class NpuTrueEngine {
     }
 
     @Test
-    fun `model assets only completed summary accepts direct hypothesis result`() {
+    fun `model assets only completed summary accepts direct hypothesis result without native mode key`() {
         val state = NpuTrueEngineModelAssetsProbeState(
             status = "failed",
             reason = "unavailable",
@@ -392,7 +392,6 @@ class NpuTrueEngine {
             nativeResult = NpuTrueEngineHolderNativeResult(
                 nativeReturn = "completed",
                 resultText = """
-                    selected_native_probe_mode=model_assets_only
                     true_engine_probe_flavor=trueEngineNpuProbeDebug
                     hypothesis_result=model_assets_only_success
                     last_native_stage=model_assets_create_returned
