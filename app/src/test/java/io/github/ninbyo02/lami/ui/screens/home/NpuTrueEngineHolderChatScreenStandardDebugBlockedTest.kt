@@ -348,6 +348,7 @@ class NpuTrueEngine {
         assertTrue(summary.contains("probe_status=completed"))
         assertTrue(summary.contains("probe_reason=model_assets_only_completed"))
         assertTrue(summary.contains("selected_native_probe_mode=model_assets_only"))
+        assertTrue(summary.contains("hypothesis_result=model_assets_only_success"))
         assertTrue(summary.contains("native_entrypoint_reached=true"))
         assertTrue(summary.contains("model_assets_create_reached=true"))
         assertTrue(summary.contains("model_assets_create_returned=true"))

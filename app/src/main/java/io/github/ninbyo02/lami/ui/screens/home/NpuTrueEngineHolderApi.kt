@@ -686,12 +686,17 @@ private fun modelAssetsNativeReturnCompleted(
         values["native_return"] == "completed" ||
         values["persistent_custom_jni_status"] == "completed"
 
+private fun modelAssetsHypothesisSucceeded(values: Map<String, String>): Boolean =
+    values["hypothesis_result"] == "model_assets_only_success" ||
+        values["persistent_custom_jni_hypothesis_result"] == "model_assets_only_success"
+
 private fun modelAssetsOnlyCompleted(
     values: Map<String, String>,
     result: NpuTrueEngineHolderNativeResult?,
 ): Boolean =
     modelAssetsNativeProbeMode(values) == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE &&
         modelAssetsNativeReturnCompleted(values, result) &&
+        modelAssetsHypothesisSucceeded(values) &&
         values.boolText("model_assets_create_reached", "false") == "true" &&
         values.boolText("model_assets_create_returned", "false") == "true" &&
         values.boolText("model_assets_create_succeeded", "false") == "true" &&
