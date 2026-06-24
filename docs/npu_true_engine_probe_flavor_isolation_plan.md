@@ -1,10 +1,12 @@
 # NPU True Engine Probe Flavor Isolation Plan
 
-Status: isolated create/close-only execution temporarily disabled after startup
-crash.
+Status: Phase 2 button-only `entrypoint_only` is enabled only in
+`trueEngineNpuProbeDebug`; isolated create/close-only execution remains
+disabled after the startup crash.
 `trueEngineNpuProbeDebug` has a Gradle flavor/sourceSet shell, variant-only
-native staging, but `true_engine_create_close_only` execution is currently
-blocked before native class load. `standardDebug` remains blocked. Do not add
+native staging, and a dedicated `entrypoint_only` button path.
+`true_engine_create_close_only` execution is still blocked before native class
+load. `standardDebug` remains blocked. Do not add
 decode, Session creation, generate, held Engine run once, route changes,
 fallback changes, or patch changes in this step.
 
@@ -132,7 +134,10 @@ Current shell status:
   `app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a`.
 - The staged payload is packaged only by
   `mergeTrueEngineNpuProbeDebugJniLibFolders`.
-- The Run button currently returns a blocked startup-safe result in this flavor.
+- The create/close Run button still returns a blocked startup-safe result in this flavor.
+- The separate `Run True Engine Entrypoint Probe` button is available only in
+  this flavor and only calls the existing `entrypoint_only` mode after button
+  press.
 
 Purpose:
 
@@ -285,8 +290,11 @@ Both variants must defer native work until user action:
 - No native call during app start.
 - No native call during DEV diagnostics rendering.
 - No native call during initial Summary / Full Dump copy.
-- The Run button currently returns a blocked summary and must not resolve the
-  model path or enter the isolated native path while recovery is active.
+- The create/close Run button currently returns a blocked summary and must not
+  resolve the model path or enter the isolated native create/close path while
+  recovery is active.
+- The separate entrypoint Run button may resolve the model and enter only the
+  existing `entrypoint_only` native mode after explicit button press.
 - Exceptions must be captured into Summary / Full Dump, not thrown through UI
   startup.
 
@@ -425,33 +433,46 @@ Do not change these while adding the isolated create/close-only flavor:
    execution re-enable.
 8. Only after passing, design held Engine run once.
 
-## Next Minimum Implementation Sketch
+## Current Phase 2 Implementation Scope
 
-For the next turn only, the smallest `entrypoint_only` button-only enablement
-should be limited to these files and should remain disjoint from normal NPU
-routing:
+`trueEngineNpuProbeDebug` now enables only the Phase 2 button-only
+`entrypoint_only` probe. This is intentionally narrower than
+`TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=true` and does not reopen
+`true_engine_create_close_only`.
 
-- `app/build.gradle.kts`: add or split a flavor-scoped flag for
-  `entrypoint_only` availability without setting
-  `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=true` globally for deeper
-  modes.
-- `app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuTrueEngineHolderApi.kt`:
-  add an `entrypoint_only` selected-mode constant/summary value and blocked
-  defaults that still report zero ModelAssets/EngineSettings/EngineFactory/
-  Session/decode/generate counters.
-- `app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/NpuTrueEngineHolderCreateCloseDevProbe.kt`:
-  branch button execution to the entrypoint-only native method only when the
-  isolated flavor and explicit entrypoint flag are true; do not resolve model
-  path for startup or copy actions.
-- LiteRT-LM JNI patch source, in a future native patch only: add an
-  `entrypoint_only` mode that returns after argument parsing and diagnostic
-  file setup. It must not call `ModelAssets::Create`,
-  `EngineSettings::CreateDefault`, or `EngineFactory::CreateDefault`.
-- Tests: extend `NpuTrueEngine` flavor tests to assert startup remains blocked,
-  button-only entrypoint summaries have zero create/session/decode/generate
-  counters, and `standardDebug` still reports `probe_execution_available=false`.
+Implementation scope:
 
-Do not implement this sketch in the current documentation/diagnostics cleanup.
+- `app/build.gradle.kts`: `TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED=true`
+  only for `trueEngineNpuProbeDebug`; `standardDebug` and the default config keep
+  it `false`.
+- `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false` remains unchanged, so
+  broad create/close-only execution still reports blocked.
+- `NpuTrueEngineHolderApi.kt` exposes `selected_native_probe_mode=entrypoint_only`,
+  `entrypoint_only_probe_execution_available`, startup-blocked keys, and zero
+  ModelAssets/EngineSettings/EngineFactory/Session/decode/generate counters.
+- `NpuTrueEngineHolderCreateCloseDevProbe.kt` adds a separate entrypoint runner
+  that resolves the model and calls native only after the Run button is pressed.
+- `Qairt244ShortMultitokenSmoke.kt` allows the isolated flavor only for the
+  existing `entrypoint_only` mode and only when the dedicated flag is true. No
+  native allowlist value was added.
+- `ChatScreen.kt` shows `Run True Engine Entrypoint Probe`,
+  `Copy True Engine Entrypoint Summary`, and
+  `Copy True Engine Entrypoint Full Dump` only for the true Engine probe flavor.
+- Unit tests assert `standardDebug` remains unavailable/blocked and the
+  entrypoint summary cannot be confused with `true_engine_create_close_only`.
+
+Still forbidden in this phase:
+
+- `ModelAssets::Create`
+- `EngineSettings::CreateDefault`
+- `EngineFactory::CreateDefault`
+- Session creation
+- prefill, decode, or generate
+- held Engine run once
+- normal NPU chat-route or fallback changes
+
+The next minimum implementation step after a successful device artifact is
+Phase 3, button-only `model_assets_only`.
 
 ## Device Verification Procedure
 
@@ -467,16 +488,26 @@ Do not implement this sketch in the current documentation/diagnostics cleanup.
 
 `trueEngineNpuProbeDebug`:
 
-1. Install `trueEngineNpuProbeDebug`.
-2. Confirm it coexists with `standardDebug`.
-3. Launch the isolated app.
-4. Open DEV diagnostics.
-5. Confirm no native work has run before button press.
-6. Confirm `isolated_native_payload_staged=true`,
-   `isolated_native_execution_enabled=false`, and
-   `probe_execution_available=false`.
-7. Press `Run True Engine Holder Create/Close Probe` and confirm the blocked
-   summary remains startup-safe.
-8. Separately inspect the APK and confirm only the isolated APK contains
+1. `./gradlew installTrueEngineNpuProbeDebug`
+2. `adb shell am start -W -n io.github.ninbyo02.lami.trueengineprobe/io.github.ninbyo02.lami.MainActivity`
+3. Open DEV diagnostics.
+4. Confirm no native work has run before button press.
+5. Confirm `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`,
+   `isolated_native_execution_enabled=false`, `probe_execution_available=false`,
+   `startup_native_call_blocked=true`, and
+   `native_call_deferred_until_button_click=true`.
+6. Press `Run True Engine Entrypoint Probe`.
+7. Copy `Copy True Engine Entrypoint Full Dump`.
+8. Expected keys:
+   - `probe_status=completed`
+   - `selected_native_probe_mode=entrypoint_only`
+   - `native_entrypoint_reached=true`
+   - `model_assets_create_reached=false`
+   - `engine_settings_create_reached=false`
+   - `engine_create_reached=false`
+   - `session_create_count=0`
+   - `decode_count=0`
+   - `generate_count=0`
+   - `restart_app_recommended=false`
+9. Separately inspect the APK and confirm only the isolated APK contains
    `lib/arm64-v8a/liblami_true_engine_npu_probe_payload.so`.
-9. Confirm zero Session/decode/generate counts remain in Summary / Full Dump.

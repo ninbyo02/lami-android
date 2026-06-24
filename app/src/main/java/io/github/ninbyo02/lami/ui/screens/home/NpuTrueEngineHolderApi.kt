@@ -32,6 +32,27 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_D
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP =
     "restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor"
 
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_TEST_NAME =
+    "NPU True Engine Entrypoint Probe"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_CLASS_NAME =
+    "io.github.ninbyo02.lami.ui.screens.home.NpuTrueEngineEntrypointDevProbe"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_NO_RESULT =
+    "no true engine entrypoint probe result available"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_UI_TITLE =
+    "NPU True Engine Entrypoint Probe"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_RUN_LABEL =
+    "Run True Engine Entrypoint Probe"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL =
+    "Copy True Engine Entrypoint Summary"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL =
+    "Copy True Engine Entrypoint Full Dump"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE = "entrypoint_only"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_BLOCK_REASON =
+    "entrypoint_only_probe_unavailable_for_this_variant"
+internal const val NPU_TRUE_ENGINE_ENTRYPOINT_RECOMMENDED_NEXT_STEP =
+    "run_entrypoint_only_on_device_then_enable_model_assets_only_button_probe"
+
+
 internal fun npuTrueEngineHolderCreateCloseProbeExecutionAvailable(): Boolean =
     BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
@@ -126,6 +147,38 @@ internal fun blockedNpuTrueEngineHolderCreateCloseNativeResult(): NpuTrueEngineH
         """.trimIndent(),
     )
 
+internal fun npuTrueEngineEntrypointProbeExecutionAvailable(): Boolean =
+    BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED
+
+internal fun npuTrueEngineEntrypointProbeExecutionBlockReason(): String =
+    if (npuTrueEngineEntrypointProbeExecutionAvailable()) {
+        "unavailable"
+    } else {
+        NPU_TRUE_ENGINE_ENTRYPOINT_BLOCK_REASON
+    }
+
+internal data class NpuTrueEngineEntrypointProbeState(
+    val status: String = "idle",
+    val reason: String = "not_run",
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
+    val modelPathOrReason: String = "unavailable",
+    val nativeResult: NpuTrueEngineHolderNativeResult? = null,
+) {
+    val hasResult: Boolean
+        get() = nativeResult != null || status != "idle" || reason != "not_run"
+
+    val values: Map<String, String>
+        get() = parseNpuTrueEngineHolderKeyValueText(nativeResult?.resultText.orEmpty())
+}
+
+internal interface NpuTrueEngineEntrypointProbeRunner {
+    suspend fun run(): NpuTrueEngineEntrypointProbeState
+}
+
+
 internal fun createNpuTrueEngineHolderCreateCloseProbeRunner(
     context: Context,
 ): NpuTrueEngineHolderCreateCloseProbeRunner? =
@@ -134,6 +187,131 @@ internal fun createNpuTrueEngineHolderCreateCloseProbeRunner(
             .getDeclaredConstructor(Context::class.java)
             .newInstance(context.applicationContext) as? NpuTrueEngineHolderCreateCloseProbeRunner
     }.getOrNull()
+
+
+internal fun createNpuTrueEngineEntrypointProbeRunner(
+    context: Context,
+): NpuTrueEngineEntrypointProbeRunner? =
+    runCatching {
+        Class.forName(NPU_TRUE_ENGINE_ENTRYPOINT_CLASS_NAME)
+            .getDeclaredConstructor(Context::class.java)
+            .newInstance(context.applicationContext) as? NpuTrueEngineEntrypointProbeRunner
+    }.getOrNull()
+
+
+internal fun formatNpuTrueEngineEntrypointSummaryForCopy(
+    state: NpuTrueEngineEntrypointProbeState,
+): String {
+    if (!state.hasResult) {
+        return "$NPU_TRUE_ENGINE_ENTRYPOINT_NO_RESULT\n" +
+            "test_name=$NPU_TRUE_ENGINE_ENTRYPOINT_TEST_NAME\n" +
+            "probe_status=idle\n" +
+            "probe_reason=not_run\n" +
+            "true_engine_probe_flavor=${npuTrueEngineHolderCreateCloseProbeVariantName()}\n" +
+            "selected_native_probe_mode=$NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE\n" +
+            "entrypoint_only_probe_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}\n" +
+            "entrypoint_only_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED}\n" +
+            "isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}\n" +
+            "isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}\n" +
+            "probe_execution_available=${npuTrueEngineHolderCreateCloseProbeExecutionAvailable()}\n" +
+            "entrypoint_only_probe_execution_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}\n" +
+            "startup_native_call_blocked=true\n" +
+            "native_call_deferred_until_button_click=true\n" +
+            "native_entrypoint_reached=false\n" +
+            "model_assets_create_reached=false\n" +
+            "engine_settings_create_reached=false\n" +
+            "engine_create_reached=false\n" +
+            "session_create_count=0\n" +
+            "decode_count=0\n" +
+            "generate_count=0\n" +
+            "restart_app_recommended=false\n" +
+            "true_engine_persistent_reuse=false\n" +
+            "engine_reuse_observed=unavailable"
+    }
+    val values = state.values
+    val nativeEntrypointReached = when {
+        values.boolText("native_entrypoint_reached") == "true" -> "true"
+        values["last_native_stage"] == "entrypoint" -> "true"
+        values["hypothesis_result"] == "entrypoint_only_success" -> "true"
+        else -> values.boolText("native_entrypoint_reached", "false")
+    }
+    val modelAssetsReached = values.boolText("model_assets_create_reached", "false")
+    val settingsReached = values.boolText("engine_settings_create_reached", "false")
+    val engineCreateReached = values.boolText("engine_create_reached", "false")
+    val sessionCreateCount = values["session_create_count"]
+        ?: values.countFromReachedFlag("session_create_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val decodeCount = values["decode_count"]
+        ?: values["decode_attempt_count"]
+        ?: values.countFromReachedFlag("decode_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val generateCount = values["generate_count"] ?: "0"
+    val throwableClass = state.nativeResult?.throwableClass ?: "unavailable"
+    val fatal = throwableClass != "unavailable" || state.status == "failed"
+    return buildString {
+        appendLine("[DEV診断: NPU true engine entrypoint summary]")
+        appendLine("test_name=$NPU_TRUE_ENGINE_ENTRYPOINT_TEST_NAME")
+        appendLine("probe_status=${state.status}")
+        appendLine("probe_reason=${state.reason}")
+        appendLine("true_engine_probe_flavor=${values["true_engine_probe_flavor"] ?: npuTrueEngineHolderCreateCloseProbeVariantName()}")
+        appendLine("selected_native_probe_mode=${values["selected_native_probe_mode"] ?: NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE}")
+        appendLine("entrypoint_only_probe_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}")
+        appendLine("entrypoint_only_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED}")
+        appendLine("isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}")
+        appendLine("isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}")
+        appendLine("probe_execution_available=${npuTrueEngineHolderCreateCloseProbeExecutionAvailable()}")
+        appendLine("entrypoint_only_probe_execution_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}")
+        appendLine("startup_native_call_blocked=true")
+        appendLine("native_call_deferred_until_button_click=true")
+        appendLine("native_entrypoint_reached=$nativeEntrypointReached")
+        appendLine("last_native_stage=${values["last_native_stage"] ?: "unavailable"}")
+        appendLine("hypothesis_result=${values["hypothesis_result"] ?: "unavailable"}")
+        appendLine("model_assets_create_reached=$modelAssetsReached")
+        appendLine("engine_settings_create_reached=$settingsReached")
+        appendLine("engine_create_reached=$engineCreateReached")
+        appendLine("session_create_count=$sessionCreateCount")
+        appendLine("prefill_reached=${values.boolText("prefill_reached", "false")}")
+        appendLine("decode_count=$decodeCount")
+        appendLine("generate_count=$generateCount")
+        appendLine("npu_decode_called=false")
+        appendLine("qnn_decode_called=false")
+        appendLine("true_engine_persistent_reuse=false")
+        appendLine("engine_reuse_observed=unavailable")
+        appendLine("restart_app_recommended=$fatal")
+        appendLine("recommended_next_step=$NPU_TRUE_ENGINE_ENTRYPOINT_RECOMMENDED_NEXT_STEP")
+    }.trimEnd()
+}
+
+internal fun formatNpuTrueEngineEntrypointFullDumpForCopy(
+    state: NpuTrueEngineEntrypointProbeState,
+): String = buildString {
+    appendLine("[DEV診断: NPU true engine entrypoint full dump]")
+    appendLine("test_name=$NPU_TRUE_ENGINE_ENTRYPOINT_TEST_NAME")
+    appendLine("probe_status=${state.status}")
+    appendLine("probe_reason=${state.reason}")
+    appendLine("model_path_or_reason=${state.modelPathOrReason}")
+    appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
+    val result = state.nativeResult
+    if (result == null) {
+        appendLine(NPU_TRUE_ENGINE_ENTRYPOINT_NO_RESULT)
+        appendLine()
+        appendLine(formatNpuTrueEngineEntrypointSummaryForCopy(state))
+        return@buildString
+    }
+    appendLine("native_return=${result.nativeReturn}")
+    appendLine("throwable_class=${result.throwableClass}")
+    appendLine("throwable_message=${result.throwableMessage}")
+    appendLine("native_result_begin")
+    appendLine(result.resultText.ifBlank { "unavailable" })
+    appendLine("native_result_end")
+    appendLine("native_diag_begin")
+    appendLine(result.diagText.ifBlank { "unavailable" })
+    appendLine("native_diag_end")
+    appendLine()
+    appendLine(formatNpuTrueEngineEntrypointSummaryForCopy(state))
+}.trimEnd()
+
 
 internal fun formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
     state: NpuTrueEngineHolderCreateCloseProbeState,

@@ -780,18 +780,26 @@ create/close-only stack was staged, so the entry plan is:
 7. Phase 7: held Engine run once. Keep `engine_create_count=1`, create one
    Session, decode once, and close.
 
-Current safety state remains:
+Current Phase 2 safety state:
 
 - `standardDebug` keeps the true Engine probe blocked, receives no isolated
   native payload, and leaves the normal NPU route unchanged.
-- `trueEngineNpuProbeDebug` keeps
-  `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`,
-  `probe_execution_available=false`, `startup_native_call_blocked=true`,
-  `native_call_deferred_until_button_click=true`, `session_create_count=0`,
-  `decode_count=0`, `generate_count=0`, and `restart_app_recommended=false`.
+- `trueEngineNpuProbeDebug` sets
+  `TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED=true` while keeping
+  `TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`.
+- The only reopened execution path is the button-only `entrypoint_only` probe;
+  broad create/close execution still reports `probe_execution_available=false`.
+- Startup rendering and copy actions still report `startup_native_call_blocked=true`
+  and `native_call_deferred_until_button_click=true`; they do not resolve the
+  model path, class-load `Qairt244ShortMultitokenSmoke`, or load native libraries.
+- The expected entrypoint summary keeps `model_assets_create_reached=false`,
+  `engine_settings_create_reached=false`, `engine_create_reached=false`,
+  `session_create_count=0`, `decode_count=0`, `generate_count=0`,
+  `true_engine_persistent_reuse=false`, and `engine_reuse_observed=unavailable`.
 
-The next minimum implementation step is Phase 2, button-only `entrypoint_only`,
-not `true_engine_create_close_only` revival.
+The next minimum implementation step after a successful device artifact is
+Phase 3, button-only `model_assets_only`, not `true_engine_create_close_only`
+revival.
 
 ## Eventual Held Engine PoC Plan
 
@@ -900,8 +908,8 @@ reset, conversation memory, and prompt accumulation semantics.
 ## Recommendation
 
 Kotlin-only work is insufficient. Keep the DEV-only true Engine holder design,
-but restart native execution through the isolated staged probe plan. Start with
-button-only `entrypoint_only`, then advance through `model_assets_only`,
+but restart native execution through the isolated staged probe plan. Phase 2 now starts with button-only `entrypoint_only`; after a successful
+physical-device artifact, advance through `model_assets_only`,
 `engine_settings_only`, and `before_engine_create` before any create/close or
 held-Engine work. The eventual native holder implementation unit, after
 button-only staged probe artifacts are reviewed, is:

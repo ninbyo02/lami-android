@@ -105,8 +105,7 @@ Interpretation:
 
 ## Next True Engine Probe Entry
 
-The next investigation must stay staged and must not add a new
-`EngineFactory::CreateDefault` call in this documentation/diagnostics cleanup.
+The current investigation stays staged and adds only a button-only `entrypoint_only` call in `trueEngineNpuProbeDebug`. It still must not add any new `EngineFactory::CreateDefault` call.
 Planned phases:
 
 1. Phase 1: `trueEngineNpuProbeDebug` startup stability check only. Execution
@@ -250,11 +249,15 @@ before any true Engine create/close or reuse work is resumed.
 2. Open DEV diagnostics.
 3. Run `Run Non-Streaming Repeat Test`.
 4. Copy `Copy Non-Streaming Repeat Full Dump`.
-5. Confirm:
+5. Confirm the current reproduced failure shape or any future change from it:
    - `streaming=false`
    - `pseudo_streaming=false`
-   - `run_count_completed=10`
-   - `run_decode_reached_count`
+   - `run_count_completed=7` for the reproduced artifact
+   - `success_count=6` and `failure_count=1` for the reproduced artifact
+   - `first_failure_run_index=7`
+   - `suspected_failure_area=engine_create`
+   - `engine_create_failure_detected=true`
+   - `repeated_recreate_suspected=true`
    - `backend_evidence_summary`
    - `fallback_used_count=0`
    - `timeout_count=0`
@@ -262,3 +265,19 @@ before any true Engine create/close or reuse work is resumed.
    - `restart_app_recommended=false`
 
 `not run: requires physical NPU device`
+
+## Current True Engine Probe Follow-up
+
+The repeated run-7 result now feeds the first staged true Engine follow-up:
+`trueEngineNpuProbeDebug` enables only button-only `entrypoint_only` with
+`TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED=true` and keeps
+`TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED=false`. This confirms native
+entrypoint reach and immediate return only. It must continue to report
+`model_assets_create_reached=false`, `engine_settings_create_reached=false`,
+`engine_create_reached=false`, `session_create_count=0`, `decode_count=0`,
+and `generate_count=0`.
+
+`standardDebug` remains blocked and receives no isolated native payload.
+`true_engine_create_close_only`, `engine_create_only`, and held Engine run once
+remain future phases. If the entrypoint artifact succeeds on a physical NPU
+device, the next minimum step is button-only `model_assets_only`.

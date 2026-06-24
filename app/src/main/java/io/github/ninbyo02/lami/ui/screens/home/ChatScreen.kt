@@ -1054,6 +1054,10 @@ fun Home(
         mutableStateOf(NpuTrueEngineHolderCreateCloseProbeState())
     }
     var npuTrueEngineHolderCreateCloseJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuTrueEngineEntrypointState by remember(effectiveChatId) {
+        mutableStateOf(NpuTrueEngineEntrypointProbeState())
+    }
+    var npuTrueEngineEntrypointJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuPersistentHolderRunOnceState by remember(effectiveChatId) {
         mutableStateOf(NpuPersistentHolderRunOnceProbeState())
     }
@@ -1104,6 +1108,8 @@ fun Home(
             npuPersistentHolderCreateCloseJob = null
             npuTrueEngineHolderCreateCloseJob?.cancel()
             npuTrueEngineHolderCreateCloseJob = null
+            npuTrueEngineEntrypointJob?.cancel()
+            npuTrueEngineEntrypointJob = null
             npuPersistentHolderRunOnceJob?.cancel()
             npuPersistentHolderRunOnceJob = null
             npuPersistentHolderTwoTurnJob?.cancel()
@@ -1928,6 +1934,7 @@ fun Home(
             npuLongGenerationJob?.isActive == true ||
             npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineEntrypointJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -2055,12 +2062,73 @@ fun Home(
         }
     }
 
+    fun startNpuTrueEngineEntrypointProbe() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+            npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
+            npuPersistentHolderFiveTurnJob?.isActive == true ||
+            npuPersistentHolderTenTurnJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuTrueEngineEntrypointJob?.isActive == true) return
+        npuTrueEngineEntrypointState = NpuTrueEngineEntrypointProbeState(
+            status = "running",
+            reason = "starting",
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
+        npuTrueEngineEntrypointJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuTrueEngineEntrypointProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuTrueEngineEntrypointState = npuTrueEngineEntrypointState.copy(
+                    status = "stopped",
+                    reason = "debug_true_engine_entrypoint_probe_unavailable",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                npuTrueEngineEntrypointJob = null
+                return@launch
+            }
+            try {
+                npuTrueEngineEntrypointState = runner.run()
+            } catch (exception: CancellationException) {
+                npuTrueEngineEntrypointState = npuTrueEngineEntrypointState.copy(
+                    status = "cancelled",
+                    reason = "cancelled",
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                )
+                throw exception
+            } finally {
+                npuTrueEngineEntrypointJob = null
+            }
+        }
+    }
+
     fun startNpuTrueEngineHolderCreateCloseProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
             npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineEntrypointJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
             npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -7949,6 +8017,55 @@ fun Home(
                                             },
                                             npuTrueEngineHolderCreateCloseState =
                                                 npuTrueEngineHolderCreateCloseState,
+                                            npuTrueEngineEntrypointState = npuTrueEngineEntrypointState,
+                                            npuTrueEngineEntrypointInProgress =
+                                                npuTrueEngineEntrypointJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineEntrypoint = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineEntrypointStart =
+                                                ::startNpuTrueEngineEntrypointProbe,
+                                            onCopyTrueEngineEntrypointSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointSummaryForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineEntrypointFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointFullDumpForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuTrueEngineHolderCreateCloseInProgress =
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true,
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -8478,6 +8595,55 @@ fun Home(
                                             },
                                             npuTrueEngineHolderCreateCloseState =
                                                 npuTrueEngineHolderCreateCloseState,
+                                            npuTrueEngineEntrypointState = npuTrueEngineEntrypointState,
+                                            npuTrueEngineEntrypointInProgress =
+                                                npuTrueEngineEntrypointJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineEntrypoint = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineEntrypointStart =
+                                                ::startNpuTrueEngineEntrypointProbe,
+                                            onCopyTrueEngineEntrypointSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointSummaryForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineEntrypointFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointFullDumpForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuTrueEngineHolderCreateCloseInProgress =
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true,
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -8805,6 +8971,55 @@ fun Home(
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuPersistentHolderCreateCloseStart = ::startNpuPersistentHolderCreateCloseProbe,
                     npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
+                                            npuTrueEngineEntrypointState = npuTrueEngineEntrypointState,
+                                            npuTrueEngineEntrypointInProgress =
+                                                npuTrueEngineEntrypointJob?.isActive == true,
+                                            isInferenceRunningForTrueEngineEntrypoint = isInferenceRunningUi ||
+                                                npuS1RepeatedRunJob?.isActive == true ||
+                                                npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                                                npuS1PersistentEngineJob?.isActive == true ||
+                                                npuPersistentHolderCreateCloseJob?.isActive == true ||
+                                                npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                                                npuPersistentHolderRunOnceJob?.isActive == true ||
+                                                npuPersistentHolderTwoTurnJob?.isActive == true ||
+                                                npuPersistentHolderFiveTurnJob?.isActive == true ||
+                                                npuPersistentHolderTenTurnJob?.isActive == true ||
+                                                npuS1PersistentCustomJniJob?.isActive == true,
+                                            onNpuTrueEngineEntrypointStart =
+                                                ::startNpuTrueEngineEntrypointProbe,
+                                            onCopyTrueEngineEntrypointSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointSummaryForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyTrueEngineEntrypointFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        formatNpuTrueEngineEntrypointFullDumpForCopy(
+                                                            npuTrueEngineEntrypointState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy True Engine Entrypoint Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                     npuTrueEngineHolderCreateCloseInProgress =
                         npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
@@ -12836,6 +13051,9 @@ private fun NpuPersistentHolderCreateCloseDevSection(
     }
 }
 
+
+@Composable
+private fun NpuTrueEngineEntrypointDevSection(state: NpuTrueEngineEntrypointProbeState, running: Boolean, blockedByGeneration: Boolean, onStart: () -> Unit, onCopySummary: (() -> Unit)? = null, onCopyFullDump: (() -> Unit)? = null) { val summary = formatNpuTrueEngineEntrypointSummaryForCopy(state); InferenceStatsSection(title = NPU_TRUE_ENGINE_ENTRYPOINT_UI_TITLE) { Button(onClick = onStart, enabled = !running && !blockedByGeneration) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_RUN_LABEL) }; if (onCopySummary != null) TextButton(onClick = onCopySummary) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL) }; if (onCopyFullDump != null) TextButton(onClick = onCopyFullDump) { Text(NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL) }; Text(text = if (blockedByGeneration) "他の生成またはDEV診断完了後に実行してください" else "DEV専用診断です。button押下時だけ native entrypoint に入り、ModelAssets / EngineSettings / EngineFactory / Session / decode / generate へ進みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); InferenceStatRow(label = "True Engine Entrypoint Summary", value = summary, emphasizeValue = summary.contains("restart_app_recommended=true")) } }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuTrueEngineHolderCreateCloseDevSection(
@@ -13339,6 +13557,13 @@ private fun InferenceStatsSheetContent(
     npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
     isInferenceRunningForTrueEngineHolderCreateClose: Boolean = false,
     onNpuTrueEngineHolderCreateCloseStart: () -> Unit = {},
+    npuTrueEngineEntrypointState: NpuTrueEngineEntrypointProbeState =
+        NpuTrueEngineEntrypointProbeState(),
+    npuTrueEngineEntrypointInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineEntrypoint: Boolean = false,
+    onNpuTrueEngineEntrypointStart: () -> Unit = {},
+    onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
+    onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -13668,6 +13893,26 @@ private fun InferenceStatsSheetContent(
                         )
                     },
                 )
+                if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+                    NpuTrueEngineEntrypointDevSection(
+                        state = npuTrueEngineEntrypointState,
+                        running = npuTrueEngineEntrypointInProgress,
+                        blockedByGeneration = isInferenceRunningForTrueEngineEntrypoint,
+                        onStart = onNpuTrueEngineEntrypointStart,
+                        onCopySummary = onCopyTrueEngineEntrypointSummary ?: {
+                            copyDevDiagnosticText(
+                                formatNpuTrueEngineEntrypointSummaryForCopy(npuTrueEngineEntrypointState),
+                                NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = onCopyTrueEngineEntrypointFullDump ?: {
+                            copyDevDiagnosticText(
+                                formatNpuTrueEngineEntrypointFullDumpForCopy(npuTrueEngineEntrypointState),
+                                NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    )
+                }
                 NpuTrueEngineHolderCreateCloseDevSection(
                     state = npuTrueEngineHolderCreateCloseState,
                     running = npuTrueEngineHolderCreateCloseInProgress,
@@ -14120,6 +14365,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuTrueEngineHolderCreateCloseStart: (() -> Unit)? = null,
     onCopyTrueEngineHolderSummary: (() -> Unit)? = null,
     onCopyTrueEngineHolderFullDump: (() -> Unit)? = null,
+    npuTrueEngineEntrypointState: NpuTrueEngineEntrypointProbeState =
+        NpuTrueEngineEntrypointProbeState(),
+    npuTrueEngineEntrypointInProgress: Boolean = false,
+    isInferenceRunningForTrueEngineEntrypoint: Boolean = false,
+    onNpuTrueEngineEntrypointStart: (() -> Unit)? = null,
+    onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
+    onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
     npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
         NpuPersistentHolderRunOnceProbeState(),
     npuPersistentHolderRunOnceInProgress: Boolean = false,
@@ -14163,7 +14415,8 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
 ) {
     val hasStandardRouteDiagnostics = hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
     val hasStandaloneTrueEngineProbe =
-        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR && onNpuTrueEngineHolderCreateCloseStart != null
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+            (onNpuTrueEngineHolderCreateCloseStart != null || onNpuTrueEngineEntrypointStart != null)
     if (!hasStandardRouteDiagnostics && !hasStandaloneTrueEngineProbe) return
     var advancedExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -14253,6 +14506,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onNpuPersistentHolderCreateCloseStart,
                     onCopySummary = onCopyHolderCreateCloseSummary,
                     onCopyFullDump = onCopyHolderCreateCloseFullDump,
+                )
+            }
+            if (
+                BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+                onNpuTrueEngineEntrypointStart != null
+            ) {
+                NpuTrueEngineEntrypointDevSection(
+                    state = npuTrueEngineEntrypointState,
+                    running = npuTrueEngineEntrypointInProgress,
+                    blockedByGeneration = isInferenceRunningForTrueEngineEntrypoint,
+                    onStart = onNpuTrueEngineEntrypointStart,
+                    onCopySummary = onCopyTrueEngineEntrypointSummary,
+                    onCopyFullDump = onCopyTrueEngineEntrypointFullDump,
                 )
             }
             if (

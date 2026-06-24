@@ -86,6 +86,132 @@ internal class NpuTrueEngineHolderCreateCloseDevProbe(
     }
 }
 
+internal class NpuTrueEngineEntrypointDevProbe(
+    context: Context,
+) : NpuTrueEngineEntrypointProbeRunner {
+    private val appContext = context.applicationContext
+
+    override suspend fun run(): NpuTrueEngineEntrypointProbeState = withContext(Dispatchers.Default) {
+        val startedAt = SystemClock.elapsedRealtime()
+        if (!npuTrueEngineEntrypointProbeExecutionAvailable()) {
+            return@withContext NpuTrueEngineEntrypointProbeState(
+                status = "blocked",
+                reason = npuTrueEngineEntrypointProbeExecutionBlockReason(),
+                startedAtElapsedRealtimeMs = startedAt,
+                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                modelPathOrReason = "not_resolved_startup_safe_block",
+                nativeResult = trueEngineEntrypointBlockedNativeResult(),
+            )
+        }
+
+        val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
+        val modelPath = modelResolution.path.orEmpty()
+        if (modelPath.isBlank()) {
+            return@withContext NpuTrueEngineEntrypointProbeState(
+                status = "failed",
+                reason = "model_resolution_failed:${modelResolution.reasonCode}",
+                startedAtElapsedRealtimeMs = startedAt,
+                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                modelPathOrReason = modelResolution.reasonCode,
+                nativeResult = trueEngineEntrypointNotStartedNativeResult(
+                    reason = "model_resolution_failed:${modelResolution.reasonCode}",
+                ),
+            )
+        }
+
+        val persistentResult = Qairt244ShortMultitokenSmoke.runPersistentProbe(
+            context = appContext,
+            modelPath = modelPath,
+            runId = "npu_true_engine_entrypoint_${SystemClock.elapsedRealtime()}",
+            prompt = "こんにちは",
+            maxOutputTokens = 1,
+            runCount = 1,
+            holderKey = listOf(
+                BuildConfig.CURRENT_FLAVOR,
+                modelPath,
+                appContext.applicationInfo.nativeLibraryDir,
+                appContext.cacheDir.absolutePath,
+                "entrypoint_only",
+            ).joinToString(separator = "|"),
+            nativeProbeMode = NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE,
+            promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+        )
+        val nativeResult = NpuTrueEngineHolderNativeResult(
+            nativeReturn = persistentResult.nativeReturn,
+            resultText = persistentResult.resultText,
+            diagText = persistentResult.diagText,
+            throwableClass = persistentResult.throwableClass,
+            throwableMessage = persistentResult.throwableMessage,
+        )
+        val values = parseTrueEngineCreateCloseKeyValueText(nativeResult.resultText)
+        val throwableRaised = nativeResult.throwableClass != "unavailable"
+        val entrypointReached = values["native_entrypoint_reached"] == "true" ||
+            values["last_native_stage"] == "entrypoint" ||
+            values["hypothesis_result"] == "entrypoint_only_success"
+        val completed = !throwableRaised &&
+            (nativeResult.nativeReturn == "completed" || values["persistent_custom_jni_status"] == "completed") &&
+            values["selected_native_probe_mode"] == NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE &&
+            entrypointReached &&
+            values["model_assets_create_reached"] != "true" &&
+            values["engine_settings_create_reached"] != "true" &&
+            values["engine_create_reached"] != "true" &&
+            (values["session_create_count"] ?: "0") == "0" &&
+            (values["decode_count"] ?: values["decode_attempt_count"] ?: "0") == "0" &&
+            (values["generate_count"] ?: "0") == "0"
+        val reason = when {
+            completed -> "entrypoint_only_completed"
+            throwableRaised -> nativeResult.throwableMessage
+                .takeIf { it != "unavailable" }
+                ?: nativeResult.throwableClass
+            values["first_failure_reason"] != null -> values["first_failure_reason"] ?: "native_failure"
+            else -> "entrypoint_only_result_unavailable"
+        }
+        NpuTrueEngineEntrypointProbeState(
+            status = if (completed) "completed" else "failed",
+            reason = reason,
+            startedAtElapsedRealtimeMs = startedAt,
+            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            modelPathOrReason = modelPath,
+            nativeResult = nativeResult,
+        )
+    }
+}
+
+private fun trueEngineEntrypointBlockedNativeResult(): NpuTrueEngineHolderNativeResult =
+    NpuTrueEngineHolderNativeResult(
+        nativeReturn = "blocked",
+        resultText = """
+            selected_native_probe_mode=$NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE
+            true_engine_probe_flavor=${npuTrueEngineHolderCreateCloseProbeVariantName()}
+            entrypoint_only_probe_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}
+            entrypoint_only_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED}
+            isolated_native_payload_staged=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED}
+            isolated_native_execution_enabled=${BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED}
+            probe_execution_available=${npuTrueEngineHolderCreateCloseProbeExecutionAvailable()}
+            entrypoint_only_probe_execution_available=${npuTrueEngineEntrypointProbeExecutionAvailable()}
+            startup_native_call_blocked=true
+            native_call_deferred_until_button_click=true
+            native_entrypoint_reached=false
+            model_assets_create_reached=false
+            engine_settings_create_reached=false
+            engine_create_reached=false
+            session_create_count=0
+            prefill_reached=false
+            decode_count=0
+            generate_count=0
+            true_engine_persistent_reuse=false
+            engine_reuse_observed=unavailable
+            recommended_next_step=$NPU_TRUE_ENGINE_ENTRYPOINT_RECOMMENDED_NEXT_STEP
+        """.trimIndent(),
+    )
+
+private fun trueEngineEntrypointNotStartedNativeResult(reason: String): NpuTrueEngineHolderNativeResult =
+    trueEngineEntrypointBlockedNativeResult().copy(
+        nativeReturn = "not_started",
+        throwableMessage = reason,
+    )
+
+
 private fun trueEngineHolderCreateCloseNotStartedNativeResult(reason: String): NpuTrueEngineHolderNativeResult =
     NpuTrueEngineHolderNativeResult(
         nativeReturn = "not_started",
