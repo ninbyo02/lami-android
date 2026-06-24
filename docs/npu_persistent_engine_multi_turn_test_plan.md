@@ -447,11 +447,20 @@ The DEV screen includes:
   API mode selection and block diagnostics.
 - `Copy Persistent Full Dump`: copies the summary plus per-run/details blocks
   and native/API diagnostics.
+- `Copy Non-Streaming Repeat Summary`: copies the aggregate summary for the
+  one-shot non-streaming repeat test.
+- `Copy Non-Streaming Repeat Full Dump`: copies per-run one-shot prompt/status,
+  backend, quality, timing, and native-stage details.
 
 If no generation ran because session API was blocked, the copied artifact still
 contains `persistent_probe_status=blocked`, `blocked_reason`, and
 `records=empty`. `run_count_completed=0` is expected in this state and is not a
 UI execution failure.
+
+The Non-Streaming Repeat Test is a comparison artifact, not persistent Engine
+reuse. It uses the existing one-shot NPU decode route for 10 fixed prompts and
+keeps pseudo streaming, TTS, DB, markdown, fallback, held Engine, Session, and
+true Engine reuse out of scope.
 
 ## Physical-device Procedure
 
@@ -462,7 +471,8 @@ UI execution failure.
    `persistent_probe_status=blocked` and `run_count_completed=0`.
 5. Use `Copy Persistent Full Dump` to share the blocked reason.
 6. Run `NPU Beta Stability Test` in recreate mode for comparison.
-7. Compare `engine_create_failed_count`, `run_decode_reached_count`,
+7. Run `Run Non-Streaming Repeat Test` for one-shot non-streaming comparison.
+8. Compare `engine_create_failed_count`, `run_decode_reached_count`,
    `quality_classification_summary`, and backend evidence.
 
 `not run: requires physical NPU device`

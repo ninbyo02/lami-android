@@ -543,6 +543,15 @@ UI controls:
 - `Copy True Engine Holder Summary`
 - `Copy True Engine Holder Full Dump`
 
+While startup-crash recovery is active, `trueEngineNpuProbeDebug` native
+execution remains disabled and the true Engine create/close button reports a
+blocked result. The next stabilization step is the separate
+`NPU Non-Streaming Repeated Stability Test`, which repeats the existing
+one-shot NPU decode path for 10 fixed prompts without pseudo streaming, TTS, DB,
+markdown, fallback, holder/session creation, or true Engine reuse. Its artifact
+should be compared with recreate stability, persistent holder, and true Engine
+blocked summaries before true Engine create/close is re-enabled.
+
 Required summary keys include:
 
 - `test_name=NPU True Engine Holder Create Close Probe`

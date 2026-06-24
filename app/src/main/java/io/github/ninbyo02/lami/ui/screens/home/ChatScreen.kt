@@ -1038,6 +1038,10 @@ fun Home(
     var npuS1RepeatedRunWaitMs by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS) }
     var npuLongGenerationState by remember(effectiveChatId) { mutableStateOf(NpuLongGenerationState()) }
     var npuLongGenerationJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuNonStreamingRepeatedStabilityState by remember(effectiveChatId) {
+        mutableStateOf(NpuNonStreamingRepeatedStabilityState())
+    }
+    var npuNonStreamingRepeatedStabilityJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuS1PersistentEngineState by remember(effectiveChatId) {
         mutableStateOf(NpuS1PersistentEngineProbeState())
     }
@@ -1092,6 +1096,8 @@ fun Home(
             npuS1RepeatedRunJob = null
             npuLongGenerationJob?.cancel()
             npuLongGenerationJob = null
+            npuNonStreamingRepeatedStabilityJob?.cancel()
+            npuNonStreamingRepeatedStabilityJob = null
             npuS1PersistentEngineJob?.cancel()
             npuS1PersistentEngineJob = null
             npuPersistentHolderCreateCloseJob?.cancel()
@@ -1786,9 +1792,141 @@ fun Home(
         npuLongGenerationJob?.cancel()
     }
 
+    fun startNpuNonStreamingRepeatedStabilityTest() {
+        val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
+            npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+            npuS1PersistentEngineJob?.isActive == true ||
+            npuPersistentHolderCreateCloseJob?.isActive == true ||
+            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+            npuPersistentHolderRunOnceJob?.isActive == true ||
+            npuPersistentHolderTwoTurnJob?.isActive == true ||
+            npuPersistentHolderFiveTurnJob?.isActive == true ||
+            npuPersistentHolderTenTurnJob?.isActive == true ||
+            npuS1PersistentCustomJniJob?.isActive == true
+        val selectedBackendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        )
+        val startGate = npuLongGenerationStartGate(
+            preferredBackendSetting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+        )
+        if (isInferenceRunningUi || blockedByOtherDevDiagnostics) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (blockedByOtherDevDiagnostics) {
+                        "他のDEV診断完了後に実行してください"
+                    } else {
+                        "生成完了後に実行してください"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuNonStreamingRepeatedStabilityJob?.isActive == true) return
+        if (!startGate.allowed) {
+            npuNonStreamingRepeatedStabilityState = NpuNonStreamingRepeatedStabilityState(
+                status = NPU_NON_STREAMING_REPEATED_STABILITY_STATUS_STOPPED,
+                reason = "blocked",
+                startedAtMs = System.currentTimeMillis(),
+                finishedAtMs = System.currentTimeMillis(),
+                selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                routeFamily = selectedBackendDiagnostics.routeFamily,
+                blockedReason = startGate.blockedReason,
+                stopped = true,
+                stopReason = "blocked",
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "NPU Non-Streaming Repeat Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        npuNonStreamingRepeatedStabilityState = NpuNonStreamingRepeatedStabilityState(
+            status = NPU_NON_STREAMING_REPEATED_STABILITY_STATUS_RUNNING,
+            reason = "starting",
+            startedAtMs = System.currentTimeMillis(),
+            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+            routeFamily = selectedBackendDiagnostics.routeFamily,
+        )
+        npuNonStreamingRepeatedStabilityJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuNonStreamingRepeatedStabilityProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuNonStreamingRepeatedStabilityState = npuNonStreamingRepeatedStabilityState.copy(
+                    status = NPU_NON_STREAMING_REPEATED_STABILITY_STATUS_STOPPED,
+                    reason = "debug_non_streaming_repeat_probe_unavailable",
+                    finishedAtMs = System.currentTimeMillis(),
+                    stopped = true,
+                    stopReason = "runner_create",
+                )
+                npuNonStreamingRepeatedStabilityJob = null
+                return@launch
+            }
+            try {
+                npuNonStreamingRepeatedStabilityState = runner.run(
+                    onUpdate = { state ->
+                        coroutineScope.launch {
+                            npuNonStreamingRepeatedStabilityState = state.copy(
+                                selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                                requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                                effectiveBackend = if (state.effectiveBackend == NPU_S1_BACKEND_UNAVAILABLE) {
+                                    selectedBackendDiagnostics.effectiveBackend
+                                } else {
+                                    state.effectiveBackend
+                                },
+                                backendEvidence = if (state.backendEvidence == NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE) {
+                                    selectedBackendDiagnostics.backendEvidence
+                                } else {
+                                    state.backendEvidence
+                                },
+                                routeFamily = selectedBackendDiagnostics.routeFamily,
+                            )
+                        }
+                    },
+                    isCancelled = { npuNonStreamingRepeatedStabilityJob?.isActive != true },
+                ).copy(
+                    selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                    requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                    routeFamily = selectedBackendDiagnostics.routeFamily,
+                )
+            } catch (exception: CancellationException) {
+                npuNonStreamingRepeatedStabilityState = npuNonStreamingRepeatedStabilityState.copy(
+                    status = NPU_NON_STREAMING_REPEATED_STABILITY_STATUS_CANCELLED,
+                    reason = "cancelled",
+                    finishedAtMs = System.currentTimeMillis(),
+                    stopped = true,
+                    stopReason = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuNonStreamingRepeatedStabilityJob = null
+            }
+        }
+    }
+
+    fun cancelNpuNonStreamingRepeatedStabilityTest() {
+        npuNonStreamingRepeatedStabilityJob?.cancel()
+    }
+
     fun startNpuS1PersistentEngineProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
             npuPersistentHolderTwoTurnJob?.isActive == true ||
@@ -1861,6 +1999,7 @@ fun Home(
     fun startNpuPersistentHolderCreateCloseProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuTrueEngineHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -1919,6 +2058,7 @@ fun Home(
     fun startNpuTrueEngineHolderCreateCloseProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -1977,6 +2117,7 @@ fun Home(
     fun startNpuPersistentHolderRunOnceProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -2035,6 +2176,7 @@ fun Home(
     fun startNpuPersistentHolderTwoTurnProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -2092,6 +2234,7 @@ fun Home(
     fun startNpuPersistentHolderFiveTurnProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -2149,6 +2292,7 @@ fun Home(
     fun startNpuPersistentHolderTenTurnProbe() {
         val blockedByOtherDevDiagnostics = npuS1RepeatedRunJob?.isActive == true ||
             npuLongGenerationJob?.isActive == true ||
+            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
             npuS1PersistentEngineJob?.isActive == true ||
             npuPersistentHolderCreateCloseJob?.isActive == true ||
             npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -7654,6 +7798,7 @@ fun Home(
                                             npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
                                             npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                                             isInferenceRunningForRepeatedRun = isInferenceRunningUi ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true,
                                             onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
@@ -7664,6 +7809,7 @@ fun Home(
                                             npuLongGenerationState = npuLongGenerationState,
                                             npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
                                             isInferenceRunningForLongGeneration = isInferenceRunningUi ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true,
                                             onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                                             onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
@@ -7695,11 +7841,57 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuNonStreamingRepeatedStabilityState =
+                                                npuNonStreamingRepeatedStabilityState,
+                                            npuNonStreamingRepeatedStabilityInProgress =
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true,
+                                            isInferenceRunningForNonStreamingRepeatedStability =
+                                                isInferenceRunningUi ||
+                                                    npuS1RepeatedRunJob?.isActive == true ||
+                                                    npuLongGenerationJob?.isActive == true ||
+                                                    npuPersistentHolderRunOnceJob?.isActive == true,
+                                            onNpuNonStreamingRepeatedStabilityStart =
+                                                ::startNpuNonStreamingRepeatedStabilityTest,
+                                            onNpuNonStreamingRepeatedStabilityCancel =
+                                                ::cancelNpuNonStreamingRepeatedStabilityTest,
+                                            onCopyNonStreamingRepeatedStabilitySummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
+                                                            npuNonStreamingRepeatedStabilityState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Non-Streaming Repeat Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyNonStreamingRepeatedStabilityFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
+                                                            npuNonStreamingRepeatedStabilityState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Non-Streaming Repeat Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuPersistentHolderTwoTurnJob?.isActive == true ||
                                                 npuPersistentHolderFiveTurnJob?.isActive == true ||
@@ -7713,6 +7905,7 @@ fun Home(
                                             isInferenceRunningForHolderCreateClose = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -7761,6 +7954,7 @@ fun Home(
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -7808,6 +8002,7 @@ fun Home(
                                             isInferenceRunningForHolderRunOnce = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -7855,6 +8050,7 @@ fun Home(
                                             isInferenceRunningForHolderTwoTurn = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -7902,6 +8098,7 @@ fun Home(
                                             isInferenceRunningForHolderFiveTurn = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -7949,6 +8146,7 @@ fun Home(
                                             isInferenceRunningForHolderTenTurn = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -8092,6 +8290,7 @@ fun Home(
                                             npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
                                             npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                                             isInferenceRunningForRepeatedRun = isInferenceRunningUi ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true,
                                             onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunPromptChange = { npuS1RepeatedRunPrompt = it },
@@ -8130,6 +8329,7 @@ fun Home(
                                             npuLongGenerationState = npuLongGenerationState,
                                             npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
                                             isInferenceRunningForLongGeneration = isInferenceRunningUi ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true,
                                             onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                                             onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
@@ -8161,11 +8361,57 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            npuNonStreamingRepeatedStabilityState =
+                                                npuNonStreamingRepeatedStabilityState,
+                                            npuNonStreamingRepeatedStabilityInProgress =
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true,
+                                            isInferenceRunningForNonStreamingRepeatedStability =
+                                                isInferenceRunningUi ||
+                                                    npuS1RepeatedRunJob?.isActive == true ||
+                                                    npuLongGenerationJob?.isActive == true ||
+                                                    npuPersistentHolderRunOnceJob?.isActive == true,
+                                            onNpuNonStreamingRepeatedStabilityStart =
+                                                ::startNpuNonStreamingRepeatedStabilityTest,
+                                            onNpuNonStreamingRepeatedStabilityCancel =
+                                                ::cancelNpuNonStreamingRepeatedStabilityTest,
+                                            onCopyNonStreamingRepeatedStabilitySummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
+                                                            npuNonStreamingRepeatedStabilityState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Non-Streaming Repeat Summary copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                            onCopyNonStreamingRepeatedStabilityFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
+                                                            npuNonStreamingRepeatedStabilityState,
+                                                        ),
+                                                    ),
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "Copy Non-Streaming Repeat Full Dump copied",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                             npuS1PersistentEngineState = npuS1PersistentEngineState,
                                             npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
                                                 npuS1PersistentCustomJniJob?.isActive == true,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
@@ -8237,6 +8483,7 @@ fun Home(
                                             isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
                                                 npuS1RepeatedRunJob?.isActive == true ||
                                                 npuLongGenerationJob?.isActive == true ||
+                                                npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                                                 npuS1PersistentEngineJob?.isActive == true ||
                                                 npuPersistentHolderCreateCloseJob?.isActive == true ||
                                                 npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -8499,6 +8746,7 @@ fun Home(
                     npuS1RepeatedRunWaitMs = npuS1RepeatedRunWaitMs,
                     npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                     isInferenceRunningForRepeatedRun = isInferenceRunningUi ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
@@ -8510,15 +8758,29 @@ fun Home(
                     npuLongGenerationState = npuLongGenerationState,
                     npuLongGenerationInProgress = npuLongGenerationJob?.isActive == true,
                     isInferenceRunningForLongGeneration = isInferenceRunningUi ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true,
                     onNpuLongGenerationStart = ::startNpuLongGenerationTest,
                     onNpuLongGenerationCancel = ::cancelNpuLongGenerationTest,
+                    npuNonStreamingRepeatedStabilityState = npuNonStreamingRepeatedStabilityState,
+                    npuNonStreamingRepeatedStabilityInProgress =
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true,
+                    isInferenceRunningForNonStreamingRepeatedStability = isInferenceRunningUi ||
+                        npuS1RepeatedRunJob?.isActive == true ||
+                        npuLongGenerationJob?.isActive == true ||
+                        npuPersistentHolderRunOnceJob?.isActive == true ||
+                        npuTrueEngineHolderCreateCloseJob?.isActive == true,
+                    onNpuNonStreamingRepeatedStabilityStart =
+                        ::startNpuNonStreamingRepeatedStabilityTest,
+                    onNpuNonStreamingRepeatedStabilityCancel =
+                        ::cancelNpuNonStreamingRepeatedStabilityTest,
                     npuS1PersistentEngineState = npuS1PersistentEngineState,
                     npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
                     isInferenceRunningForPersistentEngine = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
@@ -8533,6 +8795,7 @@ fun Home(
                     isInferenceRunningForHolderCreateClose = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -8547,6 +8810,7 @@ fun Home(
                     isInferenceRunningForTrueEngineHolderCreateClose = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
@@ -8561,6 +8825,7 @@ fun Home(
                     isInferenceRunningForHolderRunOnce = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -8575,6 +8840,7 @@ fun Home(
                     isInferenceRunningForHolderTwoTurn = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -8589,6 +8855,7 @@ fun Home(
                     isInferenceRunningForHolderFiveTurn = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -8603,6 +8870,7 @@ fun Home(
                     isInferenceRunningForHolderTenTurn = isInferenceRunningUi ||
                         npuS1RepeatedRunJob?.isActive == true ||
                         npuLongGenerationJob?.isActive == true ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuS1PersistentEngineJob?.isActive == true ||
                         npuPersistentHolderCreateCloseJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
@@ -8616,6 +8884,7 @@ fun Home(
                     npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
                     npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                     isInferenceRunningForPersistentCustomJni = isInferenceRunningUi ||
+                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
                         npuTrueEngineHolderCreateCloseJob?.isActive == true ||
                         npuPersistentHolderRunOnceJob?.isActive == true ||
                         npuPersistentHolderTwoTurnJob?.isActive == true ||
@@ -12283,6 +12552,100 @@ private fun NpuLongGenerationDevSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun NpuNonStreamingRepeatedStabilityDevSection(
+    state: NpuNonStreamingRepeatedStabilityState,
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+) {
+    val startGate = npuLongGenerationStartGate(
+        preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
+    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+        setting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+        backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+    )
+    val controlsEnabled = !running && !blockedByGeneration
+    val startEnabled = controlsEnabled && startGate.allowed
+    InferenceStatsSection(title = NPU_NON_STREAMING_REPEATED_STABILITY_TEST_NAME) {
+        Text(
+            text = "selected_backend=${backendDiagnostics.selectedBackend} " +
+                "requested_backend=${backendDiagnostics.requestedBackend} " +
+                "route_type=$NPU_NON_STREAMING_REPEATED_STABILITY_ROUTE_TYPE",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "streaming=false pseudo_streaming=false tts=false db=false markdown=false fallback_allowed=false",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!startGate.allowed) {
+            Text(
+                text = "NPU Non-Streaming Repeat Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = startEnabled,
+            ) {
+                Text(NPU_NON_STREAMING_REPEATED_STABILITY_RUN_LABEL)
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        if (onCopySummary != null || onCopyFullDump != null) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (onCopySummary != null) {
+                    TextButton(onClick = onCopySummary) {
+                        Text(NPU_NON_STREAMING_REPEATED_STABILITY_COPY_SUMMARY_LABEL)
+                    }
+                }
+                if (onCopyFullDump != null) {
+                    TextButton(onClick = onCopyFullDump) {
+                        Text(NPU_NON_STREAMING_REPEATED_STABILITY_COPY_FULL_DUMP_LABEL)
+                    }
+                }
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用の one-shot NPU decode 繰り返しテストです。通常チャット履歴、疑似ストリーミング、TTS、DB保存、markdown には接続しません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = NPU_NON_STREAMING_REPEATED_STABILITY_TEST_NAME,
+            value = formatNpuNonStreamingRepeatedStabilityDiagnosticsForDev(state),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun NpuBetaDevPrimaryIntroSection(
     onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
     onCopyCompact: (() -> Unit)? = null,
@@ -12955,6 +13318,12 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForLongGeneration: Boolean = false,
     onNpuLongGenerationStart: () -> Unit = {},
     onNpuLongGenerationCancel: () -> Unit = {},
+    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState =
+        NpuNonStreamingRepeatedStabilityState(),
+    npuNonStreamingRepeatedStabilityInProgress: Boolean = false,
+    isInferenceRunningForNonStreamingRepeatedStability: Boolean = false,
+    onNpuNonStreamingRepeatedStabilityStart: () -> Unit = {},
+    onNpuNonStreamingRepeatedStabilityCancel: () -> Unit = {},
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
     npuS1PersistentEngineInProgress: Boolean = false,
     isInferenceRunningForPersistentEngine: Boolean = false,
@@ -13145,6 +13514,8 @@ private fun InferenceStatsSheetContent(
                                 detailSections = detailSections,
                                 memoryRecoveryCheckState = memoryRecoveryCheckState,
                                 npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                npuNonStreamingRepeatedStabilityState =
+                                    npuNonStreamingRepeatedStabilityState,
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
                                 npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
                                 npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
@@ -13228,6 +13599,31 @@ private fun InferenceStatsSheetContent(
                         copyDevDiagnosticText(
                             buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
                             "Copy Stability Full Dump",
+                        )
+                    },
+                )
+                NpuNonStreamingRepeatedStabilityDevSection(
+                    state = npuNonStreamingRepeatedStabilityState,
+                    preferredBackendSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    running = npuNonStreamingRepeatedStabilityInProgress,
+                    blockedByGeneration = isInferenceRunningForNonStreamingRepeatedStability,
+                    onStart = onNpuNonStreamingRepeatedStabilityStart,
+                    onCancel = onNpuNonStreamingRepeatedStabilityCancel,
+                    onCopySummary = {
+                        copyDevDiagnosticText(
+                            buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
+                                npuNonStreamingRepeatedStabilityState,
+                            ),
+                            NPU_NON_STREAMING_REPEATED_STABILITY_COPY_SUMMARY_LABEL,
+                        )
+                    },
+                    onCopyFullDump = {
+                        copyDevDiagnosticText(
+                            buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
+                                npuNonStreamingRepeatedStabilityState,
+                            ),
+                            NPU_NON_STREAMING_REPEATED_STABILITY_COPY_FULL_DUMP_LABEL,
                         )
                     },
                 )
@@ -13695,6 +14091,14 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuLongGenerationCancel: (() -> Unit)? = null,
     onCopyLongSummary: (() -> Unit)? = null,
     onCopyLongFullDump: (() -> Unit)? = null,
+    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState =
+        NpuNonStreamingRepeatedStabilityState(),
+    npuNonStreamingRepeatedStabilityInProgress: Boolean = false,
+    isInferenceRunningForNonStreamingRepeatedStability: Boolean = false,
+    onNpuNonStreamingRepeatedStabilityStart: (() -> Unit)? = null,
+    onNpuNonStreamingRepeatedStabilityCancel: (() -> Unit)? = null,
+    onCopyNonStreamingRepeatedStabilitySummary: (() -> Unit)? = null,
+    onCopyNonStreamingRepeatedStabilityFullDump: (() -> Unit)? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
     npuS1PersistentEngineInProgress: Boolean = false,
     isInferenceRunningForPersistentEngine: Boolean = false,
@@ -13805,6 +14209,22 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onCancel = onNpuS1RepeatedRunCancel,
                     onCopySummary = onCopyStabilitySummary,
                     onCopyFullDump = onCopyStabilityFullDump,
+                )
+            }
+            if (
+                onNpuNonStreamingRepeatedStabilityStart != null &&
+                onNpuNonStreamingRepeatedStabilityCancel != null
+            ) {
+                NpuNonStreamingRepeatedStabilityDevSection(
+                    state = npuNonStreamingRepeatedStabilityState,
+                    preferredBackendSetting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    running = npuNonStreamingRepeatedStabilityInProgress,
+                    blockedByGeneration = isInferenceRunningForNonStreamingRepeatedStability,
+                    onStart = onNpuNonStreamingRepeatedStabilityStart,
+                    onCancel = onNpuNonStreamingRepeatedStabilityCancel,
+                    onCopySummary = onCopyNonStreamingRepeatedStabilitySummary,
+                    onCopyFullDump = onCopyNonStreamingRepeatedStabilityFullDump,
                 )
             }
             if (
@@ -14040,6 +14460,7 @@ internal fun buildInferenceStatsFullCopyText(
     detailSections: List<InferenceStatsSectionUi>,
     memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
+    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
     npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
     npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState? = null,
@@ -14114,6 +14535,17 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
             appendLine()
             appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
+        }
+        if (
+            displayMode == InferenceStatsDisplayMode.DEVELOPER &&
+            npuNonStreamingRepeatedStabilityState != null
+        ) {
+            appendLine()
+            appendLine(
+                buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
+                    npuNonStreamingRepeatedStabilityState,
+                ),
+            )
         }
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
             appendLine()
