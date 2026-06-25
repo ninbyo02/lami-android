@@ -16,7 +16,9 @@ REMOTE_NAME="origin"
 WIP_PREFIX="wip(auto):"
 WIP_MESSAGE="${WIP_PREFIX} before update.sh"
 STASH_MESSAGE="stash(auto): before update.sh"
-PHONE_IP="10.5.5.3"
+DEFAULT_PHONE_HOST="10.5.5.3"
+PHONE_IP="$DEFAULT_PHONE_HOST" # Backward-compatible alias for older local notes.
+ALLOWED_PHONE_HOSTS=("10.5.5.3" "192.168.52.52")
 DEFAULT_PORT="40215"
 DEFAULT_ANDROID_FLAVOR="standard"
 VERBOSE=0
@@ -57,6 +59,7 @@ Subcommands:
   ./update.sh promote [options]     # merge current branch into main, build, push, then install stable(main)
 
 update options:
+  --host HOST          ADB connect host (allowed: 10.5.5.3, 192.168.52.52; default: 10.5.5.3)
   --port|-p PORT        ADB connect port (default: 40215)
   --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
@@ -65,6 +68,10 @@ update options:
   --no-wip              compatibility alias for default safe behavior
   --dry-run             stop after fetch/pull (no gradle, no adb)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
+
+Allowed hosts:
+  10.5.5.3       default VPN/local debugging host
+  192.168.52.52  LAN wireless debugging host
 
 publish options:
   --message|-m MSG      commit message for current changes (required when dirty)
@@ -346,10 +353,39 @@ set_work_branch_in_script() {
   ok "Updated WORK_BRANCH in script: $new_branch"
 }
 
-adb_connect_and_count() {
+validate_phone_host() {
+  local host="$1"
+  [[ -n "$host" ]] || die "ADB host is required."
+  [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "ADB host must be an IPv4 address: $host"
+  local allowed
+  for allowed in "${ALLOWED_PHONE_HOSTS[@]}"; do
+    if [[ "$host" == "$allowed" ]]; then
+      echo "$host"
+      return 0
+    fi
+  done
+  die "ADB host not allowed: $host (allowed: ${ALLOWED_PHONE_HOSTS[*]})"
+}
+
+validate_adb_port() {
   local port="$1"
+  [[ "$port" =~ ^[0-9]{1,5}$ ]] || die "ADB port must be numeric: $port"
+  (( port >= 1 && port <= 65535 )) || die "ADB port out of range: $port"
+  echo "$port"
+}
+
+adb_connect_and_count() {
+  local phone_host
+  local port
+  if [[ $# -eq 1 ]]; then
+    phone_host="$DEFAULT_PHONE_HOST"
+    port="$1"
+  else
+    phone_host="$1"
+    port="$2"
+  fi
   info "Checking connected devices..." >&2
-  adb connect "${PHONE_IP}:${port}" >/dev/null 2>&1 || true
+  adb connect "${phone_host}:${port}" >/dev/null 2>&1 || true
 
   if [[ "${VERBOSE}" -eq 1 ]]; then
     adb devices -l >&2 || adb devices >&2 || true
@@ -608,6 +644,7 @@ guard_work_branch() {
 # ------------------------------------------------------------------------------
 
 cmd_update() {
+  local phone_host="$DEFAULT_PHONE_HOST"
   local port="$DEFAULT_PORT"
   local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
@@ -616,7 +653,8 @@ cmd_update() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --port|-p) port="${2:?Missing port}"; shift 2 ;;
+      --host) phone_host="$(validate_phone_host "${2:?Missing host}")"; shift 2 ;;
+      --port|-p) port="$(validate_adb_port "${2:?Missing port}")"; shift 2 ;;
       --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
       --stash) dirty_mode="stash"; shift ;;
@@ -634,7 +672,7 @@ cmd_update() {
   guard_work_branch
 
   echo "🔧 update.sh (single-dev safe mode)"
-  echo "📡 Target: ${PHONE_IP}:${port}"
+  echo "📡 Target: ${phone_host}:${port}"
   echo "📦 Android flavor: ${flavor} ($(install_task_for_flavor "$flavor"))"
   [[ "$clean" -eq 1 ]] && echo "🧼 Clean install: ON (uninstall -> $(install_task_for_flavor "$flavor"))"
   [[ "$dry_run" -eq 1 ]] && echo "Dry-run: ON (stop after fetch/pull)"
@@ -685,7 +723,7 @@ cmd_update() {
   [[ -x ./gradlew ]] || die "gradlew not found or not executable. Run from repo root."
 
   local device_count
-  device_count="$(adb_connect_and_count "$port")"
+  device_count="$(adb_connect_and_count "$phone_host" "$port")"
   if [[ "$device_count" -lt 1 ]]; then
     warn "No device detected. Running assembleDebug only."
     ./gradlew :app:assembleDebug
