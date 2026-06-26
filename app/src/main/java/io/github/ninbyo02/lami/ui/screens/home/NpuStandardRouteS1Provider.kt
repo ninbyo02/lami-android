@@ -205,6 +205,11 @@ internal fun buildNpuStandardRouteS1DevTraceText(
                 "native_result_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeResultTail)}",
                 "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
                 "native_diag_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeDiagTail)}",
+                "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+                "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+                "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+                "java_library_path=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.javaLibraryPath)}",
+                "supported_abis=${result.nativeDiagnostics.supportedAbis}",
                 "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
                 "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
                 "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
@@ -438,6 +443,11 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
         "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
         "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
+        "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+        "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+        "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+        "java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}",
+        "supported_abis=${result.nativeDiagnostics.supportedAbis}",
             ),
         )
     }.joinToString("\n")
@@ -470,6 +480,11 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         add("native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}")
         add("native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}")
         add("native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}")
+        add("native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}")
+        add("native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}")
+        add("native_load_order=${result.nativeDiagnostics.nativeLoadOrder}")
+        add("java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}")
+        add("supported_abis=${result.nativeDiagnostics.supportedAbis}")
         add("requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
         add("effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
         add("max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}")
@@ -598,6 +613,11 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
             "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
             "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
+            "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+            "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+            "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+            "java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}",
+            "supported_abis=${result.nativeDiagnostics.supportedAbis}",
             "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
             "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
             "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",

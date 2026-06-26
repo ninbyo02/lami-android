@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.npu
 
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.home.NpuEngineLogcatDiagnostics
@@ -14,7 +15,9 @@ import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_NATIVE_RESULT
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1LogcatDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
+import io.github.ninbyo02.lami.ui.screens.home.buildNpuNativeLinkFailureDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.captureLocalMemorySnapshot
+import io.github.ninbyo02.lami.ui.screens.home.npuNativeLinkFailureDiagnosticsLines
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 import java.util.UUID
@@ -692,6 +695,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
             diagTail.contains("destroy", ignoreCase = true) ||
             diagTail.contains("engine_ptr.reset", ignoreCase = true) ||
             diagTail.contains("session_ptr.reset", ignoreCase = true)
+        val nativeLinkDiagnostics = throwable?.let {
+            buildNpuNativeLinkFailureDiagnostics(
+                throwable = it,
+                javaLibraryPath = System.getProperty("java.library.path"),
+                supportedAbis = Build.SUPPORTED_ABIS.toList(),
+            )
+        }
         resultFile.appendText(
             listOf(
                 "native_run_id=$runId",
@@ -718,6 +728,15 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "native_error_message=${escapeValue(throwable?.message ?: "unavailable")}",
                 "native_error_stage=$errorStage",
                 "native_error_source=$errorSource",
+            ).plus(
+                nativeLinkDiagnostics?.let(::npuNativeLinkFailureDiagnosticsLines)
+                    ?: npuNativeLinkFailureDiagnosticsLines(
+                        buildNpuNativeLinkFailureDiagnostics(
+                            throwable = RuntimeException("no native link failure"),
+                            javaLibraryPath = System.getProperty("java.library.path"),
+                            supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                        ),
+                    ),
             ).joinToString(separator = "\n", postfix = "\n"),
         )
     }

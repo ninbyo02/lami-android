@@ -61,6 +61,62 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `native link failure diagnostics extracts failed library and load context`() {
+        val throwable = UnsatisfiedLinkError(
+            "dlopen failed: library \"libLiteRt.so\" not found: needed by /data/app/liblitertlm_jni.so",
+        )
+
+        val diagnostics = buildNpuNativeLinkFailureDiagnostics(
+            throwable = throwable,
+            javaLibraryPath = "/data/app/native",
+            supportedAbis = listOf("arm64-v8a"),
+        )
+
+        assertTrue(diagnostics.detected)
+        assertEquals("libLiteRt.so", diagnostics.failedLibraryName)
+        assertEquals("litertlm_jni>lami_npu_persistent_holder_stub", diagnostics.loadOrder)
+        assertEquals("/data/app/native", diagnostics.javaLibraryPath)
+        assertEquals("arm64-v8a", diagnostics.supportedAbis)
+        assertEquals("adapter_failure:UnsatisfiedLinkError", npuNativeLinkFailureReason(throwable))
+    }
+
+    @Test
+    fun `adapter native link failure is eligible for local fallback`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "adapter_failure:UnsatisfiedLinkError",
+                rawOutput = "",
+                sanitizedOutput = "",
+                qualityClassification = "unknown",
+                runDecodeReached = false,
+                npuBackendEvidence = "",
+                nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                    nativeErrorClass = "UnsatisfiedLinkError",
+                    nativeErrorMessage = "no litertlm_jni in java.library.path",
+                    nativeLinkFailureDetected = "true",
+                    nativeLinkFailureLibrary = "liblitertlm_jni.so",
+                    nativeLoadOrder = NPU_STANDARD_ROUTE_NATIVE_LOAD_ORDER,
+                    javaLibraryPath = "/data/app/native",
+                    supportedAbis = "arm64-v8a",
+                ),
+            ),
+        )
+
+        assertTrue(shouldFallbackNpuStandardRouteFailureToLocal(result))
+        assertEquals(
+            PreferredBackendDryRunSetting.GPU,
+            resolveNpuStandardRouteLocalFallbackBackend(PreferredBackendDryRunSetting.NPU),
+        )
+        assertEquals(
+            PreferredBackendDryRunSetting.CPU,
+            resolveNpuStandardRouteLocalFallbackBackend(PreferredBackendDryRunSetting.CPU),
+        )
+    }
+
+    @Test
     fun `invoker default provider follows build variant provider selection`() {
         val raw = NpuStandardRouteS1Invoker().invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)

@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import android.os.Build
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
@@ -93,9 +94,18 @@ internal class RealNpuStandardRouteS1Provider(
             )
             rawResult
         }.getOrElse { throwable ->
-            val reason = throwable.message
-                ?.takeIf { it.isNotBlank() }
-                ?: REASON_DEV_ONLY_REQUEST_FAILED
+            val nativeLinkDiagnostics = buildNpuNativeLinkFailureDiagnostics(
+                throwable = throwable,
+                javaLibraryPath = System.getProperty("java.library.path"),
+                supportedAbis = Build.SUPPORTED_ABIS.toList(),
+            )
+            val reason = if (nativeLinkDiagnostics.detected) {
+                NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON
+            } else {
+                throwable.message
+                    ?.takeIf { it.isNotBlank() }
+                    ?: REASON_DEV_ONLY_REQUEST_FAILED
+            }
             NpuS1LogcatDiagnostics.logAdapterFailure(
                 reason = reason,
                 throwable = throwable,
@@ -121,7 +131,8 @@ internal class RealNpuStandardRouteS1Provider(
                 detail = "prompt_length=${userPrompt.length} reason=$reason " +
                     "requested_max_output_tokens=${maxOutputTokensResolution.requestedMaxOutputTokens} " +
                     "effective_max_output_tokens=${maxOutputTokensResolution.effectiveMaxOutputTokens} " +
-                    "max_output_tokens_clamped=${maxOutputTokensResolution.clamped}",
+                    "max_output_tokens_clamped=${maxOutputTokensResolution.clamped} " +
+                    npuNativeLinkFailureDiagnosticsLines(nativeLinkDiagnostics).joinToString(" "),
             )
             RealNpuStandardRouteS1ResultMapper.failure(
                 reason = reason,
@@ -137,6 +148,11 @@ internal class RealNpuStandardRouteS1Provider(
                     nativeErrorMessage = throwable.message ?: reason,
                     nativeErrorStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
                     nativeErrorSource = "throwable",
+                    nativeLinkFailureDetected = nativeLinkDiagnostics.detected.toString(),
+                    nativeLinkFailureLibrary = nativeLinkDiagnostics.failedLibraryName,
+                    nativeLoadOrder = nativeLinkDiagnostics.loadOrder,
+                    javaLibraryPath = nativeLinkDiagnostics.javaLibraryPath,
+                    supportedAbis = nativeLinkDiagnostics.supportedAbis,
                 ),
             )
         }

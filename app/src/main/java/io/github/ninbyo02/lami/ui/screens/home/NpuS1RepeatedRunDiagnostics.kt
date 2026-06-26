@@ -127,6 +127,11 @@ data class NpuS1NativeStageDiagnostics(
     val nativeErrorMessage: String = "unavailable",
     val nativeErrorStage: String = "unavailable",
     val nativeErrorSource: String = "unavailable",
+    val nativeLinkFailureDetected: String = "unavailable",
+    val nativeLinkFailureLibrary: String = "unavailable",
+    val nativeLoadOrder: String = "unavailable",
+    val javaLibraryPath: String = "unavailable",
+    val supportedAbis: String = "unavailable",
 )
 
 internal enum class NpuS1RepeatedRunMode(

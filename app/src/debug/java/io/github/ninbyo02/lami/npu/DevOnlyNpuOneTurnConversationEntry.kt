@@ -272,6 +272,11 @@ object DevOnlyNpuOneTurnConversationContract {
             nativeErrorMessage = values.devValue("native_error_message"),
             nativeErrorStage = values.devValue("native_error_stage"),
             nativeErrorSource = values.devValue("native_error_source"),
+            nativeLinkFailureDetected = values.devValue("native_link_failure_detected"),
+            nativeLinkFailureLibrary = values.devValue("native_link_failure_library"),
+            nativeLoadOrder = values.devValue("native_load_order"),
+            javaLibraryPath = values.devValue("java_library_path"),
+            supportedAbis = values.devValue("supported_abis"),
         )
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
@@ -320,6 +325,11 @@ object DevOnlyNpuOneTurnConversationContract {
             "native_error_class=${nativeDiagnostics.nativeErrorClass}",
             "native_error_stage=${nativeDiagnostics.nativeErrorStage}",
             "native_error_source=${nativeDiagnostics.nativeErrorSource}",
+            "native_link_failure_detected=${nativeDiagnostics.nativeLinkFailureDetected}",
+            "native_link_failure_library=${nativeDiagnostics.nativeLinkFailureLibrary}",
+            "native_load_order=${nativeDiagnostics.nativeLoadOrder}",
+            "java_library_path=${nativeDiagnostics.javaLibraryPath}",
+            "supported_abis=${nativeDiagnostics.supportedAbis}",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
