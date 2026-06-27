@@ -8,7 +8,11 @@ QNN_RUNTIME_SOURCE_DIR="$ROOT_DIR/$ARTIFACT_DIR/qnn_runtime_libs"
 TARGET_DIR="$ROOT_DIR/app/src/customBuildExperimentDebug/jniLibs/arm64-v8a"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR="$ROOT_DIR/artifacts/litert_custom_build_stage/$TIMESTAMP"
-GEMMA_PROVIDER_FALLBACK="/home/sato/project/litert-custom-build/LiteRT-LM/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+GEMMA_PROVIDER_FALLBACKS=(
+  "$HOME/project/litert-custom-build/LiteRT-LM/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+  "/home/lami-build/project/litert-custom-build/LiteRT-LM/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+  "/home/sato/project/litert-custom-build/LiteRT-LM/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+)
 
 REQUIRED_LIBS=(
   libLiteRt.so
@@ -62,9 +66,14 @@ source_for_lib() {
     printf '%s\n' "$built"
     return 0
   fi
-  if [ "$lib" = "libGemmaModelConstraintProvider.so" ] && [ -f "$GEMMA_PROVIDER_FALLBACK" ]; then
-    printf '%s\n' "$GEMMA_PROVIDER_FALLBACK"
-    return 0
+  if [ "$lib" = "libGemmaModelConstraintProvider.so" ]; then
+    local fallback
+    for fallback in "${GEMMA_PROVIDER_FALLBACKS[@]}"; do
+      if [ -f "$fallback" ]; then
+        printf '%s\n' "$fallback"
+        return 0
+      fi
+    done
   fi
   return 1
 }

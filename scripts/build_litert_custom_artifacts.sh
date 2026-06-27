@@ -92,6 +92,7 @@ LIB_NAMES=(
   "libLiteRtDispatch_Qualcomm.so"
   "liblitertlm_jni.so"
   "libLiteRtCompilerPlugin_Qualcomm.so"
+  "libGemmaModelConstraintProvider.so"
 )
 
 KEYWORDS="LiteRtDispatchGetApi|LiteRtDispatchCheckRuntimeCompatibility|RuntimeCompatibility|capabilities|No usable Dispatch runtime found|Failed to initialize Dispatch API|dispatch_api|LiteRtRuntimeCApi|libLiteRtRuntimeCApi\.so|Qualcomm|QNN|Qnn|HTP|Htp|ADSP|LD_LIBRARY_PATH|libQnn|SM8750|sm8750|V79|schema|model"
@@ -388,6 +389,12 @@ if [ -d "$BAZEL_BIN" ]; then
     [ -f "$candidate" ] || continue
     cp -f "$candidate" "$OUT_DIR/built_libs/$(basename "$candidate")"
   done <"$OUT_DIR/built_lib_candidates.txt"
+fi
+
+GEMMA_PROVIDER_PREBUILT="$LITERT_LM_DIR/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+if [ -f "$GEMMA_PROVIDER_PREBUILT" ]; then
+  cp -f "$GEMMA_PROVIDER_PREBUILT" "$OUT_DIR/built_libs/libGemmaModelConstraintProvider.so"
+  printf '%s\n' "$GEMMA_PROVIDER_PREBUILT" >>"$OUT_DIR/built_lib_candidates.txt"
 fi
 
 for file in "$OUT_DIR"/built_libs/*.so; do
