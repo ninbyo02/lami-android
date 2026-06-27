@@ -9,6 +9,7 @@
 #   stage-qairt244-custom-jni [artifact-dir-basename]
 #   build-qairt244-custom-jni
 #   qairt244-sdk-status
+#   qairt244-repeat-stability
 #
 # Required globals from the parent controller are optional; sane defaults are used:
 #   REPO, LOG_DIR, CMD, fail
@@ -307,6 +308,210 @@ lami_qairt244_build_custom_jni() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+lami_qairt244_choose_adb_device() {
+  local serial
+  serial="$(adb devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }')"
+  if [[ -z "$serial" ]]; then
+    echo "no connected non-emulator Android device" >&2
+    exit 65
+  fi
+  printf '%s\n' "$serial"
+}
+
+lami_qairt244_meminfo_metric_kb() {
+  local file="$1"
+  local metric="$2"
+  case "$metric" in
+    total_pss)
+      awk '/^[[:space:]]*TOTAL[[:space:]]/ { print $2; found=1; exit } END { if (!found) print "unavailable" }' "$file" 2>/dev/null
+      ;;
+    native_heap_pss)
+      awk '/^[[:space:]]*Native Heap[[:space:]]/ { print $3; found=1; exit } END { if (!found) print "unavailable" }' "$file" 2>/dev/null
+      ;;
+    dalvik_heap_pss)
+      awk '/^[[:space:]]*Dalvik Heap[[:space:]]/ { print $3; found=1; exit } END { if (!found) print "unavailable" }' "$file" 2>/dev/null
+      ;;
+    *)
+      printf 'unavailable\n'
+      ;;
+  esac
+}
+
+lami_qairt244_result_value() {
+  local file="$1"
+  local key="$2"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; found=1; exit } END { if (!found) print "" }' "$file" 2>/dev/null
+}
+
+lami_qairt244_repeat_stability() {
+  cd "$REPO"
+  mkdir -p "$LOG_DIR"
+  local timestamp
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  local out_dir="$REPO/artifacts/qairt244_repeat_stability/$timestamp"
+  local log_file="$LOG_DIR/qairt244-repeat-stability-${timestamp}.log"
+  mkdir -p "$out_dir"
+
+  local package="io.github.ninbyo02.lami.customnpu"
+  local action="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
+  local result_file="dev_only_npu_one_turn_conversation_result.txt"
+  local serial
+  serial="$(lami_qairt244_choose_adb_device)"
+
+  local -a prompts=(
+    "こんにちは"
+    "あなたは誰ですか"
+    "Pythonとは何ですか"
+    "Androidについて一言で説明して"
+    "日本語で短く答えてください"
+    "今日の挨拶をしてください"
+    "ありがとう"
+    "またね"
+    "1+1は？"
+    "短い俳句を作って"
+  )
+
+  {
+    echo "== LAMI qairt244 repeat stability =="
+    echo "time=$(date -Is)"
+    echo "repo_head=$(git rev-parse --short HEAD)"
+    echo "device=$serial"
+    echo "package=$package"
+    echo "run_count_requested=${#prompts[@]}"
+    echo "route_type=dev_only_one_turn_conversation"
+    echo "prompt_tail_variant=gemma_it_user_model"
+    echo "streaming=false"
+    echo "tts=false"
+    echo "db=false"
+    echo "markdown=false"
+    echo "out_dir=${out_dir#$REPO/}"
+
+    adb -s "$serial" shell pidof "$package" >"$out_dir/pid_before.txt" 2>&1 || true
+    adb -s "$serial" shell dumpsys meminfo "$package" >"$out_dir/meminfo_before.txt" 2>&1 || true
+    local before_total before_native before_dalvik
+    before_total="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_before.txt" total_pss)"
+    before_native="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_before.txt" native_heap_pss)"
+    before_dalvik="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_before.txt" dalvik_heap_pss)"
+
+    local success_count=0
+    local failure_count=0
+    local decode_count=0
+    local fallback_count=0
+    local timeout_count=0
+    local fresh_crash_count=0
+    local total_ms_sum=0
+    local total_ms_count=0
+    local run_index=1
+    local prompt
+
+    for prompt in "${prompts[@]}"; do
+      local run_dir="$out_dir/run${run_index}"
+      mkdir -p "$run_dir"
+      printf '%s\n' "$prompt" >"$run_dir/prompt.txt"
+      adb -s "$serial" shell run-as "$package" rm -f "files/$result_file" files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt >/dev/null 2>&1 || true
+      adb -s "$serial" shell am broadcast \
+        -a "$action" \
+        -p "$package" \
+        --es user_prompt "$prompt" \
+        --ez unsafe_dev_bypass_prompt_length_gate true \
+        --es prompt_tail_variant gemma_it_user_model \
+        >"$run_dir/broadcast.txt" 2>&1 || true
+
+      local waited=0
+      while [[ "$waited" -lt 75 ]]; do
+        adb -s "$serial" exec-out run-as "$package" cat "files/$result_file" >"$run_dir/result.txt" 2>"$run_dir/result.err" || true
+        local status
+        status="$(lami_qairt244_result_value "$run_dir/result.txt" status)"
+        if [[ "$status" == "success" || "$status" == "failure" ]]; then
+          break
+        fi
+        sleep 1
+        waited=$((waited + 1))
+      done
+      echo "$waited" >"$run_dir/waited_seconds.txt"
+      adb -s "$serial" exec-out run-as "$package" cat files/qairt244_short_multitoken_smoke_result.txt >"$run_dir/native_result.txt" 2>"$run_dir/native_result.err" || true
+      adb -s "$serial" exec-out run-as "$package" cat files/qairt244_native_diag.txt >"$run_dir/native_diag.txt" 2>"$run_dir/native_diag.err" || true
+      adb -s "$serial" shell dumpsys meminfo "$package" >"$run_dir/meminfo_after.txt" 2>&1 || true
+
+      local result success decode fallback timeout fresh_crash reason evidence sanitized elapsed
+      result="$(lami_qairt244_result_value "$run_dir/result.txt" result)"
+      success="$(lami_qairt244_result_value "$run_dir/result.txt" success)"
+      decode="$(lami_qairt244_result_value "$run_dir/result.txt" run_decode_reached)"
+      fallback="$(lami_qairt244_result_value "$run_dir/result.txt" fallback_used)"
+      timeout="$(lami_qairt244_result_value "$run_dir/result.txt" timeout)"
+      fresh_crash="$(lami_qairt244_result_value "$run_dir/result.txt" fresh_crash)"
+      reason="$(lami_qairt244_result_value "$run_dir/result.txt" reason)"
+      evidence="$(lami_qairt244_result_value "$run_dir/result.txt" npu_backend_evidence)"
+      sanitized="$(lami_qairt244_result_value "$run_dir/result.txt" sanitized_output)"
+      elapsed="$(lami_qairt244_result_value "$run_dir/native_result.txt" elapsed_ms)"
+
+      [[ "$success" == "true" ]] && success_count=$((success_count + 1)) || failure_count=$((failure_count + 1))
+      [[ "$decode" == "true" ]] && decode_count=$((decode_count + 1))
+      [[ "$fallback" == "true" ]] && fallback_count=$((fallback_count + 1))
+      [[ "$timeout" == "true" ]] && timeout_count=$((timeout_count + 1))
+      [[ "$fresh_crash" == "true" ]] && fresh_crash_count=$((fresh_crash_count + 1))
+      if [[ "$elapsed" =~ ^[0-9]+$ ]]; then
+        total_ms_sum=$((total_ms_sum + elapsed))
+        total_ms_count=$((total_ms_count + 1))
+      fi
+
+      printf 'run=%s result=%s success=%s decode=%s fallback=%s timeout=%s fresh_crash=%s elapsed_ms=%s evidence=%s reason=%s output=%s\n' \
+        "$run_index" "${result:-missing}" "${success:-missing}" "${decode:-missing}" \
+        "${fallback:-missing}" "${timeout:-missing}" "${fresh_crash:-missing}" \
+        "${elapsed:-unavailable}" "${evidence:-unavailable}" "${reason:-unavailable}" "${sanitized:-}" \
+        | tee "$run_dir/summary_line.txt"
+
+      if [[ "$success" != "true" || "$decode" != "true" || "$fallback" == "true" || "$timeout" == "true" || "$fresh_crash" == "true" ]]; then
+        echo "stopping_after_run=$run_index"
+        break
+      fi
+      run_index=$((run_index + 1))
+      sleep 2
+    done
+
+    adb -s "$serial" shell pidof "$package" >"$out_dir/pid_after.txt" 2>&1 || true
+    adb -s "$serial" shell dumpsys meminfo "$package" >"$out_dir/meminfo_after.txt" 2>&1 || true
+    adb -s "$serial" logcat -d -b crash -v time | tail -300 >"$out_dir/logcat_crash_tail.txt" 2>/dev/null || true
+    adb -s "$serial" logcat -d -v time | grep -Ei 'FATAL EXCEPTION|tombstone|signal |Abort|liblitertlm|LiteRT|QNN|HTP|Qairt|QAIRT|customnpu' | tail -500 >"$out_dir/logcat_lami_native_tail.txt" 2>/dev/null || true
+
+    local after_total after_native after_dalvik average_total_ms
+    after_total="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_after.txt" total_pss)"
+    after_native="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_after.txt" native_heap_pss)"
+    after_dalvik="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_after.txt" dalvik_heap_pss)"
+    if [[ "$total_ms_count" -gt 0 ]]; then
+      average_total_ms=$((total_ms_sum / total_ms_count))
+    else
+      average_total_ms="unavailable"
+    fi
+
+    echo "== SUMMARY =="
+    echo "run_count_requested=${#prompts[@]}"
+    echo "run_count_completed=$((success_count + failure_count))"
+    echo "success_count=$success_count"
+    echo "failure_count=$failure_count"
+    echo "run_decode_reached_count=$decode_count"
+    echo "fallback_used_count=$fallback_count"
+    echo "timeout_count=$timeout_count"
+    echo "fresh_crash_count=$fresh_crash_count"
+    echo "average_total_ms=$average_total_ms"
+    echo "mem_total_pss_before_kb=$before_total"
+    echo "mem_total_pss_after_kb=$after_total"
+    echo "mem_native_heap_pss_before_kb=$before_native"
+    echo "mem_native_heap_pss_after_kb=$after_native"
+    echo "mem_dalvik_heap_pss_before_kb=$before_dalvik"
+    echo "mem_dalvik_heap_pss_after_kb=$after_dalvik"
+    echo "artifact=${out_dir#$REPO/}"
+    if [[ "$success_count" -eq "${#prompts[@]}" && "$failure_count" -eq 0 && "$fallback_count" -eq 0 && "$timeout_count" -eq 0 && "$fresh_crash_count" -eq 0 ]]; then
+      echo "== REPEAT STABILITY OK =="
+    else
+      echo "== REPEAT STABILITY FAILED =="
+      exit 65
+    fi
+  } 2>&1 | tee "$log_file"
+
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 # Optional helper for parent controllers that want a single dispatch call.
 # Returns:
 #   0: handled
@@ -334,6 +539,10 @@ lami_qairt244_dispatch() {
       lami_qairt244_sdk_status
       return 0
       ;;
+    qairt244-repeat-stability)
+      lami_qairt244_repeat_stability
+      return 0
+      ;;
   esac
   return 1
 }
@@ -344,5 +553,6 @@ lami_qairt244_help() {
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
   qairt244-sdk-status
+  qairt244-repeat-stability
 EOF
 }
