@@ -8,6 +8,11 @@ LOG_DIR="$HOME/build-logs"
 DEFAULT_FLAVOR="standard"
 ALLOWED_HOSTS=("10.5.5.3" "192.168.52.52")
 
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
+export ANDROID_HOME="${ANDROID_HOME:-/usr/lib/android-sdk}"
+export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$JAVA_HOME/bin:$PATH"
+
 fail() {
   echo "not allowed: ${CMD:-<empty>}" >&2
   exit 64
