@@ -70,6 +70,17 @@ lami_qairt244_ensure_litert_lm_checkout() {
   git -C "$checkout" reset --hard "$LITERT_LM_REF" >&2
   git -C "$checkout" clean -fdx >&2
 
+  if git -C "$checkout" lfs version >/dev/null 2>&1; then
+    git -C "$checkout" lfs pull >&2
+  fi
+
+  local gemma_provider="$checkout/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+  if [[ -f "$gemma_provider" ]] && head -n 1 "$gemma_provider" 2>/dev/null | grep -q 'git-lfs.github.com/spec'; then
+    echo "LiteRT-LM LFS object is not materialized: $gemma_provider" >&2
+    echo "Install git-lfs and run: git -C $checkout lfs pull" >&2
+    exit 65
+  fi
+
   if [[ ! -f "$QAIRT244_PATCH" ]]; then
     echo "missing qairt244 patch: $QAIRT244_PATCH" >&2
     exit 65
