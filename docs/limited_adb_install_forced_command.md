@@ -10,6 +10,9 @@ Allowed commands after deployment:
 
 ```text
 adb-devices
+qairt244-artifacts
+stage-qairt244-custom-jni [artifact-dir-basename]
+build-qairt244-custom-jni
 install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
 ```
 
@@ -36,7 +39,7 @@ The template is stored at:
 scripts/lami_build_remote_control_limited_adb.sh
 ```
 
-To deploy it on the PC, merge its `adb-devices` / `install-future` cases into:
+To deploy it on the PC, merge its `adb-devices` / `install-future` / qairt244 artifact cases into:
 
 ```text
 /home/lami-build/lami-build-control/remote_control.sh
@@ -65,13 +68,44 @@ From Hermes:
 
 ```bash
 ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 adb-devices
+ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 qairt244-artifacts
+ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 stage-qairt244-custom-jni
+ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 build-qairt244-custom-jni
 ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 'install-future 192.168.52.52 <port> standard'
 ```
+
+## qairt244 custom JNI commands
+
+`qairt244-artifacts` lists local `artifacts/litert_custom_build/*` directories and marks whether each `built_libs/liblitertlm_jni.so` exports the required DEV-only JNI symbol:
+
+```text
+Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt
+```
+
+`stage-qairt244-custom-jni [artifact-dir-basename]` stages a previously built artifact into:
+
+```text
+app/src/customBuildExperimentDebug/jniLibs/arm64-v8a
+```
+
+The `standardDebug` Gradle build overlays that same directory into the standard hidden NPU route. The staging command refuses artifacts whose `liblitertlm_jni.so` lacks the qairt244 JNI symbol, preventing an APK that would fail with `No implementation found ... nativeRunEditablePrompt`.
+
+`build-qairt244-custom-jni` is the narrow rebuild+stage path. It uses fixed locations on the Build PC:
+
+```text
+LiteRT-LM checkout: $HOME/project/litert-custom-build/LiteRT-LM
+QAIRT SDK:          $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+output root:        $HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_16token
+```
+
+It builds only the limited target list in `scripts/build_litert_custom_artifacts.sh`, verifies the qairt244 JNI symbol, then stages with `scripts/stage_litert_custom_build_stack_for_experiment.sh`.
 
 ## Safety notes
 
 - `host` is allowlisted to avoid generic LAN scanning.
 - `port` must be numeric and within `1..65535`.
 - `flavor` is allowlisted.
+- qairt244 artifact names are basename-only and must match `<YYYYMMDD>_<HHMMSS>_<label>`.
+- qairt244 staging requires `readelf` to prove `Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt` is exported before the artifact is accepted.
 - The install command still relies on Android wireless debugging being enabled and trusted on the device.
 - If the device has not previously trusted the PC, Android may require an on-device confirmation.

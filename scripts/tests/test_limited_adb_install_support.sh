@@ -22,5 +22,9 @@ test -f scripts/lami_build_remote_control_limited_adb.sh || fail "limited ADB re
 grep -q 'install-future' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose install-future"
 grep -q 'adb-devices' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose adb-devices"
 grep -q 'validate_host' scripts/lami_build_remote_control_limited_adb.sh || fail "template should validate host allowlist"
+grep -q 'qairt244-artifacts' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 artifact listing"
+grep -q 'stage-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI staging"
+grep -q 'build-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI build+stage"
+grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' scripts/lami_build_remote_control_limited_adb.sh || fail "template should verify the qairt244 nativeRunEditablePrompt JNI symbol"
 
 echo "limited ADB install support checks passed"
