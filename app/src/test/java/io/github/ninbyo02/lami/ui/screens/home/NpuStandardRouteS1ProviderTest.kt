@@ -81,6 +81,19 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `missing native editable prompt JNI symbol gets specific reason`() {
+        val throwable = UnsatisfiedLinkError(
+            "No implementation found for java.lang.String " +
+                "io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke.nativeRunEditablePrompt" +
+                "(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, " +
+                "java.lang.String, java.lang.String, int) - is the library loaded, e.g. System.loadLibrary?",
+        )
+
+        assertTrue(isMissingNpuStandardRouteJniSymbol(throwable))
+        assertEquals("adapter_failure:MissingNativeJniSymbol", npuNativeLinkFailureReason(throwable))
+    }
+
+    @Test
     fun `adapter native link failure is eligible for local fallback`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(

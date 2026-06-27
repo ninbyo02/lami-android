@@ -4,6 +4,8 @@ internal const val NPU_STANDARD_ROUTE_NATIVE_LOAD_ORDER =
     "litertlm_jni>lami_npu_persistent_holder_stub"
 internal const val NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON =
     "adapter_failure:UnsatisfiedLinkError"
+internal const val NPU_STANDARD_ROUTE_MISSING_NATIVE_JNI_SYMBOL_REASON =
+    "adapter_failure:MissingNativeJniSymbol"
 
 internal data class NpuNativeLinkFailureDiagnostics(
     val detected: Boolean,
@@ -52,11 +54,21 @@ internal fun npuNativeLinkFailureReason(
     throwable: Throwable,
 ): String {
     val diagnostics = buildNpuNativeLinkFailureDiagnostics(throwable)
-    return if (diagnostics.detected) {
+    return if (isMissingNpuStandardRouteJniSymbol(throwable)) {
+        NPU_STANDARD_ROUTE_MISSING_NATIVE_JNI_SYMBOL_REASON
+    } else if (diagnostics.detected) {
         NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON
     } else {
         throwable.message?.takeIf { it.isNotBlank() } ?: "dev_only_request_failed"
     }
+}
+
+internal fun isMissingNpuStandardRouteJniSymbol(throwable: Throwable): Boolean {
+    val searchText = npuThrowableChain(throwable).joinToString("\n") { cause ->
+        listOfNotNull(cause.javaClass.name, cause.message).joinToString(":")
+    }
+    return searchText.contains("No implementation found", ignoreCase = true) &&
+        searchText.contains("Qairt244ShortMultitokenSmoke.nativeRunEditablePrompt", ignoreCase = true)
 }
 
 private fun npuThrowableChain(throwable: Throwable): List<Throwable> {

@@ -952,6 +952,28 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             }
             into(outputDir)
         }
+        val litertLmJni = File(outputDir, "liblitertlm_jni.so")
+        require(litertLmJni.isFile) {
+            "standardDebug NPU route requires staged liblitertlm_jni.so with qairt244 custom JNI symbols. Missing: ${litertLmJni.absolutePath}"
+        }
+        val symbolOutput = ByteArrayOutputStream()
+        val symbolError = ByteArrayOutputStream()
+        val symbolResult = exec {
+            commandLine("readelf", "-Ws", litertLmJni.absolutePath)
+            standardOutput = symbolOutput
+            errorOutput = symbolError
+            isIgnoreExitValue = true
+        }
+        val symbols = symbolOutput.toString()
+        require(
+            symbolResult.exitValue == 0 &&
+                symbols.contains("Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt"),
+        ) {
+            "standardDebug NPU route requires qairt244 custom liblitertlm_jni.so. " +
+                "The staged liblitertlm_jni.so does not export nativeRunEditablePrompt; " +
+                "rebuild/stage the patched LiteRT-LM artifact documented in docs/qairt244_native_artifact_reproducibility.md. " +
+                "file=${litertLmJni.absolutePath} readelf_error=${symbolError.toString().take(400)}"
+        }
     }
 }
 
