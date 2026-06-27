@@ -190,6 +190,46 @@ run_adb_connect() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+app_id_for_flavor() {
+  local flavor
+  flavor="$(validate_flavor "${1:-$DEFAULT_FLAVOR}")"
+  case "$flavor" in
+    standard) echo "io.github.ninbyo02.lami" ;;
+    npuExperiment) echo "io.github.ninbyo02.lami.npu" ;;
+    galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
+    galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
+    customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
+    *) fail ;;
+  esac
+}
+
+run_adb_start_app() {
+  local host="$1" port="$2" flavor="${3:-$DEFAULT_FLAVOR}"
+  validate_host "$host"
+  validate_port "$port"
+  flavor="$(validate_flavor "$flavor")"
+  local app_id
+  app_id="$(app_id_for_flavor "$flavor")"
+
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/adb-start-app-${timestamp}-${host}-${port}-${flavor}.log"
+  {
+    echo "== LAMI adb start app =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_target=${host}:${port}"
+    echo "flavor=${flavor}"
+    echo "app_id=${app_id}"
+    adb connect "${host}:${port}"
+    adb -s "${host}:${port}" shell monkey -p "$app_id" -c android.intent.category.LAUNCHER 1
+    echo "== ADB START APP OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 run_logcat() {
   local kind="$1" timestamp log_file
   mkdir -p "$LOG_DIR"
@@ -226,6 +266,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_connect "${parts[1]}" "${parts[2]}" ;;
+  adb-start-app\ *)
+    parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_adb_start_app "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
@@ -261,6 +303,7 @@ allowed commands:
   adb-devices
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
+  adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
