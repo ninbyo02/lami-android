@@ -185,6 +185,7 @@ lami_qairt244_resolve_artifact_dir() {
 
 lami_qairt244_artifacts() {
   cd "$REPO"
+  printf '# qairt244 artifacts\n'
   printf 'artifact\tstatus\tliblitertlm_jni_sha256\tbuild_id\n'
   find "$LITERT_CUSTOM_ARTIFACT_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null |
     sort -rn |
@@ -205,6 +206,8 @@ lami_qairt244_artifacts() {
       fi
       printf '%s\t%s\t%s\t%s\n' "$(basename "$artifact")" "$status" "$sha" "$build_id"
     done
+  printf '\n# qairt244 sdk candidates\n'
+  lami_qairt244_sdk_status
 }
 
 lami_qairt244_stage_custom_jni() {
