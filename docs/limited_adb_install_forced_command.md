@@ -92,11 +92,10 @@ The `standardDebug` Gradle build overlays that same directory into the standard 
 
 `build-qairt244-custom-jni` is the narrow rebuild+stage path. It uses fixed locations on the Build PC:
 
-```text
-LiteRT-LM checkout: $HOME/project/litert-custom-build/LiteRT-LM
-QAIRT SDK:          $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225
-output root:        $HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_16token
-```
+The command auto-detects the LiteRT-LM checkout and QAIRT SDK from the
+`$HOME`, `/home/sato`, and `/home/lami-build` candidate paths documented in
+`docs/build_pc_qairt244_forced_command_update.md`, then writes to
+`$HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_utf8prompt`.
 
 It builds only the limited target list in `scripts/build_litert_custom_artifacts.sh`, verifies the qairt244 JNI symbol, then stages with `scripts/stage_litert_custom_build_stack_for_experiment.sh`.
 

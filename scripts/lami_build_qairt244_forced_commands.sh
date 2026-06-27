@@ -16,8 +16,42 @@
 : "${LOG_DIR:=$HOME/build-logs}"
 : "${CMD:=${SSH_ORIGINAL_COMMAND:-}}"
 : "${LITERT_CUSTOM_ARTIFACT_ROOT:=$REPO/artifacts/litert_custom_build}"
-: "${LITERT_LM_CHECKOUT:=$HOME/project/litert-custom-build/LiteRT-LM}"
-: "${QAIRT244_ROOT:=$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225}"
+: "${LITERT_LM_CHECKOUT:=}"
+: "${QAIRT244_ROOT:=}"
+: "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_utf8prompt}"
+
+lami_qairt244_first_existing_dir() {
+  local path
+  for path in "$@"; do
+    if [[ -n "$path" && -d "$path" ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  done
+  return 1
+}
+
+lami_qairt244_resolve_litert_lm_checkout() {
+  if [[ -n "${LITERT_LM_CHECKOUT:-}" && -d "$LITERT_LM_CHECKOUT" ]]; then
+    printf '%s\n' "$LITERT_LM_CHECKOUT"
+    return 0
+  fi
+  lami_qairt244_first_existing_dir \
+    "$HOME/project/litert-custom-build/LiteRT-LM" \
+    /home/sato/project/litert-custom-build/LiteRT-LM \
+    /home/lami-build/project/litert-custom-build/LiteRT-LM
+}
+
+lami_qairt244_resolve_qairt_root() {
+  if [[ -n "${QAIRT244_ROOT:-}" && -d "$QAIRT244_ROOT" ]]; then
+    printf '%s\n' "$QAIRT244_ROOT"
+    return 0
+  fi
+  lami_qairt244_first_existing_dir \
+    "$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225" \
+    /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+    /home/lami-build/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+}
 
 lami_qairt244_fail() {
   if declare -F fail >/dev/null 2>&1; then
@@ -122,7 +156,20 @@ lami_qairt244_build_custom_jni() {
   mkdir -p "$LOG_DIR"
   local timestamp
   timestamp="$(date +%Y%m%d-%H%M%S)"
-  local artifact_dir="$LITERT_CUSTOM_ARTIFACT_ROOT/${timestamp}_qairt244_16token"
+  local litert_lm_checkout
+  local qairt_root
+  litert_lm_checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
+  qairt_root="$(lami_qairt244_resolve_qairt_root || true)"
+  if [[ -z "$litert_lm_checkout" ]]; then
+    echo "missing LiteRT-LM checkout; checked: $HOME/project/litert-custom-build/LiteRT-LM, /home/sato/project/litert-custom-build/LiteRT-LM" >&2
+    exit 65
+  fi
+  if [[ -z "$qairt_root" ]]; then
+    echo "missing QAIRT 2.44 root; checked: $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225, /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225" >&2
+    exit 65
+  fi
+
+  local artifact_dir="$LITERT_CUSTOM_ARTIFACT_ROOT/${timestamp}_${QAIRT244_BUILD_LABEL}"
   local log_file="$LOG_DIR/build-qairt244-custom-jni-${timestamp}.log"
 
   {
@@ -130,15 +177,16 @@ lami_qairt244_build_custom_jni() {
     echo "time=$(date -Is)"
     echo "host=$(hostname)"
     echo "user=$(id -un)"
-    echo "litert_lm_checkout=$LITERT_LM_CHECKOUT"
-    echo "qairt_root=$QAIRT244_ROOT"
+    echo "litert_lm_checkout=$litert_lm_checkout"
+    echo "qairt_root=$qairt_root"
+    echo "label=$QAIRT244_BUILD_LABEL"
     cd "$REPO"
     OUT_DIR="$artifact_dir" \
       BAZEL_OUTPUT_BASE="$HOME/project/litert-custom-build/bazel_output_base/build_$timestamp" \
       scripts/build_litert_custom_artifacts.sh \
-        "$LITERT_LM_CHECKOUT" \
-        --qairt-root "$QAIRT244_ROOT" \
-        --label qairt244_16token
+        "$litert_lm_checkout" \
+        --qairt-root "$qairt_root" \
+        --label "$QAIRT244_BUILD_LABEL"
     lami_qairt244_artifact_has_symbol "$artifact_dir"
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
     readelf -Ws app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so | grep 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt'

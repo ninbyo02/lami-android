@@ -122,12 +122,21 @@ ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 'st
 ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 build-qairt244-custom-jni
 ```
 
-このコマンドは固定パスだけを使います。
+このコマンドは以下の候補パスから存在するものを自動選択します。
 
 ```text
-LiteRT-LM checkout: $HOME/project/litert-custom-build/LiteRT-LM
-QAIRT SDK:          $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225
-output root:        $HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_16token
+LiteRT-LM checkout candidates:
+  $HOME/project/litert-custom-build/LiteRT-LM
+  /home/sato/project/litert-custom-build/LiteRT-LM
+  /home/lami-build/project/litert-custom-build/LiteRT-LM
+
+QAIRT SDK candidates:
+  $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+  /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+  /home/lami-build/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+
+output root:
+  $HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_utf8prompt
 ```
 
 ## 5. ロールバック
