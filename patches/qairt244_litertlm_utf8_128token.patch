@@ -34,7 +34,7 @@ index c6db59ff..56218bbd 100644
  using litert::lm::Engine;
  using litert::lm::EngineFactory;
  using litert::lm::EngineSettings;
-@@ -84,6 +95,360 @@ using litert::lm::Responses;
+@@ -84,6 +95,357 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
 
