@@ -187,25 +187,23 @@ lami_qairt244_artifacts() {
   cd "$REPO"
   printf '# qairt244 artifacts\n'
   printf 'artifact\tstatus\tliblitertlm_jni_sha256\tbuild_id\n'
-  find "$LITERT_CUSTOM_ARTIFACT_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null |
-    sort -rn |
-    awk '{print $2}' |
-    while IFS= read -r artifact; do
-      local lib="$artifact/built_libs/liblitertlm_jni.so"
-      local status="missing-liblitertlm_jni"
-      local sha="-"
-      local build_id="-"
-      if [[ -f "$lib" ]]; then
-        sha="$(sha256sum "$lib" | awk '{print $1}')"
-        build_id="$(readelf -n "$lib" 2>/dev/null | awk '/Build ID:/ {print $3; exit}')"
-        if lami_qairt244_artifact_has_symbol "$artifact"; then
-          status="qairt244-symbol-present"
-        else
-          status="qairt244-symbol-missing"
-        fi
+  while IFS= read -r artifact; do
+    [[ -n "$artifact" ]] || continue
+    local lib="$artifact/built_libs/liblitertlm_jni.so"
+    local status="missing-liblitertlm_jni"
+    local sha="-"
+    local build_id="-"
+    if [[ -f "$lib" ]]; then
+      sha="$(sha256sum "$lib" | awk '{print $1}')"
+      build_id="$(readelf -n "$lib" 2>/dev/null | awk '/Build ID:/ {print $3; exit}')"
+      if lami_qairt244_artifact_has_symbol "$artifact"; then
+        status="qairt244-symbol-present"
+      else
+        status="qairt244-symbol-missing"
       fi
-      printf '%s\t%s\t%s\t%s\n' "$(basename "$artifact")" "$status" "$sha" "$build_id"
-    done
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$(basename "$artifact")" "$status" "$sha" "$build_id"
+  done < <(find "$LITERT_CUSTOM_ARTIFACT_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}' || true)
   printf '\n# qairt244 sdk candidates\n'
   lami_qairt244_sdk_status
 }
