@@ -22,6 +22,7 @@ data class LocalInferenceFailureDiagnostics(
     val unsatisfiedLinkErrorDetected: Boolean,
     val dlopenFailedDetected: Boolean,
     val noUsableDispatchRuntimeDetected: Boolean,
+    val unsupportedModelSignatureDetected: Boolean,
     val missingLibraryNames: List<String>,
     val dispatchApiMissingLikely: Boolean,
     val nativeLibraryDir: String?,
@@ -106,6 +107,7 @@ fun buildLocalInferenceFailureDiagnostics(
             lowerThrowableText.contains("unsatisfiedlinkerror"),
         dlopenFailedDetected = lowerThrowableText.contains("dlopen failed"),
         noUsableDispatchRuntimeDetected = lowerThrowableText.contains("no usable dispatch runtime found"),
+        unsupportedModelSignatureDetected = lowerThrowableText.contains("unsupported model signature"),
         missingLibraryNames = missingLibraryNames,
         dispatchApiMissingLikely = dispatchApiMissingLikely,
         nativeLibraryDir = nativeLibraryDir,
@@ -139,6 +141,7 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     appendLine("UnsatisfiedLinkError detected=${diagnostics.unsatisfiedLinkErrorDetected}")
     appendLine("dlopen failed detected=${diagnostics.dlopenFailedDetected}")
     appendLine("No usable Dispatch runtime found=${diagnostics.noUsableDispatchRuntimeDetected}")
+    appendLine("unsupported_model_signature_detected=${diagnostics.unsupportedModelSignatureDetected}")
     appendLine("missing library names=${diagnostics.missingLibraryNames.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("nativeLibraryDir=${diagnostics.nativeLibraryDir ?: "unknown"}")
     appendLine("nativeLibraryDir exists=${diagnostics.nativeLibraryDirExists}")

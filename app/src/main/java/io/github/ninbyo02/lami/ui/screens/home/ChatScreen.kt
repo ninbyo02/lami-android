@@ -4678,8 +4678,9 @@ fun Home(
                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                 return@launch
                                                             } else {
-                                                                val fallbackFailureMessage =
-                                                                    "NPU推論に失敗し、GPU/CPU fallback でも応答を生成できませんでした。"
+                                                                val fallbackFailureMessage = buildNpuStandardRouteFallbackFailureMessage(
+                                                                    localFailureDiagnosticsText = finalFallbackResult.trace.localFailureDiagnosticsText,
+                                                                )
                                                                 withContext(Dispatchers.IO) {
                                                                     viewModel.insertAssistantMessageAndReturnId(
                                                                         createAssistantMessage(
@@ -15852,6 +15853,20 @@ internal fun resolveNpuStandardRouteLocalFallbackBackend(
         PreferredBackendDryRunSetting.CPU,
         PreferredBackendDryRunSetting.GPU -> preferredBackend
     }
+
+internal fun buildNpuStandardRouteFallbackFailureMessage(
+    localFailureDiagnosticsText: String?,
+): String {
+    val diagnosticsText = localFailureDiagnosticsText.orEmpty()
+    val unsupportedModelSignatureDetected =
+        diagnosticsText.contains("unsupported_model_signature_detected=true", ignoreCase = true) ||
+            diagnosticsText.contains("Unsupported model signature", ignoreCase = true)
+    return if (unsupportedModelSignatureDetected) {
+        "NPU推論エンジンの初期化に失敗しました。選択中のQualcomm向けモデルは、現在のアプリ内ランタイムでは対応していない形式の可能性があります。"
+    } else {
+        "NPU推論に失敗し、GPU/CPU fallback でも応答を生成できませんでした。"
+    }
+}
 
 internal data class NpuStandardRouteS1ModelEligibility(
     val selectedModelName: String,

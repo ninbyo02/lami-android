@@ -117,6 +117,34 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `fallback failure message explains unsupported model signature`() {
+        val message = buildNpuStandardRouteFallbackFailureMessage(
+            localFailureDiagnosticsText = """
+                [Qualcomm Model Failure]
+                failure stage=engine-create
+                unsupported_model_signature_detected=true
+                root cause message=Unsupported model signature.
+            """.trimIndent(),
+        )
+
+        assertTrue(message.contains("NPU推論エンジンの初期化に失敗しました"))
+        assertTrue(message.contains("対応していない形式"))
+    }
+
+    @Test
+    fun `fallback failure message keeps generic text for other failures`() {
+        val message = buildNpuStandardRouteFallbackFailureMessage(
+            localFailureDiagnosticsText = """
+                [Qualcomm Model Failure]
+                unsupported_model_signature_detected=false
+                No usable Dispatch runtime found=true
+            """.trimIndent(),
+        )
+
+        assertEquals("NPU推論に失敗し、GPU/CPU fallback でも応答を生成できませんでした。", message)
+    }
+
+    @Test
     fun `invoker default provider follows build variant provider selection`() {
         val raw = NpuStandardRouteS1Invoker().invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)

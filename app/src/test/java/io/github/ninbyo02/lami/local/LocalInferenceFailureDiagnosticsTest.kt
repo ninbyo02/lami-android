@@ -53,4 +53,27 @@ class LocalInferenceFailureDiagnosticsTest {
         assertTrue(text.contains("dispatch api missing likely=true"))
         assertTrue(text.contains("stacktrace head:"))
     }
+
+    @Test
+    fun `unsupported model signature is detected separately from native link failure`() {
+        val throwable = IllegalStateException(
+            "Failed to initialize engine: FAILED_PRECONDITION: CalculatorGraph::Run() failed: " +
+                "Calculator::Open() for node \"odml.infra.LiteRTResourceCalculator\" failed: " +
+                "Unsupported model signature.",
+        )
+
+        val diagnostics = buildLocalInferenceFailureDiagnostics(
+            context = RuntimeEnvironment.getApplication(),
+            stage = "engine-create",
+            throwable = throwable,
+            selectedModelName = "1782423138966_gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+        )
+        val text = formatLocalInferenceFailureDiagnosticsForDev(diagnostics)
+
+        assertTrue(diagnostics.unsupportedModelSignatureDetected)
+        assertEquals(false, diagnostics.unsatisfiedLinkErrorDetected)
+        assertEquals(false, diagnostics.dlopenFailedDetected)
+        assertTrue(text.contains("unsupported_model_signature_detected=true"))
+        assertTrue(text.contains("root cause message=Failed to initialize engine"))
+    }
 }
