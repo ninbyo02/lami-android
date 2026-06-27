@@ -1,8 +1,24 @@
+diff --git a/WORKSPACE b/WORKSPACE
+index fa35b27d..96776ed5 100644
+--- a/WORKSPACE
++++ b/WORKSPACE
+@@ -377,6 +377,11 @@ http_archive(
+     patch_cmds = [
+         # Replace @//third_party with @litert//third_party in files under third_party/.
+         "sed -i -e 's|\"@//third_party/|\"@litert//third_party/|g' third_party/*/*",
++        # QAIRT244 diagnostic experiment: preserve a DT_NEEDED edge so Android
++        # resolves LiteRt* references from libLiteRt.so when dispatch is dlopen()ed.
++        "sed -i '/ungrte = False,/a\\        dynamic_deps = [],' litert/build_common/litert_build_defs.bzl",
++        "sed -i '/deps = \\[lib_target_ref\\],/a\\        dynamic_deps = dynamic_deps,' litert/build_common/litert_build_defs.bzl",
++        "sed -i '/so_name = \"libLiteRtDispatch_Qualcomm.so\",/a\\    dynamic_deps = [\"//litert/c:litert_runtime_c_api_so\"],' litert/vendors/qualcomm/dispatch/BUILD",
+     ],
+     sha256 = LITERT_SHA256,
+     strip_prefix = "LiteRT-" + LITERT_REF,
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 index c6db59ff..56218bbd 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -15,6 +15,11 @@
+@@ -15,6 +15,12 @@
  #include <jni.h>
  #include <sys/stat.h>
 
@@ -11,6 +27,7 @@ index c6db59ff..56218bbd 100644
 +#include <cstdint>
 +#include <cstdio>
 +#include <cstring>
++#include <dlfcn.h>
  #include <memory>
  #include <optional>
  #include <string>
@@ -34,7 +51,7 @@ index c6db59ff..56218bbd 100644
  using litert::lm::Engine;
  using litert::lm::EngineFactory;
  using litert::lm::EngineSettings;
-@@ -84,6 +95,357 @@ using litert::lm::Responses;
+@@ -84,6 +95,387 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
 
@@ -68,6 +85,36 @@ index c6db59ff..56218bbd 100644
 +  std::fprintf(file, "\n");
 +  std::fflush(file);
 +  std::fclose(file);
++}
++
++void PreloadQairt244QnnRuntimeLibraries(const std::string& native_library_dir,
++                                        const char* diag_path,
++                                        const char* marker) {
++  if (native_library_dir.empty()) {
++    AppendQairt244Diag(diag_path, "%s qnn_preload_skipped reason=empty_native_library_dir", marker);
++    return;
++  }
++  const char* libs[] = {
++      "libLiteRt.so",
++      "liblitertlm_jni.so",
++      "libQnnSystem.so",
++      "libQnnHtp.so",
++      "libQnnHtpPrepare.so",
++      "libQnnHtpV79Stub.so",
++      "libQnnDsp.so",
++      "libQnnGpu.so",
++      "libLiteRtDispatch_Qualcomm.so",
++  };
++  for (const char* lib : libs) {
++    const std::string path = native_library_dir + "/" + lib;
++    dlerror();
++    void* handle = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL);
++    const char* error = dlerror();
++    AppendQairt244Diag(
++        diag_path, "%s qnn_preload lib=%s status=%s error=%s",
++        marker, lib, handle != nullptr ? "loaded" : "failed",
++        error != nullptr ? error : "none");
++  }
 +}
 +
 +bool GetOptionalJString(JNIEnv* env, jstring value, std::string* out,
@@ -661,7 +708,7 @@ index c6db59ff..56218bbd 100644
    return reinterpret_cast<jlong>(engine->release());
  }
 
-@@ -667,6 +1215,848 @@ JNI_METHOD(nativeRunDecode)(JNIEnv* env, jclass thiz, jlong session_pointer) {
+@@ -667,6 +1215,853 @@ JNI_METHOD(nativeRunDecode)(JNIEnv* env, jclass thiz, jlong session_pointer) {
    return NewStringStandardUTF(env, responses->GetTexts()[0]);
  }
 
@@ -1165,7 +1212,8 @@ index c6db59ff..56218bbd 100644
 +Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt(
 +    JNIEnv* env, jclass thiz, jstring model_path,
 +    jstring native_library_dir, jstring cache_dir, jstring result_path,
-+    jstring diag_path, jstring prompt, jint max_output_tokens) {
++    jstring diag_path, jstring prompt, jstring prompt_input_limit_mode,
++    jint max_output_tokens) {
 +  const absl::Time start_time = absl::Now();
 +  long model_assets_elapsed_ms = -1;
 +  long settings_elapsed_ms = -1;
@@ -1319,6 +1367,10 @@ index c6db59ff..56218bbd 100644
 +    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
 +    return nullptr;
 +  }
++
++  PreloadQairt244QnnRuntimeLibraries(native_library_dir_str,
++                                     diag_path_str.c_str(),
++                                     kQairt244EditablePromptMarker);
 +
 +  AppendQairt244Diag(diag_path_str.c_str(), "%s before ModelAssets::Create",
 +                     kQairt244EditablePromptMarker);

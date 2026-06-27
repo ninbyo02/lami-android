@@ -197,6 +197,24 @@ lami_qairt244_resolve_artifact_dir() {
   exit 65
 }
 
+lami_qairt244_dump_customnpu_private_diag() {
+  local package="io.github.ninbyo02.lami.customnpu"
+  printf '\n# customnpu private diagnostics\n'
+  adb devices -l || true
+  for file in \
+    qairt244_short_multitoken_smoke_result.txt \
+    qairt244_native_diag.txt \
+    qairt244_chat_screen_model_path_resolution.txt \
+    qairt244_diagnostic_runner_summary.txt; do
+    printf '\n===== files/%s =====\n' "$file"
+    adb exec-out run-as "$package" cat "files/$file" 2>/dev/null || true
+  done
+  printf '\n===== logcat crash buffer =====\n'
+  adb logcat -d -b crash -v time 2>/dev/null | tail -300 || true
+  printf '\n===== logcat lami/native tail =====\n'
+  adb logcat -d -v time 2>/dev/null | grep -Ei 'FATAL EXCEPTION|DEBUG|backtrace|tombstone|signal |Abort|liblitertlm|LiteRT|QNN|HTP|Qairt|QAIRT|lami|customnpu' | tail -300 || true
+}
+
 lami_qairt244_artifacts() {
   cd "$REPO"
   printf '# qairt244 artifacts\n'
@@ -220,6 +238,7 @@ lami_qairt244_artifacts() {
   done < <(find "$LITERT_CUSTOM_ARTIFACT_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}' || true)
   printf '\n# qairt244 sdk candidates\n'
   lami_qairt244_sdk_status
+  lami_qairt244_dump_customnpu_private_diag || true
 }
 
 lami_qairt244_stage_custom_jni() {

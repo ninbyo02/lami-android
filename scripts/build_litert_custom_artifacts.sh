@@ -397,6 +397,22 @@ if [ -f "$GEMMA_PROVIDER_PREBUILT" ]; then
   printf '%s\n' "$GEMMA_PROVIDER_PREBUILT" >>"$OUT_DIR/built_lib_candidates.txt"
 fi
 
+if [ -n "${QAIRT_ROOT:-}" ] && [ -d "$QAIRT_ROOT" ]; then
+  mkdir -p "$OUT_DIR/qnn_runtime_libs"
+  for qnn_path in \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnSystem.so" \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnHtp.so" \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnHtpPrepare.so" \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnHtpV79Stub.so" \
+    "$QAIRT_ROOT/lib/hexagon-v79/unsigned/libQnnHtpV79Skel.so" \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnDsp.so" \
+    "$QAIRT_ROOT/lib/aarch64-android/libQnnGpu.so"; do
+    if [ -f "$qnn_path" ]; then
+      cp -f "$qnn_path" "$OUT_DIR/qnn_runtime_libs/$(basename "$qnn_path")"
+    fi
+  done
+fi
+
 for file in "$OUT_DIR"/built_libs/*.so; do
   [ -f "$file" ] || continue
   extract_metadata "$file" "built" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings"
