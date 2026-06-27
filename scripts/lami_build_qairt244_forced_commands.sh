@@ -8,6 +8,7 @@
 #   qairt244-artifacts
 #   stage-qairt244-custom-jni [artifact-dir-basename]
 #   build-qairt244-custom-jni
+#   qairt244-sdk-status
 #
 # Required globals from the parent controller are optional; sane defaults are used:
 #   REPO, LOG_DIR, CMD, fail
@@ -97,6 +98,40 @@ lami_qairt244_resolve_qairt_root() {
     "$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225" \
     /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
     /home/lami-build/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+}
+
+lami_qairt244_sdk_status() {
+  local path real required note
+  printf 'candidate\texists\trealpath\trequired_files\tnote\n'
+  for path in \
+    "$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225" \
+    /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+    /home/lami-build/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+    "$HOME/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225" \
+    /home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225 \
+    /home/lami-build/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225 \
+    "$HOME/compose/qairt/workspace/sdk/qairt/2.46.0.260424" \
+    /home/sato/compose/qairt/workspace/sdk/qairt/2.46.0.260424 \
+    /home/lami-build/compose/qairt/workspace/sdk/qairt/2.46.0.260424; do
+    if [[ -e "$path" ]]; then
+      real="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
+      required="missing"
+      if [[ -f "$path/bin/envsetup.sh" && \
+            -f "$path/bin/x86_64-linux-clang/qnn-net-run" && \
+            -f "$path/lib/aarch64-android/libQnnSystem.so" && \
+            -f "$path/lib/aarch64-android/libQnnHtp.so" ]]; then
+        required="present"
+      fi
+      note="candidate"
+      case "$real" in
+        *2.46.0.260424*) note="2.46_or_overlay_not_exact_2.44" ;;
+        *2.44.0.260225*) note="path_matches_2.44" ;;
+      esac
+      printf '%s\ttrue\t%s\t%s\t%s\n' "$path" "$real" "$required" "$note"
+    else
+      printf '%s\tfalse\t-\t-\tmissing\n' "$path"
+    fi
+  done
 }
 
 lami_qairt244_fail() {
@@ -261,6 +296,10 @@ lami_qairt244_dispatch() {
       lami_qairt244_build_custom_jni
       return 0
       ;;
+    qairt244-sdk-status)
+      lami_qairt244_sdk_status
+      return 0
+      ;;
   esac
   return 1
 }
@@ -270,5 +309,6 @@ lami_qairt244_help() {
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
+  qairt244-sdk-status
 EOF
 }

@@ -63,6 +63,7 @@ if 'qairt244-artifacts|stage-qairt244-custom-jni*)' not in text:
 help_lines = '''  qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
+  qairt244-sdk-status
 '''
 if 'stage-qairt244-custom-jni [artifact-dir-basename]' not in text:
     # Prefer inserting near adb-devices in the static help text if present.
