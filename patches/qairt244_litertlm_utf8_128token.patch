@@ -297,13 +297,10 @@ index c6db59ff..56218bbd 100644
 +    if (c == '\0') {
 +      return "contains_nul";
 +    }
-+    if (c == '\n' || c == '\r') {
-+      return "contains_newline";
++    if (c < 0x20 && c != '\n' && c != '\r' && c != '\t') {
++      return "contains_control_char";
 +    }
-+    if (c == '\t') {
-+      return "contains_tab";
-+    }
-+    if (c < 0x20 || c == 0x7f) {
++    if (c == 0x7f) {
 +      return "contains_control_char";
 +    }
 +  }
@@ -312,7 +309,7 @@ index c6db59ff..56218bbd 100644
 +                                              &code_point_count)) {
 +    return "invalid_utf8";
 +  }
-+  if (code_point_count > 32) {
++  if (code_point_count > 4096) {
 +    return "too_long";
 +  }
 +  return "ok";
