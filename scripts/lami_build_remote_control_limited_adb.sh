@@ -81,9 +81,78 @@ run_install_future() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+validate_pair_code() {
+  local code="$1"
+  [[ "$code" =~ ^[0-9]{6}$ ]] || fail
+}
+
+run_adb_pair() {
+  local host="$1"
+  local port="$2"
+  local code="$3"
+  validate_host "$host"
+  validate_port "$port"
+  validate_pair_code "$code"
+
+  mkdir -p "$LOG_DIR"
+  local timestamp
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  local log_file="$LOG_DIR/adb-pair-${timestamp}-${host}-${port}.log"
+
+  {
+    echo "== LAMI adb pair =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_pair_target=${host}:${port}"
+    adb pair "${host}:${port}" "$code"
+    adb devices -l || true
+    echo "== ADB PAIR OK =="
+  } 2>&1 | tee "$log_file"
+
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
+run_adb_connect() {
+  local host="$1"
+  local port="$2"
+  validate_host "$host"
+  validate_port "$port"
+
+  mkdir -p "$LOG_DIR"
+  local timestamp
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  local log_file="$LOG_DIR/adb-connect-${timestamp}-${host}-${port}.log"
+
+  {
+    echo "== LAMI adb connect =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_target=${host}:${port}"
+    adb connect "${host}:${port}"
+    adb devices -l || true
+    echo "== ADB CONNECT OK =="
+  } 2>&1 | tee "$log_file"
+
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 case "$CMD" in
   adb-devices)
     adb devices -l
+    ;;
+  adb-pair\ *)
+    # shellcheck disable=SC2206 # SSH_ORIGINAL_COMMAND is intentionally split after validation.
+    parts=($CMD)
+    [[ "${#parts[@]}" -eq 4 ]] || fail
+    run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}"
+    ;;
+  adb-connect\ *)
+    # shellcheck disable=SC2206 # SSH_ORIGINAL_COMMAND is intentionally split after validation.
+    parts=($CMD)
+    [[ "${#parts[@]}" -eq 3 ]] || fail
+    run_adb_connect "${parts[1]}" "${parts[2]}"
     ;;
   qairt244-artifacts|stage-qairt244-custom-jni*)
     lami_qairt244_dispatch "$CMD"
@@ -101,6 +170,8 @@ case "$CMD" in
     cat <<'EOF'
 allowed ADB/install/qairt244 commands:
   adb-devices
+  adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
+  adb-connect <10.5.5.3|192.168.52.52> <connect-port>
 EOF
     lami_qairt244_help
     cat <<'EOF'
