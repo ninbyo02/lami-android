@@ -145,6 +145,50 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `fallback reason explains unsupported model signature`() {
+        val reason = buildNpuStandardRouteFallbackReason(
+            s1Reason = "adapter_failure:UnsatisfiedLinkError",
+            localFailureDiagnosticsText = """
+                [Qualcomm Model Failure]
+                unsupported_model_signature_detected=true
+                root cause message=Unsupported model signature.
+            """.trimIndent(),
+        )
+
+        assertEquals("adapter_failure:UnsupportedModelSignature", reason)
+    }
+
+    @Test
+    fun `fallback reason keeps original reason for other failures`() {
+        val reason = buildNpuStandardRouteFallbackReason(
+            s1Reason = "adapter_failure:UnsatisfiedLinkError",
+            localFailureDiagnosticsText = """
+                [Qualcomm Model Failure]
+                unsupported_model_signature_detected=false
+                No usable Dispatch runtime found=true
+            """.trimIndent(),
+        )
+
+        assertEquals("adapter_failure:UnsatisfiedLinkError", reason)
+    }
+
+    @Test
+    fun `fallback S1 display text replaces only reason line`() {
+        val text = buildNpuStandardRouteFallbackS1DisplayText(
+            s1DisplayText = """
+                NPU STANDARD ROUTE S1
+                status=failure
+                reason=adapter_failure:UnsatisfiedLinkError
+                native_error_message=UnsatisfiedLinkError text should stay for raw evidence
+            """.trimIndent(),
+            normalizedFallbackReason = "adapter_failure:UnsupportedModelSignature",
+        )
+
+        assertTrue(text.contains("reason=adapter_failure:UnsupportedModelSignature"))
+        assertTrue(text.contains("native_error_message=UnsatisfiedLinkError text should stay for raw evidence"))
+    }
+
+    @Test
     fun `invoker default provider follows build variant provider selection`() {
         val raw = NpuStandardRouteS1Invoker().invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
