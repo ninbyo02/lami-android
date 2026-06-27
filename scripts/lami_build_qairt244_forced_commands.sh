@@ -165,7 +165,10 @@ lami_qairt244_artifact_has_symbol() {
   local artifact_dir="$1"
   local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
   [[ -f "$lib" ]] || return 1
-  readelf -Ws "$lib" 2>/dev/null | grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt'
+  readelf -Ws "$lib" 2>/dev/null | awk '
+    index($0, "Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt") { found = 1 }
+    END { exit found ? 0 : 1 }
+  '
 }
 
 lami_qairt244_resolve_artifact_dir() {
