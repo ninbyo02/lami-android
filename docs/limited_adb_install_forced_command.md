@@ -96,6 +96,11 @@ The command auto-detects the LiteRT-LM checkout and QAIRT SDK from the
 `$HOME`, `/home/sato`, and `/home/lami-build` candidate paths documented in
 `docs/build_pc_qairt244_forced_command_update.md`, then writes to
 `$HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_utf8prompt`.
+If LiteRT-LM is missing, the command clones
+`https://github.com/google-ai-edge/LiteRT-LM.git`, checks out `v0.11.0`, resets
+that external checkout, and applies
+`patches/qairt244_litertlm_utf8_128token_128input.patch`. It does not download
+QAIRT; QAIRT `2.44.0.260225` must already exist in one of the candidate paths.
 
 It builds only the limited target list in `scripts/build_litert_custom_artifacts.sh`, verifies the qairt244 JNI symbol, then stages with `scripts/stage_litert_custom_build_stack_for_experiment.sh`.
 

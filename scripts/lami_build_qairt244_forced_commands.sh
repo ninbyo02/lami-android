@@ -19,6 +19,9 @@
 : "${LITERT_LM_CHECKOUT:=}"
 : "${QAIRT244_ROOT:=}"
 : "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_utf8prompt}"
+: "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
+: "${LITERT_LM_REF:=v0.11.0}"
+: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_128input.patch}"
 
 lami_qairt244_first_existing_dir() {
   local path
@@ -40,6 +43,49 @@ lami_qairt244_resolve_litert_lm_checkout() {
     "$HOME/project/litert-custom-build/LiteRT-LM" \
     /home/sato/project/litert-custom-build/LiteRT-LM \
     /home/lami-build/project/litert-custom-build/LiteRT-LM
+}
+
+lami_qairt244_default_litert_lm_checkout() {
+  printf '%s\n' "$HOME/project/litert-custom-build/LiteRT-LM"
+}
+
+lami_qairt244_ensure_litert_lm_checkout() {
+  local checkout
+  checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
+  if [[ -z "$checkout" ]]; then
+    checkout="$(lami_qairt244_default_litert_lm_checkout)"
+    mkdir -p "$(dirname "$checkout")"
+    echo "cloning LiteRT-LM into $checkout" >&2
+    git clone "$LITERT_LM_REPO" "$checkout" >&2
+  fi
+
+  if [[ ! -d "$checkout/.git" ]]; then
+    echo "LiteRT-LM checkout is not a git repo: $checkout" >&2
+    exit 65
+  fi
+
+  git -C "$checkout" fetch --tags origin >&2
+  git -C "$checkout" checkout "$LITERT_LM_REF" >&2
+  git -C "$checkout" reset --hard "$LITERT_LM_REF" >&2
+  git -C "$checkout" clean -fdx >&2
+
+  if [[ ! -f "$QAIRT244_PATCH" ]]; then
+    echo "missing qairt244 patch: $QAIRT244_PATCH" >&2
+    exit 65
+  fi
+  if git -C "$checkout" apply --check "$QAIRT244_PATCH"; then
+    git -C "$checkout" apply "$QAIRT244_PATCH"
+  else
+    echo "qairt244 patch does not apply cleanly to $LITERT_LM_REF" >&2
+    exit 65
+  fi
+
+  if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' \
+    "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
+    echo "patched LiteRT-LM checkout is missing nativeRunEditablePrompt marker" >&2
+    exit 65
+  fi
+  printf '%s\n' "$checkout"
 }
 
 lami_qairt244_resolve_qairt_root() {
@@ -158,12 +204,8 @@ lami_qairt244_build_custom_jni() {
   timestamp="$(date +%Y%m%d-%H%M%S)"
   local litert_lm_checkout
   local qairt_root
-  litert_lm_checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
+  litert_lm_checkout="$(lami_qairt244_ensure_litert_lm_checkout)"
   qairt_root="$(lami_qairt244_resolve_qairt_root || true)"
-  if [[ -z "$litert_lm_checkout" ]]; then
-    echo "missing LiteRT-LM checkout; checked: $HOME/project/litert-custom-build/LiteRT-LM, /home/sato/project/litert-custom-build/LiteRT-LM" >&2
-    exit 65
-  fi
   if [[ -z "$qairt_root" ]]; then
     echo "missing QAIRT 2.44 root; checked: $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225, /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225" >&2
     exit 65

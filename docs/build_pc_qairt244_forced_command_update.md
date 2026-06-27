@@ -122,7 +122,7 @@ ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 'st
 ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 build-qairt244-custom-jni
 ```
 
-このコマンドは以下の候補パスから存在するものを自動選択します。
+このコマンドは以下の候補パスから存在するものを自動選択します。LiteRT-LM checkout が無い場合は、固定URL `https://github.com/google-ai-edge/LiteRT-LM.git` から `$HOME/project/litert-custom-build/LiteRT-LM` へcloneし、`v0.11.0` をcheckoutして `patches/qairt244_litertlm_utf8_128token_128input.patch` を適用します。
 
 ```text
 LiteRT-LM checkout candidates:
@@ -138,6 +138,8 @@ QAIRT SDK candidates:
 output root:
   $HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_utf8prompt
 ```
+
+QAIRT SDKは自動downloadしません。`2.44.0.260225` が候補パスに無い場合は、Qualcomm SDKの配置が別途必要です。
 
 ## 5. ロールバック
 
