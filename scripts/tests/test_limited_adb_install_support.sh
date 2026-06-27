@@ -19,12 +19,13 @@ grep -q 'validate_adb_port' update.sh || fail "update.sh should validate ADB por
 grep -q 'adb connect "${phone_host}:${port}"' update.sh || fail "update.sh should use the selected phone host for adb connect"
 
 test -f scripts/lami_build_remote_control_limited_adb.sh || fail "limited ADB remote_control template missing"
+test -f scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 forced-command extension missing"
 grep -q 'install-future' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose install-future"
 grep -q 'adb-devices' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose adb-devices"
 grep -q 'validate_host' scripts/lami_build_remote_control_limited_adb.sh || fail "template should validate host allowlist"
 grep -q 'qairt244-artifacts' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 artifact listing"
 grep -q 'stage-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI staging"
 grep -q 'build-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI build+stage"
-grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' scripts/lami_build_remote_control_limited_adb.sh || fail "template should verify the qairt244 nativeRunEditablePrompt JNI symbol"
+grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should verify the nativeRunEditablePrompt JNI symbol"
 
 echo "limited ADB install support checks passed"
