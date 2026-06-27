@@ -97,7 +97,7 @@ internal class RealNpuStandardRouteS1Provider(
             val nativeLinkDiagnostics = buildNpuNativeLinkFailureDiagnostics(
                 throwable = throwable,
                 javaLibraryPath = System.getProperty("java.library.path"),
-                supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
             )
             val reason = if (nativeLinkDiagnostics.detected) {
                 NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON
