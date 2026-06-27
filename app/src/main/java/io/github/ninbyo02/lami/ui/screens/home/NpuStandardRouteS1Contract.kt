@@ -101,6 +101,7 @@ internal data class NpuStandardRouteS1Result(
         timing = timing,
         s2DbReason = s2DbReason,
         s5TtsDiagnostics = s5TtsDiagnostics,
+        nativeDiagnostics = nativeDiagnostics,
         inputPrompt = inputPrompt,
     ),
 ) {
@@ -175,6 +176,7 @@ internal data class NpuStandardRouteS1Result(
                 timing = timing,
                 s2DbReason = s2DbReason,
                 s5TtsDiagnostics = s5TtsDiagnostics,
+                nativeDiagnostics = nativeDiagnostics,
                 inputPrompt = inputPrompt,
             ),
         )
@@ -285,6 +287,7 @@ internal object NpuStandardRouteS1Contract {
         timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
         s2DbReason: String = "",
         s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
+        nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
         inputPrompt: String = "",
     ): String {
         val sideEffects = selection.sideEffects
@@ -317,6 +320,15 @@ internal object NpuStandardRouteS1Contract {
             npuModelEligible?.let { "npu_model_eligible=$it" },
             "status=$status",
             "reason=$reason",
+            "native_error_class=${nativeDiagnostics.nativeErrorClass}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_message=${nativeDiagnostics.nativeErrorMessage}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_stage=${nativeDiagnostics.nativeErrorStage}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_source=${nativeDiagnostics.nativeErrorSource}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_link_failure_detected=${nativeDiagnostics.nativeLinkFailureDetected}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_link_failure_library=${nativeDiagnostics.nativeLinkFailureLibrary}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_load_order=${nativeDiagnostics.nativeLoadOrder}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "java_library_path=${nativeDiagnostics.javaLibraryPath}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "supported_abis=${nativeDiagnostics.supportedAbis}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
             "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
             "prompt_tail_variant=${selection.promptTailVariant}",
             "prompt_wrapper_used=$PROMPT_WRAPPER_USED",
@@ -383,4 +395,14 @@ internal object NpuStandardRouteS1Contract {
         value?.takeIf { it.isFinite() && it >= 0.0 }?.let {
             String.format(Locale.US, "%.1f", it)
         } ?: "n/a"
+
+    private fun shouldShowNpuS1NativeFailureDiagnostics(
+        status: String,
+        nativeDiagnostics: NpuS1NativeStageDiagnostics,
+    ): Boolean = status != STATUS_SUCCESS && (
+        nativeDiagnostics.nativeErrorClass.isNotBlank() ||
+            nativeDiagnostics.nativeErrorMessage.isNotBlank() ||
+            nativeDiagnostics.nativeLinkFailureDetected.isNotBlank() ||
+            nativeDiagnostics.nativeDiagTail.isNotBlank()
+        )
 }

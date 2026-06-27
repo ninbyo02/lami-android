@@ -93,6 +93,40 @@ class NpuStandardRouteS1ContractTest {
     }
 
     @Test
+    fun `failure display includes native link diagnostics`() {
+        val result = NpuStandardRouteS1Result(
+            selection = NpuStandardRouteS1Selection(enabled = true),
+            status = "failure",
+            reason = "adapter_failure:UnsatisfiedLinkError",
+            rawOutput = "",
+            sanitizedOutput = "",
+            qualityClassification = NPU_S1_OUTPUT_QUALITY_UNKNOWN,
+            runDecodeReached = false,
+            npuBackendEvidence = "",
+            fallbackUsed = false,
+            timeout = false,
+            freshCrash = false,
+            nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                nativeErrorClass = "UnsatisfiedLinkError",
+                nativeErrorMessage = "dlopen failed: library \"libLiteRt.so\" not found",
+                nativeErrorStage = "native_call",
+                nativeErrorSource = "throwable",
+                nativeLinkFailureDetected = "true",
+                nativeLinkFailureLibrary = "libLiteRt.so",
+                nativeLoadOrder = "litertlm_jni>lami_npu_persistent_holder_stub",
+                javaLibraryPath = "/data/app/lib/arm64",
+                supportedAbis = "arm64-v8a",
+            ),
+        )
+
+        assertTrue(result.displayText.contains("reason=adapter_failure:UnsatisfiedLinkError"))
+        assertTrue(result.displayText.contains("native_error_class=UnsatisfiedLinkError"))
+        assertTrue(result.displayText.contains("native_error_message=dlopen failed: library \"libLiteRt.so\" not found"))
+        assertTrue(result.displayText.contains("native_link_failure_library=libLiteRt.so"))
+        assertTrue(result.displayText.contains("native_load_order=litertlm_jni>lami_npu_persistent_holder_stub"))
+    }
+
+    @Test
     fun `mixed language classification can pass when quality candidate is safe`() {
         val result = successResult(
             rawOutput = "私はLamiです。よろしくお願いします。",
