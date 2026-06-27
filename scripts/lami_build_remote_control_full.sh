@@ -230,6 +230,38 @@ run_adb_start_app() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+run_adb_dump_customnpu_diag() {
+  local host="$1" port="$2"
+  validate_host "$host"
+  validate_port "$port"
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file package
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/adb-dump-customnpu-diag-${timestamp}-${host}-${port}.log"
+  package="io.github.ninbyo02.lami.customnpu"
+  {
+    echo "== LAMI adb dump customnpu diag =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_target=${host}:${port}"
+    echo "package=${package}"
+    adb connect "${host}:${port}"
+    for file in \
+      qairt244_short_multitoken_smoke_result.txt \
+      qairt244_native_diag.txt \
+      qairt244_chat_screen_model_path_resolution.txt \
+      qairt244_diagnostic_runner_summary.txt; do
+      echo
+      echo "===== files/${file} ====="
+      adb -s "${host}:${port}" exec-out run-as "$package" cat "files/${file}" 2>/dev/null || true
+    done
+    echo
+    echo "== ADB DUMP CUSTOMNPU DIAG OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 run_logcat() {
   local kind="$1" timestamp log_file
   mkdir -p "$LOG_DIR"
@@ -268,6 +300,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_connect "${parts[1]}" "${parts[2]}" ;;
   adb-start-app\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_adb_start_app "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
+  adb-dump-customnpu-diag\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
   qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
@@ -304,6 +338,7 @@ allowed commands:
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
+  adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
