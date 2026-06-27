@@ -18,10 +18,10 @@
 : "${LITERT_CUSTOM_ARTIFACT_ROOT:=$REPO/artifacts/litert_custom_build}"
 : "${LITERT_LM_CHECKOUT:=}"
 : "${QAIRT244_ROOT:=}"
-: "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_utf8prompt}"
+: "${QAIRT244_BUILD_LABEL:=qairt244_128token_utf8prompt}"
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
 : "${LITERT_LM_REF:=v0.11.0}"
-: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_128input.patch}"
+: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
 
 lami_qairt244_first_existing_dir() {
   local path
