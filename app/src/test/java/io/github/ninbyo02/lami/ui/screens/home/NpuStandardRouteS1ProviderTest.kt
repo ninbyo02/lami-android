@@ -145,9 +145,8 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `fallback reason explains unsupported model signature`() {
-        val reason = buildNpuStandardRouteFallbackReason(
-            s1Reason = "adapter_failure:UnsatisfiedLinkError",
+    fun `fallback local failure reason explains unsupported model signature without changing S1 reason`() {
+        val reason = buildNpuStandardRouteFallbackLocalFailureReason(
             localFailureDiagnosticsText = """
                 [Qualcomm Model Failure]
                 unsupported_model_signature_detected=true
@@ -159,9 +158,8 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `fallback reason keeps original reason for other failures`() {
-        val reason = buildNpuStandardRouteFallbackReason(
-            s1Reason = "adapter_failure:UnsatisfiedLinkError",
+    fun `fallback local failure reason is unavailable for other failures`() {
+        val reason = buildNpuStandardRouteFallbackLocalFailureReason(
             localFailureDiagnosticsText = """
                 [Qualcomm Model Failure]
                 unsupported_model_signature_detected=false
@@ -169,23 +167,7 @@ class NpuStandardRouteS1ProviderTest {
             """.trimIndent(),
         )
 
-        assertEquals("adapter_failure:UnsatisfiedLinkError", reason)
-    }
-
-    @Test
-    fun `fallback S1 display text replaces only reason line`() {
-        val text = buildNpuStandardRouteFallbackS1DisplayText(
-            s1DisplayText = """
-                NPU STANDARD ROUTE S1
-                status=failure
-                reason=adapter_failure:UnsatisfiedLinkError
-                native_error_message=UnsatisfiedLinkError text should stay for raw evidence
-            """.trimIndent(),
-            normalizedFallbackReason = "adapter_failure:UnsupportedModelSignature",
-        )
-
-        assertTrue(text.contains("reason=adapter_failure:UnsupportedModelSignature"))
-        assertTrue(text.contains("native_error_message=UnsatisfiedLinkError text should stay for raw evidence"))
+        assertEquals("unavailable", reason)
     }
 
     @Test

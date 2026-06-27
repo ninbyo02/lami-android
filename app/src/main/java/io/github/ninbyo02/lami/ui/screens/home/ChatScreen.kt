@@ -4637,23 +4637,19 @@ fun Home(
                                                                 }
                                                             val finalFallbackResponse =
                                                                 finalFallbackResult.response?.trim().orEmpty()
-                                                            val normalizedFallbackReason = buildNpuStandardRouteFallbackReason(
-                                                                s1Reason = s1Result.reason,
+                                                            val fallbackLocalFailureReason = buildNpuStandardRouteFallbackLocalFailureReason(
                                                                 localFailureDiagnosticsText = finalFallbackResult.trace.localFailureDiagnosticsText,
-                                                            )
-                                                            val finalFallbackS1DisplayText = buildNpuStandardRouteFallbackS1DisplayText(
-                                                                s1DisplayText = s1DisplayTextWithMemory,
-                                                                normalizedFallbackReason = normalizedFallbackReason,
                                                             )
                                                             val fallbackDiagnostics = buildString {
                                                                 appendLine("npu_standard_route_fallback_used=true")
                                                                 appendLine("npu_standard_route_fallback_backend=${finalFallbackBackend.name}")
-                                                                appendLine("npu_standard_route_fallback_reason=$normalizedFallbackReason")
+                                                                appendLine("npu_standard_route_fallback_reason=${s1Result.reason}")
+                                                                appendLine("npu_standard_route_fallback_local_failure_reason=$fallbackLocalFailureReason")
                                                                 appendLine("npu_standard_route_fallback_state=${finalFallbackResult.state}")
                                                                 appendLine("npu_standard_route_fallback_response_length=${finalFallbackResponse.length}")
                                                                 appendLine("npu_standard_route_gpu_fallback_state=${fallbackResult.state}")
                                                                 appendLine("npu_standard_route_cpu_fallback_state=${cpuFallbackResult?.state ?: "not_attempted"}")
-                                                                appendLine(finalFallbackS1DisplayText)
+                                                                appendLine(s1DisplayTextWithMemory)
                                                                 finalFallbackResult.trace.localFailureDiagnosticsText
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?.let { appendLine(it) }
@@ -15873,30 +15869,16 @@ internal fun buildNpuStandardRouteFallbackFailureMessage(
     }
 }
 
-internal fun buildNpuStandardRouteFallbackReason(
-    s1Reason: String,
+internal fun buildNpuStandardRouteFallbackLocalFailureReason(
     localFailureDiagnosticsText: String?,
 ): String {
     val diagnosticsText = localFailureDiagnosticsText.orEmpty()
     return if (isUnsupportedModelSignatureFailure(diagnosticsText)) {
         "adapter_failure:UnsupportedModelSignature"
     } else {
-        s1Reason
+        "unavailable"
     }
 }
-
-internal fun buildNpuStandardRouteFallbackS1DisplayText(
-    s1DisplayText: String,
-    normalizedFallbackReason: String,
-): String = s1DisplayText
-    .lineSequence()
-    .joinToString("\n") { line ->
-        if (line.startsWith("reason=")) {
-            "reason=$normalizedFallbackReason"
-        } else {
-            line
-        }
-    }
 
 private fun isUnsupportedModelSignatureFailure(diagnosticsText: String): Boolean =
     diagnosticsText.contains("unsupported_model_signature_detected=true", ignoreCase = true) ||
