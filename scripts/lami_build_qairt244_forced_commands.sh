@@ -156,7 +156,7 @@ lami_qairt244_fail() {
 
 lami_qairt244_validate_artifact_basename() {
   local name="$1"
-  [[ "$name" =~ ^[0-9]{8}_[0-9]{6}_[A-Za-z0-9._-]+$ ]] || lami_qairt244_fail
+  [[ "$name" =~ ^[0-9]{8}[-_][0-9]{6}_[A-Za-z0-9._-]+$ ]] || lami_qairt244_fail
   [[ "$name" != *..* ]] || lami_qairt244_fail
   [[ "$name" != */* ]] || lami_qairt244_fail
   printf '%s\n' "$name"
@@ -165,9 +165,10 @@ lami_qairt244_validate_artifact_basename() {
 lami_qairt244_artifact_has_symbol() {
   local artifact_dir="$1"
   local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
+  local symbol="Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt"
   [[ -f "$lib" ]] || return 1
-  readelf -Ws "$lib" 2>/dev/null | awk '
-    index($0, "Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt") { found = 1 }
+  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$symbol" '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
     END { exit found ? 0 : 1 }
   '
 }
@@ -260,7 +261,7 @@ lami_qairt244_stage_custom_jni() {
     echo "artifact=$artifact_dir"
     cd "$REPO"
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
-    readelf -Ws app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so | grep 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt'
+    lami_qairt244_artifact_has_symbol "$artifact_dir"
     git status --short -- app/src/customBuildExperimentDebug/jniLibs/arm64-v8a || true
     echo "== STAGE OK =="
   } 2>&1 | tee "$log_file"
@@ -301,7 +302,7 @@ lami_qairt244_build_custom_jni() {
         --label "$QAIRT244_BUILD_LABEL"
     lami_qairt244_artifact_has_symbol "$artifact_dir"
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
-    readelf -Ws app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so | grep 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt'
+    lami_qairt244_artifact_has_symbol "$artifact_dir"
     echo "== BUILD+STAGE OK =="
   } 2>&1 | tee "$log_file"
 
