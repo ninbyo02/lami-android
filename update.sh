@@ -18,7 +18,7 @@ WIP_MESSAGE="${WIP_PREFIX} before update.sh"
 STASH_MESSAGE="stash(auto): before update.sh"
 DEFAULT_PHONE_HOST="10.5.5.3"
 PHONE_IP="$DEFAULT_PHONE_HOST" # Backward-compatible alias for older local notes.
-ALLOWED_PHONE_HOSTS=("10.5.5.3" "192.168.52.52")
+ALLOWED_PHONE_HOSTS=("10.1.0.2" "10.5.5.3" "192.168.52.52")
 DEFAULT_PORT="40215"
 DEFAULT_ANDROID_FLAVOR="standard"
 VERBOSE=0
@@ -59,7 +59,7 @@ Subcommands:
   ./update.sh promote [options]     # merge current branch into main, build, push, then install stable(main)
 
 update options:
-  --host HOST          ADB connect host (allowed: 10.5.5.3, 192.168.52.52; default: 10.5.5.3)
+  --host HOST          ADB connect host (allowed: 10.1.0.2, 10.5.5.3, 192.168.52.52; default: 10.5.5.3)
   --port|-p PORT        ADB connect port (default: 40215)
   --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
@@ -70,6 +70,7 @@ update options:
   --verbose|-v          show verbose logs (adb devices -l, etc.)
 
 Allowed hosts:
+  10.1.0.2      WireGuard phone VPN IP
   10.5.5.3       default VPN/local debugging host
   192.168.52.52  LAN wireless debugging host
 
