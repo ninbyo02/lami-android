@@ -190,9 +190,14 @@ internal object Qairt244NpuOutputSanitizer {
 
     private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
         if (!containsJapanese(prompt) || containsJapanese(line)) return false
-        return line.any { char ->
-            Character.isLetter(char)
-        }
+        val normalized = line.trim().lowercase()
+        return normalized.startsWith("sure,") ||
+            normalized.startsWith("sure.") ||
+            normalized.startsWith("here is") ||
+            normalized.startsWith("here's") ||
+            normalized.startsWith("of course") ||
+            normalized.startsWith("certainly") ||
+            normalized.startsWith("the answer is")
     }
 
     private fun containsJapanese(value: String): Boolean =
