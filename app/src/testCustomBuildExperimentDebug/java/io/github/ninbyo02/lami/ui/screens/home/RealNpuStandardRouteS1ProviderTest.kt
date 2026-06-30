@@ -304,7 +304,7 @@ class RealNpuStandardRouteS1ProviderTest {
         assertEquals(128, request.maxOutputTokens)
         assertEquals(128, raw.requestedMaxOutputTokens)
         assertEquals(128, raw.effectiveMaxOutputTokens)
-        assertEquals("raw_dialog_tail_variant_c", request.promptTailVariant)
+        assertEquals("gemma_it_user_model", request.promptTailVariant)
         assertEquals(60_000L, request.timeoutMs)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT request_prompt_hash=") })
