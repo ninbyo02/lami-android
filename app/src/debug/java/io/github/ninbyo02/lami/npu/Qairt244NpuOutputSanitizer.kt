@@ -191,7 +191,7 @@ internal object Qairt244NpuOutputSanitizer {
     private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
         if (!containsJapanese(prompt) || containsJapanese(line)) return false
         return line.any { char ->
-            Character.isLetter(char) && !char.isLatinLetter()
+            Character.isLetter(char)
         }
     }
 
