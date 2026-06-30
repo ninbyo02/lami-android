@@ -72,3 +72,7 @@ _debug/
 # Emulator local config
 scripts/emulator.env
 scripts/logs/
+
+# Generated/staged native libraries for the trueEngineNpuProbe debug flavor.
+# Recreate via the QAIRT/LiteRT staging scripts; do not commit large .so files.
+app/src/trueEngineNpuProbeDebug/jniLibs/
