@@ -40,7 +40,7 @@ validate_port() {
 validate_flavor() {
   local flavor="${1:-$DEFAULT_FLAVOR}"
   case "$flavor" in
-    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment)
+    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe)
       echo "$flavor"
       ;;
     *)
@@ -175,7 +175,7 @@ allowed ADB/install/qairt244 commands:
 EOF
     lami_qairt244_help
     cat <<'EOF'
-  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
+  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe]
 EOF
     ;;
   *)

@@ -24,6 +24,7 @@
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
 : "${LITERT_LM_REF:=v0.11.0}"
 : "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
+: "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_persistent_probe.patch}"
 
 lami_qairt244_first_existing_dir() {
   local path
@@ -93,9 +94,27 @@ lami_qairt244_ensure_litert_lm_checkout() {
     exit 65
   fi
 
+  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]]; then
+    if [[ ! -f "$QAIRT244_EXTRA_PATCH" ]]; then
+      echo "missing qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
+      exit 65
+    fi
+    if git -C "$checkout" apply --check "$QAIRT244_EXTRA_PATCH"; then
+      git -C "$checkout" apply "$QAIRT244_EXTRA_PATCH"
+    else
+      echo "qairt244 extra patch does not apply cleanly to $LITERT_LM_REF after base patch" >&2
+      exit 65
+    fi
+  fi
+
   if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' \
     "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
     echo "patched LiteRT-LM checkout is missing nativeRunEditablePrompt marker" >&2
+    exit 65
+  fi
+  if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' \
+    "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
+    echo "patched LiteRT-LM checkout is missing nativeRunPersistentProbe marker" >&2
     exit 65
   fi
   printf '%s\n' "$checkout"
@@ -165,12 +184,16 @@ lami_qairt244_validate_artifact_basename() {
 lami_qairt244_artifact_has_symbol() {
   local artifact_dir="$1"
   local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
-  local symbol="Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt"
+  local symbol
   [[ -f "$lib" ]] || return 1
-  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$symbol" '
-    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-    END { exit found ? 0 : 1 }
-  '
+  for symbol in \
+    Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt \
+    Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe; do
+    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$symbol" '
+      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+      END { exit found ? 0 : 1 }
+    ' || return 1
+  done
 }
 
 lami_qairt244_resolve_artifact_dir() {
@@ -181,7 +204,7 @@ lami_qairt244_resolve_artifact_dir() {
     candidate="$LITERT_CUSTOM_ARTIFACT_ROOT/$requested"
     [[ -d "$candidate" ]] || lami_qairt244_fail
     lami_qairt244_artifact_has_symbol "$candidate" || {
-      echo "artifact does not contain qairt244 nativeRunEditablePrompt symbol: $candidate" >&2
+      echo "artifact does not contain qairt244 nativeRunEditablePrompt/nativeRunPersistentProbe symbols: $candidate" >&2
       exit 65
     }
     printf '%s\n' "$candidate"
@@ -358,8 +381,13 @@ lami_qairt244_repeat_stability() {
   local result_file="dev_only_npu_one_turn_conversation_result.txt"
   local serial
   serial="$(lami_qairt244_choose_adb_device)"
+  local receiver_component="$package/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
 
   local -a prompts=(
+    "今日の予定を短く教えて"
+    "雨の日の散歩の注意点は？"
+    "眠気覚ましの方法を一つ教えて"
+    "ありがとう"
     "こんにちは"
     "あなたは誰ですか"
     "Pythonとは何ですか"
@@ -383,6 +411,7 @@ lami_qairt244_repeat_stability() {
   )
 
   {
+    prompts=("こんにちは")
     echo "== LAMI qairt244 repeat stability =="
     echo "time=$(date -Is)"
     echo "repo_head=$(git rev-parse --short HEAD)"
@@ -396,9 +425,17 @@ lami_qairt244_repeat_stability() {
     echo "db=false"
     echo "markdown=false"
     echo "out_dir=${out_dir#$REPO/}"
+    echo "preflight_force_stop=true"
+    adb -s "$serial" logcat -c >/dev/null 2>&1 || true
+    adb -s "$serial" shell am force-stop "$package" >/dev/null 2>&1 || true
+    sleep 2
+    adb -s "$serial" shell monkey -p "$package" -c android.intent.category.LAUNCHER 1 >"$out_dir/preflight_start.txt" 2>&1 || true
+    sleep 3
 
     adb -s "$serial" shell pidof "$package" >"$out_dir/pid_before.txt" 2>&1 || true
     adb -s "$serial" shell dumpsys meminfo "$package" >"$out_dir/meminfo_before.txt" 2>&1 || true
+    adb -s "$serial" shell dumpsys package "$package" | grep -E 'DevOnlyNpuOneTurnConversationReceiver|DEV_ONLY_NPU_ONE_TURN_CONVERSATION' >"$out_dir/receiver_manifest_check.txt" 2>&1 || true
+    sed 's/^/receiver_manifest_check: /' "$out_dir/receiver_manifest_check.txt" || true
     local before_total before_native before_dalvik
     before_total="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_before.txt" total_pss)"
     before_native="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_before.txt" native_heap_pss)"
@@ -415,18 +452,22 @@ lami_qairt244_repeat_stability() {
     local run_index=1
     local prompt
 
-    for prompt in "${prompts[@]}"; do
+    for prompt in "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}"; do
       local run_dir="$out_dir/run${run_index}"
       mkdir -p "$run_dir"
       printf '%s\n' "$prompt" >"$run_dir/prompt.txt"
+      adb -s "$serial" logcat -c >/dev/null 2>&1 || true
       adb -s "$serial" shell run-as "$package" rm -f "files/$result_file" files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt >/dev/null 2>&1 || true
       adb -s "$serial" shell am broadcast \
         -a "$action" \
         -p "$package" \
+        -n "$receiver_component" \
         --es user_prompt "$prompt" \
         --ez unsafe_dev_bypass_prompt_length_gate true \
         --es prompt_tail_variant gemma_it_user_model \
         >"$run_dir/broadcast.txt" 2>&1 || true
+      echo "broadcast_output_begin_run=$run_index"
+      sed 's/^/broadcast: /' "$run_dir/broadcast.txt" || true
 
       local waited=0
       while [[ "$waited" -lt 75 ]]; do
@@ -445,6 +486,8 @@ lami_qairt244_repeat_stability() {
       adb -s "$serial" shell dumpsys meminfo "$package" >"$run_dir/meminfo_after.txt" 2>&1 || true
 
       local result success decode fallback timeout fresh_crash reason evidence sanitized elapsed
+      local persistent_requested persistent_decode persistent_mode
+      local run_total run_native run_dalvik waited_seconds native_call_returned native_cleanup_reached native_session_destroy_reached receiver_lifecycle receiver_finally_entered pending_result_finish_called
       result="$(lami_qairt244_result_value "$run_dir/result.txt" result)"
       success="$(lami_qairt244_result_value "$run_dir/result.txt" success)"
       decode="$(lami_qairt244_result_value "$run_dir/result.txt" run_decode_reached)"
@@ -454,7 +497,20 @@ lami_qairt244_repeat_stability() {
       reason="$(lami_qairt244_result_value "$run_dir/result.txt" reason)"
       evidence="$(lami_qairt244_result_value "$run_dir/result.txt" npu_backend_evidence)"
       sanitized="$(lami_qairt244_result_value "$run_dir/result.txt" sanitized_output)"
+      persistent_requested="$(lami_qairt244_result_value "$run_dir/result.txt" persistent_full_20_requested_count)"
+      persistent_decode="$(lami_qairt244_result_value "$run_dir/result.txt" persistent_full_20_decode_count)"
+      persistent_mode="$(lami_qairt244_result_value "$run_dir/result.txt" native_probe_mode)"
       elapsed="$(lami_qairt244_result_value "$run_dir/native_result.txt" elapsed_ms)"
+      run_total="$(lami_qairt244_meminfo_metric_kb "$run_dir/meminfo_after.txt" total_pss)"
+      run_native="$(lami_qairt244_meminfo_metric_kb "$run_dir/meminfo_after.txt" native_heap_pss)"
+      run_dalvik="$(lami_qairt244_meminfo_metric_kb "$run_dir/meminfo_after.txt" dalvik_heap_pss)"
+      waited_seconds="$(tr -d '\r\n' <"$run_dir/waited_seconds.txt" 2>/dev/null || true)"
+      native_call_returned="$(lami_qairt244_result_value "$run_dir/result.txt" native_call_returned)"
+      native_cleanup_reached="$(lami_qairt244_result_value "$run_dir/result.txt" native_cleanup_reached)"
+      native_session_destroy_reached="$(lami_qairt244_result_value "$run_dir/result.txt" native_session_destroy_reached)"
+      receiver_lifecycle="$(lami_qairt244_result_value "$run_dir/result.txt" receiver_lifecycle)"
+      receiver_finally_entered="$(lami_qairt244_result_value "$run_dir/result.txt" receiver_finally_entered)"
+      pending_result_finish_called="$(lami_qairt244_result_value "$run_dir/result.txt" pending_result_finish_called)"
 
       [[ "$success" == "true" ]] && success_count=$((success_count + 1)) || failure_count=$((failure_count + 1))
       [[ "$decode" == "true" ]] && decode_count=$((decode_count + 1))
@@ -466,14 +522,42 @@ lami_qairt244_repeat_stability() {
         total_ms_count=$((total_ms_count + 1))
       fi
 
-      printf 'run=%s result=%s success=%s decode=%s fallback=%s timeout=%s fresh_crash=%s elapsed_ms=%s evidence=%s reason=%s output=%s\n' \
+      printf 'run=%s result=%s success=%s decode=%s fallback=%s timeout=%s fresh_crash=%s elapsed_ms=%s evidence=%s reason=%s persistent_mode=%s persistent_requested=%s persistent_decode=%s mem_total_pss_after_kb=%s mem_native_heap_pss_after_kb=%s mem_dalvik_heap_pss_after_kb=%s waited_seconds=%s native_call_returned=%s native_cleanup_reached=%s native_session_destroy_reached=%s receiver_lifecycle=%s receiver_finally_entered=%s pending_result_finish_called=%s output=%s\n' \
         "$run_index" "${result:-missing}" "${success:-missing}" "${decode:-missing}" \
         "${fallback:-missing}" "${timeout:-missing}" "${fresh_crash:-missing}" \
-        "${elapsed:-unavailable}" "${evidence:-unavailable}" "${reason:-unavailable}" "${sanitized:-}" \
+        "${elapsed:-unavailable}" "${evidence:-unavailable}" "${reason:-unavailable}" \
+        "${persistent_mode:-unavailable}" "${persistent_requested:-unavailable}" "${persistent_decode:-unavailable}" \
+        "${run_total:-unavailable}" "${run_native:-unavailable}" "${run_dalvik:-unavailable}" "${waited_seconds:-unavailable}" \
+        "${native_call_returned:-unavailable}" "${native_cleanup_reached:-unavailable}" "${native_session_destroy_reached:-unavailable}" \
+        "${receiver_lifecycle:-unavailable}" "${receiver_finally_entered:-unavailable}" "${pending_result_finish_called:-unavailable}" "${sanitized:-}" \
         | tee "$run_dir/summary_line.txt"
+
+      if [[ -z "${result:-}" && -s "$run_dir/result.err" ]]; then
+        echo "result_err_begin_run=$run_index"
+        sed 's/^/result.err: /' "$run_dir/result.err" || true
+      fi
 
       if [[ "$success" != "true" || "$decode" != "true" || "$fallback" == "true" || "$timeout" == "true" || "$fresh_crash" == "true" ]]; then
         echo "stopping_after_run=$run_index"
+        adb -s "$serial" shell pidof "$package" >"$run_dir/pid_on_stop.txt" 2>&1 || true
+        local stop_pid
+        stop_pid="$(tr -d '\r\n' <"$run_dir/pid_on_stop.txt" 2>/dev/null || true)"
+        if [[ -n "$stop_pid" ]]; then
+          adb -s "$serial" shell ps -T -p "$stop_pid" >"$run_dir/threads_on_stop.txt" 2>&1 || true
+        fi
+        adb -s "$serial" shell dumpsys meminfo "$package" >"$run_dir/meminfo_on_stop.txt" 2>&1 || true
+        adb -s "$serial" exec-out run-as "$package" cat "files/$result_file" >"$run_dir/result_on_stop.txt" 2>"$run_dir/result_on_stop.err" || true
+        adb -s "$serial" exec-out run-as "$package" cat files/qairt244_short_multitoken_smoke_result.txt >"$run_dir/native_result_on_stop.txt" 2>"$run_dir/native_result_on_stop.err" || true
+        adb -s "$serial" exec-out run-as "$package" cat files/qairt244_native_diag.txt >"$run_dir/native_diag_on_stop.txt" 2>"$run_dir/native_diag_on_stop.err" || true
+        adb -s "$serial" logcat -d -v time | grep -Ei 'AndroidRuntime|ActivityManager|BroadcastQueue|ClassNotFound|NoClassDefFound|VerifyError|Exception|DevOnlyNpuOneTurnConversation|NpuStandardRoutePersistentProbeRunner|LamiNpuEngine|RunDecode|cleanup|session_destroy|FastRPC|QNN|HTP|LiteRT|customnpu|io.github.ninbyo02.lami' | tail -500 >"$run_dir/logcat_on_stop.txt" 2>/dev/null || true
+        adb -s "$serial" logcat -d -v time | tail -220 >"$run_dir/logcat_raw_tail_on_stop.txt" 2>/dev/null || true
+        sed 's/^/stop.thread: /' "$run_dir/threads_on_stop.txt" 2>/dev/null | head -80 || true
+        sed 's/^/stop.result_head: /' "$run_dir/result_on_stop.txt" 2>/dev/null | head -80 || true
+        sed 's/^/stop.result: /' "$run_dir/result_on_stop.txt" 2>/dev/null | tail -80 || true
+        sed 's/^/stop.native_diag: /' "$run_dir/native_diag_on_stop.txt" 2>/dev/null | tail -120 || true
+        sed 's/^/stop.native_result: /' "$run_dir/native_result_on_stop.txt" 2>/dev/null | tail -120 || true
+        sed 's/^/stop.logcat: /' "$run_dir/logcat_on_stop.txt" 2>/dev/null | tail -120 || true
+        sed 's/^/stop.rawlogcat: /' "$run_dir/logcat_raw_tail_on_stop.txt" 2>/dev/null | tail -160 || true
         break
       fi
       run_index=$((run_index + 1))
@@ -483,7 +567,7 @@ lami_qairt244_repeat_stability() {
     adb -s "$serial" shell pidof "$package" >"$out_dir/pid_after.txt" 2>&1 || true
     adb -s "$serial" shell dumpsys meminfo "$package" >"$out_dir/meminfo_after.txt" 2>&1 || true
     adb -s "$serial" logcat -d -b crash -v time | tail -300 >"$out_dir/logcat_crash_tail.txt" 2>/dev/null || true
-    adb -s "$serial" logcat -d -v time | grep -Ei 'FATAL EXCEPTION|tombstone|signal |Abort|liblitertlm|LiteRT|QNN|HTP|Qairt|QAIRT|customnpu' | tail -500 >"$out_dir/logcat_lami_native_tail.txt" 2>/dev/null || true
+    adb -s "$serial" logcat -d -v time | grep -Ei 'FATAL EXCEPTION|AndroidRuntime|ActivityManager|BroadcastQueue|ClassNotFound|NoClassDefFound|VerifyError|Exception|tombstone|signal |Abort|liblitertlm|LiteRT|QNN|HTP|Qairt|QAIRT|customnpu|io.github.ninbyo02.lami' | tail -500 >"$out_dir/logcat_lami_native_tail.txt" 2>/dev/null || true
 
     local after_total after_native after_dalvik average_total_ms
     after_total="$(lami_qairt244_meminfo_metric_kb "$out_dir/meminfo_after.txt" total_pss)"
@@ -496,7 +580,7 @@ lami_qairt244_repeat_stability() {
     fi
 
     echo "== SUMMARY =="
-    echo "run_count_requested=${#prompts[@]}"
+    echo "run_count_requested=5"
     echo "run_count_completed=$((success_count + failure_count))"
     echo "success_count=$success_count"
     echo "failure_count=$failure_count"
@@ -512,7 +596,7 @@ lami_qairt244_repeat_stability() {
     echo "mem_dalvik_heap_pss_before_kb=$before_dalvik"
     echo "mem_dalvik_heap_pss_after_kb=$after_dalvik"
     echo "artifact=${out_dir#$REPO/}"
-    if [[ "$success_count" -eq "${#prompts[@]}" && "$failure_count" -eq 0 && "$fallback_count" -eq 0 && "$timeout_count" -eq 0 && "$fresh_crash_count" -eq 0 ]]; then
+    if [[ "$success_count" -eq 5 && "$failure_count" -eq 0 && "$fallback_count" -eq 0 && "$timeout_count" -eq 0 && "$fresh_crash_count" -eq 0 ]]; then
       echo "== REPEAT STABILITY OK =="
     else
       echo "== REPEAT STABILITY FAILED =="

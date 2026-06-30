@@ -372,6 +372,11 @@ for target in "${TARGETS[@]}"; do
   code="$?"
   record_target_result "$target" "$code"
   log "target exit $code: $target"
+  if [ "$code" -ne 0 ]; then
+    name="$(safe_name "$target")"
+    log "failed target log tail: $OUT_DIR/build_logs/${name}.log"
+    tail -220 "$OUT_DIR/build_logs/${name}.log" || true
+  fi
 done
 
 BAZEL_BIN="$(find_bazel_bin)"

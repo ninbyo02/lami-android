@@ -160,7 +160,8 @@ normalize_android_flavor() {
     galleryStackExperiment|GalleryStackExperiment|gallery|gallery-stack|gallery-stack-experiment|gallerynpu) echo "galleryStackExperiment" ;;
     galleryAlignedNpuProbe|GalleryAlignedNpuProbe|gallery-aligned|gallery-aligned-npu-probe|galleryprobe) echo "galleryAlignedNpuProbe" ;;
     customBuildExperiment|CustomBuildExperiment|custom|custom-build|custom-build-experiment|customnpu) echo "customBuildExperiment" ;;
-    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment)" ;;
+    trueEngineNpuProbe|TrueEngineNpuProbe|true-engine|true-engine-npu-probe|trueengineprobe) echo "trueEngineNpuProbe" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, customBuildExperiment, or trueEngineNpuProbe)" ;;
   esac
 }
 
@@ -173,6 +174,7 @@ install_task_for_flavor() {
     galleryStackExperiment) echo "installGalleryStackExperimentDebug" ;;
     galleryAlignedNpuProbe) echo "installGalleryAlignedNpuProbeDebug" ;;
     customBuildExperiment) echo "installCustomBuildExperimentDebug" ;;
+    trueEngineNpuProbe) echo "installTrueEngineNpuProbeDebug" ;;
   esac
 }
 
@@ -185,6 +187,7 @@ compile_task_for_flavor() {
     galleryStackExperiment) echo "compileGalleryStackExperimentDebugKotlin" ;;
     galleryAlignedNpuProbe) echo "compileGalleryAlignedNpuProbeDebugKotlin" ;;
     customBuildExperiment) echo "compileCustomBuildExperimentDebugKotlin" ;;
+    trueEngineNpuProbe) echo "compileTrueEngineNpuProbeDebugKotlin" ;;
   esac
 }
 
@@ -199,6 +202,7 @@ resolve_app_id_for_flavor() {
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
     galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
+    trueEngineNpuProbe) echo "io.github.ninbyo02.lami.trueengineprobe" ;;
   esac
 }
 
@@ -687,9 +691,18 @@ cmd_update() {
 
   local auto_wip_commit=0
   local auto_stash=0
+  local skip_update_fast_forward=0
   if is_worktree_dirty; then
     case "$dirty_mode" in
-      stop) abort_dirty_update ;;
+      stop)
+        if [[ "$flavor" == "customBuildExperiment" ]] &&
+          git diff -- app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt | grep -q 'TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED.*true'; then
+          warn "dirty WIP accepted for local customBuildExperiment held-engine probe install; skipping fetch/pull."
+          skip_update_fast_forward=1
+        else
+          abort_dirty_update
+        fi
+        ;;
       stash) stash_current_changes_if_dirty auto_stash ;;
       wip)
         create_wip_commit_if_dirty
@@ -699,12 +712,16 @@ cmd_update() {
     esac
   fi
 
-  info "Pulling latest changes..."
-  if ! run_update_fast_forward; then
-    abort_update_failure_with_stash_hint "$auto_stash"
-  fi
+  if [[ "$skip_update_fast_forward" -eq 1 ]]; then
+    warn "Skipping git fetch/merge because this is a dirty local probe install."
+  else
+    info "Pulling latest changes..."
+    if ! run_update_fast_forward; then
+      abort_update_failure_with_stash_hint "$auto_stash"
+    fi
 
-  pop_update_stash_if_needed "$auto_stash"
+    pop_update_stash_if_needed "$auto_stash"
+  fi
 
   # ★追加: pull後のHEADも表示（追跡しやすい）
   print_head_commit

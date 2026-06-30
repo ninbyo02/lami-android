@@ -60,7 +60,7 @@ validate_pair_code() {
 validate_flavor() {
   local flavor="${1:-$DEFAULT_FLAVOR}"
   case "$flavor" in
-    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment)
+    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe)
       echo "$flavor" ;;
     *) fail ;;
   esac
@@ -141,7 +141,7 @@ run_install_future() {
     cd "$REPO"
     adb devices -l || true
     adb connect "${host}:${port}"
-    ./update.sh update --host "$host" --port "$port" --flavor "$flavor"
+    ./update.sh here-install --host "$host" --port "$port" --flavor "$flavor"
     echo "== INSTALL OK =="
   } 2>&1 | tee "$log_file"
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
@@ -199,6 +199,7 @@ app_id_for_flavor() {
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
     galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
+    trueEngineNpuProbe) echo "io.github.ninbyo02.lami.trueengineprobe" ;;
     *) fail ;;
   esac
 }
@@ -302,7 +303,7 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_adb_start_app "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   adb-dump-customnpu-diag\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
-  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status)
+  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status|qairt244-repeat-stability)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
     run_logcat "$CMD" ;;
@@ -337,12 +338,13 @@ allowed commands:
   adb-devices
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
-  adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
+  adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe]
   adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
   qairt244-sdk-status
+  qairt244-repeat-stability
   adb-logcat-lami
   adb-logcat-recent
   adb-npu-props
@@ -357,7 +359,7 @@ allowed commands:
   git-apply-check <safe-name.patch>
   git-apply <safe-name.patch>
   git-commit-npu-fallback     # fixed file allowlist + fixed commit message
-  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment]
+  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe]
 EOF
     ;;
   *)

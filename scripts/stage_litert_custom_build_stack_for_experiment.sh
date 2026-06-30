@@ -6,6 +6,8 @@ ARTIFACT_DIR="${1:-artifacts/litert_custom_build/20260516_235244}"
 SOURCE_DIR="$ROOT_DIR/$ARTIFACT_DIR/built_libs"
 QNN_RUNTIME_SOURCE_DIR="$ROOT_DIR/$ARTIFACT_DIR/qnn_runtime_libs"
 TARGET_DIR="$ROOT_DIR/app/src/customBuildExperimentDebug/jniLibs/arm64-v8a"
+TRUE_ENGINE_TARGET_DIR="$ROOT_DIR/app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a"
+TARGET_DIRS=("$TARGET_DIR" "$TRUE_ENGINE_TARGET_DIR")
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR="$ROOT_DIR/artifacts/litert_custom_build_stage/$TIMESTAMP"
 GEMMA_PROVIDER_FALLBACKS=(
@@ -83,8 +85,11 @@ if [ ! -d "$SOURCE_DIR" ]; then
   exit 2
 fi
 
-mkdir -p "$OUT_DIR" "$TARGET_DIR"
-touch "$TARGET_DIR/.gitkeep"
+mkdir -p "$OUT_DIR"
+for dir in "${TARGET_DIRS[@]}"; do
+  mkdir -p "$dir"
+  touch "$dir/.gitkeep"
+done
 printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_libs.tsv"
 printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_qnn_runtime_libs.tsv"
 
@@ -95,10 +100,12 @@ for lib in "${REQUIRED_LIBS[@]}"; do
     log "ERROR: required custom build library not found: $lib"
     exit 3
   fi
-  if [ -e "$TARGET_DIR/$lib" ]; then
-    chmod u+w "$TARGET_DIR/$lib" 2>/dev/null || true
-  fi
-  cp -f "$source_path" "$TARGET_DIR/$lib"
+  for target_dir in "${TARGET_DIRS[@]}"; do
+    if [ -e "$target_dir/$lib" ]; then
+      chmod u+w "$target_dir/$lib" 2>/dev/null || true
+    fi
+    cp -f "$source_path" "$target_dir/$lib"
+  done
   printf '%s\tstaged\t%s\t%s\t%s\t%s\t%s\n' \
     "$lib" \
     "$source_path" \
@@ -118,10 +125,12 @@ if [ -d "$QNN_RUNTIME_SOURCE_DIR" ]; then
       log "QNN runtime library not provided by artifact: $lib"
       continue
     fi
-    if [ -e "$TARGET_DIR/$lib" ]; then
-      chmod u+w "$TARGET_DIR/$lib" 2>/dev/null || true
-    fi
-    cp -f "$source_path" "$TARGET_DIR/$lib"
+    for target_dir in "${TARGET_DIRS[@]}"; do
+      if [ -e "$target_dir/$lib" ]; then
+        chmod u+w "$target_dir/$lib" 2>/dev/null || true
+      fi
+      cp -f "$source_path" "$target_dir/$lib"
+    done
     QNN_RUNTIME_STAGED=1
     printf '%s\tstaged\t%s\t%s\t%s\t%s\t%s\n' \
       "$lib" \
@@ -162,8 +171,8 @@ fi
 {
   printf '# Custom LiteRT-LM native stack staging summary\n\n'
   printf '%s\n' "- Artifact dir: \`$ROOT_DIR/$ARTIFACT_DIR\`"
-  printf '%s\n' "- Target dir: \`$TARGET_DIR\`"
-  printf '%s\n' "- Action: staged only into customBuildExperimentDebug."
+  printf '%s\n' "- Target dirs: \`$TARGET_DIR\`, \`$TRUE_ENGINE_TARGET_DIR\`"
+  printf '%s\n' "- Action: staged into customBuildExperimentDebug and trueEngineNpuProbeDebug."
   printf '%s\n' "- QNN SDK libs copied: \`$(if [ "$QNN_RUNTIME_STAGED" -eq 1 ]; then printf yes; else printf no; fi)\`"
   printf '%s\n' "- Gallery libs copied: \`no\`"
   printf '\n## Staged libraries\n\n'
@@ -184,4 +193,4 @@ log "wrote $OUT_DIR/summary.md"
 if [ "$POLLUTION" -ne 0 ]; then
   exit 4
 fi
-log "done; staged for customBuildExperimentDebug only"
+log "done; staged for customBuildExperimentDebug and trueEngineNpuProbeDebug"
