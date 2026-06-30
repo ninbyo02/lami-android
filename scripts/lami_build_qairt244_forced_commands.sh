@@ -452,7 +452,7 @@ lami_qairt244_repeat_stability() {
     local run_index=1
     local prompt
 
-    for prompt in "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}"; do
+    for prompt in "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}" "${prompts[@]}"; do
       local run_dir="$out_dir/run${run_index}"
       mkdir -p "$run_dir"
       printf '%s\n' "$prompt" >"$run_dir/prompt.txt"
@@ -580,7 +580,7 @@ lami_qairt244_repeat_stability() {
     fi
 
     echo "== SUMMARY =="
-    echo "run_count_requested=5"
+    echo "run_count_requested=20"
     echo "run_count_completed=$((success_count + failure_count))"
     echo "success_count=$success_count"
     echo "failure_count=$failure_count"
@@ -596,7 +596,7 @@ lami_qairt244_repeat_stability() {
     echo "mem_dalvik_heap_pss_before_kb=$before_dalvik"
     echo "mem_dalvik_heap_pss_after_kb=$after_dalvik"
     echo "artifact=${out_dir#$REPO/}"
-    if [[ "$success_count" -eq 5 && "$failure_count" -eq 0 && "$fallback_count" -eq 0 && "$timeout_count" -eq 0 && "$fresh_crash_count" -eq 0 ]]; then
+    if [[ "$success_count" -eq 20 && "$failure_count" -eq 0 && "$fallback_count" -eq 0 && "$timeout_count" -eq 0 && "$fresh_crash_count" -eq 0 ]]; then
       echo "== REPEAT STABILITY OK =="
     else
       echo "== REPEAT STABILITY FAILED =="
