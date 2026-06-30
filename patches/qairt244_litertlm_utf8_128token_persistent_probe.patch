@@ -130,7 +130,7 @@ index 421c3036..7f3f2a2e 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,1014 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2275,6 +2346,1015 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -849,6 +849,7 @@ index 421c3036..7f3f2a2e 100644
 +    CloseQairt244PersistentCustomJniHolderLocked(false);
 +  }
 +  if (native_probe_mode_str != "full_20" &&
++      native_probe_mode_str != "standard_route_reuse_once" &&
 +      g_qairt244_persistent_custom_jni_holder.engine) {
 +    append_stage_diag("stage mode close existing holder before probe");
 +    CloseQairt244PersistentCustomJniHolderLocked(false);
