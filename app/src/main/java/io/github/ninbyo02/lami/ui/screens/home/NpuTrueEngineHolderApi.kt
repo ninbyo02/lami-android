@@ -32,6 +32,26 @@ internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_ISOLATED_PAYLOAD_STAGED_D
 internal const val NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_STARTUP_SAFE_RECOMMENDED_NEXT_STEP =
     "restore_startup_then_rebuild_native_create_close_mode_in_isolated_flavor"
 
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_TEST_NAME =
+    "NPU True Engine Held Run Once Probe"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_CLASS_NAME =
+    "io.github.ninbyo02.lami.ui.screens.home.NpuTrueEngineHeldRunOnceDevProbe"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_NO_RESULT =
+    "no true engine held run once probe result available"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_UI_TITLE =
+    "NPU True Engine Held Run Once Probe"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_RUN_LABEL =
+    "Run True Engine Held Run Once Probe"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_COPY_SUMMARY_LABEL =
+    "Copy True Engine Held Run Once Summary"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_COPY_FULL_DUMP_LABEL =
+    "Copy True Engine Held Run Once Full Dump"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE = "held_engine_run_once"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_BLOCK_REASON =
+    "held_engine_run_once_probe_unavailable_for_this_variant"
+internal const val NPU_TRUE_ENGINE_HELD_RUN_ONCE_RECOMMENDED_NEXT_STEP =
+    "run_held_engine_run_once_on_device_then_implement_held_engine_multi_turn"
+
 internal const val NPU_TRUE_ENGINE_ENTRYPOINT_TEST_NAME =
     "NPU True Engine Entrypoint Probe"
 internal const val NPU_TRUE_ENGINE_ENTRYPOINT_CLASS_NAME =
@@ -167,6 +187,38 @@ internal fun blockedNpuTrueEngineHolderCreateCloseNativeResult(): NpuTrueEngineH
         """.trimIndent(),
     )
 
+internal fun npuTrueEngineHeldRunOnceProbeExecutionAvailable(): Boolean =
+    BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED
+
+internal fun npuTrueEngineHeldRunOnceProbeExecutionBlockReason(): String =
+    if (npuTrueEngineHeldRunOnceProbeExecutionAvailable()) {
+        "unavailable"
+    } else {
+        NPU_TRUE_ENGINE_HELD_RUN_ONCE_BLOCK_REASON
+    }
+
+internal data class NpuTrueEngineHeldRunOnceProbeState(
+    val status: String = "idle",
+    val reason: String = "not_run",
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
+    val modelPathOrReason: String = "unavailable",
+    val holderId: String = "unavailable",
+    val nativeResult: NpuTrueEngineHolderNativeResult? = null,
+) {
+    val hasResult: Boolean
+        get() = nativeResult != null || status != "idle" || reason != "not_run"
+
+    val values: Map<String, String>
+        get() = parseNpuTrueEngineHolderKeyValueText(nativeResult?.resultText.orEmpty())
+}
+
+internal interface NpuTrueEngineHeldRunOnceProbeRunner {
+    suspend fun run(): NpuTrueEngineHeldRunOnceProbeState
+}
+
 internal fun npuTrueEngineEntrypointProbeExecutionAvailable(): Boolean =
     BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED &&
@@ -252,6 +304,16 @@ internal fun createNpuTrueEngineHolderCreateCloseProbeRunner(
     }.getOrNull()
 
 
+internal fun createNpuTrueEngineHeldRunOnceProbeRunner(
+    context: Context,
+): NpuTrueEngineHeldRunOnceProbeRunner? =
+    runCatching {
+        Class.forName(NPU_TRUE_ENGINE_HELD_RUN_ONCE_CLASS_NAME)
+            .getDeclaredConstructor(Context::class.java)
+            .newInstance(context.applicationContext) as? NpuTrueEngineHeldRunOnceProbeRunner
+    }.getOrNull()
+
+
 internal fun createNpuTrueEngineEntrypointProbeRunner(
     context: Context,
 ): NpuTrueEngineEntrypointProbeRunner? =
@@ -271,6 +333,132 @@ internal fun createNpuTrueEngineModelAssetsProbeRunner(
             .newInstance(context.applicationContext) as? NpuTrueEngineModelAssetsProbeRunner
     }.getOrNull()
 
+
+internal fun formatNpuTrueEngineHeldRunOnceSummaryForCopy(
+    state: NpuTrueEngineHeldRunOnceProbeState,
+): String {
+    if (!state.hasResult) {
+        return "$NPU_TRUE_ENGINE_HELD_RUN_ONCE_NO_RESULT\n" +
+            "test_name=$NPU_TRUE_ENGINE_HELD_RUN_ONCE_TEST_NAME\n" +
+            "probe_status=idle\n" +
+            "probe_reason=not_run\n" +
+            "true_engine_probe_flavor=${npuTrueEngineHolderCreateCloseProbeVariantName()}\n" +
+            "selected_native_probe_mode=$NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE\n" +
+            "held_engine_run_once_probe_available=${npuTrueEngineHeldRunOnceProbeExecutionAvailable()}\n" +
+            "probe_execution_block_reason=${npuTrueEngineHeldRunOnceProbeExecutionBlockReason()}\n" +
+            "startup_native_call_blocked=true\n" +
+            "native_call_deferred_until_button_click=true\n" +
+            "engine_create_count=0\n" +
+            "session_create_count=0\n" +
+            "decode_count=0\n" +
+            "generate_count=0\n" +
+            "true_engine_persistent_reuse=false\n" +
+            "persistent_multi_turn_possible=false\n" +
+            "engine_reuse_observed=unavailable"
+    }
+    val values = state.values
+    val engineCreateCount = values["engine_create_count"]
+        ?: values.countFromReachedFlag("engine_create_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val engineCloseCount = values["engine_close_count"]
+        ?: values.countFromReachedFlag("engine_close_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val sessionCreateCount = values["session_create_count"]
+        ?: values.countFromReachedFlag("session_create_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val decodeCount = values["decode_count"]
+        ?: values["decode_attempt_count"]
+        ?: values.countFromReachedFlag("decode_reached").takeIf { it != "unavailable" }
+        ?: "0"
+    val generateCount = values["generate_count"] ?: decodeCount
+    val runDecodeReached = values.boolText("run_decode_reached", values.boolText("decode_reached", "false"))
+    val closeSucceeded = values.boolText("engine_close_success", "false")
+    val backendEvidence = values["npu_backend_evidence"]
+        ?: values["backend_evidence"]
+        ?: "unavailable"
+    val throwableClass = state.nativeResult?.throwableClass ?: "unavailable"
+    val fatal = throwableClass != "unavailable" || state.status == "failed" || closeSucceeded != "true"
+    val engineReuseObserved = if (
+        engineCreateCount == "1" && decodeCount == "1" && engineCloseCount == "1" && closeSucceeded == "true"
+    ) {
+        "single_run"
+    } else {
+        "unavailable"
+    }
+    return buildString {
+        appendLine("[DEV診断: NPU true engine held run once summary]")
+        appendLine("test_name=$NPU_TRUE_ENGINE_HELD_RUN_ONCE_TEST_NAME")
+        appendLine("probe_status=${state.status}")
+        appendLine("probe_reason=${state.reason}")
+        appendLine("selected_native_probe_mode=${values["selected_native_probe_mode"] ?: NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE}")
+        appendLine("true_engine_probe_flavor=${values["true_engine_probe_flavor"] ?: npuTrueEngineHolderCreateCloseProbeVariantName()}")
+        appendLine("held_engine_run_once_probe_available=${npuTrueEngineHeldRunOnceProbeExecutionAvailable()}")
+        appendLine("probe_execution_block_reason=${npuTrueEngineHeldRunOnceProbeExecutionBlockReason()}")
+        appendLine("startup_native_call_blocked=true")
+        appendLine("native_call_deferred_until_button_click=true")
+        appendLine("argument_validation_passed=${values.boolText("argument_validation_passed")}")
+        appendLine("model_assets_create_called=${values.boolText("model_assets_create_reached")}")
+        appendLine("model_assets_create_succeeded=${values.boolText("model_assets_create_succeeded", values.boolText("model_assets_create_returned", "false"))}")
+        appendLine("engine_settings_create_called=${values.boolText("engine_settings_create_reached")}")
+        appendLine("engine_settings_create_succeeded=${values.boolText("engine_settings_create_succeeded", values.boolText("engine_settings_create_returned", "false"))}")
+        appendLine("engine_create_called=${values.boolText("engine_create_reached")}")
+        appendLine("engine_create_succeeded=${values.boolText("engine_create_succeeded", values.boolText("engine_create_returned", "false"))}")
+        appendLine("engine_create_count=$engineCreateCount")
+        appendLine("engine_holder_open_during_decode=${values.boolText("engine_holder_open_during_decode", "unavailable")}")
+        appendLine("session_create_reached=${values.boolText("session_create_reached")}")
+        appendLine("session_create_count=$sessionCreateCount")
+        appendLine("prefill_reached=${values.boolText("prefill_reached")}")
+        appendLine("decode_reached=${values.boolText("decode_reached")}")
+        appendLine("decode_count=$decodeCount")
+        appendLine("generate_count=$generateCount")
+        appendLine("run_decode_reached=$runDecodeReached")
+        appendLine("raw_output=${values["raw_output"] ?: "unavailable"}")
+        appendLine("sanitized_output=${values["sanitized_output"] ?: "unavailable"}")
+        appendLine("backend_evidence=$backendEvidence")
+        appendLine("fallback_used=${values["fallback_used"] ?: "unavailable"}")
+        appendLine("timeout=${values["timeout"] ?: "unavailable"}")
+        appendLine("fresh_crash=${values["fresh_crash"] ?: "unavailable"}")
+        appendLine("engine_close_count=$engineCloseCount")
+        appendLine("engine_close_succeeded=$closeSucceeded")
+        appendLine("engine_fatal_latch=$fatal")
+        appendLine("restart_app_recommended=$fatal")
+        appendLine("true_engine_persistent_reuse=false")
+        appendLine("persistent_multi_turn_possible=false")
+        appendLine("engine_reuse_observed=$engineReuseObserved")
+        appendLine("recommended_next_step=$NPU_TRUE_ENGINE_HELD_RUN_ONCE_RECOMMENDED_NEXT_STEP")
+    }.trimEnd()
+}
+
+internal fun formatNpuTrueEngineHeldRunOnceFullDumpForCopy(
+    state: NpuTrueEngineHeldRunOnceProbeState,
+): String = buildString {
+    appendLine("[DEV診断: NPU true engine held run once full dump]")
+    appendLine("test_name=$NPU_TRUE_ENGINE_HELD_RUN_ONCE_TEST_NAME")
+    appendLine("probe_status=${state.status}")
+    appendLine("probe_reason=${state.reason}")
+    appendLine("model_path_or_reason=${state.modelPathOrReason}")
+    appendLine("holder_id=${state.holderId}")
+    appendLine("started_at_elapsed_realtime_ms=${state.startedAtElapsedRealtimeMs ?: "unavailable"}")
+    appendLine("finished_at_elapsed_realtime_ms=${state.finishedAtElapsedRealtimeMs ?: "unavailable"}")
+    val result = state.nativeResult
+    if (result == null) {
+        appendLine(NPU_TRUE_ENGINE_HELD_RUN_ONCE_NO_RESULT)
+        appendLine()
+        appendLine(formatNpuTrueEngineHeldRunOnceSummaryForCopy(state))
+        return@buildString
+    }
+    appendLine("native_return=${result.nativeReturn}")
+    appendLine("throwable_class=${result.throwableClass}")
+    appendLine("throwable_message=${result.throwableMessage}")
+    appendLine("native_result_begin")
+    appendLine(result.resultText.ifBlank { "unavailable" })
+    appendLine("native_result_end")
+    appendLine("native_diag_begin")
+    appendLine(result.diagText.ifBlank { "unavailable" })
+    appendLine("native_diag_end")
+    appendLine()
+    appendLine(formatNpuTrueEngineHeldRunOnceSummaryForCopy(state))
+}.trimEnd()
 
 internal fun formatNpuTrueEngineEntrypointSummaryForCopy(
     state: NpuTrueEngineEntrypointProbeState,

@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.Build
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
@@ -13,8 +14,15 @@ internal class RealNpuStandardRouteS1Provider(
     private val requestRunner: (DevOnlyNpuOneTurnConversationRequest) -> DevOnlyNpuOneTurnConversationDisplay = { request ->
         val appContext = resolveApplicationContext()
             ?: error(REASON_DEV_ONLY_ENTRY_UNAVAILABLE)
-        runBlocking {
-            DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
+        if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
+            NpuStandardRoutePersistentProbeRunner.run(
+                context = appContext,
+                request = request,
+            )
+        } else {
+            runBlocking {
+                DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
+            }
         }
     },
 ) : NpuStandardRouteS1Provider {

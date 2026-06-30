@@ -223,11 +223,16 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             check(
                 BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors ||
                     (
-                        BuildConfig.CURRENT_FLAVOR == "trueEngineNpuProbe" &&
+                        (BuildConfig.CURRENT_FLAVOR == "trueEngineNpuProbe" ||
+                            BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") &&
                             ((BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED &&
                                 nativeProbeMode == NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE) ||
                                 (BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED &&
-                                    nativeProbeMode == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE))
+                                    nativeProbeMode == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE) ||
+                                (BuildConfig.TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED &&
+                                    (nativeProbeMode == NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE ||
+                                        nativeProbeMode == "standard_route_reuse_once" ||
+                                        nativeProbeMode == "full_20")))
                     ),
             ) {
                 "persistent custom JNI probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
@@ -236,6 +241,9 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             check(holderKey.isNotBlank()) { "holderKey is required" }
             check(nativeProbeMode.isNotBlank()) { "nativeProbeMode is required" }
             check(runCount in 1..100) { "runCount must be 1..100" }
+            check(nativeProbeMode != NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE || runCount == 1) {
+                "held_engine_run_once requires runCount=1"
+            }
             val rawValidation = when (promptValidationMode) {
                 NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
                     NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)

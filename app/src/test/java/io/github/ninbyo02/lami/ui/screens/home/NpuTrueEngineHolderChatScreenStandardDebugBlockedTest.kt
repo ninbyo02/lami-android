@@ -197,6 +197,71 @@ class NpuTrueEngine {
     }
 
     @Test
+    fun `held engine run once completed summary proves one engine create one decode one close`() {
+        val state = NpuTrueEngineHeldRunOnceProbeState(
+            status = "completed",
+            reason = "held_engine_run_once_success",
+            holderId = "true-engine-held-run-once-dev",
+            modelPathOrReason = "/models/gemma.task",
+            nativeResult = NpuTrueEngineHolderNativeResult(
+                nativeReturn = "completed",
+                resultText = """
+                    selected_native_probe_mode=held_engine_run_once
+                    true_engine_probe_flavor=trueEngineNpuProbeDebug
+                    persistent_custom_jni_status=completed
+                    argument_validation_passed=true
+                    model_assets_create_reached=true
+                    model_assets_create_returned=true
+                    model_assets_create_succeeded=true
+                    engine_settings_create_reached=true
+                    engine_settings_create_returned=true
+                    engine_settings_create_succeeded=true
+                    engine_create_reached=true
+                    engine_create_returned=true
+                    engine_create_succeeded=true
+                    engine_create_count=1
+                    engine_holder_open_during_decode=true
+                    session_create_reached=true
+                    session_create_count=1
+                    prefill_reached=true
+                    decode_reached=true
+                    decode_count=1
+                    generate_count=1
+                    run_decode_reached=true
+                    raw_output=>こんにちは
+                    sanitized_output=こんにちは！
+                    npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+                    fallback_used=false
+                    timeout=false
+                    fresh_crash=false
+                    engine_close_reached=true
+                    engine_close_success=true
+                    engine_close_count=1
+                """.trimIndent(),
+            ),
+        )
+
+        val summary = formatNpuTrueEngineHeldRunOnceSummaryForCopy(state)
+        val fullDump = formatNpuTrueEngineHeldRunOnceFullDumpForCopy(state)
+
+        assertTrue(summary.contains("test_name=NPU True Engine Held Run Once Probe"))
+        assertTrue(summary.contains("selected_native_probe_mode=held_engine_run_once"))
+        assertTrue(summary.contains("engine_create_count=1"))
+        assertTrue(summary.contains("session_create_count=1"))
+        assertTrue(summary.contains("decode_count=1"))
+        assertTrue(summary.contains("generate_count=1"))
+        assertTrue(summary.contains("run_decode_reached=true"))
+        assertTrue(summary.contains("engine_close_count=1"))
+        assertTrue(summary.contains("engine_reuse_observed=single_run"))
+        assertTrue(summary.contains("true_engine_persistent_reuse=false"))
+        assertTrue(summary.contains("persistent_multi_turn_possible=false"))
+        assertTrue(summary.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(fullDump.contains("native_result_begin"))
+        assertFalse(summary.contains("engine_reuse_observed=true"))
+        assertFalse(summary.contains("true_engine_persistent_reuse=true"))
+    }
+
+    @Test
     fun `entrypoint only summary is gated by dedicated flag and keeps startup safe`() {
         val summary = formatNpuTrueEngineEntrypointSummaryForCopy(NpuTrueEngineEntrypointProbeState())
         val fullDump = formatNpuTrueEngineEntrypointFullDumpForCopy(NpuTrueEngineEntrypointProbeState())

@@ -2,24 +2,15 @@ diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/ja
 index 421c3036..7f3f2a2e 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -21,6 +21,7 @@
- #include <cstdio>
- #include <cstring>
- #include <memory>
-+#include <mutex>
- #include <optional>
- #include <string>
- #include <utility>
-@@ -104,6 +105,8 @@ constexpr char kQairt244ShortMultitokenMarker[] =
+@@ -103,5 +104,7 @@ constexpr char kQairt244ShortMultitokenMarker[] =
      "qairt244_short_multitoken_smoke_v1";
  constexpr char kQairt244EditablePromptMarker[] =
      "qairt244_editable_prompt_smoke_v1";
 +constexpr char kQairt244PersistentProbeMarker[] =
 +    "qairt244_persistent_custom_jni_probe_v1";
- constexpr char kQairt244EditablePromptRequestedMaxMarker[] =
-     "qairt244_editable_prompt_requested_max_v1";
  constexpr char kQairt244EditablePromptValidationMode[] =
-@@ -574,6 +577,74 @@ void Qairt244SentinelLog(const char* format, ...) {
+     "utf8_internal_intent";
+@@ -574,6 +577,119 @@ void Qairt244SentinelLog(const char* format, ...) {
    va_end(args);
  }
 
@@ -58,6 +49,52 @@ index 421c3036..7f3f2a2e 100644
 +      settings_source);
 +}
 +
++constexpr char kQairt244DefaultPromptInputLimitMode[] =
++    "hidden_template_experiment";
++constexpr size_t kQairt244DefaultPromptInputCodePointLimit = 128;
++constexpr int kQairt244EditablePromptMaxOutputTokensLimit = 512;
++
++bool Qairt244UsesHiddenTemplatePromptInputLimit(const std::string& mode) {
++  return mode == "hidden_template_experiment" ||
++         mode == "gemma_it_like" || mode == "utf8_internal_intent";
++}
++
++size_t Qairt244PromptInputCodePointLimit(const std::string& mode) {
++  if (mode == "hidden_template_experiment" || mode == "gemma_it_like" ||
++      mode == "utf8_internal_intent") {
++    return kQairt244DefaultPromptInputCodePointLimit;
++  }
++  return kQairt244DefaultPromptInputCodePointLimit;
++}
++
++std::string ValidateQairt244EditablePrompt(
++    const std::string& actual_prompt, const std::string& prompt_input_limit_mode,
++    std::string* normalized_prompt, size_t* prompt_input_code_points,
++    size_t* prompt_input_code_point_limit) {
++  const std::string reason =
++      ValidateQairt244EditablePrompt(actual_prompt, normalized_prompt);
++  if (reason != "ok") {
++    return reason;
++  }
++  if (prompt_input_code_point_limit != nullptr) {
++    *prompt_input_code_point_limit =
++        Qairt244PromptInputCodePointLimit(prompt_input_limit_mode);
++  }
++  if (prompt_input_code_points != nullptr) {
++    size_t count = 0;
++    if (normalized_prompt == nullptr ||
++        !ValidateQairt244Utf8AndCountCodePoints(*normalized_prompt, &count)) {
++      return "invalid_utf8";
++    }
++    *prompt_input_code_points = count;
++    if (prompt_input_code_point_limit != nullptr &&
++        count > *prompt_input_code_point_limit) {
++      return "too_long";
++    }
++  }
++  return "ok";
++}
++
 +void WriteQairt244PersistentProbeResult(
 +    const std::string& path, const std::vector<std::string>& lines) {
 +  if (path.empty()) {
@@ -82,7 +119,6 @@ index 421c3036..7f3f2a2e 100644
 +  bool invalidated = false;
 +};
 +
-+std::mutex g_qairt244_persistent_custom_jni_mutex;
 +Qairt244PersistentCustomJniHolder g_qairt244_persistent_custom_jni_holder;
 +
 +void CloseQairt244PersistentCustomJniHolderLocked(bool invalidate) {
@@ -94,7 +130,7 @@ index 421c3036..7f3f2a2e 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,1001 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2275,6 +2346,1014 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -419,7 +455,6 @@ index 421c3036..7f3f2a2e 100644
 +    jint max_output_tokens, jint run_count, jstring holder_key,
 +    jstring native_probe_mode) {
 +  const absl::Time probe_start_time = absl::Now();
-+  std::lock_guard<std::mutex> lock(g_qairt244_persistent_custom_jni_mutex);
 +  std::string model_path_str;
 +  std::string native_library_dir_str;
 +  std::string cache_dir_str;
@@ -677,6 +712,7 @@ index 421c3036..7f3f2a2e 100644
 +      native_probe_mode_str != "editable_engine_create_only" &&
 +      native_probe_mode_str != "true_engine_create_close_only" &&
 +      native_probe_mode_str != "held_engine_run_once" &&
++      native_probe_mode_str != "standard_route_reuse_once" &&
 +      native_probe_mode_str != "full_20") {
 +    record_failure(0, "argument", "invalid_native_probe_mode",
 +                   "native_probe_mode must be entrypoint_only, "
@@ -684,7 +720,7 @@ index 421c3036..7f3f2a2e 100644
 +                   "before_engine_create, engine_create_only, "
 +                   "editable_engine_create_only, "
 +                   "true_engine_create_close_only, held_engine_run_once, "
-+                   "or full_20");
++                   "standard_route_reuse_once, or full_20");
 +    write_result();
 +    ThrowLiteRtLmJniException(env,
 +                              "invalid persistent probe native_probe_mode");
@@ -707,6 +743,8 @@ index 421c3036..7f3f2a2e 100644
 +      native_probe_mode_str == "true_engine_create_close_only";
 +  const bool is_held_engine_run_once_mode =
 +      native_probe_mode_str == "held_engine_run_once";
++  const bool is_standard_route_reuse_once_mode =
++      native_probe_mode_str == "standard_route_reuse_once";
 +  if (is_create_close_only_mode) {
 +    if (requested_count != 0) {
 +      record_failure(0, "argument", "invalid_create_close_only_run_count",
@@ -723,6 +761,13 @@ index 421c3036..7f3f2a2e 100644
 +    write_result();
 +    ThrowLiteRtLmJniException(
 +        env, "invalid persistent probe held_engine_run_once run_count");
++    return nullptr;
++  } else if (is_standard_route_reuse_once_mode && requested_count != 1) {
++    record_failure(0, "argument", "invalid_standard_route_reuse_once_run_count",
++                   "standard_route_reuse_once run_count must be 1");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "invalid persistent probe standard_route_reuse_once run_count");
 +    return nullptr;
 +  } else if (requested_count < 1 || requested_count > 100) {
 +    record_failure(0, "argument", "invalid_run_count",
@@ -1067,16 +1112,20 @@ index 421c3036..7f3f2a2e 100644
 +    }
 +  }
 +
-+  engine_close_reached = "true";
-+  CloseQairt244PersistentCustomJniHolderLocked(
-+      g_qairt244_persistent_custom_jni_holder.invalidated);
-+  engine_close_success = "true";
++  if (!is_standard_route_reuse_once_mode || failure_count != 0) {
++    engine_close_reached = "true";
++    CloseQairt244PersistentCustomJniHolderLocked(
++        g_qairt244_persistent_custom_jni_holder.invalidated || failure_count != 0);
++    engine_close_success = "true";
++  }
 +  if (failure_count == 0) {
 +    status = "completed";
 +    holder_invalidated = "false";
 +    hypothesis_result = is_held_engine_run_once_mode
 +                            ? std::string("held_engine_run_once_success")
-+                            : std::string("engine_create_once_20_runs_success");
++                            : (is_standard_route_reuse_once_mode
++                                   ? std::string("standard_route_reuse_once_success")
++                                   : std::string("engine_create_once_20_runs_success"));
 +  } else {
 +    holder_invalidated = "true";
 +  }
