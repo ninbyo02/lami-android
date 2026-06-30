@@ -41,10 +41,11 @@ class UrlUtilsTest {
     }
 
     @Test
-    fun `validateUrlFormat rejects urls with mixed width port numbers`() {
+    fun `validateUrlFormat normalizes mixed width port numbers`() {
         val result = validateUrlFormat("http://localhost:1３434")
 
-        assertFalse(result.isValid)
-        assertEquals(PORT_ERROR_MESSAGE, result.errorMessage)
+        assertTrue(result.isValid)
+        assertNull(result.errorMessage)
+        assertEquals("http://localhost:13434", result.normalizedUrl)
     }
 }

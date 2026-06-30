@@ -29,10 +29,10 @@ class LamiAnimationStatusMapperTest {
     }
 
     @Test
-    fun `returns error when uiState has error`() {
+    fun `returns error when uiState has non network error`() {
         val result = mapToAnimationLamiStatus(
             lamiState = LamiState.Idle,
-            uiState = UiState.Error("network"),
+            uiState = UiState.Error("validation failed"),
             selectedModel = "llama3",
         )
 
@@ -40,14 +40,14 @@ class LamiAnimationStatusMapperTest {
     }
 
     @Test
-    fun `returns no models when selection missing`() {
+    fun `returns offline when selection missing`() {
         val result = mapToAnimationLamiStatus(
             lamiState = LamiState.Idle,
             uiState = UiState.Success("ok"),
             selectedModel = null,
         )
 
-        assertEquals(LamiStatus.NO_MODELS, result)
+        assertEquals(LamiStatus.OFFLINE, result)
     }
 
     @Test
