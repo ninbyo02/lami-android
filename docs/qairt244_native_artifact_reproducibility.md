@@ -1,5 +1,33 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-07-02 GPU Prefill Preinvoke Diagnostic Artifact
+
+The Build PC `build-qairt244-custom-jni` path now rebuilds from fetchable
+LiteRT-LM `v0.11.0` (`c87189528a758db32ead241f4fc9c64836398ee7`), not the
+local-only `1d535d5038c6a951b7f9f7adbed69efca1f62566` SHA. The rebuild applies
+the refreshed base patch first, then the GPU prefill preinvoke diagnostic patch:
+
+```text
+patches/qairt244_litertlm_utf8_128token_128input.patch
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+The diagnostic artifact label is
+`qairt244_128token_128input_gpu_prefill_preinvoke_diag`. A successful artifact
+must prove `qairt244_gpu_prefill_preinvoke_v1` in all three places:
+
+```bash
+strings <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+readelf -p .rodata <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+grep -F qairt244_gpu_prefill_preinvoke_v1 <artifact>/static_summary.md
+```
+
+For local source-level preflight without changing the external checkout:
+
+```bash
+scripts/check_qairt244_native_patch.sh --selected-ref-check
+```
+
 ## 2026-05-24 128 Output / 128 Input Hidden Template Artifact
 
 The standard hidden qairt244 prompt-template comparison uses a new bounded
