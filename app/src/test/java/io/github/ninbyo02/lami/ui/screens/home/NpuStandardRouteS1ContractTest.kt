@@ -54,6 +54,8 @@ class NpuStandardRouteS1ContractTest {
         val result = successResult()
 
         assertTrue(result.successCriteriaMet)
+        assertTrue(result.displayText.contains("NPU プレビュー診断"))
+        assertTrue(result.displayText.contains("route_id=NPU_STANDARD_ROUTE_S1"))
         assertTrue(result.displayText.contains("NPU STANDARD ROUTE S1"))
         assertTrue(result.displayText.contains("standard_route_connected=true"))
         assertTrue(result.displayText.contains("status=success"))

@@ -304,6 +304,8 @@ internal object NpuStandardRouteS1Contract {
             NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
         }
         return listOfNotNull(
+            "NPU プレビュー診断",
+            "route_id=NPU_STANDARD_ROUTE_S1",
             "NPU STANDARD ROUTE S1",
             "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
             "npu_s1_total_ms=${formatTimingMs(timing.totalMs)}".takeIf { timing.hasAnyValue },
