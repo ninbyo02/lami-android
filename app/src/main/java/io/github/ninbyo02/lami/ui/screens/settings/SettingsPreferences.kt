@@ -31,6 +31,11 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+
+internal const val LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY = "local_base_model_display_name"
+internal const val LOCAL_BASE_MODEL_FILE_PATH_DATASTORE_KEY = "local_base_model_file_path"
+internal const val LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY = "local_generic_model_display_name"
+internal const val LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY = "local_generic_model_file_path"
 private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX = "ollama_settings_android_test_run_"
 const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP = 64
 const val MIN_CHAT_LAMI_AVATAR_SIZE_DP = 48
@@ -374,8 +379,10 @@ class SettingsPreferences(private val context: Context) {
     private val ttsEnabledKey = booleanPreferencesKey("tts_enabled")
     private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
-    private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
-    private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
+    private val localBaseModelDisplayNameKey = stringPreferencesKey(LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY)
+    private val localBaseModelFilePathKey = stringPreferencesKey(LOCAL_BASE_MODEL_FILE_PATH_DATASTORE_KEY)
+    private val localGenericModelDisplayNameKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY)
+    private val localGenericModelFilePathKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY)
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
@@ -551,6 +558,14 @@ class SettingsPreferences(private val context: Context) {
 
     val localBaseModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[localBaseModelFilePathKey]
+    }
+
+    val localGenericModelDisplayNameFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localGenericModelDisplayNameKey]
+    }
+
+    val localGenericModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localGenericModelFilePathKey]
     }
 
     val inferenceTargetFlow: Flow<InferenceTarget> = context.dataStore.data.map { preferences ->
@@ -814,6 +829,28 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences.remove(localBaseModelDisplayNameKey)
             preferences.remove(localBaseModelFilePathKey)
+        }
+    }
+
+    suspend fun saveLocalGenericModelInfo(displayName: String, filePath: String) {
+        context.dataStore.edit { preferences ->
+            preferences[localGenericModelDisplayNameKey] = displayName
+            preferences[localGenericModelFilePathKey] = filePath
+        }
+    }
+
+    suspend fun getValidLocalGenericModelPathOrNull(): String? {
+        val preferences = context.dataStore.data.first()
+        return resolveValidLocalBaseModelPathOrNull(
+            displayName = preferences[localGenericModelDisplayNameKey],
+            filePath = preferences[localGenericModelFilePathKey],
+        )
+    }
+
+    suspend fun clearLocalGenericModelInfo() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(localGenericModelDisplayNameKey)
+            preferences.remove(localGenericModelFilePathKey)
         }
     }
 
