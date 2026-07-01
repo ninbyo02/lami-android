@@ -21,6 +21,7 @@ MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
 BACKEND_VARIANT="gpu"
 CLOSE_POLICY="normal"
 PHASE="send-message"
+MODEL_PATH_SOURCE="auto"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
 BROADCAST_EXIT_CODE="not-run"
@@ -63,6 +64,10 @@ while [ $# -gt 0 ]; do
       PHASE="${2:-send-message}"
       shift 2
       ;;
+    --model-path-source)
+      MODEL_PATH_SOURCE="${2:-auto}"
+      shift 2
+      ;;
     --skip-build-install)
       BUILD_AND_INSTALL=false
       shift
@@ -70,7 +75,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--max-output-tokens-list <csv>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--model-path-source <auto|generic_fallback>] [--max-output-tokens-list <csv>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -82,6 +87,7 @@ Defaults:
   backend: gpu
   close_policy: normal
   phase: send-message
+  model_path_source: auto
 
 Backend variants:
   gpu
@@ -103,6 +109,10 @@ Phases:
   engine-only        create and initialize Engine only
   conversation-only  create and initialize Engine, then create Conversation
   send-message       full benchmark path, including sendMessage
+
+Model path sources:
+  auto              existing benchmark behavior: explicit --model-path, base model setting, then local_models
+  generic_fallback  SettingsPreferences.getValidLocalGenericModelPathOrNull only; missing fails with reason=generic_fallback_model_missing
 
 Transport:
   prompts, model_path, and max_output_tokens are sent as base64 extras so
@@ -155,6 +165,14 @@ case "$PHASE" in
     ;;
   *)
     printf 'ERROR: --phase must be one of: engine-only, conversation-only, send-message\n' >&2
+    exit 2
+    ;;
+esac
+case "$MODEL_PATH_SOURCE" in
+  auto|generic_fallback)
+    ;;
+  *)
+    printf 'ERROR: --model-path-source must be one of: auto, generic_fallback\n' >&2
     exit 2
     ;;
 esac
@@ -439,6 +457,7 @@ append_host_timeout_state() {
     printf 'host_am_broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
     printf 'close_policy=%s\n' "$CLOSE_POLICY"
     printf 'phase=%s\n' "$PHASE"
+    printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
     printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf 'native_crash_suspected=%s\n' "$(crash_field_value native_crash_suspected)"
     printf 'crash_process=%s\n' "$(crash_field_value crash_process)"
@@ -465,6 +484,7 @@ write_timeout_artifacts() {
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
     printf -- '- phase: `%s`\n' "$PHASE"
+    printf -- '- model_path_source: `%s`\n' "$MODEL_PATH_SOURCE"
     printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
@@ -563,7 +583,7 @@ if [ -n "$MODEL_PATH" ]; then
   MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
 fi
 
-log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY phase=$PHASE"
+log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY phase=$PHASE model_path_source=$MODEL_PATH_SOURCE"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
@@ -575,6 +595,7 @@ if [ -n "$MODEL_PATH" ]; then
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
     --es phase "$PHASE" \
+    --es model_path_source "$MODEL_PATH_SOURCE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -588,6 +609,7 @@ else
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
     --es phase "$PHASE" \
+    --es model_path_source "$MODEL_PATH_SOURCE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -601,6 +623,7 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
@@ -621,6 +644,7 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
@@ -663,6 +687,7 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
       printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
       printf 'close_policy=%s\n' "$CLOSE_POLICY"
       printf 'phase=%s\n' "$PHASE"
+      printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
       printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
       printf 'status=failure\n'
       printf 'reason=host_timeout_waiting_for_receiver\n'
@@ -694,6 +719,7 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'wait_status=%s\n' "$wait_status"
   printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"

@@ -83,6 +83,18 @@ internal enum class BenchmarkPhase(
     }
 }
 
+internal enum class BenchmarkModelPathSource(
+    val wireValue: String,
+) {
+    AUTO("auto"),
+    GENERIC_FALLBACK("generic_fallback");
+
+    companion object {
+        fun parse(raw: String?): BenchmarkModelPathSource =
+            entries.firstOrNull { it.wireValue == raw?.trim()?.lowercase(Locale.US) } ?: AUTO
+    }
+}
+
 @OptIn(ExperimentalApi::class)
 class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -94,6 +106,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val backendVariant = backendVariant(intent)
         val closePolicy = closePolicy(intent)
         val phase = phase(intent)
+        val modelPathSource = modelPathSource(intent)
         writeMarker(
             appContext = appContext,
             timestamp = timestamp,
@@ -101,7 +114,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             closePolicy = closePolicy,
             phase = phase,
             stage = "receiver_started",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} onReceive_enter",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} model_path_source=${modelPathSource.wireValue} onReceive_enter",
         )
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!running.compareAndSet(false, true)) {
@@ -112,7 +125,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 closePolicy = closePolicy,
                 phase = phase,
                 stage = "receiver_started",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} already_running",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} model_path_source=${modelPathSource.wireValue} already_running",
             )
             writeState(
                 stateFile = stateFile,
@@ -125,6 +138,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 markdownFileName = "",
                 csvFileName = "",
                 timeoutMs = timeoutMs,
+                modelPathSource = modelPathSource.wireValue,
             )
             return
         }
@@ -132,7 +146,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         receiverDispatcher.execute {
             try {
-                handle(appContext, intent, timestamp, timeoutMs, backendVariant, closePolicy, phase)
+                handle(appContext, intent, timestamp, timeoutMs, backendVariant, closePolicy, phase, modelPathSource)
             } catch (throwable: Throwable) {
                 writeMarker(
                     appContext = appContext,
@@ -141,7 +155,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     closePolicy = closePolicy,
                     phase = phase,
                     stage = "receiver_exception",
-                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} ${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
+                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} model_path_source=${modelPathSource.wireValue} ${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
                 )
                 val row = LiteRtLmGpuBenchmarkRow.failure(
                     timestamp = timestamp,
@@ -156,6 +170,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         ?: "receiver_exception:${throwable.javaClass.simpleName}",
                     timeout = false,
                     freshCrash = false,
+                    modelPathSource = modelPathSource.wireValue,
+                    genericFallbackModelConfigured = modelPathSource != BenchmarkModelPathSource.GENERIC_FALLBACK,
                 )
                 writeReports(
                     appContext = appContext,
@@ -174,6 +190,14 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     markdownFileName = markdownFileName(timestamp),
                     csvFileName = csvFileName(timestamp),
                     timeoutMs = timeoutMs,
+                    modelPathSource = modelPathSource.wireValue,
+                    genericFallbackModelConfigured = row.genericFallbackModelConfigured,
+                    requestedRunCount = 1,
+                    completedRunCount = 1,
+                    successCount = 0,
+                    failureCount = 1,
+                    timeoutCount = 0,
+                    fallbackCount = 0,
                 )
             } finally {
                 running.set(false)
@@ -190,6 +214,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
         phase: BenchmarkPhase,
+        modelPathSource: BenchmarkModelPathSource,
     ) {
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!BuildConfig.DEBUG || BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -205,6 +230,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 reason = "wrong_variant",
                 timeout = false,
                 freshCrash = false,
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = modelPathSource != BenchmarkModelPathSource.GENERIC_FALLBACK,
             )
             writeReports(appContext, timestamp, timeoutMs, listOf(row))
             writeState(
@@ -218,6 +245,14 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 markdownFileName = markdownFileName(timestamp),
                 csvFileName = csvFileName(timestamp),
                 timeoutMs = timeoutMs,
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = row.genericFallbackModelConfigured,
+                requestedRunCount = 1,
+                completedRunCount = 1,
+                successCount = 0,
+                failureCount = 1,
+                timeoutCount = 0,
+                fallbackCount = 0,
             )
             return
         }
@@ -225,7 +260,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val prompts = prompts(intent)
         val maxOutputTokensValues = maxOutputTokensValues(intent)
         val maxOutputTokensList = maxOutputTokensValues.joinToString(",")
-        val modelPath = resolveModelPath(appContext, intent)
+        val requestedRunCount = prompts.size * maxOutputTokensValues.size
+        val modelResolution = resolveModelPath(appContext, intent, modelPathSource)
+        val modelPath = modelResolution.modelPath
         val modelFile = modelPath?.let(::File)
         writeMarker(
             appContext = appContext,
@@ -234,7 +271,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             closePolicy = closePolicy,
             phase = phase,
             stage = "model_resolved",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList model_path_source=${modelResolution.source.wireValue} generic_fallback_model_configured=${modelResolution.genericFallbackModelConfigured} model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
             maxOutputTokensList = maxOutputTokensList,
         )
         writeState(
@@ -248,10 +285,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             markdownFileName = "",
             csvFileName = "",
             timeoutMs = timeoutMs,
+            modelPathSource = modelResolution.source.wireValue,
+            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
+            requestedRunCount = requestedRunCount,
         )
 
         val rows = mutableListOf<LiteRtLmGpuBenchmarkRow>()
         if (modelPath.isNullOrBlank()) {
+            val reason = if (modelResolution.source == BenchmarkModelPathSource.GENERIC_FALLBACK) {
+                "generic_fallback_model_missing"
+            } else {
+                "model_path_not_configured"
+            }
             prompts.forEach { prompt ->
                 maxOutputTokensValues.forEach { maxOutputTokens ->
                     rows += LiteRtLmGpuBenchmarkRow.failure(
@@ -263,9 +308,11 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         prompt = prompt,
                         maxOutputTokens = maxOutputTokens,
                         modelPath = "",
-                        reason = "model_path_not_configured",
+                        reason = reason,
                         timeout = false,
                         freshCrash = false,
+                        modelPathSource = modelResolution.source.wireValue,
+                        genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                     )
                 }
             }
@@ -286,6 +333,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         modelLength = modelFile?.length() ?: 0L,
                         timeout = false,
                         freshCrash = false,
+                        modelPathSource = modelResolution.source.wireValue,
+                        genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                     )
                 }
             }
@@ -308,6 +357,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                             modelLength = modelFile.length(),
                             timeout = false,
                             freshCrash = false,
+                            modelPathSource = modelResolution.source.wireValue,
+                            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                         )
                     } else {
                         val result = runCaseWithTimeout(
@@ -322,6 +373,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                             modelPath = modelPath,
                             modelLength = modelFile.length(),
                             timeoutMs = timeoutMs,
+                            modelPathSource = modelResolution.source,
+                            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                         )
                         rows += result
                         if (result.timeout) {
@@ -343,31 +396,31 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
             maxOutputTokensList = maxOutputTokensList,
         )
-        val successCount = rows.count { it.status == "success" }
-        val timeoutCount = rows.count { it.timeout }
-        val finalStatus = when {
-            timeoutCount > 0 -> "failure"
-            successCount == rows.size && rows.isNotEmpty() -> "success"
-            successCount > 0 -> "partial"
-            else -> "failure"
-        }
-        val reason = when {
-            timeoutCount > 0 -> "timeout"
-            successCount == rows.size && rows.isNotEmpty() -> "completed"
-            successCount > 0 -> "partial_success"
-            else -> rows.firstOrNull()?.reason ?: "no_rows"
-        }
+        val summary = buildLiteRtLmGpuBenchmarkRunSummary(
+            rows = rows,
+            requestedRunCount = requestedRunCount,
+            modelPathSource = modelResolution.source.wireValue,
+            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
+        )
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
             phase = phase,
-            status = finalStatus,
-            reason = reason,
+            status = summary.status,
+            reason = summary.reason,
             markdownFileName = markdownFileName(timestamp),
             csvFileName = csvFileName(timestamp),
             timeoutMs = timeoutMs,
+            modelPathSource = summary.modelPathSource,
+            genericFallbackModelConfigured = summary.genericFallbackModelConfigured,
+            requestedRunCount = summary.requestedRunCount,
+            completedRunCount = summary.completedRunCount,
+            successCount = summary.successCount,
+            failureCount = summary.failureCount,
+            timeoutCount = summary.timeoutCount,
+            fallbackCount = summary.fallbackCount,
         )
     }
 
@@ -383,6 +436,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         modelLength: Long,
         maxOutputTokensList: String,
         timeoutMs: Long,
+        modelPathSource: BenchmarkModelPathSource,
+        genericFallbackModelConfigured: Boolean,
     ): LiteRtLmGpuBenchmarkRow {
         val executor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "LiteRtLmGpuBenchmark-$maxOutputTokens")
@@ -400,6 +455,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     modelPath = modelPath,
                     modelLength = modelLength,
                     maxOutputTokensList = maxOutputTokensList,
+                    modelPathSource = modelPathSource,
+                    genericFallbackModelConfigured = genericFallbackModelConfigured,
                 )
             },
         )
@@ -421,6 +478,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 modelLength = modelLength,
                 timeout = true,
                 freshCrash = false,
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         } catch (throwable: Throwable) {
             LiteRtLmGpuBenchmarkRow.failure(
@@ -438,6 +497,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 modelLength = modelLength,
                 timeout = false,
                 freshCrash = false,
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         } finally {
             executor.shutdownNow()
@@ -455,6 +516,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         modelPath: String,
         modelLength: Long,
         maxOutputTokensList: String,
+        modelPathSource: BenchmarkModelPathSource,
+        genericFallbackModelConfigured: Boolean,
     ): LiteRtLmGpuBenchmarkRow {
         val totalStartMs = SystemClock.elapsedRealtime()
         var engine: Engine? = null
@@ -568,6 +631,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     samplerTemperature = samplerTemperature(backendVariant),
                     conversationConfigUsed = conversationConfigUsed(backendVariant),
                     contentsApiUsed = contentsApiUsed(backendVariant),
+                    modelPathSource = modelPathSource.wireValue,
+                    genericFallbackModelConfigured = genericFallbackModelConfigured,
                 )
             }
 
@@ -662,6 +727,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     samplerTemperature = samplerTemperature(backendVariant),
                     conversationConfigUsed = conversationConfigUsed(backendVariant),
                     contentsApiUsed = contentsApiUsed(backendVariant),
+                    modelPathSource = modelPathSource.wireValue,
+                    genericFallbackModelConfigured = genericFallbackModelConfigured,
                 )
             }
 
@@ -777,6 +844,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 samplerTemperature = samplerTemperature(backendVariant),
                 conversationConfigUsed = conversationConfigUsed(backendVariant),
                 contentsApiUsed = contentsApiUsed(backendVariant),
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         } catch (throwable: Throwable) {
             writeMarker(
@@ -822,6 +891,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 samplerTemperature = samplerTemperature(backendVariant),
                 conversationConfigUsed = conversationConfigUsed(backendVariant),
                 contentsApiUsed = contentsApiUsed(backendVariant),
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         } finally {
             closeResources(
@@ -994,25 +1065,62 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         )
     }
 
-    private fun resolveModelPath(appContext: Context, intent: Intent): String? {
+    private fun resolveModelPath(
+        appContext: Context,
+        intent: Intent,
+        modelPathSource: BenchmarkModelPathSource,
+    ): BenchmarkModelPathResolution {
+        if (modelPathSource == BenchmarkModelPathSource.GENERIC_FALLBACK) {
+            val genericPath = runCatching {
+                runBlocking { SettingsPreferences(appContext).getValidLocalGenericModelPathOrNull() }
+            }.getOrNull()
+            return BenchmarkModelPathResolution(
+                modelPath = genericPath,
+                source = BenchmarkModelPathSource.GENERIC_FALLBACK,
+                genericFallbackModelConfigured = !genericPath.isNullOrBlank(),
+            )
+        }
         decodeBase64Extra(intent, EXTRA_MODEL_PATH_BASE64)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
+            ?.let {
+                return BenchmarkModelPathResolution(
+                    modelPath = it,
+                    source = BenchmarkModelPathSource.AUTO,
+                    genericFallbackModelConfigured = true,
+                )
+            }
         intent.getStringExtra(EXTRA_MODEL_PATH)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
+            ?.let {
+                return BenchmarkModelPathResolution(
+                    modelPath = it,
+                    source = BenchmarkModelPathSource.AUTO,
+                    genericFallbackModelConfigured = true,
+                )
+            }
         val settingsModelPath = runCatching {
             runBlocking { SettingsPreferences(appContext).getValidLocalBaseModelPathOrNull() }
         }.getOrNull()
-        if (!settingsModelPath.isNullOrBlank()) return settingsModelPath
+        if (!settingsModelPath.isNullOrBlank()) {
+            return BenchmarkModelPathResolution(
+                modelPath = settingsModelPath,
+                source = BenchmarkModelPathSource.AUTO,
+                genericFallbackModelConfigured = true,
+            )
+        }
         val localModelsDir = File(appContext.filesDir, "local_models")
-        return localModelsDir
+        val localModelPath = localModelsDir
             .listFiles { file -> file.isFile && file.extension.equals("litertlm", ignoreCase = true) }
             ?.sortedBy { it.name }
             ?.firstOrNull()
             ?.absolutePath
+        return BenchmarkModelPathResolution(
+            modelPath = localModelPath,
+            source = BenchmarkModelPathSource.AUTO,
+            genericFallbackModelConfigured = !localModelPath.isNullOrBlank(),
+        )
     }
 
     private fun prompts(intent: Intent): List<String> {
@@ -1049,6 +1157,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
     private fun phase(intent: Intent): BenchmarkPhase =
         BenchmarkPhase.parse(intent.getStringExtra(EXTRA_PHASE))
+
+    private fun modelPathSource(intent: Intent): BenchmarkModelPathSource =
+        BenchmarkModelPathSource.parse(intent.getStringExtra(EXTRA_MODEL_PATH_SOURCE))
 
     private fun timeoutMs(intent: Intent): Long =
         intent.getLongExtra(EXTRA_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
@@ -1284,6 +1395,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val decodeTokensPerSecond: Double?,
     )
 
+    private data class BenchmarkModelPathResolution(
+        val modelPath: String?,
+        val source: BenchmarkModelPathSource,
+        val genericFallbackModelConfigured: Boolean,
+    )
+
     private data class EngineConfigParts(
         val backend: Backend,
         val engineBackendLabel: String,
@@ -1315,6 +1432,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val EXTRA_CLOSE_POLICY = "close_policy"
         const val EXTRA_PHASE = "phase"
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
+        const val EXTRA_MODEL_PATH_SOURCE = "model_path_source"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
         const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
         const val MARKER_HISTORY_FILE_NAME = "litert_lm_gpu_benchmark_marker_history.txt"
@@ -1378,6 +1496,8 @@ internal data class LiteRtLmGpuBenchmarkRow(
     val samplerTemperature: Double?,
     val conversationConfigUsed: Boolean,
     val contentsApiUsed: Boolean,
+    val modelPathSource: String = BenchmarkModelPathSource.AUTO.wireValue,
+    val genericFallbackModelConfigured: Boolean = true,
 ) {
     companion object {
         fun failure(
@@ -1412,6 +1532,8 @@ internal data class LiteRtLmGpuBenchmarkRow(
             samplerTemperature: Double? = null,
             conversationConfigUsed: Boolean? = null,
             contentsApiUsed: Boolean? = null,
+            modelPathSource: String = BenchmarkModelPathSource.AUTO.wireValue,
+            genericFallbackModelConfigured: Boolean = true,
         ): LiteRtLmGpuBenchmarkRow {
             val isGalleryParity = backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY
             return LiteRtLmGpuBenchmarkRow(
@@ -1455,9 +1577,65 @@ internal data class LiteRtLmGpuBenchmarkRow(
                 samplerTemperature = samplerTemperature ?: if (isGalleryParity) 1.0 else null,
                 conversationConfigUsed = conversationConfigUsed ?: isGalleryParity,
                 contentsApiUsed = contentsApiUsed ?: isGalleryParity,
+                modelPathSource = modelPathSource,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         }
     }
+}
+
+internal data class LiteRtLmGpuBenchmarkRunSummary(
+    val backend: String,
+    val requestedRunCount: Int,
+    val completedRunCount: Int,
+    val successCount: Int,
+    val failureCount: Int,
+    val timeoutCount: Int,
+    val fallbackCount: Int,
+    val modelPathSource: String,
+    val genericFallbackModelConfigured: Boolean,
+    val status: String,
+    val reason: String,
+)
+
+internal fun buildLiteRtLmGpuBenchmarkRunSummary(
+    rows: List<LiteRtLmGpuBenchmarkRow>,
+    requestedRunCount: Int = rows.size,
+    modelPathSource: String = rows.map { it.modelPathSource }.distinct().singleOrNull()
+        ?: BenchmarkModelPathSource.AUTO.wireValue,
+    genericFallbackModelConfigured: Boolean = rows.map { it.genericFallbackModelConfigured }.distinct().singleOrNull()
+        ?: true,
+): LiteRtLmGpuBenchmarkRunSummary {
+    val timeoutCount = rows.count { it.timeout }
+    val successCount = rows.count { it.status == "success" }
+    val failureCount = rows.count { it.status != "success" && !it.timeout }
+    val completedRunCount = rows.count { it.reason != "skipped_after_timeout" }
+    val fallbackCount = rows.count { it.fallbackUsed }
+    val finalStatus = when {
+        timeoutCount > 0 -> "failure"
+        successCount == rows.size && rows.isNotEmpty() -> "success"
+        successCount > 0 -> "partial"
+        else -> "failure"
+    }
+    val reason = when {
+        timeoutCount > 0 -> "timeout"
+        successCount == rows.size && rows.isNotEmpty() -> "completed"
+        successCount > 0 -> "partial_success"
+        else -> rows.firstOrNull()?.reason ?: "no_rows"
+    }
+    return LiteRtLmGpuBenchmarkRunSummary(
+        backend = rows.map { it.backend }.distinct().singleOrNull() ?: "mixed",
+        requestedRunCount = requestedRunCount,
+        completedRunCount = completedRunCount,
+        successCount = successCount,
+        failureCount = failureCount,
+        timeoutCount = timeoutCount,
+        fallbackCount = fallbackCount,
+        modelPathSource = modelPathSource,
+        genericFallbackModelConfigured = genericFallbackModelConfigured,
+        status = finalStatus,
+        reason = reason,
+    )
 }
 
 internal fun writeReports(
@@ -1481,10 +1659,20 @@ internal fun buildGpuBenchmarkMarkdown(
     timeoutMs: Long,
     rows: List<LiteRtLmGpuBenchmarkRow>,
 ): String = buildString {
+    val summary = buildLiteRtLmGpuBenchmarkRunSummary(rows)
     appendLine("# LiteRT-LM GPU Benchmark")
     appendLine()
     appendLine("- timestamp: `$timestamp`")
     appendLine("- route_type: `litert_lm_gpu_benchmark`")
+    appendLine("- backend: `${summary.backend}`")
+    appendLine("- requested_run_count: `${summary.requestedRunCount}`")
+    appendLine("- completed_run_count: `${summary.completedRunCount}`")
+    appendLine("- success_count: `${summary.successCount}`")
+    appendLine("- failure_count: `${summary.failureCount}`")
+    appendLine("- timeout_count: `${summary.timeoutCount}`")
+    appendLine("- fallback_count: `${summary.fallbackCount}`")
+    appendLine("- model_path_source: `${summary.modelPathSource}`")
+    appendLine("- generic_fallback_model_configured: `${summary.genericFallbackModelConfigured}`")
     appendLine("- backend_variants: `${rows.map { it.backendVariant }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- backends: `${rows.map { it.backend }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- close_policies: `${rows.map { it.closePolicy }.distinct().joinToString(",").ifBlank { "unknown" }}`")
@@ -1498,13 +1686,15 @@ internal fun buildGpuBenchmarkMarkdown(
     appendLine("- conversation_config_used_values: `${rows.map { it.conversationConfigUsed }.distinct().joinToString(",")}`")
     appendLine("- contents_api_used_values: `${rows.map { it.contentsApiUsed }.distinct().joinToString(",")}`")
     appendLine()
-    appendLine("| backend_variant | backend | close_policy | phase | prompt | max_output_tokens | max_output_tokens_list | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash | send_api_variant | sampler_top_k | sampler_top_p | sampler_temperature | conversation_config_used | contents_api_used |")
-    appendLine("| --- | --- | --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |")
+    appendLine("| backend_variant | backend | model_path_source | generic_fallback_model_configured | close_policy | phase | prompt | max_output_tokens | max_output_tokens_list | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash | send_api_variant | sampler_top_k | sampler_top_p | sampler_temperature | conversation_config_used | contents_api_used |")
+    appendLine("| --- | --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |")
     rows.forEach { row ->
         appendLine(
             listOf(
                 row.backendVariant.mdCell(),
                 row.backend.mdCell(),
+                row.modelPathSource.mdCell(),
+                row.genericFallbackModelConfigured.toString(),
                 row.closePolicy.mdCell(),
                 row.phase.mdCell(),
                 row.prompt.mdCell(),
@@ -1545,6 +1735,8 @@ internal fun buildGpuBenchmarkMarkdown(
         appendLine("- prompt: `${row.prompt}`")
         appendLine("- max_output_tokens: `${row.maxOutputTokens}`")
         appendLine("- max_output_tokens_list: `${row.maxOutputTokensList}`")
+        appendLine("- model_path_source: `${row.modelPathSource}`")
+        appendLine("- generic_fallback_model_configured: `${row.genericFallbackModelConfigured}`")
         appendLine("- model_path: `${row.modelPath}`")
         appendLine("- model_exists: `${row.modelExists}`")
         appendLine("- model_length: `${row.modelLength}`")
@@ -1592,6 +1784,8 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
         "prompt",
         "max_output_tokens",
         "max_output_tokens_list",
+        "model_path_source",
+        "generic_fallback_model_configured",
         "model_path",
         "model_exists",
         "model_length",
@@ -1637,6 +1831,8 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
                     row.prompt,
                     row.maxOutputTokens.toString(),
                     row.maxOutputTokensList,
+                    row.modelPathSource,
+                    row.genericFallbackModelConfigured.toString(),
                     row.modelPath,
                     row.modelExists.toString(),
                     row.modelLength.toString(),
@@ -1684,9 +1880,18 @@ private fun writeState(
     markdownFileName: String,
     csvFileName: String,
     timeoutMs: Long,
+    modelPathSource: String = BenchmarkModelPathSource.AUTO.wireValue,
+    genericFallbackModelConfigured: Boolean = true,
+    requestedRunCount: Int? = null,
+    completedRunCount: Int? = null,
+    successCount: Int? = null,
+    failureCount: Int? = null,
+    timeoutCount: Int? = null,
+    fallbackCount: Int? = null,
 ) {
-    stateFile.writeText(
-        listOf(
+    val lines = buildList {
+        addAll(
+            listOf(
             "timestamp=$timestamp",
             "route_type=litert_lm_gpu_benchmark",
             "backend=${backendVariant.backendLabel}",
@@ -1702,7 +1907,19 @@ private fun writeState(
             "fallback_setting_changed=false",
             "backend_npu_touched=false",
             "qairt_qnn_touched=false",
-        ).joinToString("\n") + "\n",
+            "model_path_source=$modelPathSource",
+            "generic_fallback_model_configured=$genericFallbackModelConfigured",
+            ),
+        )
+        requestedRunCount?.let { add("requested_run_count=$it") }
+        completedRunCount?.let { add("completed_run_count=$it") }
+        successCount?.let { add("success_count=$it") }
+        failureCount?.let { add("failure_count=$it") }
+        timeoutCount?.let { add("timeout_count=$it") }
+        fallbackCount?.let { add("fallback_count=$it") }
+    }
+    stateFile.writeText(
+        lines.joinToString("\n") + "\n",
         Charsets.UTF_8,
     )
 }
