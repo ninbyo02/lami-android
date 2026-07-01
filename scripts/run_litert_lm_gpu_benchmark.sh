@@ -248,6 +248,34 @@ marker_value() {
   state_value "$key" "$OUT_DIR/marker.txt" 2>/dev/null || true
 }
 
+dry_run_command_if_requested() {
+  if [ "${LAMI_BENCHMARK_DRY_RUN_COMMAND:-false}" != "true" ]; then
+    return 0
+  fi
+  local prompts_payload prompts_count max_output_tokens_count requested_run_count model_path_arg_present
+  prompts_payload="$(normalize_prompts)"
+  prompts_count="$(printf '%s\n' "$prompts_payload" | awk 'NF { count++ } END { print count + 0 }')"
+  max_output_tokens_count="$(printf '%s' "$MAX_OUTPUT_TOKENS_LIST" | awk -F, '{ count = 0; for (i = 1; i <= NF; i++) if ($i ~ /^[[:space:]]*[0-9]+[[:space:]]*$/) count++; print count }')"
+  requested_run_count=$((prompts_count * max_output_tokens_count))
+  if [ -n "$MODEL_PATH" ]; then
+    model_path_arg_present=true
+  else
+    model_path_arg_present=false
+  fi
+  printf 'dry_run=true\n'
+  printf 'backend=%s\n' "$BACKEND_LABEL"
+  printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+  printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
+  printf 'model_path_arg_present=%s\n' "$model_path_arg_present"
+  printf 'prompts_count=%s\n' "$prompts_count"
+  printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
+  printf 'requested_run_count=%s\n' "$requested_run_count"
+  printf 'receiver_extra=--es backend_variant %s\n' "$BACKEND_VARIANT"
+  exit 0
+}
+
 first_matching_line() {
   local pattern="$1"
   shift
@@ -552,6 +580,8 @@ write_timeout_artifacts() {
 }
 
 trap stop_probe_logcat EXIT
+
+dry_run_command_if_requested
 
 if ! command -v adb >/dev/null 2>&1; then
   log "adb not found"

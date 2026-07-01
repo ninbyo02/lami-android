@@ -40,7 +40,7 @@ internal enum class BenchmarkBackendVariant(
 ) {
     GPU("gpu", "GPU", "explicit_gpu"),
     CPU("cpu", "CPU", "explicit_cpu"),
-    AUTOMATIC("automatic", "Automatic", "constructor_default_backend"),
+    AUTOMATIC("automatic", "Automatic", "automatic"),
     GPU_NULL_MODALITIES("gpu-null-modalities", "GPU", "explicit_gpu_null_modalities"),
     GPU_CPU_MODALITIES("gpu-cpu-modalities", "GPU", "explicit_gpu_cpu_modalities"),
     GPU_CACHE_DIR("gpu-cache-dir", "GPU", "explicit_gpu_cache_dir"),
@@ -398,7 +398,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             closePolicy = closePolicy,
             phase = phase,
             stage = "report_written",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
+            detail = "backend=${backendVariant.backendLabel} backend_variant=${backendVariant.wireValue} config_style=${backendVariant.configStyle} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
             maxOutputTokensList = maxOutputTokensList,
         )
         val summary = buildLiteRtLmGpuBenchmarkRunSummary(
@@ -1193,26 +1193,37 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         appContext: Context,
         backendVariant: BenchmarkBackendVariant,
         maxOutputTokens: Int,
+    ): EngineConfigParts =
+        resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = appContext.cacheDir.absolutePath,
+            backendVariant = backendVariant,
+            maxOutputTokens = maxOutputTokens,
+        )
+
+    internal fun resolveEngineConfigPartsForBenchmark(
+        cacheDirPath: String,
+        backendVariant: BenchmarkBackendVariant,
+        maxOutputTokens: Int,
     ): EngineConfigParts {
         val cacheDir = when (backendVariant) {
             BenchmarkBackendVariant.GPU,
             BenchmarkBackendVariant.CPU,
-            BenchmarkBackendVariant.AUTOMATIC,
             BenchmarkBackendVariant.GPU_NULL_MODALITIES,
             BenchmarkBackendVariant.GPU_CPU_MODALITIES,
             BenchmarkBackendVariant.GPU_CACHE_DIR,
             BenchmarkBackendVariant.GPU_NULL_MAX,
-            BenchmarkBackendVariant.GPU_ALL -> appContext.cacheDir.absolutePath
+            BenchmarkBackendVariant.GPU_ALL -> cacheDirPath
+            BenchmarkBackendVariant.AUTOMATIC,
             BenchmarkBackendVariant.GALLERY_CHAT_PARITY -> null
         }
         return when (backendVariant) {
             BenchmarkBackendVariant.AUTOMATIC -> EngineConfigParts(
                 backend = null,
-                engineBackendLabel = "constructor_default",
+                engineBackendLabel = "Automatic",
                 visionBackend = null,
-                visionBackendLabel = "constructor_default_null",
+                visionBackendLabel = "default",
                 audioBackend = null,
-                audioBackendLabel = "constructor_default_null",
+                audioBackendLabel = "default",
                 maxNumTokens = maxOutputTokens,
                 cacheDir = cacheDir,
                 useConstructorDefaultBackend = true,
@@ -1429,7 +1440,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val genericFallbackModelConfigured: Boolean,
     )
 
-    private data class EngineConfigParts(
+    internal data class EngineConfigParts(
         val backend: Backend?,
         val engineBackendLabel: String,
         val visionBackend: Backend?,
@@ -1459,7 +1470,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             }
 
         fun markerDetail(backendVariant: BenchmarkBackendVariant, maxOutputTokens: Int): String =
-            "backend_variant=${backendVariant.wireValue} engine_backend=$engineBackendLabel " +
+            "backend=${backendVariant.backendLabel} backend_variant=${backendVariant.wireValue} " +
+                "engine_backend=$engineBackendLabel " +
                 "vision_backend=$visionBackendLabel audio_backend=$audioBackendLabel " +
                 "config_style=${backendVariant.configStyle} " +
                 "cache_dir=${cacheDir ?: "null"} max_output_tokens=$maxOutputTokens " +

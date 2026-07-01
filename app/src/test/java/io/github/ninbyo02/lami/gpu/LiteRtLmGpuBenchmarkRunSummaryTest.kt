@@ -14,6 +14,39 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
     }
 
     @Test
+    fun `automatic engine config marker does not map to explicit GPU`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.AUTOMATIC,
+            maxOutputTokens = 32,
+        )
+        val markerDetail = configParts.markerDetail(BenchmarkBackendVariant.AUTOMATIC, 32)
+
+        assertEquals(null, configParts.backend)
+        assertEquals(null, configParts.visionBackend)
+        assertEquals(null, configParts.audioBackend)
+        assertEquals(true, configParts.useConstructorDefaultBackend)
+        assertEquals(null, configParts.cacheDir)
+        assertTrue(markerDetail.contains("backend_variant=automatic"))
+        assertTrue(markerDetail.contains("backend=Automatic"))
+        assertTrue(markerDetail.contains("engine_backend=Automatic"))
+        assertTrue(markerDetail.contains("vision_backend=default"))
+        assertTrue(markerDetail.contains("audio_backend=default"))
+        assertTrue(markerDetail.contains("config_style=automatic"))
+        assertTrue(!markerDetail.contains("engine_backend=GPU"))
+        assertTrue(!markerDetail.contains("vision_backend=GPU"))
+        assertTrue(!markerDetail.contains("config_style=explicit_gpu"))
+    }
+
+    @Test
+    fun `GPU and CPU variants retain explicit config styles`() {
+        assertEquals("explicit_gpu", BenchmarkBackendVariant.GPU.configStyle)
+        assertEquals("explicit_cpu", BenchmarkBackendVariant.CPU.configStyle)
+        assertEquals("GPU", BenchmarkBackendVariant.GPU.backendLabel)
+        assertEquals("CPU", BenchmarkBackendVariant.CPU.backendLabel)
+    }
+
+    @Test
     fun `summary counts generic fallback automatic 20 run result`() {
         val rows = List(20) { successRow(backendVariant = BenchmarkBackendVariant.AUTOMATIC) }
 
