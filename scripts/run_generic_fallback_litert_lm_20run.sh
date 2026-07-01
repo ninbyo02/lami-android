@@ -2,7 +2,7 @@
 set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKEND="gpu"
+BACKEND="automatic"
 PROMPT="こんにちは。短く自己紹介してください。"
 MAX_OUTPUT_TOKENS="32"
 REQUESTED_RUN_COUNT=20
@@ -33,12 +33,14 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_generic_fallback_litert_lm_20run.sh --backend <gpu|cpu> [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--prompt <text>] [--max-output-tokens <n>] [--skip-build-install]
+  scripts/run_generic_fallback_litert_lm_20run.sh --backend <automatic|default|gpu|cpu> [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--prompt <text>] [--max-output-tokens <n>] [--skip-build-install]
 
 Runs 20 repeated LiteRT-LM local inference attempts through the standardDebug
 benchmark receiver using only the configured Generic fallback model slot.
 
 Examples:
+  scripts/run_generic_fallback_litert_lm_20run.sh --backend automatic
+  scripts/run_generic_fallback_litert_lm_20run.sh --backend default
   scripts/run_generic_fallback_litert_lm_20run.sh --backend gpu
   scripts/run_generic_fallback_litert_lm_20run.sh --backend cpu
 
@@ -60,10 +62,13 @@ EOF
 done
 
 case "$BACKEND" in
+  automatic|default)
+    BACKEND="automatic"
+    ;;
   gpu|cpu)
     ;;
   *)
-    printf 'ERROR: --backend must be gpu or cpu\n' >&2
+    printf 'ERROR: --backend must be automatic, default, gpu, or cpu\n' >&2
     exit 2
     ;;
 esac

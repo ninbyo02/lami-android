@@ -90,9 +90,10 @@ Defaults:
   model_path_source: auto
 
 Backend variants:
+  automatic
+  default (alias for automatic)
   gpu
   cpu
-  default
   gpu-null-modalities
   gpu-cpu-modalities
   gpu-cache-dir
@@ -145,10 +146,13 @@ if ! [[ "$CASE_TIMEOUT_MS" =~ ^[0-9]+$ ]] || [ "$CASE_TIMEOUT_MS" -le 0 ]; then
   exit 2
 fi
 case "$BACKEND_VARIANT" in
-  gpu|cpu|default|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity)
+  automatic|default)
+    BACKEND_VARIANT="automatic"
+    ;;
+  gpu|cpu|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity)
     ;;
   *)
-    printf 'ERROR: --backend must be one of: gpu, cpu, default, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all, gallery-chat-parity\n' >&2
+    printf 'ERROR: --backend must be one of: automatic, default, gpu, cpu, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all, gallery-chat-parity\n' >&2
     exit 2
     ;;
 esac
@@ -179,6 +183,8 @@ esac
 BACKEND_LABEL="GPU"
 if [ "$BACKEND_VARIANT" = "cpu" ]; then
   BACKEND_LABEL="CPU"
+elif [ "$BACKEND_VARIANT" = "automatic" ]; then
+  BACKEND_LABEL="Automatic"
 fi
 INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC=false
 if [ "$CLOSE_POLICY" != "normal" ]; then
@@ -450,6 +456,12 @@ append_host_timeout_state() {
     printf 'host_wait_status=timeout\n'
     printf 'host_reason=host_timeout_waiting_for_receiver\n'
     printf 'host_timeout=true\n'
+    printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
+    printf 'completed_run_count=0\n'
+    printf 'success_count=0\n'
+    printf 'failure_count=0\n'
+    printf 'timeout_count=1\n'
+    printf 'fallback_count=0\n'
     printf 'host_fresh_crash=%s\n' "$fresh_crash"
     printf 'host_process_alive=%s\n' "$process_alive"
     printf 'host_latest_stage=%s\n' "${latest_stage:-unknown}"
@@ -489,6 +501,12 @@ write_timeout_artifacts() {
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
     printf -- '- timeout: `true`\n'
+    printf -- '- requested_run_count: `%s`\n' "$REQUESTED_RUN_COUNT"
+    printf -- '- completed_run_count: `0`\n'
+    printf -- '- success_count: `0`\n'
+    printf -- '- failure_count: `0`\n'
+    printf -- '- timeout_count: `1`\n'
+    printf -- '- fallback_count: `0`\n'
     printf -- '- fresh_crash: `%s`\n' "$fresh_crash"
     printf -- '- process_alive: `%s`\n' "$process_alive"
     printf -- '- latest_stage: `%s`\n' "${latest_stage:-unknown}"
@@ -576,6 +594,9 @@ adb_cmd logcat -c >"$OUT_DIR/logcat_clear.txt" 2>&1 || true
 start_probe_logcat
 
 PROMPTS_PAYLOAD="$(normalize_prompts)"
+PROMPTS_COUNT="$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+MAX_OUTPUT_TOKENS_COUNT="$(printf '%s' "$MAX_OUTPUT_TOKENS_LIST" | awk -F, '{ count = 0; for (i = 1; i <= NF; i++) if ($i ~ /^[[:space:]]*[0-9]+[[:space:]]*$/) count++; print count }')"
+REQUESTED_RUN_COUNT=$((PROMPTS_COUNT * MAX_OUTPUT_TOKENS_COUNT))
 PROMPTS_BASE64="$(base64_no_wrap "$PROMPTS_PAYLOAD")"
 MAX_OUTPUT_TOKENS_LIST_BASE64="$(base64_no_wrap "$MAX_OUTPUT_TOKENS_LIST")"
 MODEL_PATH_BASE64=""
@@ -627,7 +648,8 @@ fi
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
-  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+  printf 'prompts_count=%s\n' "$PROMPTS_COUNT"
+  printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
   printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
@@ -647,7 +669,8 @@ fi
   printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
-  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+  printf 'prompts_count=%s\n' "$PROMPTS_COUNT"
+  printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
   printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
@@ -693,6 +716,12 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
       printf 'reason=host_timeout_waiting_for_receiver\n'
       printf 'app_state_present=false\n'
       printf 'timeout=true\n'
+      printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
+      printf 'completed_run_count=0\n'
+      printf 'success_count=0\n'
+      printf 'failure_count=0\n'
+      printf 'timeout_count=1\n'
+      printf 'fallback_count=0\n'
       printf 'fresh_crash=%s\n' "$fresh_crash"
       printf 'process_alive=%s\n' "$process_alive"
       printf 'latest_stage=%s\n' "${latest_stage:-unknown}"

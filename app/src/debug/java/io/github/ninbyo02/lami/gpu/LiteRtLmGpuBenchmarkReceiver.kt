@@ -40,7 +40,7 @@ internal enum class BenchmarkBackendVariant(
 ) {
     GPU("gpu", "GPU", "explicit_gpu"),
     CPU("cpu", "CPU", "explicit_cpu"),
-    DEFAULT("default", "GPU", "default_like_gpu_backend_null_max_tokens"),
+    AUTOMATIC("automatic", "Automatic", "constructor_default_backend"),
     GPU_NULL_MODALITIES("gpu-null-modalities", "GPU", "explicit_gpu_null_modalities"),
     GPU_CPU_MODALITIES("gpu-cpu-modalities", "GPU", "explicit_gpu_cpu_modalities"),
     GPU_CACHE_DIR("gpu-cache-dir", "GPU", "explicit_gpu_cache_dir"),
@@ -49,8 +49,13 @@ internal enum class BenchmarkBackendVariant(
     GALLERY_CHAT_PARITY("gallery-chat-parity", "GPU", "gallery_chat_parity_contents_callback");
 
     companion object {
-        fun parse(raw: String?): BenchmarkBackendVariant =
-            entries.firstOrNull { it.wireValue == raw?.trim()?.lowercase(Locale.US) } ?: GPU
+        fun parse(raw: String?): BenchmarkBackendVariant {
+            val normalized = raw?.trim()?.lowercase(Locale.US)
+            return when (normalized) {
+                "default" -> AUTOMATIC
+                else -> entries.firstOrNull { it.wireValue == normalized } ?: GPU
+            }
+        }
     }
 }
 
@@ -557,14 +562,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     maxOutputTokensList = maxOutputTokensList,
                 )
             }
-            val config = EngineConfig(
-                modelPath = modelPath,
-                backend = configParts.backend,
-                visionBackend = configParts.visionBackend,
-                audioBackend = configParts.audioBackend,
-                maxNumTokens = configParts.maxNumTokens,
-                cacheDir = configParts.cacheDir,
-            )
+            val config = configParts.buildEngineConfig(modelPath)
             val engineStartMs = SystemClock.elapsedRealtime()
             writeMarker(
                 appContext = appContext,
@@ -576,9 +574,23 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 detail = "close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens_list=$maxOutputTokensList ${configParts.markerDetail(backendVariant, maxOutputTokens)} prompt_length=${prompt.length}",
                 maxOutputTokensList = maxOutputTokensList,
             )
-            engine = Engine(config)
-            engine.initialize()
-            engineCreateMs = SystemClock.elapsedRealtime() - engineStartMs
+            try {
+                engine = Engine(config)
+                engine.initialize()
+                engineCreateMs = SystemClock.elapsedRealtime() - engineStartMs
+            } catch (throwable: Throwable) {
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    backendVariant = backendVariant,
+                    closePolicy = closePolicy,
+                    phase = phase,
+                    stage = "engine_create_failed",
+                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens max_output_tokens_list=$maxOutputTokensList ${configParts.markerDetail(backendVariant, maxOutputTokens)} class=${throwable.javaClass.name} message=${throwable.message.orEmpty().take(200)} cause_chain=${causeChainText(throwable)}",
+                    maxOutputTokensList = maxOutputTokensList,
+                )
+                throw throwable
+            }
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
@@ -859,6 +871,11 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 maxOutputTokensList = maxOutputTokensList,
             )
             val reportedThrowable = sendException ?: throwable
+            val exceptionPrefix = if (engineCreateMs == null && conversation == null) {
+                "engine_create_exception"
+            } else {
+                "run_exception"
+            }
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
                 backendVariant = backendVariant,
@@ -868,7 +885,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
-                reason = exceptionReason(reportedThrowable, "run_exception"),
+                reason = exceptionReason(reportedThrowable, exceptionPrefix),
                 modelExists = true,
                 modelLength = modelLength,
                 engineCreateMs = engineCreateMs,
@@ -1180,7 +1197,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val cacheDir = when (backendVariant) {
             BenchmarkBackendVariant.GPU,
             BenchmarkBackendVariant.CPU,
-            BenchmarkBackendVariant.DEFAULT,
+            BenchmarkBackendVariant.AUTOMATIC,
             BenchmarkBackendVariant.GPU_NULL_MODALITIES,
             BenchmarkBackendVariant.GPU_CPU_MODALITIES,
             BenchmarkBackendVariant.GPU_CACHE_DIR,
@@ -1189,6 +1206,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             BenchmarkBackendVariant.GALLERY_CHAT_PARITY -> null
         }
         return when (backendVariant) {
+            BenchmarkBackendVariant.AUTOMATIC -> EngineConfigParts(
+                backend = null,
+                engineBackendLabel = "constructor_default",
+                visionBackend = null,
+                visionBackendLabel = "constructor_default_null",
+                audioBackend = null,
+                audioBackendLabel = "constructor_default_null",
+                maxNumTokens = maxOutputTokens,
+                cacheDir = cacheDir,
+                useConstructorDefaultBackend = true,
+            )
+
             BenchmarkBackendVariant.CPU -> EngineConfigParts(
                 backend = Backend.CPU(),
                 engineBackendLabel = "CPU",
@@ -1223,8 +1252,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             )
 
             BenchmarkBackendVariant.GPU_NULL_MAX,
-            BenchmarkBackendVariant.GPU_ALL,
-            BenchmarkBackendVariant.DEFAULT -> EngineConfigParts(
+            BenchmarkBackendVariant.GPU_ALL -> EngineConfigParts(
                 backend = Backend.GPU(),
                 engineBackendLabel = "GPU",
                 visionBackend = if (backendVariant == BenchmarkBackendVariant.GPU_ALL) null else Backend.GPU(),
@@ -1402,7 +1430,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     )
 
     private data class EngineConfigParts(
-        val backend: Backend,
+        val backend: Backend?,
         val engineBackendLabel: String,
         val visionBackend: Backend?,
         val visionBackendLabel: String,
@@ -1410,7 +1438,26 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val audioBackendLabel: String,
         val maxNumTokens: Int?,
         val cacheDir: String?,
+        val useConstructorDefaultBackend: Boolean = false,
     ) {
+        fun buildEngineConfig(modelPath: String): EngineConfig =
+            if (useConstructorDefaultBackend) {
+                EngineConfig(
+                    modelPath = modelPath,
+                    maxNumTokens = maxNumTokens,
+                    cacheDir = cacheDir,
+                )
+            } else {
+                EngineConfig(
+                    modelPath = modelPath,
+                    backend = requireNotNull(backend),
+                    visionBackend = visionBackend,
+                    audioBackend = audioBackend,
+                    maxNumTokens = maxNumTokens,
+                    cacheDir = cacheDir,
+                )
+            }
+
         fun markerDetail(backendVariant: BenchmarkBackendVariant, maxOutputTokens: Int): String =
             "backend_variant=${backendVariant.wireValue} engine_backend=$engineBackendLabel " +
                 "vision_backend=$visionBackendLabel audio_backend=$audioBackendLabel " +

@@ -6,6 +6,57 @@ import org.junit.Test
 
 class LiteRtLmGpuBenchmarkRunSummaryTest {
     @Test
+    fun `backend parser treats default as automatic`() {
+        assertEquals(BenchmarkBackendVariant.AUTOMATIC, BenchmarkBackendVariant.parse("automatic"))
+        assertEquals(BenchmarkBackendVariant.AUTOMATIC, BenchmarkBackendVariant.parse("default"))
+        assertEquals("automatic", BenchmarkBackendVariant.parse("DEFAULT").wireValue)
+        assertEquals("Automatic", BenchmarkBackendVariant.parse("default").backendLabel)
+    }
+
+    @Test
+    fun `summary counts generic fallback automatic 20 run result`() {
+        val rows = List(20) { successRow(backendVariant = BenchmarkBackendVariant.AUTOMATIC) }
+
+        val summary = buildLiteRtLmGpuBenchmarkRunSummary(
+            rows = rows,
+            requestedRunCount = 20,
+            modelPathSource = BenchmarkModelPathSource.GENERIC_FALLBACK.wireValue,
+            genericFallbackModelConfigured = true,
+        )
+
+        assertEquals("Automatic", summary.backend)
+        assertEquals(20, summary.requestedRunCount)
+        assertEquals(20, summary.completedRunCount)
+        assertEquals(20, summary.successCount)
+        assertEquals(0, summary.failureCount)
+        assertEquals(0, summary.timeoutCount)
+        assertEquals(0, summary.fallbackCount)
+        assertEquals("generic_fallback", summary.modelPathSource)
+        assertEquals(true, summary.genericFallbackModelConfigured)
+        assertEquals("success", summary.status)
+        assertEquals("completed", summary.reason)
+    }
+
+    @Test
+    fun `automatic generic fallback markdown contains required summary fields`() {
+        val markdown = buildGpuBenchmarkMarkdown(
+            timestamp = "20260701_120000",
+            timeoutMs = 60_000L,
+            rows = List(20) { successRow(backendVariant = BenchmarkBackendVariant.AUTOMATIC) },
+        )
+
+        assertTrue(markdown.contains("- backend: `Automatic`"))
+        assertTrue(markdown.contains("- requested_run_count: `20`"))
+        assertTrue(markdown.contains("- completed_run_count: `20`"))
+        assertTrue(markdown.contains("- success_count: `20`"))
+        assertTrue(markdown.contains("- failure_count: `0`"))
+        assertTrue(markdown.contains("- timeout_count: `0`"))
+        assertTrue(markdown.contains("- fallback_count: `0`"))
+        assertTrue(markdown.contains("- model_path_source: `generic_fallback`"))
+        assertTrue(markdown.contains("- backend_variants: `automatic`"))
+    }
+
+    @Test
     fun `summary counts generic fallback GPU 20 run result`() {
         val rows = List(18) { successRow(backendVariant = BenchmarkBackendVariant.GPU) } +
             listOf(
