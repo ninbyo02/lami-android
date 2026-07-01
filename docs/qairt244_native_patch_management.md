@@ -30,22 +30,33 @@ positions, current step, prefill/run input tensor counts and tensor
 name/shape/byte/type summaries, and input/output KV-cache tensor counts and
 shape summaries.
 
-Apply it to the external checkout after the active qairt244 patch if a custom
-GPU diagnostic build is needed:
+`build-qairt244-custom-jni` now applies this patch automatically after the
+base 128 output / 128 input patch:
 
-```bash
-git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```text
+patches/qairt244_litertlm_utf8_128token_128input.patch
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
 ```
 
-Then rebuild with the existing custom artifact script:
+The forced command writes the diagnostic artifact with a label containing
+`gpu_prefill_preinvoke_diag` and rejects the build if
+`qairt244_gpu_prefill_preinvoke_v1` is missing from
+`built_libs/liblitertlm_jni.so`.
+
+For manual rebuilds, start from LiteRT-LM
+`1d535d5038c6a951b7f9f7adbed69efca1f62566`, apply the base patch first, apply
+this patch second, then use the diagnostic label:
 
 ```bash
 scripts/build_litert_custom_artifacts.sh \
   /home/sato/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
-  --label qairt244_gpu_prefill_preinvoke_diag
+  --label qairt244_128token_128input_gpu_prefill_preinvoke_diag
 ```
+
+The generated `static_summary.md` reports the diagnostic label and a
+`Diagnostic markers` table. The same marker is also included in
+`strings/liblitertlm_jni.so.filtered.txt`.
 
 `scripts/check_qairt244_native_patch.sh` reports this patch as an auxiliary
 `gpu_prefill_preinvoke_patch_status` without changing the active UTF-8 prompt
@@ -161,8 +172,8 @@ not as a checked-in binary artifact.
 ## Current State
 
 - External checkout: `/home/sato/project/litert-custom-build/LiteRT-LM`
-- Upstream HEAD used for this patch:
-  `c87189528a758db32ead241f4fc9c64836398ee7`
+- Upstream HEAD used for the current 128 output / 128 input patch:
+  `1d535d5038c6a951b7f9f7adbed69efca1f62566`
 - Native source:
   `kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`
 - Active patch:
@@ -258,14 +269,15 @@ Rebuild the active 128 output / 128 input native artifact from lami-android:
 scripts/build_litert_custom_artifacts.sh \
   /home/sato/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
-  --label qairt244_128token_128input_utf8prompt
+  --label qairt244_128token_128input_gpu_prefill_preinvoke_diag
 ```
 
 Record the produced artifact directory, native build log path, and JNI library
 hash:
 
 ```bash
-sha256sum <artifact>/jni/arm64-v8a/liblitertlm_jni.so
+sha256sum <artifact>/built_libs/liblitertlm_jni.so
+strings <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
 ```
 
 Never add `.so`, `.apk`, `.aar`, `.zip`, `.tar`, `.gz`, or `.litertlm` files to

@@ -95,7 +95,8 @@ LIB_NAMES=(
   "libGemmaModelConstraintProvider.so"
 )
 
-KEYWORDS="LiteRtDispatchGetApi|LiteRtDispatchCheckRuntimeCompatibility|RuntimeCompatibility|capabilities|No usable Dispatch runtime found|Failed to initialize Dispatch API|dispatch_api|LiteRtRuntimeCApi|libLiteRtRuntimeCApi\.so|Qualcomm|QNN|Qnn|HTP|Htp|ADSP|LD_LIBRARY_PATH|libQnn|SM8750|sm8750|V79|schema|model"
+KEYWORDS="qairt244_gpu_prefill_preinvoke_v1|LiteRtDispatchGetApi|LiteRtDispatchCheckRuntimeCompatibility|RuntimeCompatibility|capabilities|No usable Dispatch runtime found|Failed to initialize Dispatch API|dispatch_api|LiteRtRuntimeCApi|libLiteRtRuntimeCApi\.so|Qualcomm|QNN|Qnn|HTP|Htp|ADSP|LD_LIBRARY_PATH|libQnn|SM8750|sm8750|V79|schema|model"
+GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
 
 log() {
   printf '[litert-custom-build] %s\n' "$*"
@@ -131,6 +132,13 @@ needed_for() {
   if command -v readelf >/dev/null 2>&1 && [ -f "$file" ]; then
     readelf -d "$file" 2>/dev/null | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p' | paste -sd ',' -
   fi
+}
+
+string_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [ -f "$file" ] || return 1
+  strings "$file" 2>/dev/null | grep -Fq "$marker"
 }
 
 extract_metadata() {
@@ -445,9 +453,20 @@ write_matrix_for_dir "$OUT_DIR/reference_libs/maven_0.11.0" "maven-litertlm-0.11
 {
   printf '# LiteRT Custom Build Static Summary\n\n'
   printf -- '- Output: `%s`\n' "$OUT_DIR"
+  printf -- '- Label: `%s`\n' "${LABEL:-<none>}"
   printf -- '- Build executed: limited explicit targets only\n'
   printf -- '- App integration: `no`\n'
   printf -- '- Engine.initialize rerun: `no`\n\n'
+  printf '## Diagnostic markers\n\n'
+  printf '| Marker | Library | Present | Evidence file |\n'
+  printf '| --- | --- | --- | --- |\n'
+  marker_present=false
+  marker_evidence_file="$OUT_DIR/strings/liblitertlm_jni.so.filtered.txt"
+  if string_marker_present "$OUT_DIR/built_libs/liblitertlm_jni.so" "$GPU_PREFILL_PREINVOKE_MARKER"; then
+    marker_present=true
+  fi
+  printf '| `%s` | `liblitertlm_jni.so` | `%s` | `%s` |\n\n' \
+    "$GPU_PREFILL_PREINVOKE_MARKER" "$marker_present" "$marker_evidence_file"
   printf '## Target results\n\n```text\n'
   cat "$OUT_DIR/build_results.tsv"
   printf '```\n\n'

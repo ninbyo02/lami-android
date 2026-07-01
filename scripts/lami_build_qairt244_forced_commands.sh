@@ -20,11 +20,12 @@
 : "${LITERT_CUSTOM_ARTIFACT_ROOT:=$REPO/artifacts/litert_custom_build}"
 : "${LITERT_LM_CHECKOUT:=}"
 : "${QAIRT244_ROOT:=}"
-: "${QAIRT244_BUILD_LABEL:=qairt244_128token_utf8prompt}"
+: "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_gpu_prefill_preinvoke_diag}"
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
-: "${LITERT_LM_REF:=v0.11.0}"
-: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
-: "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_persistent_probe.patch}"
+: "${LITERT_LM_REF:=1d535d5038c6a951b7f9f7adbed69efca1f62566}"
+: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_128input.patch}"
+: "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch}"
+: "${QAIRT244_GPU_PREFILL_PREINVOKE_MARKER:=qairt244_gpu_prefill_preinvoke_v1}"
 
 lami_qairt244_first_existing_dir() {
   local path
@@ -87,6 +88,7 @@ lami_qairt244_ensure_litert_lm_checkout() {
     echo "missing qairt244 patch: $QAIRT244_PATCH" >&2
     exit 65
   fi
+  echo "applying qairt244 base patch: $QAIRT244_PATCH" >&2
   if git -C "$checkout" apply --check "$QAIRT244_PATCH"; then
     git -C "$checkout" apply "$QAIRT244_PATCH"
   else
@@ -99,6 +101,7 @@ lami_qairt244_ensure_litert_lm_checkout() {
       echo "missing qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
       exit 65
     fi
+    echo "applying qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
     if git -C "$checkout" apply --check "$QAIRT244_EXTRA_PATCH"; then
       git -C "$checkout" apply "$QAIRT244_EXTRA_PATCH"
     else
@@ -115,6 +118,13 @@ lami_qairt244_ensure_litert_lm_checkout() {
   if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' \
     "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
     echo "patched LiteRT-LM checkout is missing nativeRunPersistentProbe marker" >&2
+    exit 65
+  fi
+  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
+     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
+     ! grep -q "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
+       "$checkout/runtime/executor/llm_litert_compiled_model_executor.cc"; then
+    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER marker" >&2
     exit 65
   fi
   printf '%s\n' "$checkout"
@@ -194,6 +204,13 @@ lami_qairt244_artifact_has_symbol() {
       END { exit found ? 0 : 1 }
     ' || return 1
   done
+}
+
+lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
+  local artifact_dir="$1"
+  local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
+  [[ -f "$lib" ]] || return 1
+  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
 }
 
 lami_qairt244_resolve_artifact_dir() {
@@ -316,6 +333,9 @@ lami_qairt244_build_custom_jni() {
     echo "litert_lm_checkout=$litert_lm_checkout"
     echo "qairt_root=$qairt_root"
     echo "label=$QAIRT244_BUILD_LABEL"
+    echo "base_patch=$QAIRT244_PATCH"
+    echo "extra_patch=${QAIRT244_EXTRA_PATCH:-<none>}"
+    echo "required_marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
     cd "$REPO"
     OUT_DIR="$artifact_dir" \
       BAZEL_OUTPUT_BASE="$HOME/project/litert-custom-build/bazel_output_base/build_$timestamp" \
@@ -324,6 +344,14 @@ lami_qairt244_build_custom_jni() {
         --qairt-root "$qairt_root" \
         --label "$QAIRT244_BUILD_LABEL"
     lami_qairt244_artifact_has_symbol "$artifact_dir"
+    if [[ "${QAIRT244_BUILD_LABEL}" == *gpu_prefill_preinvoke_diag* ]]; then
+      lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker "$artifact_dir" || {
+        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/liblitertlm_jni.so: $artifact_dir" >&2
+        exit 65
+      }
+      echo "gpu_prefill_preinvoke_marker_present=true"
+      echo "gpu_prefill_preinvoke_marker_check=strings $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
+    fi
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
     lami_qairt244_artifact_has_symbol "$artifact_dir"
     echo "== BUILD+STAGE OK =="
