@@ -3673,6 +3673,10 @@ internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_di
 internal const val GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES = "gpu_text_only_null_modalities"
 internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
     "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
+internal val GPU_EXPERIMENT_MODE_PROPERTY_KEYS = listOf(
+    "debug.lami.gpu_experiment_mode",
+    "lami.gpu_experiment_mode",
+)
 internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE,
     GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL,
@@ -3692,34 +3696,33 @@ internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: St
 internal fun resolveGpuDiagnosticExperimentModeForBackend(
     preferredBackend: String,
     overrideValue: String? = null,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    debugSelectorAllowed: Boolean = BuildConfig.DEBUG,
 ): String {
     if (!shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) return "unavailable"
     val requested = overrideValue?.trim()?.takeIf { it.isNotBlank() }
-        ?: readGpuDiagnosticExperimentModeFromDebugProperty()
+        ?: readGpuDiagnosticExperimentModeFromDebugProperty(
+            propertyReader = propertyReader,
+            debugSelectorAllowed = debugSelectorAllowed,
+        )
     return requested
         ?.takeIf { mode -> GPU_DIAGNOSTIC_EXPERIMENT_MODES.any { it.equals(mode, ignoreCase = true) } }
         ?.let { mode -> GPU_DIAGNOSTIC_EXPERIMENT_MODES.first { it.equals(mode, ignoreCase = true) } }
         ?: GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE
 }
 
-private fun readGpuDiagnosticExperimentModeFromDebugProperty(): String? {
-    if (!BuildConfig.DEBUG) return null
-    val systemProperty = runCatching {
-        System.getProperty("lami.gpu_experiment_mode")?.trim()?.takeIf { it.isNotBlank() }
-    }.getOrNull()
-    if (systemProperty != null) return systemProperty
+private fun readGpuDiagnosticExperimentModeFromDebugProperty(
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    debugSelectorAllowed: Boolean = BuildConfig.DEBUG,
+): String? {
+    if (!debugSelectorAllowed) return null
+    GPU_EXPERIMENT_MODE_PROPERTY_KEYS.firstNotNullOfOrNull { key ->
+        propertyReader(key)?.trim()?.takeIf { it.isNotBlank() }
+    }?.let { return it }
     val env = runCatching {
         System.getenv("LAMI_GPU_EXPERIMENT_MODE")?.trim()?.takeIf { it.isNotBlank() }
     }.getOrNull()
-    if (env != null) return env
-    return runCatching {
-        val clazz = Class.forName("android.os.SystemProperties")
-        val method = clazz.getMethod("get", String::class.java, String::class.java)
-        listOf("debug.lami.gpu_experiment_mode", "lami.gpu_experiment_mode")
-            .firstNotNullOfOrNull { key ->
-                (method.invoke(null, key, "") as? String)?.trim()?.takeIf { it.isNotBlank() }
-            }
-    }.getOrNull()
+    return env
 }
 
 internal fun resolveGpuCompatibilityModeForBackend(preferredBackend: String): String =

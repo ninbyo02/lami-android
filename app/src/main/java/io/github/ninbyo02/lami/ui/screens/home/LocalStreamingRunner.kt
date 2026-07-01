@@ -7907,7 +7907,7 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} normalChatConfigStyle=$engineConfigStyle recommendedNextGpuConfig=${recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, engineConfigStyle)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
+        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} gpu_experiment_mode=${gpuConfigDiagnostics.experimentMode} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} normalChatConfigStyle=$engineConfigStyle recommendedNextGpuConfig=${recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, engineConfigStyle)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
     )
     safeAppendTrace(
         appendTrace,

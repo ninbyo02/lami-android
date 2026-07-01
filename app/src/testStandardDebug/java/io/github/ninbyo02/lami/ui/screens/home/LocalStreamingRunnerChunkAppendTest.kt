@@ -79,6 +79,147 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `normal chat GPU experiment selector maps requested variants to config`() {
+        data class ExpectedConfig(
+            val mode: String,
+            val maxTokens: String,
+            val samplerEnabled: String,
+            val samplerPolicy: String,
+            val cacheDir: String,
+            val cacheDirPresent: String,
+            val conversationProfile: String,
+        )
+
+        val modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm"
+        val cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache"
+        val cases = listOf(
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+                maxTokens = "32",
+                samplerEnabled = "true",
+                samplerPolicy = "gallery_sampler_config",
+                cacheDir = "null",
+                cacheDirPresent = "false",
+                conversationProfile = GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE,
+            ),
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+                maxTokens = "1024",
+                samplerEnabled = "false",
+                samplerPolicy = "conversation_config_without_sampler",
+                cacheDir = "null",
+                cacheDirPresent = "false",
+                conversationProfile = "no_sampler_config",
+            ),
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+                maxTokens = "1024",
+                samplerEnabled = "true",
+                samplerPolicy = "gallery_sampler_config",
+                cacheDir = cacheDirPath,
+                cacheDirPresent = "true",
+                conversationProfile = GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE,
+            ),
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
+                maxTokens = "1024",
+                samplerEnabled = "false",
+                samplerPolicy = "cache_dir_probe_without_sampler",
+                cacheDir = cacheDirPath,
+                cacheDirPresent = "true",
+                conversationProfile = "no_sampler_config",
+            ),
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
+                maxTokens = "1024",
+                samplerEnabled = "false",
+                samplerPolicy = "cache_dir_probe_without_sampler",
+                cacheDir = "null",
+                cacheDirPresent = "false",
+                conversationProfile = "no_sampler_config",
+            ),
+        )
+
+        cases.forEach { expected ->
+            val selectedMode = resolveGpuDiagnosticExperimentModeForBackend(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_experiment_mode") expected.mode else null
+                },
+                debugSelectorAllowed = true,
+            )
+            val diagnostics = buildGpuRouteConfigDiagnostics(
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                preferredBackend = "GPU",
+                experimentMode = selectedMode,
+            )
+
+            assertEquals(expected.mode, selectedMode)
+            assertEquals(expected.mode, diagnostics.experimentMode)
+            assertEquals(GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE, diagnostics.normalChatEngineConfigStyle)
+            assertEquals("GPU", diagnostics.backend)
+            assertEquals("null", diagnostics.visionBackend)
+            assertEquals("null", diagnostics.audioBackend)
+            assertEquals(expected.maxTokens, diagnostics.maxTokens)
+            assertEquals(expected.samplerEnabled, diagnostics.samplerConfigEnabled)
+            assertEquals(expected.samplerPolicy, diagnostics.samplerAccelerationPolicy)
+            assertEquals(expected.cacheDir, diagnostics.cacheDir)
+            assertEquals(expected.cacheDirPresent, diagnostics.cacheDirPresent)
+            assertEquals(expected.conversationProfile, diagnostics.conversationConfigProfile)
+            assertEquals(expected.samplerEnabled, diagnostics.conversationConfigSamplerPresent)
+            assertEquals(
+                if (expected.samplerEnabled == "true") GPU_EDGE_GALLERY_LIKE_TOP_K.toString() else "unavailable",
+                diagnostics.samplerTopK,
+            )
+            assertEquals(
+                if (expected.samplerEnabled == "true") GPU_EDGE_GALLERY_LIKE_TOP_P else "unavailable",
+                diagnostics.samplerTopP,
+            )
+            assertEquals(
+                if (expected.samplerEnabled == "true") GPU_EDGE_GALLERY_LIKE_TEMPERATURE else "unavailable",
+                diagnostics.samplerTemperature,
+            )
+        }
+    }
+
+    @Test
+    fun `normal chat GPU experiment selector preserves CPU and Automatic`() {
+        val propertyReader: (String) -> String? = { key ->
+            if (key == "debug.lami.gpu_experiment_mode") {
+                GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
+            } else {
+                null
+            }
+        }
+
+        assertEquals(
+            "unavailable",
+            resolveGpuDiagnosticExperimentModeForBackend(
+                preferredBackend = PreferredBackendDryRunSetting.CPU.name,
+                propertyReader = propertyReader,
+                debugSelectorAllowed = true,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuDiagnosticExperimentModeForBackend(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT.name,
+                propertyReader = propertyReader,
+                debugSelectorAllowed = true,
+            ),
+        )
+        assertEquals(
+            LiteRtTextBackendSelection("CPU", "applied-engine-config"),
+            resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.CPU),
+        )
+        assertEquals(
+            LiteRtTextBackendSelection("CPU", "cpu-priority-default-engine-config"),
+            resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT),
+        )
+    }
+
+    @Test
     fun `GPU output quality matrix properties resolve sampler and collect only modes`() {
         assertEquals(
             GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL,
