@@ -464,6 +464,8 @@ internal data class GpuRouteConfigDiagnostics(
     val visionBackend: String = "unavailable",
     val audioBackend: String = "unavailable",
     val maxTokens: String = "unavailable",
+    val normalChatEngineConfigStyle: String = "unavailable",
+    val recommendedNextConfigVariant: String = "unavailable",
     val samplerConfigEnabled: String = "unavailable",
     val samplerTopK: String = "unavailable",
     val samplerTopP: String = "unavailable",
@@ -2062,6 +2064,8 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_experiment_mode=${gpuConfig.experimentMode}",
         "experiment_mode=${gpuConfig.experimentMode}",
         "gpu_experiment_modes_available=${gpuConfig.availableExperimentModes}",
+        "gpu_normal_chat_engine_config_style=${gpuConfig.normalChatEngineConfigStyle}",
+        "gpu_recommended_next_config_variant=${gpuConfig.recommendedNextConfigVariant}",
         "gpu_cache_dir_mode=${resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode)}",
         "gpu_engine_config_model_path=${gpuConfig.modelPath}",
         "gpu_engine_config_model_path_tail=${gpuConfig.modelPathTail}",
@@ -3643,6 +3647,12 @@ internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
 internal const val GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION = "switch_to_cpu_or_npu"
 internal const val GPU_COMPATIBILITY_MODE_EDGE_GALLERY_LIKE = "edge_gallery_like"
 internal const val GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "edge_gallery_like_text_only"
+internal const val GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES =
+    "normal_chat_text_gpu_null_modalities"
+internal const val GPU_RECOMMENDED_NEXT_CONFIG_TEXT_ONLY_NULL_MODALITIES =
+    "try_gpu_text_only_null_modalities"
+internal const val GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY =
+    "none_current_config_already_text_gpu_null_modalities"
 internal const val GPU_CACHE_DIR_MODE_EDGE_GALLERY_LIKE = "gallery_like_null_for_app_model_path"
 internal const val GPU_MODEL_PATH_MODE_SELECTED_FILE = "selected_litertlm_file"
 internal const val GPU_SAMPLER_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "gallery_defaults_64_0.95_1.0"
@@ -3660,6 +3670,7 @@ internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES = "gpu_cache_dir_app_
 internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_32 = "gpu_max_tokens_32"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER = "gpu_cache_dir_app_files_no_sampler"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_dir_null_no_sampler"
+internal const val GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES = "gpu_text_only_null_modalities"
 internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
     "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
 internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
@@ -3672,6 +3683,7 @@ internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
+    GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES,
 )
 
 internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: String): Boolean =
@@ -3722,6 +3734,37 @@ internal fun resolveGpuEngineConfigProfileForBackend(preferredBackend: String): 
         GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE
     } else {
         "unavailable"
+    }
+
+internal fun resolveNormalChatGpuEngineConfigStyle(
+    preferredBackend: String,
+    experimentMode: String,
+): String =
+    if (!shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        "unavailable"
+    } else if (experimentMode == GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES) {
+        GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES
+    } else {
+        GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE
+    }
+
+internal fun shouldUseNormalChatGpuTextOnlyNullModalities(
+    preferredBackend: PreferredBackendDryRunSetting,
+    experimentMode: String,
+): Boolean =
+    preferredBackend == PreferredBackendDryRunSetting.GPU &&
+        experimentMode == GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES
+
+internal fun recommendedNextGpuConfigVariant(
+    preferredBackend: PreferredBackendDryRunSetting,
+    configStyle: String,
+): String =
+    when {
+        preferredBackend != PreferredBackendDryRunSetting.GPU -> "none"
+        configStyle == GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES ||
+            configStyle == GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE ->
+            GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY
+        else -> GPU_RECOMMENDED_NEXT_CONFIG_TEXT_ONLY_NULL_MODALITIES
     }
 
 internal fun resolveGpuCacheDirModeForBackend(
@@ -3808,6 +3851,10 @@ internal fun buildGpuRouteConfigDiagnostics(
     val matrixMode = resolveGpuOutputQualityMatrixModeForDebug(preferredBackend)
     val shortMaxTokensProbeEnabled = isGpuOutputQualityProbeShortMaxTokensEnabledForDebug(preferredBackend)
     val numericMaxTokensOverride = resolveGpuOutputQualityMaxTokensOverrideForDebug(preferredBackend)
+    val configStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackend,
+        experimentMode = experimentMode,
+    )
     val resolvedMaxTokens = when {
         numericMaxTokensOverride != null -> numericMaxTokensOverride.toString()
         shortMaxTokensProbeEnabled -> GPU_OUTPUT_QUALITY_PROBE_SHORT_MAX_TOKENS.toString()
@@ -3834,6 +3881,11 @@ internal fun buildGpuRouteConfigDiagnostics(
         visionBackend = "null",
         audioBackend = "null",
         maxTokens = resolvedMaxTokens,
+        normalChatEngineConfigStyle = configStyle,
+        recommendedNextConfigVariant = recommendedNextGpuConfigVariant(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            configStyle = configStyle,
+        ),
         samplerConfigEnabled = samplerEnabled.toString(),
         samplerTopK = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_K.toString() else "unavailable",
         samplerTopP = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_P else "unavailable",

@@ -290,6 +290,9 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "lite_rt_lm_previous_invocation_still_processing=${input.liteRtLmPreviousInvocationStillProcessing}",
         "generate_concurrency_violation_suspected=${input.generateConcurrencyViolationSuspected}",
         "engine_config_backend=${input.engineConfigBackend.ifBlank { "unavailable" }}",
+        ) +
+            buildNormalChatGpuCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            listOf(
         "preferred_backend_setting=${input.preferredBackendSetting.name}",
         "npu_standard_route_setting=${input.npuStandardRouteMode.name}",
         "normal_chat_native_route_blocked=${input.normalChatNativeRouteBlocked}",
@@ -529,7 +532,9 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildGpuHolderLifecycleCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeClarityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildCpuRouteDiagnosticLines(input.cpuRouteDiagnostics) +
-            buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
+            buildGpuPrefillProbeDiagnosticLines(
+                input.gpuPrefillProbeDiagnostics.filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS },
+            )
         ).joinToString("\n")
 }
 
@@ -971,6 +976,53 @@ private fun buildGpuPrefillProbeClarityCompactDiagnosticLines(
 private fun extractGpuPrefillProbeClarityDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS }
 
+private val NORMAL_CHAT_GPU_COMPACT_KEYS = listOf(
+    "gpu_selected_model_slot",
+    "gpu_normal_chat_engine_config_style",
+    "gpu_recommended_next_config_variant",
+    "normal_chat_engine_create_stage",
+    "normal_chat_held_engine_reused",
+    "normal_chat_selected_model_slot",
+    "normal_chat_model_path",
+    "normal_chat_model_path_tail",
+    "normal_chat_requested_preferred_backend",
+    "normal_chat_applied_preferred_backend",
+    "normal_chat_preferred_backend_apply_result",
+    "normal_chat_engine_config_style",
+    "normal_chat_recommended_next_gpu_config_variant",
+    "normal_chat_exception_class",
+    "normal_chat_exception_message",
+    "normal_chat_exception_cause_chain",
+)
+
+private fun extractNormalChatGpuDiagnostics(text: String?): Map<String, String> {
+    val parsed = parseLocalInferenceFailureDiagnosticsText(text)
+    val direct = NORMAL_CHAT_GPU_COMPACT_KEYS.mapNotNull { key ->
+        parsed[key]?.let { value -> key to value }
+    }.toMap()
+    val selectedSlot = parsed["gpu_selected_model_slot"] ?: parsed["selected_model_slot"]
+    return if (selectedSlot != null && "gpu_selected_model_slot" !in direct) {
+        direct + ("gpu_selected_model_slot" to selectedSlot)
+    } else {
+        direct
+    }
+}
+
+private fun buildNormalChatGpuCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> =
+    NORMAL_CHAT_GPU_COMPACT_KEYS.mapNotNull { key ->
+        diagnostics[key]?.let { value ->
+            val renderedValue = when {
+                key.contains("path") ||
+                    key.contains("message") ||
+                    key.contains("chain") -> escapeLocalInferenceFailureValue(value)
+                else -> value
+            }
+            "$key=$renderedValue"
+        }
+    }
+
 private fun buildGalleryStackGpuProbeCompactDiagnosticLines(
     diagnostics: GalleryStackGpuProbeRuntimeDiagnostics?,
 ): List<String> {
@@ -1053,7 +1105,8 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractGpuOutputQualityDiagnostics(failureDiagnosticsText) +
         extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
         extractGpuHolderLifecycleDiagnostics(failureDiagnosticsText) +
-        extractGpuPrefillProbeClarityDiagnostics(failureDiagnosticsText)
+        extractGpuPrefillProbeClarityDiagnostics(failureDiagnosticsText) +
+        extractNormalChatGpuDiagnostics(failureDiagnosticsText)
     val cpuRouteDiagnostics = extractCpuRouteDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()

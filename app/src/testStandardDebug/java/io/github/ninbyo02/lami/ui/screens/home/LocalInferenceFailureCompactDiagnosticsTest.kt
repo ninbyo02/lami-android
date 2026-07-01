@@ -207,7 +207,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_compatibility_mode=edge_gallery_like"))
         assertTrue(text.contains("gpu_engine_config_profile=edge_gallery_like_text_only"))
         assertTrue(text.contains("gpu_experiment_mode=edge_gallery_like"))
-        assertTrue(text.contains("gpu_experiment_modes_available=edge_gallery_like,gpu_sampler_only_minimal,gpu_no_sampling_acceleration,gpu_disable_topk_gpu_sampler_candidate,gpu_cache_dir_null,gpu_cache_dir_app_files,gpu_max_tokens_32"))
+        assertTrue(text.contains("gpu_experiment_modes_available=edge_gallery_like,gpu_sampler_only_minimal,gpu_no_sampling_acceleration,gpu_disable_topk_gpu_sampler_candidate,gpu_cache_dir_null,gpu_cache_dir_app_files,gpu_max_tokens_32,gpu_cache_dir_app_files_no_sampler,gpu_cache_dir_null_no_sampler,gpu_text_only_null_modalities"))
         assertTrue(text.contains("gpu_cache_dir_mode=gallery_like_null_for_app_model_path"))
         assertTrue(text.contains("gpu_engine_config_model_path=/models/gemma-4-E2B-it.litertlm"))
         assertTrue(text.contains("gpu_engine_config_model_path_tail=gemma-4-E2B-it.litertlm"))

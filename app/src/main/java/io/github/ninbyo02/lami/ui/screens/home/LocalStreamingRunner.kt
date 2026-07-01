@@ -6461,13 +6461,21 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
-        val failureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+        val localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
             context = context,
             stage = "engine-create",
             throwable = throwable,
             selectedModelName = engineKey.modelPath,
             selectedFallbackPath = "gpu",
         )
+        val routeDiagnosticsText = buildNormalChatEngineCreateFailureDiagnosticsText(
+            engineKey = engineKey,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            preferredBackendApplyResult = preferredBackendApplyResult,
+            throwable = throwable,
+        )
+        val failureDiagnosticsText = listOf(routeDiagnosticsText, localFailureDiagnosticsText)
+            .joinToString("\n")
         safeAppendTrace(safeTrace, "UPSTREAM held-create failure-diagnostics\n$failureDiagnosticsText")
         return ReusableLocalEngineCreateDiagnostic(
             engine = null,
@@ -6489,9 +6497,15 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             initializeMethod.invoke(officialEngine)
             true
         }.onFailure { throwable ->
+            val exceptionExpansion = buildLocalFailureExceptionExpansion(
+                throwable = throwable,
+                parsed = emptyMap(),
+                failureExceptionClass = throwable.javaClass.name,
+                failureExceptionMessage = throwable.message ?: "unavailable",
+            )
             safeAppendTrace(
                 safeTrace,
-                "UPSTREAM held-create engine-initialize-fail class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                "UPSTREAM held-create engine-initialize-fail class=${throwable.javaClass.simpleName} message=${throwable.message} causeChain=${exceptionExpansion.exceptionChain}",
             )
         }.getOrDefault(false)
         if (initializeSucceeded) {
@@ -6558,6 +6572,80 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         preferredBackendApplyResult = preferredBackendApplyResult,
         failureDiagnosticsText = failureDiagnosticsText,
     )
+}
+
+private fun buildNormalChatEngineCreateFailureDiagnosticsText(
+    engineKey: HeldEngineKey,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    preferredBackendApplyResult: PreferredBackendApplyResult?,
+    throwable: Throwable,
+): String {
+    val selectedSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(preferredBackendDryRunSetting.name)
+    val configStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackendDryRunSetting.name,
+        experimentMode = gpuExperimentMode,
+    )
+    val exceptionExpansion = buildLocalFailureExceptionExpansion(
+        throwable = throwable,
+        parsed = emptyMap(),
+        failureExceptionClass = throwable.javaClass.name,
+        failureExceptionMessage = throwable.message ?: "unavailable",
+    )
+    val routeContext = buildLocalRouteDiagnosticContext(
+        selectedModelName = engineKey.modelPath.substringAfterLast('/'),
+        selectedModelFile = engineKey.modelPath,
+        selectedModelPath = engineKey.modelPath,
+        selectedModelSlot = selectedSlot.diagnosticName,
+        npuPreviewModelConfigured = selectedSlot == LocalInferenceModelSlot.NPU_PREVIEW,
+        genericFallbackModelConfigured = selectedSlot == LocalInferenceModelSlot.GENERIC_FALLBACK,
+        preferredBackend = preferredBackendDryRunSetting.name,
+        npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+        shouldEnterNpuS1 = false,
+        localRouteEntered = true,
+    )
+    val baseRouteDiagnostics = buildLocalRouteDiagnosticTrace(
+        stage = "engine_create_exception",
+        context = routeContext,
+        flags = LocalRouteDiagnosticFlags(
+            heldEngineExists = false,
+            heldEngineReused = false,
+            engineConfigBuildStarted = true,
+            engineConfigBuildFinished = preferredBackendApplyResult != null,
+            engineCreateStarted = true,
+            engineCreateFinished = false,
+            engineInitializeStarted = false,
+            engineInitializeFinished = false,
+            failureStage = "engine-create",
+            fallbackUsed = false,
+            gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+                modelPath = engineKey.modelPath,
+                cacheDirPath = engineKey.cacheDirPath,
+                preferredBackend = preferredBackendDryRunSetting.name,
+                experimentMode = gpuExperimentMode,
+            ),
+        ),
+        elapsedMs = 0L,
+    )
+    return buildString {
+        append(baseRouteDiagnostics).append('\n')
+        append("normal_chat_engine_create_stage=engine-create").append('\n')
+        append("normal_chat_held_engine_reused=false").append('\n')
+        append("normal_chat_selected_model_slot=").append(selectedSlot.diagnosticName).append('\n')
+        append("normal_chat_model_path=").append(engineKey.modelPath).append('\n')
+        append("normal_chat_model_path_tail=").append(engineKey.modelPath.substringAfterLast('/')).append('\n')
+        append("normal_chat_requested_preferred_backend=").append(preferredBackendDryRunSetting.name).append('\n')
+        append("normal_chat_applied_preferred_backend=")
+            .append(preferredBackendApplyResult?.appliedPreferredBackend ?: "unavailable").append('\n')
+        append("normal_chat_preferred_backend_apply_result=")
+            .append(preferredBackendApplyResult?.preferredBackendApplyResult ?: "unavailable").append('\n')
+        append("normal_chat_engine_config_style=").append(configStyle).append('\n')
+        append("normal_chat_recommended_next_gpu_config_variant=")
+            .append(recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, configStyle)).append('\n')
+        append("normal_chat_exception_class=").append(throwable.javaClass.name).append('\n')
+        append("normal_chat_exception_message=").append(throwable.message ?: "unavailable").append('\n')
+        append("normal_chat_exception_cause_chain=").append(exceptionExpansion.exceptionChain)
+    }
 }
 
 private suspend fun <T> runWithConversation(
@@ -7706,7 +7794,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
-    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend-requested=${preferredBackendDryRunSetting.name} vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend-requested=${preferredBackendDryRunSetting.name}")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
@@ -7764,7 +7852,6 @@ internal fun buildLiteRtEngineConfig(
 ): EngineConfig {
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
     val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
-    val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
     val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
         preferredBackend = preferredBackendDryRunSetting,
@@ -7773,6 +7860,15 @@ internal fun buildLiteRtEngineConfig(
         preferredBackend = preferredBackendDryRunSetting.name,
         overrideValue = outputQualityExperimentOverride
             ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
+    )
+    val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
+    val textOnlyNullModalities = shouldUseNormalChatGpuTextOnlyNullModalities(
+        preferredBackend = preferredBackendDryRunSetting,
+        experimentMode = gpuExperimentMode,
+    )
+    val engineConfigStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackendDryRunSetting.name,
+        experimentMode = gpuExperimentMode,
     )
     val baseGpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
         modelPath = modelPath,
@@ -7811,7 +7907,7 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
+        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} normalChatConfigStyle=$engineConfigStyle recommendedNextGpuConfig=${recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, engineConfigStyle)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
     )
     safeAppendTrace(
         appendTrace,
@@ -7826,8 +7922,8 @@ internal fun buildLiteRtEngineConfig(
     return EngineConfig(
         modelPath = modelPath,
         backend = backend,
-        visionBackend = if (edgeGalleryLike) null else Backend.GPU(),
-        audioBackend = if (edgeGalleryLike) null else Backend.CPU(),
+        visionBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU(),
+        audioBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.CPU(),
         maxNumTokens = if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null,
         cacheDir = resolveLiteRtEngineConfigCacheDir(
             modelPath = modelPath,
