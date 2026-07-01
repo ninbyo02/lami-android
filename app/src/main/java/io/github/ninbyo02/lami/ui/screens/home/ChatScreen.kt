@@ -354,6 +354,9 @@ private data class GpuExperimentalTimeoutOperationResult<T>(
 private data class LocalModelResolution(
     val modelPath: String,
     val displayName: String,
+    val selectedModelSlot: LocalInferenceModelSlot,
+    val npuPreviewModelConfigured: Boolean,
+    val genericFallbackModelConfigured: Boolean,
     val backendKey: String,
     val cacheDirPath: String,
 ) {
@@ -398,6 +401,9 @@ internal data class LocalInferenceTrace(
     val streamingCandidateDetected: Boolean? = null,
     val localModelDisplayName: String? = null,
     val mediaPipeProbeModelPath: String? = null,
+    val selectedLocalModelSlot: String? = null,
+    val npuPreviewModelConfigured: Boolean? = null,
+    val genericFallbackModelConfigured: Boolean? = null,
     val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -722,11 +728,26 @@ fun Home(
     val markdownStreamingMode by settingsPreferences.markdownStreamingModeFlow.collectAsState(
         initial = MarkdownStreamingMode.DEFAULT,
     )
+    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
+    val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow.collectAsState(initial = null)
+    val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow.collectAsState(initial = null)
+    val selectedLocalModelSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val selectedLocalModelFilePath = when (selectedLocalModelSlot) {
+        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelFilePath
+        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelFilePath
+    }
+    val selectedLocalModelDisplayName = when (selectedLocalModelSlot) {
+        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
+        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
+    }
     val localStreamingRunner = remember(
         context.applicationContext,
         settingsPreferences,
         preferredBackendDryRunSetting,
         markdownStreamingMode,
+        localGenericModelFilePath,
+        localGenericModelDisplayName,
     ) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
@@ -740,6 +761,8 @@ fun Home(
                 settingsPreferences = settingsPreferences,
                 localBaseModelFilePath = runLocalBaseModelFilePath,
                 localBaseModelDisplayName = runLocalBaseModelDisplayName,
+                localGenericModelFilePath = localGenericModelFilePath,
+                localGenericModelDisplayName = localGenericModelDisplayName,
                 resolvedModelPath = runResolvedModelPath,
                 resolvedCacheDirPath = runCacheDirPath,
                 mediaPipeProbeContext = runMediaPipeProbeContext,
@@ -796,8 +819,6 @@ fun Home(
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
-    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
-    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
@@ -820,13 +841,13 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
-    LaunchedEffect(localBaseModelFilePath, isLocalInferenceRunning) {
-        if (localBaseModelFilePath.isNullOrBlank()) {
+    LaunchedEffect(selectedLocalModelFilePath, isLocalInferenceRunning) {
+        if (selectedLocalModelFilePath.isNullOrBlank()) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
         if (isLocalInferenceRunning) return@LaunchedEffect
-        if (shouldApplyHeldEngineModelPath(localBaseModelFilePath)) {
-            localInferenceEngineHolder.clearIfModelChanged(localBaseModelFilePath?.trim().orEmpty())
+        if (shouldApplyHeldEngineModelPath(selectedLocalModelFilePath)) {
+            localInferenceEngineHolder.clearIfModelChanged(selectedLocalModelFilePath?.trim().orEmpty())
         }
     }
     val pickImageLauncher = rememberLauncherForActivityResult(
@@ -3830,10 +3851,10 @@ fun Home(
                         onSelectModel = { modelName ->
                             viewModel.onUserInteraction()
                             viewModel.updateSelectedModel(modelName)
-                        },
+                            },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             selectedInferenceTarget = selectedInferenceTarget,
-                            localBaseModelDisplayName = localBaseModelDisplayName,
+                            localBaseModelDisplayName = selectedLocalModelDisplayName,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                                 coroutineScope.launch {
@@ -4066,7 +4087,7 @@ fun Home(
                                         enabled = resolveChatSendAvailability(
                                             selectedInferenceTarget = selectedInferenceTarget,
                                             selectedServerModel = selectedModel,
-                                            selectedLocalModelPath = localBaseModelFilePath,
+                                            selectedLocalModelPath = selectedLocalModelFilePath,
                                             serverUrl = baseUrl,
                                             hasPromptText = userPrompt.isNotEmpty(),
                                             hasImageInput = selectedImageUriStrings.isNotEmpty(),
@@ -4124,7 +4145,7 @@ fun Home(
                                             val sendAvailability = resolveChatSendAvailability(
                                                 selectedInferenceTarget = selectedInferenceTarget,
                                                 selectedServerModel = selectedModel,
-                                                selectedLocalModelPath = localBaseModelFilePath,
+                                                selectedLocalModelPath = selectedLocalModelFilePath,
                                                 serverUrl = baseUrl,
                                                 hasPromptText = userPrompt.isNotEmpty(),
                                                 hasImageInput = selectedImageUriStrings.isNotEmpty(),
@@ -4272,8 +4293,11 @@ fun Home(
                                                         requestPrompt = requestPrompt,
                                                     )
                                                     val localRouteDiagnosticContext = buildLocalRouteDiagnosticContext(
-                                                        selectedModelName = localBaseModelDisplayName ?: selectedModel,
-                                                        selectedModelFile = localBaseModelFilePath,
+                                                        selectedModelName = selectedLocalModelDisplayName ?: selectedModel,
+                                                        selectedModelFile = selectedLocalModelFilePath,
+                                                        selectedModelSlot = selectedLocalModelSlot.diagnosticName,
+                                                        npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+                                                        genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
                                                         preferredBackend = preferredBackendDryRunSetting.name,
                                                         npuStandardRouteMode = npuStandardRouteMode.name,
                                                         effectiveNpuStandardRouteMode = effectiveNpuStandardRouteMode.name,
@@ -4595,6 +4619,8 @@ fun Home(
                                                                 settingsPreferences = settingsPreferences,
                                                                 localBaseModelFilePath = localBaseModelFilePath,
                                                                 localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                localGenericModelFilePath = localGenericModelFilePath,
+                                                                localGenericModelDisplayName = localGenericModelDisplayName,
                                                                 mediaPipeProbeContext = context.applicationContext,
                                                                 preferredBackendDryRunSetting = npuFallbackBackendSetting,
                                                                 markdownStreamingMode = markdownStreamingMode,
@@ -4614,6 +4640,8 @@ fun Home(
                                                                     settingsPreferences = settingsPreferences,
                                                                     localBaseModelFilePath = localBaseModelFilePath,
                                                                     localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                    localGenericModelFilePath = localGenericModelFilePath,
+                                                                    localGenericModelDisplayName = localGenericModelDisplayName,
                                                                     mediaPipeProbeContext = context.applicationContext,
                                                                     preferredBackendDryRunSetting = PreferredBackendDryRunSetting.CPU,
                                                                     markdownStreamingMode = markdownStreamingMode,
@@ -5850,7 +5878,7 @@ fun Home(
                                                             localGpuWatchdogJob = localGpuWatchdogForRun
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
-                                                                message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
+                                                                message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!selectedLocalModelFilePath.isNullOrBlank()} selected_model_slot=${selectedLocalModelSlot.diagnosticName}",
                                                             )
                                                             var mediaPipeProbeModelPathForRun: String? = null
                                                             val runResult = withContext(Dispatchers.Default) {
@@ -5859,6 +5887,9 @@ fun Home(
                                                                     settingsPreferences = settingsPreferences,
                                                                     localBaseModelFilePath = localBaseModelFilePath,
                                                                     localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                    localGenericModelFilePath = localGenericModelFilePath,
+                                                                    localGenericModelDisplayName = localGenericModelDisplayName,
+                                                                    preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                 )
                                                                 val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
                                                                 appendLocalReflectionTrace(
@@ -5918,7 +5949,14 @@ fun Home(
                                                                             response = "DEV held path failure: model path unresolved",
                                                                         )
                                                                     } else {
-                                                                        LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                                        LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.UNINITIALIZED,
+                                                                            trace = LocalInferenceTrace(
+                                                                                selectedLocalModelSlot = selectedLocalModelSlot.diagnosticName,
+                                                                                npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+                                                                                genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
+                                                                            ),
+                                                                        )
                                                                     }
                                                                 } else {
                                                                     val resolvedModelPath = modelResolution.modelPath
@@ -6068,6 +6106,9 @@ fun Home(
                                                                         trace = LocalInferenceTrace(
                                                                             localModelDisplayName = modelResolution.displayName,
                                                                             mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+                                                                            npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+                                                                            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                                                                             requestedPreferredBackend = "GPU",
                                                                             appliedPreferredBackend = "GPU",
                                                                             preferredBackendApplyResult =
@@ -6141,6 +6182,9 @@ fun Home(
                                                                         trace = LocalInferenceTrace(
                                                                             localModelDisplayName = modelResolution.displayName,
                                                                             mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+                                                                            npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+                                                                            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                                                                             requestedPreferredBackend = "GPU",
                                                                             appliedPreferredBackend = "GPU",
                                                                             preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
@@ -6553,7 +6597,11 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
                                                                         )
-                                                                        val heldLocalRunResult = heldRunResult.toLocalInferenceRunResult()
+                                                                        val heldLocalRunResult = heldRunResult.toLocalInferenceRunResult().let { result ->
+                                                                            result.copy(
+                                                                                trace = result.trace.withLocalModelResolution(modelResolution),
+                                                                            )
+                                                                        }
                                                                         if (
                                                                             heldLocalRunResult.state == LocalInferenceEngineState.READY &&
                                                                             resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting) ==
@@ -6608,6 +6656,9 @@ fun Home(
                                                                                 trace = LocalInferenceTrace(
                                                                                     localModelDisplayName = modelResolution.displayName,
                                                                                     mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                    selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+                                                                                    npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+                                                                                    genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                                                                                     localFailureDiagnosticsText = heldFailureDiagnosticsText,
                                                                                 ),
                                                                             )
@@ -6708,6 +6759,9 @@ fun Home(
                                                                             trace = LocalInferenceTrace(
                                                                                 localModelDisplayName = modelResolution.displayName,
                                                                                 mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+                                                                                npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+                                                                                genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
                                                                                 localFailureDiagnosticsText = heldFailureDiagnosticsText,
                                                                             ),
                                                                         )
@@ -7188,8 +7242,8 @@ fun Home(
                                                                     routeContext = localRouteDiagnosticContext,
                                                                     timeout = !rawCallbackProbeSucceeded &&
                                                                         (recheckedTimedOut || timeoutFailureRunResult != null),
-                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
-                                                                    modelFile = mediaPipeProbeModelPathForRun ?: localBaseModelFilePath,
+                                                                    modelName = selectedLocalModelDisplayName ?: selectedModel,
+                                                                    modelFile = mediaPipeProbeModelPathForRun ?: selectedLocalModelFilePath,
                                                                     ttsRequested = rawCallbackProbeRunResult == null &&
                                                                         (ttsEnabled || effectiveStreamingSentenceTtsEnabled),
                                                                     dbRequested = false,
@@ -7208,16 +7262,17 @@ fun Home(
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?: when (resolvedState) {
                                                                         null -> "ローカル推論エンジンの確認がタイムアウトしました"
-                                                                        LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                        LocalInferenceEngineState.UNINITIALIZED ->
+                                                                            missingLocalModelMessageForBackend(preferredBackendDryRunSetting)
                                                                         else -> "ローカル推論の応答取得に失敗しました"
                                                                     }
                                                                 val failureStats = InferenceStats(
-                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelName = selectedLocalModelDisplayName ?: selectedModel,
                                                                     generationTimeMs = localGenerationTimeMs,
                                                                     finishReason = localFailureReason,
                                                                     localSourceSummary = localFailureCompactText,
-                                                                    model = localBaseModelDisplayName ?: selectedModel,
-                                                                    modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                    model = selectedLocalModelDisplayName ?: selectedModel,
+                                                                    modelLabel = selectedLocalModelDisplayName ?: selectedModel,
                                                                     responseCharCount = failureAssistantText.length,
                                                                 )
                                                                 withContext(Dispatchers.IO) {
@@ -7245,7 +7300,8 @@ fun Home(
                                                                 message = when (resolvedState) {
                                                                     null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                     LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
-                                                                    LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                    LocalInferenceEngineState.UNINITIALIZED ->
+                                                                        missingLocalModelMessageForBackend(preferredBackendDryRunSetting)
                                                                     LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
                                                                     LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                                 },
@@ -7268,8 +7324,8 @@ fun Home(
                                                                     throwable = exception,
                                                                     routeContext = localRouteDiagnosticContext,
                                                                     timeout = false,
-                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
-                                                                    modelFile = localBaseModelFilePath,
+                                                                    modelName = selectedLocalModelDisplayName ?: selectedModel,
+                                                                    modelFile = selectedLocalModelFilePath,
                                                                     ttsRequested = ttsEnabled || effectiveStreamingSentenceTtsEnabled,
                                                                     dbRequested = false,
                                                                     markdownRequested = true,
@@ -7301,12 +7357,12 @@ fun Home(
                                                                 if (!localStopRequested) {
                                                                     val failureText = "ローカル推論の応答取得に失敗しました"
                                                                     val failureStats = InferenceStats(
-                                                                        modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                        modelName = selectedLocalModelDisplayName ?: selectedModel,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                         finishReason = "local_inference_exception",
                                                                         localSourceSummary = localFailureCompactText,
-                                                                        model = localBaseModelDisplayName ?: selectedModel,
-                                                                        modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                        model = selectedLocalModelDisplayName ?: selectedModel,
+                                                                        modelLabel = selectedLocalModelDisplayName ?: selectedModel,
                                                                         responseCharCount = failureText.length,
                                                                     )
                                                                     withContext(Dispatchers.IO) {
@@ -9646,6 +9702,8 @@ private suspend fun runLocalInferenceOnceEntry(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
+    localGenericModelFilePath: String? = null,
+    localGenericModelDisplayName: String? = null,
     resolvedModelPath: String? = null,
     resolvedCacheDirPath: String? = null,
     mediaPipeProbeContext: Context? = null,
@@ -9660,6 +9718,7 @@ private suspend fun runLocalInferenceOnceEntry(
         message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
     )
     val memorySnapshots = mutableListOf<MemorySnapshot>()
+    var activeModelResolution: LocalModelResolution? = null
     fun recordMemorySnapshot(stage: String) {
         memorySnapshots += captureLocalMemorySnapshot(
             context = context,
@@ -9675,18 +9734,25 @@ private suspend fun runLocalInferenceOnceEntry(
         if (includeDisposeStage) {
             recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
         }
+        val enrichedTrace = activeModelResolution
+            ?.let { result.trace.withLocalModelResolution(it) }
+            ?: result.trace
         return result.copy(
-            trace = result.trace.copy(
-                memorySnapshots = result.trace.memorySnapshots + memorySnapshots,
+            trace = enrichedTrace.copy(
+                memorySnapshots = enrichedTrace.memorySnapshots + memorySnapshots,
             ),
         )
     }
     recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
+    val selectedModelSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
     val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
         LocalModelResolution(
             modelPath = resolvedModelPath,
             displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
+            selectedModelSlot = selectedModelSlot,
+            npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+            genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
             backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
             cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
         )
@@ -9696,6 +9762,8 @@ private suspend fun runLocalInferenceOnceEntry(
             settingsPreferences = settingsPreferences,
             localBaseModelFilePath = localBaseModelFilePath,
             localBaseModelDisplayName = localBaseModelDisplayName,
+            localGenericModelFilePath = localGenericModelFilePath,
+            localGenericModelDisplayName = localGenericModelDisplayName,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
     } ?: run {
@@ -9704,11 +9772,19 @@ private suspend fun runLocalInferenceOnceEntry(
             message = "UPSTREAM resolved-local-model-path success=false",
         )
         return finishWithMemorySnapshots(
-            result = LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED),
+            result = LocalInferenceRunResult(
+                state = LocalInferenceEngineState.UNINITIALIZED,
+                trace = LocalInferenceTrace(
+                    selectedLocalModelSlot = selectedModelSlot.diagnosticName,
+                    npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+                    genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
+                ),
+            ),
             terminalStage = MEMORY_STAGE_GENERATION_FAILED,
             includeDisposeStage = false,
         )
     }
+    activeModelResolution = modelResolution
     val modelPath = modelResolution.modelPath
     appendLocalReflectionTrace(
         context = context,
@@ -10354,6 +10430,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
         trace = LocalInferenceTrace(
             localModelDisplayName = modelResolution.displayName,
             mediaPipeProbeModelPath = modelResolution.modelPath,
+            selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+            npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+            genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
             requestedPreferredBackend = "GPU",
             appliedPreferredBackend = "GPU",
             preferredBackendApplyResult = "timeout",
@@ -10764,6 +10843,67 @@ private suspend fun resolveLocalBaseModelPathOrNull(
     }
 }
 
+internal enum class LocalInferenceModelSlot(
+    val diagnosticName: String,
+    val missingModelMessage: String,
+) {
+    NPU_PREVIEW(
+        diagnosticName = "npu_preview",
+        missingModelMessage = "NPUプレビューモデルが未設定です",
+    ),
+    GENERIC_FALLBACK(
+        diagnosticName = "generic_fallback",
+        missingModelMessage = "汎用フォールバックモデルが未設定です",
+    ),
+}
+
+internal fun localModelSlotForBackend(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): LocalInferenceModelSlot =
+    when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> LocalInferenceModelSlot.NPU_PREVIEW
+        PreferredBackendDryRunSetting.CPU,
+        PreferredBackendDryRunSetting.GPU,
+        PreferredBackendDryRunSetting.DEFAULT -> LocalInferenceModelSlot.GENERIC_FALLBACK
+    }
+
+internal fun missingLocalModelMessageForBackend(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): String = localModelSlotForBackend(preferredBackendDryRunSetting).missingModelMessage
+
+private suspend fun resolveLocalModelPathOrNull(
+    settingsPreferences: SettingsPreferences,
+    selectedModelSlot: LocalInferenceModelSlot,
+    localBaseModelFilePath: String?,
+    localGenericModelFilePath: String?,
+): String? {
+    if (selectedModelSlot == LocalInferenceModelSlot.NPU_PREVIEW) {
+        return resolveLocalBaseModelPathOrNull(
+            settingsPreferences = settingsPreferences,
+            localBaseModelFilePath = localBaseModelFilePath,
+        )
+    }
+
+    val validPathFromSettings = runCatching {
+        settingsPreferences.getValidLocalGenericModelPathOrNull()
+    }.getOrElse {
+        Log.e("ChatScreen", "Failed to resolve valid local generic fallback model path from settings", it)
+        return null
+    }
+    if (validPathFromSettings != null) {
+        return validPathFromSettings
+    }
+
+    val fallbackPath = localGenericModelFilePath?.takeIf { it.isNotBlank() } ?: return null
+    val fallbackFile = File(fallbackPath)
+    return fallbackPath.takeIf {
+        fallbackFile.isFile &&
+            fallbackFile.canRead() &&
+            fallbackFile.name.endsWith(".litertlm", ignoreCase = true)
+    }
+}
+
 private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
 
 private fun buildLocalLiteRtBackendKey(
@@ -10782,13 +10922,24 @@ private fun buildLocalLiteRtBackendKey(
 private fun buildLiteRtCacheDirPath(context: Context): String = context.cacheDir.absolutePath
 
 private fun resolveLocalModelDisplayName(
-    localBaseModelDisplayName: String?,
+    localModelDisplayName: String?,
     modelPath: String,
 ): String {
-    val normalizedDisplayName = localBaseModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
+    val normalizedDisplayName = localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     if (normalizedDisplayName != null) return normalizedDisplayName
     return File(modelPath).name.removeSuffix(".litertlm")
 }
+
+private fun LocalInferenceTrace.withLocalModelResolution(
+    modelResolution: LocalModelResolution,
+): LocalInferenceTrace =
+    copy(
+        localModelDisplayName = localModelDisplayName ?: modelResolution.displayName,
+        mediaPipeProbeModelPath = mediaPipeProbeModelPath ?: modelResolution.modelPath,
+        selectedLocalModelSlot = selectedLocalModelSlot ?: modelResolution.selectedModelSlot.diagnosticName,
+        npuPreviewModelConfigured = npuPreviewModelConfigured ?: modelResolution.npuPreviewModelConfigured,
+        genericFallbackModelConfigured = genericFallbackModelConfigured ?: modelResolution.genericFallbackModelConfigured,
+    )
 
 internal fun shouldApplyHeldEngineModelPath(localBaseModelFilePath: String?): Boolean {
     return !localBaseModelFilePath.isNullOrBlank()
@@ -10833,15 +10984,27 @@ private suspend fun resolveLocalModelResolutionOrNull(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
+    localGenericModelFilePath: String? = null,
+    localGenericModelDisplayName: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): LocalModelResolution? {
-    val modelPath = resolveLocalBaseModelPathOrNull(
+    val selectedModelSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val selectedModelDisplayName = when (selectedModelSlot) {
+        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
+        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
+    }
+    val modelPath = resolveLocalModelPathOrNull(
         settingsPreferences = settingsPreferences,
+        selectedModelSlot = selectedModelSlot,
         localBaseModelFilePath = localBaseModelFilePath,
+        localGenericModelFilePath = localGenericModelFilePath,
     ) ?: return null
     return LocalModelResolution(
         modelPath = modelPath,
-        displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, modelPath),
+        displayName = resolveLocalModelDisplayName(selectedModelDisplayName, modelPath),
+        selectedModelSlot = selectedModelSlot,
+        npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+        genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
         backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
         cacheDirPath = buildLiteRtCacheDirPath(context),
     )

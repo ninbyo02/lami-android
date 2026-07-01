@@ -718,6 +718,19 @@ internal fun buildInferenceDetailSections(
                     )
                 }
                 localTraceForDev?.let { trace ->
+                    add(InferenceStatItemUi(label = "selected_model_slot", value = trace.selectedLocalModelSlot ?: "—"))
+                    add(
+                        InferenceStatItemUi(
+                            label = "generic_fallback_model_configured",
+                            value = trace.genericFallbackModelConfigured?.toString() ?: "—",
+                        ),
+                    )
+                    add(
+                        InferenceStatItemUi(
+                            label = "npu_preview_model_configured",
+                            value = trace.npuPreviewModelConfigured?.toString() ?: "—",
+                        ),
+                    )
                     add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
                     add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
                     add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
