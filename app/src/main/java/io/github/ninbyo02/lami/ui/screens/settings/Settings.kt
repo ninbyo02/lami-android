@@ -151,7 +151,7 @@ internal const val LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION =
     "旧QAIRT診断経路です。S1〜S5 NPU標準ルートとは別で、通常利用は非推奨です。"
 
 internal const val NPU_EXPERIMENTAL_BACKEND_DESCRIPTION =
-    "NPU Beta: Uses the completed NPU standard route with UI, TTS, DB, Markdown, and pseudo streaming gates."
+    "対応端末ではNPUを使ってローカル推論を高速化します。端末やモデルによってはGPU/CPUに切り替わる場合があります。"
 
 internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): String =
     when (mode) {
@@ -671,7 +671,7 @@ fun Settings(
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                                 Text(
-                                    text = "S1〜S5 は backend ではなく標準ルートの legacy developer phase です。通常の backend list には NPU Beta として1項目だけ表示します。",
+                                    text = "S1〜S5 はbackendではなく標準ルートのlegacy developer phaseです。通常のbackend listには「NPU プレビュー」として1項目だけ表示します。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -724,7 +724,7 @@ fun Settings(
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
-                                    text = "developer向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
+                                    text = "開発者向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
