@@ -237,7 +237,7 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU preview backend description explains accelerated local inference` {
+    fun `NPU preview backend description explains accelerated local inference`() {
         assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU"))
         assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("ローカル推論"))
         assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("GPU/CPU"))
