@@ -4,9 +4,12 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT_DIR="/home/sato/project/litert-custom-build/LiteRT-LM"
 PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_128input.patch"
+GPU_PREFILL_PREINVOKE_PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch"
 TARGET_FILE="kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
+GPU_PREFILL_PREINVOKE_TARGET_FILE="runtime/executor/llm_litert_compiled_model_executor.cc"
 MAX256_MARKER="qairt244_editable_prompt_max256_v1"
 MAX512_MARKER="qairt244_editable_prompt_max512_v1"
+GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
 REQUIRE_MAX512=false
 EVIDENCE_ONLY=false
 SM8750_EVIDENCE=""
@@ -67,6 +70,24 @@ path_has_evidence() {
   fi
 }
 
+patch_apply_status() {
+  local checkout_dir="$1"
+  local patch_file="$2"
+  if [ ! -f "$patch_file" ]; then
+    printf 'missing_patch'
+    return 0
+  fi
+  if git -C "$checkout_dir" apply --check "$patch_file" >/dev/null 2>&1; then
+    printf 'not_applied'
+    return 0
+  fi
+  if git -C "$checkout_dir" apply --reverse --check "$patch_file" >/dev/null 2>&1; then
+    printf 'applied'
+    return 0
+  fi
+  printf 'mismatch'
+}
+
 if [ ! -d "$CHECKOUT_DIR/.git" ]; then
   printf 'status=missing_checkout\n'
   printf 'checkout=%s\n' "$CHECKOUT_DIR"
@@ -104,6 +125,13 @@ printf 'checkout=%s\n' "$CHECKOUT_DIR"
 printf 'head=%s\n' "$HEAD_SHA"
 printf 'patch=%s\n' "$PATCH_FILE"
 printf 'target=%s\n' "$TARGET_FILE"
+printf 'gpu_prefill_preinvoke_patch=%s\n' "$GPU_PREFILL_PREINVOKE_PATCH_FILE"
+printf 'gpu_prefill_preinvoke_target=%s\n' "$GPU_PREFILL_PREINVOKE_TARGET_FILE"
+printf 'gpu_prefill_preinvoke_marker=%s\n' "$GPU_PREFILL_PREINVOKE_MARKER"
+printf 'gpu_prefill_preinvoke_patch_has_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
+if [ "$EVIDENCE_ONLY" != true ]; then
+  printf 'gpu_prefill_preinvoke_patch_status=%s\n' "$(patch_apply_status "$CHECKOUT_DIR" "$GPU_PREFILL_PREINVOKE_PATCH_FILE")"
+fi
 printf 'require_max512=%s\n' "$REQUIRE_MAX512"
 printf 'evidence_only=%s\n' "$EVIDENCE_ONLY"
 printf 'sm8750_evidence=%s\n' "${SM8750_EVIDENCE:-none}"

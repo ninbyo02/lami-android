@@ -133,6 +133,46 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU failure compact surfaces native prefill preinvoke diagnostics when present`() {
+        val nativeLine =
+            "07-02 12:00:00.000 I/native: qairt244_gpu_prefill_preinvoke_v1 " +
+                "event=before_compiled_model_prefill_invoke " +
+                "executor_backend=LiteRT_Compiled_Model settings_backend=GPU sampler_backend=UNSPECIFIED " +
+                "signature=prefill_128 runner=prefill_128 async=true prompt_token_length=7 " +
+                "prefill_effective_token_length=6 prefill_start_position=0 prefill_end_position=5 " +
+                "current_step=6 prefill_input_tensor_count=3 " +
+                "prefill_input_tensors=tokens:shape=[1,128]:bytes=512:type=Int32 " +
+                "run_input_tensor_count=35 " +
+                "run_input_tensors=tokens:shape=[1,128]:bytes=512:type=Int32 " +
+                "input_kv_cache_tensor_count=32 " +
+                "input_kv_cache_tensors=kv0:shape=[1,2,3]:bytes=6:type=Int8 " +
+                "output_kv_cache_tensor_count=32 " +
+                "output_kv_cache_tensors=kv0:shape=[1,2,3]:bytes=6:type=Int8 " +
+                "run_output_tensor_count=32 " +
+                "run_output_tensors=kv0:shape=[1,2,3]:bytes=6:type=Int8"
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = nativeLine),
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_marker=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_event=before_compiled_model_prefill_invoke"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_settings_backend=GPU"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_signature=prefill_128"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_prompt_token_length=7"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_prefill_effective_token_length=6"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_prefill_start_position=0"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_prefill_end_position=5"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_input_kv_cache_tensor_count=32"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_output_kv_cache_tensor_count=32"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_input_kv_cache_tensors=kv0:shape=[1,2,3]:bytes=6:type=Int8"))
+    }
+
+    @Test
     fun `Automatic failure builds local compact diagnostics`() {
         val text = buildFailureText(PreferredBackendDryRunSetting.DEFAULT)
 

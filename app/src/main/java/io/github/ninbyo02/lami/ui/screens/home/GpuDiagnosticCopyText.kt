@@ -53,6 +53,19 @@ internal val GPU_DIAGNOSTIC_COPY_KEYS = listOf(
     "gpu_perf_callback_total_elapsed_ms",
     "gpu_perf_slow_path_detected",
     "gpu_perf_slow_path_reason",
+    "gpu_native_prefill_preinvoke_marker",
+    "gpu_native_prefill_preinvoke_event",
+    "gpu_native_prefill_preinvoke_executor_backend",
+    "gpu_native_prefill_preinvoke_settings_backend",
+    "gpu_native_prefill_preinvoke_sampler_backend",
+    "gpu_native_prefill_preinvoke_signature",
+    "gpu_native_prefill_preinvoke_runner",
+    "gpu_native_prefill_preinvoke_prompt_token_length",
+    "gpu_native_prefill_preinvoke_prefill_effective_token_length",
+    "gpu_native_prefill_preinvoke_prefill_start_position",
+    "gpu_native_prefill_preinvoke_prefill_end_position",
+    "gpu_native_prefill_preinvoke_input_kv_cache_tensor_count",
+    "gpu_native_prefill_preinvoke_output_kv_cache_tensor_count",
 )
 
 internal val GPU_INTERNAL_SURFACE_COPY_KEYS = listOf(

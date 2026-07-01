@@ -531,6 +531,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildGpuPerformanceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuHolderLifecycleCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeClarityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuNativePrefillPreinvokeCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildCpuRouteDiagnosticLines(input.cpuRouteDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(
                 input.gpuPrefillProbeDiagnostics.filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS },
@@ -976,6 +977,15 @@ private fun buildGpuPrefillProbeClarityCompactDiagnosticLines(
 private fun extractGpuPrefillProbeClarityDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS }
 
+private fun buildGpuNativePrefillPreinvokeCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
 private val NORMAL_CHAT_GPU_COMPACT_KEYS = listOf(
     "gpu_selected_model_slot",
     "gpu_normal_chat_engine_config_style",
@@ -1106,6 +1116,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
         extractGpuHolderLifecycleDiagnostics(failureDiagnosticsText) +
         extractGpuPrefillProbeClarityDiagnostics(failureDiagnosticsText) +
+        extractGpuNativePrefillPreinvokeDiagnostics(failureDiagnosticsText) +
         extractNormalChatGpuDiagnostics(failureDiagnosticsText)
     val cpuRouteDiagnostics = extractCpuRouteDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
@@ -1619,30 +1630,7 @@ private fun localFailureThrowableChain(throwable: Throwable): List<Throwable> {
 }
 
 private fun parseLocalInferenceFailureDiagnosticsText(text: String?): Map<String, String> =
-    buildMap {
-        text
-            ?.lineSequence()
-            ?.forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.startsWith("LOCAL_ROUTE_DIAG ")) {
-                    trimmed.split(' ')
-                        .asSequence()
-                        .drop(1)
-                        .forEach { token ->
-                            val separatorIndex = token.indexOf('=')
-                            if (separatorIndex > 0) {
-                                put(token.substring(0, separatorIndex).trim(), token.substring(separatorIndex + 1).trim())
-                            }
-                        }
-                } else {
-                    val separatorIndex = trimmed.indexOf('=').takeIf { it > 0 }
-                        ?: trimmed.indexOf(':').takeIf { it > 0 }
-                    separatorIndex?.let { index ->
-                        put(trimmed.substring(0, index).trim(), trimmed.substring(index + 1).trim())
-                    }
-                }
-            }
-    }
+    parseDiagnosticKeyValueText(text)
 
 private fun Map<String, String>.diagnosticValueOrNull(key: String): String? =
     this[key]?.takeUnless { it == "unavailable" || it.isBlank() }

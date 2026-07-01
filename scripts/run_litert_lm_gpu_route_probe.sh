@@ -170,7 +170,7 @@ summarize_runtime() {
     fi
     if [ -s "$logcat_file" ]; then
       printf '### logcat excerpts\n\n```text\n'
-      rg -n "ChatScreen|LocalWsTrace|LiteRT|LiteRt|litert|GPU|OpenCL|WebGPU|tokensPerSecond|timeToFirstTokenMs|modelInitMs|prefill|decode|lowmemorykiller|ActivityManager|am_kill|FATAL|SIGABRT|SIGSEGV|QNN|HTP|NPU|RunDecode" "$logcat_file" 2>/dev/null | tail -160 || true
+      rg -n "qairt244_gpu_prefill_preinvoke_v1|ChatScreen|LocalWsTrace|LiteRT|LiteRt|litert|GPU|OpenCL|WebGPU|tokensPerSecond|timeToFirstTokenMs|modelInitMs|prefill|decode|lowmemorykiller|ActivityManager|am_kill|FATAL|SIGABRT|SIGSEGV|QNN|HTP|NPU|RunDecode" "$logcat_file" 2>/dev/null | tail -160 || true
       printf '\n```\n\n'
     fi
     printf '## Artifacts\n\n'

@@ -1,5 +1,56 @@
 # QAIRT244 Native Patch Management
 
+## 2026-07-02 GPU Prefill Preinvoke Diagnostic Patch
+
+The prepared auxiliary native patch for the LiteRT-LM GPU Status 13 prefill
+invoke investigation is:
+
+```text
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+This patch targets:
+
+```text
+runtime/executor/llm_litert_compiled_model_executor.cc
+runtime/executor/llm_litert_compiled_model_executor.h
+```
+
+It logs one `ABSL_LOG(INFO)` line immediately before
+`compiled_model_->RunAsync(...)` / `compiled_model_->Run(...)` in
+`BindTensorsAndRunPrefill`. The marker is:
+
+```text
+qairt244_gpu_prefill_preinvoke_v1
+```
+
+The line includes selected signature/runner, executor/settings/sampler backend
+identifiers, async mode, prompt/prefill token counts, prefill start/end
+positions, current step, prefill/run input tensor counts and tensor
+name/shape/byte/type summaries, and input/output KV-cache tensor counts and
+shape summaries.
+
+Apply it to the external checkout after the active qairt244 patch if a custom
+GPU diagnostic build is needed:
+
+```bash
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+Then rebuild with the existing custom artifact script:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_gpu_prefill_preinvoke_diag
+```
+
+`scripts/check_qairt244_native_patch.sh` reports this patch as an auxiliary
+`gpu_prefill_preinvoke_patch_status` without changing the active UTF-8 prompt
+patch gate.
+
 ## 2026-05-24 128 Output / 128 Input Hidden Template Phase
 
 The current active native patch for the standard hidden qairt244 template

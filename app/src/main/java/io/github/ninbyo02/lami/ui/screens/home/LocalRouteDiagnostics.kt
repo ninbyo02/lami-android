@@ -3165,6 +3165,7 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
             ?.lineSequence()
             ?.forEach { line ->
                 val trimmed = line.trim()
+                putGpuNativePrefillPreinvokeTokens(trimmed)
                 if (trimmed.startsWith("LOCAL_ROUTE_DIAG ")) {
                     trimmed.split(' ')
                         .asSequence()
@@ -3184,6 +3185,55 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
                 }
             }
     }
+
+internal const val GPU_NATIVE_PREFILL_PREINVOKE_MARKER = "qairt244_gpu_prefill_preinvoke_v1"
+
+internal val GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS = listOf(
+    "gpu_native_prefill_preinvoke_marker",
+    "gpu_native_prefill_preinvoke_event",
+    "gpu_native_prefill_preinvoke_executor_backend",
+    "gpu_native_prefill_preinvoke_settings_backend",
+    "gpu_native_prefill_preinvoke_sampler_backend",
+    "gpu_native_prefill_preinvoke_signature",
+    "gpu_native_prefill_preinvoke_runner",
+    "gpu_native_prefill_preinvoke_async",
+    "gpu_native_prefill_preinvoke_prompt_token_length",
+    "gpu_native_prefill_preinvoke_prefill_effective_token_length",
+    "gpu_native_prefill_preinvoke_prefill_start_position",
+    "gpu_native_prefill_preinvoke_prefill_end_position",
+    "gpu_native_prefill_preinvoke_current_step",
+    "gpu_native_prefill_preinvoke_prefill_input_tensor_count",
+    "gpu_native_prefill_preinvoke_prefill_input_tensors",
+    "gpu_native_prefill_preinvoke_run_input_tensor_count",
+    "gpu_native_prefill_preinvoke_run_input_tensors",
+    "gpu_native_prefill_preinvoke_input_kv_cache_tensor_count",
+    "gpu_native_prefill_preinvoke_input_kv_cache_tensors",
+    "gpu_native_prefill_preinvoke_output_kv_cache_tensor_count",
+    "gpu_native_prefill_preinvoke_output_kv_cache_tensors",
+    "gpu_native_prefill_preinvoke_run_output_tensor_count",
+    "gpu_native_prefill_preinvoke_run_output_tensors",
+)
+
+private fun MutableMap<String, String>.putGpuNativePrefillPreinvokeTokens(line: String) {
+    if (!line.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER)) return
+    put("gpu_native_prefill_preinvoke_marker", GPU_NATIVE_PREFILL_PREINVOKE_MARKER)
+    line.substringAfter(GPU_NATIVE_PREFILL_PREINVOKE_MARKER)
+        .trim()
+        .split(' ')
+        .asSequence()
+        .filter { it.isNotBlank() }
+        .forEach { token ->
+            val separatorIndex = token.indexOf('=')
+            if (separatorIndex > 0) {
+                val key = token.substring(0, separatorIndex).trim()
+                val value = token.substring(separatorIndex + 1).trim()
+                put("gpu_native_prefill_preinvoke_$key", value)
+            }
+        }
+}
+
+internal fun extractGpuNativePrefillPreinvokeDiagnostics(text: String?): Map<String, String> =
+    parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS }
 
 internal fun extractGpuPrefillProbeDiagnostics(text: String?): Map<String, String> =
     parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS }
