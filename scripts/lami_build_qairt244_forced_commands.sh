@@ -22,7 +22,7 @@
 : "${QAIRT244_ROOT:=}"
 : "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_gpu_prefill_preinvoke_diag}"
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
-: "${LITERT_LM_REF:=1d535d5038c6a951b7f9f7adbed69efca1f62566}"
+: "${LITERT_LM_REF:=v0.11.0}"
 : "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_128input.patch}"
 : "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_MARKER:=qairt244_gpu_prefill_preinvoke_v1}"
@@ -69,8 +69,20 @@ lami_qairt244_ensure_litert_lm_checkout() {
   fi
 
   git -C "$checkout" fetch --tags origin >&2
-  git -C "$checkout" checkout "$LITERT_LM_REF" >&2
-  git -C "$checkout" reset --hard "$LITERT_LM_REF" >&2
+  local selected_commit
+  selected_commit="$(git -C "$checkout" rev-parse --verify "${LITERT_LM_REF}^{commit}")" || {
+    echo "LiteRT-LM ref is not a fetchable commit/tree: $LITERT_LM_REF" >&2
+    exit 65
+  }
+  if ! git -C "$checkout" for-each-ref --contains "$selected_commit" \
+      refs/remotes/origin refs/tags | grep -q .; then
+    echo "LiteRT-LM commit is not reachable from fetched origin refs/tags: $selected_commit ($LITERT_LM_REF)" >&2
+    exit 65
+  fi
+  echo "selected_litert_lm_ref=$LITERT_LM_REF" >&2
+  echo "selected_litert_lm_commit=$selected_commit" >&2
+  git -C "$checkout" checkout --detach "$selected_commit" >&2
+  git -C "$checkout" reset --hard "$selected_commit" >&2
   git -C "$checkout" clean -fdx >&2
 
   if git -C "$checkout" lfs version >/dev/null 2>&1; then
@@ -90,6 +102,7 @@ lami_qairt244_ensure_litert_lm_checkout() {
   fi
   echo "applying qairt244 base patch: $QAIRT244_PATCH" >&2
   if git -C "$checkout" apply --check "$QAIRT244_PATCH"; then
+    echo "qairt244_base_patch_check=ok" >&2
     git -C "$checkout" apply "$QAIRT244_PATCH"
   else
     echo "qairt244 patch does not apply cleanly to $LITERT_LM_REF" >&2
@@ -103,6 +116,7 @@ lami_qairt244_ensure_litert_lm_checkout() {
     fi
     echo "applying qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
     if git -C "$checkout" apply --check "$QAIRT244_EXTRA_PATCH"; then
+      echo "qairt244_extra_patch_check_after_base=ok" >&2
       git -C "$checkout" apply "$QAIRT244_EXTRA_PATCH"
     else
       echo "qairt244 extra patch does not apply cleanly to $LITERT_LM_REF after base patch" >&2
@@ -209,8 +223,12 @@ lami_qairt244_artifact_has_symbol() {
 lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
   local artifact_dir="$1"
   local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
+  local static_summary="$artifact_dir/static_summary.md"
   [[ -f "$lib" ]] || return 1
-  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
+  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
+  readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
+  [[ -f "$static_summary" ]] || return 1
+  grep -Fq "| \`$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER\` | \`liblitertlm_jni.so\` | \`true\` | \`true\` |" "$static_summary"
 }
 
 lami_qairt244_resolve_artifact_dir() {
@@ -331,6 +349,9 @@ lami_qairt244_build_custom_jni() {
     echo "host=$(hostname)"
     echo "user=$(id -un)"
     echo "litert_lm_checkout=$litert_lm_checkout"
+    echo "selected_litert_lm_ref=$LITERT_LM_REF"
+    echo "selected_litert_lm_commit=$(git -C "$litert_lm_checkout" rev-parse HEAD)"
+    echo "selected_litert_lm_describe=$(git -C "$litert_lm_checkout" describe --tags --always --dirty)"
     echo "qairt_root=$qairt_root"
     echo "label=$QAIRT244_BUILD_LABEL"
     echo "base_patch=$QAIRT244_PATCH"
@@ -351,6 +372,8 @@ lami_qairt244_build_custom_jni() {
       }
       echo "gpu_prefill_preinvoke_marker_present=true"
       echo "gpu_prefill_preinvoke_marker_check=strings $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
+      echo "gpu_prefill_preinvoke_marker_readelf_check=readelf -p .rodata $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
+      echo "gpu_prefill_preinvoke_marker_static_summary_check=grep -F '$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER' $artifact_dir/static_summary.md"
     fi
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
     lami_qairt244_artifact_has_symbol "$artifact_dir"

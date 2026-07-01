@@ -43,9 +43,9 @@ The forced command writes the diagnostic artifact with a label containing
 `qairt244_gpu_prefill_preinvoke_v1` is missing from
 `built_libs/liblitertlm_jni.so`.
 
-For manual rebuilds, start from LiteRT-LM
-`1d535d5038c6a951b7f9f7adbed69efca1f62566`, apply the base patch first, apply
-this patch second, then use the diagnostic label:
+For manual rebuilds, start from the fetchable LiteRT-LM tag `v0.11.0`
+(`c87189528a758db32ead241f4fc9c64836398ee7`), apply the base patch first,
+apply this patch second, then use the diagnostic label:
 
 ```bash
 scripts/build_litert_custom_artifacts.sh \
@@ -55,12 +55,15 @@ scripts/build_litert_custom_artifacts.sh \
 ```
 
 The generated `static_summary.md` reports the diagnostic label and a
-`Diagnostic markers` table. The same marker is also included in
-`strings/liblitertlm_jni.so.filtered.txt`.
+`Diagnostic markers` table with both strings and readelf evidence. The same
+marker is also included in `strings/liblitertlm_jni.so.filtered.txt` and
+`readelf/liblitertlm_jni.so.rodata.txt`.
 
 `scripts/check_qairt244_native_patch.sh` reports this patch as an auxiliary
 `gpu_prefill_preinvoke_patch_status` without changing the active UTF-8 prompt
-patch gate.
+patch gate. Use `scripts/check_qairt244_native_patch.sh --selected-ref-check`
+to create a temporary shared clone at `v0.11.0`, verify the base patch applies,
+apply it, then verify the GPU prefill preinvoke patch applies after it.
 
 ## 2026-05-24 128 Output / 128 Input Hidden Template Phase
 
@@ -172,8 +175,8 @@ not as a checked-in binary artifact.
 ## Current State
 
 - External checkout: `/home/sato/project/litert-custom-build/LiteRT-LM`
-- Upstream HEAD used for the current 128 output / 128 input patch:
-  `1d535d5038c6a951b7f9f7adbed69efca1f62566`
+- Upstream HEAD used for the current reproducible qairt244 patch base:
+  `v0.11.0` / `c87189528a758db32ead241f4fc9c64836398ee7`
 - Native source:
   `kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`
 - Active patch:
@@ -278,6 +281,8 @@ hash:
 ```bash
 sha256sum <artifact>/built_libs/liblitertlm_jni.so
 strings <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+readelf -p .rodata <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+grep -F qairt244_gpu_prefill_preinvoke_v1 <artifact>/static_summary.md
 ```
 
 Never add `.so`, `.apk`, `.aar`, `.zip`, `.tar`, `.gz`, or `.litertlm` files to

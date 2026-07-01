@@ -98,14 +98,15 @@ The command auto-detects the LiteRT-LM checkout and QAIRT SDK from the
 `$HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_gpu_prefill_preinvoke_diag`.
 If LiteRT-LM is missing, the command clones
 `https://github.com/google-ai-edge/LiteRT-LM.git`, checks out
-`1d535d5038c6a951b7f9f7adbed69efca1f62566`, resets that external checkout,
+fetchable tag `v0.11.0`
+(`c87189528a758db32ead241f4fc9c64836398ee7`), resets that external checkout,
 applies
 `patches/qairt244_litertlm_utf8_128token_128input.patch`, then applies
 `patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch`. It does not
 download QAIRT; QAIRT `2.44.0.260225` must already exist in one of the
 candidate paths.
 
-It builds only the limited target list in `scripts/build_litert_custom_artifacts.sh`, verifies the qairt244 JNI symbol, verifies `qairt244_gpu_prefill_preinvoke_v1` is present in `built_libs/liblitertlm_jni.so` for the diagnostic label, then stages with `scripts/stage_litert_custom_build_stack_for_experiment.sh`.
+It builds only the limited target list in `scripts/build_litert_custom_artifacts.sh`, verifies the qairt244 JNI symbol, verifies `qairt244_gpu_prefill_preinvoke_v1` is present in `built_libs/liblitertlm_jni.so` by `strings`, `readelf -p .rodata`, and `static_summary.md` for the diagnostic label, then stages with `scripts/stage_litert_custom_build_stack_for_experiment.sh`.
 
 ## Safety notes
 

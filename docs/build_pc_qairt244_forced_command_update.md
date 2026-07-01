@@ -123,7 +123,7 @@ ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 'st
 ssh -i /opt/data/.ssh/lami_build_pc_ed25519 -p 2222 lami-build@192.168.52.99 build-qairt244-custom-jni
 ```
 
-このコマンドは以下の候補パスから存在するものを自動選択します。LiteRT-LM checkout が無い場合は、固定URL `https://github.com/google-ai-edge/LiteRT-LM.git` から `$HOME/project/litert-custom-build/LiteRT-LM` へcloneします。ビルド時は `1d535d5038c6a951b7f9f7adbed69efca1f62566` をcheckoutして `patches/qairt244_litertlm_utf8_128token_128input.patch` を適用し、その後 `patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch` を適用します。
+このコマンドは以下の候補パスから存在するものを自動選択します。LiteRT-LM checkout が無い場合は、固定URL `https://github.com/google-ai-edge/LiteRT-LM.git` から `$HOME/project/litert-custom-build/LiteRT-LM` へcloneします。ビルド時は fetchable な `v0.11.0`（`c87189528a758db32ead241f4fc9c64836398ee7`）をcheckoutして `patches/qairt244_litertlm_utf8_128token_128input.patch` を適用し、その後 `patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch` を適用します。local-only SHA `1d535d5038c6a951b7f9f7adbed69efca1f62566` は使用しません。
 
 ```text
 LiteRT-LM checkout candidates:
@@ -142,8 +142,9 @@ output root:
 
 The forced build verifies the regular qairt244 JNI symbols and also requires
 `qairt244_gpu_prefill_preinvoke_v1` to appear in
-`built_libs/liblitertlm_jni.so`. The generated `static_summary.md` and
-`strings/liblitertlm_jni.so.filtered.txt` record that marker evidence.
+`built_libs/liblitertlm_jni.so`. The generated `static_summary.md`,
+`strings/liblitertlm_jni.so.filtered.txt`, and
+`readelf/liblitertlm_jni.so.rodata.txt` must all record that marker evidence.
 
 QAIRT SDKは自動downloadしません。`2.44.0.260225` が候補パスに無い場合は、Qualcomm SDKの配置が別途必要です。
 

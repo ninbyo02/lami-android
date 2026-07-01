@@ -141,6 +141,13 @@ string_marker_present() {
   strings "$file" 2>/dev/null | grep -Fq "$marker"
 }
 
+readelf_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [ -f "$file" ] || return 1
+  readelf -p .rodata "$file" 2>/dev/null | grep -Fq "$marker"
+}
+
 extract_metadata() {
   local file="$1"
   local label="$2"
@@ -253,7 +260,7 @@ write_matrix_for_dir() {
   done
 }
 
-mkdir -p "$OUT_DIR/build_logs" "$OUT_DIR/built_libs" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings" "$OUT_DIR/reference_libs/gallery" "$OUT_DIR/reference_libs/gallery_stack" "$OUT_DIR/reference_libs/maven_0.11.0" "$BAZEL_OUTPUT_BASE"
+mkdir -p "$OUT_DIR/build_logs" "$OUT_DIR/built_libs" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings" "$OUT_DIR/readelf" "$OUT_DIR/reference_libs/gallery" "$OUT_DIR/reference_libs/gallery_stack" "$OUT_DIR/reference_libs/maven_0.11.0" "$BAZEL_OUTPUT_BASE"
 : >"$OUT_DIR/build_results.tsv"
 
 if [ -n "$QAIRT_ROOT" ]; then
@@ -429,6 +436,7 @@ fi
 for file in "$OUT_DIR"/built_libs/*.so; do
   [ -f "$file" ] || continue
   extract_metadata "$file" "built" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings"
+  readelf -p .rodata "$file" >"$OUT_DIR/readelf/$(basename "$file").rodata.txt" 2>/dev/null || true
 done
 
 extract_apk_refs "$GALLERY_APK" "$OUT_DIR/reference_libs/gallery" "Gallery SM8750 APK"
@@ -458,15 +466,20 @@ write_matrix_for_dir "$OUT_DIR/reference_libs/maven_0.11.0" "maven-litertlm-0.11
   printf -- '- App integration: `no`\n'
   printf -- '- Engine.initialize rerun: `no`\n\n'
   printf '## Diagnostic markers\n\n'
-  printf '| Marker | Library | Present | Evidence file |\n'
-  printf '| --- | --- | --- | --- |\n'
-  marker_present=false
-  marker_evidence_file="$OUT_DIR/strings/liblitertlm_jni.so.filtered.txt"
+  printf '| Marker | Library | Strings Present | Readelf Present | Strings Evidence | Readelf Evidence |\n'
+  printf '| --- | --- | --- | --- | --- | --- |\n'
+  marker_strings_present=false
+  marker_readelf_present=false
+  marker_strings_evidence_file="$OUT_DIR/strings/liblitertlm_jni.so.filtered.txt"
+  marker_readelf_evidence_file="$OUT_DIR/readelf/liblitertlm_jni.so.rodata.txt"
   if string_marker_present "$OUT_DIR/built_libs/liblitertlm_jni.so" "$GPU_PREFILL_PREINVOKE_MARKER"; then
-    marker_present=true
+    marker_strings_present=true
   fi
-  printf '| `%s` | `liblitertlm_jni.so` | `%s` | `%s` |\n\n' \
-    "$GPU_PREFILL_PREINVOKE_MARKER" "$marker_present" "$marker_evidence_file"
+  if readelf_marker_present "$OUT_DIR/built_libs/liblitertlm_jni.so" "$GPU_PREFILL_PREINVOKE_MARKER"; then
+    marker_readelf_present=true
+  fi
+  printf '| `%s` | `liblitertlm_jni.so` | `%s` | `%s` | `%s` | `%s` |\n\n' \
+    "$GPU_PREFILL_PREINVOKE_MARKER" "$marker_strings_present" "$marker_readelf_present" "$marker_strings_evidence_file" "$marker_readelf_evidence_file"
   printf '## Target results\n\n```text\n'
   cat "$OUT_DIR/build_results.tsv"
   printf '```\n\n'
