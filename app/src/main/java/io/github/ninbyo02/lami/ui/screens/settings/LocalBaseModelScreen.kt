@@ -56,13 +56,32 @@ private data class LocalModelImportResult(
 
 @Composable
 fun LocalBaseModelScreen(navController: NavController) {
+    LocalModelScreen(
+        navController = navController,
+        slot = LocalModelSlot.NpuPreview,
+    )
+}
+
+@Composable
+fun LocalGenericFallbackModelScreen(navController: NavController) {
+    LocalModelScreen(
+        navController = navController,
+        slot = LocalModelSlot.GenericFallback,
+    )
+}
+
+@Composable
+private fun LocalModelScreen(
+    navController: NavController,
+    slot: LocalModelSlot,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsPreferences = remember(context) { SettingsPreferences(context) }
     var importState by remember { mutableStateOf(LocalModelImportState.Unset) }
     var importedFileDisplayName by remember { mutableStateOf<String?>(null) }
-    val savedDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
-    val savedFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+    val savedDisplayName by slot.displayNameFlow(settingsPreferences).collectAsState(initial = null)
+    val savedFilePath by slot.filePathFlow(settingsPreferences).collectAsState(initial = null)
 
     LaunchedEffect(savedDisplayName, savedFilePath, importState) {
         if (importState == LocalModelImportState.Importing) return@LaunchedEffect
@@ -74,7 +93,7 @@ fun LocalBaseModelScreen(navController: NavController) {
             importState = LocalModelImportState.Imported
         } else {
             if (!displayName.isNullOrBlank() || !filePath.isNullOrBlank()) {
-                settingsPreferences.clearLocalBaseModelInfo()
+                slot.clearModelInfo(settingsPreferences)
             }
             importedFileDisplayName = null
             importState = LocalModelImportState.Unset
@@ -92,7 +111,8 @@ fun LocalBaseModelScreen(navController: NavController) {
             importState = LocalModelImportState.Importing
             val importedResult = importLocalModelToAppStorage(context, uri)
             if (importedResult != null) {
-                settingsPreferences.saveLocalBaseModelInfo(
+                slot.saveModelInfo(
+                    settingsPreferences = settingsPreferences,
                     displayName = importedResult.displayName,
                     filePath = importedResult.filePath,
                 )
@@ -110,7 +130,7 @@ fun LocalBaseModelScreen(navController: NavController) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SettingsTopAppBar(
-                titleResId = R.string.local_base_model_title,
+                title = slot.title,
                 onBack = { navController.popBackStack() },
             )
         },
@@ -136,6 +156,12 @@ fun LocalBaseModelScreen(navController: NavController) {
                         // カード内テキストの可読性を保つための最小限の余白
                         .padding(16.dp),
                 ) {
+                    Text(
+                        text = slot.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = stringResource(R.string.local_base_model_status_label),
                         style = MaterialTheme.typography.titleMedium,
@@ -180,6 +206,7 @@ fun LocalBaseModelScreen(navController: NavController) {
                                     clearImportedLocalModel(
                                         filePath = savedFilePath,
                                         settingsPreferences = settingsPreferences,
+                                        slot = slot,
                                     )
                                     importedFileDisplayName = null
                                     importState = LocalModelImportState.Unset
@@ -278,6 +305,7 @@ private fun sanitizeFileName(name: String): String {
 private suspend fun clearImportedLocalModel(
     filePath: String?,
     settingsPreferences: SettingsPreferences,
+    slot: LocalModelSlot,
 ) = withContext(Dispatchers.IO) {
     if (!filePath.isNullOrBlank()) {
         runCatching {
@@ -287,5 +315,5 @@ private suspend fun clearImportedLocalModel(
             }
         }
     }
-    settingsPreferences.clearLocalBaseModelInfo()
+    slot.clearModelInfo(settingsPreferences)
 }

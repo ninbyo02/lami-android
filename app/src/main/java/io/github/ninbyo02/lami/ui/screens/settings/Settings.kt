@@ -207,6 +207,8 @@ fun Settings(
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
         .collectAsState(initial = null)
+    val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow
+        .collectAsState(initial = null)
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(initial = true)
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
         .collectAsState(initial = false)
@@ -971,18 +973,28 @@ fun Settings(
             item {
                 CardSectionHeader(
                     title = "ローカルモデル",
-                    description = "端末内で使用する基本モデルを設定します",
+                    description = "端末内で使用するモデルを設定します",
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
             item {
                 Card {
-                    SettingsNavRowItem(
-                        headline = "ローカル基本モデル",
-                        supporting = localBaseModelDisplayName?.takeIf { it.isNotBlank() } ?: "未設定",
-                        leadingIcon = null,
-                        onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
-                    )
+                    Column {
+                        SettingsNavRowItem(
+                            headline = LocalModelSlot.NpuPreview.title,
+                            supporting = localBaseModelDisplayName?.takeIf { it.isNotBlank() }
+                                ?: LocalModelSlot.NpuPreview.description,
+                            leadingIcon = null,
+                            onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
+                        )
+                        SettingsNavRowItem(
+                            headline = LocalModelSlot.GenericFallback.title,
+                            supporting = localGenericModelDisplayName?.takeIf { it.isNotBlank() }
+                                ?: LocalModelSlot.GenericFallback.description,
+                            leadingIcon = null,
+                            onClick = { navgationController.navigate(SettingsRoute.LocalGenericFallbackModel.route) },
+                        )
+                    }
                 }
             }
             item {

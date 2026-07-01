@@ -15,6 +15,7 @@ object Routes {
     const val SPRITE_SETTINGS = "settings/sprite_settings"
     const val SPRITE_EDITOR = "settings/sprite_editor"
     const val LOCAL_BASE_MODEL = "settings/local_base_model"
+    const val LOCAL_GENERIC_FALLBACK_MODEL = "settings/local_generic_fallback_model"
 
     fun chat(chatId: Int): String = "$CHAT/$chatId"
 
@@ -36,5 +37,9 @@ sealed interface SettingsRoute {
 
     data object LocalBaseModel : SettingsRoute {
         override val route: String = Routes.LOCAL_BASE_MODEL
+    }
+
+    data object LocalGenericFallbackModel : SettingsRoute {
+        override val route: String = Routes.LOCAL_GENERIC_FALLBACK_MODEL
     }
 }

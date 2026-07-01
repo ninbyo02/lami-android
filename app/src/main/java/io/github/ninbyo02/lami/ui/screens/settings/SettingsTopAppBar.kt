@@ -27,6 +27,18 @@ fun SettingsTopAppBar(
     titleResId: Int,
     onBack: () -> Unit,
 ) {
+    SettingsTopAppBar(
+        title = stringResource(titleResId),
+        onBack = onBack,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsTopAppBar(
+    title: String,
+    onBack: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -57,7 +69,7 @@ fun SettingsTopAppBar(
                         .fillMaxHeight()
                         .wrapContentHeight(Alignment.CenterVertically)
                 ) {
-                    Text(stringResource(titleResId))
+                    Text(title)
                 }
             },
             modifier = Modifier

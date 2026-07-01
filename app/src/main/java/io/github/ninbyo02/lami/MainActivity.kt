@@ -50,6 +50,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.screens.settings.Settings
 import io.github.ninbyo02.lami.ui.screens.settings.NoticeScreen
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBaseModelScreen
+import io.github.ninbyo02.lami.ui.screens.settings.LocalGenericFallbackModelScreen
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
                     Routes.ABOUT,
                     Routes.NOTICE,
                     SettingsRoute.LocalBaseModel.route,
+                    SettingsRoute.LocalGenericFallbackModel.route,
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
@@ -195,6 +197,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                         composable(SettingsRoute.LocalBaseModel.route) {
                                             LocalBaseModelScreen(navController)
+                                        }
+                                        composable(SettingsRoute.LocalGenericFallbackModel.route) {
+                                            LocalGenericFallbackModelScreen(navController)
                                         }
                                         composable(SettingsRoute.SpriteSettings.route) {
                                             SpriteSettingsScreen(navController)
