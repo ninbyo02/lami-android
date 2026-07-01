@@ -64,7 +64,7 @@ class SettingsNpuRouteUiTest {
             ),
             InferenceBackendSelection.userFacingEntries,
         )
-        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU Beta"))
+        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU プレビュー"))
         assertTrue(InferenceBackendSelection.userFacingEntries.none { isDeveloperNpuPhaseSelection(it) })
     }
 
