@@ -148,6 +148,56 @@ readelf_marker_present() {
   readelf -p .rodata "$file" 2>/dev/null | grep -Fq "$marker"
 }
 
+gpu_prefill_preinvoke_marker_required() {
+  [ "${QAIRT244_REQUIRE_GPU_PREFILL_PREINVOKE_MARKER:-false}" = true ] ||
+    [[ "${LABEL:-}" == *gpu_prefill_preinvoke_diag* ]]
+}
+
+gpu_prefill_preinvoke_marker_complete() {
+  local file="$1"
+  string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" &&
+    readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER"
+}
+
+record_copy_source() {
+  local lib="$1"
+  local label="$2"
+  local source="$3"
+  local source_sha="$4"
+  local dest_sha="$5"
+  local marker_strings_present="$6"
+  local marker_readelf_present="$7"
+  local action="$8"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$lib" "$label" "$source" "$source_sha" "$dest_sha" \
+    "$marker_strings_present" "$marker_readelf_present" "$action" \
+    >>"$OUT_DIR/copied_built_lib_sources.tsv"
+}
+
+require_gpu_prefill_preinvoke_marker_file() {
+  local file="$1"
+  local label="$2"
+  if ! gpu_prefill_preinvoke_marker_required; then
+    return 0
+  fi
+  if ! [ -f "$file" ]; then
+    log "ERROR: required $label output is missing: $file"
+    printf 'required %s output is missing: %s\n' "$label" "$file" >"$OUT_DIR/ERROR.txt"
+    exit 65
+  fi
+  if ! gpu_prefill_preinvoke_marker_complete "$file"; then
+    log "ERROR: required marker $GPU_PREFILL_PREINVOKE_MARKER missing from $label output: $file"
+    {
+      printf 'required_marker=%s\n' "$GPU_PREFILL_PREINVOKE_MARKER"
+      printf 'label=%s\n' "$label"
+      printf 'file=%s\n' "$file"
+      printf 'strings_present=%s\n' "$(string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" && printf true || printf false)"
+      printf 'readelf_present=%s\n' "$(readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" && printf true || printf false)"
+    } >"$OUT_DIR/ERROR.txt"
+    exit 65
+  fi
+}
+
 markdown_cell() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/|/\\|/g; s/`/\\`/g'
 }
@@ -157,10 +207,39 @@ copy_built_lib() {
   local label="$2"
   [ -f "$source" ] || return 0
   local dest="$OUT_DIR/built_libs/$(basename "$source")"
+  local lib
+  lib="$(basename "$source")"
+  local source_strings_present=false
+  local source_readelf_present=false
+  local dest_strings_present=false
+  local dest_readelf_present=false
+  string_marker_present "$source" "$GPU_PREFILL_PREINVOKE_MARKER" && source_strings_present=true
+  readelf_marker_present "$source" "$GPU_PREFILL_PREINVOKE_MARKER" && source_readelf_present=true
+  if [ -f "$dest" ]; then
+    string_marker_present "$dest" "$GPU_PREFILL_PREINVOKE_MARKER" && dest_strings_present=true
+    readelf_marker_present "$dest" "$GPU_PREFILL_PREINVOKE_MARKER" && dest_readelf_present=true
+  fi
+  if gpu_prefill_preinvoke_marker_required &&
+     [ "$lib" = "liblitertlm_jni.so" ] &&
+     { [ "$source_strings_present" != true ] || [ "$source_readelf_present" != true ]; }; then
+    if [ "$label" = "explicit-target" ]; then
+      log "ERROR: explicit liblitertlm_jni.so lacks $GPU_PREFILL_PREINVOKE_MARKER: $source"
+      record_copy_source "$lib" "$label" "$source" "$(sha_for "$source")" "-" \
+        "$source_strings_present" "$source_readelf_present" "rejected-missing-required-marker"
+      exit 65
+    fi
+    if [ "$dest_strings_present" = true ] && [ "$dest_readelf_present" = true ]; then
+      record_copy_source "$lib" "$label" "$source" "$(sha_for "$source")" "$(sha_for "$dest")" \
+        "$source_strings_present" "$source_readelf_present" "blocked-overwrite-marker-destination"
+    else
+      record_copy_source "$lib" "$label" "$source" "$(sha_for "$source")" "-" \
+        "$source_strings_present" "$source_readelf_present" "skipped-missing-required-marker"
+    fi
+    return 0
+  fi
   cp -f "$source" "$dest"
-  printf '%s\t%s\t%s\t%s\t%s\n' \
-    "$(basename "$source")" "$label" "$source" "$(sha_for "$source")" "$(sha_for "$dest")" \
-    >>"$OUT_DIR/copied_built_lib_sources.tsv"
+  record_copy_source "$lib" "$label" "$source" "$(sha_for "$source")" "$(sha_for "$dest")" \
+    "$source_strings_present" "$source_readelf_present" "copied"
 }
 
 extract_metadata() {
@@ -441,9 +520,11 @@ if [ -d "$BAZEL_BIN" ]; then
 
   # Prefer explicit target outputs over runfiles/solib duplicates when basename
   # collisions occur in bazel-bin.
+  LITERTLM_JNI_EXPLICIT_OUTPUT="$BAZEL_BIN/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so"
+  require_gpu_prefill_preinvoke_marker_file "$LITERTLM_JNI_EXPLICIT_OUTPUT" "explicit liblitertlm_jni.so"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/c/libLiteRt.so" "explicit-target"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so" "explicit-target"
-  copy_built_lib "$BAZEL_BIN/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so" "explicit-target"
+  copy_built_lib "$LITERTLM_JNI_EXPLICIT_OUTPUT" "explicit-target"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so" "explicit-target"
 fi
 
@@ -522,19 +603,22 @@ write_matrix_for_dir "$OUT_DIR/reference_libs/maven_0.11.0" "maven-litertlm-0.11
   done
   printf '\n'
   printf '## Copied built library sources\n\n'
-  printf '| Library | Copy Label | Source | Source SHA-256 | Destination SHA-256 |\n'
-  printf '| --- | --- | --- | --- | --- |\n'
+  printf '| Library | Copy Label | Source | Source SHA-256 | Destination SHA-256 | Marker Strings | Marker Readelf | Action |\n'
+  printf '| --- | --- | --- | --- | --- | --- | --- | --- |\n'
   if [ -s "$OUT_DIR/copied_built_lib_sources.tsv" ]; then
-    while IFS="$(printf '\t')" read -r copied_lib copied_label copied_source copied_source_sha copied_dest_sha; do
-      printf '| `%s` | `%s` | `%s` | `%s` | `%s` |\n' \
+    while IFS="$(printf '\t')" read -r copied_lib copied_label copied_source copied_source_sha copied_dest_sha copied_marker_strings copied_marker_readelf copied_action; do
+      printf '| `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |\n' \
         "$(markdown_cell "$copied_lib")" \
         "$(markdown_cell "$copied_label")" \
         "$(markdown_cell "$copied_source")" \
         "$(markdown_cell "$copied_source_sha")" \
-        "$(markdown_cell "$copied_dest_sha")"
+        "$(markdown_cell "$copied_dest_sha")" \
+        "$(markdown_cell "$copied_marker_strings")" \
+        "$(markdown_cell "$copied_marker_readelf")" \
+        "$(markdown_cell "$copied_action")"
     done <"$OUT_DIR/copied_built_lib_sources.tsv"
   else
-    printf '| `<none>` |  |  |  |  |\n'
+    printf '| `<none>` |  |  |  |  |  |  |  |\n'
   fi
   printf '\n'
   printf '## Target results\n\n```text\n'

@@ -141,7 +141,14 @@ lami_qairt244_ensure_litert_lm_checkout() {
      [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
      ! grep -q "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
        "$checkout/runtime/executor/llm_litert_compiled_model_executor.cc"; then
-    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER marker" >&2
+    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER executor marker" >&2
+    exit 65
+  fi
+  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
+     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
+     ! grep -q "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
+       "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
+    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER JNI marker" >&2
     exit 65
   fi
   printf '%s\n' "$checkout"

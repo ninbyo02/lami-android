@@ -8,6 +8,7 @@ PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.patch"
 GPU_PREFILL_PREINVOKE_PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch"
 TARGET_FILE="kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
 GPU_PREFILL_PREINVOKE_TARGET_FILE="runtime/executor/llm_litert_compiled_model_executor.cc"
+GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE="$TARGET_FILE"
 MAX256_MARKER="qairt244_editable_prompt_max256_v1"
 MAX512_MARKER="qairt244_editable_prompt_max512_v1"
 GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
@@ -145,10 +146,21 @@ selected_ref_patch_check() {
 
   if grep -Fq "$GPU_PREFILL_PREINVOKE_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_TARGET_FILE"; then
     printf 'selected_ref_gpu_prefill_preinvoke_marker_source_present=true\n'
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_executor_source_present=true\n'
   else
     printf 'selected_ref_gpu_prefill_preinvoke_marker_source_present=false\n'
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_executor_source_present=false\n'
     rm -rf "$tmp_dir"
-    printf 'selected_ref_check_status=marker_missing\n'
+    printf 'selected_ref_check_status=executor_marker_missing\n'
+    return 1
+  fi
+
+  if grep -Fq "$GPU_PREFILL_PREINVOKE_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"; then
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present=true\n'
+  else
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present=false\n'
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=litertlm_marker_missing\n'
     return 1
   fi
   rm -rf "$tmp_dir"
@@ -195,6 +207,7 @@ printf 'patch=%s\n' "$PATCH_FILE"
 printf 'target=%s\n' "$TARGET_FILE"
 printf 'gpu_prefill_preinvoke_patch=%s\n' "$GPU_PREFILL_PREINVOKE_PATCH_FILE"
 printf 'gpu_prefill_preinvoke_target=%s\n' "$GPU_PREFILL_PREINVOKE_TARGET_FILE"
+printf 'gpu_prefill_preinvoke_jni_target=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"
 printf 'gpu_prefill_preinvoke_marker=%s\n' "$GPU_PREFILL_PREINVOKE_MARKER"
 printf 'gpu_prefill_preinvoke_patch_has_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
 if [ "$EVIDENCE_ONLY" != true ]; then
