@@ -90,6 +90,10 @@ data class LoadedRuntimeNativeStackDiagnostics(
     val gemmaConstraintProviderSha256: String,
     val fullStackCandidateUnit: String,
     val alignmentInterpretation: String,
+    val libLiteRtLmJniPrefillPreinvokeMarkerPresent: String = "unavailable",
+    val libLiteRtLmJniPrefillPreinvokeMarkerSource: String = "unavailable",
+    val libLiteRtLmJniPrefillPreinvokeNativeHookPresent: String = "unavailable",
+    val libLiteRtLmJniPrefillPreinvokeNativeHookResult: String = "unavailable",
 )
 
 internal fun isGalleryStackGpuProbePropertyEnabled(): Boolean {
@@ -283,6 +287,16 @@ internal fun buildLoadedRuntimeNativeStackDiagnostics(
         ?.let(::File)
         ?: resolveNativeLibraryDirFromJavaLibraryPath()
     val loadedInventory = collectLoadedRuntimeNativeLibInventory(nativeDir)
+    val litertLmJniFile = resolveRuntimeNativeLibFile(nativeDir, "liblitertlm_jni.so")
+    val markerPresent = litertLmJniFile
+        ?.let { file -> fileContainsAsciiMarker(file, GPU_NATIVE_PREFILL_PREINVOKE_MARKER).toString() }
+        ?: "unavailable"
+    val nativeHookResult = readQairt244GpuPrefillPreinvokeArtifactMarkerSafely()
+    val nativeHookPresent = nativeHookResult
+        .takeUnless { it.startsWith("unavailable:") }
+        ?.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER)
+        ?.toString()
+        ?: "false"
     return LoadedRuntimeNativeStackDiagnostics(
         sourceFlavor = BuildConfig.CURRENT_FLAVOR,
         nativeLibraryDir = nativeDir?.absolutePath ?: "unavailable",
@@ -307,6 +321,10 @@ internal fun buildLoadedRuntimeNativeStackDiagnostics(
             standardCandidateResult = standardCandidateResult,
             runtimeAlignmentResult = runtimeAlignmentResult,
         ),
+        libLiteRtLmJniPrefillPreinvokeMarkerPresent = markerPresent,
+        libLiteRtLmJniPrefillPreinvokeMarkerSource = litertLmJniFile?.absolutePath ?: "unavailable",
+        libLiteRtLmJniPrefillPreinvokeNativeHookPresent = nativeHookPresent,
+        libLiteRtLmJniPrefillPreinvokeNativeHookResult = nativeHookResult,
     )
 }
 
@@ -370,6 +388,12 @@ private fun collectLoadedRuntimeNativeLibInventory(nativeDir: File?): LoadedRunt
     )
 }
 
+private fun resolveRuntimeNativeLibFile(nativeDir: File?, libName: String): File? {
+    val mapFile = readRuntimeNativeLibPathsFromProcMaps().firstOrNull { it.name == libName }
+    if (mapFile != null) return mapFile
+    return nativeDir?.resolve(libName)?.takeIf { it.isFile }
+}
+
 private fun readRuntimeNativeLibPathsFromProcMaps(): List<File> =
     runCatching {
         File("/proc/self/maps")
@@ -385,6 +409,56 @@ private fun readRuntimeNativeLibPathsFromProcMaps(): List<File> =
             .toList()
     }.getOrElse {
         emptyList()
+    }
+
+private fun fileContainsAsciiMarker(file: File, marker: String): Boolean =
+    runCatching {
+        val needle = marker.toByteArray(Charsets.UTF_8)
+        if (needle.isEmpty()) return@runCatching false
+        file.inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var tail = ByteArray(0)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                val window = ByteArray(tail.size + read)
+                tail.copyInto(window)
+                buffer.copyInto(window, destinationOffset = tail.size, endIndex = read)
+                if (window.indexOfSubarray(needle) >= 0) return@runCatching true
+                tail = if (window.size >= needle.size - 1) {
+                    window.copyOfRange(window.size - (needle.size - 1), window.size)
+                } else {
+                    window
+                }
+            }
+            false
+        }
+    }.getOrDefault(false)
+
+private fun ByteArray.indexOfSubarray(needle: ByteArray): Int {
+    if (needle.isEmpty() || needle.size > size) return -1
+    for (start in 0..(size - needle.size)) {
+        var matched = true
+        for (offset in needle.indices) {
+            if (this[start + offset] != needle[offset]) {
+                matched = false
+                break
+            }
+        }
+        if (matched) return start
+    }
+    return -1
+}
+
+private fun readQairt244GpuPrefillPreinvokeArtifactMarkerSafely(): String =
+    runCatching {
+        Qairt244GpuPrefillPreinvokeArtifactMarker.nativeMarker()
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .trim()
+            .ifBlank { "empty" }
+    }.getOrElse { throwable ->
+        "unavailable:${throwable.javaClass.simpleName}"
     }
 
 private fun resolveNativeLibraryDirFromJavaLibraryPath(): File? =

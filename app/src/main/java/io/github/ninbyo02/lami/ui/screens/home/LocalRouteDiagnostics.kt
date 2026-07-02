@@ -2577,6 +2577,11 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "runtime_stack_loaded_gemma_constraint_provider_sha256=${diagnostics.gemmaConstraintProviderSha256}",
         "runtime_stack_loaded_full_stack_candidate_unit=${diagnostics.fullStackCandidateUnit.toDiagnosticValue()}",
         "runtime_stack_alignment_interpretation=${diagnostics.alignmentInterpretation}",
+        "gpu_native_prefill_preinvoke_marker_expected=$GPU_NATIVE_PREFILL_PREINVOKE_MARKER",
+        "gpu_native_prefill_preinvoke_artifact_marker_present=${diagnostics.libLiteRtLmJniPrefillPreinvokeMarkerPresent}",
+        "gpu_native_prefill_preinvoke_artifact_marker_source=${diagnostics.libLiteRtLmJniPrefillPreinvokeMarkerSource.toDiagnosticValue()}",
+        "gpu_native_prefill_preinvoke_native_hook_present=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookPresent}",
+        "gpu_native_prefill_preinvoke_native_hook_result=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookResult.toDiagnosticValue()}",
     )
 }
 
@@ -3190,6 +3195,11 @@ internal const val GPU_NATIVE_PREFILL_PREINVOKE_MARKER = "qairt244_gpu_prefill_p
 
 internal val GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS = listOf(
     "gpu_native_prefill_preinvoke_marker",
+    "gpu_native_prefill_preinvoke_marker_expected",
+    "gpu_native_prefill_preinvoke_artifact_marker_present",
+    "gpu_native_prefill_preinvoke_artifact_marker_source",
+    "gpu_native_prefill_preinvoke_native_hook_present",
+    "gpu_native_prefill_preinvoke_native_hook_result",
     "gpu_native_prefill_preinvoke_event",
     "gpu_native_prefill_preinvoke_executor_backend",
     "gpu_native_prefill_preinvoke_settings_backend",

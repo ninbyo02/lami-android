@@ -6473,6 +6473,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             preferredBackendApplyResult = preferredBackendApplyResult,
             throwable = throwable,
+            nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
         )
         val failureDiagnosticsText = listOf(routeDiagnosticsText, localFailureDiagnosticsText)
             .joinToString("\n")
@@ -6579,6 +6580,7 @@ private fun buildNormalChatEngineCreateFailureDiagnosticsText(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
     preferredBackendApplyResult: PreferredBackendApplyResult?,
     throwable: Throwable,
+    nativeLibraryDir: String? = null,
 ): String {
     val selectedSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
     val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(preferredBackendDryRunSetting.name)
@@ -6603,6 +6605,7 @@ private fun buildNormalChatEngineCreateFailureDiagnosticsText(
         npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
         shouldEnterNpuS1 = false,
         localRouteEntered = true,
+        nativeLibraryDir = nativeLibraryDir,
     )
     val baseRouteDiagnostics = buildLocalRouteDiagnosticTrace(
         stage = "engine_create_exception",

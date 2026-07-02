@@ -1017,6 +1017,9 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_source_flavor=standard"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_liblitert_present=true"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_liblitertlm_jni_present=true"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_present=false"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_dispatch_qualcomm_present=true"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_compiler_plugin_qualcomm_present=true"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_gemma_constraint_provider_present=true"))
@@ -1028,10 +1031,70 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("runtime_stack_loaded_source_flavor=standard"))
         assertTrue(compact.contains("runtime_stack_loaded_liblitert_present=true"))
         assertTrue(compact.contains("runtime_stack_loaded_liblitertlm_jni_present=true"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_artifact_marker_present=false"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
         assertTrue(compact.contains("runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate"))
         assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
         assertTrue(compact.contains("standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected"))
         assertTrue(compact.contains("standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned"))
+    }
+
+    @Test
+    fun `GPU compact surfaces preinvoke marker presence from runtime lib when logcat breadcrumb is absent`() {
+        val nativeDir = createNativeStackTestDir(
+            litertLmJniPayload = "prefix qairt244_gpu_prefill_preinvoke_v1 jni_artifact_marker=reachable_from_liblitertlm_jni",
+        )
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+            nativeLibraryDir = nativeDir.absolutePath,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "836",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "836",
+            ),
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_present=true"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_source="))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
+        assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_native_hook_result=unavailable:UnsatisfiedLinkError"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_artifact_marker_present=true"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_artifact_marker_source="))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
+        assertTrue(compact.contains("gpu_native_prefill_preinvoke_native_hook_result=unavailable:UnsatisfiedLinkError"))
+        assertFalse(compact.contains("gpu_native_prefill_preinvoke_event=before_compiled_model_prefill_invoke"))
     }
 
     @Test
@@ -1136,6 +1199,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertFalse(npuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled="))
         assertFalse(cpuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
         assertFalse(npuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
+        assertFalse(cpuDiagnostics.contains("gpu_native_prefill_preinvoke_marker_expected="))
+        assertFalse(npuDiagnostics.contains("gpu_native_prefill_preinvoke_marker_expected="))
+        assertFalse(cpuDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_present="))
+        assertFalse(npuDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_present="))
     }
 
     @Test
@@ -3242,10 +3309,12 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             ),
         )
 
-    private fun createNativeStackTestDir(): File {
+    private fun createNativeStackTestDir(
+        litertLmJniPayload: String = "litertlm",
+    ): File {
         val dir = Files.createTempDirectory("lami-runtime-stack-test").toFile()
         dir.resolve("libLiteRt.so").writeText("litert")
-        dir.resolve("liblitertlm_jni.so").writeText("litertlm")
+        dir.resolve("liblitertlm_jni.so").writeText(litertLmJniPayload)
         dir.resolve("libLiteRtDispatch_Qualcomm.so").writeText("dispatch")
         dir.resolve("libLiteRtCompilerPlugin_Qualcomm.so").writeText("compiler")
         dir.resolve("libGemmaModelConstraintProvider.so").writeText("constraint")
