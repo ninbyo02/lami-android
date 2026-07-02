@@ -95,13 +95,13 @@ The `standardDebug` Gradle build overlays that same directory into the standard 
 The command auto-detects the LiteRT-LM checkout and QAIRT SDK from the
 `$HOME`, `/home/sato`, and `/home/lami-build` candidate paths documented in
 `docs/build_pc_qairt244_forced_command_update.md`, then writes to
-`$HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_128input_gpu_prefill_preinvoke_diag`.
+`$HOME/repos/lami-android/artifacts/litert_custom_build/<timestamp>_qairt244_128token_gpu_prefill_preinvoke_diag`.
 If LiteRT-LM is missing, the command clones
 `https://github.com/google-ai-edge/LiteRT-LM.git`, checks out
 fetchable tag `v0.11.0`
 (`c87189528a758db32ead241f4fc9c64836398ee7`), resets that external checkout,
 applies
-`patches/qairt244_litertlm_utf8_128token_128input.patch`, then applies
+`patches/qairt244_litertlm_utf8_128token.patch`, then applies
 `patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch`. It does not
 download QAIRT; QAIRT `2.44.0.260225` must already exist in one of the
 candidate paths.

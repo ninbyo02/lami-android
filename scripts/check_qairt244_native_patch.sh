@@ -4,7 +4,7 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT_DIR="/home/sato/project/litert-custom-build/LiteRT-LM"
 SELECTED_REF="${LITERT_LM_REF:-v0.11.0}"
-PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_128input.patch"
+PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.patch"
 GPU_PREFILL_PREINVOKE_PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch"
 TARGET_FILE="kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
 GPU_PREFILL_PREINVOKE_TARGET_FILE="runtime/executor/llm_litert_compiled_model_executor.cc"
@@ -53,8 +53,9 @@ and Activity-restart-only 512 remain rollback modes.
 --evidence-only exits after evidence validation and does not run git apply
 checks against the external checkout.
 --selected-ref-check creates a temporary shared clone, checks out the selected
-LiteRT-LM ref (default v0.11.0 or LITERT_LM_REF), verifies the base patch
-applies, applies it, then verifies the GPU prefill preinvoke patch applies.
+LiteRT-LM ref (default v0.11.0 or LITERT_LM_REF), verifies the selected base
+patch applies, applies it, then verifies the GPU prefill preinvoke patch
+applies.
 EOF
       exit 0
       ;;
@@ -248,6 +249,7 @@ if [ "$SELECTED_REF_CHECK" = true ] && [ "$EVIDENCE_ONLY" != true ]; then
   if [ "$selected_ref_status" -ne 0 ]; then
     exit "$selected_ref_status"
   fi
+  exit 0
 fi
 
 if git -C "$CHECKOUT_DIR" apply --check "$PATCH_FILE" >/dev/null 2>&1; then

@@ -20,12 +20,13 @@
 : "${LITERT_CUSTOM_ARTIFACT_ROOT:=$REPO/artifacts/litert_custom_build}"
 : "${LITERT_LM_CHECKOUT:=}"
 : "${QAIRT244_ROOT:=}"
-: "${QAIRT244_BUILD_LABEL:=qairt244_128token_128input_gpu_prefill_preinvoke_diag}"
+: "${QAIRT244_BUILD_LABEL:=qairt244_128token_gpu_prefill_preinvoke_diag}"
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
 : "${LITERT_LM_REF:=v0.11.0}"
-: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_128input.patch}"
+: "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
 : "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_MARKER:=qairt244_gpu_prefill_preinvoke_v1}"
+: "${QAIRT244_REQUIRE_PERSISTENT_PROBE:=false}"
 
 lami_qairt244_first_existing_dir() {
   local path
@@ -129,10 +130,12 @@ lami_qairt244_ensure_litert_lm_checkout() {
     echo "patched LiteRT-LM checkout is missing nativeRunEditablePrompt marker" >&2
     exit 65
   fi
-  if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' \
-    "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
-    echo "patched LiteRT-LM checkout is missing nativeRunPersistentProbe marker" >&2
-    exit 65
+  if [[ "$QAIRT244_REQUIRE_PERSISTENT_PROBE" == "true" ]]; then
+    if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' \
+      "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
+      echo "patched LiteRT-LM checkout is missing nativeRunPersistentProbe marker" >&2
+      exit 65
+    fi
   fi
   if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
      [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
@@ -205,19 +208,38 @@ lami_qairt244_validate_artifact_basename() {
   printf '%s\n' "$name"
 }
 
-lami_qairt244_artifact_has_symbol() {
+lami_qairt244_artifact_has_editable_symbol() {
   local artifact_dir="$1"
   local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
-  local symbol
   [[ -f "$lib" ]] || return 1
-  for symbol in \
-    Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt \
-    Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe; do
-    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$symbol" '
-      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-      END { exit found ? 0 : 1 }
-    ' || return 1
-  done
+  readelf -Ws "$lib" 2>/dev/null | awk '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ &&
+      index($0, "Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt") {
+        found = 1
+      }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+lami_qairt244_artifact_has_persistent_symbol() {
+  local artifact_dir="$1"
+  local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
+  [[ -f "$lib" ]] || return 1
+  readelf -Ws "$lib" 2>/dev/null | awk '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ &&
+      index($0, "Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe") {
+        found = 1
+      }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+lami_qairt244_artifact_has_symbol() {
+  local artifact_dir="$1"
+  lami_qairt244_artifact_has_editable_symbol "$artifact_dir" || return 1
+  if [[ "$QAIRT244_REQUIRE_PERSISTENT_PROBE" == "true" ]]; then
+    lami_qairt244_artifact_has_persistent_symbol "$artifact_dir" || return 1
+  fi
 }
 
 lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
@@ -239,7 +261,7 @@ lami_qairt244_resolve_artifact_dir() {
     candidate="$LITERT_CUSTOM_ARTIFACT_ROOT/$requested"
     [[ -d "$candidate" ]] || lami_qairt244_fail
     lami_qairt244_artifact_has_symbol "$candidate" || {
-      echo "artifact does not contain qairt244 nativeRunEditablePrompt/nativeRunPersistentProbe symbols: $candidate" >&2
+      echo "artifact does not contain required qairt244 JNI symbols: $candidate" >&2
       exit 65
     }
     printf '%s\n' "$candidate"
@@ -289,9 +311,11 @@ lami_qairt244_artifacts() {
       sha="$(sha256sum "$lib" | awk '{print $1}')"
       build_id="$(readelf -n "$lib" 2>/dev/null | awk '/Build ID:/ {print $3; exit}')"
       if lami_qairt244_artifact_has_symbol "$artifact"; then
-        status="qairt244-symbol-present"
+        status="qairt244-required-symbols-present"
+      elif lami_qairt244_artifact_has_editable_symbol "$artifact"; then
+        status="qairt244-editable-symbol-present"
       else
-        status="qairt244-symbol-missing"
+        status="qairt244-required-symbols-missing"
       fi
     fi
     printf '%s\t%s\t%s\t%s\n' "$(basename "$artifact")" "$status" "$sha" "$build_id"
@@ -356,6 +380,7 @@ lami_qairt244_build_custom_jni() {
     echo "label=$QAIRT244_BUILD_LABEL"
     echo "base_patch=$QAIRT244_PATCH"
     echo "extra_patch=${QAIRT244_EXTRA_PATCH:-<none>}"
+    echo "require_persistent_probe=$QAIRT244_REQUIRE_PERSISTENT_PROBE"
     echo "required_marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
     cd "$REPO"
     OUT_DIR="$artifact_dir" \
