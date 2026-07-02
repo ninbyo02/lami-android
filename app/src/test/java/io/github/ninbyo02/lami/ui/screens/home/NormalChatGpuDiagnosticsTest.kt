@@ -22,6 +22,8 @@ class NormalChatGpuDiagnosticsTest {
         assertEquals("GPU", diagnostics.backend)
         assertEquals("null", diagnostics.visionBackend)
         assertEquals("null", diagnostics.audioBackend)
+        assertEquals("4000", diagnostics.edgeGalleryAllowlistMaxTokens)
+        assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
         assertEquals(
             GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY,
             diagnostics.recommendedNextConfigVariant,

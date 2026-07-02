@@ -473,6 +473,8 @@ internal data class GpuRouteConfigDiagnostics(
     val samplerAccelerationPolicy: String = "unavailable",
     val conversationConfigProfile: String = "unavailable",
     val conversationConfigSamplerPresent: String = "unavailable",
+    val edgeGalleryAllowlistMaxTokens: String = "unavailable",
+    val maxTokensAlignment: String = "unavailable",
     val gpuOptionsConfigured: String = "unavailable",
     val gpuOptionsSource: String = "unavailable",
     val thinkingEnabled: String = "false",
@@ -729,13 +731,8 @@ private fun resolveStandardGpuMinimalRuntimeCandidateInterpretation(
         !eligibility.enabled -> "candidate_gate_disabled"
         !eligibility.eligible -> "blocked:${eligibility.blockReason}"
         result == "success" -> "minimal_runtime_core_pair_candidate_success"
-        result == "failure" &&
-            (
-                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
-                    flags.liteRtLmErrorStatusCode == "13" ||
-                    flags.gpuGenerateExceptionErrorLine == "735" ||
-                    flags.liteRtLmErrorPrimaryLine == "735"
-                ) -> "minimal_runtime_core_pair_candidate_failed_cc735"
+        result == "failure" && isCompiledModelInvokeFailureSignal(failureStage, flags) ->
+            "minimal_runtime_core_pair_candidate_failed_compiled_model_invoke"
         result == "failure" -> "minimal_runtime_core_pair_candidate_failed"
         else -> "minimal_runtime_core_pair_candidate_pending"
     }
@@ -908,17 +905,21 @@ private fun resolveStandardGpuRuntimeStackMismatchSummary(
     flags: LocalRouteDiagnosticFlags,
 ): String =
     when {
-        candidateResult == "failure" &&
-            (
-                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
-                    flags.liteRtLmErrorStatusCode == "13" ||
-                    flags.gpuGenerateExceptionErrorLine == "735" ||
-                    flags.liteRtLmErrorPrimaryLine == "735"
-                ) -> "runtime_stack_mismatch_suspected"
+        candidateResult == "failure" && isCompiledModelInvokeFailureSignal(failureStage, flags) ->
+            "runtime_stack_mismatch_suspected"
         candidateResult == "failure" -> "standard_gpu_candidate_failed_runtime_stack_review_required"
         candidateResult == "success" -> "runtime_stack_candidate_success"
         else -> "unavailable"
     }
+
+private fun isCompiledModelInvokeFailureSignal(
+    failureStage: String,
+    flags: LocalRouteDiagnosticFlags,
+): Boolean =
+    failureStage == "gpu_generate_compiled_model_invoke_failed" ||
+        flags.liteRtLmErrorStatusCode == "13" ||
+        flags.gpuGenerateExceptionErrorLine in LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES ||
+        flags.liteRtLmErrorPrimaryLine in LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES
 
 private fun resolveStandardGpuRuntimeStackPromotionBlockedReason(
     candidateEnabled: Boolean,
@@ -2092,6 +2093,8 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_sampler_acceleration_policy=${gpuConfig.samplerAccelerationPolicy}",
         "gpu_conversation_config_profile=${gpuConfig.conversationConfigProfile}",
         "gpu_conversation_config_sampler_present=${gpuConfig.conversationConfigSamplerPresent}",
+        "edge_gallery_e2b_allowlist_max_tokens=${gpuConfig.edgeGalleryAllowlistMaxTokens}",
+        "gpu_max_tokens_alignment=${gpuConfig.maxTokensAlignment}",
         "gpu_options_configured=${gpuConfig.gpuOptionsConfigured}",
         "gpu_options_source=${gpuConfig.gpuOptionsSource}",
         "gpu_thinking_enabled=${gpuConfig.thinkingEnabled}",
@@ -3412,7 +3415,6 @@ internal fun classifyLiteRtCompiledModelExecutorFailureCategory(
 ): String =
     when {
         error.primaryFile.endsWith("llm_litert_compiled_model_executor.cc") &&
-            error.primaryLine == "735" &&
             error.kind == "compiled_model_invoke_failed" -> "compiled_model_invoke"
         error.kind == "compiled_model_creation_failed" -> "compiled_model_load"
         error.kind == "max_tokens_too_small" -> "compiled_model_invoke_input_budget"
@@ -3768,6 +3770,7 @@ internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_di
 internal const val GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES = "gpu_text_only_null_modalities"
 internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
     "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
+private val LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES = setOf("735", "836")
 internal val GPU_EXPERIMENT_MODE_PROPERTY_KEYS = listOf(
     "debug.lami.gpu_experiment_mode",
     "lami.gpu_experiment_mode",
@@ -3998,6 +4001,8 @@ internal fun buildGpuRouteConfigDiagnostics(
             else -> GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE
         },
         conversationConfigSamplerPresent = samplerEnabled.toString(),
+        edgeGalleryAllowlistMaxTokens = GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString(),
+        maxTokensAlignment = resolveGpuMaxTokensAlignment(resolvedMaxTokens),
         gpuOptionsConfigured = "false",
         gpuOptionsSource = "EngineConfig_backend_only_no_explicit_GpuOptions",
         thinkingEnabled = "false",
@@ -4347,6 +4352,13 @@ internal fun resolveGpuMaxTokensForExperiment(experimentMode: String): String =
         "32"
     } else {
         GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
+    }
+
+internal fun resolveGpuMaxTokensAlignment(maxTokens: String): String =
+    when (maxTokens.toIntOrNull()) {
+        GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS -> "matches_edge_gallery_e2b_allowlist"
+        null -> "unavailable"
+        else -> "differs_from_edge_gallery_e2b_allowlist"
     }
 
 internal fun shouldUseGpuDiagnosticSamplerConfig(experimentMode: String): Boolean =

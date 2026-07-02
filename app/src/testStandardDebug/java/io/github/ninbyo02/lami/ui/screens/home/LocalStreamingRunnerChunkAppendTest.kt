@@ -70,6 +70,8 @@ class LocalStreamingRunnerChunkAppendTest {
 
         assertEquals(GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE, defaultConfig.experimentMode)
         assertEquals("1024", defaultConfig.maxTokens)
+        assertEquals("4000", defaultConfig.edgeGalleryAllowlistMaxTokens)
+        assertEquals("differs_from_edge_gallery_e2b_allowlist", defaultConfig.maxTokensAlignment)
         assertEquals("true", defaultConfig.samplerConfigEnabled)
         assertEquals("null", defaultConfig.cacheDir)
         assertEquals("32", maxTokens32.maxTokens)
@@ -166,6 +168,8 @@ class LocalStreamingRunnerChunkAppendTest {
             assertEquals(expected.samplerPolicy, diagnostics.samplerAccelerationPolicy)
             assertEquals(expected.cacheDir, diagnostics.cacheDir)
             assertEquals(expected.cacheDirPresent, diagnostics.cacheDirPresent)
+            assertEquals("4000", diagnostics.edgeGalleryAllowlistMaxTokens)
+            assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
             assertEquals(expected.conversationProfile, diagnostics.conversationConfigProfile)
             assertEquals(expected.samplerEnabled, diagnostics.conversationConfigSamplerPresent)
             assertEquals(
@@ -259,6 +263,10 @@ class LocalStreamingRunnerChunkAppendTest {
                 },
                 standardGpuMinimalRuntimeCandidateFlavor = true,
             ),
+        )
+        assertEquals(
+            "matches_edge_gallery_e2b_allowlist",
+            resolveGpuMaxTokensAlignment("4000"),
         )
     }
 

@@ -271,6 +271,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_sampler_config_temperature=1.0"))
         assertTrue(text.contains("gpu_sampler_acceleration_policy=gallery_sampler_config"))
         assertTrue(text.contains("gpu_conversation_config_sampler_present=true"))
+        assertTrue(text.contains("edge_gallery_e2b_allowlist_max_tokens=4000"))
+        assertTrue(text.contains("gpu_max_tokens_alignment=differs_from_edge_gallery_e2b_allowlist"))
         assertTrue(text.contains("gpu_options_configured=false"))
         assertTrue(text.contains("gpu_options_source=EngineConfig_backend_only_no_explicit_GpuOptions"))
         assertTrue(text.contains("gpu_edge_gallery_diff_applied=true"))
@@ -1426,7 +1428,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
-    fun `Standard GPU minimal runtime candidate classifies cc735 failure with matching core pair`() {
+    fun `Standard GPU minimal runtime candidate classifies compiled model invoke failure with matching core pair`() {
         val tempDir = Files.createTempDirectory("lami-standard-minimal-candidate-model").toFile()
         val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
         System.setProperty("debug.lami.standard_gpu_minimal_runtime_candidate", "true")
@@ -1451,9 +1453,9 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                     gpuCallbackStreamingPathSelected = true,
                     gpuGenerateExceptionSeen = true,
                     gpuGenerateExceptionStatusCode = "13",
-                    gpuGenerateExceptionErrorLine = "735",
+                    gpuGenerateExceptionErrorLine = "836",
                     liteRtLmErrorStatusCode = "13",
-                    liteRtLmErrorPrimaryLine = "735",
+                    liteRtLmErrorPrimaryLine = "836",
                 ),
                 failureStage = "gpu_generate_compiled_model_invoke_failed",
                 loadedRuntimeNativeStack = matchingMinimalLoadedRuntimeStack(),
@@ -1462,7 +1464,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             assertTrue(diagnostics.emit)
             assertEquals("true", diagnostics.eligible)
             assertEquals("failure", diagnostics.result)
-            assertEquals("minimal_runtime_core_pair_candidate_failed_cc735", diagnostics.interpretation)
+            assertEquals("minimal_runtime_core_pair_candidate_failed_compiled_model_invoke", diagnostics.interpretation)
         } finally {
             System.clearProperty("debug.lami.standard_gpu_minimal_runtime_candidate")
             model.delete()
@@ -1621,14 +1623,14 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     @Test
     fun `LiteRT LM status code 13 invoke failure is parsed`() {
         val error = classifyLiteRtLmError(
-            "Status Code: 13. Message: ERROR: [runtime/executor/llm_litert_compiled_model_executor.cc:735] " +
+            "Status Code: 13. Message: ERROR: [runtime/executor/llm_litert_compiled_model_executor.cc:836] " +
                 "Failed to invoke the compiled model",
         )
 
         assertEquals("compiled_model_invoke_failed", error.kind)
         assertEquals("13", error.statusCode)
         assertEquals("runtime/executor/llm_litert_compiled_model_executor.cc", error.primaryFile)
-        assertEquals("735", error.primaryLine)
+        assertEquals("836", error.primaryLine)
         assertEquals("failed_to_invoke_compiled_model", error.summary)
         assertEquals("try_gpu_runtime_stack_alignment", error.recoverabilityHint)
         assertEquals("compiled_model_invoke", classifyLiteRtCompiledModelExecutorFailureCategory(error))
