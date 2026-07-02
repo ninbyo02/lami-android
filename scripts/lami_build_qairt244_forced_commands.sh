@@ -244,13 +244,49 @@ lami_qairt244_artifact_has_symbol() {
 
 lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
   local artifact_dir="$1"
-  local lib="$artifact_dir/built_libs/liblitertlm_jni.so"
+  local lib
+  local marker_lib=""
   local static_summary="$artifact_dir/static_summary.md"
-  [[ -f "$lib" ]] || return 1
-  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
-  readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
+  for lib in "$artifact_dir"/built_libs/*.so; do
+    [[ -f "$lib" ]] || continue
+    if strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" &&
+       readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"; then
+      marker_lib="$(basename "$lib")"
+      break
+    fi
+  done
+  [[ -n "$marker_lib" ]] || return 1
   [[ -f "$static_summary" ]] || return 1
-  grep -Fq "| \`$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER\` | \`liblitertlm_jni.so\` | \`true\` | \`true\` |" "$static_summary"
+  awk -F '|' \
+    -v marker="$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
+    -v library="$marker_lib" '
+      function clean(value) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        gsub(/^`|`$/, "", value)
+        return value
+      }
+      clean($2) == marker &&
+        clean($3) == library &&
+        clean($4) == "true" &&
+        clean($5) == "true" {
+          found = 1
+        }
+      END { exit found ? 0 : 1 }
+    ' "$static_summary"
+}
+
+lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence() {
+  local artifact_dir="$1"
+  local lib
+  for lib in "$artifact_dir"/built_libs/*.so; do
+    [[ -f "$lib" ]] || continue
+    local strings_present=false
+    local rodata_present=false
+    strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && strings_present=true
+    readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && rodata_present=true
+    printf 'gpu_prefill_preinvoke_marker_library=%s strings_present=%s rodata_present=%s\n' \
+      "$(basename "$lib")" "$strings_present" "$rodata_present"
+  done
 }
 
 lami_qairt244_resolve_artifact_dir() {
@@ -392,13 +428,15 @@ lami_qairt244_build_custom_jni() {
     lami_qairt244_artifact_has_symbol "$artifact_dir"
     if [[ "${QAIRT244_BUILD_LABEL}" == *gpu_prefill_preinvoke_diag* ]]; then
       lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker "$artifact_dir" || {
-        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/liblitertlm_jni.so: $artifact_dir" >&2
+        lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir" >&2 || true
+        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/*.so: $artifact_dir" >&2
         exit 65
       }
+      lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir"
       echo "gpu_prefill_preinvoke_marker_present=true"
-      echo "gpu_prefill_preinvoke_marker_check=strings $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
-      echo "gpu_prefill_preinvoke_marker_readelf_check=readelf -p .rodata $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
-      echo "gpu_prefill_preinvoke_marker_static_summary_check=grep -F '$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER' $artifact_dir/static_summary.md"
+      echo "gpu_prefill_preinvoke_marker_check=for lib in $artifact_dir/built_libs/*.so; do strings \"\$lib\" | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER && printf ' %s\n' \"\$lib\"; done"
+      echo "gpu_prefill_preinvoke_marker_readelf_check=for lib in $artifact_dir/built_libs/*.so; do readelf -p .rodata \"\$lib\" | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER && printf ' %s\n' \"\$lib\"; done"
+      echo "gpu_prefill_preinvoke_marker_static_summary_check=awk table scan for marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER strings=true readelf=true in $artifact_dir/static_summary.md"
     fi
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
     lami_qairt244_artifact_has_symbol "$artifact_dir"

@@ -148,6 +148,21 @@ readelf_marker_present() {
   readelf -p .rodata "$file" 2>/dev/null | grep -Fq "$marker"
 }
 
+markdown_cell() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/|/\\|/g; s/`/\\`/g'
+}
+
+copy_built_lib() {
+  local source="$1"
+  local label="$2"
+  [ -f "$source" ] || return 0
+  local dest="$OUT_DIR/built_libs/$(basename "$source")"
+  cp -f "$source" "$dest"
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$(basename "$source")" "$label" "$source" "$(sha_for "$source")" "$(sha_for "$dest")" \
+    >>"$OUT_DIR/copied_built_lib_sources.tsv"
+}
+
 extract_metadata() {
   local file="$1"
   local label="$2"
@@ -262,6 +277,7 @@ write_matrix_for_dir() {
 
 mkdir -p "$OUT_DIR/build_logs" "$OUT_DIR/built_libs" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings" "$OUT_DIR/readelf" "$OUT_DIR/reference_libs/gallery" "$OUT_DIR/reference_libs/gallery_stack" "$OUT_DIR/reference_libs/maven_0.11.0" "$BAZEL_OUTPUT_BASE"
 : >"$OUT_DIR/build_results.tsv"
+: >"$OUT_DIR/copied_built_lib_sources.tsv"
 
 if [ -n "$QAIRT_ROOT" ]; then
   {
@@ -406,14 +422,20 @@ if [ -d "$BAZEL_BIN" ]; then
   done | sort -u >"$OUT_DIR/built_lib_candidates.txt"
 
   while IFS= read -r candidate; do
-    [ -f "$candidate" ] || continue
-    cp -f "$candidate" "$OUT_DIR/built_libs/$(basename "$candidate")"
+    copy_built_lib "$candidate" "bazel-bin-scan"
   done <"$OUT_DIR/built_lib_candidates.txt"
+
+  # Prefer explicit target outputs over runfiles/solib duplicates when basename
+  # collisions occur in bazel-bin.
+  copy_built_lib "$BAZEL_BIN/external/litert/litert/c/libLiteRt.so" "explicit-target"
+  copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so" "explicit-target"
+  copy_built_lib "$BAZEL_BIN/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so" "explicit-target"
+  copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so" "explicit-target"
 fi
 
 GEMMA_PROVIDER_PREBUILT="$LITERT_LM_DIR/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
 if [ -f "$GEMMA_PROVIDER_PREBUILT" ]; then
-  cp -f "$GEMMA_PROVIDER_PREBUILT" "$OUT_DIR/built_libs/libGemmaModelConstraintProvider.so"
+  copy_built_lib "$GEMMA_PROVIDER_PREBUILT" "prebuilt"
   printf '%s\n' "$GEMMA_PROVIDER_PREBUILT" >>"$OUT_DIR/built_lib_candidates.txt"
 fi
 
@@ -468,18 +490,39 @@ write_matrix_for_dir "$OUT_DIR/reference_libs/maven_0.11.0" "maven-litertlm-0.11
   printf '## Diagnostic markers\n\n'
   printf '| Marker | Library | Strings Present | Readelf Present | Strings Evidence | Readelf Evidence |\n'
   printf '| --- | --- | --- | --- | --- | --- |\n'
-  marker_strings_present=false
-  marker_readelf_present=false
-  marker_strings_evidence_file="$OUT_DIR/strings/liblitertlm_jni.so.filtered.txt"
-  marker_readelf_evidence_file="$OUT_DIR/readelf/liblitertlm_jni.so.rodata.txt"
-  if string_marker_present "$OUT_DIR/built_libs/liblitertlm_jni.so" "$GPU_PREFILL_PREINVOKE_MARKER"; then
-    marker_strings_present=true
+  for file in "$OUT_DIR"/built_libs/*.so; do
+    [ -f "$file" ] || continue
+    lib="$(basename "$file")"
+    marker_strings_present=false
+    marker_readelf_present=false
+    marker_strings_evidence_file="$OUT_DIR/strings/$lib.filtered.txt"
+    marker_readelf_evidence_file="$OUT_DIR/readelf/$lib.rodata.txt"
+    if string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER"; then
+      marker_strings_present=true
+    fi
+    if readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER"; then
+      marker_readelf_present=true
+    fi
+    printf '| `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |\n' \
+      "$GPU_PREFILL_PREINVOKE_MARKER" "$lib" "$marker_strings_present" "$marker_readelf_present" "$marker_strings_evidence_file" "$marker_readelf_evidence_file"
+  done
+  printf '\n'
+  printf '## Copied built library sources\n\n'
+  printf '| Library | Copy Label | Source | Source SHA-256 | Destination SHA-256 |\n'
+  printf '| --- | --- | --- | --- | --- |\n'
+  if [ -s "$OUT_DIR/copied_built_lib_sources.tsv" ]; then
+    while IFS="$(printf '\t')" read -r copied_lib copied_label copied_source copied_source_sha copied_dest_sha; do
+      printf '| `%s` | `%s` | `%s` | `%s` | `%s` |\n' \
+        "$(markdown_cell "$copied_lib")" \
+        "$(markdown_cell "$copied_label")" \
+        "$(markdown_cell "$copied_source")" \
+        "$(markdown_cell "$copied_source_sha")" \
+        "$(markdown_cell "$copied_dest_sha")"
+    done <"$OUT_DIR/copied_built_lib_sources.tsv"
+  else
+    printf '| `<none>` |  |  |  |  |\n'
   fi
-  if readelf_marker_present "$OUT_DIR/built_libs/liblitertlm_jni.so" "$GPU_PREFILL_PREINVOKE_MARKER"; then
-    marker_readelf_present=true
-  fi
-  printf '| `%s` | `liblitertlm_jni.so` | `%s` | `%s` | `%s` | `%s` |\n\n' \
-    "$GPU_PREFILL_PREINVOKE_MARKER" "$marker_strings_present" "$marker_readelf_present" "$marker_strings_evidence_file" "$marker_readelf_evidence_file"
+  printf '\n'
   printf '## Target results\n\n```text\n'
   cat "$OUT_DIR/build_results.tsv"
   printf '```\n\n'
