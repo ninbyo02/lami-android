@@ -27,5 +27,8 @@ grep -q 'qairt244-artifacts' scripts/lami_build_remote_control_limited_adb.sh ||
 grep -q 'stage-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI staging"
 grep -q 'build-qairt244-custom-jni' scripts/lami_build_remote_control_limited_adb.sh || fail "template should expose qairt244 custom JNI build+stage"
 grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should verify the nativeRunEditablePrompt JNI symbol"
+grep -q 'JNI marker' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should verify the GPU prefill marker in litertlm.cc"
+grep -q 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present' scripts/check_qairt244_native_patch.sh || fail "selected-ref check should prove the litertlm.cc marker hunk is present"
+grep -q 'skipped-missing-required-marker' scripts/build_litert_custom_artifacts.sh || fail "artifact copy should skip non-marker JNI candidates for diagnostic builds"
 
 echo "limited ADB install support checks passed"

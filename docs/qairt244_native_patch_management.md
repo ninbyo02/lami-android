@@ -12,11 +12,13 @@ patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
 This patch targets:
 
 ```text
+kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 runtime/executor/llm_litert_compiled_model_executor.cc
 runtime/executor/llm_litert_compiled_model_executor.h
 ```
 
-It logs one `ABSL_LOG(INFO)` line immediately before
+It adds a JNI-owned artifact marker in `litertlm.cc` and logs one
+`ABSL_LOG(INFO)` line immediately before
 `compiled_model_->RunAsync(...)` / `compiled_model_->Run(...)` in
 `BindTensorsAndRunPrefill`. The marker is:
 
@@ -58,6 +60,14 @@ The generated `static_summary.md` reports the diagnostic label and a
 `Diagnostic markers` table with both strings and readelf evidence. The same
 marker is also included in `strings/liblitertlm_jni.so.filtered.txt` and
 `readelf/liblitertlm_jni.so.rodata.txt`.
+
+For diagnostic labels containing `gpu_prefill_preinvoke_diag`,
+`scripts/build_litert_custom_artifacts.sh` requires the explicit
+`bazel-bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so`
+output to contain the marker by both `strings` and `readelf -p .rodata` before
+copying it into `built_libs/`. Non-marker scanned `liblitertlm_jni.so`
+candidates are skipped, and the copy manifest records marker booleans plus the
+copy action so an overwrite cannot hide the marker-bearing library.
 
 `scripts/check_qairt244_native_patch.sh` reports this patch as an auxiliary
 `gpu_prefill_preinvoke_patch_status` without changing the active UTF-8 prompt
