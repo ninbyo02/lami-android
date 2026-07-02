@@ -162,6 +162,74 @@ exported_symbol_present() {
   '
 }
 
+source_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [ -f "$file" ] || return 1
+  grep -aFq "$marker" "$file"
+}
+
+bool_from_command() {
+  "$@" && printf true || printf false
+}
+
+print_gpu_prefill_preinvoke_stage_diagnostic() {
+  local stage="$1"
+  local kind="$2"
+  local file="$3"
+  local sha="missing"
+  local marker_present=false
+  local strings_present=n/a
+  local rodata_present=n/a
+  local c_symbol_exported=n/a
+  local jni_symbol_exported=n/a
+
+  if [ -f "$file" ]; then
+    sha="$(sha_for "$file")"
+    if [ "$kind" = "source" ]; then
+      marker_present="$(bool_from_command source_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER")"
+    else
+      strings_present="$(bool_from_command string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER")"
+      rodata_present="$(bool_from_command readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER")"
+      c_symbol_exported="$(bool_from_command exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_C_SYMBOL")"
+      jni_symbol_exported="$(bool_from_command exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_JNI_SYMBOL")"
+      if [ "$strings_present" = true ] && [ "$rodata_present" = true ]; then
+        marker_present=true
+      fi
+    fi
+  fi
+
+  local line
+  line="$(printf 'qairt244_marker_stage stage=%s kind=%s path=%s sha256=%s marker=%s marker_present=%s strings_present=%s rodata_present=%s c_symbol_exported=%s jni_symbol_exported=%s' \
+    "$stage" "$kind" "$file" "$sha" "$GPU_PREFILL_PREINVOKE_MARKER" \
+    "$marker_present" "$strings_present" "$rodata_present" \
+    "$c_symbol_exported" "$jni_symbol_exported")"
+  printf '%s\n' "$line"
+  printf '%s\n' "$line" >>"$OUT_DIR/marker_stage_diagnostics.log"
+}
+
+write_liblitertlm_jni_candidate_list() {
+  local out="$1"
+  : >"$out"
+  if [ -d "${BAZEL_BIN:-}" ]; then
+    find -L "$BAZEL_BIN" -type f -name "liblitertlm_jni.so" 2>/dev/null >>"$out" || true
+  fi
+  if [ -e "$LITERT_LM_DIR/bazel-bin" ]; then
+    find -L "$LITERT_LM_DIR/bazel-bin" -type f -name "liblitertlm_jni.so" 2>/dev/null >>"$out" || true
+  fi
+
+  local bazel_bin_realpath=""
+  bazel_bin_realpath="$(readlink -f "${BAZEL_BIN:-}" 2>/dev/null || true)"
+  if [[ "$bazel_bin_realpath" == */bazel-out/* ]]; then
+    local execroot="${bazel_bin_realpath%%/bazel-out/*}"
+    if [ -d "$execroot/bazel-out" ]; then
+      find -L "$execroot/bazel-out" -type f -name "liblitertlm_jni.so" 2>/dev/null >>"$out" || true
+    fi
+  fi
+
+  sort -u "$out" -o "$out"
+}
+
 gpu_prefill_preinvoke_marker_required() {
   [ "${QAIRT244_REQUIRE_GPU_PREFILL_PREINVOKE_MARKER:-false}" = true ] ||
     [[ "${LABEL:-}" == *gpu_prefill_preinvoke_diag* ]]
@@ -383,6 +451,7 @@ write_matrix_for_dir() {
 mkdir -p "$OUT_DIR/build_logs" "$OUT_DIR/built_libs" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings" "$OUT_DIR/readelf" "$OUT_DIR/reference_libs/gallery" "$OUT_DIR/reference_libs/gallery_stack" "$OUT_DIR/reference_libs/maven_0.11.0" "$BAZEL_OUTPUT_BASE"
 : >"$OUT_DIR/build_results.tsv"
 : >"$OUT_DIR/copied_built_lib_sources.tsv"
+: >"$OUT_DIR/marker_stage_diagnostics.log"
 
 if [ -n "$QAIRT_ROOT" ]; then
   {
@@ -462,6 +531,15 @@ log "output: $OUT_DIR"
 log "checkout: $LITERT_LM_DIR"
 log "bazel: $BAZEL"
 
+print_gpu_prefill_preinvoke_stage_diagnostic \
+  "patched-source-after-apply-executor" \
+  "source" \
+  "$LITERT_LM_DIR/runtime/executor/llm_litert_compiled_model_executor.cc"
+print_gpu_prefill_preinvoke_stage_diagnostic \
+  "patched-source-after-apply-jni" \
+  "source" \
+  "$LITERT_LM_DIR/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
+
 {
   printf '# LiteRT Custom Build Environment\n\n'
   printf 'date=%s\n' "$(date -Is)"
@@ -529,7 +607,33 @@ printf '%s\n' "$BAZEL_BIN" >"$OUT_DIR/bazel_bin.txt"
   fi
 } >"$OUT_DIR/bazel_bin_resolution.txt"
 
+if [ ! -d "$BAZEL_BIN" ]; then
+  log "ERROR: configured bazel-bin directory is missing: $BAZEL_BIN"
+  {
+    printf 'configured_bazel_bin_missing=%s\n' "$BAZEL_BIN"
+    cat "$OUT_DIR/bazel_bin_resolution.txt"
+  } >"$OUT_DIR/ERROR.txt"
+  if gpu_prefill_preinvoke_marker_required; then
+    exit 65
+  fi
+fi
+
 if [ -d "$BAZEL_BIN" ]; then
+  LITERTLM_JNI_EXPLICIT_OUTPUT="$BAZEL_BIN/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so"
+  print_gpu_prefill_preinvoke_stage_diagnostic \
+    "post-bazel-explicit-liblitertlm_jni" \
+    "elf" \
+    "$LITERTLM_JNI_EXPLICIT_OUTPUT"
+
+  write_liblitertlm_jni_candidate_list "$OUT_DIR/bazel_liblitertlm_jni_candidates.txt"
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    print_gpu_prefill_preinvoke_stage_diagnostic \
+      "post-bazel-candidate-liblitertlm_jni" \
+      "elf" \
+      "$candidate"
+  done <"$OUT_DIR/bazel_liblitertlm_jni_candidates.txt"
+
   for lib in "${LIB_NAMES[@]}" '*qnn*.so' '*Qnn*.so' '*dispatch*.so' '*Dispatch*.so' '*litert*.so' '*LiteRt*.so'; do
     find -L "$BAZEL_BIN" -type f -name "$lib" 2>/dev/null
   done | sort -u >"$OUT_DIR/built_lib_candidates.txt"
@@ -540,11 +644,15 @@ if [ -d "$BAZEL_BIN" ]; then
 
   # Prefer explicit target outputs over runfiles/solib duplicates when basename
   # collisions occur in bazel-bin.
-  LITERTLM_JNI_EXPLICIT_OUTPUT="$BAZEL_BIN/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so"
   require_gpu_prefill_preinvoke_marker_file "$LITERTLM_JNI_EXPLICIT_OUTPUT" "explicit liblitertlm_jni.so"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/c/libLiteRt.so" "explicit-target"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so" "explicit-target"
   copy_built_lib "$LITERTLM_JNI_EXPLICIT_OUTPUT" "explicit-target"
+  print_gpu_prefill_preinvoke_stage_diagnostic \
+    "artifact-after-copy-liblitertlm_jni" \
+    "elf" \
+    "$OUT_DIR/built_libs/liblitertlm_jni.so"
+  require_gpu_prefill_preinvoke_marker_file "$OUT_DIR/built_libs/liblitertlm_jni.so" "artifact built_libs/liblitertlm_jni.so after copy"
   copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so" "explicit-target"
 fi
 

@@ -56,6 +56,33 @@ lami_qairt244_default_litert_lm_checkout() {
   printf '%s\n' "$HOME/project/litert-custom-build/LiteRT-LM"
 }
 
+lami_qairt244_sha256_for() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1 && [[ -f "$file" ]]; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    printf 'missing'
+  fi
+}
+
+lami_qairt244_source_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [[ -f "$file" ]] || return 1
+  grep -aFq "$marker" "$file"
+}
+
+lami_qairt244_print_source_marker_stage_diagnostic() {
+  local stage="$1"
+  local file="$2"
+  local sha marker_present
+  sha="$(lami_qairt244_sha256_for "$file")"
+  marker_present=false
+  lami_qairt244_source_marker_present "$file" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && marker_present=true
+  printf 'qairt244_marker_stage stage=%s kind=source path=%s sha256=%s marker=%s marker_present=%s strings_present=n/a rodata_present=n/a c_symbol_exported=n/a jni_symbol_exported=n/a\n' \
+    "$stage" "$file" "$sha" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" "$marker_present" >&2
+}
+
 lami_qairt244_ensure_litert_lm_checkout() {
   local checkout
   checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
@@ -152,6 +179,15 @@ lami_qairt244_ensure_litert_lm_checkout() {
        "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
     echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER JNI marker" >&2
     exit 65
+  fi
+  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
+     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]]; then
+    lami_qairt244_print_source_marker_stage_diagnostic \
+      "patched-source-after-apply-executor" \
+      "$checkout/runtime/executor/llm_litert_compiled_model_executor.cc"
+    lami_qairt244_print_source_marker_stage_diagnostic \
+      "patched-source-after-apply-jni" \
+      "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
   fi
   printf '%s\n' "$checkout"
 }

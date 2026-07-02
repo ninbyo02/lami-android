@@ -142,9 +142,11 @@ output root:
 
 The forced build verifies the qairt244 editable-prompt JNI symbol and also requires
 `qairt244_gpu_prefill_preinvoke_v1` to appear in
-`built_libs/liblitertlm_jni.so`. The generated `static_summary.md`,
-`strings/liblitertlm_jni.so.filtered.txt`, and
-`readelf/liblitertlm_jni.so.rodata.txt` must all record that marker evidence.
+`built_libs/liblitertlm_jni.so`. It also requires the final binary to export
+`Qairt244GpuPrefillPreinvokeArtifactMarker` and
+`Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker`.
+The generated `static_summary.md`, `strings/liblitertlm_jni.so.filtered.txt`,
+and `readelf/liblitertlm_jni.so.rodata.txt` must all record marker evidence.
 
 QAIRT SDKは自動downloadしません。`2.44.0.260225` が候補パスに無い場合は、Qualcomm SDKの配置が別途必要です。
 
