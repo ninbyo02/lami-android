@@ -23,6 +23,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("route_family=local_cpu"))
         assertTrue(text.contains("backend_evidence=cpu_route"))
         assertFalse(text.contains("selected_backend=CPU\nrequested_backend=NPU"))
+        assertFalse(text.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result="))
     }
 
     @Test
@@ -130,6 +131,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("route_family=local_gpu"))
         assertTrue(text.contains("backend_evidence=gpu_route"))
         assertFalse(text.contains("selected_backend=GPU\nrequested_backend=NPU"))
+        assertQairt244GpuNativeMarkerBridgeFieldsPresent(text)
     }
 
     @Test
@@ -183,6 +185,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("effective_backend=Automatic"))
         assertTrue(text.contains("route_family=local_default"))
         assertTrue(text.contains("backend_evidence=local_default"))
+        assertFalse(text.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result="))
     }
 
     @Test
@@ -1089,11 +1092,26 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_artifact_marker_source="))
         assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
         assertTrue(routeDiagnostics.contains("gpu_native_prefill_preinvoke_native_hook_result=unavailable:UnsatisfiedLinkError"))
+        assertTrue(routeDiagnostics.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=failure"))
+        assertTrue(routeDiagnostics.contains("qairt244_gpu_prefill_preinvoke_native_marker_string=unavailable"))
+        assertTrue(routeDiagnostics.contains("qairt244_gpu_prefill_preinvoke_jni_symbol_available=false"))
+        assertTrue(routeDiagnostics.contains("qairt244_gpu_prefill_preinvoke_native_marker_available=false"))
+        assertTrue(routeDiagnostics.contains("qairt244_gpu_prefill_preinvoke_native_marker_exception_class=UnsatisfiedLinkError"))
         assertTrue(compact.contains("gpu_native_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
         assertTrue(compact.contains("gpu_native_prefill_preinvoke_artifact_marker_present=true"))
         assertTrue(compact.contains("gpu_native_prefill_preinvoke_artifact_marker_source="))
         assertTrue(compact.contains("gpu_native_prefill_preinvoke_native_hook_present=false"))
         assertTrue(compact.contains("gpu_native_prefill_preinvoke_native_hook_result=unavailable:UnsatisfiedLinkError"))
+        assertQairt244GpuNativeMarkerBridgeFieldsPresent(compact)
+        assertTrue(compact.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=failure"))
+        assertTrue(compact.contains("qairt244_gpu_prefill_preinvoke_jni_symbol_available=false"))
+        assertTrue(compact.contains("qairt244_gpu_prefill_preinvoke_native_marker_available=false"))
+        assertTrue(compact.contains("qairt244_gpu_prefill_preinvoke_native_marker_exception_class=UnsatisfiedLinkError"))
+        assertEquals(
+            1,
+            compact.lineSequence()
+                .count { it.startsWith("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=") },
+        )
         assertFalse(compact.contains("gpu_native_prefill_preinvoke_event=before_compiled_model_prefill_invoke"))
     }
 
@@ -2322,6 +2340,70 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU LiteRtLmJniException compact includes qairt244 native marker bridge diagnostics`() {
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            LocalInferenceFailureCompactInput(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                status = "failure",
+                reason = "local_inference_failure",
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                failureExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                failureExceptionMessage =
+                    "Status Code: 13. Message: ERROR: [runtime/executor/llm_litert_compiled_model_executor.cc:836] Failed to invoke the compiled model",
+                gpuGenerateExceptionSeen = "true",
+                gpuGenerateExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "836",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                gpuGenerateFailedBeforeFirstToken = "true",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "836",
+            ),
+        )
+
+        assertTrue(compact.contains("failure_exception_class=com.google.ai.edge.litertlm.LiteRtLmJniException"))
+        assertTrue(compact.contains("gpu_generate_exception_error_line=836"))
+        assertTrue(compact.contains("gpu_generate_failed_before_first_token=true"))
+        assertQairt244GpuNativeMarkerBridgeFieldsPresent(compact)
+        assertTrue(
+            compact.indexOf("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=") <
+                compact.indexOf("failure_exception_class=com.google.ai.edge.litertlm.LiteRtLmJniException"),
+        )
+    }
+
+    @Test
+    fun `GPU failure stage compact includes qairt244 marker bridge diagnostics without explicit GPU setting`() {
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            LocalInferenceFailureCompactInput(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                status = "failure",
+                reason = "local_inference_failure",
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                failureExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                failureExceptionMessage =
+                    "Status Code: 13. Message: ERROR: [runtime/executor/llm_litert_compiled_model_executor.cc:836] Failed to invoke the compiled model",
+                gpuGenerateExceptionSeen = "true",
+                gpuGenerateExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "836",
+                gpuGenerateFailedBeforeFirstToken = "true",
+            ),
+        )
+
+        assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
+        assertQairt244GpuNativeMarkerBridgeFieldsPresent(compact)
+        assertTrue(
+            compact.indexOf("qairt244_gpu_prefill_preinvoke_native_marker_exception_class=") <
+                compact.indexOf("failure_exception_class=com.google.ai.edge.litertlm.LiteRtLmJniException"),
+        )
+    }
+
+    @Test
     fun `failure compact includes gallery stack probe diagnostics when provided`() {
         val compact = buildLocalInferenceFailureCompactDiagnosticsText(
             LocalInferenceFailureCompactInput(
@@ -3308,6 +3390,16 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 processPid = "1234",
             ),
         )
+
+    private fun assertQairt244GpuNativeMarkerBridgeFieldsPresent(text: String) {
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result="))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_native_marker_string="))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_jni_symbol_available="))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_native_marker_available="))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_native_marker_exception_class="))
+        assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_native_marker_exception_message="))
+    }
 
     private fun createNativeStackTestDir(
         litertLmJniPayload: String = "litertlm",

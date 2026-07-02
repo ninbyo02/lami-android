@@ -2582,6 +2582,34 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "gpu_native_prefill_preinvoke_artifact_marker_source=${diagnostics.libLiteRtLmJniPrefillPreinvokeMarkerSource.toDiagnosticValue()}",
         "gpu_native_prefill_preinvoke_native_hook_present=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookPresent}",
         "gpu_native_prefill_preinvoke_native_hook_result=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookResult.toDiagnosticValue()}",
+    ) + buildQairt244GpuPrefillPreinvokeNativeMarkerRouteDiagnosticLines(
+        nativeHookResult = diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookResult,
+        nativeHookPresent = diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookPresent,
+    )
+}
+
+private fun buildQairt244GpuPrefillPreinvokeNativeMarkerRouteDiagnosticLines(
+    nativeHookResult: String,
+    nativeHookPresent: String,
+): List<String> {
+    val bridgeCallSucceeded = !nativeHookResult.startsWith("unavailable:")
+    val exceptionClass = if (bridgeCallSucceeded) {
+        "none"
+    } else {
+        nativeHookResult
+            .removePrefix("unavailable:")
+            .substringBefore(':')
+            .ifBlank { "unavailable" }
+    }
+    val exceptionMessage = if (bridgeCallSucceeded) "none" else nativeHookResult
+    return listOf(
+        "qairt244_gpu_prefill_preinvoke_marker_expected=$GPU_NATIVE_PREFILL_PREINVOKE_MARKER",
+        "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=${if (bridgeCallSucceeded) "success" else "failure"}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_string=${if (bridgeCallSucceeded) nativeHookResult.toDiagnosticValue() else "unavailable"}",
+        "qairt244_gpu_prefill_preinvoke_jni_symbol_available=${bridgeCallSucceeded.toString()}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_available=$nativeHookPresent",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_class=${exceptionClass.toDiagnosticValue()}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_message=${exceptionMessage.toDiagnosticValue()}",
     )
 }
 
@@ -3194,6 +3222,13 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
 internal const val GPU_NATIVE_PREFILL_PREINVOKE_MARKER = "qairt244_gpu_prefill_preinvoke_v1"
 
 internal val GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS = listOf(
+    "qairt244_gpu_prefill_preinvoke_marker_expected",
+    "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result",
+    "qairt244_gpu_prefill_preinvoke_native_marker_string",
+    "qairt244_gpu_prefill_preinvoke_jni_symbol_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_class",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_message",
     "gpu_native_prefill_preinvoke_marker",
     "gpu_native_prefill_preinvoke_marker_expected",
     "gpu_native_prefill_preinvoke_artifact_marker_present",

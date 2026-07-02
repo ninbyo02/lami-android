@@ -247,6 +247,26 @@ internal data class LocalInferenceFailureCompactInput(
     val nativeHeapAllocMb: Long? = memoryAfter?.nativeHeapAllocatedMb ?: memoryBefore?.nativeHeapAllocatedMb,
 )
 
+private data class Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+    val markerExpected: String = GPU_NATIVE_PREFILL_PREINVOKE_MARKER,
+    val kotlinBridgeCallResult: String,
+    val nativeMarkerString: String,
+    val jniSymbolAvailable: String,
+    val nativeMarkerAvailable: String,
+    val nativeMarkerExceptionClass: String,
+    val nativeMarkerExceptionMessage: String,
+)
+
+private val QAIRT244_GPU_PREFILL_PREINVOKE_NATIVE_MARKER_COMPACT_KEYS = listOf(
+    "qairt244_gpu_prefill_preinvoke_marker_expected",
+    "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result",
+    "qairt244_gpu_prefill_preinvoke_native_marker_string",
+    "qairt244_gpu_prefill_preinvoke_jni_symbol_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_class",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_message",
+)
+
 internal fun buildLocalInferenceFailureCompactDiagnosticsText(
     input: LocalInferenceFailureCompactInput,
 ): String {
@@ -275,6 +295,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "failure_stage=${input.failureStage.ifBlank { "unknown" }}",
         ) +
             buildGpuInternalSurfaceProbePresenceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnosticLines(input) +
             listOf(
         "failure_exception_class=${input.failureExceptionClass.ifBlank { "unavailable" }}",
         "failure_exception_message=${escapeLocalInferenceFailureValue(input.failureExceptionMessage.ifBlank { "unavailable" })}",
@@ -538,6 +559,137 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             )
         ).joinToString("\n")
 }
+
+private fun buildQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnosticLines(
+    input: LocalInferenceFailureCompactInput,
+): List<String> {
+    if (!input.isGpuLocalFailureCompactPath()) return emptyList()
+    val diagnostics = buildQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(input.gpuPrefillProbeDiagnostics)
+    return listOf(
+        "qairt244_gpu_prefill_preinvoke_marker_expected=${diagnostics.markerExpected}",
+        "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=${diagnostics.kotlinBridgeCallResult}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_string=" +
+            escapeLocalInferenceFailureValue(diagnostics.nativeMarkerString),
+        "qairt244_gpu_prefill_preinvoke_jni_symbol_available=${diagnostics.jniSymbolAvailable}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_available=${diagnostics.nativeMarkerAvailable}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_class=${diagnostics.nativeMarkerExceptionClass}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_message=" +
+            escapeLocalInferenceFailureValue(diagnostics.nativeMarkerExceptionMessage),
+    )
+}
+
+private fun LocalInferenceFailureCompactInput.isGpuLocalFailureCompactPath(): Boolean =
+    preferredBackendSetting == PreferredBackendDryRunSetting.GPU ||
+        engineConfigBackend.isGpuDiagnosticValue() ||
+        gpuBackendSetting.isGpuDiagnosticValue() ||
+        gpuEngineConfigBackend.isGpuDiagnosticValue() ||
+        failureStage.contains("gpu", ignoreCase = true) ||
+        reason.contains("gpu", ignoreCase = true) ||
+        gpuTimeoutStage.diagnosticValueAvailable() ||
+        gpuLastKnownStage.diagnosticValueAvailable() ||
+        gpuPrefillProbeDiagnostics.keys.any { key ->
+            key.startsWith("gpu_native_prefill_preinvoke_") ||
+                key.startsWith("qairt244_gpu_prefill_preinvoke_")
+        }
+
+private fun String.isGpuDiagnosticValue(): Boolean =
+    equals("GPU", ignoreCase = true) || equals("local_gpu", ignoreCase = true)
+
+private fun String.diagnosticValueAvailable(): Boolean =
+    isNotBlank() && !equals("unavailable", ignoreCase = true) && !equals("unknown", ignoreCase = true)
+
+private fun buildQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+    parsedDiagnostics: Map<String, String>,
+): Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics {
+    parsedDiagnostics.toParsedQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics()
+        ?.let { return it }
+    val parsedNativeHookResult =
+        parsedDiagnostics["gpu_native_prefill_preinvoke_native_hook_result"]
+    val parsedExceptionClass =
+        parsedDiagnostics["qairt244_gpu_prefill_preinvoke_native_marker_exception_class"]
+    val parsedExceptionMessage =
+        parsedDiagnostics["qairt244_gpu_prefill_preinvoke_native_marker_exception_message"]
+    val markerResult = parsedNativeHookResult
+        ?.let { result ->
+            if (result.startsWith("unavailable:")) {
+                Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+                    kotlinBridgeCallResult = "failure",
+                    nativeMarkerString = "unavailable",
+                    jniSymbolAvailable = "false",
+                    nativeMarkerAvailable = "false",
+                    nativeMarkerExceptionClass = parsedExceptionClass
+                        ?: result.removePrefix("unavailable:").substringBefore(':').ifBlank { "unavailable" },
+                    nativeMarkerExceptionMessage = parsedExceptionMessage ?: result,
+                )
+            } else {
+                Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+                    kotlinBridgeCallResult = "success",
+                    nativeMarkerString = result.ifBlank { "empty" },
+                    jniSymbolAvailable = "true",
+                    nativeMarkerAvailable = result.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER).toString(),
+                    nativeMarkerExceptionClass = parsedExceptionClass ?: "none",
+                    nativeMarkerExceptionMessage = parsedExceptionMessage ?: "none",
+                )
+            }
+        }
+        ?: callQairt244GpuPrefillPreinvokeNativeMarkerSafely()
+    return markerResult
+}
+
+private fun Map<String, String>.toParsedQairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics():
+    Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics? {
+    if (keys.none { it in QAIRT244_GPU_PREFILL_PREINVOKE_NATIVE_MARKER_COMPACT_KEYS }) return null
+    val marker = this["qairt244_gpu_prefill_preinvoke_native_marker_string"]
+        ?.ifBlank { "empty" }
+        ?: "unavailable"
+    val exceptionClass = this["qairt244_gpu_prefill_preinvoke_native_marker_exception_class"]
+    val exceptionMessage = this["qairt244_gpu_prefill_preinvoke_native_marker_exception_message"]
+    val bridgeCallResult = this["qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result"]
+        ?: if (exceptionClass.diagnosticValueIsException()) "failure" else "success"
+    val nativeMarkerAvailable = this["qairt244_gpu_prefill_preinvoke_native_marker_available"]
+        ?: marker.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER).toString()
+    return Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+        markerExpected = this["qairt244_gpu_prefill_preinvoke_marker_expected"]
+            ?: GPU_NATIVE_PREFILL_PREINVOKE_MARKER,
+        kotlinBridgeCallResult = bridgeCallResult,
+        nativeMarkerString = marker,
+        jniSymbolAvailable = this["qairt244_gpu_prefill_preinvoke_jni_symbol_available"]
+            ?: (bridgeCallResult == "success").toString(),
+        nativeMarkerAvailable = nativeMarkerAvailable,
+        nativeMarkerExceptionClass = exceptionClass ?: if (bridgeCallResult == "success") "none" else "unavailable",
+        nativeMarkerExceptionMessage = exceptionMessage ?: if (bridgeCallResult == "success") "none" else "unavailable",
+    )
+}
+
+private fun String?.diagnosticValueIsException(): Boolean =
+    !isNullOrBlank() && this != "none" && this != "unavailable"
+
+private fun callQairt244GpuPrefillPreinvokeNativeMarkerSafely():
+    Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics =
+    try {
+        val marker = Qairt244GpuPrefillPreinvokeArtifactMarker.nativeMarker()
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .trim()
+            .ifBlank { "empty" }
+        Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+            kotlinBridgeCallResult = "success",
+            nativeMarkerString = marker,
+            jniSymbolAvailable = "true",
+            nativeMarkerAvailable = marker.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER).toString(),
+            nativeMarkerExceptionClass = "none",
+            nativeMarkerExceptionMessage = "none",
+        )
+    } catch (throwable: Throwable) {
+        Qairt244GpuPrefillPreinvokeNativeMarkerCompactDiagnostics(
+            kotlinBridgeCallResult = "failure",
+            nativeMarkerString = "unavailable",
+            jniSymbolAvailable = "false",
+            nativeMarkerAvailable = "false",
+            nativeMarkerExceptionClass = throwable.javaClass.name,
+            nativeMarkerExceptionMessage = throwable.message?.ifBlank { "none" } ?: "none",
+        )
+    }
 
 private val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS = listOf(
     "standard_gpu_runtime_alignment_candidate_enabled",
@@ -980,8 +1132,10 @@ private fun extractGpuPrefillProbeClarityDiagnostics(text: String?): Map<String,
 private fun buildGpuNativePrefillPreinvokeCompactDiagnosticLines(
     diagnostics: Map<String, String>,
 ): List<String> {
-    if (diagnostics.keys.none { it in GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS }) return emptyList()
-    return GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS.map { key ->
+    val legacyKeys = GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS
+        .filterNot { key -> key.startsWith("qairt244_gpu_prefill_preinvoke_") }
+    if (diagnostics.keys.none { it in legacyKeys }) return emptyList()
+    return legacyKeys.map { key ->
         "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
     }
 }
