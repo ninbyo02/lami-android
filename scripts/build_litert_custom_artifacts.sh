@@ -200,7 +200,13 @@ extract_metadata() {
 }
 
 find_bazel_bin() {
-  "$BAZEL" "--output_base=$BAZEL_OUTPUT_BASE" info bazel-bin 2>/dev/null | tail -n 1
+  "$BAZEL" "--output_base=$BAZEL_OUTPUT_BASE" info bazel-bin \
+    "--repo_env=ANDROID_HOME=$ANDROID_HOME" \
+    "--repo_env=ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" \
+    "--repo_env=ANDROID_NDK_HOME=$ANDROID_NDK_HOME" \
+    "--repo_env=LITERT_QAIRT_SDK=$LITERT_QAIRT_SDK" \
+    "--repo_env=HERMETIC_PYTHON_VERSION=3.12" \
+    --config=android_arm64 2>/dev/null | tail -n 1
 }
 
 record_target_result() {
@@ -411,10 +417,18 @@ for target in "${TARGETS[@]}"; do
 done
 
 BAZEL_BIN="$(find_bazel_bin)"
-if [ -d "$LITERT_LM_DIR/bazel-bin" ]; then
-  BAZEL_BIN="$LITERT_LM_DIR/bazel-bin"
-fi
 printf '%s\n' "$BAZEL_BIN" >"$OUT_DIR/bazel_bin.txt"
+{
+  printf 'configured_bazel_bin=%s\n' "$BAZEL_BIN"
+  printf 'workspace_bazel_bin=%s\n' "$LITERT_LM_DIR/bazel-bin"
+  if [ -e "$LITERT_LM_DIR/bazel-bin" ]; then
+    printf 'workspace_bazel_bin_realpath='
+    readlink -f "$LITERT_LM_DIR/bazel-bin" 2>/dev/null || true
+    printf '\n'
+  else
+    printf 'workspace_bazel_bin_realpath=<missing>\n'
+  fi
+} >"$OUT_DIR/bazel_bin_resolution.txt"
 
 if [ -d "$BAZEL_BIN" ]; then
   for lib in "${LIB_NAMES[@]}" '*qnn*.so' '*Qnn*.so' '*dispatch*.so' '*Dispatch*.so' '*litert*.so' '*LiteRt*.so'; do
