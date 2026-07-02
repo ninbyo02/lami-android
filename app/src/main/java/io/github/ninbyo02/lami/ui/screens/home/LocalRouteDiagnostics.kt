@@ -3765,6 +3765,7 @@ internal const val GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE = "gpu
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL = "gpu_cache_dir_null"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES = "gpu_cache_dir_app_files"
 internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_32 = "gpu_max_tokens_32"
+internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_4096 = "gpu_max_tokens_4096"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER = "gpu_cache_dir_app_files_no_sampler"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_dir_null_no_sampler"
 internal const val GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES = "gpu_text_only_null_modalities"
@@ -3783,6 +3784,7 @@ internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
     GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+    GPU_EXPERIMENT_MODE_MAX_TOKENS_4096,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
     GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES,
@@ -4348,10 +4350,10 @@ private fun readLocalRouteDebugProperty(key: String): String? {
 }
 
 internal fun resolveGpuMaxTokensForExperiment(experimentMode: String): String =
-    if (experimentMode == GPU_EXPERIMENT_MODE_MAX_TOKENS_32) {
-        "32"
-    } else {
-        GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
+    when (experimentMode) {
+        GPU_EXPERIMENT_MODE_MAX_TOKENS_32 -> "32"
+        GPU_EXPERIMENT_MODE_MAX_TOKENS_4096 -> GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString()
+        else -> GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
     }
 
 internal fun resolveGpuMaxTokensAlignment(maxTokens: String): String =

@@ -71,6 +71,28 @@ class NormalChatGpuDiagnosticsTest {
     }
 
     @Test
+    fun `experimental GPU max tokens 4096 variant keeps Edge Gallery like settings`() {
+        val diagnostics = buildGpuRouteConfigDiagnostics(
+            modelPath = "/models/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_MAX_TOKENS_4096,
+        )
+
+        assertEquals(GPU_EXPERIMENT_MODE_MAX_TOKENS_4096, diagnostics.experimentMode)
+        assertEquals("4096", diagnostics.maxTokens)
+        assertEquals("matches_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
+        assertEquals("null", diagnostics.cacheDir)
+        assertEquals("false", diagnostics.cacheDirPresent)
+        assertEquals("true", diagnostics.samplerConfigEnabled)
+        assertEquals("64", diagnostics.samplerTopK)
+        assertEquals("0.95", diagnostics.samplerTopP)
+        assertEquals("1.0", diagnostics.samplerTemperature)
+        assertEquals("null", diagnostics.visionBackend)
+        assertEquals("null", diagnostics.audioBackend)
+    }
+
+    @Test
     fun `compact diagnostics include normal chat GPU failure fields`() {
         val routeDiagnostics = buildLocalRouteDiagnosticTrace(
             stage = "engine_create_exception",

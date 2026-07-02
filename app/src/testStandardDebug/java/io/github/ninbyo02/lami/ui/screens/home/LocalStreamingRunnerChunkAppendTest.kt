@@ -55,6 +55,12 @@ class LocalStreamingRunnerChunkAppendTest {
             preferredBackend = "GPU",
             experimentMode = GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
         )
+        val maxTokens4096 = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_MAX_TOKENS_4096,
+        )
         val noSampler = buildGpuRouteConfigDiagnostics(
             modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
             cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
@@ -75,6 +81,15 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals("true", defaultConfig.samplerConfigEnabled)
         assertEquals("null", defaultConfig.cacheDir)
         assertEquals("32", maxTokens32.maxTokens)
+        assertEquals("4096", maxTokens4096.maxTokens)
+        assertEquals("matches_edge_gallery_e2b_allowlist", maxTokens4096.maxTokensAlignment)
+        assertEquals("true", maxTokens4096.samplerConfigEnabled)
+        assertEquals("gallery_sampler_config", maxTokens4096.samplerAccelerationPolicy)
+        assertEquals("null", maxTokens4096.cacheDir)
+        assertEquals("false", maxTokens4096.cacheDirPresent)
+        assertEquals(GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE, maxTokens4096.conversationConfigProfile)
+        assertEquals("null", maxTokens4096.visionBackend)
+        assertEquals("null", maxTokens4096.audioBackend)
         assertEquals("false", noSampler.samplerConfigEnabled)
         assertEquals("conversation_config_without_sampler", noSampler.samplerAccelerationPolicy)
         assertEquals("/data/user/0/io.github.ninbyo02.lami/cache", appCache.cacheDir)
@@ -90,6 +105,7 @@ class LocalStreamingRunnerChunkAppendTest {
             val cacheDir: String,
             val cacheDirPresent: String,
             val conversationProfile: String,
+            val maxTokensAlignment: String = "differs_from_edge_gallery_e2b_allowlist",
         )
 
         val modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm"
@@ -103,6 +119,16 @@ class LocalStreamingRunnerChunkAppendTest {
                 cacheDir = "null",
                 cacheDirPresent = "false",
                 conversationProfile = GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE,
+            ),
+            ExpectedConfig(
+                mode = GPU_EXPERIMENT_MODE_MAX_TOKENS_4096,
+                maxTokens = "4096",
+                samplerEnabled = "true",
+                samplerPolicy = "gallery_sampler_config",
+                cacheDir = "null",
+                cacheDirPresent = "false",
+                conversationProfile = GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE,
+                maxTokensAlignment = "matches_edge_gallery_e2b_allowlist",
             ),
             ExpectedConfig(
                 mode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
@@ -169,7 +195,7 @@ class LocalStreamingRunnerChunkAppendTest {
             assertEquals(expected.cacheDir, diagnostics.cacheDir)
             assertEquals(expected.cacheDirPresent, diagnostics.cacheDirPresent)
             assertEquals("4096", diagnostics.edgeGalleryAllowlistMaxTokens)
-            assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
+            assertEquals(expected.maxTokensAlignment, diagnostics.maxTokensAlignment)
             assertEquals(expected.conversationProfile, diagnostics.conversationConfigProfile)
             assertEquals(expected.samplerEnabled, diagnostics.conversationConfigSamplerPresent)
             assertEquals(
