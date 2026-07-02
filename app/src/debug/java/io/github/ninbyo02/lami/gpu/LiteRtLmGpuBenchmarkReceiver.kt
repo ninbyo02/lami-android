@@ -1501,7 +1501,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val MARKER_HISTORY_FILE_NAME = "litert_lm_gpu_benchmark_marker_history.txt"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
-        private const val GALLERY_CHAT_PARITY_MAX_NUM_TOKENS = 4000
+        private const val GALLERY_CHAT_PARITY_MAX_NUM_TOKENS = 4096
         private const val GALLERY_CHAT_PARITY_TOP_K = 64
         private const val GALLERY_CHAT_PARITY_TOP_P = 0.95
         private const val GALLERY_CHAT_PARITY_TEMPERATURE = 1.0

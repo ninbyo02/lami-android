@@ -271,7 +271,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_sampler_config_temperature=1.0"))
         assertTrue(text.contains("gpu_sampler_acceleration_policy=gallery_sampler_config"))
         assertTrue(text.contains("gpu_conversation_config_sampler_present=true"))
-        assertTrue(text.contains("edge_gallery_e2b_allowlist_max_tokens=4000"))
+        assertTrue(text.contains("edge_gallery_e2b_allowlist_max_tokens=4096"))
         assertTrue(text.contains("gpu_max_tokens_alignment=differs_from_edge_gallery_e2b_allowlist"))
         assertTrue(text.contains("gpu_options_configured=false"))
         assertTrue(text.contains("gpu_options_source=EngineConfig_backend_only_no_explicit_GpuOptions"))
@@ -2445,7 +2445,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                     allowlistTopK = "64",
                     allowlistTopP = "0.95",
                     allowlistTemperature = "1.0",
-                    allowlistMaxTokens = "4000",
+                    allowlistMaxTokens = "4096",
                     allowlistMaxContextLength = "32000",
                 ),
             ),
@@ -2669,7 +2669,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputQualityMatrixMode = "baseline",
                 gpuOutputQualitySamplerMode = "edge_gallery_like",
                 gpuOutputQualityStreamingMode = "incremental_callback_streaming",
-                gpuOutputQualityEffectiveMaxTokens = "4000",
+                gpuOutputQualityEffectiveMaxTokens = "4096",
                 gpuOutputQualityCollectOnlyEnabled = false,
                 gpuOutputQualityUiIncrementalAppendEnabled = true,
                 gpuOutputQualityCandidateResult = "quality_candidate_pass",
@@ -2723,7 +2723,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_quality_matrix_mode=baseline"))
         assertTrue(compact.contains("gpu_output_quality_sampler_mode=edge_gallery_like"))
         assertTrue(compact.contains("gpu_output_quality_streaming_mode=incremental_callback_streaming"))
-        assertTrue(compact.contains("gpu_output_quality_effective_max_tokens=4000"))
+        assertTrue(compact.contains("gpu_output_quality_effective_max_tokens=4096"))
         assertTrue(compact.contains("gpu_output_quality_collect_only_enabled=false"))
         assertTrue(compact.contains("gpu_output_quality_ui_incremental_append_enabled=true"))
         assertTrue(compact.contains("gpu_output_chunk_length_histogram=0=0;1_2=0;3_8=3;9_32=0;33_plus=0"))

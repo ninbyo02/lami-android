@@ -22,8 +22,18 @@ class NormalChatGpuDiagnosticsTest {
         assertEquals("GPU", diagnostics.backend)
         assertEquals("null", diagnostics.visionBackend)
         assertEquals("null", diagnostics.audioBackend)
-        assertEquals("4000", diagnostics.edgeGalleryAllowlistMaxTokens)
-        assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
+        assertEquals("4096", diagnostics.edgeGalleryAllowlistMaxTokens)
+        assertEquals(
+            if (diagnostics.maxTokens == "4096") {
+                "matches_edge_gallery_e2b_allowlist"
+            } else {
+                "differs_from_edge_gallery_e2b_allowlist"
+            },
+            diagnostics.maxTokensAlignment,
+        )
+        if (diagnostics.maxTokens == "1024") {
+            assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
+        }
         assertEquals(
             GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY,
             diagnostics.recommendedNextConfigVariant,

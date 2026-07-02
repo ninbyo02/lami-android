@@ -70,7 +70,7 @@ class LocalStreamingRunnerChunkAppendTest {
 
         assertEquals(GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE, defaultConfig.experimentMode)
         assertEquals("1024", defaultConfig.maxTokens)
-        assertEquals("4000", defaultConfig.edgeGalleryAllowlistMaxTokens)
+        assertEquals("4096", defaultConfig.edgeGalleryAllowlistMaxTokens)
         assertEquals("differs_from_edge_gallery_e2b_allowlist", defaultConfig.maxTokensAlignment)
         assertEquals("true", defaultConfig.samplerConfigEnabled)
         assertEquals("null", defaultConfig.cacheDir)
@@ -168,7 +168,7 @@ class LocalStreamingRunnerChunkAppendTest {
             assertEquals(expected.samplerPolicy, diagnostics.samplerAccelerationPolicy)
             assertEquals(expected.cacheDir, diagnostics.cacheDir)
             assertEquals(expected.cacheDirPresent, diagnostics.cacheDirPresent)
-            assertEquals("4000", diagnostics.edgeGalleryAllowlistMaxTokens)
+            assertEquals("4096", diagnostics.edgeGalleryAllowlistMaxTokens)
             assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
             assertEquals(expected.conversationProfile, diagnostics.conversationConfigProfile)
             assertEquals(expected.samplerEnabled, diagnostics.conversationConfigSamplerPresent)
@@ -265,8 +265,32 @@ class LocalStreamingRunnerChunkAppendTest {
             ),
         )
         assertEquals(
+            4096,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "4096" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            null,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "4000" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
             "matches_edge_gallery_e2b_allowlist",
-            resolveGpuMaxTokensAlignment("4000"),
+            resolveGpuMaxTokensAlignment("4096"),
+        )
+        assertEquals(
+            "differs_from_edge_gallery_e2b_allowlist",
+            resolveGpuMaxTokensAlignment("1024"),
         )
     }
 
