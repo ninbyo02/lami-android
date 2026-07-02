@@ -12,6 +12,8 @@ GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE="$TARGET_FILE"
 MAX256_MARKER="qairt244_editable_prompt_max256_v1"
 MAX512_MARKER="qairt244_editable_prompt_max512_v1"
 GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
+GPU_PREFILL_PREINVOKE_JNI_EXPORT="Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker"
+GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER="kQairt244GpuPrefillPreinvokeJniArtifactMarker"
 REQUIRE_MAX512=false
 EVIDENCE_ONLY=false
 SELECTED_REF_CHECK=false
@@ -163,6 +165,15 @@ selected_ref_patch_check() {
     printf 'selected_ref_check_status=litertlm_marker_missing\n'
     return 1
   fi
+  if grep -Fq "$GPU_PREFILL_PREINVOKE_JNI_EXPORT" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE" &&
+     grep -Fq "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"; then
+    printf 'selected_ref_gpu_prefill_preinvoke_reachable_jni_marker_present=true\n'
+  else
+    printf 'selected_ref_gpu_prefill_preinvoke_reachable_jni_marker_present=false\n'
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=litertlm_reachable_jni_marker_missing\n'
+    return 1
+  fi
   rm -rf "$tmp_dir"
   printf 'selected_ref_check_status=ok\n'
 }
@@ -209,7 +220,10 @@ printf 'gpu_prefill_preinvoke_patch=%s\n' "$GPU_PREFILL_PREINVOKE_PATCH_FILE"
 printf 'gpu_prefill_preinvoke_target=%s\n' "$GPU_PREFILL_PREINVOKE_TARGET_FILE"
 printf 'gpu_prefill_preinvoke_jni_target=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"
 printf 'gpu_prefill_preinvoke_marker=%s\n' "$GPU_PREFILL_PREINVOKE_MARKER"
+printf 'gpu_prefill_preinvoke_jni_export=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_EXPORT"
+printf 'gpu_prefill_preinvoke_jni_artifact_marker=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER"
 printf 'gpu_prefill_preinvoke_patch_has_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
+printf 'gpu_prefill_preinvoke_patch_has_reachable_jni_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_JNI_EXPORT" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && path_has_evidence "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
 if [ "$EVIDENCE_ONLY" != true ]; then
   printf 'gpu_prefill_preinvoke_patch_status=%s\n' "$(patch_apply_status "$CHECKOUT_DIR" "$GPU_PREFILL_PREINVOKE_PATCH_FILE")"
 fi

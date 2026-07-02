@@ -251,18 +251,12 @@ lami_qairt244_artifact_has_symbol() {
 
 lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
   local artifact_dir="$1"
-  local lib
-  local marker_lib=""
+  local marker_lib="liblitertlm_jni.so"
+  local lib="$artifact_dir/built_libs/$marker_lib"
   local static_summary="$artifact_dir/static_summary.md"
-  for lib in "$artifact_dir"/built_libs/*.so; do
-    [[ -f "$lib" ]] || continue
-    if strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" &&
-       readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"; then
-      marker_lib="$(basename "$lib")"
-      break
-    fi
-  done
-  [[ -n "$marker_lib" ]] || return 1
+  [[ -f "$lib" ]] || return 1
+  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
+  readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
   [[ -f "$static_summary" ]] || return 1
   awk -F '|' \
     -v marker="$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
@@ -436,7 +430,7 @@ lami_qairt244_build_custom_jni() {
     if [[ "${QAIRT244_BUILD_LABEL}" == *gpu_prefill_preinvoke_diag* ]]; then
       lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker "$artifact_dir" || {
         lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir" >&2 || true
-        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/*.so: $artifact_dir" >&2
+        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/liblitertlm_jni.so: $artifact_dir" >&2
         exit 65
       }
       lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir"
