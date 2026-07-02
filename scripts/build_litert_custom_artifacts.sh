@@ -97,6 +97,8 @@ LIB_NAMES=(
 
 KEYWORDS="qairt244_gpu_prefill_preinvoke_v1|LiteRtDispatchGetApi|LiteRtDispatchCheckRuntimeCompatibility|RuntimeCompatibility|capabilities|No usable Dispatch runtime found|Failed to initialize Dispatch API|dispatch_api|LiteRtRuntimeCApi|libLiteRtRuntimeCApi\.so|Qualcomm|QNN|Qnn|HTP|Htp|ADSP|LD_LIBRARY_PATH|libQnn|SM8750|sm8750|V79|schema|model"
 GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
+GPU_PREFILL_PREINVOKE_C_SYMBOL="Qairt244GpuPrefillPreinvokeArtifactMarker"
+GPU_PREFILL_PREINVOKE_JNI_SYMBOL="Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker"
 
 log() {
   printf '[litert-custom-build] %s\n' "$*"
@@ -148,6 +150,18 @@ readelf_marker_present() {
   readelf -p .rodata "$file" 2>/dev/null | grep -Fq "$marker"
 }
 
+exported_symbol_present() {
+  local file="$1"
+  local symbol="$2"
+  [ -f "$file" ] || return 1
+  readelf -Ws "$file" 2>/dev/null | awk -v symbol="$symbol" '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) {
+      found = 1
+    }
+    END { exit found ? 0 : 1 }
+  '
+}
+
 gpu_prefill_preinvoke_marker_required() {
   [ "${QAIRT244_REQUIRE_GPU_PREFILL_PREINVOKE_MARKER:-false}" = true ] ||
     [[ "${LABEL:-}" == *gpu_prefill_preinvoke_diag* ]]
@@ -156,7 +170,9 @@ gpu_prefill_preinvoke_marker_required() {
 gpu_prefill_preinvoke_marker_complete() {
   local file="$1"
   string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" &&
-    readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER"
+    readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" &&
+    exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_C_SYMBOL" &&
+    exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_JNI_SYMBOL"
 }
 
 record_copy_source() {
@@ -193,6 +209,10 @@ require_gpu_prefill_preinvoke_marker_file() {
       printf 'file=%s\n' "$file"
       printf 'strings_present=%s\n' "$(string_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" && printf true || printf false)"
       printf 'readelf_present=%s\n' "$(readelf_marker_present "$file" "$GPU_PREFILL_PREINVOKE_MARKER" && printf true || printf false)"
+      printf 'c_symbol=%s\n' "$GPU_PREFILL_PREINVOKE_C_SYMBOL"
+      printf 'c_symbol_exported=%s\n' "$(exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_C_SYMBOL" && printf true || printf false)"
+      printf 'jni_symbol=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_SYMBOL"
+      printf 'jni_symbol_exported=%s\n' "$(exported_symbol_present "$file" "$GPU_PREFILL_PREINVOKE_JNI_SYMBOL" && printf true || printf false)"
     } >"$OUT_DIR/ERROR.txt"
     exit 65
   fi

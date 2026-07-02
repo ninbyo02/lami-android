@@ -43,7 +43,9 @@ patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
 The forced command writes the diagnostic artifact with a label containing
 `gpu_prefill_preinvoke_diag` and rejects the build if
 `qairt244_gpu_prefill_preinvoke_v1` is missing from
-`built_libs/liblitertlm_jni.so`.
+`built_libs/liblitertlm_jni.so`, or if the final binary does not export
+`Qairt244GpuPrefillPreinvokeArtifactMarker` and
+`Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker`.
 
 For manual rebuilds, start from the fetchable LiteRT-LM tag `v0.11.0`
 (`c87189528a758db32ead241f4fc9c64836398ee7`), apply the base patch first,
@@ -59,7 +61,11 @@ scripts/build_litert_custom_artifacts.sh \
 The generated `static_summary.md` reports the diagnostic label and a
 `Diagnostic markers` table with both strings and readelf evidence. The same
 marker is also included in `strings/liblitertlm_jni.so.filtered.txt` and
-`readelf/liblitertlm_jni.so.rodata.txt`.
+`readelf/liblitertlm_jni.so.rodata.txt`. Verify exported marker symbols with:
+
+```bash
+readelf -Ws <artifact>/built_libs/liblitertlm_jni.so | grep -E 'Qairt244GpuPrefillPreinvokeArtifactMarker|Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker'
+```
 
 For diagnostic labels containing `gpu_prefill_preinvoke_diag`,
 `scripts/build_litert_custom_artifacts.sh` requires the explicit

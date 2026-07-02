@@ -2,49 +2,69 @@ diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/ja
 index 56218bbd..2473aa5f 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -105,6 +105,23 @@
+@@ -105,6 +105,38 @@
      "qairt244_short_multitoken_smoke_v1";
  constexpr char kQairt244EditablePromptMarker[] =
      "qairt244_editable_prompt_smoke_v1";
-+#if defined(__GNUC__)
++#if defined(__clang__) || defined(__GNUC__)
 +#define QAIRT244_USED __attribute__((used))
++#define QAIRT244_VISIBLE __attribute__((visibility("default")))
 +#else
 +#define QAIRT244_USED
++#define QAIRT244_VISIBLE
++#endif
++#if defined(__has_attribute)
++#if __has_attribute(retain)
++#define QAIRT244_RETAIN __attribute__((retain))
++#else
++#define QAIRT244_RETAIN
++#endif
++#else
++#define QAIRT244_RETAIN
 +#endif
 +
-+extern "C" LITERTLM_JNIEXPORT const char
-+    kQairt244GpuPrefillPreinvokeJniArtifactMarker[] QAIRT244_USED =
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char
++    kQairt244GpuPrefillPreinvokeJniArtifactMarker[] QAIRT244_USED
++    QAIRT244_RETAIN =
 +    "qairt244_gpu_prefill_preinvoke_v1 "
 +    "jni_artifact_marker=reachable_from_liblitertlm_jni";
 +constexpr const char* kQairt244GpuPrefillPreinvokeJniMarker =
 +    kQairt244GpuPrefillPreinvokeJniArtifactMarker;
 +
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char*
++Qairt244GpuPrefillPreinvokeArtifactMarker() QAIRT244_USED QAIRT244_RETAIN;
++
 +extern "C" LITERTLM_JNIEXPORT jstring JNICALL
 +Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker(
-+    JNIEnv* env, jclass) QAIRT244_USED;
++    JNIEnv* env, jclass) QAIRT244_USED QAIRT244_RETAIN;
 +
  constexpr char kQairt244EditablePromptValidationMode[] =
      "utf8_internal_intent";
  constexpr char kQairt244NativeDiagPath[] =
-@@ -118,7 +135,8 @@
+@@ -118,7 +150,8 @@
    if (file == nullptr) {
      return;
    }
 -  std::fprintf(file, "%s ", kQairt244NativeFileMarker);
 +  std::fprintf(file, "%s %s ", kQairt244NativeFileMarker,
-+               kQairt244GpuPrefillPreinvokeJniMarker);
++               Qairt244GpuPrefillPreinvokeArtifactMarker());
    va_list args;
    va_start(args, format);
    std::vfprintf(file, format, args);
-@@ -127,6 +145,12 @@
+@@ -127,6 +160,17 @@
    std::fflush(file);
    std::fclose(file);
  }
 +
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char*
++Qairt244GpuPrefillPreinvokeArtifactMarker() {
++  return kQairt244GpuPrefillPreinvokeJniMarker;
++}
++
 +extern "C" LITERTLM_JNIEXPORT jstring JNICALL
 +Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker(
 +    JNIEnv* env, jclass) {
-+  return env->NewStringUTF(kQairt244GpuPrefillPreinvokeJniArtifactMarker);
++  return env->NewStringUTF(Qairt244GpuPrefillPreinvokeArtifactMarker());
 +}
  
  void PreloadQairt244QnnRuntimeLibraries(const std::string& native_library_dir,

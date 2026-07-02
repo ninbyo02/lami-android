@@ -32,5 +32,7 @@ grep -q 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present' scri
 grep -q 'selected_ref_gpu_prefill_preinvoke_reachable_jni_marker_present' scripts/check_qairt244_native_patch.sh || fail "selected-ref check should prove the reachable litertlm.cc JNI marker hunk is present"
 grep -q 'skipped-missing-required-marker' scripts/build_litert_custom_artifacts.sh || fail "artifact copy should skip non-marker JNI candidates for diagnostic builds"
 grep -q 'built_libs/liblitertlm_jni.so' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should require the GPU prefill marker in liblitertlm_jni.so"
+grep -q 'Qairt244GpuPrefillPreinvokeArtifactMarker' scripts/build_litert_custom_artifacts.sh || fail "artifact build should require exported GPU prefill marker symbols"
+grep -q 'c_symbol_exported' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should report exported marker symbol evidence"
 
 echo "limited ADB install support checks passed"

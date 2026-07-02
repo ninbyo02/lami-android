@@ -26,6 +26,8 @@
 : "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
 : "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_MARKER:=qairt244_gpu_prefill_preinvoke_v1}"
+: "${QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL:=Qairt244GpuPrefillPreinvokeArtifactMarker}"
+: "${QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL:=Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker}"
 : "${QAIRT244_REQUIRE_PERSISTENT_PROBE:=false}"
 
 lami_qairt244_first_existing_dir() {
@@ -257,6 +259,14 @@ lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
   [[ -f "$lib" ]] || return 1
   strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
   readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
+  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' || return 1
+  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL" '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' || return 1
   [[ -f "$static_summary" ]] || return 1
   awk -F '|' \
     -v marker="$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
@@ -283,10 +293,20 @@ lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence() {
     [[ -f "$lib" ]] || continue
     local strings_present=false
     local rodata_present=false
+    local c_symbol_exported=false
+    local jni_symbol_exported=false
     strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && strings_present=true
     readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && rodata_present=true
-    printf 'gpu_prefill_preinvoke_marker_library=%s strings_present=%s rodata_present=%s\n' \
-      "$(basename "$lib")" "$strings_present" "$rodata_present"
+    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" '
+      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+      END { exit found ? 0 : 1 }
+    ' && c_symbol_exported=true
+    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL" '
+      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+      END { exit found ? 0 : 1 }
+    ' && jni_symbol_exported=true
+    printf 'gpu_prefill_preinvoke_marker_library=%s strings_present=%s rodata_present=%s c_symbol_exported=%s jni_symbol_exported=%s\n' \
+      "$(basename "$lib")" "$strings_present" "$rodata_present" "$c_symbol_exported" "$jni_symbol_exported"
   done
 }
 
@@ -419,6 +439,8 @@ lami_qairt244_build_custom_jni() {
     echo "extra_patch=${QAIRT244_EXTRA_PATCH:-<none>}"
     echo "require_persistent_probe=$QAIRT244_REQUIRE_PERSISTENT_PROBE"
     echo "required_marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
+    echo "required_c_symbol=$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL"
+    echo "required_jni_symbol=$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL"
     cd "$REPO"
     OUT_DIR="$artifact_dir" \
       BAZEL_OUTPUT_BASE="$HOME/project/litert-custom-build/bazel_output_base/build_$timestamp" \
@@ -437,6 +459,7 @@ lami_qairt244_build_custom_jni() {
       echo "gpu_prefill_preinvoke_marker_present=true"
       echo "gpu_prefill_preinvoke_marker_check=for lib in $artifact_dir/built_libs/*.so; do strings \"\$lib\" | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER && printf ' %s\n' \"\$lib\"; done"
       echo "gpu_prefill_preinvoke_marker_readelf_check=for lib in $artifact_dir/built_libs/*.so; do readelf -p .rodata \"\$lib\" | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER && printf ' %s\n' \"\$lib\"; done"
+      echo "gpu_prefill_preinvoke_symbol_check=readelf -Ws $artifact_dir/built_libs/liblitertlm_jni.so | grep -E '$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL|$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL'"
       echo "gpu_prefill_preinvoke_marker_static_summary_check=awk table scan for marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER strings=true readelf=true in $artifact_dir/static_summary.md"
     fi
     scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
