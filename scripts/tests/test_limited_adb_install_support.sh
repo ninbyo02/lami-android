@@ -39,6 +39,9 @@ grep -q 'post-bazel-candidate-liblitertlm_jni' scripts/build_litert_custom_artif
 grep -q 'artifact-after-copy-liblitertlm_jni' scripts/build_litert_custom_artifacts.sh || fail "artifact build should print artifact-after-copy JNI marker diagnostics"
 grep -q 'skipped-missing-required-marker' scripts/build_litert_custom_artifacts.sh || fail "artifact copy should skip non-marker JNI candidates for diagnostic builds"
 grep -q 'built_libs/liblitertlm_jni.so' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should require the GPU prefill marker in liblitertlm_jni.so"
+grep -q 'lami_qairt244_marker_stage_evidence_complete' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 final verifier should consume marker-stage artifact evidence"
+grep -q 'artifact-after-copy-liblitertlm_jni' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 final verifier should require the artifact-after-copy JNI marker stage"
+grep -q 'forced-command-final-liblitertlm_jni' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 final verifier should print final forced-command marker-stage evidence"
 grep -q 'Qairt244GpuPrefillPreinvokeArtifactMarker' scripts/build_litert_custom_artifacts.sh || fail "artifact build should require exported GPU prefill marker symbols"
 grep -q 'c_symbol_exported' scripts/lami_build_qairt244_forced_commands.sh || fail "qairt244 extension should report exported marker symbol evidence"
 

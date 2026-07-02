@@ -72,6 +72,34 @@ lami_qairt244_source_marker_present() {
   grep -aFq "$marker" "$file"
 }
 
+lami_qairt244_bool_from_command() {
+  "$@" && printf true || printf false
+}
+
+lami_qairt244_string_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [[ -f "$file" ]] || return 1
+  strings "$file" 2>/dev/null | grep -Fq "$marker"
+}
+
+lami_qairt244_readelf_marker_present() {
+  local file="$1"
+  local marker="$2"
+  [[ -f "$file" ]] || return 1
+  readelf -p .rodata "$file" 2>/dev/null | grep -Fq "$marker"
+}
+
+lami_qairt244_exported_symbol_present() {
+  local file="$1"
+  local symbol="$2"
+  [[ -f "$file" ]] || return 1
+  readelf -Ws "$file" 2>/dev/null | awk -v symbol="$symbol" '
+    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
 lami_qairt244_print_source_marker_stage_diagnostic() {
   local stage="$1"
   local file="$2"
@@ -287,21 +315,62 @@ lami_qairt244_artifact_has_symbol() {
   fi
 }
 
+lami_qairt244_gpu_prefill_preinvoke_marker_file_complete() {
+  local lib="$1"
+  [[ -f "$lib" ]] || return 1
+  lami_qairt244_string_marker_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" &&
+    lami_qairt244_readelf_marker_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" &&
+    lami_qairt244_exported_symbol_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" &&
+    lami_qairt244_exported_symbol_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL"
+}
+
+lami_qairt244_marker_stage_evidence_complete() {
+  local artifact_dir="$1"
+  local lib="$2"
+  local marker_stage_log="$artifact_dir/marker_stage_diagnostics.log"
+  [[ -f "$marker_stage_log" && -f "$lib" ]] || return 1
+
+  local sha
+  sha="$(lami_qairt244_sha256_for "$lib")"
+  [[ -n "$sha" && "$sha" != "missing" ]] || return 1
+
+  awk \
+    -v expected_stage="artifact-after-copy-liblitertlm_jni" \
+    -v expected_path="$lib" \
+    -v expected_sha="$sha" \
+    -v expected_marker="$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" '
+    {
+      delete field
+      for (i = 1; i <= NF; i += 1) {
+        split($i, pair, "=")
+        key = pair[1]
+        value = substr($i, length(key) + 2)
+        field[key] = value
+      }
+      if (field["stage"] == expected_stage &&
+          field["kind"] == "elf" &&
+          field["path"] == expected_path &&
+          field["sha256"] == expected_sha &&
+          field["marker"] == expected_marker &&
+          field["marker_present"] == "true" &&
+          field["strings_present"] == "true" &&
+          field["rodata_present"] == "true" &&
+          field["c_symbol_exported"] == "true" &&
+          field["jni_symbol_exported"] == "true") {
+        found = 1
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$marker_stage_log"
+}
+
 lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker() {
   local artifact_dir="$1"
   local marker_lib="liblitertlm_jni.so"
   local lib="$artifact_dir/built_libs/$marker_lib"
   [[ -f "$lib" ]] || return 1
-  strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
-  readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" || return 1
-  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" '
-    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-    END { exit found ? 0 : 1 }
-  ' || return 1
-  readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL" '
-    $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-    END { exit found ? 0 : 1 }
-  '
+  lami_qairt244_marker_stage_evidence_complete "$artifact_dir" "$lib" ||
+    lami_qairt244_gpu_prefill_preinvoke_marker_file_complete "$lib"
 }
 
 lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence() {
@@ -313,19 +382,40 @@ lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence() {
     local rodata_present=false
     local c_symbol_exported=false
     local jni_symbol_exported=false
-    strings "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && strings_present=true
-    readelf -p .rodata "$lib" 2>/dev/null | grep -Fq "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && rodata_present=true
-    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" '
-      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-      END { exit found ? 0 : 1 }
-    ' && c_symbol_exported=true
-    readelf -Ws "$lib" 2>/dev/null | awk -v symbol="$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL" '
-      $0 ~ /GLOBAL/ && $0 ~ /DEFAULT/ && index($0, symbol) { found = 1 }
-      END { exit found ? 0 : 1 }
-    ' && jni_symbol_exported=true
+    lami_qairt244_string_marker_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && strings_present=true
+    lami_qairt244_readelf_marker_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" && rodata_present=true
+    lami_qairt244_exported_symbol_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL" && c_symbol_exported=true
+    lami_qairt244_exported_symbol_present "$lib" "$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL" && jni_symbol_exported=true
     printf 'gpu_prefill_preinvoke_marker_library=%s strings_present=%s rodata_present=%s c_symbol_exported=%s jni_symbol_exported=%s\n' \
       "$(basename "$lib")" "$strings_present" "$rodata_present" "$c_symbol_exported" "$jni_symbol_exported"
   done
+}
+
+lami_qairt244_print_artifact_marker_stage_diagnostic() {
+  local stage="$1"
+  local file="$2"
+  local sha="missing"
+  local marker_present=false
+  local strings_present=false
+  local rodata_present=false
+  local c_symbol_exported=false
+  local jni_symbol_exported=false
+
+  if [[ -f "$file" ]]; then
+    sha="$(lami_qairt244_sha256_for "$file")"
+    strings_present="$(lami_qairt244_bool_from_command lami_qairt244_string_marker_present "$file" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER")"
+    rodata_present="$(lami_qairt244_bool_from_command lami_qairt244_readelf_marker_present "$file" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER")"
+    c_symbol_exported="$(lami_qairt244_bool_from_command lami_qairt244_exported_symbol_present "$file" "$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL")"
+    jni_symbol_exported="$(lami_qairt244_bool_from_command lami_qairt244_exported_symbol_present "$file" "$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL")"
+    if [[ "$strings_present" == true && "$rodata_present" == true ]]; then
+      marker_present=true
+    fi
+  fi
+
+  printf 'qairt244_marker_stage stage=%s kind=elf path=%s sha256=%s marker=%s marker_present=%s strings_present=%s rodata_present=%s c_symbol_exported=%s jni_symbol_exported=%s\n' \
+    "$stage" "$file" "$sha" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
+    "$marker_present" "$strings_present" "$rodata_present" \
+    "$c_symbol_exported" "$jni_symbol_exported"
 }
 
 lami_qairt244_resolve_artifact_dir() {
@@ -468,8 +558,14 @@ lami_qairt244_build_custom_jni() {
         --label "$QAIRT244_BUILD_LABEL"
     lami_qairt244_artifact_has_symbol "$artifact_dir"
     if [[ "${QAIRT244_BUILD_LABEL}" == *gpu_prefill_preinvoke_diag* ]]; then
+      lami_qairt244_print_artifact_marker_stage_diagnostic \
+        "forced-command-final-liblitertlm_jni" \
+        "$artifact_dir/built_libs/liblitertlm_jni.so"
       lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker "$artifact_dir" || {
         lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir" >&2 || true
+        lami_qairt244_print_artifact_marker_stage_diagnostic \
+          "forced-command-final-liblitertlm_jni-failed" \
+          "$artifact_dir/built_libs/liblitertlm_jni.so" >&2 || true
         echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/liblitertlm_jni.so: $artifact_dir" >&2
         exit 65
       }
