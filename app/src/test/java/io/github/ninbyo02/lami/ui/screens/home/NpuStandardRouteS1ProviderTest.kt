@@ -333,7 +333,7 @@ class NpuStandardRouteS1ProviderTest {
                 timeout = false,
                 freshCrash = false,
                 requestedMaxOutputTokens = 4096,
-                effectiveMaxOutputTokens = 512,
+                effectiveMaxOutputTokens = 256,
             ),
         )
 
@@ -352,13 +352,13 @@ class NpuStandardRouteS1ProviderTest {
 
         listOf(compact, fullDump, trace).forEach { text ->
             assertTrue(text.contains("requested_max_output_tokens=4096"))
-            assertTrue(text.contains("effective_max_output_tokens=512"))
+            assertTrue(text.contains("effective_max_output_tokens=256"))
             assertTrue(text.contains("max_output_tokens_clamped=true"))
-            assertTrue(text.contains("max_output_tokens_clamp_limit=512"))
+            assertTrue(text.contains("max_output_tokens_clamp_limit=256"))
             assertTrue(text.contains("max_output_tokens_clamp_reason=native_limit"))
             assertTrue(text.contains("app_requested_max_output_tokens=4096"))
-            assertTrue(text.contains("native_requested_max_output_tokens=512"))
-            assertTrue(text.contains("native_effective_max_output_tokens=512"))
+            assertTrue(text.contains("native_requested_max_output_tokens=256"))
+            assertTrue(text.contains("native_effective_max_output_tokens=256"))
         }
     }
 

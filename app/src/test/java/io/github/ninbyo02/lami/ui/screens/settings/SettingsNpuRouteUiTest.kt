@@ -229,6 +229,20 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
+    fun `NPU native max output tokens experiment clamps above 256`() {
+        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(512)
+
+        assertEquals(512, resolution.requestedMaxOutputTokens)
+        assertEquals(256, resolution.effectiveMaxOutputTokens)
+        assertEquals(256, resolution.clampLimit)
+        assertTrue(resolution.clamped)
+        assertEquals(
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT,
+            resolution.clampReason,
+        )
+    }
+
+    @Test
     fun `legacy QAIRT route label is diagnostic and separate from standard route`() {
         assertEquals("Legacy QAIRT244診断", LEGACY_QAIRT244_DIAGNOSTIC_TITLE)
         assertTrue(LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION.contains("旧QAIRT診断経路"))

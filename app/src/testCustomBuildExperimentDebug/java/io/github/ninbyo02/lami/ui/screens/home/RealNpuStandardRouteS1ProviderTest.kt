@@ -324,7 +324,7 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `real provider passes explicit max output tokens into dev only request`() {
+    fun `real provider clamps explicit max output tokens to native experiment limit`() {
         var capturedRequest: DevOnlyNpuOneTurnConversationRequest? = null
 
         val raw = RealNpuStandardRouteS1Provider(
@@ -339,9 +339,9 @@ class RealNpuStandardRouteS1ProviderTest {
         )
 
         val request = requireNotNull(capturedRequest)
-        assertEquals(512, request.maxOutputTokens)
+        assertEquals(256, request.maxOutputTokens)
         assertEquals(512, raw.requestedMaxOutputTokens)
-        assertEquals(512, raw.effectiveMaxOutputTokens)
+        assertEquals(256, raw.effectiveMaxOutputTokens)
     }
 
     private fun successDisplay(
@@ -362,7 +362,7 @@ class RealNpuStandardRouteS1ProviderTest {
             timeout = false,
             requestedMaxOutputTokens = maxOutputTokens,
             effectiveMaxOutputTokens = maxOutputTokens,
-            nativeMaxOutputTokensLimit = "512",
+            nativeMaxOutputTokensLimit = "256",
             rawLen = rawOutput.length,
             sanitizedLen = output.length,
             quality = "natural_japanese",
