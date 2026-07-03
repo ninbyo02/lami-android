@@ -841,8 +841,10 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
-    LaunchedEffect(selectedLocalModelFilePath, isLocalInferenceRunning) {
-        if (selectedLocalModelFilePath.isNullOrBlank()) {
+    LaunchedEffect(selectedLocalModelFilePath, selectedLocalModelDisplayName, isLocalInferenceRunning) {
+        val hasSavedLocalModelInfo = !selectedLocalModelFilePath.isNullOrBlank() ||
+            !selectedLocalModelDisplayName.isNullOrBlank()
+        if (!hasSavedLocalModelInfo) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
         if (isLocalInferenceRunning) return@LaunchedEffect
@@ -7263,7 +7265,11 @@ fun Home(
                                                                     ?: when (resolvedState) {
                                                                         null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                         LocalInferenceEngineState.UNINITIALIZED ->
-                                                                            missingLocalModelMessageForBackend(preferredBackendDryRunSetting)
+                                                                            missingLocalModelMessageForBackend(
+                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                displayName = selectedLocalModelDisplayName,
+                                                                                filePath = selectedLocalModelFilePath,
+                                                                            )
                                                                         else -> "ローカル推論の応答取得に失敗しました"
                                                                     }
                                                                 val failureStats = InferenceStats(
@@ -7301,7 +7307,11 @@ fun Home(
                                                                     null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                     LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
                                                                     LocalInferenceEngineState.UNINITIALIZED ->
-                                                                        missingLocalModelMessageForBackend(preferredBackendDryRunSetting)
+                                                                        missingLocalModelMessageForBackend(
+                                                                            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                            displayName = selectedLocalModelDisplayName,
+                                                                            filePath = selectedLocalModelFilePath,
+                                                                        )
                                                                     LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
                                                                     LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                                 },
@@ -10846,14 +10856,17 @@ private suspend fun resolveLocalBaseModelPathOrNull(
 internal enum class LocalInferenceModelSlot(
     val diagnosticName: String,
     val missingModelMessage: String,
+    val invalidSavedModelMessage: String,
 ) {
     NPU_PREVIEW(
         diagnosticName = "npu_preview",
         missingModelMessage = "NPUプレビューモデルが未設定です",
+        invalidSavedModelMessage = "NPUプレビューモデルのファイルが見つかりません。設定で選び直してください",
     ),
     GENERIC_FALLBACK(
         diagnosticName = "generic_fallback",
         missingModelMessage = "汎用フォールバックモデルが未設定です",
+        invalidSavedModelMessage = "汎用フォールバックモデルのファイルが見つかりません。設定で選び直してください",
     ),
 }
 
@@ -10870,7 +10883,17 @@ internal fun localModelSlotForBackend(
 
 internal fun missingLocalModelMessageForBackend(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
-): String = localModelSlotForBackend(preferredBackendDryRunSetting).missingModelMessage
+    displayName: String? = null,
+    filePath: String? = null,
+): String {
+    val slot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val hasSavedModelInfo = !displayName.isNullOrBlank() || !filePath.isNullOrBlank()
+    return if (hasSavedModelInfo) {
+        slot.invalidSavedModelMessage
+    } else {
+        slot.missingModelMessage
+    }
+}
 
 private suspend fun resolveLocalModelPathOrNull(
     settingsPreferences: SettingsPreferences,
