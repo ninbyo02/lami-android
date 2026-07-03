@@ -48,9 +48,16 @@ class LocalInferenceFailureDiagnosticsTest {
         )
 
         assertTrue(text.contains("[Qualcomm Model Failure]"))
+        assertTrue(text.contains("applicationId="))
+        assertTrue(text.contains("current flavor="))
+        assertTrue(text.contains("litertlm android version="))
         assertTrue(text.contains("failure stage=generate-response"))
         assertTrue(text.contains("No usable Dispatch runtime found=true"))
         assertTrue(text.contains("dispatch api missing likely=true"))
+        assertTrue(text.contains("loaded_dispatch_runtime_present="))
+        assertTrue(text.contains("loaded_compiler_plugin_qualcomm_present="))
+        assertTrue(text.contains("loaded_gemma_model_constraint_provider_present="))
+        assertTrue(text.contains("loaded_qnn_runtime_present="))
         assertTrue(text.contains("stacktrace head:"))
     }
 
