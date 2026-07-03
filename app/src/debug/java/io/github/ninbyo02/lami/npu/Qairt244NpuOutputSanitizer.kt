@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 internal object Qairt244NpuOutputSanitizer {
     private val templateTokenPatterns = listOf(
         Regex("<start_of_turn>\\s*(?:user|model)?", RegexOption.IGNORE_CASE),
+        Regex("</\\s*start_of_turn\\s*>?", RegexOption.IGNORE_CASE),
         Regex("<end_of_turn>", RegexOption.IGNORE_CASE),
         Regex("<\\s*end_of_turn\\s*>?", RegexOption.IGNORE_CASE),
         Regex("</\\s*end_of_turn\\s*>?", RegexOption.IGNORE_CASE),
@@ -25,7 +26,11 @@ internal object Qairt244NpuOutputSanitizer {
     )
 
     fun sanitize(rawOutput: String, prompt: String): Result {
-        val normalizedRaw = rawOutput.replace("\r\n", "\n").replace('\r', '\n')
+        val normalizedRaw = rawOutput
+            .replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
         var removedTemplateTokenCount = 0
         var withoutTemplateTokens = normalizedRaw
         templateTokenPatterns.forEach { pattern ->

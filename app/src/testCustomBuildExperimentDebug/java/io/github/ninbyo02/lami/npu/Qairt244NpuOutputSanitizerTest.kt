@@ -88,6 +88,38 @@ class Qairt244NpuOutputSanitizerCodeAwareTest {
     }
 
     @Test
+    fun `removes escaped newlines prompt echo and closing start token leak from list output`() {
+        val prompt = "今日やることを5つ、短い箇条書きで教えて"
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            rawOutput = ">\\n" +
+                prompt + "\\n" +
+                "* 集中して作業に取り掛かる\\n" +
+                "* 重要なタスクを優先順位をつける\\n" +
+                "* 休憩を挟みながらリフレッシュする\\n" +
+                "* 達成可能な目標を設定する\\n" +
+                "* 翌日の準備を少しだけ行う\\n" +
+                "</start_of_turn>",
+            prompt = prompt,
+        )
+
+        assertEquals(
+            """
+            * 集中して作業に取り掛かる
+            * 重要なタスクを優先順位をつける
+            * 休憩を挟みながらリフレッシュする
+            * 達成可能な目標を設定する
+            * 翌日の準備を少しだけ行う
+            """.trimIndent(),
+            result.sanitizedOutput,
+        )
+        assertTrue(result.removedPromptEcho)
+        assertTrue(result.removedTemplateTokenCount > 0)
+        assertFalse(result.sanitizedOutput.contains("<start_of_turn>"))
+        assertFalse(result.sanitizedOutput.contains("</start_of_turn>"))
+        assertFalse(result.sanitizedOutput.contains(prompt))
+    }
+
+    @Test
     fun `preserves greater than prefix inside code block only`() {
         val result = Qairt244NpuOutputSanitizer.sanitize(
             rawOutput = """
