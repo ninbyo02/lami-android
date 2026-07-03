@@ -334,14 +334,14 @@ class RealNpuStandardRouteS1ProviderTest {
             },
         ).invoke(
             userPrompt = userPrompt,
-            maxOutputTokens = 512,
+            maxOutputTokens = 1024,
             trace = {},
         )
 
         val request = requireNotNull(capturedRequest)
-        assertEquals(256, request.maxOutputTokens)
-        assertEquals(512, raw.requestedMaxOutputTokens)
-        assertEquals(256, raw.effectiveMaxOutputTokens)
+        assertEquals(512, request.maxOutputTokens)
+        assertEquals(1024, raw.requestedMaxOutputTokens)
+        assertEquals(512, raw.effectiveMaxOutputTokens)
     }
 
     private fun successDisplay(
@@ -362,7 +362,7 @@ class RealNpuStandardRouteS1ProviderTest {
             timeout = false,
             requestedMaxOutputTokens = maxOutputTokens,
             effectiveMaxOutputTokens = maxOutputTokens,
-            nativeMaxOutputTokensLimit = "256",
+            nativeMaxOutputTokensLimit = "512",
             rawLen = rawOutput.length,
             sanitizedLen = output.length,
             quality = "natural_japanese",

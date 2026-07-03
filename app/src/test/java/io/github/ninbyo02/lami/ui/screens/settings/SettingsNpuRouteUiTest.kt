@@ -229,12 +229,12 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU native max output tokens experiment clamps above 256`() {
-        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(512)
+    fun `NPU native max output tokens experiment clamps above 512`() {
+        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(1024)
 
-        assertEquals(512, resolution.requestedMaxOutputTokens)
-        assertEquals(256, resolution.effectiveMaxOutputTokens)
-        assertEquals(256, resolution.clampLimit)
+        assertEquals(1024, resolution.requestedMaxOutputTokens)
+        assertEquals(512, resolution.effectiveMaxOutputTokens)
+        assertEquals(512, resolution.clampLimit)
         assertTrue(resolution.clamped)
         assertEquals(
             NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT,
