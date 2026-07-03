@@ -60,8 +60,11 @@ validate_pair_code() {
 validate_flavor() {
   local flavor="${1:-$DEFAULT_FLAVOR}"
   case "$flavor" in
-    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe)
-      echo "$flavor" ;;
+    standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint)
+      case "$flavor" in
+        gpunoconstraint|no-constraint) echo "standardGpuNoConstraintProvider" ;;
+        *) echo "$flavor" ;;
+      esac ;;
     *) fail ;;
   esac
 }
@@ -199,6 +202,8 @@ app_id_for_flavor() {
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
     galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
+    standardGpuMinimalRuntimeCandidate) echo "io.github.ninbyo02.lami.gpustandardminimal" ;;
+    standardGpuNoConstraintProvider) echo "io.github.ninbyo02.lami.gpunoconstraint" ;;
     trueEngineNpuProbe) echo "io.github.ninbyo02.lami.trueengineprobe" ;;
     *) fail ;;
   esac
@@ -338,7 +343,7 @@ allowed commands:
   adb-devices
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
-  adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe]
+  adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
@@ -359,7 +364,7 @@ allowed commands:
   git-apply-check <safe-name.patch>
   git-apply <safe-name.patch>
   git-commit-npu-fallback     # fixed file allowlist + fixed commit message
-  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe]
+  install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
 EOF
     ;;
   *)

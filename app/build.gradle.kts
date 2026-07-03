@@ -45,6 +45,7 @@ val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion = "0.11.0"
+val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
@@ -77,6 +78,7 @@ android {
         buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
         buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
         buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+        buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
@@ -99,6 +101,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "false")
@@ -120,6 +123,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
@@ -135,6 +139,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackGpuProbe") {
@@ -150,6 +155,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("gpuRuntimeAlignmentProbe") {
@@ -165,6 +171,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "true")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("standardGpuRuntimeMinimalProbe") {
@@ -180,6 +187,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "true")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("standardGpuMinimalRuntimeCandidate") {
@@ -195,6 +203,23 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "true")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("standardGpuNoConstraintProvider") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpunoconstraint"
+            versionNameSuffix = "-standardGpuNoConstraintProvider"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standardGpuNoConstraintProvider\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only standard GPU runtime stack with only libGemmaModelConstraintProvider.so excluded by packaging\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "true")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryAlignedNpuProbe") {
@@ -210,6 +235,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("customBuildExperiment") {
@@ -225,6 +251,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
@@ -246,6 +273,7 @@ android {
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
             buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR", "false")
+            buildConfigField("Boolean", "STANDARD_GPU_NO_CONSTRAINT_PROVIDER_FLAVOR", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_FLAVOR", "true")
             buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_PAYLOAD_STAGED", "true")
@@ -307,6 +335,9 @@ android {
         create("standardGpuMinimalRuntimeCandidateDebug") {
             jniLibs.srcDir("src/standardGpuMinimalRuntimeCandidateDebug/jniLibs")
         }
+        create("standardGpuNoConstraintProviderDebug") {
+            jniLibs.srcDir("src/standardGpuNoConstraintProviderDebug/jniLibs")
+        }
         create("galleryAlignedNpuProbeDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
@@ -326,7 +357,7 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment" || it.second == "trueEngineNpuProbe") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "standardGpuMinimalRuntimeCandidate" || it.second == "standardGpuNoConstraintProvider" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment" || it.second == "trueEngineNpuProbe") }) {
             variantBuilder.enable = false
         }
     }
@@ -349,10 +380,14 @@ androidComponents {
                 variant.packaging.jniLibs.excludes.add(pattern)
             }
         }
+        if (variant.buildType == "debug" && flavor == "standardGpuNoConstraintProvider") {
+            variant.packaging.jniLibs.excludes.add("**/libGemmaModelConstraintProvider.so")
+        }
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
             variant.buildType == "debug" && flavor == "trueEngineNpuProbe" -> liteRtLmAndroidTrueEngineNpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
+            variant.buildType == "debug" && flavor == "standardGpuNoConstraintProvider" -> liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion
             variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate" -> liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion
             variant.buildType == "debug" && flavor == "standardGpuRuntimeMinimalProbe" -> liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion
             variant.buildType == "debug" && flavor == "gpuRuntimeAlignmentProbe" -> liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion
@@ -1244,6 +1279,7 @@ dependencies {
     add("gpuRuntimeAlignmentProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion")
     add("standardGpuRuntimeMinimalProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion")
     add("standardGpuMinimalRuntimeCandidateImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuMinimalRuntimeCandidateDebugVersion")
+    add("standardGpuNoConstraintProviderImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion")
     add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     add("trueEngineNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidTrueEngineNpuProbeDebugVersion")

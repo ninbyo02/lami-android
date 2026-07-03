@@ -61,7 +61,7 @@ Subcommands:
 update options:
   --host HOST          ADB connect host (allowed: 10.1.0.2, 10.5.5.3, 192.168.52.52; default: 10.5.5.3)
   --port|-p PORT        ADB connect port (default: 40215)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment, standardGpuMinimalRuntimeCandidate, or standardGpuNoConstraintProvider (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
   --stash               stash dirty worktree before update, then stash pop after update
   --wip                 legacy explicit mode: create local WIP commit before update
@@ -86,7 +86,7 @@ test options:
   --pr N | --commit SHA
   --build               run selected flavor Kotlin compile task (default if neither --build nor --install)
   --install             run selected flavor install task (device required)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment, standardGpuMinimalRuntimeCandidate, or standardGpuNoConstraintProvider (default: standard)
   --clean-install|-c    uninstall selected flavor before install task (requires --install)
   --port|-p PORT        ADB connect port (default: 40215)
   --keep-temp           keep temp branch after test (default: delete)
@@ -104,6 +104,8 @@ Examples:
   ./update.sh update --flavor galleryStackExperiment
   ./update.sh update --flavor galleryAlignedNpuProbe
   ./update.sh update --flavor customBuildExperiment
+  ./update.sh update --flavor gpustandardminimal
+  ./update.sh update --flavor gpunoconstraint
   ./update.sh wip
   ./update.sh stash
   ./update.sh publish -m "docs: update README"
@@ -161,8 +163,10 @@ normalize_android_flavor() {
     galleryStackExperiment|GalleryStackExperiment|gallery|gallery-stack|gallery-stack-experiment|gallerynpu) echo "galleryStackExperiment" ;;
     galleryAlignedNpuProbe|GalleryAlignedNpuProbe|gallery-aligned|gallery-aligned-npu-probe|galleryprobe) echo "galleryAlignedNpuProbe" ;;
     customBuildExperiment|CustomBuildExperiment|custom|custom-build|custom-build-experiment|customnpu) echo "customBuildExperiment" ;;
+    standardGpuMinimalRuntimeCandidate|StandardGpuMinimalRuntimeCandidate|gpu-standard-minimal|standard-gpu-minimal|gpustandardminimal) echo "standardGpuMinimalRuntimeCandidate" ;;
+    standardGpuNoConstraintProvider|StandardGpuNoConstraintProvider|gpunoconstraint|gpu-no-constraint|no-constraint|noConstraintProvider) echo "standardGpuNoConstraintProvider" ;;
     trueEngineNpuProbe|TrueEngineNpuProbe|true-engine|true-engine-npu-probe|trueengineprobe) echo "trueEngineNpuProbe" ;;
-    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, customBuildExperiment, or trueEngineNpuProbe)" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, standardGpuMinimalRuntimeCandidate, standardGpuNoConstraintProvider, customBuildExperiment, or trueEngineNpuProbe)" ;;
   esac
 }
 
@@ -175,6 +179,8 @@ install_task_for_flavor() {
     galleryStackExperiment) echo "installGalleryStackExperimentDebug" ;;
     galleryAlignedNpuProbe) echo "installGalleryAlignedNpuProbeDebug" ;;
     customBuildExperiment) echo "installCustomBuildExperimentDebug" ;;
+    standardGpuMinimalRuntimeCandidate) echo "installStandardGpuMinimalRuntimeCandidateDebug" ;;
+    standardGpuNoConstraintProvider) echo "installStandardGpuNoConstraintProviderDebug" ;;
     trueEngineNpuProbe) echo "installTrueEngineNpuProbeDebug" ;;
   esac
 }
@@ -188,6 +194,8 @@ compile_task_for_flavor() {
     galleryStackExperiment) echo "compileGalleryStackExperimentDebugKotlin" ;;
     galleryAlignedNpuProbe) echo "compileGalleryAlignedNpuProbeDebugKotlin" ;;
     customBuildExperiment) echo "compileCustomBuildExperimentDebugKotlin" ;;
+    standardGpuMinimalRuntimeCandidate) echo "compileStandardGpuMinimalRuntimeCandidateDebugKotlin" ;;
+    standardGpuNoConstraintProvider) echo "compileStandardGpuNoConstraintProviderDebugKotlin" ;;
     trueEngineNpuProbe) echo "compileTrueEngineNpuProbeDebugKotlin" ;;
   esac
 }
@@ -203,6 +211,8 @@ resolve_app_id_for_flavor() {
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
     galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
+    standardGpuMinimalRuntimeCandidate) echo "io.github.ninbyo02.lami.gpustandardminimal" ;;
+    standardGpuNoConstraintProvider) echo "io.github.ninbyo02.lami.gpunoconstraint" ;;
     trueEngineNpuProbe) echo "io.github.ninbyo02.lami.trueengineprobe" ;;
   esac
 }
