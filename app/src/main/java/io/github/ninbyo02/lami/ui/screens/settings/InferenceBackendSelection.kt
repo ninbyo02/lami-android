@@ -42,7 +42,7 @@ enum class InferenceBackendSelection(
         npuStandardRouteMode = NpuStandardRouteMode.OFF,
     ),
     NPU(
-        displayLabel = "NPU プレビュー",
+        displayLabel = "NPU ローカル",
         preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
         npuStandardRouteMode = NpuStandardRouteMode.FULL,
     ),

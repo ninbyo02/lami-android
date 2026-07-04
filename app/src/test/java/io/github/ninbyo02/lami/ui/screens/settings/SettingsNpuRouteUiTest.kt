@@ -4,6 +4,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NPU_STANDARD_ROUTE_MAX_OUTPUT_TOKENS_DATASTORE_KEY
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,7 +55,7 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `user facing backend list exposes NPU as one option`() {
+    fun `user facing backend list exposes promoted local NPU as one option`() {
         assertEquals(
             listOf(
                 InferenceBackendSelection.AUTOMATIC,
@@ -64,7 +65,8 @@ class SettingsNpuRouteUiTest {
             ),
             InferenceBackendSelection.userFacingEntries,
         )
-        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU プレビュー"))
+        assertEquals("NPU ローカル", InferenceBackendSelection.NPU.displayLabel)
+        assertFalse(InferenceBackendSelection.NPU.displayLabel.contains("Beta"))
         assertTrue(InferenceBackendSelection.userFacingEntries.none { isDeveloperNpuPhaseSelection(it) })
     }
 
@@ -229,15 +231,15 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU native max output tokens experiment clamps above 512`() {
-        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(1024)
+    fun `NPU native max output tokens experiment allows up to 4096`() {
+        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(4096)
 
-        assertEquals(1024, resolution.requestedMaxOutputTokens)
-        assertEquals(512, resolution.effectiveMaxOutputTokens)
-        assertEquals(512, resolution.clampLimit)
-        assertTrue(resolution.clamped)
+        assertEquals(4096, resolution.requestedMaxOutputTokens)
+        assertEquals(4096, resolution.effectiveMaxOutputTokens)
+        assertEquals(4096, resolution.clampLimit)
+        assertFalse(resolution.clamped)
         assertEquals(
-            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT,
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE,
             resolution.clampReason,
         )
     }
@@ -251,9 +253,11 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU preview backend description explains accelerated local inference`() {
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU"))
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("ローカル推論"))
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("GPU/CPU"))
+    fun `NPU local backend description explains promoted standard route and model requirement`() {
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU ローカル"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("UI・TTS・DB保存・Markdown"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("擬似Streaming"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("モデル未読込時"))
+        assertFalse(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("Beta"))
     }
 }

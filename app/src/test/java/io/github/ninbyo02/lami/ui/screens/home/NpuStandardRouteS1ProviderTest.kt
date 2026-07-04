@@ -288,7 +288,7 @@ class NpuStandardRouteS1ProviderTest {
     @Test
     fun `real provider clamps native max output tokens to native limit`() {
         val cases = listOf(
-            4096 to 512,
+            4096 to 4096,
             512 to 512,
             128 to 128,
             32 to 32,
@@ -333,7 +333,7 @@ class NpuStandardRouteS1ProviderTest {
                 timeout = false,
                 freshCrash = false,
                 requestedMaxOutputTokens = 4096,
-                effectiveMaxOutputTokens = 512,
+                effectiveMaxOutputTokens = 4096,
             ),
         )
 
@@ -352,13 +352,13 @@ class NpuStandardRouteS1ProviderTest {
 
         listOf(compact, fullDump, trace).forEach { text ->
             assertTrue(text.contains("requested_max_output_tokens=4096"))
-            assertTrue(text.contains("effective_max_output_tokens=512"))
-            assertTrue(text.contains("max_output_tokens_clamped=true"))
-            assertTrue(text.contains("max_output_tokens_clamp_limit=512"))
-            assertTrue(text.contains("max_output_tokens_clamp_reason=native_limit"))
+            assertTrue(text.contains("effective_max_output_tokens=4096"))
+            assertTrue(text.contains("max_output_tokens_clamped=false"))
+            assertTrue(text.contains("max_output_tokens_clamp_limit=4096"))
+            assertTrue(text.contains("max_output_tokens_clamp_reason=none"))
             assertTrue(text.contains("app_requested_max_output_tokens=4096"))
-            assertTrue(text.contains("native_requested_max_output_tokens=512"))
-            assertTrue(text.contains("native_effective_max_output_tokens=512"))
+            assertTrue(text.contains("native_requested_max_output_tokens=4096"))
+            assertTrue(text.contains("native_effective_max_output_tokens=4096"))
         }
     }
 
@@ -862,14 +862,14 @@ class NpuStandardRouteS1ProviderTest {
         listOf(compact, fullDump, trace, copyText).forEach { text ->
             assertTrue(text.contains("npu_standard_route_rollout_gate_enabled=true"))
             assertTrue(text.contains("npu_standard_route_selection_mode=user_facing_npu_experimental"))
-            assertTrue(text.contains("npu_standard_route_user_facing_backend=NPU プレビュー"))
+            assertTrue(text.contains("npu_standard_route_user_facing_backend=NPU ローカル"))
             assertTrue(text.contains("npu_standard_route_completed_phase_default=8"))
             assertTrue(text.contains("npu_standard_route_completed_route_selected=true"))
             assertTrue(text.contains("npu_standard_route_developer_phase_override=false"))
             assertTrue(text.contains("npu_standard_route_completed_route_block_reason=none"))
             assertTrue(text.contains("npu_standard_route_effective_phase_source=completed_route_default"))
             assertTrue(text.contains("npu_standard_route_effective_phase=8"))
-            assertTrue(text.contains("npu_standard_route_user_facing_selected_backend=NPU プレビュー"))
+            assertTrue(text.contains("npu_standard_route_user_facing_selected_backend=NPU ローカル"))
             assertTrue(text.contains("npu_standard_route_completed_route_family=npu_standard_route_completed"))
             assertTrue(text.contains("npu_standard_route_internal_legacy_backend=NPU_S5"))
             assertTrue(text.contains("npu_standard_route_internal_legacy_route_family=npu_s5"))
@@ -932,7 +932,7 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `S1 completed route diagnostics allow phase8 delivery without dev gate for NPU プレビュー`() {
+    fun `S1 completed route diagnostics allow phase8 delivery without dev gate for NPU ローカル`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
                 status = "success",

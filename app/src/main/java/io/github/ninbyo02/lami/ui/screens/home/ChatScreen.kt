@@ -1311,9 +1311,9 @@ fun Home(
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
                     message = if (startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU) {
-                        "NPU Beta Stability Test は NPU Beta / NPU standard route 選択時のみ実行可能"
+                        "NPU ローカル Stability Test は NPU ローカル / NPU standard route 選択時のみ実行可能"
                     } else {
-                        "NPU Beta Stability Test safety policy により実行できません"
+                        "NPU ローカル Stability Test safety policy により実行できません"
                     },
                     duration = SnackbarDuration.Short,
                 )
@@ -1730,7 +1730,7 @@ fun Home(
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
-                    message = "NPU Beta Long Generation Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                    message = "NPU ローカル Long Generation Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -1881,7 +1881,7 @@ fun Home(
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
-                    message = "NPU Non-Streaming Repeat Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                    message = "NPU Non-Streaming Repeat Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -13056,7 +13056,7 @@ private fun NpuS1RepeatedRunDevSection(
     val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
     val controlsEnabled = !running && !blockedByGeneration
     val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = "NPU Beta Stability Test") {
+    InferenceStatsSection(title = "NPU ローカル Stability Test") {
         Text(
             text = "selected_backend=${backendDiagnostics.selectedBackend} " +
                 "requested_backend=${backendDiagnostics.requestedBackend} " +
@@ -13067,7 +13067,7 @@ private fun NpuS1RepeatedRunDevSection(
         )
         if (blockedByBackend) {
             Text(
-                text = "NPU Beta Stability Test は NPU Beta / NPU standard route 選択時のみ実行可能",
+                text = "NPU ローカル Stability Test は NPU ローカル / NPU standard route 選択時のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -13156,7 +13156,7 @@ private fun NpuS1RepeatedRunDevSection(
                 onClick = onStart,
                 enabled = startEnabled,
             ) {
-                Text("NPU Beta安定性テスト開始")
+                Text("NPU ローカル安定性テスト開始")
             }
             TextButton(
                 onClick = onCancel,
@@ -13192,7 +13192,7 @@ private fun NpuS1RepeatedRunDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InferenceStatRow(
-            label = "NPU Beta Stability Test",
+            label = "NPU ローカル Stability Test",
             value = formatNpuS1RepeatedRunDiagnosticsForDev(state),
         )
     }
@@ -13222,7 +13222,7 @@ private fun NpuLongGenerationDevSection(
     )
     val controlsEnabled = !running && !blockedByGeneration
     val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = "NPU Beta Long Generation Test") {
+    InferenceStatsSection(title = "NPU ローカル Long Generation Test") {
         Text(
             text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
             style = MaterialTheme.typography.bodySmall,
@@ -13235,7 +13235,7 @@ private fun NpuLongGenerationDevSection(
         )
         if (!startGate.allowed) {
             Text(
-                text = "NPU Beta Long Generation Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                text = "NPU ローカル Long Generation Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -13248,7 +13248,7 @@ private fun NpuLongGenerationDevSection(
                 onClick = onStart,
                 enabled = startEnabled,
             ) {
-                Text("NPU Beta長文生成テスト開始")
+                Text("NPU ローカル長文生成テスト開始")
             }
             TextButton(
                 onClick = onCancel,
@@ -13284,7 +13284,7 @@ private fun NpuLongGenerationDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InferenceStatRow(
-            label = "NPU Beta Long Generation Test",
+            label = "NPU ローカル Long Generation Test",
             value = formatNpuLongGenerationDiagnosticsForDev(state),
         )
     }
@@ -13329,7 +13329,7 @@ private fun NpuNonStreamingRepeatedStabilityDevSection(
         )
         if (!startGate.allowed) {
             Text(
-                text = "NPU Non-Streaming Repeat Test は NPU Beta / DEV NPU 選択時のみ実行可能",
+                text = "NPU Non-Streaming Repeat Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -13392,12 +13392,12 @@ private fun NpuBetaDevPrimaryIntroSection(
 ) {
     InferenceStatsSection(title = "DEV診断 Primary") {
         Text(
-            text = "Safe entry points for NPU Beta validation.",
+            text = "Safe entry points for NPU ローカル validation.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "Recommended order: 1. NPU Beta Stability Test 2. NPU Persistent Probe状態確認 3. NPU Beta Long Generation Test",
+            text = "Recommended order: 1. NPU ローカル Stability Test 2. NPU Persistent Probe状態確認 3. NPU ローカル Long Generation Test",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

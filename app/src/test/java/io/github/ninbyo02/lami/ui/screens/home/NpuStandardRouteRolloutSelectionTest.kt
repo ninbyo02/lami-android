@@ -7,7 +7,7 @@ import org.junit.Test
 
 class NpuStandardRouteRolloutSelectionTest {
     @Test
-    fun `NPU プレビュー maps to completed phase8 when dev gate is enabled`() {
+    fun `NPU ローカル maps to completed phase8 when dev gate is enabled`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -19,7 +19,7 @@ class NpuStandardRouteRolloutSelectionTest {
 
         assertEquals(true, selection.rolloutGateEnabled)
         assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
-        assertEquals("NPU プレビュー", selection.userFacingBackend)
+        assertEquals("NPU ローカル", selection.userFacingBackend)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_8, selection.completedPhaseDefault)
         assertEquals(true, selection.completedRouteSelected)
         assertEquals(false, selection.developerPhaseOverride)
@@ -53,7 +53,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `NPU プレビュー maps to completed phase8 when dev gate is disabled`() {
+    fun `NPU ローカル maps to completed phase8 when dev gate is disabled`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -77,7 +77,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `completed route kill switch blocks NPU プレビュー without changing local backends`() {
+    fun `completed route kill switch blocks NPU ローカル without changing local backends`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -144,7 +144,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `rollout diagnostics keys are emitted for NPU プレビュー selection`() {
+    fun `rollout diagnostics keys are emitted for NPU ローカル selection`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -170,7 +170,7 @@ class NpuStandardRouteRolloutSelectionTest {
         assertEquals("enabled", diagnostics["npu_standard_route_completed_route_rollout_state"])
         assertEquals("completed_route_default", diagnostics["npu_standard_route_effective_phase_source"])
         assertEquals("8", diagnostics["npu_standard_route_effective_phase"])
-        assertEquals("NPU プレビュー", diagnostics["npu_standard_route_user_facing_selected_backend"])
+        assertEquals("NPU ローカル", diagnostics["npu_standard_route_user_facing_selected_backend"])
         assertEquals(
             "npu_standard_route_completed",
             diagnostics["npu_standard_route_completed_route_family"],
@@ -202,7 +202,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `legacy unspecified full setting is inferred as user facing NPU プレビュー when phase zero clears override`() {
+    fun `legacy unspecified full setting is inferred as user facing NPU ローカル when phase zero clears override`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
@@ -217,7 +217,7 @@ class NpuStandardRouteRolloutSelectionTest {
         )
 
         assertEquals(NPU_STANDARD_ROUTE_SELECTION_MODE_USER_FACING, selection.selectionMode)
-        assertEquals("NPU プレビュー", selection.userFacingBackend)
+        assertEquals("NPU ローカル", selection.userFacingBackend)
         assertEquals(false, selection.developerPhaseOverride)
         assertEquals(true, selection.completedRouteSelected)
         assertEquals(NPU_STANDARD_ROUTE_PHASE_SOURCE_COMPLETED_ROUTE_DEFAULT, selection.effectivePhaseSource)
@@ -227,7 +227,7 @@ class NpuStandardRouteRolloutSelectionTest {
     }
 
     @Test
-    fun `explicit phase8 remains developer override even for NPU プレビュー`() {
+    fun `explicit phase8 remains developer override even for NPU ローカル`() {
         val selection = resolveNpuStandardRouteRolloutSelection(
             preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
             npuStandardRouteMode = NpuStandardRouteMode.FULL,
