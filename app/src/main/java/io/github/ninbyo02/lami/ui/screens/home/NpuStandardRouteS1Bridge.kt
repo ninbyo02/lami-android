@@ -31,6 +31,7 @@ internal class NpuStandardRouteS1Bridge(
         return NpuStandardRouteS1Mapper.map(
             rawResult.copy(
                 npuS1DecodeMs = rawResult.npuS1DecodeMs ?: decodeMs,
+                inputPrompt = rawResult.inputPrompt.ifBlank { userPrompt },
             ),
         )
     }
