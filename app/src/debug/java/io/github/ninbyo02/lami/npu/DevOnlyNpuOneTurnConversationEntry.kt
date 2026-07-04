@@ -131,10 +131,10 @@ object DevOnlyNpuOneTurnConversationContract {
         )
 
     fun sanitizeMaxOutputTokens(requestedMaxOutputTokens: Int): Int =
-        if (requestedMaxOutputTokens == COMPARE_MAX_OUTPUT_TOKENS) {
-            COMPARE_MAX_OUTPUT_TOKENS
-        } else {
-            DEFAULT_MAX_OUTPUT_TOKENS
+        when (requestedMaxOutputTokens) {
+            16, 32, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 ->
+                requestedMaxOutputTokens
+            else -> DEFAULT_MAX_OUTPUT_TOKENS
         }
 
     fun sanitizePromptTailVariant(requestedPromptTailVariant: String?): String =

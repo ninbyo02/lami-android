@@ -147,6 +147,12 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                         DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
                         true,
                     ),
+                    maxOutputTokens = DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(
+                        intent.getIntExtra(
+                            DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
+                            DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+                        ),
+                    ),
                     promptTailVariant = DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
                         intent.getStringExtra(
                             DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT,
