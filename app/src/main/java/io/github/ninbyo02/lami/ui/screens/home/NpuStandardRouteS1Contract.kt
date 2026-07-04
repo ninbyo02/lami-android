@@ -119,21 +119,37 @@ internal data class NpuStandardRouteS1Result(
         get() = outputQualityCandidate.reason
 
     val preparedOutput: String
-        get() = outputQualityCandidate.preparedOutput
+        get() = stripLeadingPromptEchoForDisplay(outputQualityCandidate.preparedOutput)
 
     val usableDisplayOutput: String
         get() = preparedOutput
-            .ifBlank { sanitizedOutput }
-            .ifBlank { rawOutput.trim() }
+            .ifBlank { stripLeadingPromptEchoForDisplay(sanitizedOutput) }
+            .ifBlank { stripLeadingPromptEchoForDisplay(rawOutput.trim()) }
 
     val actualDisplayText: String
-        get() = usableDisplayOutput
+        get() = stripLeadingPromptEchoForDisplay(usableDisplayOutput)
 
     val ttsText: String
         get() = NpuStandardRouteS1Contract.ttsTextForOutput(
             userPrompt = inputPrompt,
             actualDisplayText = actualDisplayText,
         )
+
+    private fun stripLeadingPromptEchoForDisplay(text: String): String {
+        val prompt = inputPrompt.trim()
+        if (prompt.isBlank() || text.isBlank()) return text
+        val lines = text.lines()
+        val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
+        if (firstMeaningfulIndex < 0) return text
+        val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
+        if (firstMeaningfulLine != prompt) return text
+        val remainingLines = lines.drop(firstMeaningfulIndex + 1)
+        if (remainingLines.none { it.trim().isNotEmpty() }) return text
+        return remainingLines
+            .dropWhile { it.trim().isEmpty() }
+            .joinToString("\n")
+            .trim()
+    }
 
     val successCriteriaMet: Boolean
         get() {
