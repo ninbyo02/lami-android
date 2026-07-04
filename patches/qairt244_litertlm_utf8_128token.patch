@@ -388,8 +388,8 @@ index c6db59ff..56218bbd 100644
 +  std::fprintf(file, "prompt_bytes=%zu\n", normalized_prompt.size());
 +  std::fprintf(file, "prompt_token_count=unavailable\n");
 +  std::fprintf(file, "prompt_token_count_source=not_exposed_by_lower_level_entrypoint\n");
-+  std::fprintf(file, "max_output_tokens=2048\n");
-+  std::fprintf(file, "native_max_output_tokens_limit=2048\n");
++  std::fprintf(file, "max_output_tokens=4096\n");
++  std::fprintf(file, "native_max_output_tokens_limit=4096\n");
 +  std::fprintf(file, "conversation_created=no\n");
 +  std::fprintf(file, "generate_response=no\n");
 +  std::fprintf(file, "normal_ui_connected=no\n");
@@ -1299,14 +1299,14 @@ index c6db59ff..56218bbd 100644
 +    return NewStringStandardUTF(env, "");
 +  }
 +
-+  if (max_output_tokens < 1 || max_output_tokens > 2048) {
++  if (max_output_tokens < 1 || max_output_tokens > 4096) {
 +    const long elapsed_ms =
 +        absl::ToInt64Milliseconds(absl::Now() - start_time);
 +    GetOptionalJString(env, result_path, &result_path_str,
 +                       diag_path_str.c_str(), "result_path",
 +                       kQairt244EditablePromptMarker);
 +    AppendQairt244Diag(diag_path_str.c_str(),
-+                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=2048",
++                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=4096",
 +                       kQairt244EditablePromptMarker, max_output_tokens);
 +    WriteQairt244EditablePromptResult(
 +        result_path_str, "failure", "invalid_max_output_tokens",
