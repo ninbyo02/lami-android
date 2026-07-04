@@ -138,13 +138,18 @@ internal data class NpuStandardRouteS1Result(
     private fun stripLeadingPromptEchoForDisplay(text: String): String {
         val prompt = inputPrompt.trim()
         if (prompt.isBlank() || text.isBlank()) return text
-        val lines = text.lines()
+        val normalizedText = text
+            .replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+        val lines = normalizedText.lines()
         val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
-        if (firstMeaningfulIndex < 0) return text
+        if (firstMeaningfulIndex < 0) return normalizedText
         val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
-        if (firstMeaningfulLine != prompt) return text
+        if (firstMeaningfulLine != prompt) return normalizedText
         val remainingLines = lines.drop(firstMeaningfulIndex + 1)
-        if (remainingLines.none { it.trim().isNotEmpty() }) return text
+        if (remainingLines.none { it.trim().isNotEmpty() }) return normalizedText
         return remainingLines
             .dropWhile { it.trim().isEmpty() }
             .joinToString("\n")
