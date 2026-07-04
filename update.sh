@@ -1103,7 +1103,7 @@ cmd_test() {
   if [[ "$do_install" -eq 1 ]]; then
     require_cmd adb
     local device_count
-    device_count="$(adb_connect_and_count "$port")"
+    device_count="$(adb_connect_and_count "$phone_host" "$port")"
     [[ "$device_count" -ge 1 ]] || die "No device detected for install test."
     do_clean_uninstall_if_requested "$clean" "$flavor"
     info "Running $(install_task_for_flavor "$flavor")..."
@@ -1129,6 +1129,7 @@ cmd_test() {
 
 # Install current branch "as-is" (no pull), for UI verification.
 cmd_here_install() {
+  local phone_host="$DEFAULT_PHONE_HOST"
   local port="$DEFAULT_PORT"
   local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
@@ -1137,6 +1138,7 @@ cmd_here_install() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --host) phone_host="$(validate_phone_host "${2:?Missing host}")"; shift 2 ;;
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
       --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
@@ -1177,7 +1179,7 @@ cmd_here_install() {
 
   require_cmd adb
   local device_count
-  device_count="$(adb_connect_and_count "$port")"
+  device_count="$(adb_connect_and_count "$phone_host" "$port")"
   [[ "$device_count" -ge 1 ]] || die "No device detected for install."
 
   do_clean_uninstall_if_requested "$clean" "$flavor"
@@ -1265,7 +1267,7 @@ cmd_promote() {
   if [[ "$do_install" -eq 1 ]]; then
     require_cmd adb
     local device_count
-    device_count="$(adb_connect_and_count "$port")"
+    device_count="$(adb_connect_and_count "$phone_host" "$port")"
     [[ "$device_count" -ge 1 ]] || die "No device detected for install."
     do_clean_uninstall_if_requested "$clean" "$flavor"
     info "Installing stable build from $base with $(install_task_for_flavor "$flavor")..."
