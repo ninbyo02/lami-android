@@ -306,6 +306,14 @@ safe command recipes:
       scripts/stage_litert_custom_build_stack_for_experiment.sh
       update.sh
     commit: fix: update NPU fallback build control
+
+  chat-ui-local-send
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AssistantTtsText.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest.kt
+    commit: fix: improve local chat send feedback
 EOF
 }
 
@@ -323,6 +331,11 @@ run_git_commit_safe_recipe() {
       git add scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
       allowed_regex='^(scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
       message="fix: update NPU fallback build control"
+      ;;
+    chat-ui-local-send)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AssistantTtsText.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AssistantTtsText\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest\.kt)$'
+      message="fix: improve local chat send feedback"
       ;;
     *) fail ;;
   esac
