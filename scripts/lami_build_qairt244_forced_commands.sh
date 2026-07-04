@@ -858,6 +858,109 @@ lami_qairt244_repeat_stability() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+
+lami_qairt244_validate_probe_tokens() {
+  local tokens="$1"
+  case "$tokens" in
+    16|32|128|256|512|1024|2048|4096|8192|16384|32768)
+      printf '%s\n' "$tokens" ;;
+    *) lami_qairt244_fail ;;
+  esac
+}
+
+lami_qairt244_validate_model_hint() {
+  local hint="${1:-current}"
+  case "$hint" in
+    current|e2b|e4b)
+      printf '%s\n' "$hint" ;;
+    *) lami_qairt244_fail ;;
+  esac
+}
+
+lami_qairt244_token_limit_probe() {
+  local requested_tokens model_hint
+  requested_tokens="$(lami_qairt244_validate_probe_tokens "$1")"
+  model_hint="$(lami_qairt244_validate_model_hint "${2:-current}")"
+  cd "$REPO"
+  mkdir -p "$LOG_DIR"
+  local timestamp out_dir log_file package action result_file serial receiver_component
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  out_dir="$REPO/artifacts/qairt244_token_limit_probe/$timestamp"
+  log_file="$LOG_DIR/qairt244-token-limit-probe-${timestamp}-${requested_tokens}-${model_hint}.log"
+  mkdir -p "$out_dir"
+  package="io.github.ninbyo02.lami"
+  action="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
+  result_file="dev_only_npu_one_turn_conversation_result.txt"
+  serial="$(lami_qairt244_choose_adb_device)"
+  receiver_component="$package/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
+  {
+    echo "== LAMI qairt244 token limit probe =="
+    echo "time=$(date -Is)"
+    echo "repo_head=$(git rev-parse --short HEAD)"
+    echo "device=$serial"
+    echo "package=$package"
+    echo "requested_probe_tokens=$requested_tokens"
+    echo "model_hint=$model_hint"
+    echo "route_type=dev_only_one_turn_conversation_token_limit_probe"
+    adb -s "$serial" logcat -c >/dev/null 2>&1 || true
+    adb -s "$serial" shell am force-stop "$package" >/dev/null 2>&1 || true
+    sleep 1
+    adb -s "$serial" shell monkey -p "$package" -c android.intent.category.LAUNCHER 1 >"$out_dir/preflight_start.txt" 2>&1 || true
+    sleep 2
+    adb -s "$serial" shell dumpsys package "$package" | grep -E 'DevOnlyNpuOneTurnConversationReceiver|DEV_ONLY_NPU_ONE_TURN_CONVERSATION' >"$out_dir/receiver_manifest_check.txt" 2>&1 || true
+    sed 's/^/receiver_manifest_check: /' "$out_dir/receiver_manifest_check.txt" || true
+    adb -s "$serial" shell run-as "$package" rm -f "files/$result_file" files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt >/dev/null 2>&1 || true
+    adb -s "$serial" shell am broadcast \
+      -a "$action" \
+      -p "$package" \
+      -n "$receiver_component" \
+      --es user_prompt "こんにちは" \
+      --ei max_output_tokens "$requested_tokens" \
+      --ez unsafe_dev_bypass_prompt_length_gate true \
+      --es prompt_tail_variant gemma_it_user_model \
+      >"$out_dir/broadcast.txt" 2>&1 || true
+    sed 's/^/broadcast: /' "$out_dir/broadcast.txt" || true
+    local waited=0 status
+    while [[ "$waited" -lt 120 ]]; do
+      adb -s "$serial" exec-out run-as "$package" cat "files/$result_file" >"$out_dir/result.txt" 2>"$out_dir/result.err" || true
+      status="$(lami_qairt244_result_value "$out_dir/result.txt" status)"
+      if [[ "$status" == "success" || "$status" == "failure" ]]; then
+        break
+      fi
+      sleep 1
+      waited=$((waited + 1))
+    done
+    echo "waited_seconds=$waited"
+    adb -s "$serial" exec-out run-as "$package" cat files/qairt244_short_multitoken_smoke_result.txt >"$out_dir/native_result.txt" 2>"$out_dir/native_result.err" || true
+    adb -s "$serial" exec-out run-as "$package" cat files/qairt244_native_diag.txt >"$out_dir/native_diag.txt" 2>"$out_dir/native_diag.err" || true
+    adb -s "$serial" shell dumpsys meminfo "$package" >"$out_dir/meminfo_after.txt" 2>&1 || true
+    local result success reason requested effective limit decode fallback timeout fresh_crash native_tail
+    result="$(lami_qairt244_result_value "$out_dir/result.txt" result)"
+    success="$(lami_qairt244_result_value "$out_dir/result.txt" success)"
+    reason="$(lami_qairt244_result_value "$out_dir/result.txt" reason)"
+    requested="$(lami_qairt244_result_value "$out_dir/result.txt" requested_max_output_tokens)"
+    effective="$(lami_qairt244_result_value "$out_dir/result.txt" effective_max_output_tokens)"
+    limit="$(lami_qairt244_result_value "$out_dir/result.txt" native_max_output_tokens_limit)"
+    decode="$(lami_qairt244_result_value "$out_dir/result.txt" run_decode_reached)"
+    fallback="$(lami_qairt244_result_value "$out_dir/result.txt" fallback_used)"
+    timeout="$(lami_qairt244_result_value "$out_dir/result.txt" timeout)"
+    fresh_crash="$(lami_qairt244_result_value "$out_dir/result.txt" fresh_crash)"
+    native_tail="$(tail -20 "$out_dir/native_diag.txt" 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+    printf 'result=%s success=%s reason=%s requested=%s effective=%s native_limit=%s decode=%s fallback=%s timeout=%s fresh_crash=%s model_hint=%s artifact=%s\n' \
+      "${result:-missing}" "${success:-missing}" "${reason:-unavailable}" \
+      "${requested:-unavailable}" "${effective:-unavailable}" "${limit:-unavailable}" \
+      "${decode:-missing}" "${fallback:-missing}" "${timeout:-missing}" "${fresh_crash:-missing}" \
+      "$model_hint" "${out_dir#$REPO/}"
+    echo "native_diag_tail=$native_tail"
+    if [[ "$success" != "true" || "$decode" != "true" || "$fallback" == "true" || "$timeout" == "true" || "$fresh_crash" == "true" ]]; then
+      echo "== TOKEN LIMIT PROBE FAILED =="
+      exit 65
+    fi
+    echo "== TOKEN LIMIT PROBE OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 # Optional helper for parent controllers that want a single dispatch call.
 # Returns:
 #   0: handled
@@ -889,6 +992,12 @@ lami_qairt244_dispatch() {
       lami_qairt244_repeat_stability
       return 0
       ;;
+    qairt244-token-limit-probe*)
+      parts=($command)
+      [[ "${#parts[@]}" -ge 2 && "${#parts[@]}" -le 3 ]] || lami_qairt244_fail
+      lami_qairt244_token_limit_probe "${parts[1]}" "${parts[2]:-current}"
+      return 0
+      ;;
   esac
   return 1
 }
@@ -900,5 +1009,6 @@ lami_qairt244_help() {
   build-qairt244-custom-jni
   qairt244-sdk-status
   qairt244-repeat-stability
+  qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
 EOF
 }
