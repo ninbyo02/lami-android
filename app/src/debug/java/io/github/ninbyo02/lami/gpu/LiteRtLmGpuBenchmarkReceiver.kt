@@ -1164,7 +1164,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             ?: return DEFAULT_MAX_OUTPUT_TOKENS
         return raw.split(",")
             .mapNotNull { it.trim().toIntOrNull() }
-            .filter { it in 1..512 }
+            .filter { it in GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST }
             .distinct()
             .takeIf { it.isNotEmpty() }
             ?: DEFAULT_MAX_OUTPUT_TOKENS
@@ -1510,6 +1510,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             "カレーの材料を箇条書きで教えて",
         )
         private val DEFAULT_MAX_OUTPUT_TOKENS = listOf(32, 64, 128, 256)
+        private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768)
         private val FINISH_REASON_METHODS = listOf("getFinishReason", "finishReason", "getDoneReason", "doneReason")
         private val STOP_REASON_METHODS = listOf("getStopReason", "stopReason", "getStop", "stop")
         private val running = AtomicBoolean(false)
