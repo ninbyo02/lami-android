@@ -603,10 +603,14 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val arithmeticPrompt = isNpuS1ArithmeticPrompt(inputPrompt)
     val trimmedStart = cleanupSource.trimStart()
     val preparedBase = trimmedStart.removePrefix(">").trimStart().trimEnd()
+    val preparedWithoutPromptEcho = removeNpuS1LeadingPromptEcho(
+        text = preparedBase,
+        inputPrompt = inputPrompt,
+    )
     val prepared = if (arithmeticPrompt) {
-        extractNpuS1ArithmeticPreparedAnswer(preparedBase)
+        extractNpuS1ArithmeticPreparedAnswer(preparedWithoutPromptEcho)
     } else {
-        preparedBase
+        preparedWithoutPromptEcho
     }
     val leadingGreaterThanRemoved = cleanupRaw.trimStart().startsWith(">") || trimmedStart.startsWith(">")
     val endOfTurnRemoved = hasSafeNpuS1EndOfTurnVariant(rawOutput) ||
@@ -740,6 +744,25 @@ private fun isNpuS1PromptRepetitionOnly(
     return normalizedPrompt.isNotBlank() &&
         normalizedOutput.isNotBlank() &&
         normalizedOutput == normalizedPrompt
+}
+
+private fun removeNpuS1LeadingPromptEcho(
+    text: String,
+    inputPrompt: String,
+): String {
+    val normalizedPrompt = normalizeNpuS1QualityComparisonText(inputPrompt)
+    if (normalizedPrompt.isBlank() || text.isBlank()) return text
+    val lines = text.lines()
+    val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
+    if (firstMeaningfulIndex < 0) return text
+    val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
+    if (normalizeNpuS1QualityComparisonText(firstMeaningfulLine) != normalizedPrompt) return text
+    val remainingLines = lines.drop(firstMeaningfulIndex + 1)
+    if (remainingLines.none { it.trim().isNotEmpty() }) return text
+    return remainingLines
+        .dropWhile { it.trim().isEmpty() }
+        .joinToString("\n")
+        .trim()
 }
 
 private fun isNpuS1ArithmeticPrompt(prompt: String): Boolean =
