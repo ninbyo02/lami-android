@@ -129,7 +129,14 @@ internal object Qairt244NpuOutputSanitizer {
         val sanitizedBeforeJapaneseSpaceNormalization = keptLines
             .joinToString("\n")
             .trim()
-        val sanitized = normalizeJapaneseInternalSpaces(sanitizedBeforeJapaneseSpaceNormalization)
+        val withoutLeadingPromptEcho = stripLeadingPromptEcho(
+            value = sanitizedBeforeJapaneseSpaceNormalization,
+            prompt = promptEcho,
+        )
+        if (withoutLeadingPromptEcho != sanitizedBeforeJapaneseSpaceNormalization) {
+            removedPromptEcho = true
+        }
+        val sanitized = normalizeJapaneseInternalSpaces(withoutLeadingPromptEcho)
         val sanitizerApplied = sanitized != rawOutput ||
             removedTemplateTokenCount > 0 ||
             removedPromptEcho ||
@@ -147,6 +154,21 @@ internal object Qairt244NpuOutputSanitizer {
 
     private fun isCodeFence(line: String): Boolean =
         codeFencePattern.matches(line.trim())
+
+    private fun stripLeadingPromptEcho(value: String, prompt: String): String {
+        if (prompt.isEmpty() || value.isBlank()) return value
+        val lines = value.lines()
+        val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
+        if (firstMeaningfulIndex < 0) return value
+        val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
+        if (!isPromptEcho(firstMeaningfulLine, prompt)) return value
+        val remainingLines = lines.drop(firstMeaningfulIndex + 1)
+        if (remainingLines.none { it.trim().isNotEmpty() }) return value
+        return remainingLines
+            .dropWhile { it.trim().isEmpty() }
+            .joinToString("\n")
+            .trim()
+    }
 
     fun normalizeJapaneseInternalSpaces(value: String): String {
         if (' ' !in value) return value
