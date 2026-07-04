@@ -287,6 +287,56 @@ run_logcat() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+
+safe_command_recipes() {
+  cat <<'EOF'
+safe command recipes:
+  npu-token-limit
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRoutePreferences.kt
+      patches/qairt244_litertlm_utf8_128token.patch
+    commit: debug: raise NPU native max output tokens limit
+
+  forced-command-control
+    files:
+      scripts/lami_build_remote_control_full.sh
+      scripts/lami_build_remote_control_limited_adb.sh
+      scripts/lami_build_qairt244_forced_commands.sh
+      scripts/build_litert_custom_artifacts.sh
+      scripts/stage_litert_custom_build_stack_for_experiment.sh
+      update.sh
+    commit: fix: update NPU fallback build control
+EOF
+}
+
+run_git_commit_safe_recipe() {
+  local recipe="$1"
+  local message allowed_regex
+  cd "$REPO"
+  case "$recipe" in
+    npu-token-limit)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRoutePreferences.kt patches/qairt244_litertlm_utf8_128token.patch
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRoutePreferences\.kt|patches/qairt244_litertlm_utf8_128token\.patch)$'
+      message="debug: raise NPU native max output tokens limit"
+      ;;
+    forced-command-control)
+      git add scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
+      allowed_regex='^(scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
+      message="fix: update NPU fallback build control"
+      ;;
+    *) fail ;;
+  esac
+  if git diff --cached --quiet; then
+    echo "no staged changes for safe recipe: $recipe" >&2
+    exit 65
+  fi
+  if git diff --cached --name-only | grep -Ev "$allowed_regex"; then
+    echo "safe recipe staged files outside allowlist: $recipe" >&2
+    exit 65
+  fi
+  git commit -m "$message"
+}
+
 case "$CMD" in
   status)
     print_status ;;
@@ -338,6 +388,10 @@ case "$CMD" in
     git diff --cached --name-only | grep -Ex \
       'app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRoutePreferences\.kt|patches/qairt244_litertlm_utf8_128token\.patch' >/dev/null || fail
     git commit -m "debug: raise NPU native max output tokens limit" ;;
+  safe-command-recipes)
+    safe_command_recipes ;;
+  git-commit-safe-recipe\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_safe_recipe "${parts[1]}" ;;
   install-future\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   help)
