@@ -59,7 +59,7 @@ internal class NpuStandardRoutePreferences(
         const val DEFAULT_MAX_OUTPUT_TOKENS = 128
         const val MIN_MAX_OUTPUT_TOKENS = 1
         const val MAX_MAX_OUTPUT_TOKENS = 4096
-        const val NATIVE_MAX_OUTPUT_TOKENS_LIMIT = 512
+        const val NATIVE_MAX_OUTPUT_TOKENS_LIMIT = 1024
         const val MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT = "native_limit"
         const val MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE = "none"
 
