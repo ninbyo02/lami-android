@@ -1053,10 +1053,10 @@ lami_qairt244_litert_gpu_token_probe() {
   local model_path_arg=()
   case "$model_source" in
     generic)
-      model_path_arg=(--model-path "/data/user/0/io.github.ninbyo02.lami.gpunoconstraint/files/local_models/gemma-4-E2B-it.litertlm")
+      model_path_arg=(--model-path-source generic_fallback)
       ;;
     qualcomm)
-      model_path_arg=(--model-path-source generic_fallback)
+      model_path_arg=()
       ;;
     auto|current)
       ;;
