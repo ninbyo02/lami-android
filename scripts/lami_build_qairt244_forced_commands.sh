@@ -1032,6 +1032,61 @@ lami_qairt244_litert_gpu_benchmark_artifact_from_command() {
   esac
 }
 
+lami_qairt244_litert_gpu_token_probe() {
+  local requested_tokens="$1"
+  local backend_variant="${2:-gpu}"
+  local model_source="${3:-auto}"
+  case "$requested_tokens" in
+    16|32|64|128|256|512|1024|2048|4096|8192|16384|32768) ;;
+    *) lami_qairt244_fail ;;
+  esac
+  case "$backend_variant" in
+    gpu|cpu|default|automatic|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity) ;;
+    *) lami_qairt244_fail ;;
+  esac
+  case "$model_source" in
+    auto|current|generic|qualcomm) ;;
+    *) lami_qairt244_fail ;;
+  esac
+
+  cd "$REPO"
+  local model_path_arg=()
+  case "$model_source" in
+    generic)
+      model_path_arg=(--model-path "/data/user/0/io.github.ninbyo02.lami.gpunoconstraint/files/local_models/gemma-4-E2B-it.litertlm")
+      ;;
+    qualcomm)
+      model_path_arg=(--model-path-source generic_fallback)
+      ;;
+    auto|current)
+      ;;
+  esac
+  echo "gpu_probe_tokens=$requested_tokens"
+  echo "gpu_probe_backend=$backend_variant"
+  echo "gpu_probe_model_source=$model_source"
+  scripts/run_litert_lm_gpu_benchmark.sh \
+    --app-id io.github.ninbyo02.lami.gpunoconstraint \
+    --assemble-task :app:assembleStandardGpuNoConstraintProviderDebug \
+    --apk app/build/outputs/apk/standardGpuNoConstraintProvider/debug/app-standardGpuNoConstraintProvider-debug.apk \
+    --device "${LAMI_GPU_PROBE_DEVICE:-192.168.52.52:36089}" \
+    --backend "$backend_variant" \
+    --phase send-message \
+    "${model_path_arg[@]}" \
+    --prompts 'こんにちは' \
+    --max-output-tokens-list "$requested_tokens" \
+    --timeout "${LAMI_GPU_PROBE_TIMEOUT_SECONDS:-420}" \
+    --case-timeout-ms "${LAMI_GPU_PROBE_CASE_TIMEOUT_MS:-240000}" \
+    --skip-build-install
+}
+
+lami_qairt244_litert_gpu_token_probe_from_command() {
+  local command="$1"
+  local -a parts
+  parts=($command)
+  [[ "${#parts[@]}" -ge 2 && "${#parts[@]}" -le 4 ]] || lami_qairt244_fail
+  lami_qairt244_litert_gpu_token_probe "${parts[1]}" "${parts[2]:-gpu}" "${parts[3]:-auto}"
+}
+
 # Optional helper for parent controllers that want a single dispatch call.
 # Returns:
 #   0: handled
@@ -1073,6 +1128,10 @@ lami_qairt244_dispatch() {
       lami_qairt244_litert_gpu_benchmark_artifact_from_command "$command"
       return 0
       ;;
+    litert-gpu-token-probe*)
+      lami_qairt244_litert_gpu_token_probe_from_command "$command"
+      return 0
+      ;;
   esac
   return 1
 }
@@ -1086,6 +1145,7 @@ lami_qairt244_help() {
   qairt244-repeat-stability
   litert-gpu-benchmark-latest
   litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
+  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm]
   qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
 EOF
 }

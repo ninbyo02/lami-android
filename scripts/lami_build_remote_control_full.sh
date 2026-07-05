@@ -371,7 +371,7 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_adb_start_app "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   adb-dump-customnpu-diag\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
-  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
+  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-token-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
     run_logcat "$CMD" ;;
@@ -425,6 +425,7 @@ allowed commands:
   build-qairt244-custom-jni
   qairt244-sdk-status
   qairt244-repeat-stability
+  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm]
   litert-gpu-benchmark-latest
   litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
   qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
