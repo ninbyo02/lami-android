@@ -4,6 +4,8 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami"
+ASSEMBLE_TASK=":app:assembleStandardDebug"
+APK_PATH="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
 ACTION="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
 RECEIVER="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
 STATE_APP_FILE="files/litert_lm_gpu_benchmark_state.txt"
@@ -28,6 +30,18 @@ BROADCAST_EXIT_CODE="not-run"
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --app-id)
+      APP_ID="${2:-}"
+      shift 2
+      ;;
+    --assemble-task)
+      ASSEMBLE_TASK="${2:-}"
+      shift 2
+      ;;
+    --apk)
+      APK_PATH="${2:-}"
+      shift 2
+      ;;
     --device)
       DEVICE_SERIAL="${2:-}"
       shift 2
@@ -75,7 +89,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--model-path-source <auto|generic_fallback>] [--max-output-tokens-list <csv>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--app-id <id>] [--assemble-task <gradle-task>] [--apk <path>] [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--model-path-source <auto|generic_fallback>] [--max-output-tokens-list <csv>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -116,6 +130,7 @@ Model path sources:
   generic_fallback  SettingsPreferences.getValidLocalGenericModelPathOrNull only; missing fails with reason=generic_fallback_model_missing
 
 Transport:
+  app_id defaults to io.github.ninbyo02.lami. Use --app-id/--assemble-task/--apk for diagnostic flavors.
   prompts, model_path, and max_output_tokens are sent as base64 extras so
   spaces, Japanese text, symbols, and pipe characters are not interpreted by
   the Android shell. --prompts accepts newline-separated prompts; legacy |||
@@ -180,6 +195,18 @@ case "$MODEL_PATH_SOURCE" in
     exit 2
     ;;
 esac
+if [ -z "$APP_ID" ]; then
+  printf 'ERROR: --app-id must not be empty\n' >&2
+  exit 2
+fi
+if [ -z "$ASSEMBLE_TASK" ]; then
+  printf 'ERROR: --assemble-task must not be empty\n' >&2
+  exit 2
+fi
+if [ -z "$APK_PATH" ]; then
+  printf 'ERROR: --apk must not be empty\n' >&2
+  exit 2
+fi
 BACKEND_LABEL="GPU"
 if [ "$BACKEND_VARIANT" = "cpu" ]; then
   BACKEND_LABEL="CPU"
@@ -263,6 +290,9 @@ dry_run_command_if_requested() {
     model_path_arg_present=false
   fi
   printf 'dry_run=true\n'
+  printf 'app_id=%s\n' "$APP_ID"
+  printf 'assemble_task=%s\n' "$ASSEMBLE_TASK"
+  printf 'apk=%s\n' "$APK_PATH"
   printf 'backend=%s\n' "$BACKEND_LABEL"
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
@@ -599,13 +629,13 @@ fi
 printf '%s\n' "$DEVICE_SERIAL" >"$OUT_DIR/selected_device.txt"
 
 if [ "$BUILD_AND_INSTALL" = true ]; then
-  log "building standardDebug"
-  ./gradlew :app:assembleStandardDebug >"$OUT_DIR/gradle_assemble_standard_debug.log" 2>&1 || {
-    log "standardDebug build failed"
+  log "building $ASSEMBLE_TASK"
+  ./gradlew "$ASSEMBLE_TASK" >"$OUT_DIR/gradle_assemble.log" 2>&1 || {
+    log "$ASSEMBLE_TASK build failed"
     exit 1
   }
-  log "installing standardDebug"
-  adb_cmd install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk >"$OUT_DIR/adb_install.txt" 2>&1 || {
+  log "installing $APK_PATH"
+  adb_cmd install -r "$APK_PATH" >"$OUT_DIR/adb_install.txt" 2>&1 || {
     log "install failed"
     exit 1
   }
