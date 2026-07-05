@@ -312,9 +312,6 @@ android {
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
         }
-        create("standardDebug") {
-            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
-        }
         create("npuExperimentDebug") {
             jniLibs.srcDir("src/npuExperimentDebug/jniLibs")
         }
@@ -1067,10 +1064,6 @@ tasks.matching {
     dependsOn("buildNpuPersistentHolderStubDebugJni")
 }
 
-tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
-    dependsOn("stageQairt244StandardDebugNativeLibs")
-}
-
 tasks.matching { it.name == "mergeTrueEngineNpuProbeDebugJniLibFolders" }.configureEach {
     dependsOn("stageTrueEngineNpuProbeDebugNativeLibs")
 }
@@ -1112,16 +1105,6 @@ tasks.matching {
 }.configureEach {
     dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
     dependsOn("verifyQairt244CustomBuildExperimentDebugNativeLibs")
-}
-
-tasks.matching {
-    it.name == "stripStandardDebugDebugSymbols"
-}.configureEach {
-    dependsOn("overlayQairt244StandardDebugNativeLibs")
-}
-
-tasks.matching { it.name == "packageStandardDebug" }.configureEach {
-    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
 }
 
 tasks.register("dumpStandardDebugApkNativeLibs") {
