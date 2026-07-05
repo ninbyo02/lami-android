@@ -8,6 +8,117 @@ import org.junit.Test
 
 class ChatSendAvailabilityTest {
     @Test
+    fun `TTS text removes sparkle and emoji but keeps readable Japanese`() {
+        assertEquals(
+            "こんにちは！何かお手伝いできることや、お話ししたいことはありますか？お気軽にご質問くださいね。",
+            sanitizeAssistantTextForTts(
+                "こんにちは！ ✨ 何かお手伝いできることや、お話ししたいことはありますか？お気軽にご質問くださいね。😊"
+            )
+        )
+    }
+
+    @Test
+    fun `transient assistant row is hidden after server response is finalized`() {
+        assertFalse(
+            shouldShowTransientAssistantRow(
+                currentChatId = 1,
+                isInferenceRunning = false,
+                streamingAssistantMessageId = null,
+                streamingResponseText = "こんにちは！何かお手伝いできますか？",
+                lastPersistedStreamingAssistantText = null,
+            )
+        )
+    }
+
+    @Test
+    fun `transient assistant row is shown while server stream has no persisted placeholder`() {
+        assertTrue(
+            shouldShowTransientAssistantRow(
+                currentChatId = 1,
+                isInferenceRunning = true,
+                streamingAssistantMessageId = null,
+                streamingResponseText = "こんにちは！",
+                lastPersistedStreamingAssistantText = null,
+            )
+        )
+    }
+
+    @Test
+    fun `transient assistant row is hidden when streaming placeholder already exists`() {
+        assertFalse(
+            shouldShowTransientAssistantRow(
+                currentChatId = 1,
+                isInferenceRunning = true,
+                streamingAssistantMessageId = 42,
+                streamingResponseText = "こんにちは！",
+                lastPersistedStreamingAssistantText = null,
+            )
+        )
+    }
+
+    @Test
+    fun `pending local user message is hidden once persisted user message matches`() {
+        assertFalse(
+            shouldShowPendingLocalUserMessage(
+                currentChatId = 1,
+                pendingLocalUserMessageText = "こんにちは",
+                latestPersistedUserMessageText = "こんにちは",
+            )
+        )
+    }
+
+    @Test
+    fun `pending local user message is shown immediately before database insert is observed`() {
+        assertTrue(
+            shouldShowPendingLocalUserMessage(
+                currentChatId = 1,
+                pendingLocalUserMessageText = "こんにちは",
+                latestPersistedUserMessageText = "前のメッセージ",
+            )
+        )
+    }
+
+
+    @Test
+    fun `local responding placeholder waits for delayed gate like server transient row`() {
+        assertFalse(
+            shouldShowLocalRespondingPlaceholder(
+                isLocalRunning = true,
+                localStopRequested = false,
+                streamingAssistantMessageId = null,
+                localStreamingResponseText = null,
+                showDelayedPlaceholder = false,
+            )
+        )
+    }
+
+    @Test
+    fun `local responding placeholder stays hidden after delayed gate to match server route`() {
+        assertFalse(
+            shouldShowLocalRespondingPlaceholder(
+                isLocalRunning = true,
+                localStopRequested = false,
+                streamingAssistantMessageId = null,
+                localStreamingResponseText = null,
+                showDelayedPlaceholder = true,
+            )
+        )
+    }
+
+    @Test
+    fun `local responding placeholder is hidden once streaming text appears`() {
+        assertFalse(
+            shouldShowLocalRespondingPlaceholder(
+                isLocalRunning = true,
+                localStopRequested = false,
+                streamingAssistantMessageId = null,
+                localStreamingResponseText = "回答中",
+                showDelayedPlaceholder = true,
+            )
+        )
+    }
+
+    @Test
     fun `local backend with local model ignores missing server model`() {
         val availability = resolveChatSendAvailability(
             selectedInferenceTarget = InferenceTarget.LOCAL,

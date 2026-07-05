@@ -219,6 +219,10 @@ private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
+// IME表示中に最新のユーザーバブルが入力欄/キーボードへ潜らないよう、
+// 末尾に追加する保護余白。スクロール強制ではなく余白で逃がすため、
+// 送信直後のバブル位置ブレを増やしにくい。
+private val KeyboardVisibleSentBubbleProtectionGap = 32.dp
 private val TopGradientOverlayHeight = 24.dp
 private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
@@ -884,6 +888,9 @@ fun Home(
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var pendingLocalUserMessageText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var lastLocalSendTapElapsedMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
+    var lastLocalSendPromptForTrace by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -899,6 +906,7 @@ fun Home(
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var npuStandardRouteStreamingSentenceTtsBlocked by remember(effectiveChatId) { mutableStateOf(false) }
     var npuStandardRouteDevDiagnosticsExpanded by rememberSaveable(effectiveChatId) { mutableStateOf(false) }
+    var suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val safetyGuardBlockedConversations = remember { mutableStateMapOf<Int, SafetyGuardConversationBlock>() }
@@ -954,10 +962,13 @@ fun Home(
         isStopRequested -> "Ready"
         else -> null
     }
-    val showLocalRespondingAssistantRow =
-        isLocalRunningUi &&
-            streamingAssistantMessageId == null &&
-            showDelayedLocalRespondingPlaceholder
+    val showLocalRespondingAssistantRow = shouldShowLocalRespondingPlaceholder(
+        isLocalRunning = isLocalRunningUi,
+        localStopRequested = localStopRequested,
+        streamingAssistantMessageId = streamingAssistantMessageId,
+        localStreamingResponseText = localStreamingResponseText,
+        showDelayedPlaceholder = showDelayedLocalRespondingPlaceholder,
+    )
     val localRespondingAssistantRowMessage = if (
         localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
         localStreamingResponseText.isNullOrBlank()
@@ -2739,7 +2750,9 @@ fun Home(
 
     fun cleanupDevQairt244NpuUiState(reason: String) {
         localStreamingResponseText = null
+        pendingLocalUserMessageText = null
         showDelayedLocalRespondingPlaceholder = false
+        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = reason)
         pendingStopButtonOwnerClearJob?.cancel()
@@ -2782,6 +2795,7 @@ fun Home(
         localInferenceJob?.cancel()
         localInferenceJob = null
         localStreamingResponseText = null
+        pendingLocalUserMessageText = null
         showDelayedLocalRespondingPlaceholder = false
         npuStandardRouteS4PseudoStreamingActive = false
         npuStandardRouteStreamingSentenceTtsBlocked = false
@@ -3130,23 +3144,7 @@ fun Home(
         }
     }
 
-    fun sanitizeTextForTts(text: String): String {
-        val normalized = text
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .replace("☺", "")
-            .replace("☻", "")
-            .replace("*", "")
-            .lineSequence()
-            .joinToString("\n") { line ->
-                line.replace(Regex("[ \\t]+"), " ").trimEnd()
-            }
-            .replace(Regex("\n{3,}"), "\n\n")
-            .trim()
-        if (normalized.length < 2) return ""
-        if (normalized.all { !it.isLetterOrDigit() }) return ""
-        return normalized
-    }
+    fun sanitizeTextForTts(text: String): String = sanitizeAssistantTextForTts(text)
 
     fun sanitizeStreamingTextForTts(text: String): String {
         var insideFencedCodeBlock = false
@@ -3209,7 +3207,10 @@ fun Home(
         if (sentenceBreakIndex < 0) return
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
         val normalized = sanitizeStreamingTextForTts(speakTarget)
-        if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+        // Streaming sentence TTS uses QUEUE_ADD, so do not drop sentence fragments because
+        // the previous queued utterance just ended and the controller is in auto-speak cooldown.
+        // Dropping here can skip the final short tail such as "お気軽にどうぞ".
+        if (normalized.isNotEmpty()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
@@ -3237,7 +3238,8 @@ fun Home(
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
         val remaining = fullText.substring(safeConsumed)
         val normalized = sanitizeStreamingTextForTts(remaining)
-        if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+        // Tail flush also uses QUEUE_ADD; cooldown must not discard the final unsaid tail.
+        if (normalized.isNotEmpty()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
@@ -3567,16 +3569,11 @@ fun Home(
                         resetStreamingSpeechState()
                         resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
-                    } else {
-                        val partialText = (uiState as UiState.Streaming).partialText.trim()
-                        if (currentChatId != null && partialText.isNotBlank()) {
-                            if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
-                            upsertStreamingAssistantPlaceholderSerialized(
-                                chatId = currentChatId,
-                                response = partialText,
-                            )
-                        }
                     }
+                    // Server streaming is intentionally display-only here.
+                    // Persisting every partial chunk races with LaunchedEffect cancellation and can create
+                    // multiple assistant rows before the final Success state arrives. The finalized response
+                    // is saved exactly once in the UiState.Success branch above.
                 }
                 else -> Unit
             }
@@ -4252,6 +4249,13 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    val localSendTapElapsedMs = SystemClock.elapsedRealtime()
+                                                    lastLocalSendTapElapsedMs = localSendTapElapsedMs
+                                                    lastLocalSendPromptForTrace = requestPrompt
+                                                    debugLocalUiTrace(
+                                                        label = "SEND_TAP",
+                                                        extra = "t=$localSendTapElapsedMs promptLength=${requestPrompt.length} chatId=$effectiveChatId",
+                                                    )
                                                     val blockedDecision = runUnlessConversationBlockedBySafetyGuard(
                                                         chatId = effectiveChatId,
                                                         blockedConversations = safetyGuardBlockedConversations,
@@ -4270,6 +4274,49 @@ fun Home(
                                                         ).joinToString("\n")
                                                         return@IconButton
                                                     }
+                                                    val immediateLocalChatId = effectiveChatId
+                                                    val immediateLocalUserInsertJob = immediateLocalChatId?.let { chatId ->
+                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "[LOCAL_UI] DB_INSERT_START dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$chatId promptLength=${requestPrompt.length}",
+                                                            )
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = chatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                )
+                                                            )
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "[LOCAL_UI] DB_INSERT_DONE dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$chatId promptLength=${requestPrompt.length}",
+                                                            )
+                                                        }
+                                                    }
+                                                    // Show a Compose-only user row immediately while Room/Flow/Compose warms up.
+                                                    // The render guard hides this pending row as soon as the persisted DB row matches,
+                                                    // so it avoids the first-send lag without duplicating the message.
+                                                    pendingLocalUserMessageText = requestPrompt
+                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
+                                                    prompt = ""
+                                                    userPrompt = ""
+                                                    selectedImageUriStrings = emptyList()
+                                                    showDelayedLocalRespondingPlaceholder = false
+                                                    localInferenceEngineState = LocalInferenceEngineState.READY
+                                                    localStopRequested = false
+                                                    debugLocalUiTrace(
+                                                        label = "COMPOSER_CLEARED",
+                                                        extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
+                                                    )
+                                                    coroutineScope.launch localSendLaunch@ {
+                                                        // Give Compose at least a few frames to render the cleared composer
+                                                        // and the user message before local/NPU route setup can occupy the UI.
+                                                        delay(50)
+                                                        debugLocalUiTrace(
+                                                            label = "ROUTE_DEFERRED_START",
+                                                            extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
+                                                        )
                                                     val rawNpuStandardRouteRequested =
                                                         NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode)
                                                     val effectiveNpuStandardRouteRequested =
@@ -4332,6 +4379,7 @@ fun Home(
                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                         npuStandardRouteStreamingSentenceTtsBlocked = false
                                                         npuStandardRouteDevDiagnosticsExpanded = false
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
@@ -4383,15 +4431,20 @@ fun Home(
                                                                         pendingNavigateChatId = newChatId
                                                                     },
                                                                     insertUserMessage = { chatId, promptText ->
-                                                                        withContext(Dispatchers.IO) {
-                                                                            viewModel.insertAssistantMessageAndReturnId(
-                                                                                Message(
-                                                                                    chatId = chatId,
-                                                                                    message = promptText,
-                                                                                    isSendbyMe = true,
+                                                                        if (immediateLocalChatId == chatId && immediateLocalUserInsertJob != null) {
+                                                                            immediateLocalUserInsertJob.join()
+                                                                        } else {
+                                                                            withContext(Dispatchers.IO) {
+                                                                                viewModel.insertAssistantMessageAndReturnId(
+                                                                                    Message(
+                                                                                        chatId = chatId,
+                                                                                        message = promptText,
+                                                                                        isSendbyMe = true,
+                                                                                    )
                                                                                 )
-                                                                            )
+                                                                            }
                                                                         }
+                                                                        pendingLocalUserMessageText = null
                                                                     },
                                                                     runInference = {
                                                                         npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
@@ -4523,6 +4576,7 @@ fun Home(
                                                             s1Result.displayText
                                                         }
                                                         val s1DisplayTextWithMemory = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                         npuStandardRouteS1DisplayText = s1DisplayTextWithMemory
                                                         val s1Fallback = resolveNpuStandardRouteS1Fallback(
                                                             userPrompt = requestPrompt,
@@ -4628,6 +4682,7 @@ fun Home(
                                                                 markdownStreamingMode = markdownStreamingMode,
                                                                 prompt = requestPrompt,
                                                                 onPartial = { partial ->
+                                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                     localStreamingResponseText = partial
                                                                     streamingResponseTextForRender = partial
                                                                 },
@@ -4649,6 +4704,7 @@ fun Home(
                                                                     markdownStreamingMode = markdownStreamingMode,
                                                                     prompt = requestPrompt,
                                                                     onPartial = { partial ->
+                                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                         localStreamingResponseText = partial
                                                                         streamingResponseTextForRender = partial
                                                                     },
@@ -4684,6 +4740,7 @@ fun Home(
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?.let { appendLine(it) }
                                                             }.trimEnd()
+                                                            suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                             npuStandardRouteS1DisplayText =
                                                                 "$s1DisplayTextWithMemory\nnpu_standard_route_fallback_used=true\nnpu_standard_route_fallback_backend=${finalFallbackBackend.name}\n"
                                                             npuStandardRouteS1DevTraceText =
@@ -5141,6 +5198,7 @@ fun Home(
                                                             } else {
                                                                 "$text\n$npuStandardRouteExecutionDiagnosticsText"
                                                             }
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                         npuStandardRouteS1DisplayText =
                                                             appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DisplayText)
                                                         npuStandardRouteS1DevTraceText =
@@ -5233,6 +5291,7 @@ fun Home(
                                                                     appendNpuS1MemoryDiagnostics(
                                                                         npuStandardRoutePersistedResult.displayText,
                                                                     )
+                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                 npuStandardRouteS1DisplayText = npuStandardRoutePersistedDisplayTextWithMemory
                                                                 if (s4PseudoStreamingCandidate != null) {
                                                                     val s4GuardEpoch = streamingGuardEpoch
@@ -5357,6 +5416,7 @@ fun Home(
                                                                             }
                                                                             val s5SavedDisplayTextWithMemory =
                                                                                 appendNpuS1MemoryDiagnostics(s5SavedResult.displayText)
+                                                                            suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                             npuStandardRouteS1DisplayText = s5SavedDisplayTextWithMemory
                                                                             try {
                                                                                 withContext(Dispatchers.IO) {
@@ -5398,6 +5458,7 @@ fun Home(
                                                                     }
                                                                 return@launch
                                                             } else {
+                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                 npuStandardRouteS1DisplayText = appendNpuS1MemoryDiagnostics(
                                                                     buildNpuStandardRouteS2DbSkippedResult(
                                                                         s1Result = s1Result,
@@ -5444,6 +5505,7 @@ fun Home(
                                                                         npuStandardRouteS4PseudoStreamingText = chunk
                                                                         delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
                                                                     }
+                                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                     npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
                                                                     npuStandardRouteS4PseudoStreamingActive = false
                                                                 }
@@ -5523,7 +5585,7 @@ fun Home(
                                                                 localInferenceJob = null
                                                             }
                                                         }
-                                                        return@IconButton
+                                                        return@localSendLaunch
                                                     }
                                                     val legacyQairt244ChatScreenRouteEnabled =
                                                         shouldEnterLegacyQairt244ChatScreenRoute(
@@ -5762,7 +5824,7 @@ fun Home(
                                                                 cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finally")
                                                             }
                                                         }
-                                                        return@IconButton
+                                                        return@localSendLaunch
                                                     }
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
@@ -5790,6 +5852,7 @@ fun Home(
                                                             extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId isCreatingChat=$isCreatingChat",
                                                         )
                                                         var currentChatId = effectiveChatId
+                                                        var localUserMessageAlreadyInserted = false
                                                         if (currentChatId == null) {
                                                             isCreatingChat = true
                                                             try {
@@ -5804,24 +5867,29 @@ fun Home(
                                                             } finally {
                                                                 isCreatingChat = false
                                                             }
+                                                        } else {
+                                                            immediateLocalUserInsertJob?.join()
+                                                            localUserMessageAlreadyInserted = true
                                                         }
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_START",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} alreadyInserted=$localUserMessageAlreadyInserted",
                                                         )
-                                                        withContext(Dispatchers.IO) {
-                                                            viewModel.insert(
-                                                                Message(
-                                                                    chatId = resolvedChatId,
-                                                                    message = requestPrompt,
-                                                                    isSendbyMe = true,
+                                                        if (!localUserMessageAlreadyInserted) {
+                                                            withContext(Dispatchers.IO) {
+                                                                viewModel.insert(
+                                                                    Message(
+                                                                        chatId = resolvedChatId,
+                                                                        message = requestPrompt,
+                                                                        isSendbyMe = true,
+                                                                    )
                                                                 )
-                                                            )
+                                                            }
                                                         }
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_DONE",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} alreadyInserted=$localUserMessageAlreadyInserted",
                                                         )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
@@ -6516,6 +6584,7 @@ fun Home(
                                                                                     normalized = normalizedPartial,
                                                                                 )
                                                                                 showDelayedLocalRespondingPlaceholder = false
+                                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -6721,6 +6790,7 @@ fun Home(
                                                                                             normalized = normalizedPartial,
                                                                                         )
                                                                                         showDelayedLocalRespondingPlaceholder = false
+                                                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                         localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
@@ -7410,6 +7480,7 @@ fun Home(
                                                             localInferenceJob = null
                                                         }
                                                     }
+                                                    }
                                                 }
                                             }
                                         },
@@ -7554,17 +7625,42 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
-                val streamingResponseTextForRenderValue = streamingResponseTextForDisplay
-                val shouldShowTransientAssistantRow =
-                    currentChatId != null &&
-                        streamingAssistantMessageId == null &&
-                        !streamingResponseTextForRenderValue.isNullOrBlank() &&
-                        streamingResponseTextForRenderValue.trim() != lastPersistedStreamingAssistantText
-                val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
-                    logStreamTrace("STREAM ui transient row enabled")
+                val pendingLocalUserMessageForRender = pendingLocalUserMessageText
+                    ?.takeIf {
+                        shouldShowPendingLocalUserMessage(
+                            currentChatId = currentChatId,
+                            pendingLocalUserMessageText = it,
+                            latestPersistedUserMessageText = messagesForListBase.lastOrNull { message ->
+                                message.isSendbyMe
+                            }?.message,
+                        )
+                    }
+                val messagesForListWithPendingUser: List<Message> = if (pendingLocalUserMessageForRender != null) {
+                    val pendingChatId = checkNotNull(currentChatId)
                     messagesForListBase + Message(
-                        chatId = currentChatId,
-                        message = streamingResponseTextForRenderValue,
+                        messageID = Int.MIN_VALUE + pendingChatId,
+                        chatId = pendingChatId,
+                        message = pendingLocalUserMessageForRender,
+                        isSendbyMe = true,
+                    )
+                } else {
+                    messagesForListBase
+                }
+                val streamingResponseTextForRenderValue = streamingResponseTextForDisplay
+                val shouldShowTransientAssistantRow = shouldShowTransientAssistantRow(
+                    currentChatId = currentChatId,
+                    isInferenceRunning = isInferenceRunningUi,
+                    streamingAssistantMessageId = streamingAssistantMessageId,
+                    streamingResponseText = streamingResponseTextForRenderValue,
+                    lastPersistedStreamingAssistantText = lastPersistedStreamingAssistantText,
+                )
+                val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
+                    val transientChatId = checkNotNull(currentChatId)
+                    val transientText = checkNotNull(streamingResponseTextForRenderValue)
+                    logStreamTrace("STREAM ui transient row enabled")
+                    messagesForListWithPendingUser + Message(
+                        chatId = transientChatId,
+                        message = transientText,
                         isSendbyMe = false,
                     )
                 } else {
@@ -7585,7 +7681,26 @@ fun Home(
                             }
                         }
                     }
-                    messagesForListBase
+                    messagesForListWithPendingUser
+                }
+                LaunchedEffect(
+                    effectiveChatId,
+                    messagesForList.size,
+                    messagesForList.lastOrNull()?.messageID,
+                    lastLocalSendTapElapsedMs,
+                    lastLocalSendPromptForTrace,
+                ) {
+                    if (BuildConfig.DEBUG) {
+                        val tapElapsedMs = lastLocalSendTapElapsedMs
+                        val tracePrompt = lastLocalSendPromptForTrace
+                        val lastUserMessage = messagesForList.lastOrNull { it.isSendbyMe }
+                        if (tapElapsedMs != null && tracePrompt != null && lastUserMessage?.message == tracePrompt) {
+                            Log.i(
+                                "ChatScreen",
+                                "[LOCAL_UI] DB_ROW_RENDERED dt=${SystemClock.elapsedRealtime() - tapElapsedMs}ms chatId=$effectiveChatId messageId=${lastUserMessage.messageID} listSize=${messagesForList.size}",
+                            )
+                        }
+                    }
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
@@ -7732,8 +7847,15 @@ fun Home(
                                 return@LaunchedEffect
                             }
 
-                            // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
-                            if (userCount > previousUserCount) {
+                            // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行。
+                            // Local/NPU は送信直後に pending 行を先に描画しているため、同じ発話が
+                            // DB 行に置換された瞬間は強制スクロールしない。ここで scrollToItem すると
+                            // 初回ユーザーバブルが一段上に跳ねて見える。
+                            val latestPersistedUserText = allChats.lastOrNull { it.isSendbyMe }?.message?.trim()
+                            val pendingLocalText = pendingLocalUserMessageText?.trim()
+                            val isPendingLocalUserPersisted =
+                                !pendingLocalText.isNullOrBlank() && latestPersistedUserText == pendingLocalText
+                            if (userCount > previousUserCount && !isPendingLocalUserPersisted) {
                                 val newAnchor = computeLatestUserAnchor(allChats)
                                 listState.scrollToItem(newAnchor)
                             }
@@ -7775,7 +7897,21 @@ fun Home(
 
                                 if (messagesForList.isNotEmpty()) {
                                     val lastIndex = messagesForList.lastIndex
-                                    if (appended && isNearBottomSnapshot && autoFollowEnabled && !suppressFollowOnce && lastIndex >= 0) {
+                                    val latestMessage = messagesForList.lastOrNull()
+                                    val pendingLocalText = pendingLocalUserMessageText?.trim()
+                                    val appendedPendingLocalUserRow =
+                                        appended &&
+                                            latestMessage?.isSendbyMe == true &&
+                                            !pendingLocalText.isNullOrBlank() &&
+                                            latestMessage.message.trim() == pendingLocalText
+                                    if (
+                                        appended &&
+                                        !appendedPendingLocalUserRow &&
+                                        isNearBottomSnapshot &&
+                                        autoFollowEnabled &&
+                                        !suppressFollowOnce &&
+                                        lastIndex >= 0
+                                    ) {
                                         listState.scrollToItem(lastIndex)
                                     }
                                 }
@@ -7863,7 +7999,20 @@ fun Home(
                                 } else {
                                     itemsIndexed(
                                         items = messagesForList,
-                                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                                        key = { index, message ->
+                                            val isLatestLocalSendUserRow =
+                                                message.isSendbyMe &&
+                                                    message.message == lastLocalSendPromptForTrace &&
+                                                    index == messagesForList.indexOfLast { candidate ->
+                                                        candidate.isSendbyMe &&
+                                                            candidate.message == lastLocalSendPromptForTrace
+                                                    }
+                                            if (isLatestLocalSendUserRow) {
+                                                "local-send-${message.chatId}-${message.message.hashCode()}"
+                                            } else {
+                                                message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}"
+                                            }
+                                        }
                                     ) { index, message ->
                                         if (message.isSendbyMe) {
                                             ChatBubble(
@@ -8011,6 +8160,11 @@ fun Home(
                                         val s1DevTraceText = npuStandardRouteS1DevTraceText
                                         val s1FallbackText = npuStandardRouteS1FallbackText
                                         val s4Text = npuStandardRouteS4PseudoStreamingText
+                                        val showNpuStandardRouteDevDiagnosticsAfterAnswer =
+                                            !isInferenceRunningUi &&
+                                                !npuStandardRouteS4PseudoStreamingActive &&
+                                                !showLocalRespondingAssistantRow &&
+                                                !suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed
                                         if (!s1FallbackText.isNullOrBlank()) {
                                             PlainAssistantMessage(
                                                 message = s1FallbackText,
@@ -8018,8 +8172,25 @@ fun Home(
                                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
                                             )
                                         }
-                                        NpuStandardRouteDevDiagnosticsBlock(
-                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                        val s1AnswerTextForDisplay =
+                                            s4Text?.takeIf { it.isNotBlank() }
+                                                ?: extractNpuStandardRouteActualDisplayText(s1Text)
+                                        val s1AnswerAlreadyPersisted =
+                                            !s1AnswerTextForDisplay.isNullOrBlank() &&
+                                                messagesForList.any { message ->
+                                                    !message.isSendbyMe &&
+                                                        message.message.trim() == s1AnswerTextForDisplay.trim()
+                                                }
+                                        if (!s1AnswerTextForDisplay.isNullOrBlank() && !s1AnswerAlreadyPersisted) {
+                                            PlainAssistantMessage(
+                                                message = s1AnswerTextForDisplay,
+                                                isStreaming = npuStandardRouteS4PseudoStreamingActive,
+                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
+                                            )
+                                        }
+                                        if (showNpuStandardRouteDevDiagnosticsAfterAnswer) {
+                                            NpuStandardRouteDevDiagnosticsBlock(
+                                                expanded = npuStandardRouteDevDiagnosticsExpanded,
                                             preferredBackendSetting = preferredBackendDryRunSetting,
                                             npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                             onToggleExpanded = {
@@ -8669,13 +8840,20 @@ fun Home(
                                                     }
                                                 }
                                             },
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                                 if (npuStandardRouteS4PseudoStreamingText != null && npuStandardRouteS1DisplayText == null) {
                                     item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
                                         val s4Text = npuStandardRouteS4PseudoStreamingText!!
-                                        NpuStandardRouteDevDiagnosticsBlock(
+                                        PlainAssistantMessage(
+                                            message = s4Text,
+                                            isStreaming = npuStandardRouteS4PseudoStreamingActive,
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
+                                        )
+                                        if (!npuStandardRouteS4PseudoStreamingActive) {
+                                            NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
                                             preferredBackendSetting = preferredBackendDryRunSetting,
                                             npuStandardRouteMode = effectiveNpuStandardRouteMode,
@@ -8879,7 +9057,8 @@ fun Home(
                                             },
                                             onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                                             onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                                 if (
@@ -9090,8 +9269,19 @@ fun Home(
                                     }
                                 }
                                 item(key = "composer_spacer") {
-                                    // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
-                                    Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                    // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する。
+                                    // さらにキーボード表示中は送信済みユーザーバブルが入力欄に隠れないための
+                                    // 保護余白を追加する。
+                                    val sentBubbleProtectionGap =
+                                        if (bottomDp > 0.dp) KeyboardVisibleSentBubbleProtectionGap else 0.dp
+                                    Spacer(
+                                        modifier = Modifier.height(
+                                            ComposerMinHeight +
+                                                ComposerBottomGapHeight +
+                                                bottomDp +
+                                                sentBubbleProtectionGap,
+                                        ),
+                                    )
                                 }
                             }
 
@@ -14830,6 +15020,19 @@ private fun CopyableDebugBlock(
             )
         }
     }
+}
+
+internal fun extractNpuStandardRouteActualDisplayText(text: String?): String? {
+    if (text.isNullOrBlank()) return null
+    val raw = text.lineSequence()
+        .firstOrNull { it.startsWith("actual_display_text=") }
+        ?.substringAfter("=", missingDelimiterValue = "")
+        ?.trim()
+        ?: return null
+    return raw
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .takeIf { it.isNotBlank() && it != "unavailable" }
 }
 
 internal fun hasNpuStandardRouteDevDiagnostics(vararg textBlocks: String?): Boolean =

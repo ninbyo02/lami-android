@@ -79,3 +79,42 @@ internal fun chatSendBlockedSnackbarMessage(reason: ChatSendBlockedReason?): Str
     ChatSendBlockedReason.EMPTY_INPUT,
     null -> "メッセージを入力してください"
 }
+
+internal fun shouldShowTransientAssistantRow(
+    currentChatId: Int?,
+    isInferenceRunning: Boolean,
+    streamingAssistantMessageId: Int?,
+    streamingResponseText: String?,
+    lastPersistedStreamingAssistantText: String?,
+): Boolean {
+    if (currentChatId == null) return false
+    if (!isInferenceRunning) return false
+    if (streamingAssistantMessageId != null) return false
+    val normalizedStreamingText = streamingResponseText?.trim().orEmpty()
+    if (normalizedStreamingText.isBlank()) return false
+    return normalizedStreamingText != lastPersistedStreamingAssistantText
+}
+
+internal fun shouldShowPendingLocalUserMessage(
+    currentChatId: Int?,
+    pendingLocalUserMessageText: String?,
+    latestPersistedUserMessageText: String?,
+): Boolean {
+    if (currentChatId == null) return false
+    val normalizedPendingText = pendingLocalUserMessageText?.trim().orEmpty()
+    if (normalizedPendingText.isBlank()) return false
+    return normalizedPendingText != latestPersistedUserMessageText?.trim()
+}
+
+internal fun shouldShowLocalRespondingPlaceholder(
+    isLocalRunning: Boolean,
+    localStopRequested: Boolean,
+    streamingAssistantMessageId: Int?,
+    localStreamingResponseText: String?,
+    showDelayedPlaceholder: Boolean,
+): Boolean {
+    // Keep local/NPU chat visually aligned with the server route: do not add a
+    // separate "応答中..." bubble while waiting. The assistant row appears when
+    // real text is available via the transient/streaming path.
+    return false
+}
