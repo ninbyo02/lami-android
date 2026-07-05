@@ -157,7 +157,7 @@ case "$CMD" in
     [[ "${#parts[@]}" -eq 3 ]] || fail
     run_adb_connect "${parts[1]}" "${parts[2]}"
     ;;
-  qairt244-artifacts|stage-qairt244-custom-jni*)
+  qairt244-artifacts|stage-qairt244-custom-jni*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
     lami_qairt244_dispatch "$CMD"
     ;;
   build-qairt244-custom-jni)
@@ -179,6 +179,8 @@ EOF
     lami_qairt244_help
     cat <<'EOF'
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
+  litert-gpu-benchmark-latest
+  litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
 EOF
     ;;
   *)

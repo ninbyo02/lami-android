@@ -961,6 +961,77 @@ lami_qairt244_token_limit_probe() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+lami_qairt244_litert_gpu_benchmark_artifact() {
+  local requested="${1:-latest}"
+  cd "$REPO"
+  local artifact_dir base md csv
+  case "$requested" in
+    latest)
+      artifact_dir="$(ls -td artifacts/litert_lm_gpu_benchmark/[0-9]* 2>/dev/null | head -1 || true)"
+      ;;
+    [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9])
+      artifact_dir="artifacts/litert_lm_gpu_benchmark/$requested"
+      ;;
+    *)
+      echo "invalid litert gpu benchmark artifact id: $requested" >&2
+      exit 64
+      ;;
+  esac
+  if [[ -z "$artifact_dir" || ! -d "$artifact_dir" ]]; then
+    echo "litert_gpu_benchmark_artifact=missing"
+    echo "requested=$requested"
+    exit 65
+  fi
+  base="$(basename "$artifact_dir")"
+  md="artifacts/litert_lm_gpu_benchmark_${base}.md"
+  csv="artifacts/litert_lm_gpu_benchmark_${base}.csv"
+
+  echo "== litert gpu benchmark artifact =="
+  echo "requested=$requested"
+  echo "artifact_dir=$artifact_dir"
+  echo "markdown=$md"
+  echo "csv=$csv"
+
+  echo
+  echo "== state =="
+  [[ -f "$artifact_dir/state.txt" ]] && cat "$artifact_dir/state.txt" || true
+
+  echo
+  echo "== crash fields =="
+  [[ -f "$artifact_dir/crash_fields.txt" ]] && cat "$artifact_dir/crash_fields.txt" || true
+
+  echo
+  echo "== marker =="
+  [[ -f "$artifact_dir/marker.txt" ]] && tail -120 "$artifact_dir/marker.txt" || true
+
+  echo
+  echo "== markdown tail =="
+  [[ -f "$md" ]] && tail -220 "$md" || true
+
+  echo
+  echo "== csv =="
+  [[ -f "$csv" ]] && cat "$csv" || true
+}
+
+lami_qairt244_litert_gpu_benchmark_artifact_from_command() {
+  local command="$1"
+  local -a parts
+  parts=($command)
+  case "${parts[0]:-}" in
+    litert-gpu-benchmark-latest)
+      [[ "${#parts[@]}" -eq 1 ]] || lami_qairt244_fail
+      lami_qairt244_litert_gpu_benchmark_artifact latest
+      ;;
+    litert-gpu-benchmark-artifact)
+      [[ "${#parts[@]}" -eq 2 ]] || lami_qairt244_fail
+      lami_qairt244_litert_gpu_benchmark_artifact "${parts[1]}"
+      ;;
+    *)
+      lami_qairt244_fail
+      ;;
+  esac
+}
+
 # Optional helper for parent controllers that want a single dispatch call.
 # Returns:
 #   0: handled
@@ -998,6 +1069,10 @@ lami_qairt244_dispatch() {
       lami_qairt244_token_limit_probe "${parts[1]}" "${parts[2]:-current}"
       return 0
       ;;
+    litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
+      lami_qairt244_litert_gpu_benchmark_artifact_from_command "$command"
+      return 0
+      ;;
   esac
   return 1
 }
@@ -1009,6 +1084,8 @@ lami_qairt244_help() {
   build-qairt244-custom-jni
   qairt244-sdk-status
   qairt244-repeat-stability
+  litert-gpu-benchmark-latest
+  litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
   qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
 EOF
 }

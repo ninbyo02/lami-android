@@ -531,6 +531,14 @@ handle_dirty_wip_mode() {
     return 0
   fi
 
+  if [[ "$command_name" == "here-install" ]] &&
+    git diff --name-only -- . ':(exclude)local.properties' | grep -Ev '^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AssistantTtsText\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest\.kt|update\.sh)$' >/dev/null; then
+    :
+  elif [[ "$command_name" == "here-install" ]]; then
+    warn "dirty WIP accepted for local chat UI verification install."
+    return 0
+  fi
+
   warn "Working tree is dirty. ${command_name} will not create a WIP commit by default."
   print_dirty_summary
   cat <<EOF
