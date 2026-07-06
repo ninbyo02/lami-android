@@ -25,6 +25,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.util.RuntimeFlags
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -145,6 +146,10 @@ class OllamaViewModel(
     val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
     @Volatile
     private var activeRemoteCall: Call<ResponseBody>? = null
+    @Volatile
+    private var activeOpenAiCompatibleConnection: HttpURLConnection? = null
+    @Volatile
+    private var remoteRequestGeneration: Long = 0L
     @Volatile
     private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
     @Volatile
@@ -372,6 +377,7 @@ class OllamaViewModel(
             }
             onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
             onPromptSubmitted()
+            val requestGeneration = beginRemoteRequestGeneration()
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
             val generationStartedAtMs = SystemClock.elapsedRealtime()
@@ -402,11 +408,13 @@ class OllamaViewModel(
                                 model = model,
                                 prompt = effectivePrompt,
                                 requestStartedAtMs = generationStartedAtMs,
+                                requestGeneration = requestGeneration,
                             )
                         } else {
-                            collectStreamingResponse(request, generationStartedAtMs)
+                            collectStreamingResponse(request, generationStartedAtMs, requestGeneration)
                         }
                     }
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val finalText = streamingResult.text
                     if (finalText.isBlank()) {
                         onResponseReceived(0)
@@ -431,6 +439,7 @@ class OllamaViewModel(
                             ?.div(1_000_000_000.0)
                             ?: (generationTimeMs / 1000.0)
 
+                        ensureRemoteRequestGenerationActive(requestGeneration)
                         _latestInferenceStats.value = InferenceStats(
                             modelName = finalChunk?.model ?: model,
                             inputTokens = inputTokens,
@@ -461,9 +470,19 @@ class OllamaViewModel(
                             completionTokens = outputTokens,
                             assistantUpdateCount = streamingResult.assistantUpdateCount,
                         )
+                        ensureRemoteRequestGenerationActive(requestGeneration)
                         _uiState.value = UiState.Success(finalText)
                     }
+                } catch (e: CancellationException) {
+                    Log.i("OllamaCancel", "Remote request cancelled: ${e.message}")
+                    if (isRemoteRequestGenerationActive(requestGeneration)) {
+                        _latestInferenceStats.value = null
+                    }
                 } catch (e: Exception) {
+                    if (!isRemoteRequestGenerationActive(requestGeneration)) {
+                        Log.i("OllamaCancel", "Ignoring stale remote failure after stop: ${e.message}")
+                        return@launch
+                    }
                     Log.e("OllamaError", "Request failed: ${e.message}")
                     onResponseReceived(e.message?.length ?: 0)
                     _latestInferenceStats.value = null
@@ -478,16 +497,42 @@ class OllamaViewModel(
     }
 
     fun cancelRemoteRequest() {
+        remoteRequestGeneration += 1
         val call = activeRemoteCall
+        val connection = activeOpenAiCompatibleConnection
         activeRemoteCall = null
+        activeOpenAiCompatibleConnection = null
         call?.cancel()
+        connection?.disconnect()
+        _latestInferenceStats.value = null
     }
 
-    private fun collectStreamingResponse(request: OllamaRequest, requestStartedAtMs: Long): StreamingResult {
+    private fun beginRemoteRequestGeneration(): Long {
+        remoteRequestGeneration += 1
+        return remoteRequestGeneration
+    }
+
+    private fun isRemoteRequestGenerationActive(requestGeneration: Long): Boolean {
+        return remoteRequestGeneration == requestGeneration
+    }
+
+    private fun ensureRemoteRequestGenerationActive(requestGeneration: Long) {
+        if (!isRemoteRequestGenerationActive(requestGeneration)) {
+            throw CancellationException("remote request stopped")
+        }
+    }
+
+    private fun collectStreamingResponse(
+        request: OllamaRequest,
+        requestStartedAtMs: Long,
+        requestGeneration: Long,
+    ): StreamingResult {
         val call = RetrofitClient.instance.generateTextStream(request)
         activeRemoteCall = call
         try {
+            ensureRemoteRequestGenerationActive(requestGeneration)
             val response = call.execute()
+            ensureRemoteRequestGenerationActive(requestGeneration)
             if (!response.isSuccessful) {
                 val error = response.errorBody()?.string().orEmpty()
                 throw IOException(error.ifEmpty { "Failed to generate response" })
@@ -511,7 +556,9 @@ class OllamaViewModel(
 
             body.charStream().buffered().use { reader ->
                 while (true) {
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val rawLine = reader.readLine() ?: break
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val line = rawLine.trim()
                     if (line.isEmpty()) {
                         continue
@@ -545,6 +592,7 @@ class OllamaViewModel(
                             chunkText.lastOrNull() in priorityFlushChars ||
                                 currentText.lastOrNull() in priorityFlushChars
                         if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
+                            ensureRemoteRequestGenerationActive(requestGeneration)
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
@@ -581,6 +629,7 @@ class OllamaViewModel(
                 throw IOException("Empty response")
             }
             if (latestFlushedText != finalizedTextForPersist) {
+                ensureRemoteRequestGenerationActive(requestGeneration)
                 onResponseReceived(finalizedTextForPersist.length)
                 _uiState.value = UiState.Streaming(finalizedTextForPersist)
                 assistantUpdateCount += 1
@@ -604,11 +653,14 @@ class OllamaViewModel(
         model: String,
         prompt: String,
         requestStartedAtMs: Long,
+        requestGeneration: Long,
     ): StreamingResult {
         val config = provider.toOpenAiCompatibleConfig(baseUrl)
         val url = URL("${config.baseUrl}chat/completions")
         val connection = url.openConnection() as HttpURLConnection
+        activeOpenAiCompatibleConnection = connection
         try {
+            ensureRemoteRequestGenerationActive(requestGeneration)
             connection.requestMethod = "POST"
             connection.connectTimeout = 10_000
             connection.readTimeout = 120_000
@@ -631,7 +683,9 @@ class OllamaViewModel(
                 output.write(requestBody.toByteArray(Charsets.UTF_8))
             }
 
+            ensureRemoteRequestGenerationActive(requestGeneration)
             val responseCode = connection.responseCode
+            ensureRemoteRequestGenerationActive(requestGeneration)
             val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
                 ?: throw IOException("Empty OpenAI compatible response (HTTP $responseCode)")
             if (responseCode !in 200..299) {
@@ -652,7 +706,9 @@ class OllamaViewModel(
 
             responseStream.bufferedReader().use { reader ->
                 while (true) {
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val rawLine = reader.readLine() ?: break
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val chunk = parseOpenAiCompatibleStreamingLine(rawLine) ?: continue
                     if (chunk.done && chunk.text == null) {
                         doneReceived = true
@@ -674,6 +730,7 @@ class OllamaViewModel(
                         val endsWithPriorityChar =
                             chunkText.lastOrNull() in priorityFlushChars || currentText.lastOrNull() in priorityFlushChars
                         if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
+                            ensureRemoteRequestGenerationActive(requestGeneration)
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
@@ -695,6 +752,7 @@ class OllamaViewModel(
                 throw IOException("Empty OpenAI compatible response")
             }
             if (latestFlushedText != finalText) {
+                ensureRemoteRequestGenerationActive(requestGeneration)
                 onResponseReceived(finalText.length)
                 _uiState.value = UiState.Streaming(finalText)
                 assistantUpdateCount += 1
@@ -711,6 +769,9 @@ class OllamaViewModel(
                 assistantUpdateCount = assistantUpdateCount,
             )
         } finally {
+            if (activeOpenAiCompatibleConnection === connection) {
+                activeOpenAiCompatibleConnection = null
+            }
             connection.disconnect()
         }
     }
