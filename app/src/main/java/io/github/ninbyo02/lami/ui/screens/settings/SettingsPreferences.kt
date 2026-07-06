@@ -21,6 +21,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
+import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -387,6 +388,7 @@ class SettingsPreferences(private val context: Context) {
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
+    private val remoteProviderKey = stringPreferencesKey("remote_provider")
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
@@ -454,6 +456,7 @@ class SettingsPreferences(private val context: Context) {
                 storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
                 isDebugBuild = BuildConfig.DEBUG,
             ),
+            remoteProvider = RemoteProvider.fromStorage(preferences[remoteProviderKey]),
             developerAccessEnabled =
                 BuildConfig.DEBUG &&
                     (preferences[developerAccessEnabledKey] ?: false),
@@ -593,6 +596,10 @@ class SettingsPreferences(private val context: Context) {
             storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
             isDebugBuild = BuildConfig.DEBUG,
         )
+    }
+
+    val remoteProviderFlow: Flow<RemoteProvider> = context.dataStore.data.map { preferences ->
+        RemoteProvider.fromStorage(preferences[remoteProviderKey])
     }
 
     val developerAccessEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -885,6 +892,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
         context.dataStore.edit { preferences ->
             preferences[markdownStreamingModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun saveRemoteProvider(provider: RemoteProvider) {
+        context.dataStore.edit { preferences ->
+            preferences[remoteProviderKey] = provider.storageValue
         }
     }
 

@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import okhttp3.ResponseBody
+import org.json.JSONArray
 import org.json.JSONObject
 import retrofit2.Call
 import kotlin.math.min
@@ -49,7 +50,13 @@ import java.net.URL
 import java.util.Locale
 data class ModelInfo(val name: String)
 
-internal fun fetchAvailableModelsFromServer(baseUrl: String): List<ModelInfo> {
+internal fun fetchAvailableModelsFromServer(
+    baseUrl: String,
+    provider: RemoteProvider = RemoteProvider.OLLAMA,
+): List<ModelInfo> {
+    if (provider.usesOpenAiCompatibleApi()) {
+        return fetchOpenAiCompatibleModelsFromServer(baseUrl, provider)
+    }
     val url = URL("${baseUrl.trimEnd('/')}/api/tags")
     val connection = url.openConnection() as HttpURLConnection
     try {
@@ -80,6 +87,31 @@ internal fun fetchAvailableModelsFromServer(baseUrl: String): List<ModelInfo> {
     }
 }
 
+internal fun fetchOpenAiCompatibleModelsFromServer(baseUrl: String, provider: RemoteProvider): List<ModelInfo> {
+    val config = provider.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}models")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
+        val apiKey = config.defaultApiKey
+        if (!apiKey.isNullOrBlank()) {
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            ?: throw IOException("Failed to read response stream (HTTP $responseCode)")
+        val response = responseStream.bufferedReader().use { it.readText() }
+        if (responseCode !in 200..299) {
+            throw IOException("Failed to load OpenAI compatible models (HTTP $responseCode): $response")
+        }
+        return parseOpenAiCompatibleModels(response)
+    } finally {
+        connection.disconnect()
+    }
+}
+
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -87,8 +119,8 @@ class OllamaViewModel(
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
-    private val availableModelsFetcher: suspend (String) -> List<ModelInfo> = { baseUrl ->
-        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl) }
+    private val availableModelsFetcher: suspend (String, RemoteProvider) -> List<ModelInfo> = { baseUrl, provider ->
+        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl, provider) }
     },
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
@@ -115,6 +147,8 @@ class OllamaViewModel(
     private var activeRemoteCall: Call<ResponseBody>? = null
     @Volatile
     private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
+    @Volatile
+    private var remoteProvider: RemoteProvider = RemoteProvider.OLLAMA
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
     private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
@@ -176,13 +210,21 @@ class OllamaViewModel(
                     markdownStreamingMode = mode
                 }
         }
+        viewModelScope.launch {
+            settingsPreferences.remoteProviderFlow
+                .distinctUntilChanged()
+                .collect { provider ->
+                    remoteProvider = provider
+                }
+        }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
-                combine(baseUrl, settingsPreferences.inferenceTargetFlow) { url, target ->
-                    url to target
+                combine(baseUrl, settingsPreferences.inferenceTargetFlow, settingsPreferences.remoteProviderFlow) { url, target, provider ->
+                    Triple(url, target, provider)
                 }
                     .distinctUntilChanged()
-                    .collectLatest { (url, target) ->
+                    .collectLatest { (url, target, provider) ->
+                        remoteProvider = provider
                         if (target == InferenceTarget.SERVER && url.isNotBlank()) {
                             loadAvailableModels()
                         } else {
@@ -351,8 +393,19 @@ class OllamaViewModel(
 
             if (model != null) {
                 try {
+                    val activeRemoteProvider = remoteProvider
                     val streamingResult = withContext(Dispatchers.IO) {
-                        collectStreamingResponse(request, generationStartedAtMs)
+                        if (activeRemoteProvider.usesOpenAiCompatibleApi()) {
+                            collectOpenAiCompatibleStreamingResponse(
+                                baseUrl = RetrofitClient.currentBaseUrl(),
+                                provider = activeRemoteProvider,
+                                model = model,
+                                prompt = effectivePrompt,
+                                requestStartedAtMs = generationStartedAtMs,
+                            )
+                        } else {
+                            collectStreamingResponse(request, generationStartedAtMs)
+                        }
                     }
                     val finalText = streamingResult.text
                     if (finalText.isBlank()) {
@@ -542,6 +595,123 @@ class OllamaViewModel(
             if (activeRemoteCall === call) {
                 activeRemoteCall = null
             }
+        }
+    }
+
+    private fun collectOpenAiCompatibleStreamingResponse(
+        baseUrl: String,
+        provider: RemoteProvider,
+        model: String,
+        prompt: String,
+        requestStartedAtMs: Long,
+    ): StreamingResult {
+        val config = provider.toOpenAiCompatibleConfig(baseUrl)
+        val url = URL("${config.baseUrl}chat/completions")
+        val connection = url.openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 120_000
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            val apiKey = config.defaultApiKey
+            if (!apiKey.isNullOrBlank()) {
+                connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            }
+            val requestBody = JSONObject()
+                .put("model", model)
+                .put(
+                    "messages",
+                    JSONArray()
+                        .put(JSONObject().put("role", "user").put("content", prompt)),
+                )
+                .put("stream", true)
+                .toString()
+            connection.outputStream.use { output ->
+                output.write(requestBody.toByteArray(Charsets.UTF_8))
+            }
+
+            val responseCode = connection.responseCode
+            val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                ?: throw IOException("Empty OpenAI compatible response (HTTP $responseCode)")
+            if (responseCode !in 200..299) {
+                val error = responseStream.bufferedReader().use { it.readText() }
+                throw IOException(error.ifEmpty { "OpenAI compatible request failed (HTTP $responseCode)" })
+            }
+
+            val textBuilder = StringBuilder()
+            var doneReceived = false
+            var finishReason: String? = null
+            var responseModel: String? = null
+            var timeToFirstTokenMs: Long? = null
+            var assistantUpdateCount = 0
+            var latestFlushedText: String? = null
+            var lastUiUpdateAtMs = 0L
+            val streamingUiUpdateIntervalMs = 80L
+            val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
+
+            responseStream.bufferedReader().use { reader ->
+                while (true) {
+                    val rawLine = reader.readLine() ?: break
+                    val chunk = parseOpenAiCompatibleStreamingLine(rawLine) ?: continue
+                    if (chunk.done && chunk.text == null) {
+                        doneReceived = true
+                        finishReason = finishReason ?: chunk.finishReason ?: "stop"
+                        responseModel = responseModel ?: chunk.model
+                        break
+                    }
+                    responseModel = responseModel ?: chunk.model
+                    finishReason = finishReason ?: chunk.finishReason
+                    val chunkText = chunk.text
+                    if (!chunkText.isNullOrEmpty()) {
+                        if (timeToFirstTokenMs == null) {
+                            timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
+                        }
+                        textBuilder.append(processEdgeGalleryCompatibleMarkdown(chunkText))
+                        val currentText = textBuilder.toString()
+                        val nowMs = System.currentTimeMillis()
+                        val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
+                        val endsWithPriorityChar =
+                            chunkText.lastOrNull() in priorityFlushChars || currentText.lastOrNull() in priorityFlushChars
+                        if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
+                            onResponseReceived(currentText.length)
+                            _uiState.value = UiState.Streaming(currentText)
+                            assistantUpdateCount += 1
+                            latestFlushedText = currentText
+                            lastUiUpdateAtMs = nowMs
+                        }
+                    }
+                    if (chunk.finishReason != null) {
+                        doneReceived = true
+                        break
+                    }
+                }
+            }
+            if (!doneReceived) {
+                throw IOException("OpenAI compatible streaming response ended before done")
+            }
+            val finalText = textBuilder.toString().trim()
+            if (finalText.isEmpty()) {
+                throw IOException("Empty OpenAI compatible response")
+            }
+            if (latestFlushedText != finalText) {
+                onResponseReceived(finalText.length)
+                _uiState.value = UiState.Streaming(finalText)
+                assistantUpdateCount += 1
+            }
+            return StreamingResult(
+                text = finalText,
+                finalChunk = StreamChunk(
+                    text = null,
+                    done = true,
+                    model = responseModel ?: model,
+                    doneReason = finishReason ?: "stop",
+                ),
+                timeToFirstTokenMs = timeToFirstTokenMs,
+                assistantUpdateCount = assistantUpdateCount,
+            )
+        } finally {
+            connection.disconnect()
         }
     }
 
@@ -1089,7 +1259,7 @@ class OllamaViewModel(
                 return@launch
             }
             try {
-                val models = availableModelsFetcher(baseUrl)
+                val models = availableModelsFetcher(baseUrl, remoteProvider)
                 _availableModels.value = models
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial

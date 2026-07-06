@@ -66,7 +66,7 @@ class OllamaViewModelConnectionFailureTest {
             "saved-server-model",
             MutableStateFlow("http://localhost:13511"),
             false,
-        ) {
+        ) { _, _ ->
             throw IOException("server disconnected")
         }
 

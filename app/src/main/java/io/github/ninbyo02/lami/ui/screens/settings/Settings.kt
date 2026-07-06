@@ -106,6 +106,7 @@ import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
+import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
@@ -1009,6 +1010,56 @@ fun Settings(
             }
             item {
                 Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "プロバイダー",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "サーバーAPI形式を選択します。LemonadeはOpenAI互換プリセットとして扱います。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        RemoteProvider.entries.forEach { provider ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = settingsData.remoteProvider == provider,
+                                    onClick = {
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = provider.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = provider.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Card {
                     Column {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             ListItem(
@@ -1072,7 +1123,9 @@ fun Settings(
                                         isValidatingConnections = true
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
-                                                validateActiveConnections(inputsForValidation, ::isValidURL)
+                                                validateActiveConnections(inputsForValidation) { url ->
+                                                    isValidURL(url, settingsData.remoteProvider)
+                                                }
                                             }
                                         } finally {
                                             isValidatingConnections = false
@@ -1458,7 +1511,10 @@ private fun CardSectionHeader(
     }
 }
 
-internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
+internal suspend fun isValidURL(
+    urlString: String,
+    provider: RemoteProvider = RemoteProvider.OLLAMA,
+): ConnectionValidationResult {
     val formatResult = validateUrlFormat(urlString)
     if (!formatResult.isValid) {
         return ConnectionValidationResult(
@@ -1470,7 +1526,11 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
     }
     return try {
         val baseUrl = formatResult.normalizedUrl.trimEnd('/')
-        val requestUrl = URL("$baseUrl/api/tags")
+        val requestUrl = if (provider.usesOpenAiCompatibleApi()) {
+            URL("${provider.toOpenAiCompatibleConfig(baseUrl).baseUrl}models")
+        } else {
+            URL("$baseUrl/api/tags")
+        }
         // LAN 内利用を想定し、体感ラグを抑えるためにタイムアウトを短めに設定する
         val connectTimeoutSeconds = 2L
         val readTimeoutSeconds = 3L
@@ -1480,7 +1540,11 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
             .followRedirects(false)
             .followSslRedirects(false)
             .build()
-        val request = Request.Builder().url(requestUrl).get().build()
+        val requestBuilder = Request.Builder().url(requestUrl).get()
+        if (provider == RemoteProvider.LEMONADE) {
+            requestBuilder.header("Authorization", "Bearer lemonade")
+        }
+        val request = requestBuilder.build()
 
         client.newCall(request).execute().use { response ->
             val code = response.code

@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.settings
 
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 
 enum class HiddenQairt244PromptTemplateMode(
     val storageValue: String,
@@ -39,6 +40,7 @@ data class SettingsData(
     val inferenceStatsDisplayMode: InferenceStatsDisplayMode = InferenceStatsDisplayMode.SIMPLE,
     val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    val remoteProvider: RemoteProvider = RemoteProvider.OLLAMA,
     val developerAccessEnabled: Boolean = false,
     val devEnableNpuChatScreenRoute: Boolean = false,
     val devEnableQairt244Sm8750NpuRoute: Boolean = false,
