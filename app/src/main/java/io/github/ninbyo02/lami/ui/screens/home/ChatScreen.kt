@@ -925,6 +925,7 @@ fun Home(
     val isLocalRunningUi = isLocalRunningRaw && !isStopRequested
     val isServerRunningUi = isServerRunningRaw && !isStopRequested
     val isInferenceRunningUi = isLocalRunningUi || isServerRunningUi
+    val isComposerStopActive = isInferenceRunningUi || isTtsSpeaking || isTtsPlaying || keepTtsTalkingInHeader
     val isLocalTtsPlayingUi =
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isTtsPlaying &&
@@ -4083,7 +4084,7 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = resolveChatSendAvailability(
+                                        enabled = isComposerStopActive || resolveChatSendAvailability(
                                             selectedInferenceTarget = selectedInferenceTarget,
                                             selectedServerModel = selectedModel,
                                             selectedLocalModelPath = selectedLocalModelFilePath,
@@ -4094,6 +4095,15 @@ fun Home(
                                         ).enabled,
                                         onClick = {
                                             viewModel.onUserInteraction()
+                                            if (!isInferenceRunningUi && isComposerStopActive) {
+                                                stopTtsWithCleanup(
+                                                    suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                        ?: currentSpeakingAssistantMessageId
+                                                        ?: streamingSpeechStartedForMessageId,
+                                                    armTapGuards = true,
+                                                )
+                                                return@IconButton
+                                            }
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
@@ -7497,12 +7507,12 @@ fun Home(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (isInferenceRunningUi) {
+                                                imageVector = if (isComposerStopActive) {
                                                     Icons.Filled.Stop
                                                 } else {
                                                     Icons.Filled.ArrowUpward
                                                 },
-                                                contentDescription = if (isInferenceRunningUi) {
+                                                contentDescription = if (isComposerStopActive) {
                                                     "Stop Button"
                                                 } else {
                                                     "Send Button"
