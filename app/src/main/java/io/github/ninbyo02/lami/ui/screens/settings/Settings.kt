@@ -1055,6 +1055,48 @@ fun Settings(
                                 }
                             }
                         }
+                        if (settingsData.remoteProvider == RemoteProvider.LEMONADE) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Lemonade自動アンロード",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = "応答後に未使用時間が続いたら、Lemonadeのロード済みモデルを解放して省電力化します。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            LemonadeAutoUnloadMode.entries.forEach { mode ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch { settingsPreferences.saveLemonadeAutoUnloadMode(mode) }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = settingsData.lemonadeAutoUnloadMode == mode,
+                                        onClick = {
+                                            scope.launch { settingsPreferences.saveLemonadeAutoUnloadMode(mode) }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = mode.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = mode.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

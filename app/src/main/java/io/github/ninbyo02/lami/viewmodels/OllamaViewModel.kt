@@ -21,12 +21,14 @@ import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,6 +115,39 @@ internal fun fetchOpenAiCompatibleModelsFromServer(baseUrl: String, provider: Re
     }
 }
 
+internal fun unloadLemonadeModelFromServer(baseUrl: String, modelName: String): Boolean {
+    if (modelName.isBlank()) return false
+    val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}unload")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "POST"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 15000
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        val apiKey = config.defaultApiKey
+        if (!apiKey.isNullOrBlank()) {
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        val requestBody = JSONObject()
+            .put("model_name", modelName)
+            .toString()
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (responseCode !in 200..299) {
+            throw IOException(response.ifEmpty { "Lemonade unload failed (HTTP $responseCode)" })
+        }
+        return true
+    } finally {
+        connection.disconnect()
+    }
+}
+
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -154,6 +189,9 @@ class OllamaViewModel(
     private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
     @Volatile
     private var remoteProvider: RemoteProvider = RemoteProvider.OLLAMA
+    @Volatile
+    private var lemonadeAutoUnloadMode: LemonadeAutoUnloadMode = LemonadeAutoUnloadMode.OFF
+    private var scheduledLemonadeUnloadJob: Job? = null
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
     private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
@@ -220,6 +258,19 @@ class OllamaViewModel(
                 .distinctUntilChanged()
                 .collect { provider ->
                     remoteProvider = provider
+                    if (provider != RemoteProvider.LEMONADE) {
+                        cancelScheduledLemonadeUnload()
+                    }
+                }
+        }
+        viewModelScope.launch {
+            settingsPreferences.lemonadeAutoUnloadModeFlow
+                .distinctUntilChanged()
+                .collect { mode ->
+                    lemonadeAutoUnloadMode = mode
+                    if (mode == LemonadeAutoUnloadMode.OFF) {
+                        cancelScheduledLemonadeUnload()
+                    }
                 }
         }
         if (shouldAutoLoadModels) {
@@ -377,6 +428,7 @@ class OllamaViewModel(
             }
             onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
             onPromptSubmitted()
+            cancelScheduledLemonadeUnload()
             val requestGeneration = beginRemoteRequestGeneration()
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
@@ -400,10 +452,11 @@ class OllamaViewModel(
             if (model != null) {
                 try {
                     val activeRemoteProvider = remoteProvider
+                    val activeBaseUrl = RetrofitClient.currentBaseUrl()
                     val streamingResult = withContext(Dispatchers.IO) {
                         if (activeRemoteProvider.usesOpenAiCompatibleApi()) {
                             collectOpenAiCompatibleStreamingResponse(
-                                baseUrl = RetrofitClient.currentBaseUrl(),
+                                baseUrl = activeBaseUrl,
                                 provider = activeRemoteProvider,
                                 model = model,
                                 prompt = effectivePrompt,
@@ -472,6 +525,12 @@ class OllamaViewModel(
                         )
                         ensureRemoteRequestGenerationActive(requestGeneration)
                         _uiState.value = UiState.Success(finalText)
+                        scheduleLemonadeAutoUnloadIfNeeded(
+                            provider = activeRemoteProvider,
+                            baseUrl = activeBaseUrl,
+                            modelName = finalChunk?.model ?: model,
+                            requestGeneration = requestGeneration,
+                        )
                     }
                 } catch (e: CancellationException) {
                     Log.i("OllamaCancel", "Remote request cancelled: ${e.message}")
@@ -774,6 +833,45 @@ class OllamaViewModel(
             }
             connection.disconnect()
         }
+    }
+
+    private fun cancelScheduledLemonadeUnload() {
+        scheduledLemonadeUnloadJob?.cancel()
+        scheduledLemonadeUnloadJob = null
+    }
+
+    private fun scheduleLemonadeAutoUnloadIfNeeded(
+        provider: RemoteProvider,
+        baseUrl: String,
+        modelName: String?,
+        requestGeneration: Long,
+    ) {
+        val mode = lemonadeAutoUnloadMode
+        val delayMs = mode.delayMs ?: return
+        val targetModel = modelName?.takeIf { it.isNotBlank() } ?: return
+        if (provider != RemoteProvider.LEMONADE) return
+        cancelScheduledLemonadeUnload()
+        scheduledLemonadeUnloadJob = viewModelScope.launch {
+            delay(delayMs)
+            if (!isRemoteRequestGenerationActive(requestGeneration)) return@launch
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = targetModel)
+                }
+            }.onSuccess { unloaded ->
+                if (unloaded) {
+                    Log.i("LemonadeUnload", "Auto-unloaded Lemonade model: $targetModel mode=${mode.storageValue}")
+                }
+            }.onFailure { error ->
+                Log.w("LemonadeUnload", "Failed to auto-unload Lemonade model: ${error.message}")
+            }
+        }
+    }
+
+    override fun onCleared() {
+        cancelScheduledLemonadeUnload()
+        cancelRemoteRequest()
+        super.onCleared()
     }
 
     private class SafeMarkdownStreamAssembler(

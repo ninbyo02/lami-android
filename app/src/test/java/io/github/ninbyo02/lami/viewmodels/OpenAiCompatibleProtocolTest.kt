@@ -1,5 +1,7 @@
 package io.github.ninbyo02.lami.viewmodels
 
+import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -68,5 +70,13 @@ class OpenAiCompatibleProtocolTest {
 
         assertEquals("http://192.168.52.99:13305/api/v1/", config.baseUrl)
         assertEquals("lemonade", config.defaultApiKey)
+    }
+
+    @Test
+    fun `Lemonade auto unload modes expose Ollama-like idle delays`() {
+        assertEquals(LemonadeAutoUnloadMode.OFF, LemonadeAutoUnloadMode.fromStorage(null))
+        assertEquals(LemonadeAutoUnloadMode.AFTER_15_MIN, LemonadeAutoUnloadMode.fromStorage("after_15_min"))
+        assertEquals(15 * 60 * 1000L, LemonadeAutoUnloadMode.AFTER_15_MIN.delayMs)
+        assertNull(LemonadeAutoUnloadMode.OFF.delayMs)
     }
 }
