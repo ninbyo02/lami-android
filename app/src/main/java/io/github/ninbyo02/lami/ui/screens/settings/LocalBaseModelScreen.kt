@@ -82,6 +82,10 @@ private fun LocalModelScreen(
     var importedFileDisplayName by remember { mutableStateOf<String?>(null) }
     val savedDisplayName by slot.displayNameFlow(settingsPreferences).collectAsState(initial = null)
     val savedFilePath by slot.filePathFlow(settingsPreferences).collectAsState(initial = null)
+    val otherSlotFilePath by when (slot) {
+        LocalModelSlot.NpuPreview -> settingsPreferences.localGenericModelFilePathFlow
+        LocalModelSlot.GenericFallback -> settingsPreferences.localBaseModelFilePathFlow
+    }.collectAsState(initial = null)
 
     LaunchedEffect(savedDisplayName, savedFilePath, importState) {
         if (importState == LocalModelImportState.Importing) return@LaunchedEffect
@@ -109,7 +113,11 @@ private fun LocalModelScreen(
 
         scope.launch {
             importState = LocalModelImportState.Importing
-            val importedResult = importLocalModelToAppStorage(context, uri)
+            val importedResult = importLocalModelToAppStorage(
+                context = context,
+                uri = uri,
+                protectedFilePaths = listOfNotNull(otherSlotFilePath),
+            )
             if (importedResult != null) {
                 slot.saveModelInfo(
                     settingsPreferences = settingsPreferences,
@@ -224,7 +232,11 @@ private fun LocalModelScreen(
     }
 }
 
-private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): LocalModelImportResult? = withContext(Dispatchers.IO) {
+private suspend fun importLocalModelToAppStorage(
+    context: Context,
+    uri: Uri,
+    protectedFilePaths: List<String> = emptyList(),
+): LocalModelImportResult? = withContext(Dispatchers.IO) {
     runCatching {
         val modelsDir = File(context.filesDir, "local_models")
         if (!modelsDir.exists() && !modelsDir.mkdirs()) {
@@ -257,7 +269,14 @@ private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): Lo
             return@runCatching null
         }
 
-        val oldModelFiles = modelsDir.listFiles().orEmpty().filter { it.isFile && it != targetFile }
+        val protectedCanonicalPaths = protectedFilePaths
+            .mapNotNull { path -> runCatching { File(path).canonicalPath }.getOrNull() }
+            .toSet()
+        val oldModelFiles = modelsDir.listFiles().orEmpty().filter { file ->
+            file.isFile &&
+                file != targetFile &&
+                runCatching { file.canonicalPath !in protectedCanonicalPaths }.getOrDefault(false)
+        }
         val failedDeletions = oldModelFiles.filterNot { file -> !file.exists() || file.delete() }
         if (failedDeletions.isNotEmpty()) {
             targetFile.delete()
