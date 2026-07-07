@@ -3502,14 +3502,13 @@ fun Home(
                             streamingSpeechStartedForMessageId = assistantId
                         }
                     }
-                    placeholder = "Enter your prompt..."
-                    pendingAssistantImageInputCount = null
-                    toggle = false
-                    remoteRequestJob = null
-                    resetStreamingAssistantPlaceholderId(reason = "success")
-                    viewModel.resetUiState()
-                    yield()
+                    // Queue TTS before resetting UiState. resetUiState() changes the LaunchedEffect key;
+                    // if this coroutine suspends or is cancelled after that, speech scheduled later can
+                    // be skipped intermittently even though the assistant text was displayed and saved.
                     var streamingSpeechStateResetForQueuedTail = false
+                    // Queue TTS before resetting UiState. resetUiState() changes the LaunchedEffect key;
+                    // if this coroutine suspends or is cancelled after that, speech scheduled later can
+                    // be skipped intermittently even though the assistant text was displayed and saved.
                     if (effectiveStreamingSentenceTtsEnabled) {
                         maybeReleaseHeldEngineForTtsPlayback()
                         speakStreamingTailIfNeeded(response)
@@ -3538,6 +3537,12 @@ fun Home(
                     if (!streamingSpeechStateResetForQueuedTail) {
                         resetStreamingSpeechState()
                     }
+                    placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
+                    toggle = false
+                    remoteRequestJob = null
+                    resetStreamingAssistantPlaceholderId(reason = "success")
+                    viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
