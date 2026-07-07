@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -45,6 +46,7 @@ import io.github.ninbyo02.lami.ui.screens.chats.Chats
 import io.github.ninbyo02.lami.ui.screens.home.Home
 import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.settings.About
+import io.github.ninbyo02.lami.ui.screens.settings.ScreenOrientationMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsData
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.screens.settings.Settings
@@ -112,6 +114,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+            LaunchedEffect(settingsData.screenOrientationMode) {
+                requestedOrientation = when (settingsData.screenOrientationMode) {
+                    ScreenOrientationMode.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    ScreenOrientationMode.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    ScreenOrientationMode.AUTO -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
             // Initialise navigation
             val navController = rememberNavController()
             LaunchedEffect(Unit) {

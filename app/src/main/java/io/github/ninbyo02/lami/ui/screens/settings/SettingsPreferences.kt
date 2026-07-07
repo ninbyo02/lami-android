@@ -390,6 +390,7 @@ class SettingsPreferences(private val context: Context) {
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
     private val remoteProviderKey = stringPreferencesKey("remote_provider")
     private val lemonadeAutoUnloadModeKey = stringPreferencesKey("lemonade_auto_unload_mode")
+    private val screenOrientationModeKey = stringPreferencesKey("screen_orientation_mode")
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
@@ -459,6 +460,7 @@ class SettingsPreferences(private val context: Context) {
             ),
             remoteProvider = RemoteProvider.fromStorage(preferences[remoteProviderKey]),
             lemonadeAutoUnloadMode = LemonadeAutoUnloadMode.fromStorage(preferences[lemonadeAutoUnloadModeKey]),
+            screenOrientationMode = ScreenOrientationMode.fromStorage(preferences[screenOrientationModeKey]),
             developerAccessEnabled =
                 BuildConfig.DEBUG &&
                     (preferences[developerAccessEnabledKey] ?: false),
@@ -1489,6 +1491,12 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[chatLamiAvatarSizeDpKey] = value
                 .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
+        }
+    }
+
+    suspend fun saveScreenOrientationMode(mode: ScreenOrientationMode) {
+        context.dataStore.edit { preferences ->
+            preferences[screenOrientationModeKey] = mode.storageValue
         }
     }
 

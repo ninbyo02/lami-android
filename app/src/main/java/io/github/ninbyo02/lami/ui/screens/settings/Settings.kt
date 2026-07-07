@@ -553,6 +553,60 @@ fun Settings(
                         }
                     )
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "画面の向き",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "発話中の画面回転で読み上げが途切れる場合は、縦画面固定がおすすめです。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val currentScreenOrientationMode = settingsData.screenOrientationMode
+                        ScreenOrientationMode.entries.forEach { mode ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch {
+                                            settingsPreferences.saveScreenOrientationMode(mode)
+                                        }
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = currentScreenOrientationMode == mode,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsPreferences.saveScreenOrientationMode(mode)
+                                        }
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = mode.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = mode.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
                 Spacer(modifier = Modifier.height(2.dp))

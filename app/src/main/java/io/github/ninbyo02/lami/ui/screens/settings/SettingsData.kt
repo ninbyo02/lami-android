@@ -5,6 +5,33 @@ import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 
 
+enum class ScreenOrientationMode(
+    val storageValue: String,
+    val displayName: String,
+    val description: String,
+) {
+    PORTRAIT(
+        storageValue = "portrait",
+        displayName = "縦画面",
+        description = "会話・発話中に画面回転で中断しにくくします。",
+    ),
+    LANDSCAPE(
+        storageValue = "landscape",
+        displayName = "横画面",
+        description = "横向きで固定します。タブレットや横置き利用向けです。",
+    ),
+    AUTO(
+        storageValue = "auto",
+        displayName = "AUTO",
+        description = "端末の自動回転設定に従います。発話中に回転すると中断する場合があります。",
+    );
+
+    companion object {
+        fun fromStorage(raw: String?): ScreenOrientationMode =
+            entries.firstOrNull { it.storageValue == raw || it.name == raw } ?: PORTRAIT
+    }
+}
+
 enum class LemonadeAutoUnloadMode(
     val storageValue: String,
     val displayName: String,
@@ -86,6 +113,7 @@ data class SettingsData(
     val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     val remoteProvider: RemoteProvider = RemoteProvider.OLLAMA,
     val lemonadeAutoUnloadMode: LemonadeAutoUnloadMode = LemonadeAutoUnloadMode.OFF,
+    val screenOrientationMode: ScreenOrientationMode = ScreenOrientationMode.PORTRAIT,
     val developerAccessEnabled: Boolean = false,
     val devEnableNpuChatScreenRoute: Boolean = false,
     val devEnableQairt244Sm8750NpuRoute: Boolean = false,
