@@ -36,6 +36,34 @@ validate_safe_patch_name() {
   printf '%s\n' "$name"
 }
 
+validate_source_path() {
+  local rel="$1"
+  [[ -n "$rel" ]] || fail
+  [[ "$rel" != /* && "$rel" != *..* && "$rel" != *' '* ]] || fail
+  [[ "$rel" =~ ^[A-Za-z0-9._/@+-]+$ ]] || fail
+  case "$rel" in
+    local.properties|*.env|*.jks|*.keystore|*google-services.json|*.p12|*.pem|*.key|*.sqlite|*.db)
+      fail ;;
+    app/src/*|app/build.gradle.kts|build.gradle.kts|settings.gradle.kts|gradle.properties|gradle/libs.versions.toml|scripts/*|patches/*|README.md|AGENTS.md|CLAUDE.md)
+      ;;
+    *) fail ;;
+  esac
+  case "$rel" in
+    *.kt|*.kts|*.java|*.xml|*.gradle|*.properties|*.toml|*.md|*.sh|*.patch|*.txt|*.json|*.yaml|*.yml)
+      ;;
+    *) fail ;;
+  esac
+  printf '%s\n' "$rel"
+}
+
+validate_read_number() {
+  local value="$1" default_value="$2" min_value="$3" max_value="$4"
+  [[ -n "$value" ]] || value="$default_value"
+  [[ "$value" =~ ^[0-9]+$ ]] || fail
+  (( value >= min_value && value <= max_value )) || fail
+  printf '%s\n' "$value"
+}
+
 validate_host() {
   local host="$1"
   [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail
@@ -287,6 +315,20 @@ run_logcat() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+run_read_source() {
+  local rel="$1" offset="${2:-1}" limit="${3:-200}" path size
+  rel="$(validate_source_path "$rel")"
+  offset="$(validate_read_number "$offset" 1 1 200000)"
+  limit="$(validate_read_number "$limit" 200 1 400)"
+  cd "$REPO"
+  path="$REPO/$rel"
+  [[ -f "$path" ]] || fail
+  [[ "$(realpath -m "$path")" == "$REPO"/* ]] || fail
+  size="$(wc -c < "$path")"
+  (( size <= 1500000 )) || fail
+  awk -v start="$offset" -v max="$limit" 'NR >= start && NR < start + max { printf "%d|%s\n", NR, $0 }' "$path"
+}
+
 
 safe_command_recipes() {
   cat <<'EOF'
@@ -314,6 +356,21 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest.kt
     commit: fix: improve local chat send feedback
+
+  tts-success-order
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenTtsOrderingSourceTest.kt
+    commit: fix: queue TTS before resetting success state
+
+  screen-orientation-setting
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/ScreenOrientationModeTest.kt
+    commit: feat: add screen orientation setting
 EOF
 }
 
@@ -337,6 +394,16 @@ run_git_commit_safe_recipe() {
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AssistantTtsText\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailability\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatSendAvailabilityTest\.kt)$'
       message="fix: improve local chat send feedback"
       ;;
+    tts-success-order)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenTtsOrderingSourceTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenTtsOrderingSourceTest\.kt)$'
+      message="fix: queue TTS before resetting success state"
+      ;;
+    screen-orientation-setting)
+      git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/ScreenOrientationModeTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/ScreenOrientationModeTest\.kt)$'
+      message="feat: add screen orientation setting"
+      ;;
     *) fail ;;
   esac
   if git diff --cached --quiet; then
@@ -348,6 +415,14 @@ run_git_commit_safe_recipe() {
     exit 65
   fi
   git commit -m "$message"
+}
+
+run_git_commit_push_safe_recipe() {
+  local recipe="$1"
+  cd "$REPO"
+  [[ "$(git branch --show-current)" == "future" ]] || fail
+  run_git_commit_safe_recipe "$recipe"
+  git push origin future
 }
 
 case "$CMD" in
@@ -385,6 +460,8 @@ case "$CMD" in
     cd "$REPO"; git diff --stat -- . ':(exclude)local.properties' ;;
   git-diff)
     cd "$REPO"; git diff -- . ':(exclude)local.properties' | sed -n '1,500p' ;;
+  read-source\ *)
+    parts=($CMD); [[ "${#parts[@]}" -ge 2 && "${#parts[@]}" -le 4 ]] || fail; run_read_source "${parts[1]}" "${parts[2]:-1}" "${parts[3]:-200}" ;;
   git-log)
     cd "$REPO"; git log --oneline -20 ;;
   git-apply-check\ *)
@@ -405,6 +482,8 @@ case "$CMD" in
     safe_command_recipes ;;
   git-commit-safe-recipe\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_safe_recipe "${parts[1]}" ;;
+  git-commit-push-safe-recipe\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_push_safe_recipe "${parts[1]}" ;;
   install-future\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   help)
@@ -439,10 +518,14 @@ allowed commands:
   git-remote
   git-diff-stat
   git-diff                    # bounded first 500 lines, excludes local.properties
+  read-source <safe-relative-path> [offset] [limit] # bounded read-only source view
   git-log
   git-apply-check <safe-name.patch>
   git-apply <safe-name.patch>
   git-commit-npu-fallback     # fixed file allowlist + fixed commit message
+  safe-command-recipes
+  git-commit-safe-recipe <recipe>
+  git-commit-push-safe-recipe <recipe>
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
 EOF
     ;;
