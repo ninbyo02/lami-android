@@ -371,6 +371,12 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/ScreenOrientationModeTest.kt
     commit: feat: add screen orientation setting
+
+  npu-gpu-diagnostic-safety
+    files:
+      app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt
+      app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
+    commit: debug: harden NPU and GPU diagnostics
 EOF
 }
 
@@ -404,6 +410,11 @@ run_git_commit_safe_recipe() {
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/ScreenOrientationModeTest\.kt)$'
       message="feat: add screen orientation setting"
       ;;
+    npu-gpu-diagnostic-safety)
+      git add app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
+      allowed_regex='^(app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver\.kt|app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke\.kt)$'
+      message="debug: harden NPU and GPU diagnostics"
+      ;;
     *) fail ;;
   esac
   if git diff --cached --quiet; then
@@ -423,6 +434,19 @@ run_git_commit_push_safe_recipe() {
   [[ "$(git branch --show-current)" == "future" ]] || fail
   run_git_commit_safe_recipe "$recipe"
   git push origin future
+}
+
+run_npu_gpu_diagnostic_safety_check() {
+  cd "$REPO"
+  [[ "$(git branch --show-current)" == "future" ]] || fail
+  echo "== status =="
+  git status --short --branch
+  echo
+  echo "== compile standard debug =="
+  ./gradlew --no-daemon :app:compileStandardDebugKotlin
+  echo
+  echo "== focused standard tests =="
+  ./gradlew --no-daemon :app:testStandardDebugUnitTest     --tests '*LiteRtLmGpuBenchmarkRunSummaryTest*'     --tests '*NormalChatGpuDiagnosticsTest*'
 }
 
 case "$CMD" in
@@ -484,6 +508,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_safe_recipe "${parts[1]}" ;;
   git-commit-push-safe-recipe\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_push_safe_recipe "${parts[1]}" ;;
+  npu-gpu-diagnostic-safety-check)
+    run_npu_gpu_diagnostic_safety_check ;;
   install-future\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   help)
@@ -526,6 +552,7 @@ allowed commands:
   safe-command-recipes
   git-commit-safe-recipe <recipe>
   git-commit-push-safe-recipe <recipe>
+  npu-gpu-diagnostic-safety-check
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
 EOF
     ;;
