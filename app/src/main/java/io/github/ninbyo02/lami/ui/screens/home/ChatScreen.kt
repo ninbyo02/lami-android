@@ -3509,10 +3509,16 @@ fun Home(
                     resetStreamingAssistantPlaceholderId(reason = "success")
                     viewModel.resetUiState()
                     yield()
+                    var streamingSpeechStateResetForQueuedTail = false
                     if (effectiveStreamingSentenceTtsEnabled) {
                         maybeReleaseHeldEngineForTtsPlayback()
                         speakStreamingTailIfNeeded(response)
+                        // Keep the streaming TTS playback flag active after queueing the final tail.
+                        // A second unconditional reset here clears ownership while the queued final
+                        // utterance is still pending, which can make the last sentence disappear from
+                        // playback on some Android TTS engines.
                         resetStreamingSpeechState(clearPlaybackFlag = false)
+                        streamingSpeechStateResetForQueuedTail = true
                     } else if (
                         ttsEnabled &&
                         assistantId != null &&
@@ -3529,7 +3535,9 @@ fun Home(
                             ttsController.speak(speechText)
                         }
                     }
-                    resetStreamingSpeechState()
+                    if (!streamingSpeechStateResetForQueuedTail) {
+                        resetStreamingSpeechState()
+                    }
                 }
 
                 is UiState.Error -> {
