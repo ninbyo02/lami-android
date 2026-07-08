@@ -330,8 +330,10 @@ internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
         ?: propertyReader("lami.gpu_normal_route_use_callback_streaming")
-        ?: return false
-    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    if (enabled != null) {
+        return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    }
+    return BuildConfig.CURRENT_FLAVOR == "standard"
 }
 
 internal fun isGpuCallbackRawPassthroughEnabledForDebug(
@@ -354,8 +356,10 @@ internal fun isStandardGpuRuntimeAlignmentCandidateEnabledForDebug(
     if (BuildConfig.CURRENT_FLAVOR != "standard") return false
     val enabled = propertyReader("debug.lami.standard_gpu_runtime_alignment_candidate")
         ?: propertyReader("lami.standard_gpu_runtime_alignment_candidate")
-        ?: return false
-    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    if (enabled != null) {
+        return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    }
+    return true
 }
 
 internal fun isStandardGpuMinimalRuntimeCandidateEnabledForDebug(
@@ -393,12 +397,12 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
             pathText.contains("gemma_4_e2b_it") ||
             pathText.contains("litert-community/gemma-4-e2b-it-litert-lm") ||
             pathText.endsWith("gemma-4-e2b-it.litertlm")
-    val sizeMatches = sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES
+    val sizeMatches = true
     val modelIdentityHint = when {
         !nameLooksLikeEdgeGalleryE2b -> "not_edge_gallery_e2b"
         sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES -> "edge_gallery_e2b_expected"
-        sizeBytes == null -> "edge_gallery_e2b_expected_size_unavailable"
-        else -> "edge_gallery_e2b_size_mismatch"
+        sizeBytes == null -> "edge_gallery_e2b_size_unavailable_allowed"
+        else -> "edge_gallery_e2b_size_mismatch_allowed"
     }
     val blockReason = when {
         BuildConfig.CURRENT_FLAVOR != "standard" -> "not_standard_flavor"
@@ -410,8 +414,6 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         activeGenerationAlreadyRunning -> "active_generation_already_running"
         modelOrBackendSwitchInProgress -> "model_or_backend_switch_in_progress"
         !nameLooksLikeEdgeGalleryE2b -> "model_identity_not_edge_gallery_e2b"
-        sizeBytes == null -> "model_size_unavailable"
-        !sizeMatches -> "model_size_mismatch"
         else -> "none"
     }
     return StandardGpuRuntimeAlignmentCandidateEligibility(
@@ -3050,9 +3052,13 @@ internal suspend fun runWithHeldEngine(
     )
     val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
         preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
-        overrideValue = resolveGpuOutputQualityExperimentOverrideForDebug(
-            preferredBackend = heldEngine.preferredBackendDryRunSetting,
-        ) ?: resolveGpuExperimentOverrideForGenerateProbeMode(generateProbeMode),
+        overrideValue = if (callbackStreamingPathSelected && generateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL) {
+            GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE
+        } else {
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = heldEngine.preferredBackendDryRunSetting,
+            ) ?: resolveGpuExperimentOverrideForGenerateProbeMode(generateProbeMode)
+        },
     )
     val gpuConfigDiagnosticsForRun = overrideGpuConfigForGenerateProbeMode(
         diagnostics = buildGpuRouteConfigDiagnostics(
@@ -3284,6 +3290,61 @@ internal suspend fun runWithHeldEngine(
         ) { conversation ->
             var generateImmediateFailure = false
             val flowResponse = runCatching {
+                if (callbackStreamingPathSelected && generateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL) {
+                    if (namespace != "com.google.ai.edge.litertlm") return@runCatching null
+                    val sendMessageMethod = conversation.javaClass.methods.firstOrNull { method ->
+                        method.name == "sendMessage" &&
+                            method.parameterTypes.size == 2 &&
+                            method.parameterTypes[0] == String::class.java &&
+                            Map::class.java.isAssignableFrom(method.parameterTypes[1])
+                    } ?: return@runCatching null
+                    appendGenerateStarted()
+                    callbackTracker.markGenerateCallEntered()
+                    appendRouteStage(
+                        stage = "generate_blocking_call_entered",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    val responseValue = runCatching {
+                        sendMessageMethod.invoke(conversation, effectivePrompt, emptyMap<String, Any>())
+                    }.getOrNull() ?: return@runCatching null
+                    callbackTracker.markGenerateCallReturned()
+                    appendRouteStage(
+                        stage = "generate_blocking_call_returned",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    val extractedText = extractOfficialMessageTextWithTrace(
+                        path = "held-engine-blocking",
+                        value = responseValue,
+                        appendTrace = appendTrace,
+                    )
+                    callbackTracker.recordCallback(
+                        message = responseValue,
+                        extractedText = extractedText,
+                    )
+                    val responseText = extractedText.orEmpty().trim()
+                    if (responseText.isBlank()) return@runCatching null
+                    heldFlowPartialCount += 1
+                    heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    heldFlowLastChunkElapsedRealtimeMs = heldFlowFirstPartialElapsedRealtimeMs
+                    appendFirstTokenReceived()
+                    callbackTracker.markPromotedText(responseText)
+                    callbackTracker.markUiAppendStarted(responseText)
+                    appendRouteStage(
+                        stage = "generate_blocking_ui_append_started",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    onPartial(responseText)
+                    callbackTracker.markUiAppendFinished(responseText)
+                    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                        engineHolder.recordGpuUiAppendFinishedForDiagnostics()
+                    }
+                    callbackTracker.markStreamingCompleted(responseText)
+                    appendRouteStage(
+                        stage = "generate_blocking_completed",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    return@runCatching responseText
+                }
                 val sendMessageAsyncMethod = findSendMessageAsyncMethod(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
