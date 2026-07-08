@@ -1107,6 +1107,11 @@ tasks.matching {
     dependsOn("verifyQairt244CustomBuildExperimentDebugNativeLibs")
 }
 
+tasks.matching { it.name == "packageStandardDebug" }.configureEach {
+    dependsOn("overlayQairt244StandardDebugNativeLibs")
+    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+}
+
 tasks.register("dumpStandardDebugApkNativeLibs") {
     group = "verification"
     description = "Dumps final standardDebug APK arm64-v8a native libraries with size, sha256, and likely source."

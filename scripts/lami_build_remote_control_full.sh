@@ -178,6 +178,47 @@ run_install_future() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+run_install_dirty_current() {
+  local host="$1"
+  local port="$2"
+  local flavor="${3:-$DEFAULT_FLAVOR}"
+  validate_host "$host"
+  validate_port "$port"
+  flavor="$(validate_flavor "$flavor")"
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file task apk app_id
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/install-dirty-current-${timestamp}-${host}-${port}-${flavor}.log"
+  case "$flavor" in
+    standard) task=":app:assembleStandardDebug"; apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"; app_id="io.github.ninbyo02.lami" ;;
+    *) fail ;;
+  esac
+  {
+    echo "== LAMI install dirty current =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_target=${host}:${port}"
+    echo "flavor=${flavor}"
+    echo "task=${task}"
+    echo "apk=${apk}"
+    cd "$REPO"
+    echo "== git status =="
+    git status --short --branch
+    echo "== build rerun tasks =="
+    ./gradlew --no-daemon "$task" --rerun-tasks
+    test -f "$apk"
+    echo "== apk built =="
+    ls -l "$apk"
+    adb devices -l || true
+    adb connect "${host}:${port}"
+    echo "== install apk =="
+    adb -s "${host}:${port}" install -r "$apk"
+    echo "== INSTALL DIRTY CURRENT OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 run_adb_pair() {
   local host="$1" port="$2" code="$3"
   validate_host "$host"
@@ -433,6 +474,7 @@ safe command recipes:
 
   forced-command-control
     files:
+      app/build.gradle.kts
       scripts/lami_build_remote_control_full.sh
       scripts/lami_build_remote_control_limited_adb.sh
       scripts/lami_build_qairt244_forced_commands.sh
@@ -488,8 +530,8 @@ run_git_commit_safe_recipe() {
       message="debug: raise NPU native max output tokens limit"
       ;;
     forced-command-control)
-      git add scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
-      allowed_regex='^(scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
+      git add app/build.gradle.kts scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
+      allowed_regex='^(app/build.gradle\.kts|scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
       message="fix: update NPU fallback build control"
       ;;
     chat-ui-local-send)
@@ -676,6 +718,8 @@ case "$CMD" in
     run_update_live_controller_from_repo ;;
   install-future\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
+  install-dirty-current\ *)
+    parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_dirty_current "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   help)
     cat <<'EOF'
 allowed commands:
@@ -721,6 +765,7 @@ allowed commands:
   standard-npu-jni-symbol-check
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
+  install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard]
 EOF
     ;;
   *)
