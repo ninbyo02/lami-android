@@ -521,6 +521,12 @@ safe command recipes:
     files:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
     commit: fix: speed up standard GPU local chat path
+
+  npu-missing-jni-fallback
+    files:
+      app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+    commit: fix: clarify NPU missing JNI fallback
 EOF
 }
 
@@ -568,6 +574,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner\.kt)$'
       message="fix: speed up standard GPU local chat path"
+      ;;
+    npu-missing-jni-fallback)
+      git add app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      allowed_regex='^(app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt)$'
+      message="fix: clarify NPU missing JNI fallback"
       ;;
     *) fail ;;
   esac
