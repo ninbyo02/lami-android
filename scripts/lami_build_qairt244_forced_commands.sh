@@ -20,15 +20,15 @@
 : "${LITERT_CUSTOM_ARTIFACT_ROOT:=$REPO/artifacts/litert_custom_build}"
 : "${LITERT_LM_CHECKOUT:=}"
 : "${QAIRT244_ROOT:=}"
-: "${QAIRT244_BUILD_LABEL:=qairt244_128token_gpu_prefill_preinvoke_diag}"
+: "${QAIRT244_BUILD_LABEL:=qairt244_128token_persistent_probe}"
 : "${LITERT_LM_REPO:=https://github.com/google-ai-edge/LiteRT-LM.git}"
 : "${LITERT_LM_REF:=v0.11.0}"
 : "${QAIRT244_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token.patch}"
-: "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch}"
+: "${QAIRT244_EXTRA_PATCH:=$REPO/patches/qairt244_litertlm_utf8_128token_persistent_probe.patch}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_MARKER:=qairt244_gpu_prefill_preinvoke_v1}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL:=Qairt244GpuPrefillPreinvokeArtifactMarker}"
 : "${QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL:=Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker}"
-: "${QAIRT244_REQUIRE_PERSISTENT_PROBE:=false}"
+: "${QAIRT244_REQUIRE_PERSISTENT_PROBE:=true}"
 
 lami_qairt244_first_existing_dir() {
   local path
