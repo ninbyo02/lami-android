@@ -325,6 +325,17 @@ run_adb_dump_standardnpu_diag() {
     echo
     echo "== app private diagnostic files =="
     adb -s "${host}:${port}" exec-out run-as "$package" sh -c 'ls -l files 2>/dev/null | grep -E "qairt|npu|diag|standard|native|litert" || true' || true
+    for file in \
+      qairt244_short_multitoken_smoke_result.txt \
+      qairt244_native_diag.txt \
+      qairt244_chat_screen_model_path_resolution.txt \
+      npu_engine_initialize_dry_run.txt \
+      npu_engine_initialize_last_stage.txt \
+      dev_only_npu_one_turn_conversation_result.txt; do
+      echo
+      echo "===== files/${file} ====="
+      adb -s "${host}:${port}" exec-out run-as "$package" cat "files/${file}" 2>/dev/null | head -220 || true
+    done
     echo
     echo "== recent NPU/LiteRT logcat =="
     adb -s "${host}:${port}" logcat -d -v time 2>/dev/null       | grep -Ei 'UnsatisfiedLinkError|No implementation found|dlopen|cannot locate symbol|NPU|QNN|HTP|LiteRT|litert|QAIRT|Qairt|lami_npu_persistent|adapter_failure|nativeLibraryDir|Unsupported model signature'       | tail -260 || true
@@ -406,7 +417,7 @@ run_update_live_controller_from_repo() {
   echo "controller updated"
   echo "backup=$backup"
   echo "live_recipe_check_begin"
-  "$target" safe-command-recipes | grep -A4 local-model-slot-preservation || true
+  SSH_ORIGINAL_COMMAND=safe-command-recipes "$target" | grep -A4 local-model-slot-preservation || true
   echo "live_recipe_check_end"
 }
 
