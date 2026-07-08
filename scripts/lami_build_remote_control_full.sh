@@ -516,6 +516,11 @@ safe command recipes:
       app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt
       app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
     commit: debug: harden NPU and GPU diagnostics
+
+  local-gpu-fast-path
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
+    commit: fix: speed up standard GPU local chat path
 EOF
 }
 
@@ -558,6 +563,11 @@ run_git_commit_safe_recipe() {
       git add app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
       allowed_regex='^(app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver\.kt|app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke\.kt)$'
       message="debug: harden NPU and GPU diagnostics"
+      ;;
+    local-gpu-fast-path)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner\.kt)$'
+      message="fix: speed up standard GPU local chat path"
       ;;
     *) fail ;;
   esac
