@@ -113,6 +113,90 @@ print_status() {
   echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
 }
 
+
+print_fixed_path_status() {
+  local label="$1" path="$2"
+  local kind="missing" executable="false" readable="false"
+  if [[ -d "$path" ]]; then
+    kind="dir"
+  elif [[ -f "$path" ]]; then
+    kind="file"
+  elif [[ -e "$path" ]]; then
+    kind="other"
+  fi
+  [[ -r "$path" ]] && readable="true"
+  [[ -x "$path" ]] && executable="true"
+  printf '%s\tpath=%s\tkind=%s\treadable=%s\texecutable=%s\n' \
+    "$label" "$path" "$kind" "$readable" "$executable"
+}
+
+android_sdk_candidate_roots() {
+  printf '%s\n' \
+    "${ANDROID_HOME:-}" \
+    "${ANDROID_SDK_ROOT:-}" \
+    /opt/android-sdk \
+    /opt/Android/Sdk \
+    /opt/android-sdk-linux \
+    /usr/lib/android-sdk \
+    "$HOME/Android/Sdk"
+}
+
+run_android_sdk_candidates() {
+  echo "== android sdk candidates =="
+  local root seen=""
+  while IFS= read -r root; do
+    [[ -n "$root" ]] || continue
+    case ":$seen:" in
+      *:"$root":*) continue ;;
+    esac
+    seen="${seen:+$seen:}$root"
+    print_fixed_path_status "sdk_root" "$root"
+    print_fixed_path_status "emulator_bin" "$root/emulator/emulator"
+    print_fixed_path_status "adb_bin" "$root/platform-tools/adb"
+  done < <(android_sdk_candidate_roots)
+}
+
+run_emulator_env_status() {
+  echo "== emulator repo/env status =="
+  print_fixed_path_status "repo_scripts_dir" "$REPO/scripts"
+  print_fixed_path_status "emulator_script" "$REPO/scripts/emulator.sh"
+  print_fixed_path_status "emulator_env" "$REPO/scripts/emulator.env"
+  print_fixed_path_status "lami_build_android_dir" "$HOME/.android"
+  print_fixed_path_status "lami_build_avd_dir" "$HOME/.android/avd"
+  echo "== command availability =="
+  command -v grep >/dev/null 2>&1 && echo "grep=available" || echo "grep=missing"
+  command -v rg >/dev/null 2>&1 && echo "rg=available" || echo "rg=missing"
+}
+
+resolve_emulator_bin_for_status() {
+  local root candidate
+  while IFS= read -r root; do
+    [[ -n "$root" ]] || continue
+    candidate="$root/emulator/emulator"
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(android_sdk_candidate_roots)
+  if command -v emulator >/dev/null 2>&1; then
+    command -v emulator
+    return 0
+  fi
+  return 1
+}
+
+run_emulator_avd_list() {
+  echo "== emulator avd list =="
+  local emu_bin
+  emu_bin="$(resolve_emulator_bin_for_status || true)"
+  if [[ -z "$emu_bin" ]]; then
+    echo "emulator_bin=missing"
+    return 65
+  fi
+  echo "emulator_bin=$emu_bin"
+  "$emu_bin" -list-avds || true
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -688,6 +772,12 @@ case "$CMD" in
     find "$LOG_DIR" -maxdepth 1 -type f -name '*.log' -printf '%TY-%Tm-%Td %TH:%TM %p\n' 2>/dev/null | sort -r | head -50 ;;
   adb-devices)
     adb devices -l ;;
+  android-sdk-candidates)
+    run_android_sdk_candidates ;;
+  emulator-env-status)
+    run_emulator_env_status ;;
+  emulator-avd-list)
+    run_emulator_avd_list ;;
   adb-pair\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
@@ -755,6 +845,9 @@ allowed commands:
   logs
   list-logs
   adb-devices
+  android-sdk-candidates      # fixed read-only SDK path existence check
+  emulator-env-status         # fixed read-only emulator script/env/AVD existence check
+  emulator-avd-list           # list AVD names via first fixed emulator binary
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
