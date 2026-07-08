@@ -143,6 +143,7 @@ android_sdk_candidate_roots() {
     /opt/Android/Sdk \
     /opt/android-sdk-linux \
     /usr/lib/android-sdk \
+    "$HOME/lami-android-sdk" \
     "$HOME/Android/Sdk"
 }
 
@@ -252,17 +253,17 @@ run_android_sdk_tool_status() {
   avdmanager="$(resolve_avdmanager_for_status || true)"
   echo "sdkmanager=${sdkmanager:-missing}"
   echo "avdmanager=${avdmanager:-missing}"
-  echo "install_sdk_root=$HOME/Android/Sdk"
-  print_fixed_path_status "home_sdk_root" "$HOME/Android/Sdk"
-  print_fixed_path_status "home_cmdline_tools_latest" "$HOME/Android/Sdk/cmdline-tools/latest"
-  print_fixed_path_status "home_emulator_bin" "$HOME/Android/Sdk/emulator/emulator"
-  print_fixed_path_status "home_adb_bin" "$HOME/Android/Sdk/platform-tools/adb"
+  echo "install_sdk_root=$HOME/lami-android-sdk"
+  print_fixed_path_status "lami_sdk_root" "$HOME/lami-android-sdk"
+  print_fixed_path_status "lami_cmdline_tools_latest" "$HOME/lami-android-sdk/cmdline-tools/latest"
+  print_fixed_path_status "lami_emulator_bin" "$HOME/lami-android-sdk/emulator/emulator"
+  print_fixed_path_status "lami_adb_bin" "$HOME/lami-android-sdk/platform-tools/adb"
 }
 
 run_android_sdk_install_emulator() {
   echo "== android sdk install emulator =="
   local sdk_root sdkmanager
-  sdk_root="$HOME/Android/Sdk"
+  sdk_root="$HOME/lami-android-sdk"
   mkdir -p "$sdk_root"
   sdkmanager="$(resolve_sdkmanager_for_status || true)"
   if [[ -z "$sdkmanager" ]]; then
@@ -271,14 +272,15 @@ run_android_sdk_install_emulator() {
   fi
   echo "sdkmanager=$sdkmanager"
   echo "sdk_root=$sdk_root"
-  yes | "$sdkmanager" --sdk_root="$sdk_root" --install "emulator"
-  print_fixed_path_status "home_emulator_bin" "$sdk_root/emulator/emulator"
+  yes | "$sdkmanager" --sdk_root="$sdk_root" --install "platform-tools" "emulator"
+  print_fixed_path_status "lami_emulator_bin" "$sdk_root/emulator/emulator"
+  print_fixed_path_status "lami_adb_bin" "$sdk_root/platform-tools/adb"
 }
 
 run_android_sdk_list_system_images() {
   echo "== android sdk system image candidates =="
   local sdk_root sdkmanager
-  sdk_root="$HOME/Android/Sdk"
+  sdk_root="$HOME/lami-android-sdk"
   sdkmanager="$(resolve_sdkmanager_for_status || true)"
   if [[ -z "$sdkmanager" ]]; then
     echo "sdkmanager=missing"
