@@ -197,6 +197,92 @@ run_emulator_avd_list() {
   "$emu_bin" -list-avds || true
 }
 
+
+resolve_sdkmanager_for_status() {
+  local root candidate
+  while IFS= read -r root; do
+    [[ -n "$root" ]] || continue
+    for candidate in \
+      "$root/cmdline-tools/latest/bin/sdkmanager" \
+      "$root/cmdline-tools/bin/sdkmanager" \
+      "$root/tools/bin/sdkmanager"; do
+      if [[ -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    done
+  done < <(android_sdk_candidate_roots)
+  if command -v sdkmanager >/dev/null 2>&1; then
+    command -v sdkmanager
+    return 0
+  fi
+  return 1
+}
+
+resolve_avdmanager_for_status() {
+  local root candidate
+  while IFS= read -r root; do
+    [[ -n "$root" ]] || continue
+    for candidate in \
+      "$root/cmdline-tools/latest/bin/avdmanager" \
+      "$root/cmdline-tools/bin/avdmanager" \
+      "$root/tools/bin/avdmanager"; do
+      if [[ -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    done
+  done < <(android_sdk_candidate_roots)
+  if command -v avdmanager >/dev/null 2>&1; then
+    command -v avdmanager
+    return 0
+  fi
+  return 1
+}
+
+run_android_sdk_tool_status() {
+  echo "== android sdk tool status =="
+  local sdkmanager avdmanager
+  sdkmanager="$(resolve_sdkmanager_for_status || true)"
+  avdmanager="$(resolve_avdmanager_for_status || true)"
+  echo "sdkmanager=${sdkmanager:-missing}"
+  echo "avdmanager=${avdmanager:-missing}"
+  echo "install_sdk_root=$HOME/Android/Sdk"
+  print_fixed_path_status "home_sdk_root" "$HOME/Android/Sdk"
+  print_fixed_path_status "home_cmdline_tools_latest" "$HOME/Android/Sdk/cmdline-tools/latest"
+  print_fixed_path_status "home_emulator_bin" "$HOME/Android/Sdk/emulator/emulator"
+  print_fixed_path_status "home_adb_bin" "$HOME/Android/Sdk/platform-tools/adb"
+}
+
+run_android_sdk_install_emulator() {
+  echo "== android sdk install emulator =="
+  local sdk_root sdkmanager
+  sdk_root="$HOME/Android/Sdk"
+  mkdir -p "$sdk_root"
+  sdkmanager="$(resolve_sdkmanager_for_status || true)"
+  if [[ -z "$sdkmanager" ]]; then
+    echo "sdkmanager=missing"
+    return 65
+  fi
+  echo "sdkmanager=$sdkmanager"
+  echo "sdk_root=$sdk_root"
+  yes | "$sdkmanager" --sdk_root="$sdk_root" --install "emulator"
+  print_fixed_path_status "home_emulator_bin" "$sdk_root/emulator/emulator"
+}
+
+run_android_sdk_list_system_images() {
+  echo "== android sdk system image candidates =="
+  local sdk_root sdkmanager
+  sdk_root="$HOME/Android/Sdk"
+  sdkmanager="$(resolve_sdkmanager_for_status || true)"
+  if [[ -z "$sdkmanager" ]]; then
+    echo "sdkmanager=missing"
+    return 65
+  fi
+  echo "sdkmanager=$sdkmanager"
+  "$sdkmanager" --sdk_root="$sdk_root" --list 2>/dev/null | grep -E '^  system-images;android-(35|36|36\.1);.*;(x86_64|arm64-v8a)' | sed -n '1,80p' || true
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -779,6 +865,12 @@ case "$CMD" in
     run_emulator_env_status ;;
   emulator-avd-list)
     run_emulator_avd_list ;;
+  android-sdk-tool-status)
+    run_android_sdk_tool_status ;;
+  android-sdk-install-emulator)
+    run_android_sdk_install_emulator ;;
+  android-sdk-list-system-images)
+    run_android_sdk_list_system_images ;;
   adb-pair\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
@@ -849,6 +941,9 @@ allowed commands:
   android-sdk-candidates      # fixed read-only SDK path existence check
   emulator-env-status         # fixed read-only emulator script/env/AVD existence check
   emulator-avd-list           # list AVD names via first fixed emulator binary
+  android-sdk-tool-status     # fixed read-only sdkmanager/avdmanager check
+  android-sdk-install-emulator # fixed install of emulator package into /home/lami-build/Android/Sdk
+  android-sdk-list-system-images # fixed list of Android 35/36 system-image candidates
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
