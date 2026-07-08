@@ -559,6 +559,7 @@ safe command recipes:
   forced-command-control
     files:
       app/build.gradle.kts
+      scripts/emulator.sh
       scripts/lami_build_remote_control_full.sh
       scripts/lami_build_remote_control_limited_adb.sh
       scripts/lami_build_qairt244_forced_commands.sh
@@ -625,8 +626,8 @@ run_git_commit_safe_recipe() {
       message="debug: raise NPU native max output tokens limit"
       ;;
     forced-command-control)
-      git add app/build.gradle.kts scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
-      allowed_regex='^(app/build.gradle\.kts|scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
+      git add app/build.gradle.kts scripts/emulator.sh scripts/lami_build_remote_control_full.sh scripts/lami_build_remote_control_limited_adb.sh scripts/lami_build_qairt244_forced_commands.sh scripts/build_litert_custom_artifacts.sh scripts/stage_litert_custom_build_stack_for_experiment.sh update.sh
+      allowed_regex='^(app/build.gradle\.kts|scripts/emulator\.sh|scripts/lami_build_remote_control_full\.sh|scripts/lami_build_remote_control_limited_adb\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/build_litert_custom_artifacts\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh|update\.sh)$'
       message="fix: update NPU fallback build control"
       ;;
     chat-ui-local-send)
