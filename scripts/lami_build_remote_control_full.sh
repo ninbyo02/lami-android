@@ -551,6 +551,62 @@ run_npu_gpu_diagnostic_safety_check() {
   ./gradlew --no-daemon :app:testStandardDebugUnitTest     --tests '*LiteRtLmGpuBenchmarkRunSummaryTest*'     --tests '*NormalChatGpuDiagnosticsTest*'
 }
 
+run_standard_npu_jni_symbol_check() {
+  cd "$REPO"
+  local apk libdir expected_symbol latest_log
+  apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+  libdir="app/build/intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a"
+  expected_symbol="Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt"
+  mkdir -p "$LOG_DIR"
+  latest_log="$LOG_DIR/standard-npu-jni-symbol-check-$(date +%Y%m%d-%H%M%S).log"
+  {
+    echo "== STANDARD NPU JNI SYMBOL CHECK =="
+    echo "time=$(date -Is)"
+    echo "repo=$REPO"
+    echo "branch=$(git branch --show-current)"
+    git status --short --branch
+    echo
+    echo "== APK =="
+    if [[ -f "$apk" ]]; then
+      ls -l "$apk"
+      echo "apk_relevant_libs:"
+      unzip -l "$apk" 'lib/arm64-v8a/*.so' 2>/dev/null | grep -E 'litertlm_jni|LiteRt|Qnn|Gemma|lami_npu_persistent|qnn_direct' || true
+    else
+      echo "missing_apk=$apk"
+    fi
+    echo
+    echo "== merged native lib dir =="
+    if [[ -d "$libdir" ]]; then
+      ls -l "$libdir" | grep -E 'litertlm_jni|LiteRt|Qnn|Gemma|lami_npu_persistent|qnn_direct' || true
+    else
+      echo "missing_libdir=$libdir"
+    fi
+    echo
+    echo "== symbol search: merged liblitertlm_jni.so =="
+    if [[ -f "$libdir/liblitertlm_jni.so" ]]; then
+      echo "sha256=$(sha256sum "$libdir/liblitertlm_jni.so" | awk '{print $1}')"
+      if command -v readelf >/dev/null 2>&1; then
+        readelf -Ws "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
+      fi
+      if command -v nm >/dev/null 2>&1; then
+        nm -D "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
+      fi
+      strings "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
+    else
+      echo "missing_liblitertlm_jni_so"
+    fi
+    echo
+    echo "== symbol search summary =="
+    if [[ -f "$libdir/liblitertlm_jni.so" ]] && strings "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -Fq "$expected_symbol"; then
+      echo "nativeRunEditablePrompt_symbol_present=true"
+    else
+      echo "nativeRunEditablePrompt_symbol_present=false"
+    fi
+    echo "== STANDARD NPU JNI SYMBOL CHECK OK =="
+  } 2>&1 | tee "$latest_log"
+  ln -sfn "$latest_log" "$LOG_DIR/latest.log"
+}
+
 case "$CMD" in
   status)
     print_status ;;
@@ -614,6 +670,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_push_safe_recipe "${parts[1]}" ;;
   npu-gpu-diagnostic-safety-check)
     run_npu_gpu_diagnostic_safety_check ;;
+  standard-npu-jni-symbol-check)
+    run_standard_npu_jni_symbol_check ;;
   update-live-controller-from-repo)
     run_update_live_controller_from_repo ;;
   install-future\ *)
@@ -660,6 +718,7 @@ allowed commands:
   git-commit-safe-recipe <recipe>
   git-commit-push-safe-recipe <recipe>
   npu-gpu-diagnostic-safety-check
+  standard-npu-jni-symbol-check
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
 EOF
