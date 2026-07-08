@@ -329,6 +329,49 @@ run_read_source() {
   awk -v start="$offset" -v max="$limit" 'NR >= start && NR < start + max { printf "%d|%s\n", NR, $0 }' "$path"
 }
 
+run_update_live_controller_from_repo() {
+  local source target backup_dir backup tmp timestamp
+  cd "$REPO"
+  source="$REPO/scripts/lami_build_remote_control_full.sh"
+  target="$HOME/lami-build-control/remote_control.sh"
+  backup_dir="$HOME/lami-build-control/backups"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  backup="$backup_dir/remote_control.sh.$timestamp"
+  tmp="$HOME/lami-build-control/.remote_control.sh.$timestamp.tmp"
+
+  [[ -f "$source" ]] || fail
+  [[ -f "$target" ]] || fail
+  [[ "$(realpath -m "$source")" == "$REPO/scripts/lami_build_remote_control_full.sh" ]] || fail
+  [[ "$(realpath -m "$target")" == "$HOME/lami-build-control/remote_control.sh" ]] || fail
+  command -v bash >/dev/null 2>&1 || fail
+  command -v install >/dev/null 2>&1 || fail
+
+  echo "source=$source"
+  echo "target=$target"
+  echo "backup=$backup"
+  echo "tmp=$tmp"
+
+  bash -n "$source"
+  mkdir -p "$backup_dir"
+  cp -a "$target" "$backup"
+  install -m 755 "$source" "$tmp"
+  bash -n "$tmp"
+
+  install -m 755 "$tmp" "$target"
+  if ! bash -n "$target"; then
+    echo "live controller syntax check failed; restoring backup" >&2
+    install -m 755 "$backup" "$target"
+    rm -f "$tmp"
+    fail
+  fi
+  rm -f "$tmp"
+  echo "controller updated"
+  echo "backup=$backup"
+  echo "live_recipe_check_begin"
+  "$target" safe-command-recipes | grep -A4 local-model-slot-preservation || true
+  echo "live_recipe_check_end"
+}
+
 
 safe_command_recipes() {
   cat <<'EOF'
@@ -520,6 +563,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_push_safe_recipe "${parts[1]}" ;;
   npu-gpu-diagnostic-safety-check)
     run_npu_gpu_diagnostic_safety_check ;;
+  update-live-controller-from-repo)
+    run_update_live_controller_from_repo ;;
   install-future\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   help)
@@ -563,6 +608,7 @@ allowed commands:
   git-commit-safe-recipe <recipe>
   git-commit-push-safe-recipe <recipe>
   npu-gpu-diagnostic-safety-check
+  update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
 EOF
     ;;
