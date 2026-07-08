@@ -460,6 +460,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     modelPath = modelPath,
                     modelLength = modelLength,
                     maxOutputTokensList = maxOutputTokensList,
+                    caseTimeoutMs = timeoutMs,
                     modelPathSource = modelPathSource,
                     genericFallbackModelConfigured = genericFallbackModelConfigured,
                 )
@@ -521,6 +522,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         modelPath: String,
         modelLength: Long,
         maxOutputTokensList: String,
+        caseTimeoutMs: Long,
         modelPathSource: BenchmarkModelPathSource,
         genericFallbackModelConfigured: Boolean,
     ): LiteRtLmGpuBenchmarkRow {
@@ -767,6 +769,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         conversation = conversation,
                         prompt = prompt,
                         decodeStartMs = decodeStartMs,
+                        callbackTimeoutMs = caseTimeoutMs,
                     ) { first ->
                         firstTokenMs = first
                     }
@@ -961,6 +964,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         conversation: Conversation,
         prompt: String,
         decodeStartMs: Long,
+        callbackTimeoutMs: Long,
         onFirstToken: (Long) -> Unit,
     ): String {
         val contents = Contents.of(listOf(Content.Text(prompt)))
@@ -1058,7 +1062,20 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             )
             throw throwable
         }
-        doneLatch.await()
+        val completed = doneLatch.await(callbackTimeoutMs, TimeUnit.MILLISECONDS)
+        if (!completed) {
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                closePolicy = closePolicy,
+                phase = phase,
+                stage = "callback_send_timeout",
+                detail = "send_api_variant=gallery_contents_callback timeout_ms=$callbackTimeoutMs raw_length=${builder.length}",
+                maxOutputTokensList = maxOutputTokensList,
+            )
+            throw TimeoutException("gallery_contents_callback_timeout_${callbackTimeoutMs}ms")
+        }
         callbackError.get()?.let { throw it }
         return builder.toString()
     }

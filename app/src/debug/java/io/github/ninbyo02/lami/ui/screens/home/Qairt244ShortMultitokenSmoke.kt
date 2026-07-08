@@ -133,8 +133,12 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             check(modelPath.isNotBlank()) { "modelPath is required" }
 
             val appContext = context.applicationContext
-            val resultPath = appContext.filesDir.resolve(RESULT_FILE_NAME).absolutePath
-            val diagPath = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME).absolutePath
+            val resultFile = appContext.filesDir.resolve(RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val resultPath = resultFile.absolutePath
+            val diagPath = diagFile.absolutePath
             val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
             val cacheDir = appContext.cacheDir.absolutePath
 
@@ -188,8 +192,12 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             }
 
             val appContext = context.applicationContext
-            val resultPath = appContext.filesDir.resolve(RESULT_FILE_NAME).absolutePath
-            val diagPath = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME).absolutePath
+            val resultFile = appContext.filesDir.resolve(RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val resultPath = resultFile.absolutePath
+            val diagPath = diagFile.absolutePath
             val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
             val cacheDir = appContext.cacheDir.absolutePath
 
