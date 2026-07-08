@@ -639,7 +639,7 @@ run_standard_npu_jni_symbol_check() {
     fi
     echo
     echo "== symbol search summary =="
-    if [[ -f "$libdir/liblitertlm_jni.so" ]] && strings "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -Fq "$expected_symbol"; then
+    if [[ -f "$libdir/liblitertlm_jni.so" ]] && readelf -Ws "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -Fq "$expected_symbol"; then
       echo "nativeRunEditablePrompt_symbol_present=true"
     else
       echo "nativeRunEditablePrompt_symbol_present=false"
