@@ -290,6 +290,55 @@ run_android_sdk_list_system_images() {
   "$sdkmanager" --sdk_root="$sdk_root" --list 2>/dev/null | grep -E '^  system-images;android-(35|36|36\.1);.*;(x86_64|arm64-v8a)' | sed -n '1,80p' || true
 }
 
+
+run_android_sdk_install_lami_system_image() {
+  echo "== android sdk install LAMI emulator system image =="
+  local sdk_root sdkmanager
+  sdk_root="$HOME/lami-android-sdk"
+  mkdir -p "$sdk_root"
+  sdkmanager="$(resolve_sdkmanager_for_status || true)"
+  if [[ -z "$sdkmanager" ]]; then
+    echo "sdkmanager=missing"
+    return 65
+  fi
+  echo "sdkmanager=$sdkmanager"
+  echo "sdk_root=$sdk_root"
+  yes | "$sdkmanager" --sdk_root="$sdk_root" --install \
+    "platforms;android-36.1" \
+    "system-images;android-36.1;google_apis;x86_64"
+  print_fixed_path_status "lami_system_image" "$sdk_root/system-images/android-36.1/google_apis/x86_64"
+}
+
+run_emulator_create_lami_avd() {
+  echo "== create LAMI emulator AVD =="
+  local sdk_root avdmanager avd_name package device
+  sdk_root="$HOME/lami-android-sdk"
+  avdmanager="$(resolve_avdmanager_for_status || true)"
+  avd_name="Medium_Phone_API_36.1"
+  package="system-images;android-36.1;google_apis;x86_64"
+  device="medium_phone"
+  if [[ -z "$avdmanager" ]]; then
+    echo "avdmanager=missing"
+    return 65
+  fi
+  echo "avdmanager=$avdmanager"
+  echo "sdk_root=$sdk_root"
+  echo "avd_name=$avd_name"
+  echo "package=$package"
+  if [[ -d "$HOME/.android/avd/${avd_name}.avd" ]]; then
+    echo "avd_status=already_exists"
+    run_emulator_avd_list
+    return 0
+  fi
+  mkdir -p "$HOME/.android/avd"
+  echo no | "$avdmanager" --verbose create avd \
+    --name "$avd_name" \
+    --package "$package" \
+    --device "$device" \
+    --force
+  run_emulator_avd_list
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -878,6 +927,10 @@ case "$CMD" in
     run_android_sdk_install_emulator ;;
   android-sdk-list-system-images)
     run_android_sdk_list_system_images ;;
+  android-sdk-install-lami-system-image)
+    run_android_sdk_install_lami_system_image ;;
+  emulator-create-lami-avd)
+    run_emulator_create_lami_avd ;;
   adb-pair\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
@@ -951,6 +1004,8 @@ allowed commands:
   android-sdk-tool-status     # fixed read-only sdkmanager/avdmanager check
   android-sdk-install-emulator # fixed install of emulator package into /home/lami-build/Android/Sdk
   android-sdk-list-system-images # fixed list of Android 35/36 system-image candidates
+  android-sdk-install-lami-system-image # fixed install of Android 36.1 Google APIs x86_64 image
+  emulator-create-lami-avd  # fixed create Medium_Phone_API_36.1 AVD for lami-build
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
