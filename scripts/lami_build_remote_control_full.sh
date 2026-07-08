@@ -116,7 +116,7 @@ print_status() {
 
 print_fixed_path_status() {
   local label="$1" path="$2"
-  local kind="missing" executable="false" readable="false"
+  local kind="missing" executable="false" readable="false" writable="false" owner="unavailable" mode="unavailable"
   if [[ -d "$path" ]]; then
     kind="dir"
   elif [[ -f "$path" ]]; then
@@ -125,9 +125,14 @@ print_fixed_path_status() {
     kind="other"
   fi
   [[ -r "$path" ]] && readable="true"
+  [[ -w "$path" ]] && writable="true"
   [[ -x "$path" ]] && executable="true"
-  printf '%s\tpath=%s\tkind=%s\treadable=%s\texecutable=%s\n' \
-    "$label" "$path" "$kind" "$readable" "$executable"
+  if [[ -e "$path" ]]; then
+    owner="$(stat -c '%U:%G' "$path" 2>/dev/null || printf unavailable)"
+    mode="$(stat -c '%a' "$path" 2>/dev/null || printf unavailable)"
+  fi
+  printf '%s\tpath=%s\tkind=%s\treadable=%s\twritable=%s\texecutable=%s\towner=%s\tmode=%s\n' \
+    "$label" "$path" "$kind" "$readable" "$writable" "$executable" "$owner" "$mode"
 }
 
 android_sdk_candidate_roots() {
