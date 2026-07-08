@@ -142,8 +142,8 @@ android_sdk_candidate_roots() {
     /opt/android-sdk \
     /opt/Android/Sdk \
     /opt/android-sdk-linux \
-    /usr/lib/android-sdk \
     "$HOME/lami-android-sdk" \
+    /usr/lib/android-sdk \
     "$HOME/Android/Sdk"
 }
 
@@ -272,7 +272,7 @@ run_android_sdk_install_emulator() {
   fi
   echo "sdkmanager=$sdkmanager"
   echo "sdk_root=$sdk_root"
-  yes | "$sdkmanager" --sdk_root="$sdk_root" --install "platform-tools" "emulator"
+  yes | "$sdkmanager" --sdk_root="$sdk_root" --install "cmdline-tools;latest" "platform-tools" "emulator"
   print_fixed_path_status "lami_emulator_bin" "$sdk_root/emulator/emulator"
   print_fixed_path_status "lami_adb_bin" "$sdk_root/platform-tools/adb"
 }
