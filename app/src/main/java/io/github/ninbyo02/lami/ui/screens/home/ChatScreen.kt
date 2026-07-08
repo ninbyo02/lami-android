@@ -4962,7 +4962,7 @@ fun Home(
                                                                 .preparePseudoStreamingCandidate(
                                                                     s1Result = s1Result,
                                                                     finalText = streamingFinalText,
-                                                                    sourceDisplayText = s1DisplayTextWithMemory,
+                                                                    sourceDisplayText = s1DisplayTextForDev,
                                                                 )
                                                             val pseudoStreamingCandidate = pseudoStreamingMapping
                                                                 .takeIf {
@@ -5063,7 +5063,7 @@ fun Home(
                                                                             createAssistantMessage(
                                                                                 chatId = currentChatId,
                                                                                 response = npuStandardRouteAssistantTextForPersist,
-                                                                                localSourceSummary = s1DisplayTextWithMemory,
+                                                                                localSourceSummary = s1DisplayTextForDev,
                                                                             )
                                                                         ).toInt()
                                                                     }
