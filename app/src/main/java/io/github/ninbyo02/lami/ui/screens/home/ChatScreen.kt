@@ -15068,7 +15068,7 @@ internal fun shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
 ): Boolean =
     BuildConfig.DEBUG &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
-        !hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
+        hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
 
 internal fun shouldShowNpuStandardRouteDevDiagnosticsContent(expanded: Boolean): Boolean = expanded
 
