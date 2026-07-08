@@ -4598,9 +4598,9 @@ fun Home(
                                                         } else {
                                                             s1Result.displayText
                                                         }
-                                                        val s1DisplayTextWithMemory = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
+                                                        val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                        npuStandardRouteS1DisplayText = s1DisplayTextWithMemory
+                                                        npuStandardRouteS1DisplayText = s1RouteDisplayText
                                                         val s1Fallback = resolveNpuStandardRouteS1Fallback(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
@@ -4617,7 +4617,7 @@ fun Home(
                                                                     createAssistantMessage(
                                                                         chatId = currentChatId,
                                                                         response = npuFailureAssistantText,
-                                                                        localSourceSummary = s1DisplayTextWithMemory,
+                                                                        localSourceSummary = s1DisplayTextForDev,
                                                                     )
                                                                 )
                                                             }
@@ -4758,14 +4758,14 @@ fun Home(
                                                                 appendLine("npu_standard_route_fallback_response_length=${finalFallbackResponse.length}")
                                                                 appendLine("npu_standard_route_gpu_fallback_state=${fallbackResult.state}")
                                                                 appendLine("npu_standard_route_cpu_fallback_state=${cpuFallbackResult?.state ?: "not_attempted"}")
-                                                                appendLine(s1DisplayTextWithMemory)
+                                                                appendLine(s1DisplayTextForDev)
                                                                 finalFallbackResult.trace.localFailureDiagnosticsText
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?.let { appendLine(it) }
                                                             }.trimEnd()
                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                             npuStandardRouteS1DisplayText =
-                                                                "$s1DisplayTextWithMemory\nnpu_standard_route_fallback_used=true\nnpu_standard_route_fallback_backend=${finalFallbackBackend.name}\n"
+                                                                "$s1RouteDisplayText\nnpu_standard_route_fallback_used=true\nnpu_standard_route_fallback_backend=${finalFallbackBackend.name}\n"
                                                             npuStandardRouteS1DevTraceText =
                                                                 npuStandardRouteS1DevTraceText?.let { "$it\n$fallbackDiagnostics" }
                                                                     ?: fallbackDiagnostics
