@@ -2,6 +2,9 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import io.github.ninbyo02.lami.BuildConfig
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 internal class Qairt244ShortMultitokenSmoke private constructor() {
     companion object {
@@ -282,7 +285,9 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
             resultFile.delete()
             diagFile.delete()
-            val nativeResult = runCatching {
+            val nativeResult = runPersistentNativeCallWithOptionalTimeout(
+                nativeProbeMode = nativeProbeMode,
+            ) {
                 if (nativeProbeMode == "editable_engine_create_only_minimal") {
                     nativeRunEditableEngineCreateOnlyMinimal(
                         modelPath = modelPath,
@@ -321,6 +326,42 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             )
         }
 
+        private fun runPersistentNativeCallWithOptionalTimeout(
+            nativeProbeMode: String,
+            block: () -> String,
+        ): Result<String> {
+            if (nativeProbeMode != "full_20") return runCatching { block() }
+
+            val completed = CountDownLatch(1)
+            val resultRef = AtomicReference<Result<String>>()
+            val startedAtMs = System.currentTimeMillis()
+            Thread({
+                try {
+                    resultRef.set(runCatching { block() })
+                } finally {
+                    completed.countDown()
+                }
+            }, "Qairt244PersistentProbeNativeWorker").apply {
+                isDaemon = true
+                start()
+            }
+
+            val finished = completed.await(PERSISTENT_FULL20_NATIVE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            if (finished) {
+                return resultRef.get() ?: Result.failure(
+                    IllegalStateException("native_persistent_probe_finished_without_result"),
+                )
+            }
+
+            val elapsedMs = System.currentTimeMillis() - startedAtMs
+            return Result.failure(
+                IllegalStateException(
+                    "native_persistent_probe_timeout_after_" + elapsedMs + "ms; " +
+                        "timeout_ms=" + PERSISTENT_FULL20_NATIVE_TIMEOUT_MS,
+                ),
+            )
+        }
+
         private fun promptLengthGateBypassedValidation(
             validation: NpuDiagnosticPromptValidator.Result,
             unsafeDevBypassPromptLengthGate: Boolean,
@@ -336,6 +377,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
 
         private const val UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE =
             "unsafe_dev_bypass_hidden_template_experiment"
+        private const val PERSISTENT_FULL20_NATIVE_TIMEOUT_MS = 90_000L
 
         @JvmStatic
         private external fun nativeRun(
