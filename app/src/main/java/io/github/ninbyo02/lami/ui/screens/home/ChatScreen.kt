@@ -4776,8 +4776,14 @@ fun Home(
                                                                 npuStandardRouteS1DevFullDumpCopyText?.let { "$it\n$fallbackDiagnostics" }
                                                                     ?: fallbackDiagnostics
                                                             if (finalFallbackResponse.isNotBlank()) {
+                                                                val fallbackAssistantResponsePrefix =
+                                                                    if (s1Result.reason == NPU_STANDARD_ROUTE_MISSING_NATIVE_JNI_SYMBOL_REASON) {
+                                                                        "このAPKではNPU実行に必要なnative部品が未搭載のため、GPU/CPUで応答します。"
+                                                                    } else {
+                                                                        "NPU推論に失敗したためGPU/CPUで応答します。"
+                                                                    }
                                                                 val fallbackAssistantResponse =
-                                                                    "NPU推論に失敗したためGPU/CPUで応答します。\n\n$finalFallbackResponse"
+                                                                    "$fallbackAssistantResponsePrefix\n\n$finalFallbackResponse"
                                                                 withContext(Dispatchers.IO) {
                                                                     viewModel.insertAssistantMessageAndReturnId(
                                                                         createAssistantMessage(

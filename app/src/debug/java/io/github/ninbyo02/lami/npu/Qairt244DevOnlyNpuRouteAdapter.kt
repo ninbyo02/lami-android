@@ -18,6 +18,7 @@ import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
 import io.github.ninbyo02.lami.ui.screens.home.buildNpuNativeLinkFailureDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.captureLocalMemorySnapshot
 import io.github.ninbyo02.lami.ui.screens.home.npuNativeLinkFailureDiagnosticsLines
+import io.github.ninbyo02.lami.ui.screens.home.npuNativeLinkFailureReason
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 import java.util.UUID
@@ -500,7 +501,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         } catch (throwable: Throwable) {
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
-            val reasonCode = "adapter_failure:${throwable.javaClass.simpleName}"
+            val reasonCode = npuNativeLinkFailureReason(throwable)
             nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs ?: SystemClock.elapsedRealtime()
             stageHistory += NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
             NpuEngineLogcatDiagnostics.e(
