@@ -287,7 +287,7 @@ run_android_sdk_list_system_images() {
     return 65
   fi
   echo "sdkmanager=$sdkmanager"
-  "$sdkmanager" --sdk_root="$sdk_root" --list 2>/dev/null | grep -E '^  system-images;android-(35|36|36\.1);.*;(x86_64|arm64-v8a)' | sed -n '1,80p' || true
+  ANDROID_HOME="$sdk_root" ANDROID_SDK_ROOT="$sdk_root" "$sdkmanager" --sdk_root="$sdk_root" --list 2>/dev/null | grep -E '^  system-images;android-(35|36|36\.1);.*;(x86_64|arm64-v8a)' | sed -n '1,80p' || true
 }
 
 
@@ -303,7 +303,7 @@ run_android_sdk_install_lami_system_image() {
   fi
   echo "sdkmanager=$sdkmanager"
   echo "sdk_root=$sdk_root"
-  yes | "$sdkmanager" --sdk_root="$sdk_root" --install \
+  yes | ANDROID_HOME="$sdk_root" ANDROID_SDK_ROOT="$sdk_root" "$sdkmanager" --sdk_root="$sdk_root" --install \
     "platforms;android-36.1" \
     "system-images;android-36.1;google_apis;x86_64"
   print_fixed_path_status "lami_system_image" "$sdk_root/system-images/android-36.1/google_apis/x86_64"
@@ -331,7 +331,7 @@ run_emulator_create_lami_avd() {
     return 0
   fi
   mkdir -p "$HOME/.android/avd"
-  echo no | "$avdmanager" --verbose create avd \
+  ANDROID_HOME="$sdk_root" ANDROID_SDK_ROOT="$sdk_root" echo no | ANDROID_HOME="$sdk_root" ANDROID_SDK_ROOT="$sdk_root" "$avdmanager" --verbose create avd \
     --name "$avd_name" \
     --package "$package" \
     --device "$device" \
