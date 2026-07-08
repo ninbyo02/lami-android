@@ -296,6 +296,44 @@ run_adb_dump_customnpu_diag() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+run_adb_dump_standardnpu_diag() {
+  local host="$1" port="$2"
+  validate_host "$host"
+  validate_port "$port"
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file package
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/adb-dump-standardnpu-diag-${timestamp}-${host}-${port}.log"
+  package="io.github.ninbyo02.lami"
+  {
+    echo "== LAMI adb dump standard NPU diag =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "adb_target=${host}:${port}"
+    echo "package=${package}"
+    adb connect "${host}:${port}"
+    echo
+    echo "== package/native library dirs =="
+    adb -s "${host}:${port}" shell dumpsys package "$package" 2>/dev/null       | grep -E 'versionName|versionCode|pkg=|userId=|codePath=|resourcePath=|legacyNativeLibraryDir|primaryCpuAbi|secondaryCpuAbi|nativeLibraryRootDir|nativeLibraryDir'       | head -80 || true
+    echo
+    echo "== package pid =="
+    adb -s "${host}:${port}" shell pidof "$package" 2>/dev/null || true
+    echo
+    echo "== app private local models =="
+    adb -s "${host}:${port}" exec-out run-as "$package" sh -c 'ls -l files/local_models 2>/dev/null || true' || true
+    echo
+    echo "== app private diagnostic files =="
+    adb -s "${host}:${port}" exec-out run-as "$package" sh -c 'ls -l files 2>/dev/null | grep -E "qairt|npu|diag|standard|native|litert" || true' || true
+    echo
+    echo "== recent NPU/LiteRT logcat =="
+    adb -s "${host}:${port}" logcat -d -v time 2>/dev/null       | grep -Ei 'UnsatisfiedLinkError|No implementation found|dlopen|cannot locate symbol|NPU|QNN|HTP|LiteRT|litert|QAIRT|Qairt|lami_npu_persistent|adapter_failure|nativeLibraryDir|Unsupported model signature'       | tail -260 || true
+    echo
+    echo "== ADB DUMP STANDARD NPU DIAG OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 run_logcat() {
   local kind="$1" timestamp log_file
   mkdir -p "$LOG_DIR"
@@ -523,6 +561,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_adb_start_app "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   adb-dump-customnpu-diag\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
+  adb-dump-standardnpu-diag\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_standardnpu_diag "${parts[1]}" "${parts[2]}" ;;
   qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-token-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
@@ -580,6 +620,7 @@ allowed commands:
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
+  adb-dump-standardnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
