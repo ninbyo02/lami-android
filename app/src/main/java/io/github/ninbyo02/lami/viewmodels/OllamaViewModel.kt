@@ -584,12 +584,14 @@ class OllamaViewModel(
                         )
                         ensureRemoteRequestGenerationActive(requestGeneration)
                         _uiState.value = UiState.Success(finalText)
-                        scheduleLemonadeAutoUnloadIfNeeded(
-                            provider = activeRemoteProvider,
-                            baseUrl = activeBaseUrl,
-                            modelName = finalChunk?.model ?: model,
-                            requestGeneration = requestGeneration,
-                        )
+                        if (activeRemoteProvider != RemoteProvider.LEMONADE || lemonadeAutoUnloadMode.delayMs != 0L) {
+                            scheduleLemonadeAutoUnloadIfNeeded(
+                                provider = activeRemoteProvider,
+                                baseUrl = activeBaseUrl,
+                                modelName = finalChunk?.model ?: model,
+                                requestGeneration = requestGeneration,
+                            )
+                        }
                     }
                 } catch (e: CancellationException) {
                     Log.i("OllamaCancel", "Remote request cancelled: ${e.message}")
@@ -874,6 +876,16 @@ class OllamaViewModel(
                 onResponseReceived(finalText.length)
                 _uiState.value = UiState.Streaming(finalText)
                 assistantUpdateCount += 1
+            }
+            if (provider == RemoteProvider.LEMONADE && lemonadeAutoUnloadMode.delayMs == 0L) {
+                Log.i("LemonadeUnload", "inline immediate auto-unload after Lemonade stream for model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
+                runCatching {
+                    unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = responseModel ?: model)
+                }.onSuccess { unloaded ->
+                    Log.i("LemonadeUnload", "Inline immediate Lemonade unload result=$unloaded model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
+                }.onFailure { error ->
+                    Log.w("LemonadeUnload", "Inline immediate Lemonade unload failed: ${error.message}")
+                }
             }
             return StreamingResult(
                 text = finalText,
