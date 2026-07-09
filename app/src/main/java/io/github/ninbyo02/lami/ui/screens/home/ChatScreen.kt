@@ -8267,7 +8267,8 @@ fun Home(
                                         val s1FallbackText = npuStandardRouteS1FallbackText
                                         val s4Text = npuStandardRouteS4PseudoStreamingText
                                         val showNpuStandardRouteDevDiagnosticsAfterAnswer =
-                                            !isInferenceRunningUi &&
+                                            developerAccessEnabled &&
+                                                !isInferenceRunningUi &&
                                                 !npuStandardRouteS4PseudoStreamingActive &&
                                                 !showLocalRespondingAssistantRow &&
                                                 !suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed

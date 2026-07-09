@@ -777,6 +777,25 @@ fun Settings(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
+                                    text = "チャットDEV診断",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = "通常チャットではDEV診断を表示せず、推論統計カードとタップ詳細を優先します。NPU/GPUの詳細調査はこの開発者向け設定とコピー機能から確認します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Card {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
                                     text = "NPU max output tokens（開発用）",
                                     style = MaterialTheme.typography.titleMedium,
                                 )
