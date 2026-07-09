@@ -910,6 +910,14 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt
       app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
     commit: feat: notify LINE bridge after Lemonade unload
+
+  chat-timestamp
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt
+      app/src/main/java/io/github/ninbyo02/lami/db/entity/Message.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+    commit: feat: add chat message timestamps
 EOF
 }
 
@@ -977,6 +985,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel\.kt|app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest\.kt)$'
       message="feat: notify LINE bridge after Lemonade unload"
+      ;;
+    chat-timestamp)
+      git add app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt app/src/main/java/io/github/ninbyo02/lami/db/entity/Message.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase\.kt|app/src/main/java/io/github/ninbyo02/lami/db/entity/Message\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt)$'
+      message="feat: add chat message timestamps"
       ;;
     *) fail ;;
   esac
