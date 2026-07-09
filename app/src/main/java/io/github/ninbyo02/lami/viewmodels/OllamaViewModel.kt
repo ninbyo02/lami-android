@@ -169,6 +169,56 @@ internal fun notifyLemonadeUnloadEvent(
 private fun sanitizeLemonadeLogValue(value: String): String =
     URLEncoder.encode(value.take(120), Charsets.UTF_8.name())
 
+internal fun resolveLoadedLemonadeModelName(
+    baseUrl: String,
+): String? {
+    val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}health")
+    val connection = url.openConnection() as HttpURLConnection
+    return try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 3000
+        connection.readTimeout = 5000
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (responseCode !in 200..299 || response.isBlank()) {
+            Log.w("LemonadeUnload", "Failed to resolve loaded Lemonade model: HTTP $responseCode")
+            return null
+        }
+        val json = JSONObject(response)
+        json.optString("model_loaded").takeIf { it.isNotBlank() && it != "null" }
+            ?: json.optJSONArray("all_models_loaded")
+                ?.optJSONObject(0)
+                ?.optString("model_name")
+                ?.takeIf { it.isNotBlank() }
+    } catch (error: Exception) {
+        Log.w("LemonadeUnload", "Failed to resolve loaded Lemonade model: ${error.message}")
+        null
+    } finally {
+        connection.disconnect()
+    }
+}
+
+internal fun unloadLoadedLemonadeModelFromServer(
+    baseUrl: String,
+    fallbackModelName: String,
+    unloadEventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
+    val loadedModelName = resolveLoadedLemonadeModelName(baseUrl)
+    val targetModelName = loadedModelName?.takeIf { it.isNotBlank() } ?: fallbackModelName
+    Log.i(
+        "LemonadeUnload",
+        "unload target resolved loaded=${loadedModelName?.let(::sanitizeLemonadeLogValue) ?: "none"} " +
+            "fallback=${sanitizeLemonadeLogValue(fallbackModelName)} target=${sanitizeLemonadeLogValue(targetModelName)}"
+    )
+    return unloadLemonadeModelFromServer(
+        baseUrl = baseUrl,
+        modelName = targetModelName,
+        unloadEventUrl = unloadEventUrl,
+    )
+}
+
 internal fun unloadLemonadeModelFromServer(
     baseUrl: String,
     modelName: String,
@@ -880,7 +930,7 @@ class OllamaViewModel(
             if (provider == RemoteProvider.LEMONADE && lemonadeAutoUnloadMode.delayMs == 0L) {
                 Log.i("LemonadeUnload", "inline immediate auto-unload after Lemonade stream for model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
                 runCatching {
-                    unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = responseModel ?: model)
+                    unloadLoadedLemonadeModelFromServer(baseUrl = baseUrl, fallbackModelName = responseModel ?: model)
                 }.onSuccess { unloaded ->
                     Log.i("LemonadeUnload", "Inline immediate Lemonade unload result=$unloaded model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
                 }.onFailure { error ->
