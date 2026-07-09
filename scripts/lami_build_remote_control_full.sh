@@ -1012,6 +1012,32 @@ run_git_commit_push_safe_recipe() {
   git push origin future
 }
 
+run_git_push_future_ahead_only() {
+  cd "$REPO"
+  [[ "$(git branch --show-current)" == "future" ]] || fail
+  if ! git diff --quiet -- . ':(exclude)local.properties'; then
+    echo "worktree has unstaged changes; refusing push" >&2
+    git status --short --branch
+    exit 65
+  fi
+  if ! git diff --cached --quiet -- . ':(exclude)local.properties'; then
+    echo "index has staged changes; refusing push" >&2
+    git status --short --branch
+    exit 65
+  fi
+  git fetch origin future
+  local ahead behind
+  ahead="$(git rev-list --count origin/future..HEAD)"
+  behind="$(git rev-list --count HEAD..origin/future)"
+  echo "branch=future ahead=$ahead behind=$behind"
+  [[ "$behind" == "0" ]] || { echo "local branch is behind origin/future; refusing push" >&2; exit 65; }
+  if [[ "$ahead" == "0" ]]; then
+    echo "nothing to push"
+    return 0
+  fi
+  git push origin future
+}
+
 run_npu_gpu_diagnostic_safety_check() {
   cd "$REPO"
   [[ "$(git branch --show-current)" == "future" ]] || fail
@@ -1181,6 +1207,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_safe_recipe "${parts[1]}" ;;
   git-commit-push-safe-recipe\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_git_commit_push_safe_recipe "${parts[1]}" ;;
+  push-future-ahead-only)
+    run_git_push_future_ahead_only ;;
   npu-gpu-diagnostic-safety-check)
     run_npu_gpu_diagnostic_safety_check ;;
   standard-npu-jni-symbol-check)
@@ -1244,6 +1272,7 @@ allowed commands:
   safe-command-recipes
   git-commit-safe-recipe <recipe>
   git-commit-push-safe-recipe <recipe>
+  push-future-ahead-only      # push clean future branch only when ahead of origin/future
   npu-gpu-diagnostic-safety-check
   standard-npu-jni-symbol-check
   update-live-controller-from-repo
