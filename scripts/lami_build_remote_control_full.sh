@@ -904,6 +904,12 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest.kt
     commit: fix: unify local inference stats card display
+
+  lemonade-unload-line-event
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt
+      app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
+    commit: feat: notify LINE bridge after Lemonade unload
 EOF
 }
 
@@ -966,6 +972,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest\.kt)$'
       message="fix: unify local inference stats card display"
+      ;;
+    lemonade-unload-line-event)
+      git add app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel\.kt|app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest\.kt)$'
+      message="feat: notify LINE bridge after Lemonade unload"
       ;;
     *) fail ;;
   esac
