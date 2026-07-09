@@ -380,6 +380,25 @@ run_emulator_lami_script() {
   esac
 }
 
+
+run_emulator_lami_log() {
+  echo "== LAMI emulator latest log =="
+  local log_dir latest
+  log_dir="$REPO/scripts/logs"
+  [[ -d "$log_dir" ]] || { echo "log_dir=missing"; return 0; }
+  latest="$(find "$log_dir" -maxdepth 1 -type f -name 'emulator-5554-*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)"
+  if [[ -z "$latest" ]]; then
+    echo "latest_log=missing"
+    return 0
+  fi
+  [[ "$(realpath -m "$latest")" == "$log_dir"/* ]] || fail
+  echo "latest_log=$latest"
+  echo "== process candidates =="
+  ps -ef | grep -E '[e]mulator|[q]emu-system' || true
+  echo "== log tail =="
+  tail -220 "$latest" || true
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -984,6 +1003,8 @@ case "$CMD" in
     run_emulator_lami_script stop ;;
   emulator-wait-lami)
     run_emulator_lami_script wait ;;
+  emulator-log-lami)
+    run_emulator_lami_log ;;
   adb-pair\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
@@ -1060,7 +1081,7 @@ allowed commands:
   android-sdk-install-lami-system-image # fixed install of Android 36.1 Google APIs x86_64 image
   emulator-create-lami-avd  # fixed create Medium_Phone_API_36.1 AVD for lami-build
   emulator-write-lami-env  # fixed write scripts/emulator.env for lami-build SDK/AVD
-  emulator-doctor-lami|emulator-list-lami|emulator-start-lami|emulator-stop-lami|emulator-wait-lami
+  emulator-doctor-lami|emulator-list-lami|emulator-start-lami|emulator-stop-lami|emulator-wait-lami|emulator-log-lami
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
