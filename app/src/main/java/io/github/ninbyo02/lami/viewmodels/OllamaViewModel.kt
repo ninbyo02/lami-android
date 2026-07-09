@@ -29,6 +29,7 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -925,6 +926,13 @@ class OllamaViewModel(
             return
         }
         cancelScheduledLemonadeUnload()
+        if (delayMs == 0L) {
+            Log.i("LemonadeUnload", "immediate auto-unload for model=$targetModel")
+            scheduledLemonadeUnloadJob = viewModelScope.launch(Dispatchers.IO + NonCancellable) {
+                runLemonadeAutoUnload(baseUrl = baseUrl, targetModel = targetModel, mode = mode)
+            }
+            return
+        }
         scheduledLemonadeUnloadJob = viewModelScope.launch {
             Log.i("LemonadeUnload", "scheduled auto-unload in ${delayMs}ms for model=$targetModel")
             delay(delayMs)
@@ -932,19 +940,27 @@ class OllamaViewModel(
                 Log.i("LemonadeUnload", "skip auto-unload: stale generation=$requestGeneration current=$remoteRequestGeneration")
                 return@launch
             }
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = targetModel)
-                }
-            }.onSuccess { unloaded ->
+            runLemonadeAutoUnload(baseUrl = baseUrl, targetModel = targetModel, mode = mode)
+        }
+    }
+
+    private suspend fun runLemonadeAutoUnload(
+        baseUrl: String,
+        targetModel: String,
+        mode: LemonadeAutoUnloadMode,
+    ) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = targetModel)
+            }
+        }.onSuccess { unloaded ->
                 if (unloaded) {
                     Log.i("LemonadeUnload", "Auto-unloaded Lemonade model: $targetModel mode=${mode.storageValue}")
                 } else {
                     Log.w("LemonadeUnload", "Auto-unload returned false: $targetModel mode=${mode.storageValue}")
                 }
-            }.onFailure { error ->
-                Log.w("LemonadeUnload", "Failed to auto-unload Lemonade model: ${error.message}")
-            }
+        }.onFailure { error ->
+            Log.w("LemonadeUnload", "Failed to auto-unload Lemonade model: ${error.message}")
         }
     }
 
