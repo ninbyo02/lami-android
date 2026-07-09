@@ -8124,6 +8124,7 @@ fun Home(
                                                 isSentByMe = message.isSendbyMe,
                                                 attachmentUriString = message.attachmentUriString,
                                                 attachmentUriStringsJson = message.attachmentUriStringsJson,
+                                                createdAtEpochMs = message.createdAtEpochMs,
                                             )
                                         } else {
                                             val persistedMessageInferenceStats = message.toInferenceStats()
@@ -8215,6 +8216,7 @@ fun Home(
                                                     clipboardManager.setText(AnnotatedString(message.message))
                                                 },
                                                 inferenceStats = messageInferenceStats,
+                                                createdAtEpochMs = message.createdAtEpochMs,
                                                 onInferenceStatsClick = messageInferenceStats?.let {
                                                     {
                                                         selectedInferenceStats = it

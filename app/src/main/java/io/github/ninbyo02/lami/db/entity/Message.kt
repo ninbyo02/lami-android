@@ -31,4 +31,5 @@ data class Message(
     val localSourceSummary: String? = null,
     val timeToFirstTokenMs: Long? = null,
     val imageInputCount: Int? = null,
+    val createdAtEpochMs: Long = System.currentTimeMillis(),
 )

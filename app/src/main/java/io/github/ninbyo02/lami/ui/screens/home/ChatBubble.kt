@@ -86,6 +86,9 @@ import io.github.ninbyo02.lami.ui.text.Segment
 import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -105,6 +108,7 @@ fun ChatBubble(
     isSentByMe: Boolean,
     attachmentUriString: String? = null,
     attachmentUriStringsJson: String? = null,
+    createdAtEpochMs: Long = 0L,
 ) {
     val resolvedAttachmentUriStrings = remember(attachmentUriString, attachmentUriStringsJson) {
         decodeAttachmentUriStrings(attachmentUriStringsJson).ifEmpty { listOfNotNull(attachmentUriString) }
@@ -113,6 +117,7 @@ fun ChatBubble(
         message = message,
         isSentByMe = isSentByMe,
         attachmentUriStrings = resolvedAttachmentUriStrings,
+        createdAtEpochMs = createdAtEpochMs,
     )
 }
 
@@ -122,11 +127,13 @@ fun ChatBubble(
     message: String,
     isSentByMe: Boolean,
     attachmentUriStrings: List<String>,
+    createdAtEpochMs: Long = 0L,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
     val attachmentUris = remember(attachmentUriStrings) { attachmentUriStrings.map(Uri::parse) }
     var selectedAttachmentIndex by remember { mutableStateOf<Int?>(null) }
+    val timestampText = remember(createdAtEpochMs) { formatMessageTimestamp(createdAtEpochMs) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -167,9 +174,24 @@ fun ChatBubble(
                 if (message.isNotBlank()) {
                     MessageSegments(segments = segments)
                 }
+                if (timestampText != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = timestampText,
+                        modifier = Modifier.align(Alignment.End),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                        fontSize = 11.sp,
+                    )
+                }
             }
         }
     }
+}
+
+private fun formatMessageTimestamp(epochMs: Long): String? {
+    if (epochMs <= 0L) return null
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
 }
 
 @Composable
@@ -630,6 +652,7 @@ fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     isStreaming: Boolean = false,
+    createdAtEpochMs: Long = 0L,
     showMessageActions: Boolean = false,
     isReplaying: Boolean = false,
     onReplayClick: (() -> Unit)? = null,
@@ -659,6 +682,7 @@ fun PlainAssistantMessage(
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
     }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
+    val timestampText = remember(createdAtEpochMs) { formatMessageTimestamp(createdAtEpochMs) }
     val pythonSyntaxWarnings = remember(message, isStreaming) {
         if (isStreaming) {
             emptyList()
@@ -700,6 +724,15 @@ fun PlainAssistantMessage(
         if (pythonSyntaxWarnings.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             PythonSyntaxWarningSummary(warnings = pythonSyntaxWarnings)
+        }
+        if (timestampText != null && !isStreaming) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = timestampText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                fontSize = 11.sp,
+            )
         }
         if (showMessageActions) {
             Row(
