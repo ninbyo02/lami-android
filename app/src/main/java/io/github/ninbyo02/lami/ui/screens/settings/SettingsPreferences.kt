@@ -390,6 +390,10 @@ class SettingsPreferences(private val context: Context) {
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
     private val remoteProviderKey = stringPreferencesKey("remote_provider")
     private val lemonadeAutoUnloadModeKey = stringPreferencesKey("lemonade_auto_unload_mode")
+    private val pendingLemonadeAutoUnloadBaseUrlKey = stringPreferencesKey("pending_lemonade_auto_unload_base_url")
+    private val pendingLemonadeAutoUnloadModelKey = stringPreferencesKey("pending_lemonade_auto_unload_model")
+    private val pendingLemonadeAutoUnloadModeKey = stringPreferencesKey("pending_lemonade_auto_unload_mode")
+    private val pendingLemonadeAutoUnloadDeadlineEpochMsKey = longPreferencesKey("pending_lemonade_auto_unload_deadline_epoch_ms")
     private val screenOrientationModeKey = stringPreferencesKey("screen_orientation_mode")
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
@@ -912,6 +916,35 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveLemonadeAutoUnloadMode(mode: LemonadeAutoUnloadMode) {
         context.dataStore.edit { preferences ->
             preferences[lemonadeAutoUnloadModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun savePendingLemonadeAutoUnload(pending: PendingLemonadeAutoUnload) {
+        context.dataStore.edit { preferences ->
+            preferences[pendingLemonadeAutoUnloadBaseUrlKey] = pending.baseUrl
+            preferences[pendingLemonadeAutoUnloadModelKey] = pending.targetModel
+            preferences[pendingLemonadeAutoUnloadModeKey] = pending.mode.storageValue
+            preferences[pendingLemonadeAutoUnloadDeadlineEpochMsKey] = pending.deadlineEpochMs
+        }
+    }
+
+    suspend fun getPendingLemonadeAutoUnloadOrNull(): PendingLemonadeAutoUnload? {
+        val preferences = context.dataStore.data.first()
+        val pending = PendingLemonadeAutoUnload(
+            baseUrl = preferences[pendingLemonadeAutoUnloadBaseUrlKey].orEmpty(),
+            targetModel = preferences[pendingLemonadeAutoUnloadModelKey].orEmpty(),
+            mode = LemonadeAutoUnloadMode.fromStorage(preferences[pendingLemonadeAutoUnloadModeKey]),
+            deadlineEpochMs = preferences[pendingLemonadeAutoUnloadDeadlineEpochMsKey] ?: 0L,
+        )
+        return pending.takeIf { it.isValid() }
+    }
+
+    suspend fun clearPendingLemonadeAutoUnload() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(pendingLemonadeAutoUnloadBaseUrlKey)
+            preferences.remove(pendingLemonadeAutoUnloadModelKey)
+            preferences.remove(pendingLemonadeAutoUnloadModeKey)
+            preferences.remove(pendingLemonadeAutoUnloadDeadlineEpochMsKey)
         }
     }
 

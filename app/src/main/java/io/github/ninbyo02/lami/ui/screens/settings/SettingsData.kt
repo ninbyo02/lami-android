@@ -75,6 +75,17 @@ enum class LemonadeAutoUnloadMode(
     }
 }
 
+
+data class PendingLemonadeAutoUnload(
+    val baseUrl: String,
+    val targetModel: String,
+    val mode: LemonadeAutoUnloadMode,
+    val deadlineEpochMs: Long,
+) {
+    fun isValid(): Boolean =
+        baseUrl.isNotBlank() && targetModel.isNotBlank() && mode.delayMs != null && deadlineEpochMs > 0L
+}
+
 enum class HiddenQairt244PromptTemplateMode(
     val storageValue: String,
     val displayName: String,

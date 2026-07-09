@@ -22,6 +22,7 @@ import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
 import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
+import io.github.ninbyo02.lami.ui.screens.settings.PendingLemonadeAutoUnload
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
@@ -369,6 +370,9 @@ class OllamaViewModel(
                     remoteProvider = provider
                     if (provider != RemoteProvider.LEMONADE) {
                         cancelScheduledLemonadeUnload()
+                        settingsPreferences.clearPendingLemonadeAutoUnload()
+                    } else {
+                        restorePendingLemonadeAutoUnloadIfNeeded()
                     }
                 }
         }
@@ -379,6 +383,9 @@ class OllamaViewModel(
                     lemonadeAutoUnloadMode = mode
                     if (mode == LemonadeAutoUnloadMode.OFF) {
                         cancelScheduledLemonadeUnload()
+                        settingsPreferences.clearPendingLemonadeAutoUnload()
+                    } else {
+                        restorePendingLemonadeAutoUnloadIfNeeded()
                     }
                 }
         }
@@ -961,6 +968,38 @@ class OllamaViewModel(
         scheduledLemonadeUnloadJob = null
     }
 
+    private fun restorePendingLemonadeAutoUnloadIfNeeded() {
+        viewModelScope.launch {
+            val pending = settingsPreferences.getPendingLemonadeAutoUnloadOrNull() ?: return@launch
+            if (remoteProvider != RemoteProvider.LEMONADE || lemonadeAutoUnloadMode == LemonadeAutoUnloadMode.OFF) {
+                settingsPreferences.clearPendingLemonadeAutoUnload()
+                return@launch
+            }
+            schedulePendingLemonadeAutoUnload(pending, requestGeneration = remoteRequestGeneration)
+        }
+    }
+
+    private fun schedulePendingLemonadeAutoUnload(
+        pending: PendingLemonadeAutoUnload,
+        requestGeneration: Long,
+    ) {
+        cancelScheduledLemonadeUnload()
+        val remainingMs = pending.deadlineEpochMs - System.currentTimeMillis()
+        scheduledLemonadeUnloadJob = viewModelScope.launch {
+            if (remainingMs > 0L) {
+                Log.i("LemonadeUnload", "restored auto-unload in ${remainingMs}ms for model=${sanitizeLemonadeLogValue(pending.targetModel)}")
+                delay(remainingMs)
+            } else {
+                Log.i("LemonadeUnload", "running overdue auto-unload for model=${sanitizeLemonadeLogValue(pending.targetModel)}")
+            }
+            if (!isRemoteRequestGenerationActive(requestGeneration)) {
+                Log.i("LemonadeUnload", "skip restored auto-unload: stale generation=$requestGeneration current=$remoteRequestGeneration")
+                return@launch
+            }
+            runLemonadeAutoUnload(baseUrl = pending.baseUrl, targetModel = pending.targetModel, mode = pending.mode)
+        }
+    }
+
     private fun scheduleLemonadeAutoUnloadIfNeeded(
         provider: RemoteProvider,
         baseUrl: String,
@@ -977,6 +1016,7 @@ class OllamaViewModel(
         )
         if (delayMs == null) {
             Log.i("LemonadeUnload", "skip auto-unload: mode=${mode.storageValue}")
+            viewModelScope.launch { settingsPreferences.clearPendingLemonadeAutoUnload() }
             return
         }
         if (targetModel == null) {
@@ -988,6 +1028,13 @@ class OllamaViewModel(
             return
         }
         cancelScheduledLemonadeUnload()
+        val pending = PendingLemonadeAutoUnload(
+            baseUrl = baseUrl,
+            targetModel = targetModel,
+            mode = mode,
+            deadlineEpochMs = System.currentTimeMillis() + delayMs,
+        )
+        viewModelScope.launch { settingsPreferences.savePendingLemonadeAutoUnload(pending) }
         if (delayMs == 0L) {
             Log.i("LemonadeUnload", "immediate auto-unload for model=$targetModel")
             scheduledLemonadeUnloadJob = viewModelScope.launch(Dispatchers.IO + NonCancellable) {
@@ -995,15 +1042,7 @@ class OllamaViewModel(
             }
             return
         }
-        scheduledLemonadeUnloadJob = viewModelScope.launch {
-            Log.i("LemonadeUnload", "scheduled auto-unload in ${delayMs}ms for model=$targetModel")
-            delay(delayMs)
-            if (!isRemoteRequestGenerationActive(requestGeneration)) {
-                Log.i("LemonadeUnload", "skip auto-unload: stale generation=$requestGeneration current=$remoteRequestGeneration")
-                return@launch
-            }
-            runLemonadeAutoUnload(baseUrl = baseUrl, targetModel = targetModel, mode = mode)
-        }
+        schedulePendingLemonadeAutoUnload(pending, requestGeneration = requestGeneration)
     }
 
     private suspend fun runLemonadeAutoUnload(
@@ -1017,6 +1056,7 @@ class OllamaViewModel(
             }
         }.onSuccess { unloaded ->
                 if (unloaded) {
+                    settingsPreferences.clearPendingLemonadeAutoUnload()
                     Log.i("LemonadeUnload", "Auto-unloaded Lemonade model: $targetModel mode=${mode.storageValue}")
                 } else {
                     Log.w("LemonadeUnload", "Auto-unload returned false: $targetModel mode=${mode.storageValue}")
