@@ -530,6 +530,7 @@ run_install_dirty_current() {
   log_file="$LOG_DIR/install-dirty-current-${timestamp}-${host}-${port}-${flavor}.log"
   case "$flavor" in
     standard) task=":app:assembleStandardDebug"; apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"; app_id="io.github.ninbyo02.lami" ;;
+    customBuildExperiment) task=":app:assembleCustomBuildExperimentDebug"; apk="app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk"; app_id="io.github.ninbyo02.lami.customnpu" ;;
     *) fail ;;
   esac
   {
@@ -554,6 +555,28 @@ run_install_dirty_current() {
     echo "== install apk =="
     adb -s "${host}:${port}" install -r "$apk"
     echo "== INSTALL DIRTY CURRENT OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
+run_compile_dirty_standard() {
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file task
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/compile-dirty-standard-${timestamp}.log"
+  task=":app:compileStandardDebugKotlin"
+  {
+    echo "== LAMI compile dirty standard =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "task=${task}"
+    cd "$REPO"
+    echo "== git status =="
+    git status --short --branch
+    echo "== compile =="
+    ./gradlew --no-daemon "$task"
+    echo "== COMPILE DIRTY STANDARD OK =="
   } 2>&1 | tee "$log_file"
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
@@ -872,6 +895,15 @@ safe command recipes:
     files:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt
     commit: fix: show local backend fallback in inference stats
+
+  npu-stats-card-unified
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest.kt
+    commit: fix: unify local inference stats card display
 EOF
 }
 
@@ -929,6 +961,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder\.kt)$'
       message="fix: show local backend fallback in inference stats"
+      ;;
+    npu-stats-card-unified)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreenStreamingRenderTest\.kt)$'
+      message="fix: unify local inference stats card display"
       ;;
     *) fail ;;
   esac
@@ -1130,6 +1167,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   install-dirty-current\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_dirty_current "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
+  compile-dirty-standard)
+    run_compile_dirty_standard ;;
   help)
     cat <<'EOF'
 allowed commands:
@@ -1159,7 +1198,7 @@ allowed commands:
   build-qairt244-custom-jni
   qairt244-sdk-status
   qairt244-repeat-stability
-  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm]
+  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm] [standard|standardGpuNoConstraintProvider] [engine-only|conversation-only|send-message]
   litert-gpu-benchmark-latest
   litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
   qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
@@ -1185,7 +1224,8 @@ allowed commands:
   standard-npu-jni-symbol-check
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
-  install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard]
+  install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  compile-dirty-standard       # dirty worktree compile only, no reset/install
 EOF
     ;;
   *)

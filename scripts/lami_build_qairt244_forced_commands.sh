@@ -1036,6 +1036,8 @@ lami_qairt244_litert_gpu_token_probe() {
   local requested_tokens="$1"
   local backend_variant="${2:-gpu}"
   local model_source="${3:-auto}"
+  local flavor="${4:-standardGpuNoConstraintProvider}"
+  local phase="${5:-send-message}"
   case "$requested_tokens" in
     16|32|64|128|256|512|1024|2048|4096|8192|16384|32768) ;;
     *) lami_qairt244_fail ;;
@@ -1048,29 +1050,74 @@ lami_qairt244_litert_gpu_token_probe() {
     auto|current|generic|qualcomm) ;;
     *) lami_qairt244_fail ;;
   esac
+  case "$phase" in
+    engine-only|conversation-only|send-message) ;;
+    *) lami_qairt244_fail ;;
+  esac
+  case "$flavor" in
+    standard|standardDebug)
+      flavor="standard"
+      ;;
+    standardGpuNoConstraintProvider|gpunoconstraint|gpu-no-constraint|no-constraint|noConstraintProvider|galleryStackGpuProbe)
+      if [[ "$flavor" == "galleryStackGpuProbe" ]]; then
+        flavor="galleryStackGpuProbe"
+      else
+        flavor="standardGpuNoConstraintProvider"
+      fi
+      ;;
+    *) lami_qairt244_fail ;;
+  esac
+
+  if [[ "$flavor" == "galleryStackGpuProbe" && "$model_source" == "generic" ]]; then
+    lami_qairt244_gallery_stack_gpu_copy_probe "$requested_tokens" "$backend_variant"
+    return 0
+  fi
 
   cd "$REPO"
   local model_path_arg=()
   case "$model_source" in
-    generic)
+    generic|qualcomm)
+      # Resolve the selected app-local fallback model inside the target appId.
+      # Do not hard-code app-private local_models filenames; imports are timestamp-prefixed
+      # and each flavor has its own DataStore/files directory.
       model_path_arg=(--model-path-source generic_fallback)
-      ;;
-    qualcomm)
-      model_path_arg=()
       ;;
     auto|current)
       ;;
   esac
+
+  local app_id assemble_task apk_path
+  case "$flavor" in
+    standard)
+      app_id="io.github.ninbyo02.lami"
+      assemble_task=":app:assembleStandardDebug"
+      apk_path="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+      ;;
+    standardGpuNoConstraintProvider)
+      app_id="io.github.ninbyo02.lami.gpunoconstraint"
+      assemble_task=":app:assembleStandardGpuNoConstraintProviderDebug"
+      apk_path="app/build/outputs/apk/standardGpuNoConstraintProvider/debug/app-standardGpuNoConstraintProvider-debug.apk"
+      ;;
+    galleryStackGpuProbe)
+      app_id="io.github.ninbyo02.lami.gallerystackgpu"
+      assemble_task=":app:assembleGalleryStackGpuProbeDebug"
+      apk_path="app/build/outputs/apk/galleryStackGpuProbe/debug/app-galleryStackGpuProbe-debug.apk"
+      ;;
+  esac
+
   echo "gpu_probe_tokens=$requested_tokens"
   echo "gpu_probe_backend=$backend_variant"
   echo "gpu_probe_model_source=$model_source"
+  echo "gpu_probe_flavor=$flavor"
+  echo "gpu_probe_phase=$phase"
+  echo "gpu_probe_app_id=$app_id"
   scripts/run_litert_lm_gpu_benchmark.sh \
-    --app-id io.github.ninbyo02.lami.gpunoconstraint \
-    --assemble-task :app:assembleStandardGpuNoConstraintProviderDebug \
-    --apk app/build/outputs/apk/standardGpuNoConstraintProvider/debug/app-standardGpuNoConstraintProvider-debug.apk \
+    --app-id "$app_id" \
+    --assemble-task "$assemble_task" \
+    --apk "$apk_path" \
     --device "${LAMI_GPU_PROBE_DEVICE:-192.168.52.52:36089}" \
     --backend "$backend_variant" \
-    --phase send-message \
+    --phase "$phase" \
     "${model_path_arg[@]}" \
     --prompts 'こんにちは' \
     --max-output-tokens-list "$requested_tokens" \
@@ -1083,8 +1130,8 @@ lami_qairt244_litert_gpu_token_probe_from_command() {
   local command="$1"
   local -a parts
   parts=($command)
-  [[ "${#parts[@]}" -ge 2 && "${#parts[@]}" -le 4 ]] || lami_qairt244_fail
-  lami_qairt244_litert_gpu_token_probe "${parts[1]}" "${parts[2]:-gpu}" "${parts[3]:-auto}"
+  [[ "${#parts[@]}" -ge 2 && "${#parts[@]}" -le 6 ]] || lami_qairt244_fail
+  lami_qairt244_litert_gpu_token_probe "${parts[1]}" "${parts[2]:-gpu}" "${parts[3]:-auto}" "${parts[4]:-standardGpuNoConstraintProvider}" "${parts[5]:-send-message}"
 }
 
 # Optional helper for parent controllers that want a single dispatch call.
@@ -1145,7 +1192,7 @@ lami_qairt244_help() {
   qairt244-repeat-stability
   litert-gpu-benchmark-latest
   litert-gpu-benchmark-artifact <YYYYMMDD_HHMMSS>
-  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm]
+  litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm] [standard|standardGpuNoConstraintProvider] [engine-only|conversation-only|send-message]
   qairt244-token-limit-probe <16|32|128|256|512|1024|2048|4096|8192|16384|32768> [current|e2b|e4b]
 EOF
 }
