@@ -911,6 +911,13 @@ safe command recipes:
       app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
     commit: feat: notify LINE bridge after Lemonade unload
 
+  lemonade-unload-bg
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
+      app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt
+    commit: fix: restore delayed Lemonade unload after resume
+
   chat-timestamp
     files:
       app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt
@@ -985,6 +992,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel\.kt|app/src/test/java/io/github/ninbyo02/lami/viewmodels/OpenAiCompatibleProtocolTest\.kt)$'
       message="feat: notify LINE bridge after Lemonade unload"
+      ;;
+    lemonade-unload-bg)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences\.kt|app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel\.kt)$'
+      message="fix: restore delayed Lemonade unload after resume"
       ;;
     chat-timestamp)
       git add app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt app/src/main/java/io/github/ninbyo02/lami/db/entity/Message.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
