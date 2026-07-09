@@ -399,6 +399,59 @@ run_emulator_lami_log() {
   tail -220 "$latest" || true
 }
 
+run_emulator_install_standard_lami() {
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file apk serial
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/emulator-install-standard-lami-${timestamp}.log"
+  apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+  serial="emulator-5554"
+  {
+    echo "== LAMI emulator install standard =="
+    echo "time=$(date -Is)"
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "serial=${serial}"
+    echo "flavor=standard"
+    echo "task=:app:assembleStandardDebug"
+    echo "apk=${apk}"
+    cd "$REPO"
+    git status --short --branch
+    "$REPO/scripts/emulator.sh" wait "$serial"
+    ./gradlew --no-daemon :app:assembleStandardDebug
+    test -f "$apk"
+    ls -l "$apk"
+    "$REPO/scripts/emulator.sh" install "$serial" "$apk"
+    echo "== EMULATOR INSTALL STANDARD OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
+run_emulator_start_standard_lami() {
+  mkdir -p "$LOG_DIR"
+  local timestamp log_file serial app_id
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  log_file="$LOG_DIR/emulator-start-standard-lami-${timestamp}.log"
+  serial="emulator-5554"
+  app_id="io.github.ninbyo02.lami"
+  {
+    echo "== LAMI emulator start standard =="
+    echo "time=$(date -Is)"
+    echo "serial=${serial}"
+    echo "app_id=${app_id}"
+    cd "$REPO"
+    "$REPO/scripts/emulator.sh" wait "$serial"
+    "$HOME/lami-android-sdk/platform-tools/adb" -s "$serial" shell monkey -p "$app_id" -c android.intent.category.LAUNCHER 1
+    sleep 5
+    echo "== package pid =="
+    "$HOME/lami-android-sdk/platform-tools/adb" -s "$serial" shell pidof "$app_id" || true
+    echo "== recent lami crash lines =="
+    "$HOME/lami-android-sdk/platform-tools/adb" -s "$serial" logcat -d -v time | grep -Ei 'FATAL EXCEPTION|AndroidRuntime|io.github.ninbyo02.lami|LAMI|lami' | tail -120 || true
+    echo "== EMULATOR START STANDARD OK =="
+  } 2>&1 | tee "$log_file"
+  ln -sfn "$log_file" "$LOG_DIR/latest.log"
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -1015,6 +1068,10 @@ case "$CMD" in
     run_emulator_lami_script wait ;;
   emulator-log-lami)
     run_emulator_lami_log ;;
+  emulator-install-standard-lami)
+    run_emulator_install_standard_lami ;;
+  emulator-start-standard-lami)
+    run_emulator_start_standard_lami ;;
   adb-pair\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail; run_adb_pair "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
   adb-connect\ *)
