@@ -50,8 +50,11 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 data class ModelInfo(val name: String)
+
+private const val LEMONADE_UNLOAD_EVENT_URL = "http://192.168.52.101:8650/lemonade/unloaded"
 
 internal fun fetchAvailableModelsFromServer(
     baseUrl: String,
@@ -115,7 +118,61 @@ internal fun fetchOpenAiCompatibleModelsFromServer(baseUrl: String, provider: Re
     }
 }
 
-internal fun unloadLemonadeModelFromServer(baseUrl: String, modelName: String): Boolean {
+internal fun buildLemonadeUnloadEventJson(modelName: String, source: String = "lami-android"): String =
+    JSONObject()
+        .put("model_name", modelName)
+        .put("source", source)
+        .toString()
+
+internal fun notifyLemonadeUnloadEvent(
+    modelName: String,
+    eventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
+    if (modelName.isBlank() || eventUrl.isBlank()) return false
+    val connection = runCatching {
+        (URL(eventUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 2000
+            readTimeout = 3000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+        }
+    }.getOrElse { error ->
+        Log.w("LemonadeUnload", "Failed to open unload event connection: ${error.message}")
+        return false
+    }
+    return try {
+        val requestBody = buildLemonadeUnloadEventJson(modelName)
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        responseStream?.bufferedReader()?.use { it.readText() }
+        if (responseCode in 200..299) {
+            Log.i("LemonadeUnload", "Sent unload event to bridge for model=${sanitizeLemonadeLogValue(modelName)}")
+            true
+        } else {
+            Log.w("LemonadeUnload", "Unload event bridge returned HTTP $responseCode")
+            false
+        }
+    } catch (error: Exception) {
+        Log.w("LemonadeUnload", "Failed to notify unload event bridge: ${error.message}")
+        false
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun sanitizeLemonadeLogValue(value: String): String =
+    URLEncoder.encode(value.take(120), Charsets.UTF_8.name())
+
+internal fun unloadLemonadeModelFromServer(
+    baseUrl: String,
+    modelName: String,
+    unloadEventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
     if (modelName.isBlank()) return false
     val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)
     val url = URL("${config.baseUrl}unload")
@@ -142,6 +199,7 @@ internal fun unloadLemonadeModelFromServer(baseUrl: String, modelName: String): 
         if (responseCode !in 200..299) {
             throw IOException(response.ifEmpty { "Lemonade unload failed (HTTP $responseCode)" })
         }
+        notifyLemonadeUnloadEvent(modelName = modelName, eventUrl = unloadEventUrl)
         return true
     } finally {
         connection.disconnect()

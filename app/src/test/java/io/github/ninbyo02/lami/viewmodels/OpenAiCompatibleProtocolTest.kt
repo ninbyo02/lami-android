@@ -1,11 +1,15 @@
 package io.github.ninbyo02.lami.viewmodels
 
 import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicReference
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -79,4 +83,48 @@ class OpenAiCompatibleProtocolTest {
         assertEquals(15 * 60 * 1000L, LemonadeAutoUnloadMode.AFTER_15_MIN.delayMs)
         assertNull(LemonadeAutoUnloadMode.OFF.delayMs)
     }
+    @Test
+    fun `builds Lemonade unload event payload`() {
+        val payload = JSONObject(buildLemonadeUnloadEventJson("Gemma-4"))
+
+        assertEquals("Gemma-4", payload.getString("model_name"))
+        assertEquals("lami-android", payload.getString("source"))
+    }
+
+    @Test
+    fun `unload Lemonade notifies bridge after successful unload`() {
+        val unloadBody = AtomicReference<String>()
+        val eventBody = AtomicReference<String>()
+        val unloadServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val eventServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        unloadServer.createContext("/api/v1/unload") { exchange ->
+            unloadBody.set(exchange.requestBody.bufferedReader().use { it.readText() })
+            val response = "{}".toByteArray()
+            exchange.sendResponseHeaders(200, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        eventServer.createContext("/lemonade/unloaded") { exchange ->
+            eventBody.set(exchange.requestBody.bufferedReader().use { it.readText() })
+            val response = "{\"status\":\"ok\"}".toByteArray()
+            exchange.sendResponseHeaders(200, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        unloadServer.start()
+        eventServer.start()
+        try {
+            val unloadBaseUrl = "http://127.0.0.1:${unloadServer.address.port}"
+            val eventUrl = "http://127.0.0.1:${eventServer.address.port}/lemonade/unloaded"
+
+            assertTrue(unloadLemonadeModelFromServer(unloadBaseUrl, "Gemma-4", eventUrl))
+
+            assertEquals("Gemma-4", JSONObject(unloadBody.get()).getString("model_name"))
+            val eventJson = JSONObject(eventBody.get())
+            assertEquals("Gemma-4", eventJson.getString("model_name"))
+            assertEquals("lami-android", eventJson.getString("source"))
+        } finally {
+            unloadServer.stop(0)
+            eventServer.stop(0)
+        }
+    }
+
 }
