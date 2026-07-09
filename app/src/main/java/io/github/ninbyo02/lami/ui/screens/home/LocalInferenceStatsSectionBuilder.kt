@@ -48,6 +48,7 @@ internal fun buildInferenceSummarySections(
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
             add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
@@ -74,6 +75,7 @@ internal fun buildInferenceSummarySections(
                     emphasizeValue = true,
                 )
             )
+            addAll(localBackendSummaryItems)
             add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
         }
     }
@@ -132,6 +134,7 @@ internal fun buildInferenceDetailSections(
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"
     } else {
@@ -380,6 +383,7 @@ internal fun buildInferenceDetailSections(
     }
     val detailedItems = buildList {
         if (localTraceForDev != null) {
+            addAll(localBackendSummaryItems)
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
@@ -875,12 +879,14 @@ private fun buildInferenceSimpleSections(
             backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
         )
     }
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     return listOf(
         InferenceStatsSectionUi(
             title = "概要",
             items = buildList {
                 add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
                 add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                addAll(localBackendSummaryItems)
                 addAll(ttftItems)
                 add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
                 add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
@@ -902,6 +908,89 @@ private fun buildUnifiedTtftItems(
         InferenceStatItemUi(label = "Lami基準TTFT", value = lamiText ?: "—"),
         InferenceStatItemUi(label = "バックエンド基準TTFT", value = backendText ?: "—"),
     )
+}
+
+
+private fun buildLocalBackendSummaryItems(stats: InferenceStats): List<InferenceStatItemUi> {
+    val values = parseLocalInferenceDiagnosticValues(stats)
+    if (values.isEmpty()) return emptyList()
+    val backendText = formatLocalExecutionBackendForStats(values) ?: return emptyList()
+    return buildList {
+        add(InferenceStatItemUi(label = "実行バックエンド", value = backendText))
+        formatLocalFallbackStateForStats(values)?.let {
+            add(InferenceStatItemUi(label = "フォールバック", value = it))
+        }
+    }
+}
+
+private fun parseLocalInferenceDiagnosticValues(stats: InferenceStats): Map<String, String> = buildMap {
+    appendLocalInferenceKeyValues(stats.localSourceSummary)
+    appendLocalInferenceKeyValues(stats.notes)
+}
+
+private fun MutableMap<String, String>.appendLocalInferenceKeyValues(text: String?) {
+    text.orEmpty()
+        .split(Regex("[\\s;]+"))
+        .map { it.trim() }
+        .filter { it.contains('=') }
+        .forEach { entry ->
+            val separatorIndex = entry.indexOf('=')
+            val key = entry.substring(0, separatorIndex).trim()
+            val value = entry.substring(separatorIndex + 1).trim()
+            if (key.isNotEmpty() && value.isNotEmpty()) putIfAbsent(key, value)
+        }
+}
+
+private fun formatLocalExecutionBackendForStats(values: Map<String, String>): String? {
+    val backend = values["effective_backend"]
+        ?: values["selected_backend"]
+        ?: values["requested_backend"]
+        ?: values["preferred_backend"]
+        ?: values["npu_backend_evidence"]
+        ?: values["backend_evidence"]
+    val normalized = backend?.uppercase(Locale.ROOT).orEmpty()
+    val routeFamily = values["route_family"]?.uppercase(Locale.ROOT).orEmpty()
+    val displayBackend = when {
+        normalized.contains("NPU") || normalized.contains("QNN") || routeFamily.contains("NPU") -> "NPU"
+        normalized.contains("GPU") || routeFamily.contains("GPU") -> "GPU"
+        normalized.contains("CPU") || routeFamily.contains("CPU") -> "CPU"
+        normalized.contains("CLOUD") || routeFamily.contains("SERVER") -> "クラウド"
+        backend.isNullOrBlank() -> null
+        else -> backend
+    } ?: return null
+    val evidence = values["backend_evidence"]
+        ?: values["npu_backend_evidence"]
+        ?: values["effective_backend"]
+        ?: values["selected_backend"]
+    return evidence
+        ?.takeIf { it.isNotBlank() && it != displayBackend }
+        ?.let { "$displayBackend（$it）" }
+        ?: displayBackend
+}
+
+private fun formatLocalFallbackStateForStats(values: Map<String, String>): String? {
+    val fallbackUsed = values["npu_standard_route_fallback_used"]
+        ?: values["fallback_used"]
+        ?: values["gpu_fallback_used"]
+    val normalized = fallbackUsed?.trim()?.lowercase(Locale.ROOT)
+    return when (normalized) {
+        "true", "yes", "1" -> {
+            val backend = values["npu_standard_route_fallback_backend"]
+                ?: values["fallback_backend"]
+                ?: values["effective_backend"]
+                ?: "unknown"
+            val reason = values["npu_standard_route_fallback_reason"]
+                ?: values["fallback_reason"]
+                ?: values["reason"]
+            if (reason.isNullOrBlank() || reason == "success") {
+                "あり（$backend）"
+            } else {
+                "あり（$backend / $reason）"
+            }
+        }
+        "false", "no", "0" -> "なし"
+        else -> null
+    }
 }
 
 private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
