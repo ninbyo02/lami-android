@@ -1115,7 +1115,6 @@ internal class LocalInferenceEngineHolder(
 
     private fun isGpuTransientOnStopProtectionEnabledForDebug(): Boolean {
         gpuTransientOnStopProtectionOverrideForTest?.let { return it }
-        if (!BuildConfig.DEBUG || !BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR) return false
         val explicit = readHolderDebugProperty("debug.lami.gpu_holder_lifecycle_defer_transient_onstop")
             ?: readHolderDebugProperty("lami.gpu_holder_lifecycle_defer_transient_onstop")
         if (explicit != null) return explicit.equals("true", ignoreCase = true) || explicit == "1"

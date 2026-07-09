@@ -7,6 +7,24 @@ import org.junit.Test
 class ChatScreenStreamingRenderTest {
 
     @Test
+    fun composerExpandAffordance_isVisibleFromFiveLinesAndUsesFullScreenLayout() {
+        assertFalse(shouldShowComposerExpandAffordance(measuredLines = 4))
+        assertTrue(shouldShowComposerExpandAffordance(measuredLines = 5))
+        assertTrue(shouldShowComposerExpandAffordance(measuredLines = 8))
+        assertTrue(shouldUseFullScreenComposerEditor())
+        assertTrue(composerExpandButtonEndPaddingDp() <= 8)
+    }
+
+
+    @Test
+    fun scrollToBottomFab_isLayeredAboveComposerAndLandscapeGradientIsDisabled() {
+        assertTrue(scrollToBottomFabZIndex() > composerInputLayerZIndex())
+        assertTrue(scrollToBottomFabBottomPaddingExtraDp() >= 48)
+        assertFalse(shouldEnableComposerBottomGradient(isLandscape = true))
+        assertTrue(shouldEnableComposerBottomGradient(isLandscape = false))
+    }
+
+    @Test
     fun shouldRefreshRender_shortDeltaWithoutNewline_returnsFalse() {
         assertFalse(
             shouldRefreshRender(

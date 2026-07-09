@@ -2416,6 +2416,17 @@ internal fun isCpuRouteProbeEnabledForDebug(
     return value.equals("true", ignoreCase = true) || value == "1"
 }
 
+internal fun isCpuNormalRouteBlockingFastPathEnabledForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG || preferredBackend != PreferredBackendDryRunSetting.CPU) return false
+    val value = propertyReader("debug.lami.cpu_normal_route_blocking_fast_path")
+        ?: propertyReader("lami.cpu_normal_route_blocking_fast_path")
+        ?: return false
+    return value.equals("true", ignoreCase = true) || value == "1"
+}
+
 private fun buildCpuRouteBaseDiagnostics(
     heldEngine: HeldLocalEngine,
     localModelDisplayName: String?,
@@ -2424,6 +2435,7 @@ private fun buildCpuRouteBaseDiagnostics(
     heldEngineAcquireResult: String?,
     holderSnapshotAtRunStart: HeldEngineDevDiagnosticSnapshot,
     cpuRouteProbeEnabled: Boolean,
+    cpuBlockingFastPathEnabled: Boolean,
 ): Map<String, String> {
     if (heldEngine.preferredBackendDryRunSetting != PreferredBackendDryRunSetting.CPU) return emptyMap()
     val modelFile = File(heldEngine.modelPath)
@@ -2446,6 +2458,8 @@ private fun buildCpuRouteBaseDiagnostics(
             holderSnapshot = holderSnapshotAtRunStart,
         ),
         "cpu_route_probe_enabled" to cpuRouteProbeEnabled.toString(),
+        "cpu_normal_route_blocking_fast_path_enabled" to cpuBlockingFastPathEnabled.toString(),
+        "cpu_route_mode" to if (cpuBlockingFastPathEnabled) "blocking_fast_path" else "flow_streaming",
         "cpu_route_probe_result" to if (cpuRouteProbeEnabled) "not_started" else "disabled",
         "cpu_route_probe_failure_stage" to "none",
         "cpu_route_probe_callback_count" to "0",
@@ -3075,6 +3089,9 @@ internal suspend fun runWithHeldEngine(
     val cpuRouteProbeEnabled = isCpuRouteProbeEnabledForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
     )
+    val cpuBlockingFastPathEnabled = isCpuNormalRouteBlockingFastPathEnabledForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
     val cpuGpuCallbackCompareMaxTokens = gpuConfigDiagnosticsForRun.outputQualityEffectiveMaxTokens.toIntOrNull()
         ?: gpuConfigDiagnosticsForRun.maxTokens.toIntOrNull()
     val cpuGpuCallbackCompareSamplerHint = gpuConfigDiagnosticsForRun.samplerAccelerationPolicy
@@ -3086,6 +3103,7 @@ internal suspend fun runWithHeldEngine(
         heldEngineAcquireResult = heldEngineAcquireResult,
         holderSnapshotAtRunStart = holderSnapshotAtRunStart,
         cpuRouteProbeEnabled = cpuRouteProbeEnabled,
+        cpuBlockingFastPathEnabled = cpuBlockingFastPathEnabled,
     )
 
     fun recordMemorySnapshot(stage: String) {
@@ -3289,8 +3307,13 @@ internal suspend fun runWithHeldEngine(
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
             var generateImmediateFailure = false
+            var blockingFastPathResponseUsed = false
+            var blockingFastPathStartedAtMs: Long? = null
             val flowResponse = runCatching {
-                if (callbackStreamingPathSelected && generateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL) {
+                if (cpuBlockingFastPathEnabled || (
+                    BuildConfig.CURRENT_FLAVOR == "standard" &&
+                        heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU
+                    )) {
                     if (namespace != "com.google.ai.edge.litertlm") return@runCatching null
                     val sendMessageMethod = conversation.javaClass.methods.firstOrNull { method ->
                         method.name == "sendMessage" &&
@@ -3304,6 +3327,7 @@ internal suspend fun runWithHeldEngine(
                         stage = "generate_blocking_call_entered",
                         flags = currentGenerateCallbackFlags(),
                     )
+                    blockingFastPathStartedAtMs = SystemClock.elapsedRealtime()
                     val responseValue = runCatching {
                         sendMessageMethod.invoke(conversation, effectivePrompt, emptyMap<String, Any>())
                     }.getOrNull() ?: return@runCatching null
@@ -3343,6 +3367,7 @@ internal suspend fun runWithHeldEngine(
                         stage = "generate_blocking_completed",
                         flags = currentGenerateCallbackFlags(),
                     )
+                    blockingFastPathResponseUsed = true
                     return@runCatching responseText
                 }
                 val sendMessageAsyncMethod = findSendMessageAsyncMethod(
@@ -3580,10 +3605,11 @@ internal suspend fun runWithHeldEngine(
                     closeSummaryPath = "held-official-flow-generate-failure"
                     return@runWithConversation flowResponse
                 }
-                officialFlowUsed = true
-                closeSummaryPath = "held-official-flow"
+                officialFlowUsed = !blockingFastPathResponseUsed
+                closeSummaryPath = if (blockingFastPathResponseUsed) "held-official-blocking" else "held-official-flow"
+                val measuredPath = if (blockingFastPathResponseUsed) "held-official-blocking" else "held-official-flow"
                 val measuredCollector = MeasuredTokenTimingCollector(
-                    path = "held-official-flow",
+                    path = measuredPath,
                     appendTrace = appendTrace,
                 )
                 measuredCollector.observe(
@@ -3606,8 +3632,8 @@ internal suspend fun runWithHeldEngine(
                     promptText = effectivePrompt,
                     fullResponseText = flowResponse,
                     timing = LocalLiteRtTimingSnapshot(
-                        startedAtMs = startElapsedRealtimeMs,
-                        firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
+                        startedAtMs = if (blockingFastPathResponseUsed) blockingFastPathStartedAtMs ?: startElapsedRealtimeMs else startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = if (blockingFastPathResponseUsed) blockingFastPathStartedAtMs ?: heldFlowFirstPartialElapsedRealtimeMs else heldFlowFirstPartialElapsedRealtimeMs,
                         lastChunkAtMs = heldFlowLastChunkElapsedRealtimeMs,
                         endedAtMs = SystemClock.elapsedRealtime(),
                     ),

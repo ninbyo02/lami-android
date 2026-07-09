@@ -134,6 +134,8 @@ internal fun buildInferenceDetailSections(
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val heldOfficialBlocking = localSourceSummaryText
+        ?.contains("held-official-blocking", ignoreCase = true) == true
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"

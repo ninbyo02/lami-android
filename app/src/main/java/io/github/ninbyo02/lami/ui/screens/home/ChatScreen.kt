@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import android.content.res.Configuration
 import android.app.ActivityManager
 import android.net.Uri
 import android.os.Debug
@@ -100,6 +101,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -124,6 +126,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -3615,6 +3618,8 @@ fun Home(
     }
 
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val navBottomPx = WindowInsets.navigationBars.getBottom(density)
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
@@ -3925,7 +3930,7 @@ fun Home(
             color = MaterialTheme.colorScheme.onSurface
         )
         val overlayBase = MaterialTheme.colorScheme.background
-        val composerBottomGradientEnabled = true
+        val composerBottomGradientEnabled = shouldEnableComposerBottomGradient(isLandscape)
 
         Column(
             modifier = Modifier
@@ -4000,7 +4005,7 @@ fun Home(
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .zIndex(1f)
+                            .zIndex(composerInputLayerZIndex())
                             .onGloballyPositioned { coordinates ->
                                 measuredComposerTopY = coordinates.positionInRoot().y
                             }
@@ -4764,8 +4769,7 @@ fun Home(
                                                                     ?.let { appendLine(it) }
                                                             }.trimEnd()
                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                            npuStandardRouteS1DisplayText =
-                                                                "$s1RouteDisplayText\nnpu_standard_route_fallback_used=true\nnpu_standard_route_fallback_backend=${finalFallbackBackend.name}\n"
+                                                            npuStandardRouteS1DisplayText = s1RouteDisplayText
                                                             npuStandardRouteS1DevTraceText =
                                                                 npuStandardRouteS1DevTraceText?.let { "$it\n$fallbackDiagnostics" }
                                                                     ?: fallbackDiagnostics
@@ -5228,8 +5232,6 @@ fun Home(
                                                                 "$text\n$npuStandardRouteExecutionDiagnosticsText"
                                                             }
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                        npuStandardRouteS1DisplayText =
-                                                            appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DisplayText)
                                                         npuStandardRouteS1DevTraceText =
                                                             appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevTraceText)
                                                         npuStandardRouteS1DevCompactCopyText =
@@ -5321,7 +5323,7 @@ fun Home(
                                                                         npuStandardRoutePersistedResult.displayText,
                                                                     )
                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedDisplayTextWithMemory
+                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedResult.displayText
                                                                 if (s4PseudoStreamingCandidate != null) {
                                                                     val s4GuardEpoch = streamingGuardEpoch
                                                                     npuStandardRouteS4PseudoStreamingActive = true
@@ -5363,11 +5365,18 @@ fun Home(
                                                                     }
                                                                 }
                                                                 val resolvedChatId = currentChatId
+                                                                val npuStandardRouteInferenceStats =
+                                                                    buildNpuStandardRouteInferenceStats(
+                                                                        result = npuStandardRoutePersistedResult,
+                                                                        localSourceSummary = npuStandardRoutePersistedDisplayTextWithMemory,
+                                                                        assistantText = assistantTextForPersist,
+                                                                    )
                                                                 val assistantId = withContext(Dispatchers.IO) {
                                                                     viewModel.insertAssistantMessageAndReturnId(
                                                                         createAssistantMessage(
                                                                             chatId = resolvedChatId,
                                                                             response = assistantTextForPersist,
+                                                                            latestInferenceStats = npuStandardRouteInferenceStats,
                                                                             localSourceSummary = npuStandardRoutePersistedDisplayTextWithMemory,
                                                                         )
                                                                     ).toInt()
@@ -7546,16 +7555,24 @@ fun Home(
                                 }
                             }
 
-                        if (measuredLines >= 5) {
+                        if (shouldShowComposerExpandAffordance(measuredLines)) {
                             IconButton(
                                 onClick = { expandDialogOpen = true },
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(end = 44.dp)
+                                    .padding(
+                                        top = 2.dp,
+                                        end = composerExpandButtonEndPaddingDp().dp,
+                                    )
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)),
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.OpenInFull,
-                                    contentDescription = "Expand"
+                                    contentDescription = "入力欄を全画面で編集",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
@@ -7574,45 +7591,103 @@ fun Home(
         }
 
         if (expandDialogOpen) {
-            Dialog(onDismissRequest = { expandDialogOpen = false }) {
-                Card {
+            Dialog(
+                onDismissRequest = { expandDialogOpen = false },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = !shouldUseFullScreenComposerEditor(),
+                    decorFitsSystemWindows = false,
+                ),
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
+                            .fillMaxSize()
+                            .navigationBarsPadding()
+                            .imePadding()
+                            .padding(horizontal = 16.dp),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 18.dp, bottom = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("全体表示", style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = { expandDialogOpen = false }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Close expand dialog"
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "入力を編集",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Text(
+                                    text = "長いプロンプトを落ち着いて確認できます",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                IconButton(
+                                    onClick = { expandDialogOpen = false },
+                                    modifier = Modifier.size(44.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "全画面入力を閉じる",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
+                            }
                         }
+
                         OutlinedTextField(
                             value = userPrompt,
                             onValueChange = {
                                 userPrompt = it
                                 viewModel.onUserInteraction()
                             },
-                            shape = CircleShape,
+                            shape = RoundedCornerShape(24.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 180.dp, max = 360.dp),
+                                .weight(1f),
                             singleLine = false,
-                            maxLines = 16,
-                            placeholder = { Text("ここで全文を編集") }
+                            maxLines = Int.MAX_VALUE,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                lineHeight = 24.sp,
+                            ),
+                            placeholder = {
+                                Text(
+                                    "ここで全文を編集",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            ),
                         )
-                        TextButton(
-                            onClick = { expandDialogOpen = false },
-                            modifier = Modifier.align(Alignment.End)
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("閉じる")
+                            TextButton(onClick = { expandDialogOpen = false }) {
+                                Text("完了")
+                            }
                         }
                     }
                 }
@@ -9326,8 +9401,15 @@ fun Home(
                                     },
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        // 入力欄と下部グラデーションの上に重ねるため、末尾ガターより上へ配置する
-                                        .padding(end = 16.dp, bottom = ComposerMinHeight + ComposerBottomGapHeight + bottomDp + 16.dp)
+                                        .zIndex(scrollToBottomFabZIndex())
+                                        // 入力欄と下部グラデーションより上のレイヤ/位置に逃がす。
+                                        .padding(
+                                            end = 16.dp,
+                                            bottom = ComposerMinHeight +
+                                                ComposerBottomGapHeight +
+                                                bottomDp +
+                                                scrollToBottomFabBottomPaddingExtraDp().dp,
+                                        )
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.ArrowDownward,
@@ -9876,6 +9958,20 @@ private fun previewForDevLog(
         append(tail)
     }
 }
+internal fun shouldShowComposerExpandAffordance(measuredLines: Int): Boolean = measuredLines >= 5
+
+internal fun shouldUseFullScreenComposerEditor(): Boolean = true
+
+internal fun composerExpandButtonEndPaddingDp(): Int = 4
+
+internal fun composerInputLayerZIndex(): Float = 1f
+
+internal fun scrollToBottomFabZIndex(): Float = 8f
+
+internal fun scrollToBottomFabBottomPaddingExtraDp(): Int = 56
+
+internal fun shouldEnableComposerBottomGradient(isLandscape: Boolean): Boolean = !isLandscape
+
 fun shouldRefreshRender(
     prev: String,
     next: String,
@@ -13147,6 +13243,47 @@ private fun buildLocalInferenceStatsFromTrace(
     )
 }
 
+private fun buildNpuStandardRouteInferenceStats(
+    result: NpuStandardRouteS1Result,
+    localSourceSummary: String,
+    assistantText: String,
+): InferenceStats {
+    val timing = result.timing
+    val outputTokens = timing.outputTokens
+    val inputTokens = result.inputPrompt
+        .takeIf { it.isNotBlank() }
+        ?.let { prompt -> prompt.codePointCount(0, prompt.length).coerceAtLeast(1) }
+    val totalTokens = when {
+        inputTokens != null && outputTokens != null -> inputTokens + outputTokens
+        else -> outputTokens
+    }
+    val modelName = result.selectedModelName
+        .takeIf { it.isNotBlank() }
+        ?: result.selectedModelFile.takeIf { it.isNotBlank() }
+        ?: "NPU プレビュー"
+    val generationDurationNs = timing.decodeMs
+        ?.takeIf { it > 0L }
+        ?.times(1_000_000L)
+    return InferenceStats(
+        modelName = modelName,
+        inputTokens = inputTokens,
+        outputTokens = outputTokens,
+        totalTokens = totalTokens,
+        tokensPerSecond = timing.tokensPerSecond,
+        tokenCountMode = timing.tokenCountMode,
+        completionTokens = outputTokens,
+        finishReason = result.reason.takeIf { it.isNotBlank() } ?: "stop",
+        generationTimeMs = timing.decodeMs,
+        decodeDurationMs = timing.decodeMs,
+        totalDurationMs = timing.totalMs,
+        generationDurationNs = generationDurationNs,
+        evalDurationNs = timing.totalMs?.takeIf { it > 0L }?.times(1_000_000L),
+        localSourceSummary = localSourceSummary,
+        timeToFirstTokenMs = timing.ttftMs,
+        responseCharCount = assistantText.length,
+    )
+}
+
 private fun buildLocalFinishReasonOrNull(
     existingFinishReason: String?,
     responseText: String?,
@@ -15074,7 +15211,7 @@ internal fun shouldShowNpuTrueEngineHolderStandaloneDevDiagnostics(
 ): Boolean =
     BuildConfig.DEBUG &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
-        hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
+        !hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
 
 internal fun shouldShowNpuStandardRouteDevDiagnosticsContent(expanded: Boolean): Boolean = expanded
 
@@ -15215,6 +15352,7 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
 ) {
     val hasStandardRouteDiagnostics = hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)
     val hasStandaloneTrueEngineProbe =
+        hasStandardRouteDiagnostics &&
         BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
             (onNpuTrueEngineHolderCreateCloseStart != null ||
                 onNpuTrueEngineEntrypointStart != null ||
