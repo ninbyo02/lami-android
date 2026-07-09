@@ -1013,7 +1013,7 @@ class OllamaViewModel(
     ) {
         runCatching {
             withContext(Dispatchers.IO) {
-                unloadLemonadeModelFromServer(baseUrl = baseUrl, modelName = targetModel)
+                unloadLoadedLemonadeModelFromServer(baseUrl = baseUrl, fallbackModelName = targetModel)
             }
         }.onSuccess { unloaded ->
                 if (unloaded) {
