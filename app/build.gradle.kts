@@ -1107,11 +1107,6 @@ tasks.matching {
     dependsOn("verifyQairt244CustomBuildExperimentDebugNativeLibs")
 }
 
-tasks.matching { it.name == "packageStandardDebug" }.configureEach {
-    // Keep standardDebug on the generic LiteRT-LM runtime stack. The qairt244/NPU overlay is
-    // isolated to NPU-specific diagnostic flavors because it breaks generic GPU inference.
-}
-
 tasks.register("dumpStandardDebugApkNativeLibs") {
     group = "verification"
     description = "Dumps final standardDebug APK arm64-v8a native libraries with size, sha256, and likely source."
