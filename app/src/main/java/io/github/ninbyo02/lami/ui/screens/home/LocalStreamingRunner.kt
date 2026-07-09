@@ -356,10 +356,8 @@ internal fun isStandardGpuRuntimeAlignmentCandidateEnabledForDebug(
     if (BuildConfig.CURRENT_FLAVOR != "standard") return false
     val enabled = propertyReader("debug.lami.standard_gpu_runtime_alignment_candidate")
         ?: propertyReader("lami.standard_gpu_runtime_alignment_candidate")
-    if (enabled != null) {
-        return enabled.equals("true", ignoreCase = true) || enabled == "1"
-    }
-    return true
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
 }
 
 internal fun isStandardGpuMinimalRuntimeCandidateEnabledForDebug(
@@ -397,12 +395,12 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
             pathText.contains("gemma_4_e2b_it") ||
             pathText.contains("litert-community/gemma-4-e2b-it-litert-lm") ||
             pathText.endsWith("gemma-4-e2b-it.litertlm")
-    val sizeMatches = true
+    val sizeMatches = sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES
     val modelIdentityHint = when {
         !nameLooksLikeEdgeGalleryE2b -> "not_edge_gallery_e2b"
         sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES -> "edge_gallery_e2b_expected"
-        sizeBytes == null -> "edge_gallery_e2b_size_unavailable_allowed"
-        else -> "edge_gallery_e2b_size_mismatch_allowed"
+        sizeBytes == null -> "edge_gallery_e2b_expected_size_unavailable"
+        else -> "edge_gallery_e2b_size_mismatch"
     }
     val blockReason = when {
         BuildConfig.CURRENT_FLAVOR != "standard" -> "not_standard_flavor"
@@ -414,6 +412,8 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         activeGenerationAlreadyRunning -> "active_generation_already_running"
         modelOrBackendSwitchInProgress -> "model_or_backend_switch_in_progress"
         !nameLooksLikeEdgeGalleryE2b -> "model_identity_not_edge_gallery_e2b"
+        sizeBytes == null -> "model_size_unavailable"
+        !sizeMatches -> "model_size_mismatch"
         else -> "none"
     }
     return StandardGpuRuntimeAlignmentCandidateEligibility(
