@@ -925,6 +925,12 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
     commit: feat: add chat message timestamps
+
+  dev-diagnostics-settings
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+    commit: fix: gate chat dev diagnostics behind developer access
 EOF
 }
 
@@ -1002,6 +1008,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt app/src/main/java/io/github/ninbyo02/lami/db/entity/Message.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase\.kt|app/src/main/java/io/github/ninbyo02/lami/db/entity/Message\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt)$'
       message="feat: add chat message timestamps"
+      ;;
+    dev-diagnostics-settings)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt)$'
+      message="fix: gate chat dev diagnostics behind developer access"
       ;;
     *) fail ;;
   esac
