@@ -3,7 +3,9 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.dryRunRoutingDecision
 import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
 import io.github.ninbyo02.lami.ui.screens.settings.toSummary
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
@@ -168,9 +170,16 @@ internal fun buildInferenceDetailSections(
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
-    val residentPolicySummary = localInferenceResidencyPolicyForUserFacingSelection(
+    val residentPolicy = localInferenceResidencyPolicyForUserFacingSelection(
         inferenceBackendSelectionForResidentPolicy(preferredBackendDryRunSetting),
-    ).toSummary()
+    )
+    val residentPolicySummary = residentPolicy.toSummary()
+    val residentRoutingDryRunDecision = residentPolicy.dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = stats.inputTokens,
+            requestedOutputTokens = stats.outputTokens ?: stats.completionTokens,
+        ),
+    )
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"
     } else {
@@ -501,6 +510,12 @@ internal fun buildInferenceDetailSections(
         }
         if (isLocalBackendStats) {
             add(InferenceStatItemUi(label = "ローカル常駐方針", value = residentPolicySummary.oneLine))
+            add(
+                InferenceStatItemUi(
+                    label = "Resident Router dry-run",
+                    value = "選択予定: ${residentRoutingDryRunDecision.selectedBackend.name} / ${residentRoutingDryRunDecision.reason}",
+                ),
+            )
         }
         add(
             InferenceStatItemUi(
@@ -784,6 +799,7 @@ internal fun buildInferenceDetailSections(
                 if (isLocalBackendStats) {
                     add(InferenceStatItemUi(label = "Resident Router summary", value = residentPolicySummary.oneLine))
                     add(InferenceStatItemUi(label = "Resident Router diagnostics", value = residentPolicySummary.diagnosticText))
+                    add(InferenceStatItemUi(label = "Resident Router dry-run", value = residentRoutingDryRunDecision.diagnosticText))
                 }
                 localTraceForDev?.let { trace ->
                     add(InferenceStatItemUi(label = "selected_model_slot", value = trace.selectedLocalModelSlot ?: "—"))
