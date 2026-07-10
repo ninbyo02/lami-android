@@ -141,49 +141,56 @@ fun ChatBubble(
             .padding(start = 10.dp, top = 0.dp, end = 10.dp, bottom = 10.dp),
         horizontalArrangement = if (isSentByMe) Arrangement.End else Arrangement.Start
     ) {
-        Box(
-            modifier = Modifier
-                // 左右それぞれ +4dp 拡張（合計 +8dp）
-                .widthIn(max = 288.dp)
-                .testTag("userChatBubble")
-                .background(
-                    color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .padding(12.dp)
+        Column(
+            horizontalAlignment = if (isSentByMe) Alignment.End else Alignment.Start,
         ) {
-            Column(
-                modifier = Modifier.combinedClickable(
-                    enabled = true,
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
+            Box(
+                modifier = Modifier
+                    // 左右それぞれ +4dp 拡張（合計 +8dp）
+                    .widthIn(max = 288.dp)
+                    .testTag("userChatBubble")
+                    .background(
+                        color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(12.dp)
             ) {
-                AttachmentGallery(
-                    attachmentUris = attachmentUris,
-                    onAttachmentClick = { index -> selectedAttachmentIndex = index },
-                )
-
-                selectedAttachmentIndex?.let { initialIndex ->
-                    AttachmentFullscreenViewer(
+                Column(
+                    modifier = Modifier.combinedClickable(
+                        enabled = true,
+                        onClick = {},
+                        onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
+                ) {
+                    AttachmentGallery(
                         attachmentUris = attachmentUris,
-                        initialIndex = initialIndex,
-                        onDismiss = { selectedAttachmentIndex = null },
+                        onAttachmentClick = { index -> selectedAttachmentIndex = index },
                     )
-                }
 
-                if (message.isNotBlank()) {
-                    MessageSegments(segments = segments)
+                    selectedAttachmentIndex?.let { initialIndex ->
+                        AttachmentFullscreenViewer(
+                            attachmentUris = attachmentUris,
+                            initialIndex = initialIndex,
+                            onDismiss = { selectedAttachmentIndex = null },
+                        )
+                    }
+
+                    if (message.isNotBlank()) {
+                        MessageSegments(segments = segments)
+                    }
                 }
-                if (timestampText != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = timestampText,
-                        modifier = Modifier.align(Alignment.End),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                        fontSize = 11.sp,
-                    )
-                }
+            }
+            if (timestampText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = timestampText,
+                    modifier = Modifier.padding(
+                        end = if (isSentByMe) 4.dp else 0.dp,
+                        start = if (isSentByMe) 0.dp else 4.dp,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.60f),
+                    fontSize = 11.sp,
+                )
             }
         }
     }
