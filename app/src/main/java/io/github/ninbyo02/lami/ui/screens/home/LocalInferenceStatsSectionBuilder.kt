@@ -1003,6 +1003,13 @@ private fun inferenceBackendSelectionForResidentPolicy(
         PreferredBackendDryRunSetting.DEFAULT -> InferenceBackendSelection.AUTOMATIC
     }
 
+private fun preferredBackendDryRunSettingFromTrace(
+    requestedPreferredBackend: String?,
+): PreferredBackendDryRunSetting =
+    PreferredBackendDryRunSetting.entries.firstOrNull {
+        it.name.equals(requestedPreferredBackend?.trim(), ignoreCase = true)
+    } ?: PreferredBackendDryRunSetting.DEFAULT
+
 private fun buildLocalBackendSummaryItems(stats: InferenceStats): List<InferenceStatItemUi> {
     val values = parseLocalInferenceDiagnosticValues(stats)
     if (values.isEmpty()) return emptyList()
@@ -1099,6 +1106,16 @@ internal fun buildLocalSourceSummaryText(
 ): String? {
     val sourceByLabel = resolveLocalSourceItemsForDev(trace = trace, stats = stats)
         .associate { it.label to shortenLocalSourceLabelForSummary(it.value) }
+    val residentDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        inferenceBackendSelectionForResidentPolicy(
+            preferredBackendDryRunSettingFromTrace(trace.requestedPreferredBackend),
+        ),
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = stats.inputTokens,
+            requestedOutputTokens = stats.outputTokens ?: stats.completionTokens,
+        ),
+    )
 
     val summaryParts = listOfNotNull(
         sourceByLabel["modelNameSource"]?.let { "model:$it" },
@@ -1106,6 +1123,9 @@ internal fun buildLocalSourceSummaryText(
         sourceByLabel["outputTokenSource"]?.let { "out:$it" },
         sourceByLabel["evalDurationSource"]?.let { "total:$it" },
         sourceByLabel["tokensPerSecondSource"]?.let { "tps:$it" },
+        "resident_dry_run_backend=${residentDryRunDecision.selectedBackend.name}",
+        "resident_dry_run_reason=${residentDryRunDecision.reason}",
+        "resident_dry_run_tokens=${residentDryRunDecision.estimatedTotalTokens ?: "unknown"}",
     )
 
     return summaryParts.takeIf { it.isNotEmpty() }?.joinToString(separator = " / ")
