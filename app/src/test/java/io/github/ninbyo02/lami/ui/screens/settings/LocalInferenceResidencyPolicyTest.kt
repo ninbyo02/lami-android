@@ -109,4 +109,26 @@ class LocalInferenceResidencyPolicyTest {
         assertTrue(policy.fallbackBackends.isEmpty())
         assertEquals("no_local_backend_usable_use_server", policy.reason)
     }
+
+
+    @Test
+    fun buildsHumanReadableSummaryForSettingsDiagnostics() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val summary = policy.toSummary()
+
+        assertEquals("常駐: NPU / 長文: GPU / fallback: GPU,CPU,SERVER", summary.oneLine)
+        assertTrue(summary.diagnosticLines.contains("resident_backend=NPU"))
+        assertTrue(summary.diagnosticLines.contains("long_context_backend=GPU"))
+        assertTrue(summary.diagnosticLines.contains("fallback_backends=GPU,CPU,SERVER"))
+        assertTrue(summary.diagnosticLines.contains("npu_out_of_process_recommended=true"))
+        assertTrue(summary.diagnosticText.contains("reason=npu_supported_and_healthy_keep_npu_resident"))
+    }
 }

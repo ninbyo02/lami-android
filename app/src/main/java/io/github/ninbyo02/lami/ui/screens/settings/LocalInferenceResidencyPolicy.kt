@@ -42,6 +42,31 @@ data class LocalInferenceResidencyPolicy(
     val keepsGpuResident: Boolean get() = residentBackend == ResidentInferenceBackend.GPU
 }
 
+
+data class LocalInferenceResidencyPolicySummary(
+    val oneLine: String,
+    val diagnosticLines: List<String>,
+) {
+    val diagnosticText: String get() = diagnosticLines.joinToString("\n")
+}
+
+fun LocalInferenceResidencyPolicy.toSummary(): LocalInferenceResidencyPolicySummary {
+    val fallbackText = fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }
+    val oneLine = "常駐: ${residentBackend.name} / 長文: ${longContextBackend.name} / fallback: $fallbackText"
+    return LocalInferenceResidencyPolicySummary(
+        oneLine = oneLine,
+        diagnosticLines = listOf(
+            "resident_backend=${residentBackend.name}",
+            "long_context_backend=${longContextBackend.name}",
+            "fallback_backends=$fallbackText",
+            "npu_out_of_process_recommended=$npuOutOfProcessRecommended",
+            "gpu_idle_unload_seconds=$gpuIdleUnloadSeconds",
+            "cpu_idle_unload_seconds=$cpuIdleUnloadSeconds",
+            "reason=$reason",
+        ),
+    )
+}
+
 object LocalInferenceResidencyPolicyResolver {
     private const val DEFAULT_GPU_IDLE_UNLOAD_SECONDS = 60
     private const val DEFAULT_CPU_IDLE_UNLOAD_SECONDS = 30
