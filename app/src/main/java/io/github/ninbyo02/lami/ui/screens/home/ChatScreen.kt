@@ -8959,7 +8959,7 @@ fun Home(
                                             isStreaming = npuStandardRouteS4PseudoStreamingActive,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
                                         )
-                                        if (!npuStandardRouteS4PseudoStreamingActive) {
+                                        if (!npuStandardRouteS4PseudoStreamingActive && developerAccessEnabled) {
                                             NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
                                             preferredBackendSetting = preferredBackendDryRunSetting,
