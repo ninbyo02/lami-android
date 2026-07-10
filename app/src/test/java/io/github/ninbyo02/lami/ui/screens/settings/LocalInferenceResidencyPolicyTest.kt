@@ -212,4 +212,63 @@ class LocalInferenceResidencyPolicyTest {
         assertTrue(decision.diagnosticText.contains("dry_run_fallback_backends=GPU,CPU,SERVER"))
     }
 
+
+    @Test
+    fun residentRouterHookKeepsCurrentBackendWhenDisabled() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val decision = policy.resolveResidentRouterHookDecision(
+            LocalInferenceRoutingHookInput(
+                currentBackend = PreferredBackendDryRunSetting.GPU,
+                dryRunInput = LocalInferenceRoutingDryRunInput(
+                    promptTokenEstimate = 32,
+                    requestedOutputTokens = 128,
+                ),
+                enabled = false,
+            ),
+        )
+
+        assertEquals(PreferredBackendDryRunSetting.GPU, decision.selectedBackend)
+        assertFalse(decision.applied)
+        assertEquals("disabled_keep_current_backend", decision.reason)
+        assertTrue(decision.diagnosticLines.contains("resident_router_hook_enabled=false"))
+        assertTrue(decision.diagnosticLines.contains("dry_run_selected_backend=NPU"))
+    }
+
+    @Test
+    fun residentRouterHookAppliesDryRunBackendOnlyWhenEnabled() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val decision = policy.resolveResidentRouterHookDecision(
+            LocalInferenceRoutingHookInput(
+                currentBackend = PreferredBackendDryRunSetting.NPU,
+                dryRunInput = LocalInferenceRoutingDryRunInput(
+                    promptTokenEstimate = 1800,
+                    requestedOutputTokens = 512,
+                    longContextTokenThreshold = 2048,
+                ),
+                enabled = true,
+            ),
+        )
+
+        assertEquals(PreferredBackendDryRunSetting.GPU, decision.selectedBackend)
+        assertTrue(decision.applied)
+        assertEquals("long_context_use_gpu", decision.reason)
+        assertTrue(decision.diagnosticLines.contains("resident_router_hook_selected_backend=GPU"))
+    }
+
 }

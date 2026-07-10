@@ -93,6 +93,69 @@ fun LocalInferenceResidencyPolicy.dryRunRoutingDecision(
     )
 }
 
+
+data class LocalInferenceRoutingHookInput(
+    val currentBackend: PreferredBackendDryRunSetting,
+    val dryRunInput: LocalInferenceRoutingDryRunInput,
+    val enabled: Boolean = false,
+)
+
+data class LocalInferenceRoutingHookDecision(
+    val selectedBackend: PreferredBackendDryRunSetting,
+    val dryRunDecision: LocalInferenceRoutingDryRunDecision,
+    val enabled: Boolean,
+    val applied: Boolean,
+    val reason: String,
+) {
+    val diagnosticLines: List<String>
+        get() = listOf(
+            "resident_router_hook_enabled=$enabled",
+            "resident_router_hook_applied=$applied",
+            "resident_router_hook_selected_backend=${selectedBackend.name}",
+            "resident_router_hook_reason=$reason",
+        ) + dryRunDecision.diagnosticLines
+}
+
+fun LocalInferenceResidencyPolicy.resolveResidentRouterHookDecision(
+    input: LocalInferenceRoutingHookInput,
+): LocalInferenceRoutingHookDecision {
+    val dryRunDecision = dryRunRoutingDecision(input.dryRunInput)
+    if (!input.enabled) {
+        return LocalInferenceRoutingHookDecision(
+            selectedBackend = input.currentBackend,
+            dryRunDecision = dryRunDecision,
+            enabled = false,
+            applied = false,
+            reason = "disabled_keep_current_backend",
+        )
+    }
+    val routedBackend = dryRunDecision.selectedBackend.toPreferredBackendDryRunSettingOrNull()
+    if (routedBackend == null) {
+        return LocalInferenceRoutingHookDecision(
+            selectedBackend = input.currentBackend,
+            dryRunDecision = dryRunDecision,
+            enabled = true,
+            applied = false,
+            reason = "dry_run_selected_non_local_backend_keep_current",
+        )
+    }
+    return LocalInferenceRoutingHookDecision(
+        selectedBackend = routedBackend,
+        dryRunDecision = dryRunDecision,
+        enabled = true,
+        applied = routedBackend != input.currentBackend,
+        reason = dryRunDecision.reason,
+    )
+}
+
+private fun ResidentInferenceBackend.toPreferredBackendDryRunSettingOrNull(): PreferredBackendDryRunSetting? =
+    when (this) {
+        ResidentInferenceBackend.NPU -> PreferredBackendDryRunSetting.NPU
+        ResidentInferenceBackend.GPU -> PreferredBackendDryRunSetting.GPU
+        ResidentInferenceBackend.CPU -> PreferredBackendDryRunSetting.CPU
+        ResidentInferenceBackend.SERVER -> null
+    }
+
 data class LocalInferenceResidencyPolicySummary(
     val oneLine: String,
     val diagnosticLines: List<String>,
