@@ -18,6 +18,29 @@ private enum class InferenceBackendKind {
     OLLAMA,
 }
 
+private fun isLocalBackendInferenceStats(stats: InferenceStats): Boolean {
+    val haystack = listOfNotNull(
+        stats.localSourceSummary,
+        stats.notes,
+        stats.modelName,
+        stats.model,
+        stats.modelLabel,
+    ).joinToString(separator = "\\n")
+    return listOf(
+        "route_family=npu",
+        "route_family=local_",
+        "backend_evidence=gpu_route",
+        "QNN_HTP",
+        "NPU_S",
+        "NPU プレビュー",
+        "NPU Experimental",
+        "qairt244",
+        "litert",
+        "local_gpu",
+        "local_cpu",
+    ).any { marker -> haystack.contains(marker, ignoreCase = true) }
+}
+
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
     displayMode: InferenceStatsDisplayMode,
@@ -122,15 +145,20 @@ internal fun buildInferenceDetailSections(
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
-    val displayTokensPerSecondText = if (localTraceForDev == null) {
-        buildLamiTokensPerSecondText(stats)
+    val isLocalBackendStats = localTraceForDev != null || isLocalBackendInferenceStats(stats)
+    val displayTokensPerSecondText = if (isLocalBackendStats) {
+        if (localTraceForDev == null) {
+            backendTokensPerSecondText ?: buildLamiTokensPerSecondText(stats)
+        } else {
+            formatRegularTokensPerSecondValue(
+                statValue = localStatsUiModel?.tokensPerSecond,
+                fallbackValue = buildLamiTokensPerSecondText(stats),
+            )
+        }
     } else {
-        formatRegularTokensPerSecondValue(
-            statValue = localStatsUiModel?.tokensPerSecond,
-            fallbackValue = buildLamiTokensPerSecondText(stats),
-        )
+        buildLamiTokensPerSecondText(stats)
     }
-    val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
+    val showOllamaPerceivedTokensPerSecond = !isLocalBackendStats
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
@@ -417,6 +445,27 @@ internal fun buildInferenceDetailSections(
             stats.totalDurationMs?.let {
                 add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
             }
+        }
+        if (isLocalBackendStats && localTraceForDev == null) {
+            addAll(localBackendSummaryItems)
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = resolveBackendSpeedSourceLabel(
+                        stats = stats,
+                        hasPerceived = false,
+                        backendKind = InferenceBackendKind.LITERT,
+                    ),
+                ),
+            )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = stats.timeToFirstTokenMs,
+                    backendTtftMs = stats.timeToFirstTokenMs,
+                ),
+            )
         }
         if (showOllamaPerceivedTokensPerSecond) {
             add(
@@ -860,11 +909,12 @@ private fun buildInferenceSimpleSections(
             promptText = promptText,
         )
     }
+    val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val generationSpeedText = if (localTraceForDev == null) {
-        buildBackendTokensPerSecondText(stats)
+        backendTokensPerSecondText
             ?: buildLamiTokensPerSecondText(stats)
     } else {
-        buildBackendTokensPerSecondText(stats)
+        backendTokensPerSecondText
             ?: formatRegularTokensPerSecondValue(
                 statValue = localStatsUiModel?.tokensPerSecond,
                 fallbackValue = buildLamiTokensPerSecondText(stats),
