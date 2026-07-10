@@ -164,11 +164,16 @@ import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingHookInput
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
+import io.github.ninbyo02.lami.ui.screens.settings.resolveResidentRouterHookDecision
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
@@ -10025,6 +10030,40 @@ private suspend fun initializeLocalInferenceEngineEntry(
     return LocalInferenceInitializationResult(state = state, probeResult = probeResult)
 }
 
+private fun PreferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(): InferenceBackendSelection =
+    when (this) {
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> InferenceBackendSelection.NPU
+        PreferredBackendDryRunSetting.GPU -> InferenceBackendSelection.GPU
+        PreferredBackendDryRunSetting.CPU -> InferenceBackendSelection.CPU
+        PreferredBackendDryRunSetting.DEFAULT -> InferenceBackendSelection.AUTOMATIC
+    }
+
+private fun estimateLocalPromptTokensForResidentRouter(prompt: String): Int =
+    (prompt.codePointCount(0, prompt.length) / 2).coerceAtLeast(1)
+
+private fun isResidentRouterRealRoutingEnabledForDebug(
+    propertyReader: (String) -> String? = ::readResidentRouterDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    val value = propertyReader("debug.lami.resident_router_real_route_enabled")
+        ?: propertyReader("lami.resident_router_real_route_enabled")
+        ?: return false
+    return value.equals("true", ignoreCase = true) || value == "1" || value.equals("yes", ignoreCase = true)
+}
+
+private fun readResidentRouterDebugProperty(key: String): String? {
+    val jvmProperty = runCatching {
+        System.getProperty(key)?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+    if (jvmProperty != null) return jvmProperty
+    return runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val method = clazz.getMethod("get", String::class.java, String::class.java)
+        (method.invoke(null, key, "") as? String)?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+}
+
 private suspend fun runLocalInferenceOnceEntry(
     context: Context,
     settingsPreferences: SettingsPreferences,
@@ -10073,7 +10112,24 @@ private suspend fun runLocalInferenceOnceEntry(
     }
     recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
-    val selectedModelSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val residentRouterHookDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        preferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(),
+    ).resolveResidentRouterHookDecision(
+        LocalInferenceRoutingHookInput(
+            currentBackend = preferredBackendDryRunSetting,
+            dryRunInput = LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = estimateLocalPromptTokensForResidentRouter(prompt),
+                requestedOutputTokens = null,
+            ),
+            enabled = isResidentRouterRealRoutingEnabledForDebug(),
+        ),
+    )
+    val effectivePreferredBackendDryRunSetting = residentRouterHookDecision.selectedBackend
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM resident-router-hook enabled=${residentRouterHookDecision.enabled} applied=${residentRouterHookDecision.applied} current=${preferredBackendDryRunSetting.name} selected=${effectivePreferredBackendDryRunSetting.name} reason=${residentRouterHookDecision.reason}",
+    )
+    val selectedModelSlot = localModelSlotForBackend(effectivePreferredBackendDryRunSetting)
     val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
         LocalModelResolution(
             modelPath = resolvedModelPath,
@@ -10081,7 +10137,7 @@ private suspend fun runLocalInferenceOnceEntry(
             selectedModelSlot = selectedModelSlot,
             npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
             genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
-            backendKey = buildLocalLiteRtBackendKey(preferredBackendDryRunSetting),
+            backendKey = buildLocalLiteRtBackendKey(effectivePreferredBackendDryRunSetting),
             cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
         )
     } else {
@@ -10092,7 +10148,7 @@ private suspend fun runLocalInferenceOnceEntry(
             localBaseModelDisplayName = localBaseModelDisplayName,
             localGenericModelFilePath = localGenericModelFilePath,
             localGenericModelDisplayName = localGenericModelDisplayName,
-            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
         )
     } ?: run {
         appendLocalReflectionTrace(
@@ -10148,7 +10204,7 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
-            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
             markdownStreamingMode = markdownStreamingMode,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
@@ -10290,7 +10346,7 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
-            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)

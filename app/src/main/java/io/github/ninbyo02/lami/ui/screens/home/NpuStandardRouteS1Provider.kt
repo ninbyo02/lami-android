@@ -1,7 +1,12 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunDecision
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
+import io.github.ninbyo02.lami.ui.screens.settings.dryRunRoutingDecision
+import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
 import java.security.MessageDigest
 
 internal fun interface NpuStandardRouteS1Provider {
@@ -356,6 +361,14 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         selectionSource = npuStandardRouteSelectionSource,
         propertyReader = npuStandardRouteDevGatePropertyReader,
     )
+    val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = null,
+            requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+        ),
+    )
     val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         result = result,
         backendDiagnostics = backendDiagnostics,
@@ -401,6 +414,11 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "effective_backend=${backendDiagnostics.effectiveBackend}",
         "backend_evidence=${backendDiagnostics.backendEvidence}",
         "route_family=${backendDiagnostics.routeFamily}",
+        "resident_dry_run_backend=${residentRoutingDryRunDecision.selectedBackend.name}",
+        "resident_dry_run_reason=${residentRoutingDryRunDecision.reason}",
+        "resident_dry_run_tokens=${residentRoutingDryRunDecision.estimatedTotalTokens ?: "unknown"}",
+        "resident_dry_run_long_context_threshold=${residentRoutingDryRunDecision.longContextThreshold}",
+        "resident_dry_run_fallback_backends=${residentRoutingDryRunDecision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
             ),
         )
         addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
@@ -453,6 +471,17 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     }.joinToString("\n")
 }
 
+private fun npuS1InferenceBackendSelectionForResidentPolicy(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): InferenceBackendSelection =
+    when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> InferenceBackendSelection.CPU
+        PreferredBackendDryRunSetting.GPU -> InferenceBackendSelection.GPU
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> InferenceBackendSelection.NPU
+        PreferredBackendDryRunSetting.DEFAULT -> InferenceBackendSelection.AUTOMATIC
+    }
+
 internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
@@ -460,10 +489,19 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
     appHistoryText: String = "",
 ): String? {
     if (!shouldShowNpuStandardRouteS1FailureDetails(result, transientFallback)) return null
+    val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        npuS1InferenceBackendSelectionForResidentPolicy(PreferredBackendDryRunSetting.NPU),
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = null,
+            requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+        ),
+    )
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     return buildList {
         add("[DEV診断: NPU S1 failure details]")
         add("failure_stage=${npuStandardRouteS1FailureStage(result)}")
+        addAll(npuS1ResidentDryRunDiagnosticLines(residentRoutingDryRunDecision))
         add("native_error_class=${result.nativeDiagnostics.nativeErrorClass}")
         add("native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}")
         add("native_error_stage=${result.nativeDiagnostics.nativeErrorStage}")
@@ -531,6 +569,14 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             selectionSource = npuStandardRouteSelectionSource,
             propertyReader = npuStandardRouteDevGatePropertyReader,
         )
+        val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+            npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+        ).dryRunRoutingDecision(
+            LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = null,
+                requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+            ),
+        )
         val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
             result = result,
             backendDiagnostics = backendDiagnostics,
@@ -573,6 +619,11 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "effective_backend=${backendDiagnostics.effectiveBackend}",
             "backend_evidence=${backendDiagnostics.backendEvidence}",
             "route_family=${backendDiagnostics.routeFamily}",
+            "resident_dry_run_backend=${residentRoutingDryRunDecision.selectedBackend.name}",
+            "resident_dry_run_reason=${residentRoutingDryRunDecision.reason}",
+            "resident_dry_run_tokens=${residentRoutingDryRunDecision.estimatedTotalTokens ?: "unknown"}",
+            "resident_dry_run_long_context_threshold=${residentRoutingDryRunDecision.longContextThreshold}",
+            "resident_dry_run_fallback_backends=${residentRoutingDryRunDecision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
                 ),
             )
             addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
@@ -654,6 +705,16 @@ internal fun shouldShowNpuStandardRouteS1FailureDetails(
         transientFallback != null ||
         result.nativeDiagnostics.nativeErrorClass.isAvailableDevValue() ||
         result.nativeDiagnostics.nativeErrorMessage.isAvailableDevValue()
+
+private fun npuS1ResidentDryRunDiagnosticLines(
+    decision: LocalInferenceRoutingDryRunDecision,
+): List<String> = listOf(
+    "resident_dry_run_backend=${decision.selectedBackend.name}",
+    "resident_dry_run_reason=${decision.reason}",
+    "resident_dry_run_tokens=${decision.estimatedTotalTokens ?: "unknown"}",
+    "resident_dry_run_long_context_threshold=${decision.longContextThreshold}",
+    "resident_dry_run_fallback_backends=${decision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
+)
 
 private fun extractNpuStandardRouteS1FailureHistoryLines(appHistoryText: String): List<String> {
     if (appHistoryText.isBlank()) return emptyList()
