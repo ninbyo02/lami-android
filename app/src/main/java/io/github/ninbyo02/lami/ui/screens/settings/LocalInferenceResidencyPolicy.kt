@@ -43,6 +43,56 @@ data class LocalInferenceResidencyPolicy(
 }
 
 
+data class LocalInferenceRoutingDryRunInput(
+    val promptTokenEstimate: Int? = null,
+    val requestedOutputTokens: Int? = null,
+    val longContextTokenThreshold: Int = 2048,
+) {
+    val estimatedTotalTokens: Int?
+        get() = listOfNotNull(promptTokenEstimate, requestedOutputTokens)
+            .takeIf { it.isNotEmpty() }
+            ?.sum()
+}
+
+data class LocalInferenceRoutingDryRunDecision(
+    val selectedBackend: ResidentInferenceBackend,
+    val reason: String,
+    val estimatedTotalTokens: Int?,
+    val longContextThreshold: Int,
+    val fallbackBackends: List<ResidentInferenceBackend>,
+) {
+    val diagnosticLines: List<String>
+        get() = listOf(
+            "dry_run_selected_backend=${selectedBackend.name}",
+            "dry_run_reason=$reason",
+            "dry_run_estimated_total_tokens=${estimatedTotalTokens ?: "unknown"}",
+            "dry_run_long_context_threshold=$longContextThreshold",
+            "dry_run_fallback_backends=${fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
+        )
+
+    val diagnosticText: String get() = diagnosticLines.joinToString("\n")
+}
+
+fun LocalInferenceResidencyPolicy.dryRunRoutingDecision(
+    input: LocalInferenceRoutingDryRunInput,
+): LocalInferenceRoutingDryRunDecision {
+    val estimatedTotal = input.estimatedTotalTokens
+    val longContext = estimatedTotal != null && estimatedTotal >= input.longContextTokenThreshold
+    val selected = if (longContext) longContextBackend else residentBackend
+    val reason = if (longContext) {
+        "long_context_use_${longContextBackend.name.lowercase()}"
+    } else {
+        "interactive_use_${residentBackend.name.lowercase()}"
+    }
+    return LocalInferenceRoutingDryRunDecision(
+        selectedBackend = selected,
+        reason = reason,
+        estimatedTotalTokens = estimatedTotal,
+        longContextThreshold = input.longContextTokenThreshold,
+        fallbackBackends = fallbackBackends,
+    )
+}
+
 data class LocalInferenceResidencyPolicySummary(
     val oneLine: String,
     val diagnosticLines: List<String>,

@@ -160,4 +160,56 @@ class LocalInferenceResidencyPolicyTest {
             ).residentBackend,
         )
     }
+
+
+    @Test
+    fun dryRunKeepsInteractiveRequestsOnResidentBackend() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val decision = policy.dryRunRoutingDecision(
+            LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = 128,
+                requestedOutputTokens = 256,
+                longContextTokenThreshold = 2048,
+            ),
+        )
+
+        assertEquals(ResidentInferenceBackend.NPU, decision.selectedBackend)
+        assertEquals("interactive_use_npu", decision.reason)
+        assertEquals(384, decision.estimatedTotalTokens)
+        assertTrue(decision.diagnosticLines.contains("dry_run_selected_backend=NPU"))
+    }
+
+    @Test
+    fun dryRunRoutesLongContextRequestsToLongContextBackend() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val decision = policy.dryRunRoutingDecision(
+            LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = 1800,
+                requestedOutputTokens = 512,
+                longContextTokenThreshold = 2048,
+            ),
+        )
+
+        assertEquals(ResidentInferenceBackend.GPU, decision.selectedBackend)
+        assertEquals("long_context_use_gpu", decision.reason)
+        assertEquals(2312, decision.estimatedTotalTokens)
+        assertTrue(decision.diagnosticText.contains("dry_run_fallback_backends=GPU,CPU,SERVER"))
+    }
+
 }
