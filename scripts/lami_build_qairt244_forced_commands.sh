@@ -1105,17 +1105,25 @@ lami_qairt244_litert_gpu_token_probe() {
       ;;
   esac
 
+  local probe_device
+  probe_device="${LAMI_GPU_PROBE_DEVICE:-}"
+  if [[ -z "$probe_device" ]]; then
+    probe_device="$(adb devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }')"
+  fi
+  [[ -n "$probe_device" ]] || { echo "gpu_probe_device=missing"; exit 65; }
+
   echo "gpu_probe_tokens=$requested_tokens"
   echo "gpu_probe_backend=$backend_variant"
   echo "gpu_probe_model_source=$model_source"
   echo "gpu_probe_flavor=$flavor"
   echo "gpu_probe_phase=$phase"
   echo "gpu_probe_app_id=$app_id"
+  echo "gpu_probe_device=$probe_device"
   scripts/run_litert_lm_gpu_benchmark.sh \
     --app-id "$app_id" \
     --assemble-task "$assemble_task" \
     --apk "$apk_path" \
-    --device "${LAMI_GPU_PROBE_DEVICE:-192.168.52.52:36089}" \
+    --device "$probe_device" \
     --backend "$backend_variant" \
     --phase "$phase" \
     "${model_path_arg[@]}" \
