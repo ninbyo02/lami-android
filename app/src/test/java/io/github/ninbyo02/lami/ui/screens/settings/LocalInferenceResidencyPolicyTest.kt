@@ -131,4 +131,33 @@ class LocalInferenceResidencyPolicyTest {
         assertTrue(summary.diagnosticLines.contains("npu_out_of_process_recommended=true"))
         assertTrue(summary.diagnosticText.contains("reason=npu_supported_and_healthy_keep_npu_resident"))
     }
+
+
+    @Test
+    fun resolvesSettingsSelectionToDisplayOnlyResidencyPolicy() {
+        assertEquals(
+            ResidentInferenceBackend.NPU,
+            localInferenceResidencyPolicyForUserFacingSelection(
+                InferenceBackendSelection.NPU,
+            ).residentBackend,
+        )
+        assertEquals(
+            ResidentInferenceBackend.GPU,
+            localInferenceResidencyPolicyForUserFacingSelection(
+                InferenceBackendSelection.AUTOMATIC,
+            ).residentBackend,
+        )
+        assertEquals(
+            ResidentInferenceBackend.GPU,
+            localInferenceResidencyPolicyForUserFacingSelection(
+                InferenceBackendSelection.GPU,
+            ).residentBackend,
+        )
+        assertEquals(
+            ResidentInferenceBackend.CPU,
+            localInferenceResidencyPolicyForUserFacingSelection(
+                InferenceBackendSelection.CPU,
+            ).residentBackend,
+        )
+    }
 }

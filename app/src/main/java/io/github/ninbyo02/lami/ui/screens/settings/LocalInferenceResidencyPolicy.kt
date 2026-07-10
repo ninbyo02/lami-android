@@ -138,3 +138,50 @@ object LocalInferenceResidencyPolicyResolver {
         )
     }
 }
+
+internal fun localBackendCapabilityForUserFacingSelection(
+    selection: InferenceBackendSelection,
+): LocalBackendCapability =
+    when (selection) {
+        InferenceBackendSelection.NPU -> LocalBackendCapability(
+            npuSupported = true,
+            npuHealthy = true,
+            gpuSupported = true,
+            gpuHealthy = true,
+            cpuSupported = true,
+            cpuHealthy = true,
+        )
+        InferenceBackendSelection.GPU,
+        InferenceBackendSelection.AUTOMATIC -> LocalBackendCapability(
+            npuSupported = false,
+            npuHealthy = false,
+            gpuSupported = true,
+            gpuHealthy = true,
+            cpuSupported = true,
+            cpuHealthy = true,
+        )
+        InferenceBackendSelection.CPU -> LocalBackendCapability(
+            npuSupported = false,
+            npuHealthy = false,
+            gpuSupported = false,
+            gpuHealthy = false,
+            cpuSupported = true,
+            cpuHealthy = true,
+        )
+        else -> LocalBackendCapability(
+            npuSupported = false,
+            npuHealthy = false,
+            gpuSupported = true,
+            gpuHealthy = true,
+            cpuSupported = true,
+            cpuHealthy = true,
+        )
+    }
+
+internal fun localInferenceResidencyPolicyForUserFacingSelection(
+    selection: InferenceBackendSelection,
+): LocalInferenceResidencyPolicy =
+    LocalInferenceResidencyPolicyResolver.resolve(
+        localBackendCapabilityForUserFacingSelection(selection),
+    )
+

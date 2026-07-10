@@ -691,6 +691,24 @@ fun Settings(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             val currentBackendSelection = settingsData.inferenceBackendSelection
+                            val residentPolicySummary = localInferenceResidencyPolicyForUserFacingSelection(
+                                currentBackendSelection,
+                            ).toSummary()
+                            Text(
+                                text = "ローカル常駐方針: ${residentPolicySummary.oneLine}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("settingsResidentBackendPolicySummary"),
+                            )
+                            if (settingsData.developerAccessEnabled) {
+                                Text(
+                                    text = residentPolicySummary.diagnosticText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.testTag("settingsResidentBackendPolicyDiagnostics"),
+                                )
+                            }
                             InferenceBackendSelection.userFacingEntries.forEach { selection ->
                                 Row(
                                     modifier = Modifier
