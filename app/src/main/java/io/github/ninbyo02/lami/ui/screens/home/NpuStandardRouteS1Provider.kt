@@ -367,7 +367,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
     ).dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
-            promptTokenEstimate = null,
+            promptTokenEstimate = estimateResidentRouterPromptTokens(input),
             requestedOutputTokens = result.selection.requestedMaxOutputTokens,
         ),
     )
@@ -496,7 +496,7 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
     ).dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
-            promptTokenEstimate = null,
+            promptTokenEstimate = estimateResidentRouterPromptTokens(input),
             requestedOutputTokens = result.selection.requestedMaxOutputTokens,
         ),
     )
@@ -576,7 +576,7 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
         ).dryRunRoutingDecision(
             LocalInferenceRoutingDryRunInput(
-                promptTokenEstimate = null,
+                promptTokenEstimate = estimateResidentRouterPromptTokens(input),
                 requestedOutputTokens = result.selection.requestedMaxOutputTokens,
             ),
         )
@@ -769,6 +769,13 @@ private fun extractNpuStandardRouteS1HistoryValue(
 
 private fun String.isAvailableDevValue(): Boolean =
     isNotBlank() && this != "unavailable" && this != "unknown" && this != "none"
+
+internal fun estimateResidentRouterPromptTokens(input: String): Int? {
+    if (input.isBlank()) return null
+    // Conservative, tokenizer-free estimate for routing only. Japanese text is often
+    // close to one token per code point; ASCII-heavy prompts are commonly lower.
+    return input.codePointCount(0, input.length).coerceAtLeast(1)
+}
 
 internal fun npuRealPromptHash(text: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))

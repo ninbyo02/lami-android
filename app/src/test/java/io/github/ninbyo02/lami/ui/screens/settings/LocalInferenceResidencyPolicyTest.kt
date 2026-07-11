@@ -183,7 +183,7 @@ class LocalInferenceResidencyPolicyTest {
 
         assertEquals(ResidentInferenceBackend.NPU, decision.selectedBackend)
         assertEquals("interactive_use_npu", decision.reason)
-        assertEquals(384, decision.estimatedTotalTokens)
+        assertEquals(128, decision.estimatedTotalTokens)
         assertTrue(decision.diagnosticLines.contains("dry_run_selected_backend=NPU"))
     }
 
@@ -200,7 +200,7 @@ class LocalInferenceResidencyPolicyTest {
 
         val decision = policy.dryRunRoutingDecision(
             LocalInferenceRoutingDryRunInput(
-                promptTokenEstimate = 1800,
+                promptTokenEstimate = 2200,
                 requestedOutputTokens = 512,
                 longContextTokenThreshold = 2048,
             ),
@@ -208,8 +208,32 @@ class LocalInferenceResidencyPolicyTest {
 
         assertEquals(ResidentInferenceBackend.GPU, decision.selectedBackend)
         assertEquals("long_context_use_gpu", decision.reason)
-        assertEquals(2312, decision.estimatedTotalTokens)
+        assertEquals(2200, decision.estimatedTotalTokens)
         assertTrue(decision.diagnosticText.contains("dry_run_fallback_backends=GPU,CPU,SERVER"))
+    }
+
+    @Test
+    fun dryRunDoesNotTreatLargeOutputCeilingAsLongContext() {
+        val policy = LocalInferenceResidencyPolicyResolver.resolve(
+            LocalBackendCapability(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+        )
+
+        val decision = policy.dryRunRoutingDecision(
+            LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = 5,
+                requestedOutputTokens = 4096,
+                longContextTokenThreshold = 2048,
+            ),
+        )
+
+        assertEquals(ResidentInferenceBackend.NPU, decision.selectedBackend)
+        assertEquals("interactive_use_npu", decision.reason)
+        assertEquals(5, decision.estimatedTotalTokens)
     }
 
 

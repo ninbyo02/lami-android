@@ -48,10 +48,10 @@ data class LocalInferenceRoutingDryRunInput(
     val requestedOutputTokens: Int? = null,
     val longContextTokenThreshold: Int = 2048,
 ) {
+    // requestedOutputTokens is a capacity ceiling, not observed context usage.
+    // Including it makes a default ceiling such as 4096 route even tiny prompts to GPU.
     val estimatedTotalTokens: Int?
-        get() = listOfNotNull(promptTokenEstimate, requestedOutputTokens)
-            .takeIf { it.isNotEmpty() }
-            ?.sum()
+        get() = promptTokenEstimate
 }
 
 data class LocalInferenceRoutingDryRunDecision(
