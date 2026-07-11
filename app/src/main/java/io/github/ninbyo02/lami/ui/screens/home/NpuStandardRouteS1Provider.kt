@@ -265,6 +265,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         input = input,
         result = result,
         transientFallback = transientFallback,
+        preferredBackendSetting = preferredBackendSetting,
     )?.let { sections += it }
     return sections.joinToString("\n\n")
 }
@@ -295,6 +296,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         result = result,
         transientFallback = transientFallback,
         appHistoryText = appHistoryText,
+        preferredBackendSetting = preferredBackendSetting,
     )?.let { sections += it }
     return sections.joinToString("\n\n")
 }
@@ -487,10 +489,11 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
     result: NpuStandardRouteS1Result,
     transientFallback: String? = null,
     appHistoryText: String = "",
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): String? {
     if (!shouldShowNpuStandardRouteS1FailureDetails(result, transientFallback)) return null
     val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
-        npuS1InferenceBackendSelectionForResidentPolicy(PreferredBackendDryRunSetting.NPU),
+        npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
     ).dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
             promptTokenEstimate = null,
