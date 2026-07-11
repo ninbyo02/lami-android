@@ -1039,6 +1039,7 @@ internal class LocalInferenceEngineHolder(
                 appendTrace?.invoke(
                     "UPSTREAM held-engine close-start reason=${decision.clearReason} class=$engineClassName modelPathTail=${target.modelPath.substringAfterLast('/')}",
                 )
+                clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
                 runCatching { target.closeEngine(appendTrace) }
                 recordHeldEngineLifecycleEventLocked(
                     event = "holder_closed",
@@ -1049,7 +1050,6 @@ internal class LocalInferenceEngineHolder(
                 )
                 held = null
                 appBackgroundedAtElapsedMs = null
-                clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
                 if (decision.reason == HeldEngineLifecycleReason.MODEL_CHANGED) {
                     appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
                 }

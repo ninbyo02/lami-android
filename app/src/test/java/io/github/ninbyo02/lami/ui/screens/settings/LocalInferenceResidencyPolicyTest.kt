@@ -281,7 +281,7 @@ class LocalInferenceResidencyPolicyTest {
             LocalInferenceRoutingHookInput(
                 currentBackend = PreferredBackendDryRunSetting.NPU,
                 dryRunInput = LocalInferenceRoutingDryRunInput(
-                    promptTokenEstimate = 1800,
+                    promptTokenEstimate = 2200,
                     requestedOutputTokens = 512,
                     longContextTokenThreshold = 2048,
                 ),
