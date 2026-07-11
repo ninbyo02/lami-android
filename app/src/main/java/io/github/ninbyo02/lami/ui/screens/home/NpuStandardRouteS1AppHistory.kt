@@ -74,6 +74,9 @@ internal object NpuStandardRouteS1AppHistory {
             .putString("last_npu_s1_native_decode_finished", result.nativeDiagnostics.nativeDecodeFinished)
             .putString("last_npu_s1_success_criteria_met", result.successCriteriaMet.toString())
             .putInt(KEY_SUCCESSFUL_REQUEST_COUNT, nextSuccessCount)
+        if (result.selectedModelFile.isNotBlank()) {
+            editor.putString("last_npu_s1_model_path", result.selectedModelFile)
+        }
         if (result.successCriteriaMet) {
             editor.putString("last_successful_npu_s1_prompt", result.inputPrompt)
                 .putLong(KEY_LAST_SUCCESS_FINISHED_AT, finishedAt)

@@ -62,6 +62,35 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `mapper propagates resolved NPU model identity without weakening success criteria`() {
+        val modelPath = "/models/1783515572985_gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+        val mapped = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                selectedModelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+                selectedModelFile = modelPath,
+                npuModelEligible = true,
+            ),
+        )
+
+        assertTrue(mapped.successCriteriaMet)
+        assertEquals("gemma-4-E2B-it_qualcomm_sm8750.litertlm", mapped.selectedModelName)
+        assertEquals(modelPath, mapped.selectedModelFile)
+        assertEquals(true, mapped.npuModelEligible)
+    }
+
+    @Test
     fun `native link failure diagnostics extracts failed library and load context`() {
         val throwable = UnsatisfiedLinkError(
             "dlopen failed: library \"libLiteRt.so\" not found: needed by /data/app/liblitertlm_jni.so",
@@ -672,6 +701,43 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("timeout=false"))
         assertTrue(copyText.contains("fallback=false"))
         assertTrue(copyText.contains("fresh_crash=false"))
+    }
+
+    @Test
+    fun `S1 compact resident dry run evaluates successful NPU route as NPU`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val copyText = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            residentRuntimeEvidence = LocalBackendRuntimeEvidence(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+            ),
+            preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+        )
+
+        assertTrue(copyText.contains("resident_runtime_npu_supported=true"))
+        assertTrue(copyText.contains("resident_runtime_npu_healthy=true"))
+        assertTrue(copyText.contains("resident_dry_run_backend=NPU"))
+        assertTrue(copyText.contains("resident_dry_run_reason=interactive_use_npu"))
     }
 
     @Test

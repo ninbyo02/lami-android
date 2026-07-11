@@ -4676,7 +4676,7 @@ fun Home(
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
                                                                 residentRuntimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
                                                                     context = context.applicationContext,
-                                                                    currentNpuModelPath = localBaseModelFilePath,
+                                                                    currentNpuModelPath = s1Result.selectedModelFile,
                                                                 ),
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
                                                                 npuStandardRouteMode = effectiveNpuStandardRouteMode,

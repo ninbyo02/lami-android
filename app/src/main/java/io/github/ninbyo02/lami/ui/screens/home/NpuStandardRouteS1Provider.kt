@@ -370,7 +370,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         propertyReader = npuStandardRouteDevGatePropertyReader,
     )
     val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
-        npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+        InferenceBackendSelection.NPU,
         runtimeEvidence = residentRuntimeEvidence,
     ).dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
@@ -423,6 +423,10 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "effective_backend=${backendDiagnostics.effectiveBackend}",
         "backend_evidence=${backendDiagnostics.backendEvidence}",
         "route_family=${backendDiagnostics.routeFamily}",
+        "resident_runtime_npu_supported=${residentRuntimeEvidence.npuSupported}",
+        "resident_runtime_npu_healthy=${residentRuntimeEvidence.npuHealthy}",
+        "resident_history_success_criteria_met=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "last_npu_s1_success_criteria_met")}",
+        "resident_history_model_path=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "last_npu_s1_model_path")}",
         "resident_dry_run_backend=${residentRoutingDryRunDecision.selectedBackend.name}",
         "resident_dry_run_reason=${residentRoutingDryRunDecision.reason}",
         "resident_dry_run_tokens=${residentRoutingDryRunDecision.estimatedTotalTokens ?: "unknown"}",
