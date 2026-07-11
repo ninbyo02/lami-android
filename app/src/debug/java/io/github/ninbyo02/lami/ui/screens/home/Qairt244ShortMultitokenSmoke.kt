@@ -18,7 +18,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         private val allowedTrueEngineCreateCloseFlavors = allowedDebugFlavors + "trueEngineNpuProbe"
 
         init {
-            System.loadLibrary("litertlm_jni")
+            System.loadLibrary("lami_qairt244_npu_jni")
             System.loadLibrary("lami_npu_persistent_holder_stub")
         }
 

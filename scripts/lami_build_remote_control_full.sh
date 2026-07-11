@@ -936,6 +936,17 @@ safe command recipes:
     files:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
     commit: fix: align resident router NPU failure diagnostics
+
+  npu-jni-soname-separation
+    files:
+      app/build.gradle.kts
+      app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt
+      scripts/build_litert_custom_artifacts.sh
+      scripts/lami_build_qairt244_forced_commands.sh
+      scripts/lami_build_remote_control_full.sh
+      scripts/stage_litert_custom_build_stack_for_experiment.sh
+    commit: fix: separate NPU JNI library SONAME
 EOF
 }
 
@@ -1023,6 +1034,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt)$'
       message="fix: align resident router NPU failure diagnostics"
+      ;;
+    npu-jni-soname-separation)
+      git add app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt scripts/build_litert_custom_artifacts.sh scripts/lami_build_qairt244_forced_commands.sh scripts/lami_build_remote_control_full.sh scripts/stage_litert_custom_build_stack_for_experiment.sh
+      allowed_regex='^(app/build.gradle\.kts|app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics\.kt|scripts/build_litert_custom_artifacts\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/lami_build_remote_control_full\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh)$'
+      message="fix: separate NPU JNI library SONAME"
       ;;
     *) fail ;;
   esac
@@ -1202,7 +1218,7 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
   adb-dump-standardnpu-diag\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_standardnpu_diag "${parts[1]}" "${parts[2]}" ;;
-  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-token-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
+  qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|setup-qairt244-user-patchelf|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-token-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
     run_logcat "$CMD" ;;
@@ -1281,6 +1297,7 @@ allowed commands:
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni
+  setup-qairt244-user-patchelf
   qairt244-sdk-status
   qairt244-repeat-stability
   litert-gpu-token-probe <16|32|64|128|256|512|1024|2048|4096|8192|16384|32768> [gpu|gallery-chat-parity|gpu-null-modalities|cpu] [auto|generic|qualcomm] [standard|standardGpuNoConstraintProvider] [engine-only|conversation-only|send-message]

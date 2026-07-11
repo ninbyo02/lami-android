@@ -1,7 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 internal const val NPU_STANDARD_ROUTE_NATIVE_LOAD_ORDER =
-    "litertlm_jni>lami_npu_persistent_holder_stub"
+    "litertlm_jni>lami_npu_persistent_holder_stub>lami_qairt244_npu_jni"
 internal const val NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON =
     "adapter_failure:UnsatisfiedLinkError"
 internal const val NPU_STANDARD_ROUTE_MISSING_NATIVE_JNI_SYMBOL_REASON =
@@ -68,7 +68,8 @@ internal fun isMissingNpuStandardRouteJniSymbol(throwable: Throwable): Boolean {
         listOfNotNull(cause.javaClass.name, cause.message).joinToString(":")
     }
     return searchText.contains("No implementation found", ignoreCase = true) &&
-        searchText.contains("Qairt244ShortMultitokenSmoke.nativeRunEditablePrompt", ignoreCase = true)
+        (searchText.contains("Qairt244ShortMultitokenSmoke.nativeRunEditablePrompt", ignoreCase = true) ||
+            searchText.contains("Qairt244NpuNative.nativeRunEditablePrompt", ignoreCase = true))
 }
 
 private fun npuThrowableChain(throwable: Throwable): List<Throwable> {

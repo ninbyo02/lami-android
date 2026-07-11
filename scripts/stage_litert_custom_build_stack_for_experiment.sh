@@ -20,6 +20,7 @@ REQUIRED_LIBS=(
   libLiteRt.so
   libLiteRtDispatch_Qualcomm.so
   liblitertlm_jni.so
+  liblami_qairt244_npu_jni.so
   libLiteRtCompilerPlugin_Qualcomm.so
   libGemmaModelConstraintProvider.so
 )

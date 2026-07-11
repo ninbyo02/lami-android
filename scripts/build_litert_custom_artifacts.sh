@@ -91,6 +91,7 @@ LIB_NAMES=(
   "libLiteRtRuntimeCApi.so"
   "libLiteRtDispatch_Qualcomm.so"
   "liblitertlm_jni.so"
+  "liblami_qairt244_npu_jni.so"
   "libLiteRtCompilerPlugin_Qualcomm.so"
   "libGemmaModelConstraintProvider.so"
 )
@@ -125,7 +126,7 @@ build_id_for() {
 soname_for() {
   local file="$1"
   if command -v readelf >/dev/null 2>&1 && [ -f "$file" ]; then
-    readelf -d "$file" 2>/dev/null | sed -n 's/.*Library soname: \[\(.*\)\].*/\1/p' | head -n 1
+    LC_ALL=C readelf -d "$file" 2>/dev/null | sed -n 's/.*Library soname: \[\(.*\)\].*/\1/p' | head -n 1
   fi
 }
 
@@ -653,6 +654,29 @@ if [ -d "$BAZEL_BIN" ]; then
     "elf" \
     "$OUT_DIR/built_libs/liblitertlm_jni.so"
   require_gpu_prefill_preinvoke_marker_file "$OUT_DIR/built_libs/liblitertlm_jni.so" "artifact built_libs/liblitertlm_jni.so after copy"
+
+  QAIRT244_NPU_JNI_OUTPUT="$OUT_DIR/built_libs/liblami_qairt244_npu_jni.so"
+  cp -f "$OUT_DIR/built_libs/liblitertlm_jni.so" "$QAIRT244_NPU_JNI_OUTPUT"
+  chmod u+w "$QAIRT244_NPU_JNI_OUTPUT"
+  if ! command -v patchelf >/dev/null 2>&1; then
+    printf 'error: patchelf is required to give liblami_qairt244_npu_jni.so an independent SONAME.\n' >"$OUT_DIR/ERROR.txt"
+    exit 65
+  else
+    patchelf --set-soname liblami_qairt244_npu_jni.so "$QAIRT244_NPU_JNI_OUTPUT"
+    QAIRT244_NPU_JNI_SONAME="$(soname_for "$QAIRT244_NPU_JNI_OUTPUT")"
+    QAIRT244_NPU_JNI_PATCHELF_SONAME="$(patchelf --print-soname "$QAIRT244_NPU_JNI_OUTPUT")"
+    printf 'qairt244_npu_jni_soname_readelf=%s\nqairt244_npu_jni_soname_patchelf=%s\n' \
+      "$QAIRT244_NPU_JNI_SONAME" "$QAIRT244_NPU_JNI_PATCHELF_SONAME"
+    if [ "$QAIRT244_NPU_JNI_SONAME" != "liblami_qairt244_npu_jni.so" ]; then
+      {
+        printf 'unexpected liblami_qairt244_npu_jni.so SONAME: readelf=%s patchelf=%s\n' "$QAIRT244_NPU_JNI_SONAME" "$QAIRT244_NPU_JNI_PATCHELF_SONAME"
+      } >"$OUT_DIR/ERROR.txt"
+      exit 66
+    fi
+  fi
+  print_gpu_prefill_preinvoke_stage_diagnostic     "artifact-after-copy-lami_qairt244_npu_jni"     "elf"     "$QAIRT244_NPU_JNI_OUTPUT"
+  require_gpu_prefill_preinvoke_marker_file "$QAIRT244_NPU_JNI_OUTPUT" "artifact built_libs/liblami_qairt244_npu_jni.so after copy"
+
   copy_built_lib "$BAZEL_BIN/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so" "explicit-target"
 fi
 

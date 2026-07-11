@@ -8,6 +8,7 @@
 #   qairt244-artifacts
 #   stage-qairt244-custom-jni [artifact-dir-basename]
 #   build-qairt244-custom-jni
+#   setup-qairt244-user-patchelf
 #   qairt244-sdk-status
 #   qairt244-repeat-stability
 #
@@ -54,6 +55,63 @@ lami_qairt244_resolve_litert_lm_checkout() {
 
 lami_qairt244_default_litert_lm_checkout() {
   printf '%s\n' "$HOME/project/litert-custom-build/LiteRT-LM"
+}
+
+lami_qairt244_setup_user_patchelf() {
+  local install_root="$HOME/.local/lib/lami-patchelf"
+  local bin_dir="$HOME/.local/bin"
+  local tmp_dir deb package_version version_dir extracted_binary
+  local -a debs
+
+  command -v apt-get >/dev/null 2>&1 || {
+    echo "apt-get is unavailable; cannot download the distro-signed patchelf package" >&2
+    exit 65
+  }
+  command -v dpkg-deb >/dev/null 2>&1 || {
+    echo "dpkg-deb is unavailable; cannot extract patchelf without root" >&2
+    exit 65
+  }
+
+  mkdir -p "$HOME/.cache"
+  tmp_dir="$(mktemp -d "$HOME/.cache/lami-patchelf.XXXXXX")"
+  trap 'rm -rf "$tmp_dir"' RETURN
+  (
+    cd "$tmp_dir"
+    apt-get download patchelf >&2
+  )
+
+  mapfile -t debs < <(find "$tmp_dir" -maxdepth 1 -type f -name 'patchelf_*.deb' -print)
+  [[ "${#debs[@]}" -eq 1 ]] || {
+    echo "expected exactly one downloaded patchelf package, found ${#debs[@]}" >&2
+    exit 65
+  }
+  deb="${debs[0]}"
+  package_version="$(dpkg-deb -f "$deb" Version)"
+  [[ "$package_version" =~ ^[A-Za-z0-9.+:~_-]+$ ]] || {
+    echo "unsafe patchelf package version: $package_version" >&2
+    exit 65
+  }
+
+  version_dir="$install_root/$package_version"
+  rm -rf "$version_dir.new"
+  mkdir -p "$version_dir.new" "$bin_dir"
+  dpkg-deb -x "$deb" "$version_dir.new"
+  extracted_binary="$version_dir.new/usr/bin/patchelf"
+  [[ -x "$extracted_binary" ]] || {
+    echo "downloaded package does not contain executable usr/bin/patchelf" >&2
+    exit 65
+  }
+  rm -rf "$version_dir"
+  mv "$version_dir.new" "$version_dir"
+  ln -sfn "$version_dir/usr/bin/patchelf" "$bin_dir/patchelf"
+
+  printf 'patchelf_path=%s\n' "$bin_dir/patchelf"
+  printf 'patchelf_package_version=%s\n' "$package_version"
+  printf 'patchelf_sha256='
+  sha256sum "$version_dir/usr/bin/patchelf" | awk '{print $1}'
+  "$bin_dir/patchelf" --version
+  rm -rf "$tmp_dir"
+  trap - RETURN
 }
 
 lami_qairt244_sha256_for() {
@@ -1175,6 +1233,10 @@ lami_qairt244_dispatch() {
       ;;
     build-qairt244-custom-jni)
       lami_qairt244_build_custom_jni
+      return 0
+      ;;
+    setup-qairt244-user-patchelf)
+      lami_qairt244_setup_user_patchelf
       return 0
       ;;
     qairt244-sdk-status)

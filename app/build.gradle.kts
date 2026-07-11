@@ -972,6 +972,7 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
         fileTree(qairt244StandardDebugNativeSourceDir) {
             include("*.so")
             exclude("liblami_qairt244_smoke.so")
+            exclude("liblitertlm_jni.so")
         },
     )
     outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
@@ -989,12 +990,13 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             from(qairt244StandardDebugNativeSourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
+                exclude("liblitertlm_jni.so")
             }
             into(outputDir)
         }
-        val litertLmJni = File(outputDir, "liblitertlm_jni.so")
+        val litertLmJni = File(outputDir, "liblami_qairt244_npu_jni.so")
         require(litertLmJni.isFile) {
-            "standardDebug NPU route requires staged liblitertlm_jni.so with qairt244 custom JNI symbols. Missing: ${litertLmJni.absolutePath}"
+            "standardDebug NPU route requires staged separated liblami_qairt244_npu_jni.so with qairt244 custom JNI symbols. Missing: ${litertLmJni.absolutePath}"
         }
         val symbolOutput = ByteArrayOutputStream()
         val symbolError = ByteArrayOutputStream()
@@ -1009,8 +1011,8 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             symbolResult.exitValue == 0 &&
                 qairt244NativeRunEditablePromptSymbolRegex.containsMatchIn(symbols),
         ) {
-            "standardDebug NPU route requires qairt244 custom liblitertlm_jni.so. " +
-                "The staged liblitertlm_jni.so does not export the GLOBAL JNI nativeRunEditablePrompt symbol; " +
+            "standardDebug NPU route requires qairt244 separated liblami_qairt244_npu_jni.so. " +
+                "The staged liblami_qairt244_npu_jni.so does not export the GLOBAL JNI nativeRunEditablePrompt symbol; " +
                 "rebuild/stage the patched LiteRT-LM artifact documented in docs/qairt244_native_artifact_reproducibility.md. " +
                 "file=${litertLmJni.absolutePath} readelf_error=${symbolError.toString().take(400)}"
         }
@@ -1048,6 +1050,11 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
     }
 }
 
+tasks.matching { it.name == "packageStandardDebug" }.configureEach {
+    dependsOn("overlayQairt244StandardDebugNativeLibs")
+    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+}
+
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
     dependsOn("buildNpuPersistentHolderStubDebugJni")
@@ -1070,13 +1077,13 @@ tasks.matching { it.name == "mergeTrueEngineNpuProbeDebugJniLibFolders" }.config
 
 tasks.register("verifyQairt244CustomBuildExperimentDebugNativeLibs") {
     group = "verification"
-    description = "Verifies customBuildExperimentDebug uses patched qairt244 liblitertlm_jni.so with the editable prompt JNI symbol."
-    inputs.file(qairt244StandardDebugNativeSourceDir.file("liblitertlm_jni.so"))
+    description = "Verifies customBuildExperimentDebug uses separated qairt244 NPU JNI with the editable prompt JNI symbol."
+    inputs.file(qairt244StandardDebugNativeSourceDir.file("liblami_qairt244_npu_jni.so"))
 
     doLast {
-        val litertLmJni = qairt244StandardDebugNativeSourceDir.file("liblitertlm_jni.so").asFile
+        val litertLmJni = qairt244StandardDebugNativeSourceDir.file("liblami_qairt244_npu_jni.so").asFile
         require(litertLmJni.isFile) {
-            "customBuildExperimentDebug requires staged qairt244 custom liblitertlm_jni.so. " +
+            "customBuildExperimentDebug requires staged qairt244 separated liblami_qairt244_npu_jni.so. " +
                 "Run build-qairt244-custom-jni and stage-qairt244-custom-jni before install. Missing: ${litertLmJni.absolutePath}"
         }
         val symbolOutput = ByteArrayOutputStream()
@@ -1092,7 +1099,7 @@ tasks.register("verifyQairt244CustomBuildExperimentDebugNativeLibs") {
             symbolResult.exitValue == 0 &&
                 qairt244NativeRunEditablePromptSymbolRegex.containsMatchIn(symbols),
         ) {
-            "customBuildExperimentDebug requires qairt244 custom liblitertlm_jni.so exporting the GLOBAL JNI editable prompt symbol. " +
+            "customBuildExperimentDebug requires qairt244 separated liblami_qairt244_npu_jni.so exporting the GLOBAL JNI editable prompt symbol. " +
                 "Run build-qairt244-custom-jni and stage-qairt244-custom-jni to avoid runtime UnsatisfiedLinkError. " +
                 "expectedSymbol=$qairt244NativeRunEditablePromptSymbol file=${litertLmJni.absolutePath} " +
                 "readelf_error=${symbolError.toString().take(400)}"
