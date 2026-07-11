@@ -106,6 +106,28 @@ internal fun shouldShowPendingLocalUserMessage(
     return normalizedPendingText != latestPersistedUserMessageText?.trim()
 }
 
+internal fun stableChatMessageKey(
+    messages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    index: Int,
+): String {
+    val message = messages[index]
+    if (!message.isSendbyMe) {
+        return message.messageID.takeIf { it != 0 }?.let { "message-$it" }
+            ?: "assistant-${message.chatId}-$index-${message.message.hashCode()}"
+    }
+
+    val normalizedText = message.message.trim()
+    val sameTextOccurrence = messages
+        .take(index + 1)
+        .count { candidate ->
+            candidate.isSendbyMe && candidate.message.trim() == normalizedText
+        }
+    // User rows deliberately do not depend on messageID. The pending row has ID 0,
+    // then Room replaces it with an auto-generated ID; keeping this key stable avoids
+    // Compose disposing/recreating the bubble at a visibly different position.
+    return "user-${message.chatId}-${normalizedText.hashCode()}-$sameTextOccurrence"
+}
+
 internal fun shouldShowLocalRespondingPlaceholder(
     isLocalRunning: Boolean,
     localStopRequested: Boolean,

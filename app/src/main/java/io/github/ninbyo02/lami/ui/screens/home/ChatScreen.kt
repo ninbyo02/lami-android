@@ -8116,20 +8116,7 @@ fun Home(
                                 } else {
                                     itemsIndexed(
                                         items = messagesForList,
-                                        key = { index, message ->
-                                            val isLatestLocalSendUserRow =
-                                                message.isSendbyMe &&
-                                                    message.message == lastLocalSendPromptForTrace &&
-                                                    index == messagesForList.indexOfLast { candidate ->
-                                                        candidate.isSendbyMe &&
-                                                            candidate.message == lastLocalSendPromptForTrace
-                                                    }
-                                            if (isLatestLocalSendUserRow) {
-                                                "local-send-${message.chatId}-${message.message.hashCode()}"
-                                            } else {
-                                                message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}"
-                                            }
-                                        }
+                                        key = { index, _ -> stableChatMessageKey(messagesForList, index) }
                                     ) { index, message ->
                                         if (message.isSendbyMe) {
                                             ChatBubble(

@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -64,6 +65,44 @@ class ChatSendAvailabilityTest {
                 pendingLocalUserMessageText = "こんにちは",
                 latestPersistedUserMessageText = "こんにちは",
             )
+        )
+    }
+
+    @Test
+    fun `stable chat key survives pending row replacement with persisted user row`() {
+        val pending = io.github.ninbyo02.lami.db.entity.Message(
+            chatId = 7,
+            message = "こんにちは",
+            isSendbyMe = true,
+        )
+        val persisted = pending.copy(messageID = 42)
+
+        assertEquals(
+            stableChatMessageKey(listOf(pending), 0),
+            stableChatMessageKey(listOf(persisted), 0),
+        )
+    }
+
+    @Test
+    fun `stable chat key distinguishes repeated identical user messages`() {
+        val messages = listOf(
+            io.github.ninbyo02.lami.db.entity.Message(
+                messageID = 41,
+                chatId = 7,
+                message = "こんにちは",
+                isSendbyMe = true,
+            ),
+            io.github.ninbyo02.lami.db.entity.Message(
+                messageID = 42,
+                chatId = 7,
+                message = "こんにちは",
+                isSendbyMe = true,
+            ),
+        )
+
+        assertNotEquals(
+            stableChatMessageKey(messages, 0),
+            stableChatMessageKey(messages, 1),
         )
     }
 
