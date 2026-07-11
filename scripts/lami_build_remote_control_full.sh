@@ -962,6 +962,14 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
     commit: fix: propagate resolved NPU model identity
 
+  phase1-npu-stats-unified
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest.kt
+      scripts/lami_build_remote_control_full.sh
+    commit: fix: unify NPU inference stats with local backends
+
   npu-jni-soname-separation
     files:
       app/build.gradle.kts
@@ -1074,6 +1082,11 @@ run_git_commit_safe_recipe() {
       git add app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/RealNpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Mapper.kt scripts/lami_build_remote_control_full.sh
       allowed_regex='^(app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/RealNpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Mapper\.kt|scripts/lami_build_remote_control_full\.sh)$'
       message="fix: propagate resolved NPU model identity"
+      ;;
+    phase1-npu-stats-unified)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest.kt scripts/lami_build_remote_control_full.sh
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest\.kt|scripts/lami_build_remote_control_full\.sh)$'
+      message="fix: unify NPU inference stats with local backends"
       ;;
     npu-quality-repair)
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuS1PersistentCustomJniDiagnostics.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1MapperTest.kt scripts/lami_build_remote_control_full.sh

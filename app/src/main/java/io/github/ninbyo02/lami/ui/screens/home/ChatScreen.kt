@@ -5076,6 +5076,10 @@ fun Home(
                                                                             createAssistantMessage(
                                                                                 chatId = currentChatId,
                                                                                 response = npuStandardRouteAssistantTextForPersist,
+                                                                                latestInferenceStats = s1Result
+                                                                                    .toSharedInferenceStats(
+                                                                                        npuStandardRouteAssistantTextForPersist,
+                                                                                    ),
                                                                                 localSourceSummary = s1DisplayTextForDev,
                                                                             )
                                                                         ).toInt()
