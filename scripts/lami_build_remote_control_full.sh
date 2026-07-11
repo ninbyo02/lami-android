@@ -931,6 +931,11 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
     commit: fix: gate chat dev diagnostics behind developer access
+
+  resident-router-npu-diagnostics
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
+    commit: fix: align resident router NPU failure diagnostics
 EOF
 }
 
@@ -1013,6 +1018,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt)$'
       message="fix: gate chat dev diagnostics behind developer access"
+      ;;
+    resident-router-npu-diagnostics)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt)$'
+      message="fix: align resident router NPU failure diagnostics"
       ;;
     *) fail ;;
   esac

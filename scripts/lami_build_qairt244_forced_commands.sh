@@ -1105,10 +1105,22 @@ lami_qairt244_litert_gpu_token_probe() {
       ;;
   esac
 
-  local probe_device
+  local probe_device device_count
   probe_device="${LAMI_GPU_PROBE_DEVICE:-}"
   if [[ -z "$probe_device" ]]; then
+    device_count="$(adb devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { count++ } END { print count + 0 }')"
+    if [[ "$device_count" != "1" ]]; then
+      echo "gpu_probe_device=ambiguous_or_missing"
+      echo "gpu_probe_non_emulator_device_count=$device_count"
+      echo "Set LAMI_GPU_PROBE_DEVICE to an exact adb serial."
+      exit 65
+    fi
     probe_device="$(adb devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }')"
+  else
+    if ! adb devices | awk -v serial="$probe_device" 'NR > 1 && $1 == serial && $2 == "device" { found=1 } END { exit found ? 0 : 1 }'; then
+      echo "gpu_probe_device_not_connected=$probe_device"
+      exit 65
+    fi
   fi
   [[ -n "$probe_device" ]] || { echo "gpu_probe_device=missing"; exit 65; }
 
