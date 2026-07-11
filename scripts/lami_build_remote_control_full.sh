@@ -1114,63 +1114,63 @@ run_npu_gpu_diagnostic_safety_check() {
 
 run_standard_npu_jni_symbol_check() {
   cd "$REPO"
-  local apk libdir expected_symbol latest_log
+  local apk expected_symbol expected_npu_soname expected_regular_soname latest_log tmp_dir npu_so regular_so
   apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
-  libdir="app/build/intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a"
   expected_symbol="Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt"
+  expected_npu_soname="liblami_qairt244_npu_jni.so"
+  expected_regular_soname="liblitertlm_jni.so"
   mkdir -p "$LOG_DIR"
   latest_log="$LOG_DIR/standard-npu-jni-symbol-check-$(date +%Y%m%d-%H%M%S).log"
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' RETURN
   {
-    echo "== STANDARD NPU JNI SYMBOL CHECK =="
+    echo "== STANDARD NPU JNI APK/SONAME CHECK =="
     echo "time=$(date -Is)"
     echo "repo=$REPO"
     echo "branch=$(git branch --show-current)"
     git status --short --branch
-    echo
-    echo "== APK =="
-    if [[ -f "$apk" ]]; then
-      ls -l "$apk"
-      echo "apk_relevant_libs:"
-      unzip -l "$apk" 'lib/arm64-v8a/*.so' 2>/dev/null | grep -E 'litertlm_jni|LiteRt|Qnn|Gemma|lami_npu_persistent|qnn_direct' || true
-    else
-      echo "missing_apk=$apk"
+    command -v unzip >/dev/null 2>&1 || { echo "unzip=missing"; exit 65; }
+    command -v readelf >/dev/null 2>&1 || { echo "readelf=missing"; exit 65; }
+    [[ -f "$apk" ]] || { echo "missing_apk=$apk"; exit 65; }
+    unzip -Z1 "$apk" >"$tmp_dir/apk-entries.txt"
+    grep -Fxq "lib/arm64-v8a/$expected_npu_soname" "$tmp_dir/apk-entries.txt" || {
+      echo "apk_npu_jni=missing path=lib/arm64-v8a/$expected_npu_soname"; exit 65;
+    }
+    grep -Fxq "lib/arm64-v8a/$expected_regular_soname" "$tmp_dir/apk-entries.txt" || {
+      echo "apk_regular_jni=missing path=lib/arm64-v8a/$expected_regular_soname"; exit 65;
+    }
+    npu_so="$tmp_dir/$expected_npu_soname"
+    regular_so="$tmp_dir/$expected_regular_soname"
+    unzip -p "$apk" "lib/arm64-v8a/$expected_npu_soname" >"$npu_so"
+    unzip -p "$apk" "lib/arm64-v8a/$expected_regular_soname" >"$regular_so"
+    [[ -s "$npu_so" && -s "$regular_so" ]] || { echo "apk_jni_extract=empty"; exit 65; }
+    local npu_soname regular_soname npu_sha regular_sha
+    npu_soname="$(readelf -d "$npu_so" | sed -n 's/.*(SONAME).*\[\(.*\)\].*/\1/p' | head -1)"
+    regular_soname="$(readelf -d "$regular_so" | sed -n 's/.*(SONAME).*\[\(.*\)\].*/\1/p' | head -1)"
+    npu_sha="$(sha256sum "$npu_so" | awk '{print $1}')"
+    regular_sha="$(sha256sum "$regular_so" | awk '{print $1}')"
+    echo "npu_jni_sha256=$npu_sha"
+    echo "regular_jni_sha256=$regular_sha"
+    echo "npu_jni_soname=${npu_soname:-missing}"
+    echo "regular_jni_soname=${regular_soname:-missing}"
+    [[ "$npu_soname" == "$expected_npu_soname" ]] || { echo "npu_jni_soname_mismatch=true"; exit 65; }
+    [[ "$regular_soname" == "$expected_regular_soname" ]] || { echo "regular_jni_soname_mismatch=true"; exit 65; }
+    [[ "$npu_sha" != "$regular_sha" ]] || { echo "npu_regular_jni_identical=true"; exit 65; }
+    readelf -Ws "$npu_so" >"$tmp_dir/npu-symbols.txt"
+    readelf -Ws "$regular_so" >"$tmp_dir/regular-symbols.txt"
+    grep -Fq "$expected_symbol" "$tmp_dir/npu-symbols.txt" || {
+      echo "npu_nativeRunEditablePrompt_symbol_present=false"; exit 65;
+    }
+    if grep -Fq "$expected_symbol" "$tmp_dir/regular-symbols.txt"; then
+      echo "regular_jni_contains_npu_symbol=true"; exit 65
     fi
-    echo
-    echo "== merged native lib dir =="
-    if [[ -d "$libdir" ]]; then
-      ls -l "$libdir" | grep -E 'litertlm_jni|LiteRt|Qnn|Gemma|lami_npu_persistent|qnn_direct' || true
-    else
-      echo "missing_libdir=$libdir"
-    fi
-    echo
-    echo "== symbol search: merged liblitertlm_jni.so =="
-    if [[ -f "$libdir/liblitertlm_jni.so" ]]; then
-      echo "sha256=$(sha256sum "$libdir/liblitertlm_jni.so" | awk '{print $1}')"
-      if command -v readelf >/dev/null 2>&1; then
-        readelf -Ws "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
-      fi
-      if command -v nm >/dev/null 2>&1; then
-        nm -D "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
-      fi
-      strings "$libdir/liblitertlm_jni.so" 2>/dev/null | grep -F "$expected_symbol" || true
-    else
-      echo "missing_liblitertlm_jni_so"
-    fi
-    echo
-    echo "== symbol search summary =="
-    local symbols_tmp
-    symbols_tmp="$(mktemp)"
-    if [[ -f "$libdir/liblitertlm_jni.so" ]] &&
-       readelf -Ws "$libdir/liblitertlm_jni.so" >"$symbols_tmp" 2>/dev/null &&
-       grep -Fq "$expected_symbol" "$symbols_tmp"; then
-      echo "nativeRunEditablePrompt_symbol_present=true"
-    else
-      echo "nativeRunEditablePrompt_symbol_present=false"
-    fi
-    rm -f "$symbols_tmp"
-    echo "== STANDARD NPU JNI SYMBOL CHECK OK =="
+    echo "npu_nativeRunEditablePrompt_symbol_present=true"
+    echo "regular_jni_contains_npu_symbol=false"
+    echo "== STANDARD NPU JNI APK/SONAME CHECK OK =="
   } 2>&1 | tee "$latest_log"
   ln -sfn "$latest_log" "$LOG_DIR/latest.log"
+  rm -rf "$tmp_dir"
+  trap - RETURN
 }
 
 case "$CMD" in

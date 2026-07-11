@@ -309,6 +309,9 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
     sourceSets {
+        maybeCreate("standardDebug").apply {
+            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+        }
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
         }
@@ -1053,6 +1056,10 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
 tasks.matching { it.name == "packageStandardDebug" }.configureEach {
     dependsOn("overlayQairt244StandardDebugNativeLibs")
     dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+}
+
+tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
+    dependsOn("stageQairt244StandardDebugNativeLibs")
 }
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
