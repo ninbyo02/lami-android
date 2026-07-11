@@ -974,8 +974,11 @@ safe command recipes:
     files:
       app/src/main/res/drawable/ic_launcher_background.xml
       app/src/main/res/drawable/ic_launcher_foreground_inset70.xml
+      app/src/main/res/drawable/ic_launcher_monochrome.xml
       app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
       app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+      app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml
+      app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml
       app/src/main/res/mipmap-hdpi/ic_launcher.webp
       app/src/main/res/mipmap-hdpi/ic_launcher_round.webp
       app/src/main/res/mipmap-mdpi/ic_launcher.webp
@@ -1114,8 +1117,8 @@ run_git_commit_safe_recipe() {
       message="fix: repair bounded NPU output artifacts"
       ;;
     lami-launcher-icon)
-      git add app/src/main/res/drawable/ic_launcher_background.xml app/src/main/res/drawable/ic_launcher_foreground_inset70.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml app/src/main/res/mipmap-hdpi/ic_launcher.webp app/src/main/res/mipmap-hdpi/ic_launcher_round.webp app/src/main/res/mipmap-mdpi/ic_launcher.webp app/src/main/res/mipmap-mdpi/ic_launcher_round.webp app/src/main/res/mipmap-xhdpi/ic_launcher.webp app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp app/src/main/res/values/ic_launcher_background.xml scripts/lami_build_remote_control_full.sh
-      allowed_regex='^(app/src/main/res/drawable/ic_launcher_background\.xml|app/src/main/res/drawable/ic_launcher_foreground_inset70\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher_round\.xml|app/src/main/res/mipmap-hdpi/ic_launcher\.webp|app/src/main/res/mipmap-hdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-mdpi/ic_launcher\.webp|app/src/main/res/mipmap-mdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher_round\.webp|app/src/main/res/values/ic_launcher_background\.xml|scripts/lami_build_remote_control_full\.sh)$'
+      git add app/src/main/res/drawable/ic_launcher_background.xml app/src/main/res/drawable/ic_launcher_foreground_inset70.xml app/src/main/res/drawable/ic_launcher_monochrome.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml app/src/main/res/mipmap-hdpi/ic_launcher.webp app/src/main/res/mipmap-hdpi/ic_launcher_round.webp app/src/main/res/mipmap-mdpi/ic_launcher.webp app/src/main/res/mipmap-mdpi/ic_launcher_round.webp app/src/main/res/mipmap-xhdpi/ic_launcher.webp app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp app/src/main/res/values/ic_launcher_background.xml scripts/lami_build_remote_control_full.sh
+      allowed_regex='^(app/src/main/res/drawable/ic_launcher_background\.xml|app/src/main/res/drawable/ic_launcher_foreground_inset70\.xml|app/src/main/res/drawable/ic_launcher_monochrome\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher_round\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher_round\.xml|app/src/main/res/mipmap-hdpi/ic_launcher\.webp|app/src/main/res/mipmap-hdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-mdpi/ic_launcher\.webp|app/src/main/res/mipmap-mdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher_round\.webp|app/src/main/res/values/ic_launcher_background\.xml|scripts/lami_build_remote_control_full\.sh)$'
       message="feat: update LAMI launcher icon"
       ;;
     npu-jni-soname-separation)
