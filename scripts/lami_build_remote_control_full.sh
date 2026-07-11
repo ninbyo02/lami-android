@@ -937,6 +937,13 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
     commit: fix: align resident router NPU failure diagnostics
 
+  resident-router-context-estimate
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
+    commit: fix: estimate resident router context from prompt
+
   npu-jni-soname-separation
     files:
       app/build.gradle.kts
@@ -1034,6 +1041,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt)$'
       message="fix: align resident router NPU failure diagnostics"
+      ;;
+    resident-router-context-estimate)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest\.kt)$'
+      message="fix: estimate resident router context from prompt"
       ;;
     npu-jni-soname-separation)
       git add app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt scripts/build_litert_custom_artifacts.sh scripts/lami_build_qairt244_forced_commands.sh scripts/lami_build_remote_control_full.sh scripts/stage_litert_custom_build_stack_for_experiment.sh
