@@ -596,6 +596,74 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     sanitizedOutput: String,
     inputPrompt: String = "",
 ): NpuS1PersistentCustomJniQualityCandidateResult {
+    val initial = evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+        rawOutput = rawOutput,
+        sanitizedOutput = sanitizedOutput,
+        inputPrompt = inputPrompt,
+    )
+    if (initial.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) return initial
+
+    val repair = extractNpuS1RepairableTurnBody(rawOutput) ?: return initial
+    val repaired = evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+        rawOutput = repair.text,
+        sanitizedOutput = repair.text,
+        inputPrompt = inputPrompt,
+    )
+    if (repaired.status != NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS || repaired.preparedOutput.isBlank()) {
+        return initial
+    }
+    return repaired.copy(reason = repair.successReason)
+}
+
+private data class NpuS1RepairableTurnBody(
+    val text: String,
+    val successReason: String,
+)
+
+private val npuS1CompleteTurnMarker = Regex(
+    """<\s*/?\s*(?:start_of_turn|end_of_turn)\s*>""",
+    RegexOption.IGNORE_CASE,
+)
+
+private val npuS1ModelTurnMarker = Regex(
+    """<\s*start_of_turn\s*>\s*model\s*>?""",
+    RegexOption.IGNORE_CASE,
+)
+
+private val npuS1UserTurnMarker = Regex(
+    """<\s*start_of_turn\s*>\s*user\s*>?""",
+    RegexOption.IGNORE_CASE,
+)
+
+private fun extractNpuS1RepairableTurnBody(rawOutput: String): NpuS1RepairableTurnBody? {
+    val modelMarker = npuS1ModelTurnMarker.find(rawOutput)
+    if (modelMarker != null) {
+        val bodyStart = modelMarker.range.last + 1
+        val nextMarker = npuS1CompleteTurnMarker.find(rawOutput, bodyStart)
+        val bodyEnd = nextMarker?.range?.first ?: rawOutput.length
+        val body = rawOutput.substring(bodyStart, bodyEnd).trim()
+        if (body.isNotBlank()) {
+            return NpuS1RepairableTurnBody(
+                text = body,
+                successReason = "natural_japanese_after_model_turn_extraction_and_revalidation",
+            )
+        }
+    }
+
+    val userMarker = npuS1UserTurnMarker.find(rawOutput) ?: return null
+    val prefix = rawOutput.substring(0, userMarker.range.first).trim()
+    if (prefix.isBlank()) return null
+    return NpuS1RepairableTurnBody(
+        text = prefix,
+        successReason = "natural_japanese_after_tail_turn_leak_prefix_revalidation",
+    )
+}
+
+private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+    rawOutput: String,
+    sanitizedOutput: String,
+    inputPrompt: String = "",
+): NpuS1PersistentCustomJniQualityCandidateResult {
     val source = sanitizedOutput.ifBlank { rawOutput }
     val cleanupSource = removeSafeNpuS1EndOfTurnVariants(source)
     val cleanupRaw = removeSafeNpuS1EndOfTurnVariants(rawOutput)

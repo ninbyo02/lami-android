@@ -354,6 +354,83 @@ class NpuStandardRouteS1MapperTest {
         assertFalse(result.selection.sideEffects.streaming)
     }
 
+    @Test
+    fun `natural Japanese answer before leaked user turn is revalidated and delivered as prepared prefix only`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = """
+                    >はい、今日の予定を3つ提案します。
+                    1. 午前のタスクを終える。
+                    2. 午後に休憩する。
+                    3. 夕方に連絡を整理する。
+                    <start_of_turn>user
+                    別の案も出してください。
+                    <end_of_turn>
+                """.trimIndent(),
+                sanitizedOutput = """
+                    はい、今日の予定を3つ提案します。
+                    1. 午前のタスクを終える。
+                    2. 午後に休憩する。
+                    3. 夕方に連絡を整理する。
+                    <start_of_turn>user
+                    別の案も出してください。
+                """.trimIndent(),
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "今日の予定を3つ短く提案して",
+            ),
+        )
+        val expected = """
+            はい、今日の予定を3つ提案します。
+            1. 午前のタスクを終える。
+            2. 午後に休憩する。
+            3. 夕方に連絡を整理する。
+        """.trimIndent()
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, result.outputQualityCandidateStatus)
+        assertEquals(
+            "natural_japanese_after_tail_turn_leak_prefix_revalidation",
+            result.outputQualityCandidateReason,
+        )
+        assertEquals(expected, result.preparedOutput)
+        assertEquals(expected, result.actualDisplayText)
+        assertEquals(expected, result.ttsText)
+        assertFalse(result.actualDisplayText.contains("start_of_turn"))
+        assertFalse(result.actualDisplayText.contains("別の案"))
+    }
+
+    @Test
+    fun `prompt echo before leaked user turn remains fail closed after prefix revalidation`() {
+        val prompt = "今日の予定を3つ短く提案して"
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">$prompt\n<start_of_turn>user\n別の案も出してください。",
+                sanitizedOutput = "$prompt\n<start_of_turn>user\n別の案も出してください。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = prompt,
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+    }
+
+    @Test
+    fun `unclosed start turn marker remains fail closed`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">通常の回答です。<start_of_turn",
+                sanitizedOutput = "通常の回答です。<start_of_turn",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "回答して",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("raw_unclosed_special_token"))
+    }
+
     private fun successRaw(
         status: String = "success",
         result: String = "",
