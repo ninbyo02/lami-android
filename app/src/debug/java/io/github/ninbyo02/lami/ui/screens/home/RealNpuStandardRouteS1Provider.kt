@@ -8,6 +8,7 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import io.github.ninbyo02.lami.npu.Qairt244DevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import kotlinx.coroutines.runBlocking
 
 internal class RealNpuStandardRouteS1Provider(
@@ -62,9 +63,16 @@ internal class RealNpuStandardRouteS1Provider(
             } else {
                 NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE
             }
+            val resolvedModel = resolveApplicationContext()
+                ?.let(Qairt244ModelPathResolver::resolve)
+                ?.takeIf { it.resolved }
+            val resolvedModelInfo = resolvedModel?.modelInfo
             val rawResult = mappedRawResult.copy(
                 requestedMaxOutputTokens = maxOutputTokensResolution.requestedMaxOutputTokens,
                 effectiveMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                selectedModelName = resolvedModelInfo?.canonicalModelBasename.orEmpty(),
+                selectedModelFile = resolvedModel?.path.orEmpty(),
+                npuModelEligible = resolvedModelInfo?.required,
                 nativeDiagnostics = mappedRawResult.nativeDiagnostics.copy(
                     nativeStageHistory = listOf(
                         NPU_S1_NATIVE_STAGE_PROVIDER_START,

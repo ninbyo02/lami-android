@@ -955,6 +955,13 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
     commit: fix: use runtime evidence for resident NPU routing
 
+  resident-router-model-identity
+    files:
+      app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/RealNpuStandardRouteS1Provider.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Mapper.kt
+      scripts/lami_build_remote_control_full.sh
+    commit: fix: propagate resolved NPU model identity
+
   npu-jni-soname-separation
     files:
       app/build.gradle.kts
@@ -1062,6 +1069,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1AppHistory.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1ProviderTest.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBackendRuntimeEvidenceTest.kt scripts/lami_build_remote_control_full.sh
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1AppHistory\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1ProviderTest\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBackendRuntimeEvidenceTest\.kt|scripts/lami_build_remote_control_full\.sh)$'
       message="fix: use runtime evidence for resident NPU routing"
+      ;;
+    resident-router-model-identity)
+      git add app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/RealNpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Mapper.kt scripts/lami_build_remote_control_full.sh
+      allowed_regex='^(app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/RealNpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Mapper\.kt|scripts/lami_build_remote_control_full\.sh)$'
+      message="fix: propagate resolved NPU model identity"
       ;;
     npu-quality-repair)
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuS1PersistentCustomJniDiagnostics.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1MapperTest.kt scripts/lami_build_remote_control_full.sh
