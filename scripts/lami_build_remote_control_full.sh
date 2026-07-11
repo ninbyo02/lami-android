@@ -944,6 +944,17 @@ safe command recipes:
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
     commit: fix: estimate resident router context from prompt
 
+  resident-router-runtime-evidence
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1AppHistory.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1ProviderTest.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBackendRuntimeEvidenceTest.kt
+      scripts/lami_build_remote_control_full.sh
+    commit: fix: use runtime evidence for resident NPU routing
+
   npu-jni-soname-separation
     files:
       app/build.gradle.kts
@@ -1046,6 +1057,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest\.kt)$'
       message="fix: estimate resident router context from prompt"
+      ;;
+    resident-router-runtime-evidence)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1AppHistory.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1ProviderTest.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBackendRuntimeEvidenceTest.kt scripts/lami_build_remote_control_full.sh
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1AppHistory\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Provider\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicy\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1ProviderTest\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBackendRuntimeEvidenceTest\.kt|scripts/lami_build_remote_control_full\.sh)$'
+      message="fix: use runtime evidence for resident NPU routing"
       ;;
     npu-quality-repair)
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuS1PersistentCustomJniDiagnostics.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1MapperTest.kt scripts/lami_build_remote_control_full.sh
@@ -1291,6 +1307,13 @@ case "$CMD" in
     git status --short --branch
     ./gradlew --no-daemon :app:testStandardDebugUnitTest \
       --tests '*NpuStandardRouteS1MapperTest*' ;;
+  test-dirty-resident-router)
+    cd "$REPO"
+    echo "== RESIDENT CAPABILITY DIRTY TEST =="
+    git status --short --branch
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest \
+      --tests '*LocalBackendRuntimeEvidenceTest*' \
+      --tests '*NpuStandardRouteS1ProviderTest*' ;;
   compile-dirty-standard)
     run_compile_dirty_standard ;;
   help)
@@ -1351,6 +1374,7 @@ allowed commands:
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  test-dirty-resident-router # fixed focused test, preserves dirty worktree
   compile-dirty-standard       # dirty worktree compile only, no reset/install
 EOF
     ;;

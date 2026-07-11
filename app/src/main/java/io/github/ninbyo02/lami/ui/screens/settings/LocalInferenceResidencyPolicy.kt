@@ -252,17 +252,65 @@ object LocalInferenceResidencyPolicyResolver {
     }
 }
 
+data class LocalNpuRuntimeHistorySnapshot(
+    val latestModelPath: String = "",
+    val latestStatus: String = "unavailable",
+    val latestReason: String = "unavailable",
+    val latestStage: String = "unavailable",
+    val latestBackendEvidence: String = "unavailable",
+    val latestRunDecodeReached: String = "unavailable",
+    val latestNativeCallReturned: String = "unavailable",
+    val latestNativeDecodeFinished: String = "unavailable",
+    val latestSuccessCriteriaMet: String = "unavailable",
+    val successfulRequestCount: Int = 0,
+)
+
+fun LocalNpuRuntimeHistorySnapshot.toLocalBackendRuntimeEvidence(
+    currentNpuModelPath: String?,
+): LocalBackendRuntimeEvidence {
+    val recordedModel = latestModelPath.trim()
+    val currentModel = currentNpuModelPath.orEmpty().trim()
+    val modelMatches = recordedModel.isNotBlank() &&
+        recordedModel != "unknown" &&
+        currentModel.isNotBlank() &&
+        recordedModel == currentModel
+    val supported = successfulRequestCount > 0 && modelMatches
+    val healthy = supported &&
+        latestSuccessCriteriaMet == "true" &&
+        latestStatus == "success" &&
+        latestReason == "success" &&
+        latestStage !in setOf("request_started", "kotlin_exception") &&
+        latestBackendEvidence == "QNN_HTP_V79_FastRPC_native_diag" &&
+        latestRunDecodeReached == "true" &&
+        latestNativeCallReturned == "true" &&
+        latestNativeDecodeFinished == "true"
+    return LocalBackendRuntimeEvidence(
+        npuSupported = supported,
+        npuHealthy = healthy,
+    )
+}
+
+data class LocalBackendRuntimeEvidence(
+    val npuSupported: Boolean = false,
+    val npuHealthy: Boolean = false,
+    val gpuSupported: Boolean = true,
+    val gpuHealthy: Boolean = true,
+    val cpuSupported: Boolean = true,
+    val cpuHealthy: Boolean = true,
+)
+
 internal fun localBackendCapabilityForUserFacingSelection(
     selection: InferenceBackendSelection,
+    runtimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
 ): LocalBackendCapability =
     when (selection) {
         InferenceBackendSelection.NPU -> LocalBackendCapability(
-            npuSupported = true,
-            npuHealthy = true,
-            gpuSupported = true,
-            gpuHealthy = true,
-            cpuSupported = true,
-            cpuHealthy = true,
+            npuSupported = runtimeEvidence.npuSupported,
+            npuHealthy = runtimeEvidence.npuHealthy,
+            gpuSupported = runtimeEvidence.gpuSupported,
+            gpuHealthy = runtimeEvidence.gpuHealthy,
+            cpuSupported = runtimeEvidence.cpuSupported,
+            cpuHealthy = runtimeEvidence.cpuHealthy,
         )
         InferenceBackendSelection.GPU,
         InferenceBackendSelection.AUTOMATIC -> LocalBackendCapability(
@@ -293,8 +341,9 @@ internal fun localBackendCapabilityForUserFacingSelection(
 
 internal fun localInferenceResidencyPolicyForUserFacingSelection(
     selection: InferenceBackendSelection,
+    runtimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
 ): LocalInferenceResidencyPolicy =
     LocalInferenceResidencyPolicyResolver.resolve(
-        localBackendCapabilityForUserFacingSelection(selection),
+        localBackendCapabilityForUserFacingSelection(selection, runtimeEvidence),
     )
 

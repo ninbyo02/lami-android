@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunDecision
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
@@ -276,6 +277,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     appHistoryText: String,
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -286,6 +288,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
             input = input,
             result = result,
             appHistoryText = appHistoryText,
+            residentRuntimeEvidence = residentRuntimeEvidence,
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
             npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
@@ -307,6 +310,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     appHistoryText: String = "",
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -317,6 +321,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     maxOutputTokens = maxOutputTokens,
     transientFallback = transientFallback,
     appHistoryText = appHistoryText,
+    residentRuntimeEvidence = residentRuntimeEvidence,
     preferredBackendSetting = preferredBackendSetting,
     npuStandardRouteMode = npuStandardRouteMode,
     npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
@@ -345,6 +350,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
     appHistoryText: String = "",
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -365,6 +371,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     )
     val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
         npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+        runtimeEvidence = residentRuntimeEvidence,
     ).dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
             promptTokenEstimate = estimateResidentRouterPromptTokens(input),

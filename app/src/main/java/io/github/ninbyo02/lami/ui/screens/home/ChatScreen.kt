@@ -4674,6 +4674,10 @@ fun Home(
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
+                                                                residentRuntimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
+                                                                    context = context.applicationContext,
+                                                                    currentNpuModelPath = localBaseModelFilePath,
+                                                                ),
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
                                                                 npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                                                 npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
@@ -10112,8 +10116,13 @@ private suspend fun runLocalInferenceOnceEntry(
     }
     recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
+    val residentRouterRuntimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
+        context = context.applicationContext,
+        currentNpuModelPath = localBaseModelFilePath,
+    )
     val residentRouterHookDecision = localInferenceResidencyPolicyForUserFacingSelection(
-        preferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(),
+        selection = preferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(),
+        runtimeEvidence = residentRouterRuntimeEvidence,
     ).resolveResidentRouterHookDecision(
         LocalInferenceRoutingHookInput(
             currentBackend = preferredBackendDryRunSetting,
@@ -10127,7 +10136,7 @@ private suspend fun runLocalInferenceOnceEntry(
     val effectivePreferredBackendDryRunSetting = residentRouterHookDecision.selectedBackend
     appendLocalReflectionTrace(
         context = context,
-        message = "UPSTREAM resident-router-hook enabled=${residentRouterHookDecision.enabled} applied=${residentRouterHookDecision.applied} current=${preferredBackendDryRunSetting.name} selected=${effectivePreferredBackendDryRunSetting.name} reason=${residentRouterHookDecision.reason}",
+        message = "UPSTREAM resident-router-hook enabled=${residentRouterHookDecision.enabled} applied=${residentRouterHookDecision.applied} current=${preferredBackendDryRunSetting.name} selected=${effectivePreferredBackendDryRunSetting.name} reason=${residentRouterHookDecision.reason} npuSupported=${residentRouterRuntimeEvidence.npuSupported} npuHealthy=${residentRouterRuntimeEvidence.npuHealthy}",
     )
     val selectedModelSlot = localModelSlotForBackend(effectivePreferredBackendDryRunSetting)
     val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {

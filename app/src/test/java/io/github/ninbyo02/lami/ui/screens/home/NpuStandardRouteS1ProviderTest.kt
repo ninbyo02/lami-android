@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
@@ -74,7 +75,7 @@ class NpuStandardRouteS1ProviderTest {
 
         assertTrue(diagnostics.detected)
         assertEquals("libLiteRt.so", diagnostics.failedLibraryName)
-        assertEquals("litertlm_jni>lami_npu_persistent_holder_stub", diagnostics.loadOrder)
+        assertEquals(NPU_STANDARD_ROUTE_NATIVE_LOAD_ORDER, diagnostics.loadOrder)
         assertEquals("/data/app/native", diagnostics.javaLibraryPath)
         assertEquals("arm64-v8a", diagnostics.supportedAbis)
         assertEquals("adapter_failure:UnsatisfiedLinkError", npuNativeLinkFailureReason(throwable))
@@ -360,6 +361,48 @@ class NpuStandardRouteS1ProviderTest {
             assertTrue(text.contains("native_requested_max_output_tokens=4096"))
             assertTrue(text.contains("native_effective_max_output_tokens=4096"))
         }
+    }
+
+    @Test
+    fun `compact resident dry run uses healthy NPU evidence for short prompt and GPU for long context`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val healthyNpu = LocalBackendRuntimeEvidence(
+            npuSupported = true,
+            npuHealthy = true,
+        )
+
+        val short = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = result,
+            residentRuntimeEvidence = healthyNpu,
+            preferredBackendSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val long = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "あ".repeat(8_192),
+            result = result,
+            residentRuntimeEvidence = healthyNpu,
+            preferredBackendSetting = PreferredBackendDryRunSetting.NPU,
+        )
+
+        assertTrue(short.contains("resident_dry_run_backend=NPU"))
+        assertTrue(short.contains("resident_dry_run_reason=interactive_use_npu"))
+        assertTrue(long.contains("resident_dry_run_backend=GPU"))
+        assertTrue(long.contains("resident_dry_run_reason=long_context_use_gpu"))
     }
 
     @Test
