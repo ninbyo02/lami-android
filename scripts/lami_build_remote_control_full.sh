@@ -970,6 +970,15 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
     commit: fix: unify NPU inference stats with local backends
 
+  ralph3-npu-stats-complete
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilderNpuTest.kt
+    commit: fix: complete unified NPU inference stats card
+
   lami-launcher-icon
     files:
       app/src/main/res/drawable/ic_launcher_background.xml
@@ -1110,6 +1119,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest.kt scripts/lami_build_remote_control_full.sh
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest\.kt|scripts/lami_build_remote_control_full\.sh)$'
       message="fix: unify NPU inference stats with local backends"
+      ;;
+    ralph3-npu-stats-complete)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilderNpuTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapper\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteInferenceStatsMapperTest\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilderNpuTest\.kt)$'
+      message="fix: complete unified NPU inference stats card"
       ;;
     npu-quality-repair)
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuS1PersistentCustomJniDiagnostics.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1MapperTest.kt scripts/lami_build_remote_control_full.sh
