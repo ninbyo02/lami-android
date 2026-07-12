@@ -1002,6 +1002,14 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
     commit: feat: update LAMI launcher icon
 
+  startup-backend-check
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest.kt
+    commit: feat: show startup backend availability
+
   npu-jni-soname-separation
     files:
       app/build.gradle.kts
@@ -1134,6 +1142,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/res/drawable/ic_launcher_background.xml app/src/main/res/drawable/ic_launcher_foreground_inset70.xml app/src/main/res/drawable/ic_launcher_monochrome.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml app/src/main/res/mipmap-hdpi/ic_launcher.webp app/src/main/res/mipmap-hdpi/ic_launcher_round.webp app/src/main/res/mipmap-mdpi/ic_launcher.webp app/src/main/res/mipmap-mdpi/ic_launcher_round.webp app/src/main/res/mipmap-xhdpi/ic_launcher.webp app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp app/src/main/res/values/ic_launcher_background.xml scripts/lami_build_remote_control_full.sh
       allowed_regex='^(app/src/main/res/drawable/ic_launcher_background\.xml|app/src/main/res/drawable/ic_launcher_foreground_inset70\.xml|app/src/main/res/drawable/ic_launcher_monochrome\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher_round\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher_round\.xml|app/src/main/res/mipmap-hdpi/ic_launcher\.webp|app/src/main/res/mipmap-hdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-mdpi/ic_launcher\.webp|app/src/main/res/mipmap-mdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher_round\.webp|app/src/main/res/values/ic_launcher_background\.xml|scripts/lami_build_remote_control_full\.sh)$'
       message="feat: update LAMI launcher icon"
+      ;;
+    startup-backend-check)
+      git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay.kt app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest\.kt)$'
+      message="feat: show startup backend availability"
       ;;
     npu-jni-soname-separation)
       git add app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt scripts/build_litert_custom_artifacts.sh scripts/lami_build_qairt244_forced_commands.sh scripts/lami_build_remote_control_full.sh scripts/stage_litert_custom_build_stack_for_experiment.sh
@@ -1381,6 +1394,12 @@ case "$CMD" in
     ./gradlew --no-daemon :app:testStandardDebugUnitTest \
       --tests '*LocalBackendRuntimeEvidenceTest*' \
       --tests '*NpuStandardRouteS1ProviderTest*' ;;
+  test-dirty-startup-backend-check)
+    cd "$REPO"
+    echo "== STARTUP BACKEND CHECK DIRTY TEST =="
+    git status --short --branch
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest \
+      --tests '*StartupBackendCheckSequenceTest*' ;;
   compile-dirty-standard)
     run_compile_dirty_standard ;;
   help)
@@ -1441,6 +1460,7 @@ allowed commands:
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  test-dirty-startup-backend-check # fixed focused test, preserves dirty worktree
   test-dirty-resident-router # fixed focused test, preserves dirty worktree
   compile-dirty-standard       # dirty worktree compile only, no reset/install
 EOF
