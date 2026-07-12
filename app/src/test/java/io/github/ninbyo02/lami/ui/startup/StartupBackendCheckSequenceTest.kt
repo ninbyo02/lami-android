@@ -84,6 +84,19 @@ class StartupBackendCheckSequenceTest {
     }
 
     @Test
+    fun `startup rows reveal from top to bottom`() {
+        assertEquals(
+            listOf(StartupBackend.NPU, StartupBackend.GPU, StartupBackend.CPU),
+            startupBackendRevealOrder(),
+        )
+    }
+
+    @Test
+    fun `completion copy describes LAMI readiness when a backend is unavailable`() {
+        assertEquals("LAMI READY", STARTUP_READY_LABEL)
+    }
+
+    @Test
     fun `cold start shows branded startup splash but activity recreation skips it`() {
         assertEquals(
             StartupPresentation.BACKEND_CHECK_SPLASH,

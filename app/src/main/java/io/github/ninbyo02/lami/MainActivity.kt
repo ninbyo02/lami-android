@@ -128,7 +128,10 @@ class MainActivity : ComponentActivity() {
             }
             // Initialise navigation
             val navController = rememberNavController()
-            LaunchedEffect(Unit) {
+            LaunchedEffect(showStartupSplash) {
+                // The splash branch does not compose NavHost yet. Navigating before the
+                // graph is installed crashes NavController during cold start.
+                if (showStartupSplash) return@LaunchedEffect
                 // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
                 if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
                 // 回転などでActivity再生成時にlastRouteがSettingsだと意図せずSettingsへ遷移するため、

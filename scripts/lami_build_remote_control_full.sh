@@ -1286,6 +1286,48 @@ run_standard_npu_jni_symbol_check() {
   trap - RETURN
 }
 
+run_read_lami_crash_log() {
+  local requested="${1:-latest}"
+  local file=""
+  local -a candidates=()
+
+  if [[ "$requested" == "latest" ]]; then
+    mapfile -t candidates < <(find /tmp -maxdepth 1 -type f ! -xtype l \
+      \( -name 'lami-crash-raw-*.log' \
+      -o -name 'lami-crash-report-*.log' \
+      -o -name 'lami-startup-crash-*.log' \
+      -o -name 'lami-dropbox-crash-*.log' \) -print)
+    (( ${#candidates[@]} > 0 )) || {
+      echo "no allowed LAMI crash logs found" >&2
+      exit 66
+    }
+    file="$(printf '%s\n' "${candidates[@]}" | xargs -r stat -c '%Y %n' | sort -nr | head -1 | cut -d' ' -f2-)"
+  else
+    [[ "$requested" =~ ^lami-(crash-(raw|report)|startup-crash|dropbox-crash)-[0-9]{8}-[0-9]{6}\.log$ ]] || fail
+    file="/tmp/$requested"
+  fi
+
+  [[ -f "$file" && ! -L "$file" ]] || {
+    echo "allowed LAMI crash log not found or is a symlink: $file" >&2
+    exit 66
+  }
+  local canonical size
+  canonical="$(readlink -f -- "$file")"
+  [[ "$canonical" == /tmp/lami-*.log ]] || fail
+  size="$(stat -c '%s' -- "$canonical")"
+  (( size <= 5242880 )) || {
+    echo "LAMI crash log exceeds 5 MiB read limit: $size bytes" >&2
+    exit 66
+  }
+
+  echo "file=$canonical"
+  echo "size_bytes=$size"
+  echo "lines=$(wc -l < "$canonical")"
+  echo "== content (max 2000 lines) =="
+  sed -n '1,2000p' "$canonical" \
+    | sed -E 's/((token|password|secret|authorization|api[_-]?key)[=:][[:space:]]*)[^[:space:]]+/\1[REDACTED]/Ig'
+}
+
 case "$CMD" in
   status)
     print_status ;;
@@ -1297,6 +1339,10 @@ case "$CMD" in
     [[ -f "$LOG_DIR/latest.log" ]] && cat "$LOG_DIR/latest.log" || true ;;
   list-logs)
     find "$LOG_DIR" -maxdepth 1 -type f -name '*.log' -printf '%TY-%Tm-%Td %TH:%TM %p\n' 2>/dev/null | sort -r | head -50 ;;
+  read-lami-crash-log\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail; run_read_lami_crash_log "${parts[1]}" ;;
+  read-lami-crash-log)
+    run_read_lami_crash_log latest ;;
   adb-devices)
     adb devices -l ;;
   android-sdk-candidates)
@@ -1449,6 +1495,7 @@ allowed commands:
   test-branch <same branch rules>
   logs
   list-logs
+  read-lami-crash-log [latest|lami-crash-raw-YYYYMMDD-HHMMSS.log|lami-crash-report-YYYYMMDD-HHMMSS.log|lami-startup-crash-YYYYMMDD-HHMMSS.log|lami-dropbox-crash-YYYYMMDD-HHMMSS.log]
   adb-devices
   android-sdk-candidates      # fixed read-only SDK path existence check
   emulator-env-status         # fixed read-only emulator script/env/AVD existence check

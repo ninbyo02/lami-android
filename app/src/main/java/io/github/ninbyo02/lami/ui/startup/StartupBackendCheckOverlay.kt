@@ -1,6 +1,10 @@
 package io.github.ninbyo02.lami.ui.startup
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,14 +36,21 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1AppHistory
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val STARTUP_CHECK_TIMEOUT_MS = 1_900L
-private const val RESOLVED_DISPLAY_MS = 500L
+private const val RESOLVED_DISPLAY_MS = 650L
 private const val STEP_PACING_MS = 120L
+private const val ROW_REVEAL_STAGGER_MS = 80L
+internal const val STARTUP_READY_LABEL = "LAMI READY"
 private val LamiPurple80 = Color(0xFFD0BCFF)
 private val LamiDark = Color(0xFF141218)
+
+internal fun startupBackendRevealOrder(): List<StartupBackend> =
+    listOf(StartupBackend.NPU, StartupBackend.GPU, StartupBackend.CPU)
 
 internal suspend fun runStartupBackendChecks(
     timeoutMillis: Long,
@@ -79,13 +90,22 @@ fun StartupBackendSplash(
     modifier: Modifier = Modifier,
 ) {
     var sequence by remember { mutableStateOf(StartupBackendCheckSequence.initial()) }
+    var visibleBackendCount by remember { mutableStateOf(0) }
     LaunchedEffect(context, settingsPreferences) {
+        startupBackendRevealOrder().forEachIndexed { index, _ ->
+            visibleBackendCount = index + 1
+            if (index < StartupBackend.entries.lastIndex) {
+                delay(ROW_REVEAL_STAGGER_MS)
+            }
+        }
         runStartupBackendChecks(
             timeoutMillis = STARTUP_CHECK_TIMEOUT_MS,
             resolvedDisplayMillis = RESOLVED_DISPLAY_MS,
             loadEvidence = {
-                val modelPath = settingsPreferences.getValidLocalBaseModelPathOrNull()
-                NpuStandardRouteS1AppHistory.runtimeEvidence(context, modelPath)
+                withContext(Dispatchers.IO) {
+                    val modelPath = settingsPreferences.getValidLocalBaseModelPathOrNull()
+                    NpuStandardRouteS1AppHistory.runtimeEvidence(context, modelPath)
+                }
             },
             onSequenceChanged = { sequence = it },
             onFinished = onFinished,
@@ -113,7 +133,29 @@ fun StartupBackendSplash(
                     color = Color.White.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.labelMedium,
                 )
-                sequence.items.forEach { BackendStatusRow(it) }
+                sequence.items.forEachIndexed { index, item ->
+                    AnimatedVisibility(
+                        visible = index < visibleBackendCount,
+                        enter = fadeIn() + slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth / 3 },
+                        ),
+                    ) {
+                        BackendStatusRow(item)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                AnimatedVisibility(
+                    visible = sequence.canContinue,
+                    enter = fadeIn() + scaleIn(initialScale = 0.94f),
+                ) {
+                    Text(
+                        text = "✓  $STARTUP_READY_LABEL",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.4.sp,
+                    )
+                }
             }
         }
     }
