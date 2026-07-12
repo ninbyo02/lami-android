@@ -2,11 +2,26 @@ package io.github.ninbyo02.lami.ui.startup
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1AppHistory
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -24,6 +40,36 @@ private const val RESOLVED_DISPLAY_MS = 500L
 private const val STEP_PACING_MS = 120L
 private val LamiPurple80 = Color(0xFFD0BCFF)
 private val LamiDark = Color(0xFF141218)
+
+internal suspend fun runStartupBackendChecks(
+    timeoutMillis: Long,
+    resolvedDisplayMillis: Long,
+    loadEvidence: suspend () -> LocalBackendRuntimeEvidence,
+    onSequenceChanged: (StartupBackendCheckSequence) -> Unit,
+    onFinished: () -> Unit,
+) {
+    var sequence = StartupBackendCheckSequence.initial()
+    try {
+        val evidence = withTimeoutOrNull(timeoutMillis) { loadEvidence() }
+        if (evidence == null) {
+            sequence = sequence.timeout()
+            onSequenceChanged(sequence)
+        } else {
+            startupBackendAvailability(evidence).forEachIndexed { index, (backend, available) ->
+                sequence = sequence.resolve(backend, available)
+                onSequenceChanged(sequence)
+                if (index < StartupBackend.entries.lastIndex) delay(STEP_PACING_MS)
+            }
+        }
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Throwable) {
+        sequence = sequence.timeout()
+        onSequenceChanged(sequence)
+    }
+    delay(resolvedDisplayMillis)
+    onFinished()
+}
 
 @Composable
 fun StartupBackendSplash(
@@ -34,49 +80,70 @@ fun StartupBackendSplash(
 ) {
     var sequence by remember { mutableStateOf(StartupBackendCheckSequence.initial()) }
     LaunchedEffect(context, settingsPreferences) {
-        runCatching {
-            val completed = withTimeoutOrNull(STARTUP_CHECK_TIMEOUT_MS) {
-                val evidence = runCatching {
-                    val modelPath = settingsPreferences.getValidLocalBaseModelPathOrNull()
-                    NpuStandardRouteS1AppHistory.runtimeEvidence(context, modelPath)
-                }.getOrElse { LocalBackendRuntimeEvidence() }
-                startupBackendAvailability(evidence).forEachIndexed { index, (backend, available) ->
-                    sequence = sequence.resolve(backend, available)
-                    if (index < StartupBackend.entries.lastIndex) delay(STEP_PACING_MS)
-                }
-            } != null
-            if (!completed) sequence = sequence.timeout()
-        }.onFailure { sequence = sequence.timeout() }
-        delay(RESOLVED_DISPLAY_MS)
-        onFinished()
+        runStartupBackendChecks(
+            timeoutMillis = STARTUP_CHECK_TIMEOUT_MS,
+            resolvedDisplayMillis = RESOLVED_DISPLAY_MS,
+            loadEvidence = {
+                val modelPath = settingsPreferences.getValidLocalBaseModelPathOrNull()
+                NpuStandardRouteS1AppHistory.runtimeEvidence(context, modelPath)
+            },
+            onSequenceChanged = { sequence = it },
+            onFinished = onFinished,
+        )
     }
     Box(modifier.fillMaxSize().background(LamiDark)) {
-        Text(
-            text = "LAMI", color = LamiPurple80, fontSize = 42.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 5.sp,
-            modifier = Modifier.align(Alignment.Center),
-        )
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("ローカル実行環境", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
-            sequence.items.forEach { BackendStatusRow(it) }
+            Text(
+                text = "LAMI",
+                color = LamiPurple80,
+                fontSize = 42.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 5.sp,
+            )
+            Spacer(Modifier.height(40.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "ローカル実行環境",
+                    color = Color.White.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                sequence.items.forEach { BackendStatusRow(it) }
+            }
         }
     }
 }
 
 @Composable
 private fun BackendStatusRow(item: StartupBackendCheckItem) {
-    val color = when (item.status) {
+    val statusColor = when (item.status) {
         StartupBackendStatus.CHECKING -> LamiPurple80
         StartupBackendStatus.AVAILABLE -> Color(0xFF81C784)
         StartupBackendStatus.UNAVAILABLE -> Color.White.copy(alpha = 0.45f)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Spacer(Modifier.size(7.dp).background(color, CircleShape))
-        Spacer(Modifier.width(9.dp))
-        Text(item.backend.displayName, color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(42.dp))
-        Text(item.status.label, color = color, fontSize = 12.sp, style = MaterialTheme.typography.labelMedium)
+    Row(
+        modifier = Modifier.width(220.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            item.backend.displayName,
+            color = Color.White.copy(alpha = 0.9f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        when (item.status) {
+            StartupBackendStatus.CHECKING -> CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                color = statusColor,
+                strokeWidth = 1.5.dp,
+            )
+            StartupBackendStatus.AVAILABLE -> Text("✓", color = statusColor, fontSize = 16.sp)
+            StartupBackendStatus.UNAVAILABLE -> Text("—", color = statusColor, fontSize = 16.sp)
+        }
     }
 }

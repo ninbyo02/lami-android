@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class StartupBackendCheckSequenceTest {
@@ -114,5 +116,65 @@ class StartupBackendCheckSequenceTest {
         assertTrue(timedOut.sequence.canContinue)
         assertTrue(timedOut.sequence.timedOut)
         assertEquals(StartupPresentation.APP_CONTENT, timedOut.finish().presentation)
+    }
+
+    @Test
+    fun `cold start advances to app when runtime evidence throws`() = runBlocking {
+        var finished = false
+        val states = mutableListOf<StartupBackendCheckSequence>()
+
+        runStartupBackendChecks(
+            timeoutMillis = 50,
+            resolvedDisplayMillis = 0,
+            loadEvidence = { error("runtime evidence failed") },
+            onSequenceChanged = states::add,
+            onFinished = { finished = true },
+        )
+
+        assertTrue(finished)
+        assertTrue(states.last().canContinue)
+        assertTrue(states.last().items.all { it.status == StartupBackendStatus.UNAVAILABLE })
+    }
+
+    @Test
+    fun `cold start advances to app when runtime evidence never completes`() = runBlocking {
+        var finished = false
+        val states = mutableListOf<StartupBackendCheckSequence>()
+
+        runStartupBackendChecks(
+            timeoutMillis = 20,
+            resolvedDisplayMillis = 0,
+            loadEvidence = {
+                delay(Long.MAX_VALUE)
+                LocalBackendRuntimeEvidence()
+            },
+            onSequenceChanged = states::add,
+            onFinished = { finished = true },
+        )
+
+        assertTrue(finished)
+        assertTrue(states.last().timedOut)
+        assertTrue(states.last().canContinue)
+    }
+
+    @Test
+    fun `cold start timeout is fail open within two and a half seconds`() = runBlocking {
+        var finished = false
+        val startedAt = System.nanoTime()
+
+        runStartupBackendChecks(
+            timeoutMillis = 20,
+            resolvedDisplayMillis = 0,
+            loadEvidence = {
+                delay(Long.MAX_VALUE)
+                LocalBackendRuntimeEvidence()
+            },
+            onSequenceChanged = {},
+            onFinished = { finished = true },
+        )
+
+        val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+        assertTrue(finished)
+        assertTrue("test timeout must remain bounded", elapsedMillis < 2_500)
     }
 }
