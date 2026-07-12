@@ -155,6 +155,7 @@ import io.github.ninbyo02.lami.db.entity.toInferenceStats
 import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
@@ -990,6 +991,12 @@ fun Home(
     } else {
         "応答中..."
     }
+    val emptyChatUiState = resolveEmptyChatUiState(
+        selectedInferenceTarget = selectedInferenceTarget,
+        selectedServerModel = selectedModel,
+        selectedLocalModelPath = selectedLocalModelFilePath,
+        serverUrl = baseUrl,
+    )
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
@@ -1006,6 +1013,7 @@ fun Home(
             -> LamiStatus.CONNECTING
             else -> lamiStatusForChatUi
         }
+        emptyChatUiState.useOfflineLoop -> LamiStatus.OFFLINE
         else -> LamiStatus.READY
     }
     val effectiveLamiHeaderStateForChatUi = when {
@@ -1015,6 +1023,7 @@ fun Home(
         }
         isServerRunningUi -> lamiHeaderStateForChatUi
         isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
+        emptyChatUiState.useOfflineLoop -> LamiState.Idle
         else -> LamiState.Idle
     }
     // NOTE: debug-only top gradient adjustments. Default OFF.
@@ -8094,10 +8103,27 @@ fun Home(
                             ) {
                                 if (messagesForList.isEmpty()) {
                                     item(key = "empty-state") {
-                                        PlainAssistantMessage(
-                                            message = "ラミィがお手伝いします。\n今日は何をしますか？",
-                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
-                                        )
+                                        Column {
+                                            PlainAssistantMessage(
+                                                message = emptyChatUiState.message,
+                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp),
+                                            )
+                                            emptyChatUiState.actionLabel?.let { actionLabel ->
+                                                TextButton(
+                                                    onClick = {
+                                                        val route = if (selectedInferenceTarget == InferenceTarget.LOCAL) {
+                                                            SettingsRoute.LocalBaseModel.route
+                                                        } else {
+                                                            Routes.SETTINGS
+                                                        }
+                                                        navHostController.navigate(route)
+                                                    },
+                                                    modifier = Modifier.padding(start = 8.dp, bottom = 2.dp),
+                                                ) {
+                                                    Text(actionLabel)
+                                                }
+                                            }
+                                        }
                                     }
                                 } else {
                                     itemsIndexed(

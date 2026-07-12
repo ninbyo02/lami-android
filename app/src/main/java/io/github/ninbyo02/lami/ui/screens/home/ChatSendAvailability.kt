@@ -16,6 +16,54 @@ internal enum class ChatSendBlockedReason {
     SERVER_MODEL_MISSING,
 }
 
+internal data class EmptyChatUiState(
+    val title: String,
+    val supportingText: String,
+    val actionLabel: String?,
+    val useOfflineLoop: Boolean,
+) {
+    val message: String get() = "$title\n$supportingText"
+}
+
+internal fun resolveEmptyChatUiState(
+    selectedInferenceTarget: InferenceTarget,
+    selectedServerModel: String?,
+    selectedLocalModelPath: String?,
+    serverUrl: String?,
+): EmptyChatUiState {
+    val routeAvailable = when (selectedInferenceTarget) {
+        InferenceTarget.LOCAL -> !selectedLocalModelPath.isNullOrBlank()
+        InferenceTarget.SERVER -> {
+            val normalizedUrl = serverUrl.orEmpty().trim()
+            normalizedUrl.isNotBlank() &&
+                validateUrlFormat(normalizedUrl).isValid &&
+                !selectedServerModel.isNullOrBlank()
+        }
+    }
+    if (routeAvailable) {
+        return EmptyChatUiState(
+            title = "ラミィがお手伝いします",
+            supportingText = "今日は何をしましょうか？",
+            actionLabel = null,
+            useOfflineLoop = false,
+        )
+    }
+    return when (selectedInferenceTarget) {
+        InferenceTarget.LOCAL -> EmptyChatUiState(
+            title = "モデルの準備が必要です",
+            supportingText = "設定から使用するモデルを選んでください",
+            actionLabel = "モデルを選択",
+            useOfflineLoop = true,
+        )
+        InferenceTarget.SERVER -> EmptyChatUiState(
+            title = "接続先の設定が必要です",
+            supportingText = "使用するAIサーバーを設定してください",
+            actionLabel = "接続先を設定",
+            useOfflineLoop = true,
+        )
+    }
+}
+
 internal fun resolveChatSendAvailability(
     selectedInferenceTarget: InferenceTarget,
     selectedServerModel: String?,

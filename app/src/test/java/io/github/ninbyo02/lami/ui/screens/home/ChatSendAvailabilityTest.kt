@@ -9,6 +9,67 @@ import org.junit.Test
 
 class ChatSendAvailabilityTest {
     @Test
+    fun `empty chat uses normal copy when selected local route has a model`() {
+        assertEquals(
+            EmptyChatUiState("ラミィがお手伝いします", "今日は何をしましょうか？", null, false),
+            resolveEmptyChatUiState(
+                selectedInferenceTarget = InferenceTarget.LOCAL,
+                selectedServerModel = null,
+                selectedLocalModelPath = "/models/gemma.litertlm",
+                serverUrl = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `empty chat asks for model and uses offline loop only for unavailable selected local route`() {
+        assertEquals(
+            EmptyChatUiState(
+                "モデルの準備が必要です",
+                "設定から使用するモデルを選んでください",
+                "モデルを選択",
+                true,
+            ),
+            resolveEmptyChatUiState(
+                selectedInferenceTarget = InferenceTarget.LOCAL,
+                selectedServerModel = "remote-model-is-irrelevant",
+                selectedLocalModelPath = null,
+                serverUrl = "http://localhost:11434",
+            ),
+        )
+    }
+
+    @Test
+    fun `empty chat asks for server setup and uses offline loop only for unavailable selected server route`() {
+        assertEquals(
+            EmptyChatUiState(
+                "接続先の設定が必要です",
+                "使用するAIサーバーを設定してください",
+                "接続先を設定",
+                true,
+            ),
+            resolveEmptyChatUiState(
+                selectedInferenceTarget = InferenceTarget.SERVER,
+                selectedServerModel = null,
+                selectedLocalModelPath = "/models/local-is-irrelevant.litertlm",
+                serverUrl = "",
+            ),
+        )
+    }
+
+    @Test
+    fun `empty chat keeps normal state for configured selected server route`() {
+        assertFalse(
+            resolveEmptyChatUiState(
+                selectedInferenceTarget = InferenceTarget.SERVER,
+                selectedServerModel = "llama3",
+                selectedLocalModelPath = null,
+                serverUrl = "http://localhost:11434",
+            ).useOfflineLoop,
+        )
+    }
+
+    @Test
     fun `TTS text removes sparkle and emoji but keeps readable Japanese`() {
         assertEquals(
             "こんにちは！何かお手伝いできることや、お話ししたいことはありますか？お気軽にご質問くださいね。",
