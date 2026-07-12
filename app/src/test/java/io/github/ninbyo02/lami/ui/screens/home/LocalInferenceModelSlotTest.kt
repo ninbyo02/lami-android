@@ -54,6 +54,54 @@ class LocalInferenceModelSlotTest {
     }
 
     @Test
+    fun `DEFAULT selects NPU preview when only NPU model exists`() {
+        assertEquals(
+            LocalInferenceModelSlot.NPU_PREVIEW,
+            resolveLocalModelSlotForAvailableModels(
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuModelPath = "/models/gemma-npu.litertlm",
+                genericModelPath = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `DEFAULT selects Generic fallback when only Generic model exists`() {
+        assertEquals(
+            LocalInferenceModelSlot.GENERIC_FALLBACK,
+            resolveLocalModelSlotForAvailableModels(
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuModelPath = null,
+                genericModelPath = "/models/gemma-generic.litertlm",
+            ),
+        )
+    }
+
+    @Test
+    fun `DEFAULT preserves Generic preference when both models exist`() {
+        assertEquals(
+            LocalInferenceModelSlot.GENERIC_FALLBACK,
+            resolveLocalModelSlotForAvailableModels(
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuModelPath = "/models/gemma-npu.litertlm",
+                genericModelPath = "/models/gemma-generic.litertlm",
+            ),
+        )
+    }
+
+    @Test
+    fun `DEFAULT remains Generic when no local model exists`() {
+        assertEquals(
+            LocalInferenceModelSlot.GENERIC_FALLBACK,
+            resolveLocalModelSlotForAvailableModels(
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuModelPath = null,
+                genericModelPath = null,
+            ),
+        )
+    }
+
+    @Test
     fun `DEFAULT uses Generic fallback missing message`() {
         assertEquals(
             LocalInferenceModelSlot.GENERIC_FALLBACK,

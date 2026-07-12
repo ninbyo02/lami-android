@@ -744,7 +744,11 @@ fun Home(
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
     val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow.collectAsState(initial = null)
     val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow.collectAsState(initial = null)
-    val selectedLocalModelSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val selectedLocalModelSlot = resolveLocalModelSlotForAvailableModels(
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        npuModelPath = localBaseModelFilePath,
+        genericModelPath = localGenericModelFilePath,
+    )
     val selectedLocalModelFilePath = when (selectedLocalModelSlot) {
         LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelFilePath
         LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelFilePath
@@ -11234,6 +11238,22 @@ internal fun localModelSlotForBackend(
         PreferredBackendDryRunSetting.GPU,
         PreferredBackendDryRunSetting.DEFAULT -> LocalInferenceModelSlot.GENERIC_FALLBACK
     }
+
+internal fun resolveLocalModelSlotForAvailableModels(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    npuModelPath: String?,
+    genericModelPath: String?,
+): LocalInferenceModelSlot {
+    val configuredSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
+        return configuredSlot
+    }
+    return when {
+        !genericModelPath.isNullOrBlank() -> LocalInferenceModelSlot.GENERIC_FALLBACK
+        !npuModelPath.isNullOrBlank() -> LocalInferenceModelSlot.NPU_PREVIEW
+        else -> configuredSlot
+    }
+}
 
 internal fun missingLocalModelMessageForBackend(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
