@@ -1020,6 +1020,12 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
       scripts/stage_litert_custom_build_stack_for_experiment.sh
     commit: fix: separate NPU JNI library SONAME
+
+  runtime-gate-expectations
+    files:
+      app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
+    commit: test: align runtime gate expectations
 EOF
 }
 
@@ -1152,6 +1158,11 @@ run_git_commit_safe_recipe() {
       git add app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt scripts/build_litert_custom_artifacts.sh scripts/lami_build_qairt244_forced_commands.sh scripts/lami_build_remote_control_full.sh scripts/stage_litert_custom_build_stack_for_experiment.sh
       allowed_regex='^(app/build.gradle\.kts|app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics\.kt|scripts/build_litert_custom_artifacts\.sh|scripts/lami_build_qairt244_forced_commands\.sh|scripts/lami_build_remote_control_full\.sh|scripts/stage_litert_custom_build_stack_for_experiment\.sh)$'
       message="fix: separate NPU JNI library SONAME"
+      ;;
+    runtime-gate-expectations)
+      git add app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
+      allowed_regex='^(app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest\.kt)$'
+      message="test: align runtime gate expectations"
       ;;
     *) fail ;;
   esac
@@ -1387,6 +1398,30 @@ case "$CMD" in
     git status --short --branch
     ./gradlew --no-daemon :app:testStandardDebugUnitTest \
       --tests '*NpuStandardRouteS1MapperTest*' ;;
+  test-dirty-runtime-gate-expectations)
+    cd "$REPO"
+    echo "== RUNTIME GATE EXPECTATIONS DIRTY TEST =="
+    git status --short --branch
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest \
+      --tests 'io.github.ninbyo02.lami.StandardGpuNoConstraintProviderGradleConfigTest' \
+      --tests 'io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceResidencyPolicyTest' ;;
+  test-standard-full)
+    cd "$REPO"
+    [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo "worktree must be clean" >&2; exit 65; }
+    [[ "$(git branch --show-current)" == "future" ]] || fail
+    echo "== STANDARD FULL UNIT TEST =="
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest ;;
+  assemble-standard)
+    cd "$REPO"
+    [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo "worktree must be clean" >&2; exit 65; }
+    [[ "$(git branch --show-current)" == "future" ]] || fail
+    echo "== STANDARD COMPILE/ASSEMBLE =="
+    ./gradlew --no-daemon :app:compileStandardDebugKotlin :app:assembleStandardDebug
+    apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+    [[ -s "$apk" ]] || { echo "missing APK: $apk" >&2; exit 65; }
+    echo "apk=$apk"
+    stat -c 'apk_size=%s apk_mtime=%y' "$apk"
+    sha256sum "$apk" ;;
   test-dirty-resident-router)
     cd "$REPO"
     echo "== RESIDENT CAPABILITY DIRTY TEST =="
@@ -1460,6 +1495,9 @@ allowed commands:
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  test-dirty-runtime-gate-expectations # fixed two-class focused test, preserves dirty worktree
+  test-standard-full             # clean future standard unit regression, no reset
+  assemble-standard              # clean future standard compile/assemble, no reset
   test-dirty-startup-backend-check # fixed focused test, preserves dirty worktree
   test-dirty-resident-router # fixed focused test, preserves dirty worktree
   compile-dirty-standard       # dirty worktree compile only, no reset/install
