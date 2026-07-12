@@ -1033,6 +1033,16 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest.kt
     commit: fix: use NPU-only local model with default backend
+
+  local-model-settings-guidance
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlot.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest.kt
+    commit: feat: refine local model settings guidance
 EOF
 }
 
@@ -1175,6 +1185,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest\.kt)$'
       message="fix: use NPU-only local model with default backend"
+      ;;
+    local-model-settings-guidance)
+      git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlot.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlot\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest\.kt)$'
+      message="feat: refine local model settings guidance"
       ;;
     *) fail ;;
   esac
