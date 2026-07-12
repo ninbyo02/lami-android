@@ -61,16 +61,100 @@ class StartupBackendCheckSequenceTest {
     }
 
     @Test
-    fun `runtime evidence maps availability in display order`() {
+    fun `completion label is ready when at least one backend is available`() {
+        fun resolvedSequence(
+            npuAvailable: Boolean,
+            gpuAvailable: Boolean,
+            cpuAvailable: Boolean,
+        ): StartupBackendCheckSequence = StartupBackendCheckSequence.initial()
+            .resolve(StartupBackend.NPU, npuAvailable)
+            .resolve(StartupBackend.GPU, gpuAvailable)
+            .resolve(StartupBackend.CPU, cpuAvailable)
+
+        assertEquals(
+            "LAMI READY",
+            startupCompletionLabelFor(resolvedSequence(true, false, false)),
+        )
+        assertEquals(
+            "LAMI READY",
+            startupCompletionLabelFor(resolvedSequence(false, true, true)),
+        )
+        assertEquals(
+            "LAMI READY",
+            startupCompletionLabelFor(resolvedSequence(true, true, true)),
+        )
+    }
+
+    @Test
+    fun `completion label requires setup when every backend is unavailable`() {
+        val sequence = StartupBackendCheckSequence.initial().timeout()
+
+        assertEquals("SETUP REQUIRED", startupCompletionLabelFor(sequence))
+    }
+
+    @Test
+    fun `NPU-only configuration exposes only NPU`() {
         val availability = startupBackendAvailability(
-            LocalBackendRuntimeEvidence(
+            evidence = LocalBackendRuntimeEvidence(
                 npuSupported = true,
                 npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+                cpuSupported = true,
+                cpuHealthy = true,
+            ),
+            npuModelConfigured = true,
+            genericModelConfigured = false,
+        )
+
+        assertEquals(
+            listOf(
+                StartupBackend.NPU to true,
+                StartupBackend.GPU to false,
+                StartupBackend.CPU to false,
+            ),
+            availability,
+        )
+    }
+
+    @Test
+    fun `generic-only configuration exposes healthy GPU and CPU but not NPU`() {
+        val availability = startupBackendAvailability(
+            evidence = LocalBackendRuntimeEvidence(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+                cpuSupported = true,
+                cpuHealthy = true,
+            ),
+            npuModelConfigured = false,
+            genericModelConfigured = true,
+        )
+
+        assertEquals(
+            listOf(
+                StartupBackend.NPU to false,
+                StartupBackend.GPU to true,
+                StartupBackend.CPU to true,
+            ),
+            availability,
+        )
+    }
+
+    @Test
+    fun `both model configurations expose configured NPU and runtime-backed generic backends`() {
+        val availability = startupBackendAvailability(
+            evidence = LocalBackendRuntimeEvidence(
+                npuSupported = false,
+                npuHealthy = false,
                 gpuSupported = true,
                 gpuHealthy = false,
                 cpuSupported = true,
                 cpuHealthy = true,
             ),
+            npuModelConfigured = true,
+            genericModelConfigured = true,
         )
 
         assertEquals(
@@ -79,6 +163,27 @@ class StartupBackendCheckSequenceTest {
                 StartupBackend.GPU to false,
                 StartupBackend.CPU to true,
             ),
+            availability,
+        )
+    }
+
+    @Test
+    fun `no model configuration exposes no backend despite runtime evidence`() {
+        val availability = startupBackendAvailability(
+            evidence = LocalBackendRuntimeEvidence(
+                npuSupported = true,
+                npuHealthy = true,
+                gpuSupported = true,
+                gpuHealthy = true,
+                cpuSupported = true,
+                cpuHealthy = true,
+            ),
+            npuModelConfigured = false,
+            genericModelConfigured = false,
+        )
+
+        assertEquals(
+            StartupBackend.entries.map { it to false },
             availability,
         )
     }

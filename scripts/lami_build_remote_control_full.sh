@@ -1027,6 +1027,12 @@ safe command recipes:
       app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
     commit: test: align runtime gate expectations
+
+  npu-only-model-selection
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest.kt
+    commit: fix: use NPU-only local model with default backend
 EOF
 }
 
@@ -1164,6 +1170,11 @@ run_git_commit_safe_recipe() {
       git add app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest.kt
       allowed_regex='^(app/src/test/java/io/github/ninbyo02/lami/StandardGpuNoConstraintProviderGradleConfigTest\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalInferenceResidencyPolicyTest\.kt)$'
       message="test: align runtime gate expectations"
+      ;;
+    npu-only-model-selection)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceModelSlotTest\.kt)$'
+      message="fix: use NPU-only local model with default backend"
       ;;
     *) fail ;;
   esac
@@ -1439,6 +1450,12 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   install-dirty-current\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_dirty_current "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
+  test-dirty-npu-only-model-selection)
+    cd "$REPO"
+    echo "== NPU-ONLY MODEL SELECTION DIRTY TEST =="
+    git status --short --branch
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest \
+      --tests '*LocalInferenceModelSlotTest*' ;;
   test-dirty-npu-quality-repair)
     cd "$REPO"
     echo "== NPU QUALITY REPAIR DIRTY TEST =="
@@ -1467,6 +1484,17 @@ case "$CMD" in
     [[ "$(git branch --show-current)" == "future" ]] || fail
     echo "== STANDARD COMPILE/ASSEMBLE =="
     ./gradlew --no-daemon :app:compileStandardDebugKotlin :app:assembleStandardDebug
+    apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+    [[ -s "$apk" ]] || { echo "missing APK: $apk" >&2; exit 65; }
+    echo "apk=$apk"
+    stat -c 'apk_size=%s apk_mtime=%y' "$apk"
+    sha256sum "$apk" ;;
+  assemble-dirty-standard)
+    cd "$REPO"
+    [[ "$(git branch --show-current)" == "future" ]] || fail
+    echo "== STANDARD DIRTY ASSEMBLE =="
+    git status --short --branch
+    ./gradlew --no-daemon :app:assembleStandardDebug
     apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
     [[ -s "$apk" ]] || { echo "missing APK: $apk" >&2; exit 65; }
     echo "apk=$apk"
@@ -1546,9 +1574,11 @@ allowed commands:
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  test-dirty-npu-only-model-selection # fixed LocalInferenceModelSlotTest, preserves dirty worktree
   test-dirty-runtime-gate-expectations # fixed two-class focused test, preserves dirty worktree
   test-standard-full             # clean future standard unit regression, no reset
   assemble-standard              # clean future standard compile/assemble, no reset
+  assemble-dirty-standard        # dirty future standard assemble, no reset
   test-dirty-startup-backend-check # fixed focused test, preserves dirty worktree
   test-dirty-resident-router # fixed focused test, preserves dirty worktree
   compile-dirty-standard       # dirty worktree compile only, no reset/install

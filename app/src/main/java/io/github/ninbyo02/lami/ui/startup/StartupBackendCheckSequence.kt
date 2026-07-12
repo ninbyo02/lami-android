@@ -14,6 +14,9 @@ enum class StartupBackendStatus(val label: String) {
     UNAVAILABLE("利用不可"),
 }
 
+internal const val STARTUP_READY_LABEL = "LAMI READY"
+internal const val STARTUP_SETUP_REQUIRED_LABEL = "SETUP REQUIRED"
+
 data class StartupBackendCheckItem(
     val backend: StartupBackend,
     val status: StartupBackendStatus,
@@ -73,6 +76,12 @@ data class StartupBackendCheckSequence(
     }
 }
 
+internal fun startupCompletionLabelFor(sequence: StartupBackendCheckSequence): String =
+    if (sequence.items.any { it.status == StartupBackendStatus.AVAILABLE }) {
+        STARTUP_READY_LABEL
+    } else {
+        STARTUP_SETUP_REQUIRED_LABEL
+    }
 
 enum class StartupPresentation { BACKEND_CHECK_SPLASH, APP_CONTENT }
 
@@ -94,9 +103,13 @@ data class StartupSplashContract(
     }
 }
 
-internal fun startupBackendAvailability(evidence: LocalBackendRuntimeEvidence): List<Pair<StartupBackend, Boolean>> =
+internal fun startupBackendAvailability(
+    evidence: LocalBackendRuntimeEvidence,
+    npuModelConfigured: Boolean,
+    genericModelConfigured: Boolean,
+): List<Pair<StartupBackend, Boolean>> =
     listOf(
-        StartupBackend.NPU to (evidence.npuSupported && evidence.npuHealthy),
-        StartupBackend.GPU to (evidence.gpuSupported && evidence.gpuHealthy),
-        StartupBackend.CPU to (evidence.cpuSupported && evidence.cpuHealthy),
+        StartupBackend.NPU to npuModelConfigured,
+        StartupBackend.GPU to (genericModelConfigured && evidence.gpuSupported && evidence.gpuHealthy),
+        StartupBackend.CPU to (genericModelConfigured && evidence.cpuSupported && evidence.cpuHealthy),
     )

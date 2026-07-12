@@ -45,7 +45,6 @@ private const val STARTUP_CHECK_TIMEOUT_MS = 1_900L
 private const val RESOLVED_DISPLAY_MS = 650L
 private const val STEP_PACING_MS = 120L
 private const val ROW_REVEAL_STAGGER_MS = 80L
-internal const val STARTUP_READY_LABEL = "LAMI READY"
 private val LamiPurple80 = Color(0xFFD0BCFF)
 private val LamiDark = Color(0xFF141218)
 
@@ -55,6 +54,8 @@ internal fun startupBackendRevealOrder(): List<StartupBackend> =
 internal suspend fun runStartupBackendChecks(
     timeoutMillis: Long,
     resolvedDisplayMillis: Long,
+    npuModelConfigured: Boolean = false,
+    genericModelConfigured: Boolean = false,
     loadEvidence: suspend () -> LocalBackendRuntimeEvidence,
     onSequenceChanged: (StartupBackendCheckSequence) -> Unit,
     onFinished: () -> Unit,
@@ -66,7 +67,11 @@ internal suspend fun runStartupBackendChecks(
             sequence = sequence.timeout()
             onSequenceChanged(sequence)
         } else {
-            startupBackendAvailability(evidence).forEachIndexed { index, (backend, available) ->
+            startupBackendAvailability(
+                evidence = evidence,
+                npuModelConfigured = npuModelConfigured,
+                genericModelConfigured = genericModelConfigured,
+            ).forEachIndexed { index, (backend, available) ->
                 sequence = sequence.resolve(backend, available)
                 onSequenceChanged(sequence)
                 if (index < StartupBackend.entries.lastIndex) delay(STEP_PACING_MS)
@@ -98,13 +103,18 @@ fun StartupBackendSplash(
                 delay(ROW_REVEAL_STAGGER_MS)
             }
         }
+        val (npuModelPath, genericModelPath) = withContext(Dispatchers.IO) {
+            settingsPreferences.getValidLocalBaseModelPathOrNull() to
+                settingsPreferences.getValidLocalGenericModelPathOrNull()
+        }
         runStartupBackendChecks(
             timeoutMillis = STARTUP_CHECK_TIMEOUT_MS,
             resolvedDisplayMillis = RESOLVED_DISPLAY_MS,
+            npuModelConfigured = npuModelPath != null,
+            genericModelConfigured = genericModelPath != null,
             loadEvidence = {
                 withContext(Dispatchers.IO) {
-                    val modelPath = settingsPreferences.getValidLocalBaseModelPathOrNull()
-                    NpuStandardRouteS1AppHistory.runtimeEvidence(context, modelPath)
+                    NpuStandardRouteS1AppHistory.runtimeEvidence(context, npuModelPath)
                 }
             },
             onSequenceChanged = { sequence = it },
@@ -149,7 +159,7 @@ fun StartupBackendSplash(
                     enter = fadeIn() + scaleIn(initialScale = 0.94f),
                 ) {
                     Text(
-                        text = "✓  $STARTUP_READY_LABEL",
+                        text = "✓  ${startupCompletionLabelFor(sequence)}",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
