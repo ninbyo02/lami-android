@@ -12,6 +12,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -58,6 +59,7 @@ import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
 import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
+import io.github.ninbyo02.lami.ui.startup.StartupBackendCheckOverlay
 import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
@@ -239,6 +241,14 @@ class MainActivity : ComponentActivity() {
                                         maxLines = textMaxLines,
                                     )
                                 }
+                            )
+                            StartupBackendCheckOverlay(
+                                context = applicationContext,
+                                settingsPreferences = settingsPreferences,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 20.dp),
                             )
                         }
                     }
