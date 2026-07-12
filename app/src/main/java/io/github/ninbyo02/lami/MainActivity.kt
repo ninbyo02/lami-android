@@ -209,7 +209,14 @@ class MainActivity : ComponentActivity() {
                                             val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG_ROUTE)
                                             Home(navController, viewModel, chatId)
                                         }
-                                        composable(Routes.SETTINGS) { settingsBackStackEntry ->
+                                        composable(
+                                            route = "${Routes.SETTINGS}?localModelFocus={localModelFocus}",
+                                            arguments = listOf(navArgument("localModelFocus") {
+                                                type = NavType.StringType
+                                                nullable = true
+                                                defaultValue = null
+                                            }),
+                                        ) { settingsBackStackEntry ->
                                             Settings(
                                                 navgationController = navController,
                                                 settingsBackStackEntry = settingsBackStackEntry,

@@ -171,6 +171,8 @@ import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunIn
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingHookInput
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsLocalModelFocus
+import io.github.ninbyo02.lami.ui.screens.settings.settingsRouteForLocalModelFocus
 import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
@@ -273,6 +275,28 @@ private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
     "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
 private const val GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE =
     "GPU raw callback probe を実行しました。通常GPU生成の後段処理はスキップしました。"
+
+internal fun resolveMissingLocalModelFocus(
+    preferredBackend: PreferredBackendDryRunSetting?,
+    hasNpuModel: Boolean,
+    hasGenericModel: Boolean,
+): SettingsLocalModelFocus = when (preferredBackend) {
+    PreferredBackendDryRunSetting.NPU,
+    PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> SettingsLocalModelFocus.NPU
+    PreferredBackendDryRunSetting.GPU,
+    PreferredBackendDryRunSetting.CPU,
+    PreferredBackendDryRunSetting.DEFAULT -> SettingsLocalModelFocus.GENERIC
+    null -> SettingsLocalModelFocus.SECTION
+}
+
+internal fun emptyChatActionDestination(
+    inferenceTarget: InferenceTarget,
+    preferredBackend: PreferredBackendDryRunSetting? = null,
+): String = if (inferenceTarget == InferenceTarget.LOCAL) {
+    preferredBackend?.let {
+        settingsRouteForLocalModelFocus(resolveMissingLocalModelFocus(it, false, false))
+    } ?: Routes.SETTINGS
+} else Routes.SETTINGS
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -8111,12 +8135,12 @@ fun Home(
                                             emptyChatUiState.actionLabel?.let { actionLabel ->
                                                 TextButton(
                                                     onClick = {
-                                                        val route = if (selectedInferenceTarget == InferenceTarget.LOCAL) {
-                                                            SettingsRoute.LocalBaseModel.route
-                                                        } else {
-                                                            Routes.SETTINGS
-                                                        }
-                                                        navHostController.navigate(route)
+                                                        navHostController.navigate(
+                                                            emptyChatActionDestination(
+                                                                selectedInferenceTarget,
+                                                                preferredBackendDryRunSetting,
+                                                            )
+                                                        )
                                                     },
                                                     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp),
                                                 ) {

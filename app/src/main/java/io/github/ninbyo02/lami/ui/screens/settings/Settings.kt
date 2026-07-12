@@ -143,6 +143,7 @@ internal data class ServerInput(
 private val ServerValidationIndicatorYOffset = 3.dp
 
 private const val ResetSettingsScrollOnReturnFromAboutKey = "reset_settings_scroll_on_return_from_about"
+private const val LocalModelFocusConsumedKey = "local_model_focus_consumed"
 
 // サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
 private val ServerRowTrailingSlotWidth = 32.dp
@@ -208,7 +209,11 @@ fun Settings(
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
         .collectAsState(initial = null)
+    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow
+        .collectAsState(initial = null)
     val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow
+        .collectAsState(initial = null)
+    val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow
         .collectAsState(initial = null)
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(initial = true)
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
@@ -296,6 +301,13 @@ fun Settings(
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
+    val requestedLocalModelFocus = remember(settingsBackStackEntry) {
+        decodeSettingsLocalModelFocus(
+            settingsBackStackEntry?.arguments?.getString("localModelFocus")
+                ?.let { "localModelFocus=$it" },
+        )
+    }
+    var highlightedLocalModelFocus by remember { mutableStateOf<SettingsLocalModelFocus?>(null) }
     val resetScrollOnReturnFromAbout by
         remember(settingsBackStackEntry) {
             settingsBackStackEntry
@@ -320,6 +332,28 @@ fun Settings(
             settingsBackStackEntry
                 ?.savedStateHandle
                 ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
+        }
+    }
+
+    LaunchedEffect(settingsBackStackEntry, requestedLocalModelFocus) {
+        val savedStateHandle = settingsBackStackEntry?.savedStateHandle
+        if (requestedLocalModelFocus == null || savedStateHandle?.get<Boolean>(LocalModelFocusConsumedKey) == true) return@LaunchedEffect
+        val focus = OneShotSettingsLocalModelFocus(requestedLocalModelFocus).consume() ?: return@LaunchedEffect
+        savedStateHandle?.set(LocalModelFocusConsumedKey, true)
+        listState.animateScrollToItem(
+            SettingsLocalModelScrollTarget.itemIndex,
+            with(density) { SettingsLocalModelScrollTarget.scrollOffsetDp.dp.roundToPx() },
+        )
+        try {
+            highlightedLocalModelFocus = null
+            repeat(LocalModelHighlightVisualContract.pulseCount) {
+                delay(LocalModelHighlightVisualContract.offPhaseMillis.toLong())
+                highlightedLocalModelFocus = focus
+                delay(LocalModelHighlightVisualContract.onPhaseMillis.toLong())
+                highlightedLocalModelFocus = null
+            }
+        } finally {
+            highlightedLocalModelFocus = null
         }
     }
 
@@ -1062,32 +1096,31 @@ fun Settings(
                     }
                 }
             }
-            item {
+            item(key = "local-model-section") {
                 CardSectionHeader(
                     title = "ローカルモデル",
                     description = "端末内で使用するモデルを設定します",
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
-            item {
-                Card {
-                    Column {
-                        SettingsNavRowItem(
-                            headline = LocalModelSlot.NpuPreview.title,
-                            supporting = localBaseModelDisplayName?.takeIf { it.isNotBlank() }
-                                ?: LocalModelSlot.NpuPreview.description,
-                            leadingIcon = null,
-                            onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
-                        )
-                        SettingsNavRowItem(
-                            headline = LocalModelSlot.GenericFallback.title,
-                            supporting = localGenericModelDisplayName?.takeIf { it.isNotBlank() }
-                                ?: LocalModelSlot.GenericFallback.description,
-                            leadingIcon = null,
-                            onClick = { navgationController.navigate(SettingsRoute.LocalGenericFallbackModel.route) },
-                        )
-                    }
-                }
+            item(key = "local-model-cards") {
+                LocalModelSlotCard(
+                    LocalModelSlot.NpuPreview,
+                    highlighted = LocalModelSlot.NpuPreview in resolveLocalModelHighlightSlots(
+                        highlightedLocalModelFocus,
+                        isValidSavedLocalModelInfo(localBaseModelDisplayName, localBaseModelFilePath),
+                        isValidSavedLocalModelInfo(localGenericModelDisplayName, localGenericModelFilePath),
+                    ),
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                LocalModelSlotCard(
+                    LocalModelSlot.GenericFallback,
+                    highlighted = LocalModelSlot.GenericFallback in resolveLocalModelHighlightSlots(
+                        highlightedLocalModelFocus,
+                        isValidSavedLocalModelInfo(localBaseModelDisplayName, localBaseModelFilePath),
+                        isValidSavedLocalModelInfo(localGenericModelDisplayName, localGenericModelFilePath),
+                    ),
+                )
             }
             item {
                 CardSectionHeader(

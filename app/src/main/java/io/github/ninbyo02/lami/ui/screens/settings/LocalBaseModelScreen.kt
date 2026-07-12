@@ -5,6 +5,11 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,9 +20,12 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -68,6 +76,147 @@ fun LocalGenericFallbackModelScreen(navController: NavController) {
         navController = navController,
         slot = LocalModelSlot.GenericFallback,
     )
+}
+
+@Composable
+internal fun LocalModelSlotCard(
+    slot: LocalModelSlot,
+    highlighted: Boolean = false,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsPreferences = remember(context) { SettingsPreferences(context) }
+    var isImporting by remember { mutableStateOf(false) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
+    val savedDisplayName by slot.displayNameFlow(settingsPreferences).collectAsState(initial = null)
+    val savedFilePath by slot.filePathFlow(settingsPreferences).collectAsState(initial = null)
+    val hasModel = isValidSavedLocalModelInfo(savedDisplayName, savedFilePath)
+    val warning = localModelCompatibilityWarning(slot, savedDisplayName)
+
+    LaunchedEffect(savedDisplayName, savedFilePath, isImporting) {
+        if (!isImporting && !hasModel && (!savedDisplayName.isNullOrBlank() || !savedFilePath.isNullOrBlank())) {
+            slot.clearModelInfo(settingsPreferences)
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val displayName = resolveDisplayName(context, uri)
+        if (!isLitertlmDisplayName(displayName)) return@rememberLauncherForActivityResult
+        scope.launch {
+            isImporting = true
+            val importedResult = importLocalModelToAppStorage(context, uri, savedFilePath)
+            if (importedResult != null) {
+                slot.saveModelInfo(settingsPreferences, importedResult.displayName, importedResult.filePath)
+            }
+            isImporting = false
+        }
+    }
+
+    if (showClearConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text("モデル設定を解除しますか？") },
+            text = { Text("選択中の${slot.title}を解除し、端末内に取り込んだファイルを削除します。") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showClearConfirmation = false
+                        scope.launch {
+                            isImporting = true
+                            clearImportedLocalModel(savedFilePath, settingsPreferences, slot)
+                            isImporting = false
+                        }
+                    },
+                ) { Text("解除") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showClearConfirmation = false },
+                ) { Text("キャンセル") }
+            },
+        )
+    }
+
+    val borderColor by animateColorAsState(
+        targetValue = if (highlighted) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+        else MaterialTheme.colorScheme.outlineVariant,
+        animationSpec = tween(durationMillis = 180),
+        label = "localModelCardBorderColorPulse",
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (highlighted) 2.dp else 1.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "localModelCardBorderWidthPulse",
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = LocalModelCardLayoutContract.minHeightDp.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        border = BorderStroke(borderWidth, borderColor),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = slot.title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = slot.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (isImporting) "読み込み中…" else localModelSlotStatusLabel(savedDisplayName),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Button(
+                        onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
+                        enabled = !isImporting,
+                    ) {
+                        Text(localModelSlotActionLabel(hasModel))
+                    }
+                    Box(modifier = Modifier.height(48.dp)) {
+                        if (hasModel) {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showClearConfirmation = true },
+                                enabled = !isImporting,
+                            ) {
+                                Text("解除")
+                            }
+                        }
+                    }
+                }
+            }
+            warning?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -297,7 +446,7 @@ private fun isLitertlmDisplayName(displayName: String?): Boolean {
     return displayName.endsWith(".litertlm", ignoreCase = true)
 }
 
-private fun isValidSavedLocalModelInfo(displayName: String?, filePath: String?): Boolean {
+internal fun isValidSavedLocalModelInfo(displayName: String?, filePath: String?): Boolean {
     if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) return false
     if (!displayName.endsWith(".litertlm", ignoreCase = true)) return false
 
