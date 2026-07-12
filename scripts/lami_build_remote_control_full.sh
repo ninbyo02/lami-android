@@ -1410,7 +1410,10 @@ case "$CMD" in
     [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo "worktree must be clean" >&2; exit 65; }
     [[ "$(git branch --show-current)" == "future" ]] || fail
     echo "== STANDARD FULL UNIT TEST =="
-    ./gradlew --no-daemon :app:testStandardDebugUnitTest ;;
+    ./gradlew --no-daemon :app:testStandardDebugUnitTest
+    report_dir="app/build/test-results/testStandardDebugUnitTest"
+    total="$(awk -F'tests="' '/<testsuite / { split($2,a,"\""); n+=a[1] } END { print n+0 }' "$report_dir"/TEST-*.xml)"
+    echo "standard_unit_tests=$total" ;;
   assemble-standard)
     cd "$REPO"
     [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo "worktree must be clean" >&2; exit 65; }
