@@ -8266,12 +8266,10 @@ fun Home(
                                         val s1DevTraceText = npuStandardRouteS1DevTraceText
                                         val s1FallbackText = npuStandardRouteS1FallbackText
                                         val s4Text = npuStandardRouteS4PseudoStreamingText
+                                        // Keep normal chat backend-neutral: diagnostics remain available from
+                                        // the shared inference stats detail sheet in developer display mode.
                                         val showNpuStandardRouteDevDiagnosticsAfterAnswer =
-                                            developerAccessEnabled &&
-                                                !isInferenceRunningUi &&
-                                                !npuStandardRouteS4PseudoStreamingActive &&
-                                                !showLocalRespondingAssistantRow &&
-                                                !suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed
+                                            false
                                         if (!s1FallbackText.isNullOrBlank()) {
                                             PlainAssistantMessage(
                                                 message = s1FallbackText,

@@ -661,7 +661,7 @@ fun Settings(
                                         text = when (mode) {
                                             InferenceStatsDisplayMode.SIMPLE -> "主要な統計のみを表示"
                                             InferenceStatsDisplayMode.DETAILED -> "通常の詳細統計を表示"
-                                            InferenceStatsDisplayMode.DEVELOPER -> "DEV診断を含む全情報を表示"
+                                            InferenceStatsDisplayMode.DEVELOPER -> "回答下の推論統計カードをタップしてDEV診断を表示"
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
