@@ -1411,8 +1411,8 @@ case "$CMD" in
     [[ "$(git branch --show-current)" == "future" ]] || fail
     echo "== STANDARD FULL UNIT TEST =="
     ./gradlew --no-daemon :app:testStandardDebugUnitTest
-    report_dir="app/build/test-results/testStandardDebugUnitTest"
-    total="$(awk -F'tests="' '/<testsuite / { split($2,a,"\""); n+=a[1] } END { print n+0 }' "$report_dir"/TEST-*.xml)"
+    report="app/build/reports/tests/testStandardDebugUnitTest/index.html"
+    total="$(sed -n 's/.*<div class="counter">\([0-9][0-9]*\)<\/div>.*/\1/p' "$report" | head -1)"
     echo "standard_unit_tests=$total" ;;
   assemble-standard)
     cd "$REPO"
