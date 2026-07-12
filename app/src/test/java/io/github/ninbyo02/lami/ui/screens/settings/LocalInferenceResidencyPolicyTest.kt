@@ -134,12 +134,20 @@ class LocalInferenceResidencyPolicyTest {
 
 
     @Test
-    fun resolvesSettingsSelectionToDisplayOnlyResidencyPolicy() {
+    fun resolvesSettingsSelectionUsingRuntimeEvidence() {
         assertEquals(
             ResidentInferenceBackend.NPU,
             localInferenceResidencyPolicyForUserFacingSelection(
                 InferenceBackendSelection.NPU,
+                runtimeEvidence = LocalBackendRuntimeEvidence(
+                    npuSupported = true,
+                    npuHealthy = true,
+                ),
             ).residentBackend,
+        )
+        assertEquals(
+            ResidentInferenceBackend.GPU,
+            localInferenceResidencyPolicyForUserFacingSelection(InferenceBackendSelection.NPU).residentBackend,
         )
         assertEquals(
             ResidentInferenceBackend.GPU,

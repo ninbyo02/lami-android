@@ -7,23 +7,23 @@ import org.junit.Test
 
 class StandardGpuNoConstraintProviderGradleConfigTest {
     @Test
-    fun `standard debug does not overlay qairt244 custom native stack`() {
+    fun `standard debug stages the separated qairt244 NPU stack`() {
         val gradle = appBuildGradleText()
         val sourceSetsBlock = gradle.substringAfter("sourceSets {")
             .substringBefore("androidComponents {")
         val standardJniMergeBlock = gradle.substringAfter("tasks.matching {")
             .substringBefore("tasks.register(\"verifyQairt244CustomBuildExperimentDebugNativeLibs\")")
-        val standardPackageBlock = gradle.substringAfter("tasks.matching {")
+        val standardPackageBlock = gradle.substringAfter("tasks.register(\"overlayQairt244StandardDebugNativeLibs\")")
             .substringBefore("tasks.register(\"dumpStandardDebugApkNativeLibs\")")
 
-        assertFalse(sourceSetsBlock.contains("create(\"standardDebug\")"))
-        assertFalse(sourceSetsBlock.contains("generated/qairt244StandardDebugJniLibs"))
-        assertFalse(standardJniMergeBlock.contains("mergeStandardDebugJniLibFolders\" }.configureEach"))
-        assertFalse(standardJniMergeBlock.contains("dependsOn(\"stageQairt244StandardDebugNativeLibs\")"))
-        assertFalse(standardPackageBlock.contains("stripStandardDebugDebugSymbols"))
-        assertFalse(standardPackageBlock.contains("overlayQairt244StandardDebugNativeLibs"))
-        assertFalse(standardPackageBlock.contains("packageStandardDebug\" }.configureEach"))
-        assertFalse(standardPackageBlock.contains("overlayQairt244StandardDebugStrippedNativeLibs"))
+        assertTrue(sourceSetsBlock.contains("maybeCreate(\"standardDebug\")"))
+        assertTrue(sourceSetsBlock.contains("generated/qairt244StandardDebugJniLibs"))
+        assertTrue(standardJniMergeBlock.contains("mergeStandardDebugJniLibFolders\" }.configureEach"))
+        assertTrue(standardJniMergeBlock.contains("dependsOn(\"stageQairt244StandardDebugNativeLibs\")"))
+        assertTrue(standardPackageBlock.contains("stripStandardDebugDebugSymbols"))
+        assertTrue(standardPackageBlock.contains("overlayQairt244StandardDebugNativeLibs"))
+        assertTrue(standardPackageBlock.contains("packageStandardDebug\" }.configureEach"))
+        assertTrue(standardPackageBlock.contains("overlayQairt244StandardDebugStrippedNativeLibs"))
     }
 
     @Test
