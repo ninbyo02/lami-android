@@ -73,6 +73,27 @@ data class StartupBackendCheckSequence(
     }
 }
 
+
+enum class StartupPresentation { BACKEND_CHECK_SPLASH, APP_CONTENT }
+
+internal fun initialStartupPresentation(isActivityRecreation: Boolean): StartupPresentation =
+    if (isActivityRecreation) StartupPresentation.APP_CONTENT else StartupPresentation.BACKEND_CHECK_SPLASH
+
+data class StartupSplashContract(
+    val presentation: StartupPresentation,
+    val sequence: StartupBackendCheckSequence,
+) {
+    fun timeout(): StartupSplashContract = copy(sequence = sequence.timeout())
+    fun finish(): StartupSplashContract = copy(presentation = StartupPresentation.APP_CONTENT)
+
+    companion object {
+        fun initial(isActivityRecreation: Boolean): StartupSplashContract = StartupSplashContract(
+            presentation = initialStartupPresentation(isActivityRecreation),
+            sequence = StartupBackendCheckSequence.initial(),
+        )
+    }
+}
+
 internal fun startupBackendAvailability(evidence: LocalBackendRuntimeEvidence): List<Pair<StartupBackend, Boolean>> =
     listOf(
         StartupBackend.NPU to (evidence.npuSupported && evidence.npuHealthy),

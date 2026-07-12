@@ -80,4 +80,39 @@ class StartupBackendCheckSequenceTest {
             availability,
         )
     }
+
+    @Test
+    fun `cold start shows branded startup splash but activity recreation skips it`() {
+        assertEquals(
+            StartupPresentation.BACKEND_CHECK_SPLASH,
+            initialStartupPresentation(isActivityRecreation = false),
+        )
+        assertEquals(
+            StartupPresentation.APP_CONTENT,
+            initialStartupPresentation(isActivityRecreation = true),
+        )
+    }
+
+    @Test
+    fun `resolved sequence transitions to app content only after hold`() {
+        val checking = StartupSplashContract.initial(isActivityRecreation = false)
+        val resolved = checking.copy(
+            sequence = checking.sequence
+                .resolve(StartupBackend.NPU, true)
+                .resolve(StartupBackend.GPU, true)
+                .resolve(StartupBackend.CPU, true),
+        )
+
+        assertEquals(StartupPresentation.BACKEND_CHECK_SPLASH, resolved.presentation)
+        assertEquals(StartupPresentation.APP_CONTENT, resolved.finish().presentation)
+    }
+
+    @Test
+    fun `timeout resolves checks and always permits app transition`() {
+        val timedOut = StartupSplashContract.initial(isActivityRecreation = false).timeout()
+
+        assertTrue(timedOut.sequence.canContinue)
+        assertTrue(timedOut.sequence.timedOut)
+        assertEquals(StartupPresentation.APP_CONTENT, timedOut.finish().presentation)
+    }
 }

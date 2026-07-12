@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -12,7 +13,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -25,6 +25,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -59,7 +61,7 @@ import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
 import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
-import io.github.ninbyo02.lami.ui.startup.StartupBackendCheckOverlay
+import io.github.ninbyo02.lami.ui.startup.StartupBackendSplash
 import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
@@ -115,6 +117,7 @@ class MainActivity : ComponentActivity() {
         val shouldRestoreLastRoute = savedInstanceState == null
 
         setContent {
+            var showStartupSplash by remember { mutableStateOf(savedInstanceState == null) }
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
             LaunchedEffect(settingsData.screenOrientationMode) {
                 requestedOrientation = when (settingsData.screenOrientationMode) {
@@ -155,7 +158,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
+            Crossfade(targetState = showStartupSplash, label = "startup-to-app") { showSplash ->
+                if (showSplash) {
+                    OllamaTheme(dynamicColor = false) {
+                        StartupBackendSplash(
+                            context = applicationContext,
+                            settingsPreferences = settingsPreferences,
+                            onFinished = { showStartupSplash = false },
+                        )
+                    }
+                } else OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val view = LocalView.current
                 val colorScheme = MaterialTheme.colorScheme
                 SideEffect {
@@ -242,16 +254,9 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             )
-                            StartupBackendCheckOverlay(
-                                context = applicationContext,
-                                settingsPreferences = settingsPreferences,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .navigationBarsPadding()
-                                    .padding(horizontal = 16.dp, vertical = 20.dp),
-                            )
                         }
                     }
+                }
                 }
             }
         }

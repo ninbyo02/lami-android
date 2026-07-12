@@ -1002,13 +1002,14 @@ safe command recipes:
       scripts/lami_build_remote_control_full.sh
     commit: feat: update LAMI launcher icon
 
-  startup-backend-check
+  startup-backend-splash
     files:
       app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt
       app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence.kt
       app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest.kt
-    commit: feat: show startup backend availability
+      scripts/lami_build_remote_control_full.sh
+    commit: feat: move backend checks into startup splash
 
   npu-jni-soname-separation
     files:
@@ -1149,10 +1150,10 @@ run_git_commit_safe_recipe() {
       allowed_regex='^(app/src/main/res/drawable/ic_launcher_background\.xml|app/src/main/res/drawable/ic_launcher_foreground_inset70\.xml|app/src/main/res/drawable/ic_launcher_monochrome\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v26/ic_launcher_round\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher\.xml|app/src/main/res/mipmap-anydpi-v33/ic_launcher_round\.xml|app/src/main/res/mipmap-hdpi/ic_launcher\.webp|app/src/main/res/mipmap-hdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-mdpi/ic_launcher\.webp|app/src/main/res/mipmap-mdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxhdpi/ic_launcher_round\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher\.webp|app/src/main/res/mipmap-xxxhdpi/ic_launcher_round\.webp|app/src/main/res/values/ic_launcher_background\.xml|scripts/lami_build_remote_control_full\.sh)$'
       message="feat: update LAMI launcher icon"
       ;;
-    startup-backend-check)
-      git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay.kt app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest.kt
-      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest\.kt)$'
-      message="feat: show startup backend availability"
+    startup-backend-splash)
+      git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence.kt app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay.kt app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest.kt scripts/lami_build_remote_control_full.sh
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequence\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckOverlay\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/startup/StartupBackendCheckSequenceTest\.kt|scripts/lami_build_remote_control_full\.sh)$'
+      message="feat: move backend checks into startup splash"
       ;;
     npu-jni-soname-separation)
       git add app/build.gradle.kts app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuNativeLinkFailureDiagnostics.kt scripts/build_litert_custom_artifacts.sh scripts/lami_build_qairt244_forced_commands.sh scripts/lami_build_remote_control_full.sh scripts/stage_litert_custom_build_stack_for_experiment.sh
