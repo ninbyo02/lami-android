@@ -31,7 +31,13 @@ internal fun NpuStandardRouteS1Result.toSharedInferenceStats(
         decodeDurationMs = timing.decodeMs,
         totalDurationMs = totalDurationMs,
         finishReason = reason,
-        localSourceSummary = displayText,
+        localSourceSummary = buildString {
+            append("route_family=npu_standard; backend=NPU")
+            if (npuBackendEvidence.isNotBlank()) {
+                append("; evidence=")
+                append(npuBackendEvidence)
+            }
+        },
         timeToFirstTokenMs = timing.ttftMs,
         completionTokens = outputTokens,
         responseCharCount = normalizedText.length,

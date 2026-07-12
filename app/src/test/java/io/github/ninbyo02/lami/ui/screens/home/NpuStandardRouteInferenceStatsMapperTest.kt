@@ -32,6 +32,11 @@ class NpuStandardRouteInferenceStatsMapperTest {
         assertEquals(6, stats.responseCharCount)
         assertEquals("success", stats.finishReason)
         assertEquals(true, stats.notes?.contains("backend=NPU"))
+        assertEquals(
+            "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag",
+            stats.localSourceSummary,
+        )
+        assertEquals(false, stats.localSourceSummary?.contains("こんにちは！"))
     }
 
     @Test

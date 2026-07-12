@@ -5071,16 +5071,15 @@ fun Home(
                                                                 npuStandardRouteDeliveryPath = "phase6_db_save_blocked_chat_id_missing"
                                                             } else {
                                                                 try {
+                                                                    val sharedInferenceStats = s1Result
+                                                                        .toSharedInferenceStats(npuStandardRouteAssistantTextForPersist)
                                                                     val assistantId = withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = currentChatId,
                                                                                 response = npuStandardRouteAssistantTextForPersist,
-                                                                                latestInferenceStats = s1Result
-                                                                                    .toSharedInferenceStats(
-                                                                                        npuStandardRouteAssistantTextForPersist,
-                                                                                    ),
-                                                                                localSourceSummary = s1DisplayTextForDev,
+                                                                                latestInferenceStats = sharedInferenceStats,
+                                                                                localSourceSummary = sharedInferenceStats.localSourceSummary,
                                                                             )
                                                                         ).toInt()
                                                                     }
@@ -5378,10 +5377,12 @@ fun Home(
                                                                     }
                                                                 }
                                                                 val resolvedChatId = currentChatId
+                                                                val sharedInferenceStats = npuStandardRoutePersistedResult
+                                                                    .toSharedInferenceStats(assistantTextForPersist)
                                                                 val npuStandardRouteInferenceStats =
                                                                     buildNpuStandardRouteInferenceStats(
                                                                         result = npuStandardRoutePersistedResult,
-                                                                        localSourceSummary = npuStandardRoutePersistedDisplayTextWithMemory,
+                                                                        localSourceSummary = sharedInferenceStats.localSourceSummary.orEmpty(),
                                                                         assistantText = assistantTextForPersist,
                                                                     )
                                                                 val assistantId = withContext(Dispatchers.IO) {
@@ -5390,7 +5391,7 @@ fun Home(
                                                                             chatId = resolvedChatId,
                                                                             response = assistantTextForPersist,
                                                                             latestInferenceStats = npuStandardRouteInferenceStats,
-                                                                            localSourceSummary = npuStandardRoutePersistedDisplayTextWithMemory,
+                                                                            localSourceSummary = sharedInferenceStats.localSourceSummary,
                                                                         )
                                                                     ).toInt()
                                                                 }

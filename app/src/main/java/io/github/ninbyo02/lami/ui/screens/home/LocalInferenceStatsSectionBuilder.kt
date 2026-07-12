@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.dryRunRoutingDecision
@@ -45,6 +46,16 @@ private fun isLocalBackendInferenceStats(stats: InferenceStats): Boolean {
         "local_cpu",
     ).any { marker -> haystack.contains(marker, ignoreCase = true) }
 }
+
+private fun hasNpuExecutionEvidence(stats: InferenceStats): Boolean {
+    val evidence = listOfNotNull(stats.notes, stats.localSourceSummary)
+        .joinToString(separator = "\n")
+    return evidence.contains("backend=NPU", ignoreCase = true) ||
+        evidence.contains("QNN_HTP", ignoreCase = true)
+}
+
+private fun displayOnlyResidentPolicySelection(stats: InferenceStats): InferenceBackendSelection? =
+    InferenceBackendSelection.NPU.takeIf { hasNpuExecutionEvidence(stats) }
 
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
@@ -170,9 +181,17 @@ internal fun buildInferenceDetailSections(
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
-    val residentPolicy = localInferenceResidencyPolicyForUserFacingSelection(
-        inferenceBackendSelectionForResidentPolicy(preferredBackendDryRunSetting),
-    )
+    val npuDisplaySelection = displayOnlyResidentPolicySelection(stats)
+    val residentPolicy = if (npuDisplaySelection != null) {
+        localInferenceResidencyPolicyForUserFacingSelection(
+            npuDisplaySelection,
+            LocalBackendRuntimeEvidence(npuSupported = true, npuHealthy = true)
+        )
+    } else {
+        localInferenceResidencyPolicyForUserFacingSelection(
+            inferenceBackendSelectionForResidentPolicy(preferredBackendDryRunSetting),
+        )
+    }
     val residentPolicySummary = residentPolicy.toSummary()
     val residentRoutingDryRunDecision = residentPolicy.dryRunRoutingDecision(
         LocalInferenceRoutingDryRunInput(
