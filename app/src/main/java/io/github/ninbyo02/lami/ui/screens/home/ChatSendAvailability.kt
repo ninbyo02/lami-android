@@ -128,6 +128,49 @@ internal fun stableChatMessageKey(
     return "user-${message.chatId}-${normalizedText.hashCode()}-$sameTextOccurrence"
 }
 
+internal sealed interface ChatScrollDecision {
+    data object None : ChatScrollDecision
+    data class Item(val index: Int) : ChatScrollDecision
+}
+
+internal fun resolveChatAppendScrollDecision(
+    previousMessages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    currentMessages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    isNearBottom: Boolean,
+    autoFollowEnabled: Boolean,
+): ChatScrollDecision {
+    if (currentMessages.isEmpty()) return ChatScrollDecision.None
+
+    val previousUserCount = previousMessages.count { it.isSendbyMe }
+    val currentUserCount = currentMessages.count { it.isSendbyMe }
+    if (currentUserCount > previousUserCount) {
+        val latestUserIndex = currentMessages.indexOfLast { it.isSendbyMe }
+        return if (latestUserIndex >= 0) {
+            ChatScrollDecision.Item(latestUserIndex)
+        } else {
+            ChatScrollDecision.None
+        }
+    }
+
+    val previousKeys = previousMessages.indices.map {
+        stableChatMessageKey(previousMessages, it)
+    }
+    val currentKeys = currentMessages.indices.map {
+        stableChatMessageKey(currentMessages, it)
+    }
+    if (previousKeys == currentKeys) return ChatScrollDecision.None
+
+    return if (
+        currentMessages.size > previousMessages.size &&
+        isNearBottom &&
+        autoFollowEnabled
+    ) {
+        ChatScrollDecision.Item(currentMessages.lastIndex)
+    } else {
+        ChatScrollDecision.None
+    }
+}
+
 internal fun shouldShowLocalRespondingPlaceholder(
     isLocalRunning: Boolean,
     localStopRequested: Boolean,

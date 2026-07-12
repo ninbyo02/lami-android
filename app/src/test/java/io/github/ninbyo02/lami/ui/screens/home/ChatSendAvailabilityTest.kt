@@ -107,6 +107,76 @@ class ChatSendAvailabilityTest {
     }
 
     @Test
+    fun `first user row wins over assistant tail even when both append together`() {
+        val messages = listOf(
+            io.github.ninbyo02.lami.db.entity.Message(
+                chatId = 7,
+                message = "こんにちは",
+                isSendbyMe = true,
+            ),
+            io.github.ninbyo02.lami.db.entity.Message(
+                chatId = 7,
+                message = "こんにちは！",
+                isSendbyMe = false,
+            ),
+        )
+
+        assertEquals(
+            ChatScrollDecision.Item(0),
+            resolveChatAppendScrollDecision(
+                previousMessages = emptyList(),
+                currentMessages = messages,
+                isNearBottom = true,
+                autoFollowEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `pending replacement with persisted row does not scroll`() {
+        val pending = io.github.ninbyo02.lami.db.entity.Message(
+            chatId = 7,
+            message = "こんにちは",
+            isSendbyMe = true,
+        )
+        val persisted = pending.copy(messageID = 42)
+
+        assertEquals(
+            ChatScrollDecision.None,
+            resolveChatAppendScrollDecision(
+                previousMessages = listOf(pending),
+                currentMessages = listOf(persisted),
+                isNearBottom = true,
+                autoFollowEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `assistant only append follows tail near bottom`() {
+        val user = io.github.ninbyo02.lami.db.entity.Message(
+            chatId = 7,
+            message = "こんにちは",
+            isSendbyMe = true,
+        )
+        val assistant = io.github.ninbyo02.lami.db.entity.Message(
+            chatId = 7,
+            message = "こんにちは！",
+            isSendbyMe = false,
+        )
+
+        assertEquals(
+            ChatScrollDecision.Item(1),
+            resolveChatAppendScrollDecision(
+                previousMessages = listOf(user),
+                currentMessages = listOf(user, assistant),
+                isNearBottom = true,
+                autoFollowEnabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun `pending local user message is shown immediately before database insert is observed`() {
         assertTrue(
             shouldShowPendingLocalUserMessage(

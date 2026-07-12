@@ -7917,11 +7917,13 @@ fun Home(
                         }
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
                         var autoFollowEnabled by remember(effectiveChatId) { mutableStateOf(true) }
+                        var previousMessagesForScroll by remember(effectiveChatId) { mutableStateOf(messagesForList) }
                         var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
                         var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
                         var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
 
                         LaunchedEffect(effectiveChatId) {
+                            previousMessagesForScroll = messagesForList
                             previousMessageCount = messagesForList.size
                             lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
                             suppressFollowOnce = true
@@ -7964,19 +7966,6 @@ fun Home(
                                 return@LaunchedEffect
                             }
 
-                            // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行。
-                            // Local/NPU は送信直後に pending 行を先に描画しているため、同じ発話が
-                            // DB 行に置換された瞬間は強制スクロールしない。ここで scrollToItem すると
-                            // 初回ユーザーバブルが一段上に跳ねて見える。
-                            val latestPersistedUserText = allChats.lastOrNull { it.isSendbyMe }?.message?.trim()
-                            val pendingLocalText = pendingLocalUserMessageText?.trim()
-                            val isPendingLocalUserPersisted =
-                                !pendingLocalText.isNullOrBlank() && latestPersistedUserText == pendingLocalText
-                            if (userCount > previousUserCount && !isPendingLocalUserPersisted) {
-                                val newAnchor = computeLatestUserAnchor(allChats)
-                                listState.scrollToItem(newAnchor)
-                            }
-
                             lastUserMessageCountByChatId[currentChatId] = userCount
                         }
 
@@ -7989,6 +7978,19 @@ fun Home(
                         LaunchedEffect(effectiveChatId, messagesForList) {
                             try {
                                 val currentChatId = effectiveChatId ?: return@LaunchedEffect
+
+                                val scrollDecision = resolveChatAppendScrollDecision(
+                                    previousMessages = previousMessagesForScroll,
+                                    currentMessages = messagesForList,
+                                    isNearBottom = isNearBottomSnapshot,
+                                    autoFollowEnabled = autoFollowEnabled,
+                                )
+                                previousMessagesForScroll = messagesForList
+                                if (scrollDecision is ChatScrollDecision.Item) {
+                                    listState.scrollToItem(scrollDecision.index)
+                                    lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
+                                    suppressFollowOnce = true
+                                }
 
                                 // 初期同期ガード
                                 if (previousMessageCount == -1) {
@@ -8010,27 +8012,6 @@ fun Home(
                                 if (followSuppressedByAnchorUpdate) {
                                     lastAppliedAnchor = currentAnchor
                                     suppressFollowOnce = true
-                                }
-
-                                if (messagesForList.isNotEmpty()) {
-                                    val lastIndex = messagesForList.lastIndex
-                                    val latestMessage = messagesForList.lastOrNull()
-                                    val pendingLocalText = pendingLocalUserMessageText?.trim()
-                                    val appendedPendingLocalUserRow =
-                                        appended &&
-                                            latestMessage?.isSendbyMe == true &&
-                                            !pendingLocalText.isNullOrBlank() &&
-                                            latestMessage.message.trim() == pendingLocalText
-                                    if (
-                                        appended &&
-                                        !appendedPendingLocalUserRow &&
-                                        isNearBottomSnapshot &&
-                                        autoFollowEnabled &&
-                                        !suppressFollowOnce &&
-                                        lastIndex >= 0
-                                    ) {
-                                        listState.scrollToItem(lastIndex)
-                                    }
                                 }
 
                                 previousMessageCount = currentMessageCount
