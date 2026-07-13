@@ -38,6 +38,77 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun resizeSelectionToMax288_smallerSelectionIsNotApplied() {
+        val bitmap = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val result = resizeSelectionToMax288(bitmap, RectPx.of(10, 20, 200, 100))
+
+        assertEquals(false, result.applied)
+        assertEquals(RectPx.of(10, 20, 200, 100), result.selection)
+        assertEquals(300, result.bitmap.width)
+        assertEquals(300, result.bitmap.height)
+    }
+
+    @Test
+    fun resizeSelectionToMax288_576x288Becomes288x144WithoutChangingCanvas() {
+        val bitmap = Bitmap.createBitmap(600, 400, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 40 until 328) for (x in 12 until 588) bitmap.setPixel(x, y, Color.BLACK)
+
+        val result = resizeSelectionToMax288(
+            bitmap,
+            RectPx.of(12, 40, 576, 288),
+            downscaleMode = ResizeDownscaleMode.PixelArtStable,
+        )
+
+        assertEquals(true, result.applied)
+        assertEquals(RectPx.of(12, 40, 288, 144), result.selection)
+        assertEquals(600, result.bitmap.width)
+        assertEquals(400, result.bitmap.height)
+    }
+
+    @Test
+    fun resizeSelectionToMax288_anchorsMatchExisting96Behavior() {
+        val bitmap = Bitmap.createBitmap(600, 400, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 40 until 328) for (x in 12 until 588) bitmap.setPixel(x, y, Color.BLACK)
+
+        val topLeft = resizeSelectionToMax288(
+            bitmap,
+            RectPx.of(12, 40, 576, 288),
+            anchor = ResizeAnchor.TopLeft,
+            downscaleMode = ResizeDownscaleMode.PixelArtStable,
+        )
+        val center = resizeSelectionToMax288(
+            bitmap,
+            RectPx.of(12, 40, 576, 288),
+            anchor = ResizeAnchor.Center,
+            downscaleMode = ResizeDownscaleMode.PixelArtStable,
+        )
+
+        assertEquals(RectPx.of(12, 40, 288, 144), topLeft.selection)
+        assertEquals(RectPx.of(156, 112, 288, 144), center.selection)
+    }
+
+    @Test
+    fun resizeSelectionToMax96_defaultBehaviorRemains96() {
+        val bitmap = Bitmap.createBitmap(240, 160, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+
+        val result = resizeSelectionToMax96(
+            bitmap,
+            RectPx.of(0, 0, 192, 96),
+            downscaleMode = ResizeDownscaleMode.PixelArtStable,
+        )
+
+        assertEquals(true, result.applied)
+        assertEquals(RectPx.of(0, 0, 96, 48), result.selection)
+        assertEquals(240, result.bitmap.width)
+        assertEquals(160, result.bitmap.height)
+    }
+
+    @Test
     fun resizeCanvas_enlargeTopLeft_preservesTopLeftPixel() {
         val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)

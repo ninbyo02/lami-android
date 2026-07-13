@@ -172,7 +172,8 @@ private sealed class LastToolOp {
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
     data object CenterContentInBox : LastToolOp()
-    data class ResizeToMax96(
+    data class ResizeSelection(
+        val targetMaxPx: Int,
         val anchor: ResizeAnchor,
         val stepFactor: Float,
         val downscaleMode: ResizeDownscaleMode,
@@ -191,8 +192,9 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
             LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
-            is LastToolOp.ResizeToMax96 -> listOf(
-                "ResizeToMax96",
+            is LastToolOp.ResizeSelection -> listOf(
+                "ResizeSelection",
+                op.targetMaxPx.toString(),
                 op.anchor.name,
                 op.stepFactor.toString(),
                 op.downscaleMode.name,
@@ -211,27 +213,16 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             "ClearRegion" -> LastToolOp.ClearRegion
             "FillConnected" -> LastToolOp.FillConnected
             "CenterContentInBox" -> LastToolOp.CenterContentInBox
-            "ResizeToMax96" -> {
-                val anchorName = data.getOrNull(1) ?: ResizeAnchor.TopLeft.name
-                val anchor = try {
-                    ResizeAnchor.valueOf(anchorName)
-                } catch (_: IllegalArgumentException) {
-                    ResizeAnchor.TopLeft
-                }
-                val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
-                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.PixelArtStable.name
-                val downscaleMode = try {
-                    ResizeDownscaleMode.valueOf(modeName)
-                } catch (_: IllegalArgumentException) {
-                    ResizeDownscaleMode.PixelArtStable
-                }
-                val methodName = data.getOrNull(4) ?: PixelArtStableMethod.CenterSample.name
-                val pixelArtMethod = try {
-                    PixelArtStableMethod.valueOf(methodName)
-                } catch (_: IllegalArgumentException) {
-                    PixelArtStableMethod.CenterSample
-                }
-                LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
+            "ResizeSelection" -> {
+                val targetMaxPx = data.getOrNull(1)?.toIntOrNull() ?: 96
+                val anchorName = data.getOrNull(2) ?: ResizeAnchor.TopLeft.name
+                val anchor = try { ResizeAnchor.valueOf(anchorName) } catch (_: IllegalArgumentException) { ResizeAnchor.TopLeft }
+                val stepFactor = data.getOrNull(3)?.toFloatOrNull() ?: 0.5f
+                val modeName = data.getOrNull(4) ?: ResizeDownscaleMode.PixelArtStable.name
+                val downscaleMode = try { ResizeDownscaleMode.valueOf(modeName) } catch (_: IllegalArgumentException) { ResizeDownscaleMode.PixelArtStable }
+                val methodName = data.getOrNull(5) ?: PixelArtStableMethod.CenterSample.name
+                val pixelArtMethod = try { PixelArtStableMethod.valueOf(methodName) } catch (_: IllegalArgumentException) { PixelArtStableMethod.CenterSample }
+                LastToolOp.ResizeSelection(targetMaxPx, anchor, stepFactor, downscaleMode, pixelArtMethod)
             }
 
             else -> null
@@ -283,6 +274,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyDialogComment by rememberSaveable { mutableStateOf("") }
     var applyDialogCommentKind by rememberSaveable { mutableStateOf(ApplyDialogCommentKind.None) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var resizeTargetMaxPx by rememberSaveable { mutableStateOf(96) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
     var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
     var resizePixelArtMethod by rememberSaveable { mutableStateOf(PixelArtStableMethod.CenterSample) }
@@ -328,29 +320,27 @@ fun SpriteEditorScreen(navController: NavController) {
 
     fun runResizeSelection(
         current: SpriteEditorState,
+        targetMaxPx: Int,
         anchor: ResizeAnchor,
         stepFactor: Float,
         downscaleMode: ResizeDownscaleMode,
         pixelArtMethod: PixelArtStableMethod,
         repeated: Boolean,
     ) {
-        val resizeResult = resizeSelectionToMax96(
-            current.bitmap,
-            current.selection,
-            anchor = anchor,
-            stepFactor = stepFactor,
-            downscaleMode = downscaleMode,
-            pixelArtMethod = pixelArtMethod,
-        )
+        val resizeResult = if (targetMaxPx == 288) {
+            resizeSelectionToMax288(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+        } else {
+            resizeSelectionToMax96(current.bitmap, current.selection, targetMaxPx, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+        }
         if (!resizeResult.applied) {
-            scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
+            scope.launch { showSnackbarMessage("Resize skipped (already <= ${targetMaxPx}px)") }
             return
         }
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
         isDirty = true
-        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
-        val message = if (repeated) "Repeated: Resize" else "Resize applied"
+        lastToolOp = LastToolOp.ResizeSelection(targetMaxPx, anchor, stepFactor, downscaleMode, pixelArtMethod)
+        val message = if (repeated) "Repeated: Resize max ${targetMaxPx}px" else "Resize max ${targetMaxPx}px applied"
         scope.launch { showSnackbarMessage(message) }
     }
 
@@ -1574,9 +1564,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 }
                                                             }
 
-                                                            is LastToolOp.ResizeToMax96 -> {
+                                                            is LastToolOp.ResizeSelection -> {
                                                                 runResizeSelection(
                                                                     current,
+                                                                    targetMaxPx = op.targetMaxPx,
                                                                     anchor = op.anchor,
                                                                     stepFactor = op.stepFactor,
                                                                     downscaleMode = op.downscaleMode,
@@ -2472,7 +2463,17 @@ fun SpriteEditorScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Shrink selection to max 96px (keeps aspect ratio).")
+                    Text("選択範囲を指定サイズ内に縮小（縦横比を維持）")
+                    Row(modifier = Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(modifier = Modifier.selectable(selected = resizeTargetMaxPx == 96, onClick = { resizeTargetMaxPx = 96 }, role = Role.RadioButton).testTag("spriteEditorResizeMax96"), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = resizeTargetMaxPx == 96, onClick = null)
+                            Text("最大 96×96")
+                        }
+                        Row(modifier = Modifier.selectable(selected = resizeTargetMaxPx == 288, onClick = { resizeTargetMaxPx = 288 }, role = Role.RadioButton).testTag("spriteEditorResizeMax288"), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = resizeTargetMaxPx == 288, onClick = null)
+                            Text("最大 288×288")
+                        }
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2671,6 +2672,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 } else {
                                     runResizeSelection(
                                         current,
+                                        targetMaxPx = resizeTargetMaxPx,
                                         anchor = resizeAnchor,
                                         stepFactor = resizeStepFactor,
                                         downscaleMode = resizeDownscaleMode,

@@ -798,11 +798,33 @@ private fun copySelectionPixels(src: Bitmap, rect: RectPx): IntArray {
     return selectionPixels
 }
 
-// 選択矩形内を最大サイズに合わせて縮小する
+// 96px APIと挙動を互換維持し、共通実装へ委譲する
 fun resizeSelectionToMax96(
     src: Bitmap,
     selection: RectPx,
     maxSize: Int = 96,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, maxSize, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+fun resizeSelectionToMax288(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 288, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+private fun resizeSelectionToMax(
+
+    src: Bitmap,
+    selection: RectPx,
+    targetMaxPx: Int,
     anchor: ResizeAnchor = ResizeAnchor.TopLeft,
     stepFactor: Float = 0.5f,
     minAlphaCutoff: Int = 4,
@@ -817,10 +839,11 @@ fun resizeSelectionToMax96(
     }
     val safeSelection = rectNormalizeClamp(selection, width, height)
     val maxDim = maxOf(safeSelection.w, safeSelection.h)
-    if (maxDim <= maxSize) {
+    val safeTargetMaxPx = targetMaxPx.coerceAtLeast(1)
+    if (maxDim <= safeTargetMaxPx) {
         return ResizeSelectionResult(safeSrc, safeSelection, false, "already <= max")
     }
-    val scale = maxSize.toFloat() / maxDim.toFloat()
+    val scale = safeTargetMaxPx.toFloat() / maxDim.toFloat()
     val dstW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
     val dstH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
     val pasteX = when (anchor) {
