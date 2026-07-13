@@ -452,6 +452,151 @@ run_emulator_start_standard_lami() {
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
 }
 
+run_test_dirty_sprite_bitmap_ops() {
+  cd "$REPO"
+  echo "== SPRITE BITMAP OPS DIRTY TEST =="
+  git status --short --branch
+  ./gradlew --no-daemon :app:testStandardDebugUnitTest \
+    --tests 'io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteBitmapOpsTest'
+  echo "== SPRITE BITMAP OPS DIRTY TEST OK =="
+}
+
+run_emulator_open_sprite_editor_lami() {
+  local adb serial app_id dump
+  adb="$HOME/lami-android-sdk/platform-tools/adb"
+  serial="emulator-5554"
+  app_id="io.github.ninbyo02.lami"
+  dump="/sdcard/window-lami-sprite.xml"
+  [[ -x "$adb" ]] || fail
+  "$adb" -s "$serial" wait-for-device
+  [[ "$("$adb" -s "$serial" shell getprop sys.boot_completed | tr -d '\r')" == "1" ]] || fail
+
+  ui_dump() {
+    "$adb" -s "$serial" shell uiautomator dump "$dump" >/dev/null
+    "$adb" -s "$serial" exec-out cat "$dump" | tr -d '\r'
+  }
+  tap_matching_node() {
+    local pattern="$1" xml bounds x1 y1 x2 y2
+    xml="$(ui_dump)"
+    bounds="$(printf '%s' "$xml" | python3 -c '
+import re, sys, xml.etree.ElementTree as ET
+pattern = re.compile(sys.argv[1])
+root = ET.fromstring(sys.stdin.read())
+parents = {child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    text, desc = node.get("text", ""), node.get("content-desc", "")
+    label = text + "\n" + desc
+    if not (pattern.fullmatch(text) or pattern.fullmatch(desc)):
+        continue
+    target = node
+    while target is not None and target.get("clickable") != "true":
+        target = parents.get(target)
+    if target is None:
+        target = node
+    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", target.get("bounds", ""))
+    if match:
+        print(" ".join(match.groups()))
+        print("tap_node=" + repr(label.replace("\n", " / ")) + " clickable=" + target.get("clickable", "") + " bounds=" + target.get("bounds", ""), file=sys.stderr)
+        break
+' "$pattern")"
+    [[ -n "$bounds" ]] || return 1
+    read -r x1 y1 x2 y2 <<<"$bounds"
+    "$adb" -s "$serial" shell input tap "$(((x1+x2)/2))" "$(((y1+y2)/2))"
+    sleep 2
+  }
+  tap_first_switch() {
+    local xml bounds x1 y1 x2 y2
+    xml="$(ui_dump)"
+    bounds="$(printf '%s' "$xml" | sed 's/></>\n</g' | grep -E 'class="android.widget.(Switch|CheckBox)"|checkable="true"' | head -1 | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')"
+    [[ -n "$bounds" ]] || return 1
+    read -r x1 y1 x2 y2 <<<"$bounds"
+    "$adb" -s "$serial" shell input tap "$(((x1+x2)/2))" "$(((y1+y2)/2))"
+    sleep 2
+  }
+
+  "$adb" -s "$serial" shell am force-stop "$app_id"
+  "$adb" -s "$serial" shell monkey -p "$app_id" -c android.intent.category.LAUNCHER 1 >/dev/null
+  sleep 12
+  if ui_dump | grep -q 'text="Settings"' && ui_dump | grep -q 'text="Sprite Editor"'; then
+    tap_matching_node '^Sprite Editor$' || true
+    sleep 3
+  fi
+  if ! ui_dump | grep -q 'content-desc="Sprite Editor Preview"'; then
+    tap_matching_node '設定|Settings' || true
+    tap_matching_node 'スプライト設定|Sprite Settings' || true
+    if ui_dump | grep -q 'text="Sprite Settings"'; then
+      if ui_dump | grep -q 'text="開発メニューを表示"'; then
+        "$adb" -s "$serial" shell input tap 950 2196; sleep 2
+      fi
+      "$adb" -s "$serial" shell input keyevent 4
+      sleep 2
+    fi
+    if ! ui_dump | grep -q 'content-desc="Sprite Editor Preview"'; then
+      "$adb" -s "$serial" shell input swipe 540 2100 540 500 500
+      sleep 1
+      tap_matching_node 'スプライトエディタ|Sprite Editor|エディタを開く' || true
+      if ! ui_dump | grep -q 'text="Sprite Editor"'; then
+        "$adb" -s "$serial" shell input swipe 540 500 540 2100 500
+        sleep 1
+        tap_matching_node 'スプライトエディタ|Sprite Editor|エディタを開く' || true
+      fi
+    fi
+  fi
+  ui_dump | grep -q 'content-desc="Sprite Editor Preview"' || {
+    echo "sprite_editor_navigation=failed"
+    ui_dump | sed 's/></>\n</g' | grep -E 'text="[^"]+"|content-desc="[^"]+"' | head -120
+    return 65
+  }
+  sprite_ui_failure() {
+    echo "sprite_editor_ui_failure=$1"
+    ui_dump | sed 's/></>\n</g' | grep -E 'text="[^"]+"|content-desc="[^"]+"' | head -120
+    return 65
+  }
+  tap_matching_node 'More\.\.\.' || { sprite_ui_failure 'more_menu_trigger_missing'; return 65; }
+  tap_matching_node 'Resize\.\.\.' || { sprite_ui_failure 'resize_menu_item_missing'; return 65; }
+  tap_matching_node '最大 288×288' || { sprite_ui_failure 'resize_288_option_missing'; return 65; }
+  ui_dump | grep -q 'text="Resize"' || { sprite_ui_failure 'resize_dialog_title_missing'; return 65; }
+  ui_dump | grep -q 'text="最大 96×96"' || { sprite_ui_failure 'resize_96_option_missing'; return 65; }
+  ui_dump | grep -q 'text="最大 288×288"' || { sprite_ui_failure 'resize_288_selected_option_missing'; return 65; }
+  echo "sprite_editor_resize_dialog=ok"
+  echo "resize_option_96=visible"
+  echo "resize_option_288=visible_selected"
+}
+
+run_emulator_screenshot_sprite_editor_lami() {
+  local adb serial out_dir timestamp png xml remote_png remote_xml size
+  adb="$HOME/lami-android-sdk/platform-tools/adb"
+  serial="emulator-5554"
+  out_dir="$HOME/build-logs/emulator-screenshots"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  png="$out_dir/lami-sprite-resize-$timestamp.png"
+  xml="$out_dir/lami-sprite-resize-$timestamp.xml"
+  remote_png="/sdcard/lami-sprite-resize.png"
+  remote_xml="/sdcard/lami-sprite-resize.xml"
+  mkdir -p "$out_dir"
+  [[ -x "$adb" ]] || fail
+  "$adb" -s "$serial" shell uiautomator dump "$remote_xml" >/dev/null
+  "$adb" -s "$serial" shell screencap -p "$remote_png"
+  "$adb" -s "$serial" pull "$remote_png" "$png" >/dev/null
+  "$adb" -s "$serial" pull "$remote_xml" "$xml" >/dev/null
+  "$adb" -s "$serial" shell rm -f "$remote_png" "$remote_xml"
+  grep -q 'text="Resize"' "$xml" || fail
+  grep -q 'text="最大 96×96"' "$xml" || fail
+  grep -q 'text="最大 288×288"' "$xml" || fail
+  size="$(stat -c '%s' "$png")"
+  (( size > 0 && size <= 10485760 )) || fail
+  echo "screenshot=$png"
+  echo "ui_dump=$xml"
+  echo "size_bytes=$size"
+  echo "png_base64_begin"
+  base64 -w0 "$png"
+  echo
+  echo "png_base64_end"
+  echo "ui_xml_begin"
+  sed -n '1,120p' "$xml"
+  echo "ui_xml_end"
+}
+
 run_branch_task() {
   local mode="$1"
   local branch="$2"
@@ -1043,6 +1188,13 @@ safe command recipes:
       app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
       app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest.kt
     commit: feat: refine local model settings guidance
+
+  sprite-resize-288
+    files:
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt
+      app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt
+      app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt
+    commit: feat: add 288 sprite selection resize
 EOF
 }
 
@@ -1190,6 +1342,11 @@ run_git_commit_safe_recipe() {
       git add app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlot.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest.kt
       allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/MainActivity\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlot\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/settings/LocalModelSlotTest\.kt)$'
       message="feat: refine local model settings guidance"
+      ;;
+    sprite-resize-288)
+      git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps\\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen\\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest\\.kt)$'
+      message="feat: add 288 sprite selection resize"
       ;;
     *) fail ;;
   esac
@@ -1401,6 +1558,10 @@ case "$CMD" in
     run_emulator_lami_script wait ;;
   emulator-log-lami)
     run_emulator_lami_log ;;
+  emulator-open-sprite-editor-lami)
+    run_emulator_open_sprite_editor_lami ;;
+  emulator-screenshot-sprite-editor-lami)
+    run_emulator_screenshot_sprite_editor_lami ;;
   emulator-install-standard-lami)
     run_emulator_install_standard_lami ;;
   emulator-start-standard-lami)
@@ -1465,6 +1626,8 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_future "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
   install-dirty-current\ *)
     parts=($CMD); [[ "${#parts[@]}" -ge 3 && "${#parts[@]}" -le 4 ]] || fail; run_install_dirty_current "${parts[1]}" "${parts[2]}" "${parts[3]:-$DEFAULT_FLAVOR}" ;;
+  test-dirty-sprite-bitmap-ops)
+    run_test_dirty_sprite_bitmap_ops ;;
   test-dirty-npu-only-model-selection)
     cd "$REPO"
     echo "== NPU-ONLY MODEL SELECTION DIRTY TEST =="
@@ -1550,6 +1713,10 @@ allowed commands:
   emulator-create-lami-avd  # fixed create Medium_Phone_API_36.1 AVD for lami-build
   emulator-write-lami-env  # fixed write scripts/emulator.env for lami-build SDK/AVD
   emulator-doctor-lami|emulator-list-lami|emulator-start-lami|emulator-stop-lami|emulator-wait-lami|emulator-log-lami
+  emulator-install-standard-lami # fixed standard debug build/install to emulator-5554
+  emulator-start-standard-lami # fixed standard app launch on emulator-5554
+  emulator-open-sprite-editor-lami # fixed navigation to Sprite Editor Resize dialog on emulator-5554
+  emulator-screenshot-sprite-editor-lami # fixed Resize dialog PNG/XML readback from emulator-5554
   adb-pair <10.5.5.3|192.168.52.52> <pair-port> <6-digit-code>
   adb-connect <10.5.5.3|192.168.52.52> <connect-port>
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
@@ -1589,6 +1756,7 @@ allowed commands:
   update-live-controller-from-repo
   install-future <10.5.5.3|192.168.52.52> <port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   install-dirty-current <10.5.5.3|192.168.52.52> <port> [standard|customBuildExperiment]
+  test-dirty-sprite-bitmap-ops # fixed SpriteBitmapOpsTest, preserves dirty worktree
   test-dirty-npu-only-model-selection # fixed LocalInferenceModelSlotTest, preserves dirty worktree
   test-dirty-runtime-gate-expectations # fixed two-class focused test, preserves dirty worktree
   test-standard-full             # clean future standard unit regression, no reset
