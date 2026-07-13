@@ -1345,7 +1345,7 @@ run_git_commit_safe_recipe() {
       ;;
     sprite-resize-288)
       git add app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt
-      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps\\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen\\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest\\.kt)$'
+      allowed_regex='^(app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps\.kt|app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen\.kt|app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest\.kt)$'
       message="feat: add 288 sprite selection resize"
       ;;
     *) fail ;;
