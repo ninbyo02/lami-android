@@ -3310,10 +3310,13 @@ internal suspend fun runWithHeldEngine(
             var blockingFastPathResponseUsed = false
             var blockingFastPathStartedAtMs: Long? = null
             val flowResponse = runCatching {
-                if (cpuBlockingFastPathEnabled || (
-                    BuildConfig.CURRENT_FLAVOR == "standard" &&
-                        heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU
-                    )) {
+                if (cpuBlockingFastPathEnabled || shouldUseHeldOfficialBlockingFastPath(
+                        currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+                        gpuGenerateProbeMode = generateProbeMode,
+                        callbackStreamingDebugPropertyEnabled = normalRouteUseCallbackStreamingRequested,
+                    )
+                ) {
                     if (namespace != "com.google.ai.edge.litertlm") return@runCatching null
                     val sendMessageMethod = conversation.javaClass.methods.firstOrNull { method ->
                         method.name == "sendMessage" &&
@@ -3830,6 +3833,7 @@ internal suspend fun runWithHeldEngine(
             blockingResponse
         }
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) throw throwable
         failureDiagnosticsText = mediaPipeProbeContext?.let {
             buildLocalInferenceFailureDiagnosticsText(
                 context = it,
@@ -4218,7 +4222,10 @@ private fun mergeTokenizerRecountSnapshot(
             mediaPipeOutputTokens = tokenizerSnapshot.mediaPipeOutputTokens ?: base.mediaPipeOutputTokens,
             mediaPipeTotalTokens = tokenizerSnapshot.mediaPipeTotalTokens ?: base.mediaPipeTotalTokens,
             tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
-            notes = tokenizerSnapshot.notes ?: base.notes,
+            notes = if (tokenizerSnapshot.inputTokens != null ||
+                tokenizerSnapshot.outputTokens != null ||
+                tokenizerSnapshot.totalTokens != null
+            ) tokenizerSnapshot.notes else tokenizerSnapshot.notes ?: base.notes,
             tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
             charsPerSecond = tokenizerSnapshot.charsPerSecond ?: base.charsPerSecond,
             ttftMs = tokenizerSnapshot.ttftMs ?: base.ttftMs,
@@ -4244,7 +4251,6 @@ private fun readTokenizerRecountSnapshotFromConversation(
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
 ): LocalInferenceMeasuredTokenSnapshot? {
-    if (conversation !is Conversation) return null
     return runCatching {
         if (BuildConfig.DEBUG && promptText.isBlank()) {
             safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped-empty-prompt")
@@ -4264,13 +4270,17 @@ private fun readTokenizerRecountSnapshotFromConversation(
         }?.takeIf { it.isFinite() }
 
         val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
-        val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
-            conversation = conversation,
-            tokenizerSessionSource = tokenizerSessionSource,
-            promptText = promptText,
-            fullResponseText = fullResponseText,
-            appendTrace = appendTrace,
-        )
+        val tokenizerRecountOutcome = if (conversation is Conversation) {
+            tryReadTokenizerRecountViaReflection(
+                conversation = conversation,
+                tokenizerSessionSource = tokenizerSessionSource,
+                promptText = promptText,
+                fullResponseText = fullResponseText,
+                appendTrace = appendTrace,
+            )
+        } else {
+            TokenizerRecountOutcome(status = "conversation-unavailable-post-completion")
+        }
         val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
             tokenizerSessionSource = tokenizerSessionSource,
             preferredModelPath = mediaPipeProbeModelPath,
@@ -4342,6 +4352,42 @@ private fun readTokenizerRecountSnapshotFromConversation(
             "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
     }.getOrNull()
+}
+
+internal suspend fun recountLocalInferenceTokensAfterCompletion(
+    context: Context,
+    modelPath: String?,
+    prompt: String,
+    response: String,
+    trace: LocalInferenceTrace,
+): LocalInferenceTrace = withContext(Dispatchers.IO) {
+    val startedAtMs = trace.localTraceStartElapsedRealtimeMs
+        ?: return@withContext trace
+    val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
+        ?: return@withContext trace
+    val existingSnapshot = trace.measuredTokenSnapshot
+    val recountedSnapshot = mergeTokenizerRecountSnapshot(
+        base = existingSnapshot,
+        conversation = null,
+        tokenizerSessionSource = null,
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        mediaPipeProbeContext = context.applicationContext,
+        promptText = prompt,
+        fullResponseText = response,
+        timing = LocalLiteRtTimingSnapshot(
+            startedAtMs = startedAtMs,
+            firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
+            lastChunkAtMs = endedAtMs,
+            endedAtMs = endedAtMs,
+        ),
+        appendTrace = { message ->
+            if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
+        },
+    ) ?: return@withContext trace
+    trace.copy(
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        measuredTokenSnapshot = recountedSnapshot,
+    )
 }
 
 private data class TokenizerRecountResult(
@@ -6034,6 +6080,16 @@ private fun tryResolveExistingSessionForTokenizer(
     return null
 }
 
+private val SAFE_TOKENIZER_TRAVERSAL_METHODS = setOf(
+    "tokenizer",
+    "getTokenizer",
+    "getInputTokenizer",
+    "getOutputTokenizer",
+)
+
+internal fun isSafeTokenizerTraversalMethod(methodName: String): Boolean =
+    methodName in SAFE_TOKENIZER_TRAVERSAL_METHODS
+
 private fun tryResolveTokenizerFromConversation(
     conversation: Any,
     appendTrace: (String) -> Unit,
@@ -6057,7 +6113,10 @@ private fun tryResolveTokenizerFromConversation(
             )
         }
         clazz.methods
-            .filter { it.parameterTypes.isEmpty() }
+            .filter { method ->
+                method.parameterTypes.isEmpty() &&
+                    isSafeTokenizerTraversalMethod(method.name)
+            }
             .forEach { method ->
                 runCatching {
                     val result = method.invoke(obj) ?: return@forEach
@@ -6065,14 +6124,6 @@ private fun tryResolveTokenizerFromConversation(
                     queue.add("$path.${method.name}()" to result)
                 }
             }
-        clazz.declaredFields.forEach { field ->
-            runCatching {
-                field.isAccessible = true
-                val value = field.get(obj) ?: return@forEach
-                if (value.javaClass.name.startsWith("java")) return@forEach
-                queue.add("$path.${field.name}" to value)
-            }
-        }
     }
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer not found from conversation")
     return null
@@ -6370,6 +6421,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
+            if (throwable is CancellationException) throw throwable
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
             fallbackReasonReported = true
             runCatching { onFallbackReason(reasonCode) }
@@ -6453,6 +6505,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
+            if (throwable is CancellationException) throw throwable
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_blocking_exception"
             runCatching { onFallbackReason(reasonCode) }
             mediaPipeProbeContext?.let { context ->
@@ -7610,6 +7663,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) throw throwable
         val npuPreferredBackendApplyResult = preferredBackendApplyResult
             ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
         if (npuPreferredBackendApplyResult != null) {
@@ -7813,6 +7867,7 @@ private fun runOfficialLiteRtLmBlocking(
             closeLifecycleSummary = closeSummary,
         )
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) throw throwable
         val npuPreferredBackendApplyResult = preferredBackendApplyResult
             ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
         if (npuPreferredBackendApplyResult != null) {
@@ -7973,7 +8028,7 @@ internal fun buildLiteRtEngineConfig(
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
-        PreferredBackendDryRunSetting.DEFAULT -> Backend.CPU()
+        PreferredBackendDryRunSetting.DEFAULT -> Backend.GPU()
         PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback().backend
         PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback().backend
     }
@@ -8053,7 +8108,7 @@ internal fun resolveLiteRtTextBackendSelection(
     when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> LiteRtTextBackendSelection("CPU", "applied-engine-config")
         PreferredBackendDryRunSetting.GPU -> LiteRtTextBackendSelection("GPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.DEFAULT -> LiteRtTextBackendSelection("CPU", "cpu-priority-default-engine-config")
+        PreferredBackendDryRunSetting.DEFAULT -> LiteRtTextBackendSelection("GPU", "automatic-gpu-before-cpu-engine-config")
         PreferredBackendDryRunSetting.NPU,
         PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> LiteRtTextBackendSelection(
             appliedPreferredBackend = "GPU",

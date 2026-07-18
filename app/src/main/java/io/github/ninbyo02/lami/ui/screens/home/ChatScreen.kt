@@ -167,6 +167,8 @@ import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.ResidentInferenceBackend
+import io.github.ninbyo02.lami.ui.screens.settings.automaticLocalBackendPlan
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
 import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingHookInput
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
@@ -174,6 +176,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsLocalModelFocus
 import io.github.ninbyo02.lami.ui.screens.settings.settingsRouteForLocalModelFocus
 import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
+import io.github.ninbyo02.lami.ui.screens.settings.localBackendCapabilityForUserFacingSelection
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.resolveResidentRouterHookDecision
@@ -692,6 +695,203 @@ private enum class TopPaddingMode {
     ExistingConversation,
 }
 
+internal suspend fun <T> runInferenceBackendWithFallback(
+    primaryBackend: suspend () -> T,
+    shouldFallback: (T) -> Boolean,
+    fallbackBackend: suspend () -> T,
+    onPrimaryFailure: (Exception) -> Unit = {},
+): T {
+    val primaryResult = try {
+        primaryBackend()
+    } catch (exception: CancellationException) {
+        throw exception
+    } catch (exception: Exception) {
+        onPrimaryFailure(exception)
+        return fallbackBackend()
+    }
+    return if (shouldFallback(primaryResult)) {
+        fallbackBackend()
+    } else {
+        primaryResult
+    }
+}
+
+internal data class InferenceBackendChainAttempt<T>(
+    val backend: String,
+    val run: suspend () -> T,
+)
+
+internal data class InferenceBackendChainResult<T>(
+    val result: T?,
+    val successfulBackend: String?,
+    val attemptedBackends: List<String>,
+    val failureDiagnostics: List<String>,
+) {
+    val diagnosticPath: String
+        get() = attemptedBackends.joinToString(",")
+}
+
+internal suspend fun <T> runInferenceBackendChain(
+    attempts: List<InferenceBackendChainAttempt<T>>,
+    shouldFallback: (T) -> Boolean,
+): InferenceBackendChainResult<T> {
+    require(attempts.isNotEmpty()) { "At least one inference backend is required" }
+    val attemptedBackends = mutableListOf<String>()
+    val failures = mutableListOf<String>()
+    var lastRejectedResult: T? = null
+
+    attempts.forEach { attempt ->
+        attemptedBackends += attempt.backend
+        val result = try {
+            attempt.run()
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            failures += "${attempt.backend}:exception:${exception.javaClass.simpleName}:${exception.message.orEmpty()}"
+            return@forEach
+        }
+        if (!shouldFallback(result)) {
+            return InferenceBackendChainResult(
+                result = result,
+                successfulBackend = attempt.backend,
+                attemptedBackends = attemptedBackends.toList(),
+                failureDiagnostics = failures.toList(),
+            )
+        }
+        lastRejectedResult = result
+        failures += "${attempt.backend}:rejected_result"
+    }
+
+    return InferenceBackendChainResult(
+        result = lastRejectedResult,
+        successfulBackend = null,
+        attemptedBackends = attemptedBackends.toList(),
+        failureDiagnostics = failures.toList(),
+    )
+}
+
+internal data class NpuFallbackInferencePersistence(
+    val inferenceStats: InferenceStats,
+    val localSourceSummary: String,
+)
+
+internal fun buildSuccessfulNpuFallbackInferencePersistence(
+    successfulBackend: String?,
+    response: String,
+    trace: LocalInferenceTrace?,
+): NpuFallbackInferencePersistence? {
+    val finalBackend = successfulBackend
+        ?.trim()
+        ?.uppercase(Locale.US)
+        ?.takeIf { it == "GPU" || it == "CPU" }
+        ?: return null
+    val finalResponse = response.trim().takeIf { it.isNotBlank() } ?: return null
+    val finalTrace = trace ?: return null
+    val generationTimeMs = when {
+        finalTrace.localTraceStartElapsedRealtimeMs != null &&
+            finalTrace.localTraceCompletedElapsedRealtimeMs != null ->
+            (finalTrace.localTraceCompletedElapsedRealtimeMs -
+                finalTrace.localTraceStartElapsedRealtimeMs).coerceAtLeast(0L)
+        finalTrace.wallClockTotalInferenceDurationNs != null ->
+            (finalTrace.wallClockTotalInferenceDurationNs / 1_000_000L).coerceAtLeast(0L)
+        else -> 0L
+    }
+    val stats = buildLocalInferenceStatsFromTrace(
+        trace = finalTrace,
+        generationTimeMs = generationTimeMs,
+        responseCharCount = finalResponse.length,
+        responseText = finalResponse,
+        fallbackTimeToFirstTokenMs = generationTimeMs,
+    ) ?: return null
+    fun compact(value: String?): String = value
+        ?.replace('\n', ' ')
+        ?.replace(';', ',')
+        ?.trim()
+        ?.take(120)
+        ?.takeIf { it.isNotBlank() }
+        ?: "unavailable"
+    val fallbackPath = when (finalBackend) {
+        "GPU" -> "NPU,GPU"
+        "CPU" -> "NPU,GPU,CPU"
+        else -> error("unreachable")
+    }
+    val compactProvenance = listOf(
+        "route_family=npu_quality_fallback",
+        "effective_backend=$finalBackend",
+        "fallback_used=true",
+        "fallback_path=$fallbackPath",
+        "backend_evidence=${compact(finalTrace.appliedPreferredBackend)}",
+        "model=${compact(stats.modelName ?: stats.modelLabel ?: stats.model)}",
+        "source=${compact(finalTrace.selectedAssistantResponseSource)}",
+    ).joinToString("; ")
+    val hasFinalTokenCounts = stats.inputTokens != null ||
+        stats.outputTokens != null ||
+        stats.totalTokens != null ||
+        stats.completionTokens != null
+    val finalTokenCountMode = stats.tokenCountMode ?: if (
+        finalTrace.sessionPromptTokens != null ||
+        finalTrace.sessionResponseTokens != null ||
+        finalTrace.sessionTotalTokens != null
+    ) {
+        "session-token-count"
+    } else if (hasFinalTokenCounts) {
+        "source-unavailable"
+    } else {
+        "unavailable"
+    }
+    val finalTokenNotes = stats.notes ?: when (finalTokenCountMode) {
+        "unavailable" ->
+            "Final $finalBackend backend tokenizer-based token count を取得できませんでした。" +
+                "架空の token 数・生成速度は保存していません。"
+        "source-unavailable" ->
+            "Final $finalBackend backend token counts は保持しましたが、token 計測元 metadata は取得できませんでした。"
+        else -> null
+    }
+    val finalStats = stats.copy(
+        totalDurationMs = stats.totalDurationMs ?: generationTimeMs,
+        inferenceTimeSec = stats.inferenceTimeSec ?: generationTimeMs.div(1000.0),
+        tokenCountMode = finalTokenCountMode,
+        notes = finalTokenNotes,
+        localSourceSummary = compactProvenance,
+    )
+    return NpuFallbackInferencePersistence(
+        inferenceStats = finalStats,
+        localSourceSummary = compactProvenance,
+    )
+}
+
+internal data class NpuStandardRouteTtsOwnership(
+    val phaseOwner: Boolean,
+    val legacyOwner: Boolean,
+) {
+    val ownerCount: Int
+        get() = listOf(phaseOwner, legacyOwner).count { it }
+}
+
+internal fun resolveNpuStandardRouteTtsOwnership(
+    phaseTtsEligible: Boolean,
+    legacyTtsEligible: Boolean,
+): NpuStandardRouteTtsOwnership =
+    NpuStandardRouteTtsOwnership(
+        phaseOwner = phaseTtsEligible,
+        legacyOwner = legacyTtsEligible && !phaseTtsEligible,
+    )
+
+internal fun resolveUseNewConversationTopPadding(
+    storedModePresent: Boolean,
+    storedModeIsNewConversation: Boolean,
+    persistedMessagesEmpty: Boolean,
+    firstPersistedMessageIsUser: Boolean,
+    pendingFirstUserVisible: Boolean,
+): Boolean {
+    if (storedModePresent) return storedModeIsNewConversation
+    return if (persistedMessagesEmpty) {
+        pendingFirstUserVisible
+    } else {
+        firstPersistedMessageIsUser
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
@@ -769,6 +969,26 @@ fun Home(
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
     val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow.collectAsState(initial = null)
     val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow.collectAsState(initial = null)
+    val automaticNpuModelEligibility = resolveNpuStandardRouteS1ModelEligibility(
+        selectedModelName = localBaseModelDisplayName ?: selectedModel,
+        selectedModelFile = localBaseModelFilePath,
+    )
+    val automaticBackendPlan = automaticLocalBackendPlan(
+        capability = localBackendCapabilityForUserFacingSelection(
+            selection = InferenceBackendSelection.AUTOMATIC,
+            runtimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
+                context = context.applicationContext,
+                currentNpuModelPath = localBaseModelFilePath,
+            ),
+        ).copy(
+            // Static model compatibility is the cold-start evidence. Runtime history is
+            // intentionally not a prerequisite: it cannot exist before the first NPU run.
+            npuSupported = automaticNpuModelEligibility.npuModelEligible,
+            npuHealthy = automaticNpuModelEligibility.npuModelEligible,
+        ),
+        npuModelAvailable = automaticNpuModelEligibility.npuModelEligible,
+        genericModelAvailable = !localGenericModelFilePath.isNullOrBlank(),
+    )
     val selectedLocalModelSlot = resolveLocalModelSlotForAvailableModels(
         preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         npuModelPath = localBaseModelFilePath,
@@ -797,21 +1017,37 @@ fun Home(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
             )
-            runLocalInferenceOnceEntry(
-                context = context.applicationContext,
-                settingsPreferences = settingsPreferences,
-                localBaseModelFilePath = runLocalBaseModelFilePath,
-                localBaseModelDisplayName = runLocalBaseModelDisplayName,
-                localGenericModelFilePath = localGenericModelFilePath,
-                localGenericModelDisplayName = localGenericModelDisplayName,
-                resolvedModelPath = runResolvedModelPath,
-                resolvedCacheDirPath = runCacheDirPath,
-                mediaPipeProbeContext = runMediaPipeProbeContext,
-                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-                markdownStreamingMode = markdownStreamingMode,
-                prompt = runPrompt,
-                onPartial = onPartial,
-            )
+            suspend fun runWithBackend(backend: PreferredBackendDryRunSetting): LocalInferenceRunResult =
+                runLocalInferenceOnceEntry(
+                    context = context.applicationContext,
+                    settingsPreferences = settingsPreferences,
+                    localBaseModelFilePath = runLocalBaseModelFilePath,
+                    localBaseModelDisplayName = runLocalBaseModelDisplayName,
+                    localGenericModelFilePath = localGenericModelFilePath,
+                    localGenericModelDisplayName = localGenericModelDisplayName,
+                    resolvedModelPath = runResolvedModelPath,
+                    resolvedCacheDirPath = runCacheDirPath,
+                    mediaPipeProbeContext = runMediaPipeProbeContext,
+                    preferredBackendDryRunSetting = backend,
+                    markdownStreamingMode = markdownStreamingMode,
+                    prompt = runPrompt,
+                    onPartial = onPartial,
+                )
+            if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
+                runWithBackend(preferredBackendDryRunSetting)
+            } else {
+                runInferenceBackendWithFallback(
+                    primaryBackend = { runWithBackend(PreferredBackendDryRunSetting.GPU) },
+                    shouldFallback = { result -> result.response?.trim().isNullOrBlank() },
+                    fallbackBackend = { runWithBackend(PreferredBackendDryRunSetting.CPU) },
+                    onPrimaryFailure = { exception ->
+                        appendLocalReflectionTrace(
+                            context = context.applicationContext,
+                            message = "UPSTREAM automatic explicit GPU failed; fallback=CPU class=${exception.javaClass.simpleName}",
+                        )
+                    },
+                )
+            }
         }
     }
     val savedChatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
@@ -834,7 +1070,14 @@ fun Home(
         npuStandardRouteMode = npuStandardRouteMode,
         selectionSource = npuStandardRouteSelectionSource,
     )
-    val effectiveNpuStandardRouteMode = npuStandardRouteRolloutSelection.effectiveMode
+    val automaticNpuRouteSelected =
+        preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT &&
+            automaticBackendPlan.firstOrNull() == ResidentInferenceBackend.NPU
+    val effectiveNpuStandardRouteMode = if (automaticNpuRouteSelected) {
+        NpuStandardRouteMode.FULL
+    } else {
+        npuStandardRouteRolloutSelection.effectiveMode
+    }
     val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
         initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     )
@@ -1175,6 +1418,59 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
+
+    fun scheduleNpuFallbackTokenizerStatsUpdate(
+        assistantId: Int,
+        chatId: Int,
+        persistedResponse: String,
+        prompt: String,
+        response: String,
+        successfulBackend: String?,
+        trace: LocalInferenceTrace,
+        modelPath: String?,
+    ) {
+        if (assistantId <= 0 || successfulBackend !in setOf("GPU", "CPU")) return
+        coroutineScope.launch {
+            val recountedTrace = recountLocalInferenceTokensAfterCompletion(
+                context = context.applicationContext,
+                modelPath = modelPath,
+                prompt = prompt,
+                response = response,
+                trace = trace,
+            )
+            val updatedPersistence = buildSuccessfulNpuFallbackInferencePersistence(
+                successfulBackend = successfulBackend,
+                response = response,
+                trace = recountedTrace,
+            ) ?: return@launch
+            val updatedStats = updatedPersistence.inferenceStats
+            if (updatedStats.inputTokens == null &&
+                updatedStats.outputTokens == null &&
+                updatedStats.totalTokens == null
+            ) return@launch
+            val updated = withContext(Dispatchers.IO) {
+                val current = viewModel.getMessageById(assistantId) ?: return@withContext false
+                if (current.isSendbyMe ||
+                    current.chatId != chatId ||
+                    current.message != persistedResponse
+                ) return@withContext false
+                val replacement = createAssistantMessage(
+                    chatId = chatId,
+                    response = persistedResponse,
+                    latestInferenceStats = updatedStats,
+                    localSourceSummary = updatedPersistence.localSourceSummary,
+                ).copy(
+                    messageID = current.messageID,
+                    createdAtEpochMs = current.createdAtEpochMs,
+                )
+                viewModel.updateMessage(replacement)
+                true
+            }
+            if (updated) {
+                immediateInferenceStatsByMessageId[assistantId] = updatedStats
+            }
+        }
+    }
 
     DisposableEffect(effectiveChatId) {
         onDispose {
@@ -2920,7 +3216,16 @@ fun Home(
         timedOut: AtomicBoolean,
         progressFlagsProvider: () -> LocalRouteDiagnosticFlags = { LocalRouteDiagnosticFlags() },
     ): Job? {
-        if (!shouldApplyGpuExperimentalStageTimeout(diagnosticContext)) return null
+        val preferredBackend = PreferredBackendDryRunSetting.values().firstOrNull {
+            it.name == diagnosticContext.preferredBackend
+        } ?: PreferredBackendDryRunSetting.DEFAULT
+        val timeoutPolicy = resolveGpuExperimentalTimeoutPolicy(
+            context = diagnosticContext,
+            preferredBackend = preferredBackend,
+            gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackend),
+            currentFlavor = BuildConfig.CURRENT_FLAVOR,
+        )
+        if (!timeoutPolicy.useFirstTokenWatchdog) return null
         return coroutineScope.launch {
             delay(GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS)
             if (timedOut.get()) return@launch
@@ -4638,6 +4943,10 @@ fun Home(
                                                                 ] == "true"
                                                         val npuStandardRouteLegacyS5TtsAllowed =
                                                             npuStandardRouteTtsAllowed && !npuStandardRoutePhaseGateActive
+                                                        val npuStandardRouteTtsOwnership = resolveNpuStandardRouteTtsOwnership(
+                                                            phaseTtsEligible = npuStandardRouteTtsAllowed,
+                                                            legacyTtsEligible = npuStandardRouteLegacyS5TtsAllowed,
+                                                        )
                                                         val npuStandardRouteLegacyDbSaveAllowed =
                                                             npuStandardRouteDbSaveAllowed && !npuStandardRoutePhaseGateActive
                                                         val s1RouteDisplayText = if (npuStandardRouteUiAppendAllowed) {
@@ -4646,18 +4955,28 @@ fun Home(
                                                             s1Result.displayText
                                                         }
                                                         val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
-                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                        npuStandardRouteS1DisplayText = s1RouteDisplayText
+                                                        val shouldFallbackNpuFailure =
+                                                            shouldFallbackNpuStandardRouteFailureToLocal(s1Result) &&
+                                                                !localStopRequested
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
+                                                            shouldFallbackNpuFailure
+                                                        npuStandardRouteS1DisplayText =
+                                                            s1RouteDisplayText.takeUnless { shouldFallbackNpuFailure }
                                                         val s1Fallback = resolveNpuStandardRouteS1Fallback(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
                                                         )
-                                                        npuStandardRouteS1FallbackText = s1Fallback?.text
+                                                        npuStandardRouteS1FallbackText =
+                                                            s1Fallback?.text.takeUnless { shouldFallbackNpuFailure }
                                                         val npuFailureAssistantText = resolveNpuStandardRouteFailureAssistantMessage(
                                                             result = s1Result,
                                                             transientFallback = s1Fallback,
                                                         )
-                                                        if (npuFailureAssistantText != null && !localStopRequested) {
+                                                        if (
+                                                            npuFailureAssistantText != null &&
+                                                            !localStopRequested &&
+                                                            !shouldFallbackNpuFailure
+                                                        ) {
                                                             npuStandardRouteS1FallbackText = null
                                                             withContext(Dispatchers.IO) {
                                                                 viewModel.insertAssistantMessageAndReturnId(
@@ -4738,13 +5057,10 @@ fun Home(
                                                         } else {
                                                             null
                                                         }
-                                                        val npuFallbackBackendSetting =
-                                                            resolveNpuStandardRouteLocalFallbackBackend(preferredBackendDryRunSetting)
-                                                        if (
-                                                            shouldFallbackNpuStandardRouteFailureToLocal(s1Result) &&
-                                                            !localStopRequested
-                                                        ) {
-                                                            val fallbackResult = runLocalInferenceOnceEntry(
+                                                        if (shouldFallbackNpuFailure) {
+                                                            suspend fun runGenericFallback(
+                                                                backend: PreferredBackendDryRunSetting,
+                                                            ): LocalInferenceRunResult = runLocalInferenceOnceEntry(
                                                                 context = context.applicationContext,
                                                                 settingsPreferences = settingsPreferences,
                                                                 localBaseModelFilePath = localBaseModelFilePath,
@@ -4752,49 +5068,41 @@ fun Home(
                                                                 localGenericModelFilePath = localGenericModelFilePath,
                                                                 localGenericModelDisplayName = localGenericModelDisplayName,
                                                                 mediaPipeProbeContext = context.applicationContext,
-                                                                preferredBackendDryRunSetting = npuFallbackBackendSetting,
+                                                                preferredBackendDryRunSetting = backend,
                                                                 markdownStreamingMode = markdownStreamingMode,
                                                                 prompt = requestPrompt,
                                                                 onPartial = { partial ->
-                                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                    localStreamingResponseText = partial
-                                                                    streamingResponseTextForRender = partial
-                                                                },
-                                                            )
-                                                            val fallbackResponse = fallbackResult.response?.trim().orEmpty()
-                                                            val cpuFallbackResult = if (
-                                                                fallbackResponse.isBlank() &&
-                                                                npuFallbackBackendSetting == PreferredBackendDryRunSetting.GPU
-                                                            ) {
-                                                                runLocalInferenceOnceEntry(
-                                                                    context = context.applicationContext,
-                                                                    settingsPreferences = settingsPreferences,
-                                                                    localBaseModelFilePath = localBaseModelFilePath,
-                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
-                                                                    localGenericModelFilePath = localGenericModelFilePath,
-                                                                    localGenericModelDisplayName = localGenericModelDisplayName,
-                                                                    mediaPipeProbeContext = context.applicationContext,
-                                                                    preferredBackendDryRunSetting = PreferredBackendDryRunSetting.CPU,
-                                                                    markdownStreamingMode = markdownStreamingMode,
-                                                                    prompt = requestPrompt,
-                                                                    onPartial = { partial ->
-                                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
+                                                                    if (!localStopRequested) {
                                                                         localStreamingResponseText = partial
                                                                         streamingResponseTextForRender = partial
+                                                                    }
+                                                                },
+                                                            )
+                                                            val fallbackChain = runInferenceBackendChain(
+                                                                attempts = listOf(
+                                                                    InferenceBackendChainAttempt("GPU") {
+                                                                        runGenericFallback(PreferredBackendDryRunSetting.GPU)
                                                                     },
+                                                                    InferenceBackendChainAttempt("CPU") {
+                                                                        runGenericFallback(PreferredBackendDryRunSetting.CPU)
+                                                                    },
+                                                                ),
+                                                                shouldFallback = { result ->
+                                                                    result.response?.trim().isNullOrBlank()
+                                                                },
+                                                            )
+                                                            val finalFallbackResult = fallbackChain.result
+                                                                ?: LocalInferenceRunResult(
+                                                                    state = LocalInferenceEngineState.ERROR,
+                                                                    response = null,
+                                                                    trace = LocalInferenceTrace(
+                                                                        localFailureDiagnosticsText =
+                                                                            fallbackChain.failureDiagnostics.joinToString(" | "),
+                                                                    ),
                                                                 )
-                                                            } else {
-                                                                null
-                                                            }
-                                                            val finalFallbackResult = cpuFallbackResult
-                                                                ?.takeIf { !it.response?.trim().isNullOrBlank() }
-                                                                ?: fallbackResult
-                                                            val finalFallbackBackend =
-                                                                if (finalFallbackResult === cpuFallbackResult) {
-                                                                    PreferredBackendDryRunSetting.CPU
-                                                                } else {
-                                                                    npuFallbackBackendSetting
-                                                                }
+                                                            val finalFallbackBackend = fallbackChain.successfulBackend
+                                                                ?: fallbackChain.attemptedBackends.lastOrNull()
+                                                                ?: "none"
                                                             val finalFallbackResponse =
                                                                 finalFallbackResult.response?.trim().orEmpty()
                                                             val fallbackLocalFailureReason = buildNpuStandardRouteFallbackLocalFailureReason(
@@ -4802,20 +5110,22 @@ fun Home(
                                                             )
                                                             val fallbackDiagnostics = buildString {
                                                                 appendLine("npu_standard_route_fallback_used=true")
-                                                                appendLine("npu_standard_route_fallback_backend=${finalFallbackBackend.name}")
+                                                                appendLine("npu_standard_route_fallback_backend=$finalFallbackBackend")
+                                                                appendLine("npu_standard_route_fallback_order=NPU,GPU,CPU")
+                                                                appendLine("npu_standard_route_fallback_path=NPU,${fallbackChain.diagnosticPath}")
                                                                 appendLine("npu_standard_route_fallback_reason=${s1Result.reason}")
+                                                                appendLine("npu_standard_route_fallback_failures=${fallbackChain.failureDiagnostics.joinToString(" | ")}")
                                                                 appendLine("npu_standard_route_fallback_local_failure_reason=$fallbackLocalFailureReason")
                                                                 appendLine("npu_standard_route_fallback_state=${finalFallbackResult.state}")
                                                                 appendLine("npu_standard_route_fallback_response_length=${finalFallbackResponse.length}")
-                                                                appendLine("npu_standard_route_gpu_fallback_state=${fallbackResult.state}")
-                                                                appendLine("npu_standard_route_cpu_fallback_state=${cpuFallbackResult?.state ?: "not_attempted"}")
+                                                                appendLine("npu_standard_route_final_failure_diagnostics=${fallbackChain.failureDiagnostics.joinToString(" | ")}")
                                                                 appendLine(s1DisplayTextForDev)
                                                                 finalFallbackResult.trace.localFailureDiagnosticsText
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?.let { appendLine(it) }
                                                             }.trimEnd()
                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                            npuStandardRouteS1DisplayText = s1RouteDisplayText
+                                                            npuStandardRouteS1DisplayText = null
                                                             npuStandardRouteS1DevTraceText =
                                                                 npuStandardRouteS1DevTraceText?.let { "$it\n$fallbackDiagnostics" }
                                                                     ?: fallbackDiagnostics
@@ -4826,6 +5136,13 @@ fun Home(
                                                                 npuStandardRouteS1DevFullDumpCopyText?.let { "$it\n$fallbackDiagnostics" }
                                                                     ?: fallbackDiagnostics
                                                             if (finalFallbackResponse.isNotBlank()) {
+                                                                val fallbackPersistence = requireNotNull(
+                                                                    buildSuccessfulNpuFallbackInferencePersistence(
+                                                                        successfulBackend = fallbackChain.successfulBackend,
+                                                                        response = finalFallbackResponse,
+                                                                        trace = finalFallbackResult.trace,
+                                                                    ),
+                                                                )
                                                                 val fallbackAssistantResponsePrefix =
                                                                     if (s1Result.reason == NPU_STANDARD_ROUTE_MISSING_NATIVE_JNI_SYMBOL_REASON) {
                                                                         "このAPKではNPU実行に必要なnative部品が未搭載のため、GPU/CPUで応答します。"
@@ -4834,15 +5151,27 @@ fun Home(
                                                                     }
                                                                 val fallbackAssistantResponse =
                                                                     "$fallbackAssistantResponsePrefix\n\n$finalFallbackResponse"
-                                                                withContext(Dispatchers.IO) {
+                                                                val fallbackAssistantId = withContext(Dispatchers.IO) {
                                                                     viewModel.insertAssistantMessageAndReturnId(
                                                                         createAssistantMessage(
                                                                             chatId = currentChatId,
                                                                             response = fallbackAssistantResponse,
-                                                                            localSourceSummary = fallbackDiagnostics,
+                                                                            latestInferenceStats = fallbackPersistence.inferenceStats,
+                                                                            localSourceSummary = fallbackPersistence.localSourceSummary,
                                                                         )
-                                                                    )
+                                                                    ).toInt()
                                                                 }
+                                                                scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                    assistantId = fallbackAssistantId,
+                                                                    chatId = currentChatId,
+                                                                    persistedResponse = fallbackAssistantResponse,
+                                                                    prompt = requestPrompt,
+                                                                    response = finalFallbackResponse,
+                                                                    successfulBackend = fallbackChain.successfulBackend,
+                                                                    trace = finalFallbackResult.trace,
+                                                                    modelPath = finalFallbackResult.trace.mediaPipeProbeModelPath
+                                                                        ?: localGenericModelFilePath,
+                                                                )
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
                                                                 showDelayedLocalRespondingPlaceholder = false
@@ -5141,6 +5470,8 @@ fun Home(
                                                                         } else {
                                                                             "phase6_db_backed_ui_append_db"
                                                                         }
+                                                                } catch (exception: CancellationException) {
+                                                                    throw exception
                                                                 } catch (exception: Exception) {
                                                                     Log.w(
                                                                         "ChatScreen",
@@ -5158,7 +5489,7 @@ fun Home(
                                                                     "npu_standard_route_db_save_block_reason"
                                                                 ] ?: "phase_not_db_save"
                                                         }
-                                                        if (npuStandardRouteTtsAllowed && !localStopRequested) {
+                                                        if (npuStandardRouteTtsOwnership.phaseOwner && !localStopRequested) {
                                                             val npuStandardRouteSafeTtsText = s1Result.ttsText
                                                                 .ifBlank { s1Result.actualDisplayText }
                                                                 .ifBlank { s1Result.preparedOutput }
@@ -5202,6 +5533,8 @@ fun Home(
                                                                         } else {
                                                                             "phase5_in_memory_ui_append_and_tts"
                                                                         }
+                                                                } catch (exception: CancellationException) {
+                                                                    throw exception
                                                                 } catch (exception: Exception) {
                                                                     Log.w(
                                                                         "ChatScreen",
@@ -5436,7 +5769,7 @@ fun Home(
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
-                                                                if (npuStandardRouteS5TtsEnabled && npuStandardRouteLegacyS5TtsAllowed) {
+                                                                if (npuStandardRouteS5TtsEnabled && npuStandardRouteTtsOwnership.legacyOwner) {
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
@@ -5485,6 +5818,8 @@ fun Home(
                                                                                         s1Result.ttsText,
                                                                                     ),
                                                                                 )
+                                                                            } catch (exception: CancellationException) {
+                                                                                throw exception
                                                                             } catch (exception: Exception) {
                                                                                 Log.w("ChatScreen", "NPU S5 TTS failed after successful inference", exception)
                                                                                 if (currentSpeakingAssistantMessageId == assistantId) {
@@ -5515,6 +5850,8 @@ fun Home(
                                                                                         )
                                                                                     }
                                                                                 }
+                                                                            } catch (exception: CancellationException) {
+                                                                                throw exception
                                                                             } catch (exception: Exception) {
                                                                                 Log.w("ChatScreen", "Failed to update NPU S5 TTS diagnostics", exception)
                                                                             }
@@ -5641,7 +5978,7 @@ fun Home(
                                                             }
                                                         }
                                                             } catch (exception: CancellationException) {
-                                                                if (!localStopRequested) throw exception
+                                                                throw exception
                                                             } catch (exception: Exception) {
                                                                 Log.e("ChatScreen", "NPU standard route execution failed", exception)
                                                                 NpuStandardRouteS1AppHistory.recordException(
@@ -5649,15 +5986,93 @@ fun Home(
                                                                     prompt = requestPrompt,
                                                                     throwable = exception,
                                                                 )
+                                                                suspend fun runExceptionFallback(
+                                                                    backend: PreferredBackendDryRunSetting,
+                                                                ): LocalInferenceRunResult = runLocalInferenceOnceEntry(
+                                                                    context = context.applicationContext,
+                                                                    settingsPreferences = settingsPreferences,
+                                                                    localBaseModelFilePath = localBaseModelFilePath,
+                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                    localGenericModelFilePath = localGenericModelFilePath,
+                                                                    localGenericModelDisplayName = localGenericModelDisplayName,
+                                                                    mediaPipeProbeContext = context.applicationContext,
+                                                                    preferredBackendDryRunSetting = backend,
+                                                                    markdownStreamingMode = markdownStreamingMode,
+                                                                    prompt = requestPrompt,
+                                                                    onPartial = { partial ->
+                                                                        if (!localStopRequested) {
+                                                                            localStreamingResponseText = partial
+                                                                            streamingResponseTextForRender = partial
+                                                                        }
+                                                                    },
+                                                                )
+                                                                val exceptionFallbackChain = runInferenceBackendChain(
+                                                                    attempts = listOf(
+                                                                        InferenceBackendChainAttempt("GPU") {
+                                                                            runExceptionFallback(PreferredBackendDryRunSetting.GPU)
+                                                                        },
+                                                                        InferenceBackendChainAttempt("CPU") {
+                                                                            runExceptionFallback(PreferredBackendDryRunSetting.CPU)
+                                                                        },
+                                                                    ),
+                                                                    shouldFallback = { result ->
+                                                                        result.response?.trim().isNullOrBlank()
+                                                                    },
+                                                                )
+                                                                val exceptionFallbackResult = exceptionFallbackChain.result
+                                                                val exceptionFallbackBackend =
+                                                                    exceptionFallbackChain.successfulBackend ?: "none"
+                                                                val exceptionFallbackResponse =
+                                                                    exceptionFallbackResult?.response?.trim().orEmpty()
+                                                                val exceptionFallbackPersistence =
+                                                                    buildSuccessfulNpuFallbackInferencePersistence(
+                                                                        successfulBackend =
+                                                                            exceptionFallbackChain.successfulBackend,
+                                                                        response = exceptionFallbackResponse,
+                                                                        trace = exceptionFallbackResult?.trace,
+                                                                    )
                                                                 val failureChatId = resolvedNpuChatId
                                                                 if (!localStopRequested && failureChatId != null) {
-                                                                    withContext(Dispatchers.IO) {
+                                                                    val assistantResponse = if (exceptionFallbackResponse.isNotBlank()) {
+                                                                        "NPU推論に失敗したためGPU/CPUで応答します。\n\n$exceptionFallbackResponse"
+                                                                    } else {
+                                                                        "NPU推論の応答取得に失敗しました: ${exception.javaClass.simpleName}"
+                                                                    }
+                                                                    val fallbackSummary = buildString {
+                                                                        appendLine("npu_standard_route_fallback_used=true")
+                                                                        appendLine("npu_standard_route_fallback_backend=$exceptionFallbackBackend")
+                                                                        appendLine("npu_standard_route_fallback_reason=${exception.javaClass.simpleName}")
+                                                                        appendLine("npu_standard_route_fallback_order=NPU,GPU,CPU")
+                                                                        appendLine("npu_standard_route_fallback_path=NPU,${exceptionFallbackChain.diagnosticPath}")
+                                                                        appendLine("npu_standard_route_fallback_failures=${exceptionFallbackChain.failureDiagnostics.joinToString(" | ")}")
+                                                                        appendLine("npu_standard_route_fallback_response_length=${exceptionFallbackResponse.length}")
+                                                                        exceptionFallbackResult?.trace?.localFailureDiagnosticsText
+                                                                            ?.takeIf { it.isNotBlank() }
+                                                                            ?.let { appendLine(it) }
+                                                                    }.trimEnd()
+                                                                    val exceptionFallbackAssistantId = withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = failureChatId,
-                                                                                response = "NPU推論の応答取得に失敗しました: ${exception.javaClass.simpleName}",
-                                                                                localSourceSummary = exception.message.orEmpty(),
+                                                                                response = assistantResponse,
+                                                                                latestInferenceStats =
+                                                                                    exceptionFallbackPersistence?.inferenceStats,
+                                                                                localSourceSummary = exceptionFallbackPersistence
+                                                                                    ?.localSourceSummary ?: fallbackSummary,
                                                                             )
+                                                                        ).toInt()
+                                                                    }
+                                                                    if (exceptionFallbackPersistence != null && exceptionFallbackResult != null) {
+                                                                        scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                            assistantId = exceptionFallbackAssistantId,
+                                                                            chatId = failureChatId,
+                                                                            persistedResponse = assistantResponse,
+                                                                            prompt = requestPrompt,
+                                                                            response = exceptionFallbackResponse,
+                                                                            successfulBackend = exceptionFallbackChain.successfulBackend,
+                                                                            trace = exceptionFallbackResult.trace,
+                                                                            modelPath = exceptionFallbackResult.trace.mediaPipeProbeModelPath
+                                                                                ?: localGenericModelFilePath,
                                                                         )
                                                                     }
                                                                 }
@@ -5882,6 +6297,8 @@ fun Home(
                                                                     },
                                                                     duration = SnackbarDuration.Short,
                                                                 )
+                                                            } catch (exception: CancellationException) {
+                                                                throw exception
                                                             } catch (exception: Exception) {
                                                                 devDebugText = listOf(
                                                                     "selected_route=qairt244_sm8750_hidden_npu",
@@ -6039,6 +6456,8 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!selectedLocalModelFilePath.isNullOrBlank()} selected_model_slot=${selectedLocalModelSlot.diagnosticName}",
                                                             )
+                                                            val effectiveLocalBackendForRun =
+                                                                    resolveNpuStandardRouteLocalFallbackBackend(preferredBackendDryRunSetting)
                                                             var mediaPipeProbeModelPathForRun: String? = null
                                                             val runResult = withContext(Dispatchers.Default) {
                                                                 val modelResolution = resolveLocalModelResolutionOrNull(
@@ -6048,7 +6467,7 @@ fun Home(
                                                                     localBaseModelDisplayName = localBaseModelDisplayName,
                                                                     localGenericModelFilePath = localGenericModelFilePath,
                                                                     localGenericModelDisplayName = localGenericModelDisplayName,
-                                                                    preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                    preferredBackendDryRunSetting = effectiveLocalBackendForRun,
                                                                 )
                                                                 val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
                                                                 appendLocalReflectionTrace(
@@ -6121,10 +6540,16 @@ fun Home(
                                                                     val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
-                                                                val applyGpuExperimentalTimeout =
-                                                                    shouldApplyGpuExperimentalStageTimeout(localRouteDiagnosticContext)
                                                                 val gpuGenerateProbeModeForRun =
                                                                     resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
+                                                                val gpuExperimentalTimeoutPolicy = resolveGpuExperimentalTimeoutPolicy(
+                                                                    context = localRouteDiagnosticContext,
+                                                                    preferredBackend = preferredBackendDryRunSetting,
+                                                                    gpuGenerateProbeMode = gpuGenerateProbeModeForRun,
+                                                                    currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                                                                )
+                                                                val applyGpuExperimentalTimeout =
+                                                                    gpuExperimentalTimeoutPolicy.useDetachedOperationTimeout
                                                                 val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
                                                                     preferredBackend = preferredBackendDryRunSetting.name,
                                                                     overrideValue = when (gpuGenerateProbeModeForRun) {
@@ -6411,7 +6836,7 @@ fun Home(
                                                                     if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                         val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                             engineKey = modelResolution.engineKey,
-                                                                            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                            preferredBackendDryRunSetting = effectiveLocalBackendForRun,
                                                                             appendTrace = { message ->
                                                                                 gpuRouteProgressTracker.recordTrace(message)
                                                                                 if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
@@ -6440,7 +6865,7 @@ fun Home(
                                                                             localInferenceEngineHolder.acquireOrCreate(
                                                                                 engineKey = modelResolution.engineKey,
                                                                                 context = context.applicationContext,
-                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                preferredBackendDryRunSetting = effectiveLocalBackendForRun,
                                                                                 appendTrace = { message ->
                                                                                     gpuRouteProgressTracker.recordTrace(message)
                                                                                     appendLocalReflectionTrace(
@@ -7477,6 +7902,8 @@ fun Home(
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                             dismissJob.cancel()
+                                                        } catch (exception: CancellationException) {
+                                                            throw exception
                                                         } catch (exception: Exception) {
                                                             val localGenerationTimeMs =
                                                                 (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
@@ -8056,23 +8483,33 @@ fun Home(
 
                                 if (messagesForList.isEmpty()) return@LaunchedEffect
 
-                                if (!topPaddingModeMap.containsKey(currentChatId)) {
-                                    val firstIsUser =
-                                        messagesForList.firstOrNull()?.isSendbyMe == true
-
-                                    topPaddingModeMap[currentChatId] =
-                                        if (firstIsUser) {
-                                            TopPaddingMode.NewConversation
-                                        } else {
-                                            TopPaddingMode.ExistingConversation
-                                        }
+                                val storedMode = topPaddingModeMap[currentChatId]
+                                val useNewConversationTopPadding = resolveUseNewConversationTopPadding(
+                                    storedModePresent = storedMode != null,
+                                    storedModeIsNewConversation = storedMode == TopPaddingMode.NewConversation,
+                                    persistedMessagesEmpty = messagesForListBase.isEmpty(),
+                                    firstPersistedMessageIsUser = messagesForListBase.firstOrNull()?.isSendbyMe == true,
+                                    pendingFirstUserVisible = pendingLocalUserMessageForRender != null,
+                                )
+                                if (storedMode == null) {
+                                    topPaddingModeMap[currentChatId] = if (useNewConversationTopPadding) {
+                                        TopPaddingMode.NewConversation
+                                    } else {
+                                        TopPaddingMode.ExistingConversation
+                                    }
                                 }
                             } finally {
                                 suppressFollowOnce = false
                             }
                         }
-                        val mode = topPaddingModeMap[effectiveChatId]
-                            ?: TopPaddingMode.ExistingConversation
+                        val storedMode = topPaddingModeMap[effectiveChatId]
+                        val useNewConversationTopPadding = resolveUseNewConversationTopPadding(
+                            storedModePresent = storedMode != null,
+                            storedModeIsNewConversation = storedMode == TopPaddingMode.NewConversation,
+                            persistedMessagesEmpty = messagesForListBase.isEmpty(),
+                            firstPersistedMessageIsUser = messagesForListBase.firstOrNull()?.isSendbyMe == true,
+                            pendingFirstUserVisible = pendingLocalUserMessageForRender != null,
+                        )
                         val resolvedGradientStartTopPaddingDp =
                             effectiveTopGradientBottomDp + EmptyNewConversationBaseTopPadding
                         val resolvedSpriteAnchorTopPaddingDp =
@@ -8106,7 +8543,7 @@ fun Home(
                         val messageListTopPaddingDp = when {
                             // Empty / New は共通アンカーを利用する
                             messagesForList.isEmpty() -> emptyNewConversationAnchorTopPaddingDp
-                            mode == TopPaddingMode.NewConversation ->
+                            useNewConversationTopPadding ->
                                 emptyNewConversationAnchorTopPaddingDp
                             // Existing は従来どおり会話一覧の top gap を利用する
                             else -> chatListTopPaddingDp
@@ -16119,19 +16556,34 @@ internal data class InferenceTimeBreakdownUi(
 )
 
 internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
+    val heldOfficialBlocking = stats.localSourceSummary
+        ?.contains("held-official-blocking", ignoreCase = true) == true
     val load = stats.modelLoadDurationNs?.takeIf { it >= 0L }
-    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L }
-    val generation = stats.generationDurationNs?.takeIf { it > 0L }
+    val prompt = stats.promptEvalDurationNs?.takeIf { !heldOfficialBlocking && it >= 0L }
+    val generation = stats.generationDurationNs?.takeIf { !heldOfficialBlocking && it > 0L }
 
-    val segmentSources = buildList {
+    val knownSegmentSources = buildList {
         if (load != null) add("ロード" to load)
         if (prompt != null) add("入力" to prompt)
         if (generation != null) add("生成" to generation)
     }
-    val total = segmentSources.sumOf { it.second }
-    if (total <= 0L) return null
+    val knownTotal = knownSegmentSources.sumOf { it.second }
+    val displayedTotal = if (heldOfficialBlocking) {
+        stats.totalDurationMs?.takeIf { it > 0L }?.let { it * 1_000_000L }
+    } else {
+        stats.evalDurationNs?.takeIf { it > 0L }
+            ?: stats.totalDurationMs?.takeIf { it > 0L }
+            ?.let { it * 1_000_000L }
+    }
+    val denominator = maxOf(displayedTotal ?: 0L, knownTotal)
+    if (denominator <= 0L) return null
+    val unaccounted = (denominator - knownTotal).coerceAtLeast(0L)
+    val segmentSources = buildList {
+        addAll(knownSegmentSources)
+        if (unaccounted > 0L) add("未計上" to unaccounted)
+    }
 
-    fun ratio(value: Long): Double = value.toDouble() / total.toDouble()
+    fun ratio(value: Long): Double = value.toDouble() / denominator.toDouble()
     return InferenceTimeBreakdownUi(
         segments = segmentSources.map { (label, duration) ->
             val valueRatio = ratio(duration)
@@ -16506,6 +16958,8 @@ internal fun shouldFallbackNpuStandardRouteFailureToLocal(
     if (result.reason == NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED) return false
     if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) return false
     if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) return false
+    if (result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) return true
+
     return result.reason.startsWith("adapter_failure", ignoreCase = true) ||
         result.nativeDiagnostics.nativeLinkFailureDetected == "true" ||
         result.nativeDiagnostics.nativeErrorClass == "UnsatisfiedLinkError" ||
@@ -16662,15 +17116,18 @@ internal fun buildNpuStandardRouteS1UiTiming(
         outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
         else -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
     }
+    val generationMs = result.timing.nativeDecodeMs ?: result.timing.decodeMs
     return NpuStandardRouteS1Timing(
         totalMs = totalMs,
-        decodeMs = result.timing.decodeMs,
+        decodeMs = generationMs,
+        prefillMs = result.timing.prefillMs,
+        nativeDecodeMs = result.timing.nativeDecodeMs,
         ttftMs = null,
         outputTokens = outputTokens,
         tokenCountMode = tokenCountMode,
         tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(
             outputTokens = outputTokens,
-            decodeMs = result.timing.decodeMs,
+            decodeMs = generationMs,
         ),
     )
 }
@@ -17048,7 +17505,7 @@ private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
     return DevQairt244Sm8750NpuChatScreenResult.fromKeyValueText(raw)
 }
 
-private data class DevQairt244Sm8750NpuChatScreenResult(
+internal data class DevQairt244Sm8750NpuChatScreenResult(
     val success: Boolean,
     val reasonCode: String,
     val assistantMessage: String,
@@ -17112,6 +17569,7 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     fun toInferenceStats(): InferenceStats = InferenceStats(
         modelName = selectedRoute,
         generationTimeMs = elapsedMs,
+        generationDurationNs = decodeElapsedMs?.times(1_000_000L),
         decodeDurationMs = decodeElapsedMs,
         totalDurationMs = elapsedMs,
         tokenCountMode = "qairt244-dev-npu-lower-level",
