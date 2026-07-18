@@ -798,6 +798,16 @@ private fun copySelectionPixels(src: Bitmap, rect: RectPx): IntArray {
     return selectionPixels
 }
 
+fun resizeSelectionToMax64(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 64, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
 // 96px APIと挙動を互換維持し、共通実装へ委譲する
 fun resizeSelectionToMax96(
     src: Bitmap,
@@ -809,6 +819,16 @@ fun resizeSelectionToMax96(
     downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
     pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
 ): ResizeSelectionResult = resizeSelectionToMax(src, selection, maxSize, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+fun resizeSelectionToMax128(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 128, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
 
 fun resizeSelectionToMax288(
     src: Bitmap,

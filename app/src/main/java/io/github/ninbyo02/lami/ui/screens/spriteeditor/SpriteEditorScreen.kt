@@ -327,10 +327,11 @@ fun SpriteEditorScreen(navController: NavController) {
         pixelArtMethod: PixelArtStableMethod,
         repeated: Boolean,
     ) {
-        val resizeResult = if (targetMaxPx == 288) {
-            resizeSelectionToMax288(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
-        } else {
-            resizeSelectionToMax96(current.bitmap, current.selection, targetMaxPx, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+        val resizeResult = when (targetMaxPx) {
+            64 -> resizeSelectionToMax64(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            128 -> resizeSelectionToMax128(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            288 -> resizeSelectionToMax288(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            else -> resizeSelectionToMax96(current.bitmap, current.selection, targetMaxPx, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
         }
         if (!resizeResult.applied) {
             scope.launch { showSnackbarMessage("Resize skipped (already <= ${targetMaxPx}px)") }
@@ -2464,14 +2465,28 @@ fun SpriteEditorScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("選択範囲を指定サイズ内に縮小（縦横比を維持）")
-                    Row(modifier = Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(modifier = Modifier.selectable(selected = resizeTargetMaxPx == 96, onClick = { resizeTargetMaxPx = 96 }, role = Role.RadioButton).testTag("spriteEditorResizeMax96"), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = resizeTargetMaxPx == 96, onClick = null)
-                            Text("最大 96×96")
-                        }
-                        Row(modifier = Modifier.selectable(selected = resizeTargetMaxPx == 288, onClick = { resizeTargetMaxPx = 288 }, role = Role.RadioButton).testTag("spriteEditorResizeMax288"), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = resizeTargetMaxPx == 288, onClick = null)
-                            Text("最大 288×288")
+                    Column(
+                        modifier = Modifier.fillMaxWidth().selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf(64, 96, 128, 288).chunked(2).forEach { targets ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                targets.forEach { target ->
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .selectable(selected = resizeTargetMaxPx == target, onClick = { resizeTargetMaxPx = target }, role = Role.RadioButton)
+                                            .testTag("spriteEditorResizeMax$target"),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(selected = resizeTargetMaxPx == target, onClick = null)
+                                        Text("最大 $target×$target")
+                                    }
+                                }
+                            }
                         }
                     }
                     Column(

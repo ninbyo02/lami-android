@@ -38,6 +38,107 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun resizeSelectionToMax64And128_haveDedicatedPublicOperations() {
+        val methodNames = Class.forName(
+            "io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteBitmapOpsKt",
+        ).declaredMethods.map { it.name }.toSet()
+
+        assertTrue("resizeSelectionToMax64 operation is missing", "resizeSelectionToMax64" in methodNames)
+        assertTrue("resizeSelectionToMax128 operation is missing", "resizeSelectionToMax128" in methodNames)
+    }
+
+    @Test
+    fun resizeSelectionToMax64And128_atOrBelowThresholdAreNoOpAndKeepCanvas() {
+        val bitmap = Bitmap.createBitmap(320, 240, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        val cases = listOf(
+            64 to RectPx.of(10, 20, 64, 40),
+            128 to RectPx.of(30, 40, 100, 128),
+        )
+
+        for ((target, selection) in cases) {
+            val result = when (target) {
+                64 -> resizeSelectionToMax64(bitmap, selection)
+                else -> resizeSelectionToMax128(bitmap, selection)
+            }
+
+            assertEquals("target=$target", false, result.applied)
+            assertEquals("target=$target", selection, result.selection)
+            assertEquals("target=$target canvas width", 320, result.bitmap.width)
+            assertEquals("target=$target canvas height", 240, result.bitmap.height)
+        }
+    }
+
+    @Test
+    fun resizeSelectionToMax64And128_wideSelectionPreservesAspectRatioAndCanvas() {
+        val bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        val cases = listOf(
+            Triple(64, RectPx.of(10, 20, 160, 80), RectPx.of(10, 20, 64, 32)),
+            Triple(128, RectPx.of(10, 20, 320, 160), RectPx.of(10, 20, 128, 64)),
+        )
+
+        for ((target, selection, expected) in cases) {
+            val result = when (target) {
+                64 -> resizeSelectionToMax64(bitmap, selection)
+                else -> resizeSelectionToMax128(bitmap, selection)
+            }
+
+            assertEquals("target=$target", true, result.applied)
+            assertEquals("target=$target", expected, result.selection)
+            assertEquals("target=$target canvas width", 400, result.bitmap.width)
+            assertEquals("target=$target canvas height", 400, result.bitmap.height)
+        }
+    }
+
+    @Test
+    fun resizeSelectionToMax64And128_tallSelectionPreservesAspectRatioAndCanvas() {
+        val bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        val cases = listOf(
+            Triple(64, RectPx.of(10, 20, 80, 160), RectPx.of(10, 20, 32, 64)),
+            Triple(128, RectPx.of(10, 20, 160, 320), RectPx.of(10, 20, 64, 128)),
+        )
+
+        for ((target, selection, expected) in cases) {
+            val result = when (target) {
+                64 -> resizeSelectionToMax64(bitmap, selection)
+                else -> resizeSelectionToMax128(bitmap, selection)
+            }
+
+            assertEquals("target=$target", true, result.applied)
+            assertEquals("target=$target", expected, result.selection)
+            assertEquals("target=$target canvas width", 400, result.bitmap.width)
+            assertEquals("target=$target canvas height", 400, result.bitmap.height)
+        }
+    }
+
+    @Test
+    fun resizeSelectionToMax64And128_topLeftAndCenterAnchorsMatchSharedContract() {
+        val bitmap = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        val selection = RectPx.of(20, 30, 256, 128)
+        val cases = listOf(
+            Triple(64, RectPx.of(20, 30, 64, 32), RectPx.of(116, 78, 64, 32)),
+            Triple(128, RectPx.of(20, 30, 128, 64), RectPx.of(84, 62, 128, 64)),
+        )
+
+        for ((target, expectedTopLeft, expectedCenter) in cases) {
+            val topLeft = when (target) {
+                64 -> resizeSelectionToMax64(bitmap, selection, anchor = ResizeAnchor.TopLeft)
+                else -> resizeSelectionToMax128(bitmap, selection, anchor = ResizeAnchor.TopLeft)
+            }
+            val center = when (target) {
+                64 -> resizeSelectionToMax64(bitmap, selection, anchor = ResizeAnchor.Center)
+                else -> resizeSelectionToMax128(bitmap, selection, anchor = ResizeAnchor.Center)
+            }
+
+            assertEquals("target=$target top-left", expectedTopLeft, topLeft.selection)
+            assertEquals("target=$target center", expectedCenter, center.selection)
+        }
+    }
+
+    @Test
     fun resizeSelectionToMax288_smallerSelectionIsNotApplied() {
         val bitmap = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)
