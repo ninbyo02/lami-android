@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
+import java.io.File
 
 class ChatSendAvailabilityTest {
     @Test
@@ -77,6 +78,35 @@ class ChatSendAvailabilityTest {
                 "こんにちは！ ✨ 何かお手伝いできることや、お話ししたいことはありますか？お気軽にご質問くださいね。😊"
             )
         )
+    }
+
+    @Test
+    fun `successful NPU delivery has exactly one TTS owner for automatic and explicit routes`() {
+        val automaticSuccess = resolveNpuStandardRouteTtsOwnership(
+            phaseTtsEligible = true,
+            legacyTtsEligible = true,
+        )
+        val explicitNpuSuccess = resolveNpuStandardRouteTtsOwnership(
+            phaseTtsEligible = true,
+            legacyTtsEligible = false,
+        )
+        val npuFailureOrFallback = resolveNpuStandardRouteTtsOwnership(
+            phaseTtsEligible = false,
+            legacyTtsEligible = false,
+        )
+        val suppressed = resolveNpuStandardRouteTtsOwnership(
+            phaseTtsEligible = false,
+            legacyTtsEligible = false,
+        )
+
+        assertEquals(1, automaticSuccess.ownerCount)
+        assertTrue(automaticSuccess.phaseOwner)
+        assertFalse(automaticSuccess.legacyOwner)
+        assertEquals(1, explicitNpuSuccess.ownerCount)
+        assertTrue(explicitNpuSuccess.phaseOwner)
+        assertFalse(explicitNpuSuccess.legacyOwner)
+        assertEquals(0, npuFailureOrFallback.ownerCount)
+        assertEquals(0, suppressed.ownerCount)
     }
 
     @Test
@@ -364,5 +394,86 @@ class ChatSendAvailabilityTest {
         assertFalse(availability.enabled)
         assertEquals(ChatSendBlockedReason.SERVER_MISSING, availability.blockedReason)
         assertEquals("サーバーを追加してください", chatSendBlockedSnackbarMessage(availability.blockedReason))
+    }
+
+    @Test
+    fun `empty persisted chat with pending first user uses new conversation padding on first render`() {
+        assertTrue(
+            resolveUseNewConversationTopPadding(
+                storedModePresent = false,
+                storedModeIsNewConversation = false,
+                persistedMessagesEmpty = true,
+                firstPersistedMessageIsUser = false,
+                pendingFirstUserVisible = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `pending replacement by persisted first user keeps identical padding mode`() {
+        val pendingMode = resolveUseNewConversationTopPadding(
+            storedModePresent = false,
+            storedModeIsNewConversation = false,
+            persistedMessagesEmpty = true,
+            firstPersistedMessageIsUser = false,
+            pendingFirstUserVisible = true,
+        )
+        val persistedMode = resolveUseNewConversationTopPadding(
+            storedModePresent = false,
+            storedModeIsNewConversation = false,
+            persistedMessagesEmpty = false,
+            firstPersistedMessageIsUser = true,
+            pendingFirstUserVisible = false,
+        )
+
+        assertEquals(pendingMode, persistedMode)
+        assertTrue(persistedMode)
+    }
+
+    @Test
+    fun `stored existing conversation padding remains existing`() {
+        assertFalse(
+            resolveUseNewConversationTopPadding(
+                storedModePresent = true,
+                storedModeIsNewConversation = false,
+                persistedMessagesEmpty = false,
+                firstPersistedMessageIsUser = true,
+                pendingFirstUserVisible = true,
+            ),
+        )
+        assertFalse(
+            resolveUseNewConversationTopPadding(
+                storedModePresent = false,
+                storedModeIsNewConversation = false,
+                persistedMessagesEmpty = false,
+                firstPersistedMessageIsUser = false,
+                pendingFirstUserVisible = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `new chat consumes retained runtime model state instead of transient settings initial values`() {
+        val viewModelSource = File(
+            "src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt",
+        ).readText()
+        val chatScreenSource = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt",
+        ).readText()
+
+        assertTrue(
+            "The activity-scoped ViewModel must retain model availability across chat routes",
+            viewModelSource.contains("val localBaseModelFilePath = settingsPreferences.localBaseModelFilePathFlow.stateIn"),
+        )
+        assertTrue(
+            "New chat must collect retained runtime availability rather than restart with null",
+            chatScreenSource.contains("viewModel.localBaseModelFilePath.collectAsState()"),
+        )
+        assertFalse(
+            "A conversation route must not recreate the status-critical model flow with initial = null",
+            chatScreenSource.contains(
+                "settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)",
+            ),
+        )
     }
 }

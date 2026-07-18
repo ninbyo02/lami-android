@@ -23,6 +23,7 @@ import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
 import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
 import io.github.ninbyo02.lami.ui.screens.settings.PendingLemonadeAutoUnload
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
@@ -33,12 +34,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -315,6 +318,39 @@ class OllamaViewModel(
     private val _isLoadingModels = MutableStateFlow(false)
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
+    // These model/runtime selections belong to the activity-scoped runtime, not to a
+    // conversation route. Eager StateFlows retain the latest DataStore values while
+    // Home is recreated for /chat/{id}, avoiding transient null/default availability.
+    val localBaseModelFilePath = settingsPreferences.localBaseModelFilePathFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localBaseModelDisplayName = settingsPreferences.localBaseModelDisplayNameFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localGenericModelFilePath = settingsPreferences.localGenericModelFilePathFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localGenericModelDisplayName = settingsPreferences.localGenericModelDisplayNameFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val preferredBackendDryRunSetting = settingsPreferences.preferredBackendDryRunSettingFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = PreferredBackendDryRunSetting.DEFAULT,
+    )
+    val inferenceTarget = settingsPreferences.inferenceTargetFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = InferenceTarget.LOCAL,
+    )
 
     init {
         applyInitialSelectedModel(initialSelectedModel)

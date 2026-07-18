@@ -959,16 +959,14 @@ fun Home(
     val localInferenceEngineHolder = remember(context.applicationContext) {
         LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
-    val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
-        initial = PreferredBackendDryRunSetting.DEFAULT,
-    )
+    val preferredBackendDryRunSetting by viewModel.preferredBackendDryRunSetting.collectAsState()
     val markdownStreamingMode by settingsPreferences.markdownStreamingModeFlow.collectAsState(
         initial = MarkdownStreamingMode.DEFAULT,
     )
-    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
-    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
-    val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow.collectAsState(initial = null)
-    val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow.collectAsState(initial = null)
+    val localBaseModelFilePath by viewModel.localBaseModelFilePath.collectAsState()
+    val localBaseModelDisplayName by viewModel.localBaseModelDisplayName.collectAsState()
+    val localGenericModelFilePath by viewModel.localGenericModelFilePath.collectAsState()
+    val localGenericModelDisplayName by viewModel.localGenericModelDisplayName.collectAsState()
     val automaticNpuModelEligibility = resolveNpuStandardRouteS1ModelEligibility(
         selectedModelName = localBaseModelDisplayName ?: selectedModel,
         selectedModelFile = localBaseModelFilePath,
@@ -1097,7 +1095,7 @@ fun Home(
     var keepTtsTalkingInHeader by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
-    val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
+    val savedInferenceTarget by viewModel.inferenceTarget.collectAsState()
     val savedInferenceStatsDisplayMode by settingsPreferences.inferenceStatsDisplayModeFlow.collectAsState(
         initial = InferenceStatsDisplayMode.SIMPLE,
     )
