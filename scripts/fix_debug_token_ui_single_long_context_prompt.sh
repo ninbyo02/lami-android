@@ -17,9 +17,9 @@ def once(k,old,new,tag):
  n=t[k].count(old)
  if n!=1: raise SystemExit(f'{tag} anchor count={n}')
  t[k]=t[k].replace(old,new)
-once('RECEIVER','''        const val EXTRA_PROMPTS = "io.github.ninbyo02.lami.extra.LITERT_LM_GPU_BENCHMARK_PROMPTS"
-''','''        const val EXTRA_PROMPTS = "io.github.ninbyo02.lami.extra.LITERT_LM_GPU_BENCHMARK_PROMPTS"
-        const val EXTRA_SINGLE_PROMPT = "io.github.ninbyo02.lami.extra.LITERT_LM_GPU_BENCHMARK_SINGLE_PROMPT"
+once('RECEIVER','''        const val EXTRA_PROMPTS = "prompts"
+''','''        const val EXTRA_PROMPTS = "prompts"
+        const val EXTRA_SINGLE_PROMPT = "single_prompt"
 ''','receiver extra')
 once('RECEIVER','''    private fun prompts(intent: Intent): List<String> {
         val raw = decodeBase64Extra(intent, EXTRA_PROMPTS_BASE64)
