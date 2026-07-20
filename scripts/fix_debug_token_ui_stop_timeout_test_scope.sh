@@ -10,10 +10,12 @@ TEST_FILE="$test_file" python3 - <<'PY'
 import os
 from pathlib import Path
 p=Path(os.environ['TEST_FILE']); text=p.read_text()
-old='''        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
+old='''    fun `frontend Stop contract cancels active native benchmark and reports terminal cancellation`() {
+        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
         listOf(
 '''
-new='''        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
+new='''    fun `frontend Stop contract cancels active native benchmark and reports terminal cancellation`() {
+        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
         val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()
         listOf(
 '''
