@@ -26,8 +26,8 @@ once('RECEIVER','''    override fun onReceive(context: Context, intent: Intent) 
         }
         val appContext = context.applicationContext
 ''','receiver cancel action')
-once('RECEIVER','''        const val ACTION = "io.github.ninbyo02.lami.action.RUN_LITERT_LM_GPU_BENCHMARK"
-''','''        const val ACTION = "io.github.ninbyo02.lami.action.RUN_LITERT_LM_GPU_BENCHMARK"
+once('RECEIVER','''        const val ACTION = "io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
+''','''        const val ACTION = "io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
         const val ACTION_CANCEL = "io.github.ninbyo02.lami.action.CANCEL_LITERT_LM_GPU_BENCHMARK"
 ''','receiver cancel constant')
 once('CONTRACT','''        LiteRtLmGpuBenchmarkReceiver.cancelCurrentRun()
