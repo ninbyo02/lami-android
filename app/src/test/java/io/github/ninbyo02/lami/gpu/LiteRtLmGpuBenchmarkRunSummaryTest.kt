@@ -164,6 +164,51 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
         assertTrue(csv.contains("\"generic_fallback\""))
     }
 
+    @Test
+    fun `total context 16 passes with eight generated tokens`() {
+        val evidence = DebugTokenBenchmarkResultEvidence(
+            status = "success",
+            requestedTokens = 16,
+            effectiveTokens = 16,
+            outputTokens = 8,
+            outputTokenSource = "LiteRT benchmarkInfo.lastDecodeTokenCount",
+            tokensPerSecond = 1.0,
+            totalMs = 1L,
+            finishReason = null,
+            timeout = false,
+            fallback = false,
+            freshCrash = false,
+            finishEvidence = true,
+        )
+        assertTrue(evidence.passed)
+    }
+
+    @Test
+    fun `foreground total context suite includes GPU 16`() {
+        assertEquals("GPU 16", DebugTokenBenchmarkCase.GPU_16.label)
+        assertEquals(16, DebugTokenBenchmarkCase.GPU_16.requestedTokens)
+    }
+
+    @Test
+    fun `successful total context run permits unavailable SDK decode token count`() {
+        val evidence = DebugTokenBenchmarkResultEvidence(
+            status = "success",
+            requestedTokens = 32,
+            effectiveTokens = 32,
+            outputTokens = null,
+            outputTokenSource = "unavailable",
+            tokensPerSecond = null,
+            totalMs = 1L,
+            finishReason = "completed",
+            timeout = false,
+            fallback = false,
+            freshCrash = false,
+            finishEvidence = true,
+        )
+
+        assertTrue(evidence.passed)
+    }
+
     private fun successRow(
         backendVariant: BenchmarkBackendVariant,
         modelPathSource: String = BenchmarkModelPathSource.GENERIC_FALLBACK.wireValue,

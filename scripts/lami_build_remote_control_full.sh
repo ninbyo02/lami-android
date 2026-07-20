@@ -1511,6 +1511,285 @@ run_read_lami_crash_log() {
     | sed -E 's/((token|password|secret|authorization|api[_-]?key)[=:][[:space:]]*)[^[:space:]]+/\1[REDACTED]/Ig'
 }
 
+run_debug_token_ui_case() {
+  local host="$1" port="$2" case_name="$3"
+  validate_host "$host"
+  validate_port "$port"
+  case "$case_name" in gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32) ;; *) fail ;; esac
+  local serial="${host}:${port}" package="io.github.ninbyo02.lami.gpunoconstraint"
+  local main_component="$package/io.github.ninbyo02.lami.MainActivity"
+  local debug_component="$package/io.github.ninbyo02.lami.gpu.DebugTokenBenchmarkActivity"
+  local label
+  case "$case_name" in
+    gpu16) label="GPU 16" ;; gpu32) label="GPU 32" ;; gpu128) label="GPU 128" ;; gpu512) label="GPU 512" ;; gpu1024) label="GPU 1024" ;; gpu2048) label="GPU 2048" ;; gpu4096) label="GPU 4096" ;; gpu8192) label="GPU 8192" ;; gpu16384) label="GPU 16384" ;; gpu32768) label="GPU 32768" ;; gpu65536) label="GPU 65536" ;; gpu131072) label="GPU 131072" ;; gpu262144) label="GPU 262144" ;; gpu524288) label="GPU 524288" ;; gpu1048576) label="GPU 1048576" ;; gpu-long-2048) label="GPU long context 2048" ;; gpu-long-8192) label="GPU long context 8192" ;; gpu-long-16384) label="GPU long context 16384" ;; gpu-long-24576) label="GPU long context 24576" ;; gpu-long-32768) label="GPU long context 32768" ;; gpu-long-32769) label="GPU long context 32769 boundary" ;; cpu32) label="CPU 32" ;;
+  esac
+  cd "$REPO"
+  local devices connected_count model state pid_before pid_after resumed started_main=false
+  devices="$(adb devices -l)"
+  printf '%s\n' "$devices"
+  connected_count="$(printf '%s\n' "$devices" | awk '$2=="device"{n++} END{print n+0}')"
+  [[ "$connected_count" == "1" ]] || { echo "device_gate=blocked connected_device_count=$connected_count"; return 65; }
+  state="$(adb -s "$serial" get-state 2>/dev/null || true)"
+  model="$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')"
+  [[ "$state" == "device" && "$model" == "NX733J" ]] || { echo "device_gate=blocked serial=$serial state=$state model=$model"; return 65; }
+  # Fixed debug-only surface: reset Activity/Compose scroll state before every allowlisted case.
+  adb -s "$serial" shell am force-stop "$package"
+  pid_before="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+  resumed="$(adb -s "$serial" shell dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' || true)"
+  if [[ -z "$pid_before" || ( "$resumed" != *"$main_component"* && "$resumed" != *"$debug_component"* ) ]]; then
+    adb -s "$serial" shell am start -W -n "$debug_component" >/dev/null
+    started_main=true
+    for _ in $(seq 1 30); do
+      pid_before="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+      resumed="$(adb -s "$serial" shell dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' || true)"
+      [[ -n "$pid_before" && "$resumed" == *"$debug_component"* ]] && break
+      sleep 1
+    done
+  fi
+  [[ -n "$pid_before" && ( "$resumed" == *"$main_component"* || "$resumed" == *"$debug_component"* ) ]] || {
+    echo "foreground_gate=blocked pid=${pid_before:-none} resumed=$resumed started_main=$started_main"; return 65;
+  }
+  echo "foreground_gate=ok serial=$serial model=$model pid=$pid_before resumed=$resumed started_main=$started_main"
+
+  local baseline out_root pre_exit post_exit remote_xml local_xml bounds x1 y1 x2 y2 tap_x tap_y timestamp=""
+  baseline="$(date +%Y%m%d_%H%M%S)"
+  out_root="$REPO/artifacts/debug_token_ui/$baseline-$case_name"
+  mkdir -p "$out_root"
+  pre_exit="$out_root/exit_info_before.txt"
+  post_exit="$out_root/exit_info_after.txt"
+  adb -s "$serial" shell dumpsys activity exit-info "$package" >"$pre_exit" 2>&1 || true
+  printf 'debug_activity_start=reused_foreground_launch\n' >"$out_root/open_debug_activity.txt"
+  for _ in $(seq 1 20); do
+    resumed="$(adb -s "$serial" shell dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' || true)"
+    [[ "$resumed" == *"DebugTokenBenchmarkActivity"* ]] && break
+    sleep 1
+  done
+  [[ "$resumed" == *"DebugTokenBenchmarkActivity"* ]] || { echo "debug_activity_focus=blocked resumed=$resumed"; return 65; }
+  remote_xml="/data/local/tmp/lami_debug_token_ui.xml"
+  local_xml="$out_root/ui_before_tap.xml"
+  adb -s "$serial" shell uiautomator dump "$remote_xml" >/dev/null
+  adb -s "$serial" pull "$remote_xml" "$local_xml" >/dev/null
+  adb -s "$serial" shell rm -f "$remote_xml" >/dev/null 2>&1 || true
+  bounds="$(python3 - "$local_xml" "$label" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+root=ET.parse(sys.argv[1]).getroot()
+for node in root.iter('node'):
+    if node.attrib.get('text') == sys.argv[2]:
+        m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds',''))
+        if m:
+            print(' '.join(m.groups())); break
+PY
+)"
+  for _ in $(seq 1 6); do
+    [[ -n "$bounds" ]] && break
+    adb -s "$serial" shell input swipe 540 2100 540 350 350
+    sleep 1
+    adb -s "$serial" shell uiautomator dump "$remote_xml" >/dev/null
+    adb -s "$serial" pull "$remote_xml" "$local_xml" >/dev/null
+    adb -s "$serial" shell rm -f "$remote_xml" >/dev/null 2>&1 || true
+    bounds="$(python3 - "$local_xml" "$label" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+root=ET.parse(sys.argv[1]).getroot()
+for node in root.iter('node'):
+    if node.attrib.get('text') == sys.argv[2]:
+        m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds',''))
+        if m:
+            print(' '.join(m.groups())); break
+PY
+)"
+  done
+  read -r x1 y1 x2 y2 <<<"$bounds"
+  [[ -n "${x1:-}" && -n "${y1:-}" && -n "${x2:-}" && -n "${y2:-}" ]] || {
+    echo "fixed_ui_verb=blocked label=$label"
+    echo "visible_ui_labels_begin"
+    python3 - "$local_xml" <<'PY'
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+    labels = []
+    for node in root.iter('node'):
+        text = node.attrib.get('text', '')
+        desc = node.attrib.get('content-desc', '')
+        if text: labels.append('text=' + repr(text))
+        if desc: labels.append('content_desc=' + repr(desc))
+    print('\n'.join(labels[:120]))
+except Exception as e:
+    print('ui_dump_parse_error=' + type(e).__name__)
+PY
+    echo "visible_ui_labels_end"
+    return 65
+  }
+  tap_x=$(( (x1 + x2) / 2 )); tap_y=$(( (y1 + y2) / 2 ))
+  previous_timestamp="$(adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_marker_history.txt 2>/dev/null | awk '/^timestamp=/{ts=$0;sub(/^timestamp=/,"",ts)} /^stage=ui_foreground_start$/{print ts}' | tail -1)"
+  baseline="$previous_timestamp"
+  adb -s "$serial" shell input tap "$tap_x" "$tap_y"
+  echo "fixed_ui_verb=tap label=$label x=$tap_x y=$tap_y"
+  for _ in $(seq 1 40); do
+    timestamp="$(adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_marker_history.txt 2>/dev/null | awk '/^timestamp=/{ts=$0;sub(/^timestamp=/,"",ts)} /^stage=ui_foreground_start$/{print ts}' | tail -1)"
+    [[ "$timestamp" =~ ^[0-9]{8}_[0-9]{6}$ && "$timestamp" > "$baseline" ]] && break
+    sleep 1
+  done
+  [[ "$timestamp" > "$baseline" ]] || timestamp=""
+  [[ "$timestamp" =~ ^[0-9]{8}_[0-9]{6}$ ]] || { echo "ui_marker=missing"; return 65; }
+  echo "ui_marker=observed timestamp=$timestamp transport=foreground_ui_internal"
+  local state_text="" terminal=false
+  for _ in $(seq 1 800); do
+    state_text="$(adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_state.txt 2>/dev/null || true)"
+    if [[ "$state_text" == *"timestamp=$timestamp"* ]] && printf '%s\n' "$state_text" | grep -Eq '^status=(success|partial|failure|blocked)$'; then
+      terminal=true
+      break
+    fi
+    pid_after="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+    [[ "$pid_after" == "$pid_before" ]] || { echo "process_stability=failed before=$pid_before after=${pid_after:-none}"; break; }
+    sleep 0.25
+  done
+  printf '%s\n' "$state_text" >"$out_root/state.txt"
+  [[ "$terminal" == true ]] || { echo "terminal_state=missing timestamp=$timestamp artifact=$out_root"; return 65; }
+  local csv_file md_file status reason fallback_count timeout_count
+  csv_file="$(printf '%s\n' "$state_text" | sed -n 's/^csv_file=//p' | head -1)"
+  md_file="$(printf '%s\n' "$state_text" | sed -n 's/^markdown_file=//p' | head -1)"
+  status="$(printf '%s\n' "$state_text" | sed -n 's/^status=//p' | head -1)"
+  reason="$(printf '%s\n' "$state_text" | sed -n 's/^reason=//p' | head -1)"
+  fallback_count="$(printf '%s\n' "$state_text" | sed -n 's/^fallback_count=//p' | head -1)"
+  timeout_count="$(printf '%s\n' "$state_text" | sed -n 's/^timeout_count=//p' | head -1)"
+  [[ "$csv_file" =~ ^[A-Za-z0-9._-]+$ && "$md_file" =~ ^[A-Za-z0-9._-]+$ ]] || {
+    echo "terminal_artifact_names=invalid csv=$csv_file markdown=$md_file"
+    return 65
+  }
+  for file in "$csv_file" "$md_file" "litert_lm_gpu_benchmark_environment_$timestamp.txt" "litert_lm_gpu_benchmark_marker_history.txt"; do
+    [[ "$file" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+    adb -s "$serial" exec-out run-as "$package" cat "files/$file" >"$out_root/$file" 2>/dev/null || true
+  done
+  adb -s "$serial" shell dumpsys activity exit-info "$package" >"$post_exit" 2>&1 || true
+  pid_after="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+  local fresh_crash=false process_stable=false intentional_process_cleanup=false
+  [[ "$pid_after" == "$pid_before" ]] && process_stable=true
+  if ! cmp -s "$pre_exit" "$post_exit"; then fresh_crash=true; fi
+  if [[ "$reason" == cancelled_by_debug_foreground_ui && -z "$pid_after" ]]; then
+    intentional_process_cleanup=true
+    fresh_crash=false
+  fi
+  {
+    echo "timestamp=$timestamp"
+    echo "serial=$serial"
+    echo "model=$model"
+    echo "case=$case_name"
+    echo "label=$label"
+    echo "transport=foreground_ui_internal"
+    echo "service_cold_start_used=false"
+    echo "pid_before=$pid_before"
+    echo "pid_after=${pid_after:-none}"
+    echo "process_stable=$process_stable"
+    echo "fresh_crash=$fresh_crash"
+    echo "intentional_process_cleanup=$intentional_process_cleanup"
+    echo "artifact_path=$out_root"
+  } >"$out_root/host_gate.txt"
+  echo "artifact_timestamp=$timestamp"
+  echo "artifact_path=$out_root"
+  cat "$out_root/host_gate.txt"
+  cat "$out_root/state.txt"
+  [[ -s "$out_root/$csv_file" ]] && sed -n '1,3p' "$out_root/$csv_file"
+  [[ "$process_stable" == true && "$fresh_crash" == false ]] || return 65
+  [[ "$status" == success && "$reason" == completed && "$fallback_count" == 0 && "$timeout_count" == 0 ]] || {
+    echo "benchmark_acceptance=failed status=$status reason=$reason fallback_count=$fallback_count timeout_count=$timeout_count"
+    return 65
+  }
+}
+
+force_stop_debug_token_ui_benchmark() {
+  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint" pid
+  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_force_stop=device_gate_blocked"; return 65; }
+  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_force_stop=model_gate_blocked"; return 65; }
+  adb -s "$serial" shell am force-stop "$package"
+  sleep 1
+  pid="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+  [[ -z "$pid" ]] || { echo "debug_token_ui_force_stop=pid_still_running pid=$pid"; return 65; }
+  echo "debug_token_ui_force_stop=completed"
+}
+
+stop_debug_token_ui_benchmark() {
+  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint"
+  local component="$package/io.github.ninbyo02.lami.gpu.DebugTokenBenchmarkActivity"
+  local remote_xml="/data/local/tmp/lami_debug_token_stop.xml" local_xml bounds x1 y1 x2 y2 tap_x tap_y
+  local state_text="" terminal=false pid
+  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_stop=device_gate_blocked"; return 65; }
+  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_stop=model_gate_blocked"; return 65; }
+  adb -s "$serial" shell am start -W -n "$component" >/dev/null || { echo "debug_token_ui_stop=activity_start_failed"; return 65; }
+  adb -s "$serial" shell uiautomator dump "$remote_xml" >/dev/null
+  local_xml="$(mktemp)"
+  trap 'rm -f "$local_xml"' RETURN
+  adb -s "$serial" pull "$remote_xml" "$local_xml" >/dev/null
+  adb -s "$serial" shell rm -f "$remote_xml" >/dev/null 2>&1 || true
+  bounds="$(python3 - "$local_xml" <<'PY_STOP'
+import re, sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+for node in root.iter('node'):
+    if node.attrib.get('text') == 'Stop':
+        m = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds', ''))
+        if m:
+            print(','.join(m.groups()))
+            break
+PY_STOP
+)"
+  [[ "$bounds" =~ ^[0-9]+,[0-9]+,[0-9]+,[0-9]+$ ]] || { echo "debug_token_ui_stop=button_not_found"; return 65; }
+  IFS=, read -r x1 y1 x2 y2 <<< "$bounds"
+  tap_x=$(( (x1 + x2) / 2 )); tap_y=$(( (y1 + y2) / 2 ))
+  adb -s "$serial" shell input tap "$tap_x" "$tap_y"
+  echo "debug_token_ui_stop=ui_tapped x=$tap_x y=$tap_y"
+  for _ in $(seq 1 80); do
+    state_text="$(adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_state.txt 2>/dev/null || true)"
+    if printf '%s\n' "$state_text" | grep -q '^status=failure$' &&
+       printf '%s\n' "$state_text" | grep -q '^reason=cancelled_by_debug_foreground_ui$'; then
+      terminal=true
+      break
+    fi
+    sleep 0.25
+  done
+  [[ "$terminal" == true ]] || { echo "debug_token_ui_stop=terminal_cancel_missing"; return 65; }
+  adb -s "$serial" shell am force-stop "$package"
+  sleep 1
+  pid="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+  [[ -z "$pid" ]] || { echo "debug_token_ui_stop=pid_still_running pid=$pid"; return 65; }
+  echo "debug_token_ui_stop=terminal_cancelled_and_process_stopped"
+}
+
+read_debug_token_ui_live_state() {
+  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint"
+  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_live_state=device_gate_blocked"; return 65; }
+  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_live_state=model_gate_blocked"; return 65; }
+  echo "debug_token_ui_live_state=begin"
+  echo "debug_token_ui_pid=$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
+  echo "debug_token_ui_top_resumed=$(adb -s "$serial" shell dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' || true)"
+  adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_state.txt 2>/dev/null || true
+  echo "debug_token_ui_marker_history_tail=begin"
+  adb -s "$serial" exec-out run-as "$package" cat files/litert_lm_gpu_benchmark_marker_history.txt 2>/dev/null | tail -120 || true
+  echo "debug_token_ui_live_state=end"
+}
+
+read_debug_token_ui_artifact() {
+  local timestamp="$1"
+  [[ "$timestamp" =~ ^[0-9]{8}_[0-9]{6}$ ]] || fail
+  cd "$REPO"
+  local dir
+  dir="$(find artifacts/debug_token_ui -mindepth 1 -maxdepth 1 -type d -name "*-$timestamp-*" -o -type d -name "${timestamp}-*" 2>/dev/null | head -1)"
+  if [[ -z "$dir" ]]; then
+    dir="$( (grep -rl "^timestamp=$timestamp$" artifacts/debug_token_ui/*/host_gate.txt 2>/dev/null || true) | head -1 | xargs -r dirname)"
+  fi
+  [[ -n "$dir" && "$(realpath -m "$dir")" == "$REPO/artifacts/debug_token_ui/"* ]] || fail
+  local canonical_dir canonical_file size
+  canonical_dir="$(realpath -e "$dir")" || fail
+  echo "artifact_path=$canonical_dir"
+  for file in host_gate.txt state.txt litert_lm_gpu_benchmark_environment_${timestamp}.txt litert_lm_gpu_benchmark_${timestamp}.csv litert_lm_gpu_benchmark_${timestamp}.md; do
+    [[ -f "$dir/$file" && ! -L "$dir/$file" ]] || continue
+    canonical_file="$(realpath -e "$dir/$file")" || fail
+    [[ "$canonical_file" == "$canonical_dir/"* ]] || fail
+    size="$(stat -c '%s' "$canonical_file")"
+    [[ "$size" =~ ^[0-9]+$ && "$size" -le 1048576 ]] || { echo "artifact_file_size=blocked file=$file size=$size"; return 65; }
+    echo "===== $file ====="
+    dd if="$canonical_file" bs=1048576 count=1 status=none
+  done
+}
+
 case "$CMD" in
   status)
     print_status ;;
@@ -1576,6 +1855,18 @@ case "$CMD" in
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_customnpu_diag "${parts[1]}" "${parts[2]}" ;;
   adb-dump-standardnpu-diag\ *)
     parts=($CMD); [[ "${#parts[@]}" -eq 3 ]] || fail; run_adb_dump_standardnpu_diag "${parts[1]}" "${parts[2]}" ;;
+  debug-token-ui-run\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 4 ]] || fail
+    run_debug_token_ui_case "${parts[1]}" "${parts[2]}" "${parts[3]}" ;;
+  debug-token-ui-force-stop)
+    force_stop_debug_token_ui_benchmark ;;
+  debug-token-ui-stop)
+    stop_debug_token_ui_benchmark ;;
+  debug-token-ui-live-state)
+    read_debug_token_ui_live_state ;;
+  debug-token-ui-artifact\ *)
+    parts=($CMD); [[ "${#parts[@]}" -eq 2 ]] || fail
+    read_debug_token_ui_artifact "${parts[1]}" ;;
   qairt244-artifacts|stage-qairt244-custom-jni*|build-qairt244-custom-jni|setup-qairt244-user-patchelf|qairt244-sdk-status|qairt244-repeat-stability|qairt244-token-limit-probe*|litert-gpu-token-probe*|litert-gpu-benchmark-latest|litert-gpu-benchmark-artifact\ *)
     lami_qairt244_dispatch "$CMD" ;;
   adb-logcat-lami|adb-logcat-recent|adb-npu-props|adb-npu-phase8|adb-npu-phase0)
@@ -1722,6 +2013,11 @@ allowed commands:
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   adb-dump-standardnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
+  debug-token-ui-run <192.168.52.52> <port> <gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32> # fixed foreground UI
+  debug-token-ui-artifact <YYYYMMDD_HHMMSS> # bounded timestamp readback
+  debug-token-ui-live-state # fixed read-only state/marker/PID readback
+  debug-token-ui-stop # exact foreground Stop button tap on NX733J
+  debug-token-ui-force-stop # package-specific fail-safe cleanup on NX733J
   qairt244-artifacts
   stage-qairt244-custom-jni [artifact-dir-basename]
   build-qairt244-custom-jni

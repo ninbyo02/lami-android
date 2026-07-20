@@ -25,7 +25,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Callable
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -104,6 +106,27 @@ internal enum class BenchmarkModelPathSource(
 class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val appContext = context.applicationContext
+        if (intent.getBooleanExtra(EXTRA_COMMAND_CANCEL, false)) {
+            val timestamp = intent.getStringExtra(EXTRA_TIMESTAMP)?.takeIf { it.isNotBlank() } ?: timestamp()
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant(intent),
+                closePolicy = closePolicy(intent),
+                phase = phase(intent),
+                stage = "receiver_cancel_broadcast_received",
+                detail = "explicit_frontend_cancel_broadcast",
+            )
+            val cancelResult = goAsync()
+            cancelCloseDispatcher.execute {
+                try {
+                    cancelCurrentRun()
+                } finally {
+                    cancelResult.finish()
+                }
+            }
+            return
+        }
         val timestamp = intent.getStringExtra(EXTRA_TIMESTAMP)
             ?.takeIf { it.isNotBlank() }
             ?: timestamp()
@@ -147,6 +170,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             )
             return
         }
+        cancelRequested.set(false)
+        val receiverCancelMarker: (String, String) -> Unit = { stage, detail ->
+            writeMarker(appContext, timestamp, backendVariant, closePolicy, phase, stage, detail)
+        }
+        activeCancelMarker.set(receiverCancelMarker)
+        val receiverCancelWatcher = startCancelRelayWatcher(appContext, timestamp)
 
         val pendingResult = goAsync()
         receiverDispatcher.execute {
@@ -205,8 +234,17 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     fallbackCount = 0,
                 )
             } finally {
+                receiverCancelWatcher.cancel(true)
+                activeCancelMarker.compareAndSet(receiverCancelMarker, null)
+                val requireProcessCleanup = closeTimeoutRequiresProcessCleanup.getAndSet(false)
                 running.set(false)
                 pendingResult.finish()
+                if (requireProcessCleanup) {
+                    processCleanupDispatcher.execute {
+                        Thread.sleep(PROCESS_CLEANUP_DELAY_MS)
+                        android.os.Process.killProcess(android.os.Process.myPid())
+                    }
+                }
             }
         }
     }
@@ -444,6 +482,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         modelPathSource: BenchmarkModelPathSource,
         genericFallbackModelConfigured: Boolean,
     ): LiteRtLmGpuBenchmarkRow {
+        closeTimedOut.set(false)
         val executor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "LiteRtLmGpuBenchmark-$maxOutputTokens")
         }
@@ -466,8 +505,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 )
             },
         )
+        activeCaseFuture.set(future)
+        if (cancelRequested.get()) {
+            cancelCurrentRun()
+        }
         return try {
-            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+            future.get(timeoutMs, TimeUnit.MILLISECONDS).let { row ->
+                if (closeTimedOut.get()) {
+                    row.copy(status = "failure", reason = "engine_close_timeout", timeout = true)
+                } else {
+                    row
+                }
+            }
         } catch (_: TimeoutException) {
             future.cancel(true)
             LiteRtLmGpuBenchmarkRow.failure(
@@ -483,6 +532,29 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 modelExists = true,
                 modelLength = modelLength,
                 timeout = true,
+                freshCrash = false,
+                modelPathSource = modelPathSource.wireValue,
+                genericFallbackModelConfigured = genericFallbackModelConfigured,
+            )
+        } catch (_: CancellationException) {
+            activeCancelMarker.get()?.invoke(
+                "case_cancelled",
+                "reason=cancelled_by_debug_foreground_ui future_cancelled=true",
+            )
+            val closeTimeout = closeTimedOut.get()
+            LiteRtLmGpuBenchmarkRow.failure(
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                closePolicy = closePolicy,
+                phase = phase,
+                maxOutputTokensList = maxOutputTokensList,
+                prompt = prompt,
+                maxOutputTokens = maxOutputTokens,
+                modelPath = modelPath,
+                reason = if (closeTimeout) "engine_close_timeout" else "cancelled_by_debug_foreground_ui",
+                modelExists = true,
+                modelLength = modelLength,
+                timeout = closeTimeout,
                 freshCrash = false,
                 modelPathSource = modelPathSource.wireValue,
                 genericFallbackModelConfigured = genericFallbackModelConfigured,
@@ -507,6 +579,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 genericFallbackModelConfigured = genericFallbackModelConfigured,
             )
         } finally {
+            activeCaseFuture.compareAndSet(future, null)
             executor.shutdownNow()
         }
     }
@@ -579,6 +652,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             try {
                 engine = Engine(config)
                 engine.initialize()
+                activeEngine.set(engine)
+                if (cancelRequested.get()) throw CancellationException("cancelled_by_debug_foreground_ui")
                 engineCreateMs = SystemClock.elapsedRealtime() - engineStartMs
             } catch (throwable: Throwable) {
                 writeMarker(
@@ -688,6 +763,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             } else {
                 engine.createConversation()
             }
+            activeConversation.set(conversation)
+            if (cancelRequested.get()) throw CancellationException("cancelled_by_debug_foreground_ui")
             conversationCreateMs = SystemClock.elapsedRealtime() - conversationStartMs
             writeMarker(
                 appContext = appContext,
@@ -779,6 +856,14 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     }
                 }
             } catch (streamingThrowable: Throwable) {
+                if (streamingThrowable is CancellationException ||
+                    streamingThrowable is InterruptedException ||
+                    cancelRequested.get() ||
+                    Thread.currentThread().isInterrupted
+                ) {
+                    sendException = streamingThrowable
+                    throw streamingThrowable
+                }
                 if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
                     sendException = streamingThrowable
                     throw streamingThrowable
@@ -922,8 +1007,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 closePolicy = closePolicy,
                 phase = phase,
                 maxOutputTokensList = maxOutputTokensList,
-                conversation = conversation,
-                engine = engine,
+                conversation = claimActiveConversation(conversation),
+                engine = claimActiveEngine(engine),
             )
         }
     }
@@ -939,6 +1024,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         var lastChunk: String? = null
         runBlocking {
             conversation.sendMessageAsync(prompt).collect { message ->
+                if (cancelRequested.get()) {
+                    throw CancellationException("debug_foreground_ui_cancelled")
+                }
                 val chunk = message.contents.toString()
                 val usable = chunk.takeIf { it.isNotBlank() } ?: message.toString().takeIf { it.isNotBlank() }
                 if (usable.isNullOrBlank()) return@collect
@@ -1109,7 +1197,15 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         modelPathSource: BenchmarkModelPathSource,
     ): BenchmarkModelPathResolution {
         if (modelPathSource == BenchmarkModelPathSource.GENERIC_FALLBACK) {
-            val genericPath = runCatching {
+            val relayPath = runCatching {
+                File(appContext.filesDir, GENERIC_MODEL_PATH_RELAY_FILE_NAME).readText().trim().takeIf { it.isNotBlank() }
+            }.getOrNull()
+            val genericPath = relayPath?.takeIf { path ->
+                runCatching {
+                    val candidate = File(path)
+                    candidate.isFile && candidate.length() > 0L && candidate.extension.equals("litertlm", ignoreCase = true)
+                }.getOrDefault(false)
+            } ?: runCatching {
                 runBlocking { SettingsPreferences(appContext).getValidLocalGenericModelPathOrNull() }
             }.getOrNull()
             return BenchmarkModelPathResolution(
@@ -1162,6 +1258,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     }
 
     private fun prompts(intent: Intent): List<String> {
+        intent.getStringExtra(EXTRA_SINGLE_PROMPT)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return listOf(it) }
         val raw = decodeBase64Extra(intent, EXTRA_PROMPTS_BASE64)
             ?: intent.getStringExtra(EXTRA_PROMPTS)
             ?.takeIf { it.isNotBlank() }
@@ -1424,7 +1523,25 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             maxOutputTokensList = maxOutputTokensList,
         )
         try {
-            block()
+            val closeFuture = closeTimeoutDispatcher.submit(block)
+            try {
+                closeFuture.get(CLOSE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            } catch (_: TimeoutException) {
+                closeFuture.cancel(true)
+                closeTimedOut.set(true)
+                closeTimeoutRequiresProcessCleanup.set(true)
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    backendVariant = backendVariant,
+                    closePolicy = closePolicy,
+                    phase = phase,
+                    stage = "close_timeout",
+                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=$target timeout_ms=$CLOSE_TIMEOUT_MS",
+                    maxOutputTokensList = maxOutputTokensList,
+                )
+                return
+            }
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
@@ -1501,10 +1618,13 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION = "io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
+        const val EXTRA_COMMAND_CANCEL = "command_cancel"
         const val EXTRA_TIMESTAMP = "timestamp"
         const val EXTRA_MODEL_PATH = "model_path"
         const val EXTRA_MODEL_PATH_BASE64 = "model_path_base64"
+        const val GENERIC_MODEL_PATH_RELAY_FILE_NAME = "litert_lm_gpu_benchmark_generic_model_path.txt"
         const val EXTRA_PROMPTS = "prompts"
+        const val EXTRA_SINGLE_PROMPT = "single_prompt"
         const val EXTRA_PROMPTS_BASE64 = "prompts_base64"
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST = "max_output_tokens_list"
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST_BASE64 = "max_output_tokens_list_base64"
@@ -1514,9 +1634,13 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
         const val EXTRA_MODEL_PATH_SOURCE = "model_path_source"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
+        const val CANCEL_RELAY_FILE_NAME = "litert_lm_gpu_benchmark_cancel.txt"
         const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
         const val MARKER_HISTORY_FILE_NAME = "litert_lm_gpu_benchmark_marker_history.txt"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
+        private const val CLOSE_TIMEOUT_MS = 10_000L
+        private const val PROCESS_CLEANUP_DELAY_MS = 500L
+        private const val CANCEL_PROCESS_CLEANUP_DELAY_MS = 5_000L
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
         private const val GALLERY_CHAT_PARITY_MAX_NUM_TOKENS = 4096
         private const val GALLERY_CHAT_PARITY_TOP_K = 64
@@ -1527,10 +1651,86 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             "カレーの材料を箇条書きで教えて",
         )
         private val DEFAULT_MAX_OUTPUT_TOKENS = listOf(32, 64, 128, 256)
-        private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768)
+        private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 24576, 32768, 32769, 65536, 131072, 262144, 524288, 1048576)
         private val FINISH_REASON_METHODS = listOf("getFinishReason", "finishReason", "getDoneReason", "doneReason")
         private val STOP_REASON_METHODS = listOf("getStopReason", "stopReason", "getStop", "stop")
         private val running = AtomicBoolean(false)
+        private val cancelRequested = AtomicBoolean(false)
+        private val activeCaseFuture = AtomicReference<Future<*>?>(null)
+        private val activeConversation = AtomicReference<Conversation?>(null)
+        private val activeEngine = AtomicReference<Engine?>(null)
+        private val activeCancelMarker = AtomicReference<((String, String) -> Unit)?>(null)
+        private val cancelCloseDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "LiteRtLmGpuBenchmarkCancelClose")
+        }
+        private val closeTimeoutDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "LiteRtLmGpuBenchmarkCloseTimeout")
+        }
+        private val processCleanupDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "LiteRtLmGpuBenchmarkProcessCleanup")
+        }
+        private val closeTimedOut = AtomicBoolean(false)
+        private val closeTimeoutRequiresProcessCleanup = AtomicBoolean(false)
+        private val cancelRelayDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "LiteRtLmGpuBenchmarkCancelRelay")
+        }
+
+        private fun startCancelRelayWatcher(appContext: Context, timestamp: String): Future<*> {
+            activeCancelMarker.get()?.invoke("cancel_relay_watcher_started", "timestamp=$timestamp")
+            return cancelRelayDispatcher.submit {
+                val relay = File(appContext.filesDir, CANCEL_RELAY_FILE_NAME)
+                var observedRelay = ""
+                while (!Thread.currentThread().isInterrupted && running.get()) {
+                    val requested = runCatching { relay.readText(Charsets.UTF_8).trim() }.getOrDefault("")
+                    if (requested.isNotBlank() && requested != observedRelay) {
+                        observedRelay = requested
+                        activeCancelMarker.get()?.invoke(
+                            "cancel_relay_observed",
+                            "timestamp_matched=${requested == timestamp}",
+                        )
+                    }
+                    if (requested == timestamp) {
+                        activeCancelMarker.get()?.invoke("cancel_relay_received", "timestamp_matched=true")
+                        cancelCurrentRun()
+                        return@submit
+                    }
+                    Thread.sleep(50L)
+                }
+            }
+        }
+
+        /** Cooperative cancellation used only by the debug foreground UI. */
+        fun cancelCurrentRun() {
+            cancelRequested.set(true)
+            val marker = activeCancelMarker.get()
+            val future = activeCaseFuture.getAndSet(null) ?: return
+            val conversationPresent = activeConversation.get() != null
+            val enginePresent = activeEngine.get() != null
+            val cancelAccepted = future.cancel(true)
+            marker?.invoke(
+                "cancel_future_requested",
+                "future_present=true cancel_accepted=$cancelAccepted conversation_present=$conversationPresent engine_present=$enginePresent",
+            )
+            marker?.invoke(
+                "cancel_process_cleanup_scheduled",
+                "delay_ms=$CANCEL_PROCESS_CLEANUP_DELAY_MS package_specific=true",
+            )
+            Thread({
+                Thread.sleep(CANCEL_PROCESS_CLEANUP_DELAY_MS)
+                marker?.invoke(
+                    "cancel_process_cleanup_started",
+                    "pid=${android.os.Process.myPid()} package_specific=true",
+                )
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }, "LiteRtLmGpuBenchmarkCancelProcessCleanup").start()
+        }
+
+        private fun claimActiveConversation(expected: Conversation?): Conversation? =
+            if (expected != null && activeConversation.compareAndSet(expected, null)) expected else null
+
+        private fun claimActiveEngine(expected: Engine?): Engine? =
+            if (expected != null && activeEngine.compareAndSet(expected, null)) expected else null
+
         private val receiverDispatcher = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "LiteRtLmGpuBenchmarkReceiver")
         }
