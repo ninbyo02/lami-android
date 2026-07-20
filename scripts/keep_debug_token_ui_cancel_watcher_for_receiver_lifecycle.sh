@@ -63,11 +63,11 @@ once('RECEIVER','''        } finally {
             activeCaseFuture.compareAndSet(future, null)
             executor.shutdownNow()
 ''','case watcher final removal')
-once('TEST_FILE','''            "cancel_relay_received",
-            "cancel_future_requested",
-''','''            "receiverCancelWatcher",
+once('TEST_FILE','''            "startCancelRelayWatcher",
             "cancel_relay_received",
-            "cancel_future_requested",
+''','''            "startCancelRelayWatcher",
+            "receiverCancelWatcher",
+            "cancel_relay_received",
 ''','lifecycle watcher contract')
 for k,p in paths.items(): p.write_text(t[k])
 PY
