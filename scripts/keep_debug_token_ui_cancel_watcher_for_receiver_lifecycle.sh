@@ -56,8 +56,8 @@ once('RECEIVER','''        activeCaseFuture.set(future)
 ''','case watcher removal')
 once('RECEIVER','''        } finally {
             cancelWatcher.cancel(true)
-            activeCancelMarker.set(null)
             activeCaseFuture.compareAndSet(future, null)
+            activeCancelMarker.compareAndSet(cancelMarker, null)
             executor.shutdownNow()
 ''','''        } finally {
             activeCaseFuture.compareAndSet(future, null)
