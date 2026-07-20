@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
@@ -3833,7 +3834,14 @@ internal suspend fun runWithHeldEngine(
             blockingResponse
         }
     }.getOrElse { throwable ->
-        if (throwable is CancellationException) throw throwable
+        if (throwable is CancellationException) {
+            if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                withContext(NonCancellable) {
+                    engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+                }
+            }
+            throw throwable
+        }
         failureDiagnosticsText = mediaPipeProbeContext?.let {
             buildLocalInferenceFailureDiagnosticsText(
                 context = it,
@@ -3851,7 +3859,9 @@ internal suspend fun runWithHeldEngine(
     }
     if (response == null) {
         if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
-            engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+            withContext(NonCancellable) {
+                engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+            }
         }
         recordMemorySnapshot(MEMORY_STAGE_GENERATION_FAILED)
         recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
@@ -3860,6 +3870,11 @@ internal suspend fun runWithHeldEngine(
             runCatching { onFailureDiagnostics?.invoke(text) }
         }
         return null
+    }
+    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+        withContext(NonCancellable) {
+            engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)
+        }
     }
 
     val closeSummary = RunCloseLifecycleSummary(
@@ -3896,9 +3911,6 @@ internal suspend fun runWithHeldEngine(
     )
     recordMemorySnapshot(MEMORY_STAGE_GENERATION_FINISHED)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
-    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
-        engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)
-    }
     return HeldEngineRunResult(
         responseText = response,
         startElapsedRealtimeMs = startElapsedRealtimeMs,

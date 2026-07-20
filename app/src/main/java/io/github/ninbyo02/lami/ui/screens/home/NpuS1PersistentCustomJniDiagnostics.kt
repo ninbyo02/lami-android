@@ -696,11 +696,6 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
     val assistantRepetition = Regex("""(?i)(Assistant\s*:.*){2,}""").containsMatchIn(qualityCheckText) ||
         qualityCheckText.contains("Assistant: Assistant:", ignoreCase = true)
     val qaContinuation = listOf("質問:", "回答:", "Q:", "A:").any(qualityCheckText::contains)
-    val selfIntroTemplateLeak = listOf(
-        "〇〇",
-        "---",
-        "**自己紹介",
-    ).any(qualityCheckText::contains)
     val specialTokenLeak = containsNpuS1SpecialTurnMarker(visibleOutputCheckText)
     val rawUnclosedSpecialToken = containsNpuS1UnclosedSpecialTurnMarker(unsafeRawCheckText)
     val rawUnexpectedStartTurn = unsafeRawCheckText.contains("<start_of_turn", ignoreCase = true) ||
@@ -720,6 +715,34 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         output = prepared,
     )
     val arithmeticAnswerMissing = arithmeticPrompt && !containsNpuS1ArithmeticAnswerTwo(prepared)
+    val bulletListRequired = inputPrompt.contains("箇条書き")
+    val normalizedBulletPrompt = inputPrompt.map { char ->
+        if (char in '０'..'９') ('0'.code + (char.code - '０'.code)).toChar() else char
+    }.joinToString("")
+    val explicitRequiredBulletCountToken = Regex("""(?<!\d)(\d+)\s*(?:つ|個|項目)""")
+        .find(normalizedBulletPrompt)
+        ?.groupValues
+        ?.getOrNull(1)
+    val explicitRequiredBulletCount = explicitRequiredBulletCountToken?.toIntOrNull()
+    val explicitRequiredBulletCountInvalid = explicitRequiredBulletCountToken != null &&
+        (explicitRequiredBulletCount == null || explicitRequiredBulletCount !in 1..100)
+    val minimumBulletCount = 2
+    val structuredTaskListRequested = bulletListRequired ||
+        (explicitRequiredBulletCountToken != null && NPU_S1_TASK_LIST_INTENT_MARKERS.any(inputPrompt::contains))
+    val selfIntroTemplateLeak = qualityCheckText.contains("**自己紹介") ||
+        qualityCheckText.contains("---") ||
+        (qualityCheckText.contains("〇〇") && !structuredTaskListRequested)
+    val bulletItemLines = prepared.lines().filter(NPU_S1_BULLET_ITEM_LINE_PATTERN::matches)
+    val bulletItemCount = bulletItemLines.size
+    val repetitivePlaceholderOutput =
+        NPU_S1_REPETITIVE_CIRCLE_PATTERN.containsMatchIn(prepared) ||
+            bulletItemLines.any(::containsNpuS1UnresolvedCirclePlaceholder)
+    val bulletListRequirementNotMet = when {
+        !bulletListRequired -> false
+        explicitRequiredBulletCountInvalid -> true
+        explicitRequiredBulletCount != null -> bulletItemCount != explicitRequiredBulletCount
+        else -> bulletItemCount < minimumBulletCount
+    }
     val outputEmpty = prepared.isEmpty()
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
     val preparedBlank = prepared.isBlank()
@@ -736,12 +759,14 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         if (assistantRepetition) add("assistant_repetition")
         if (qaContinuation) add("qa_continuation")
         if (selfIntroTemplateLeak) add("self_intro_template_leak")
+        if (repetitivePlaceholderOutput) add("repetitive_placeholder_output")
         if (specialTokenLeak && !arithmeticTailLeakIgnoredForDisplay) add("special_token_leak")
         if (rawUnclosedSpecialToken) add("raw_unclosed_special_token")
         if (rawUnexpectedStartTurn && !arithmeticTailLeakIgnoredForDisplay) add("raw_unexpected_start_turn")
         if (userTurnLeak && !arithmeticTailLeakIgnoredForDisplay) add("user_turn_leak")
         if (promptRepetitionOnly) add("prompt_repetition_only")
         if (arithmeticAnswerMissing) add("arithmetic_answer_missing")
+        if (bulletListRequirementNotMet) add("bullet_list_requirement_not_met")
     }
     return NpuS1PersistentCustomJniQualityCandidateResult(
         status = if (failedReasons.isEmpty()) {
@@ -791,6 +816,29 @@ private val NPU_S1_SAFE_END_OF_TURN_LINE_PATTERN =
 
 private val NPU_S1_SAFE_END_OF_TURN_TRAILING_PATTERN =
     Regex("""(?:\s*</?\s*end_of_turn\s*>?\s*)+$""", RegexOption.IGNORE_CASE)
+
+private val NPU_S1_BULLET_ITEM_LINE_PATTERN =
+    Regex("""^\s*(?:[-*+]\s+|\d+[.)]\s+|・\s*)\S.*$""")
+
+private val NPU_S1_TASK_LIST_INTENT_MARKERS =
+    listOf("やること", "予定", "タスク", "TODO", "todo")
+
+private fun containsNpuS1UnresolvedCirclePlaceholder(text: String): Boolean =
+    NPU_S1_SHORT_CIRCLE_PLACEHOLDER_PATTERN.findAll(text).any { match ->
+        val suffix = text.substring(match.range.last + 1)
+        NPU_S1_MEANINGFUL_CIRCLE_NAME_SUFFIXES.none(suffix::startsWith)
+    }
+
+private val NPU_S1_SHORT_CIRCLE_PLACEHOLDER_PATTERN = Regex("〇{2,}")
+
+private val NPU_S1_MEANINGFUL_CIRCLE_NAME_SUFFIXES = listOf(
+    "株式会社",
+    "有限会社",
+    "合同会社",
+)
+
+private val NPU_S1_REPETITIVE_CIRCLE_PATTERN =
+    Regex("〇{8,}")
 
 private fun containsNpuS1SpecialTurnMarker(text: String): Boolean =
     Regex("""</?\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)

@@ -11,11 +11,11 @@ import org.junit.Test
 
 class LocalStreamingRunnerChunkAppendTest {
     @Test
-    fun `Automatic backend policy uses CPU priority`() {
+    fun `Automatic backend policy uses GPU before CPU generic fallback`() {
         val applied = resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT)
 
-        assertEquals("CPU", applied.appliedPreferredBackend)
-        assertEquals("cpu-priority-default-engine-config", applied.preferredBackendApplyResult)
+        assertEquals("GPU", applied.appliedPreferredBackend)
+        assertEquals("automatic-gpu-before-cpu-engine-config", applied.preferredBackendApplyResult)
     }
 
     @Test
@@ -214,7 +214,7 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `normal chat GPU experiment selector preserves CPU and Automatic`() {
+    fun `normal chat GPU experiment selector preserves explicit CPU and uses GPU for Automatic fallback`() {
         val propertyReader: (String) -> String? = { key ->
             if (key == "debug.lami.gpu_experiment_mode") {
                 GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
@@ -244,7 +244,7 @@ class LocalStreamingRunnerChunkAppendTest {
             resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.CPU),
         )
         assertEquals(
-            LiteRtTextBackendSelection("CPU", "cpu-priority-default-engine-config"),
+            LiteRtTextBackendSelection("GPU", "automatic-gpu-before-cpu-engine-config"),
             resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT),
         )
     }

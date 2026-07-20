@@ -87,6 +87,8 @@ internal fun buildInferenceSummarySections(
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val heldOfficialBlocking = localSourceSummaryText
+        ?.contains("held-official-blocking", ignoreCase = true) == true
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
@@ -95,7 +97,12 @@ internal fun buildInferenceSummarySections(
         }
     } else {
         buildList {
-            add(InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "初回受信まで（端末基準）",
+                    value = if (heldOfficialBlocking) "—" else formatTimeToFirstToken(stats) ?: "—",
+                ),
+            )
             add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
             add(
                 InferenceStatItemUi(
@@ -180,6 +187,16 @@ internal fun buildInferenceDetailSections(
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
+    val heldOfficialBlockingInferenceDurationNs = if (heldOfficialBlocking) {
+        val totalDurationNs = stats.totalDurationMs
+            ?.takeIf { it >= 0L }
+            ?.let { it * 1_000_000L }
+        stats.evalDurationNs
+            ?.takeIf { durationNs ->
+                durationNs > 0L && (totalDurationNs == null || durationNs <= totalDurationNs)
+            }
+            ?: totalDurationNs
+    } else null
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val npuDisplaySelection = displayOnlyResidentPolicySelection(stats)
     val residentPolicy = if (npuDisplaySelection != null) {
@@ -496,8 +513,8 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
             addAll(
                 buildUnifiedTtftItems(
-                    lamiTtftMs = stats.timeToFirstTokenMs,
-                    backendTtftMs = stats.timeToFirstTokenMs,
+                    lamiTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
+                    backendTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
                 ),
             )
         }
@@ -550,9 +567,11 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "入力評価時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
-                    state = localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
-                        ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
+                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -560,10 +579,12 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "生成時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.generationTime?.valueText
-                        ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
-                    state = localStatsUiModel?.generationTime?.source?.toUiStateLabel()
-                        ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.generationTime?.valueText
+                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.generationTime?.source?.toUiStateLabel()
+                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -571,9 +592,14 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "推論時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs),
+                    value = if (heldOfficialBlocking) {
+                        formatProbeDurationForUi(heldOfficialBlockingInferenceDurationNs)
+                    } else {
+                        localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs)
+                    },
                     state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
-                        ?: if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                        ?: if ((heldOfficialBlocking && heldOfficialBlockingInferenceDurationNs != null) ||
+                            (!heldOfficialBlocking && stats.evalDurationNs != null)) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -1060,7 +1086,8 @@ private fun MutableMap<String, String>.appendLocalInferenceKeyValues(text: Strin
 }
 
 private fun formatLocalExecutionBackendForStats(values: Map<String, String>): String? {
-    val backend = values["effective_backend"]
+    val effectiveBackend = values["effective_backend"]
+    val backend = effectiveBackend
         ?: values["selected_backend"]
         ?: values["requested_backend"]
         ?: values["preferred_backend"]
@@ -1068,25 +1095,26 @@ private fun formatLocalExecutionBackendForStats(values: Map<String, String>): St
         ?: values["backend_evidence"]
     val normalized = backend?.uppercase(Locale.ROOT).orEmpty()
     val routeFamily = values["route_family"]?.uppercase(Locale.ROOT).orEmpty()
-    val displayBackend = when {
-        normalized.contains("NPU") || normalized.contains("QNN") || routeFamily.contains("NPU") -> "NPU"
-        normalized.contains("GPU") || routeFamily.contains("GPU") -> "GPU"
-        normalized.contains("CPU") || routeFamily.contains("CPU") -> "CPU"
+    return when {
+        normalized.contains("NPU") || normalized.contains("QNN") -> "NPU"
+        normalized.contains("GPU") -> "GPU"
+        normalized.contains("CPU") -> "CPU"
         normalized.contains("CLOUD") || routeFamily.contains("SERVER") -> "クラウド"
+        effectiveBackend == null && routeFamily.contains("NPU") -> "NPU"
+        effectiveBackend == null && routeFamily.contains("GPU") -> "GPU"
+        effectiveBackend == null && routeFamily.contains("CPU") -> "CPU"
         backend.isNullOrBlank() -> null
         else -> backend
-    } ?: return null
-    val evidence = values["backend_evidence"]
-        ?: values["npu_backend_evidence"]
-        ?: values["effective_backend"]
-        ?: values["selected_backend"]
-    return evidence
-        ?.takeIf { it.isNotBlank() && it != displayBackend }
-        ?.let { "$displayBackend（$it）" }
-        ?: displayBackend
+    }
 }
 
 private fun formatLocalFallbackStateForStats(values: Map<String, String>): String? {
+    values["fallback_path"]
+        ?.split(',')
+        ?.map { it.trim().uppercase(Locale.ROOT) }
+        ?.filter { it.isNotBlank() }
+        ?.takeIf { it.size > 1 }
+        ?.let { return it.joinToString(" → ") }
     val fallbackUsed = values["npu_standard_route_fallback_used"]
         ?: values["fallback_used"]
         ?: values["gpu_fallback_used"]

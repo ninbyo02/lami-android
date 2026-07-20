@@ -69,6 +69,43 @@ class GpuBlockingRaceContractTest {
     }
 
     @Test
+    fun `explicit callback probes stay off held blocking`() {
+        listOf(
+            GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+            GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING,
+        ).forEach { probeMode ->
+            assertFalse(
+                shouldUseHeldOfficialBlockingFastPath(
+                    currentFlavor = "standard",
+                    preferredBackend = PreferredBackendDryRunSetting.GPU,
+                    gpuGenerateProbeMode = probeMode,
+                    callbackStreamingDebugPropertyEnabled = true,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `non standard or non GPU routes stay off held GPU blocking`() {
+        assertFalse(
+            shouldUseHeldOfficialBlockingFastPath(
+                currentFlavor = "standardGpuNoConstraintProvider",
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                callbackStreamingDebugPropertyEnabled = false,
+            ),
+        )
+        assertFalse(
+            shouldUseHeldOfficialBlockingFastPath(
+                currentFlavor = "standard",
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                callbackStreamingDebugPropertyEnabled = false,
+            ),
+        )
+    }
+
+    @Test
     fun `active standard GPU generate defers onStop independently of transient debug gate`() {
         assertEquals(
             GpuOnStopLifecycleAction.DEFER_ACTIVE_GENERATE,
@@ -93,6 +130,46 @@ class GpuBlockingRaceContractTest {
                 preferredBackend = PreferredBackendDryRunSetting.GPU,
             ),
         )
+    }
+
+    @Test
+    fun `held GPU cancellation clears active generation before rethrow`() {
+        val source = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt",
+        ).readText()
+        val heldRunFailureBlock = source
+            .substringAfter("val response = runCatching {")
+            .substringBefore("if (response == null)")
+            .substringAfterLast("}.getOrElse { throwable ->")
+            .substringBefore("failureDiagnosticsText")
+        val nonCancellableIndex = heldRunFailureBlock.indexOf("withContext(NonCancellable)")
+        val finishIndex = heldRunFailureBlock.indexOf(
+            "engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)",
+        )
+        val rethrowIndex = heldRunFailureBlock.indexOf("throw throwable")
+
+        assertTrue("GPU cancellation cleanup must be non-cancellable", nonCancellableIndex >= 0)
+        assertTrue("GPU cancellation must clear active generation", finishIndex >= 0)
+        assertTrue("NonCancellable scope must wrap cleanup", nonCancellableIndex < finishIndex)
+        assertTrue("GPU cancellation cleanup must precede rethrow", finishIndex < rethrowIndex)
+
+        val heldRun = source
+            .substringAfter("internal suspend fun runWithHeldEngine(")
+            .substringBefore("internal data class LocalOfficialConversationApiProbeResult(")
+        val finishCallCount = Regex(
+            """recordGpuGenerationFinishedForDiagnostics\(success = (?:true|false)\)""",
+        ).findAll(heldRun).count()
+        val protectedFinishCallCount = Regex(
+            """withContext\(NonCancellable\)\s*\{\s*engineHolder\.recordGpuGenerationFinishedForDiagnostics\(success = (?:true|false)\)""",
+        ).findAll(heldRun).count()
+        val successCleanupIndex = heldRun.indexOf(
+            "engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)",
+        )
+        val closeSummaryIndex = heldRun.indexOf("emitCloseSummaryTrace(")
+
+        assertEquals("Every GPU finish path must be present", 3, finishCallCount)
+        assertEquals("Every GPU finish path must be NonCancellable", finishCallCount, protectedFinishCallCount)
+        assertTrue("Success cleanup must precede post-response close summaries", successCleanupIndex < closeSummaryIndex)
     }
 
     @Test
@@ -476,6 +553,144 @@ class GpuBlockingRaceContractTest {
         assertEquals(1, dbDeliveries)
         assertEquals(1, ttsDeliveries)
         assertEquals(0, technicalErrorDeliveries)
+    }
+
+    @Test
+    fun `valid unspecified three item bullet list remains a quality candidate`() {
+        val output = "- 猫\n- 犬\n- 鳥"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "動物を箇条書きで教えて",
+            ),
+        )
+
+        assertTrue(result.outputQualityCandidateReason, result.successCriteriaMet)
+    }
+
+    @Test
+    fun `valid explicit three item single character bullet list remains a quality candidate`() {
+        val output = "1. 猫\n2. 犬\n3. 鳥"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "動物を3つ箇条書きで教えて",
+            ),
+        )
+
+        assertTrue(result.outputQualityCandidateReason, result.successCriteriaMet)
+    }
+
+    @Test
+    fun `explicit one item bullet requirement is matched exactly`() {
+        val output = "- 猫"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "動物を1つ箇条書きで教えて",
+            ),
+        )
+
+        assertTrue(result.outputQualityCandidateReason, result.successCriteriaMet)
+    }
+
+    @Test
+    fun `explicit twenty one item bullet requirement rejects shortage and accepts exact count`() {
+        fun evaluate(itemCount: Int): NpuStandardRouteS1Result {
+            val output = (1..itemCount).joinToString("\n") { index -> "$index. 項目$index" }
+            return NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                    rawOutput = output,
+                    sanitizedOutput = output,
+                    qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                    runDecodeReached = true,
+                    npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                    inputPrompt = "確認項目を21項目の箇条書きで教えて",
+                ),
+            )
+        }
+
+        assertFalse(evaluate(itemCount = 20).successCriteriaMet)
+        assertTrue(evaluate(itemCount = 21).successCriteriaMet)
+    }
+
+    @Test
+    fun `separator only output is rejected as a template leak`() {
+        val output = "---"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "短く答えて",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertTrue(result.outputQualityCandidateReason.contains("self_intro_template_leak"))
+    }
+
+    @Test
+    fun `single unresolved circle placeholder bullet is rejected`() {
+        val output = "- 〇〇の資料を確認する"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "やることを1つ箇条書きで教えて",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertTrue(result.outputQualityCandidateReason.contains("repetitive_placeholder_output"))
+    }
+
+    @Test
+    fun `meaningful circle company name in a bullet remains valid`() {
+        val output = "- 〇〇株式会社へ連絡する"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = output,
+                sanitizedOutput = output,
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                inputPrompt = "やることを1つ箇条書きで教えて",
+            ),
+        )
+
+        assertTrue(result.outputQualityCandidateReason, result.successCriteriaMet)
     }
 
     @Test

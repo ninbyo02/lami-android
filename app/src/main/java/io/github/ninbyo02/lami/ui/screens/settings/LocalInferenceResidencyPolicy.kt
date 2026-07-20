@@ -339,6 +339,19 @@ internal fun localBackendCapabilityForUserFacingSelection(
         )
     }
 
+internal fun automaticLocalBackendPlan(
+    capability: LocalBackendCapability,
+    npuModelAvailable: Boolean,
+    genericModelAvailable: Boolean,
+): List<ResidentInferenceBackend> {
+    val localPlan = buildList {
+        if (npuModelAvailable && capability.npuUsable) add(ResidentInferenceBackend.NPU)
+        if (genericModelAvailable && capability.gpuUsable) add(ResidentInferenceBackend.GPU)
+        if (genericModelAvailable && capability.cpuUsable) add(ResidentInferenceBackend.CPU)
+    }
+    return localPlan.ifEmpty { listOf(ResidentInferenceBackend.SERVER) }
+}
+
 internal fun localInferenceResidencyPolicyForUserFacingSelection(
     selection: InferenceBackendSelection,
     runtimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),

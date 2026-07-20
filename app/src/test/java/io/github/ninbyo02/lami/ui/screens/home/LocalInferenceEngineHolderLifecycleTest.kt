@@ -112,6 +112,27 @@ class LocalInferenceEngineHolderLifecycleTest {
     }
 
     @Test
+    fun `failed GPU completion after deferred onStop releases held engine exactly once`() = runTest {
+        val holder = LocalInferenceEngineHolder(
+            appContext = RuntimeEnvironment.getApplication(),
+            gpuTransientOnStopProtectionOverrideForTest = true,
+        )
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_000L)
+        holder.notifyAppBackgrounded(nowElapsedMs = 2_000L)
+
+        assertTrue(holder.getDevDiagnosticSnapshot().heldEngineHash != null)
+        assertEquals(0, closeCount)
+
+        holder.recordGpuGenerationFinishedForDiagnostics(success = false, nowElapsedMs = 2_100L)
+        holder.recordGpuGenerationFinishedForDiagnostics(success = false, nowElapsedMs = 2_200L)
+
+        assertNull(holder.getDevDiagnosticSnapshot().heldEngineHash)
+        assertEquals(1, closeCount)
+    }
+
+    @Test
     fun `tts playback releases held engine`() = runTest {
         val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
         var closeCount = 0

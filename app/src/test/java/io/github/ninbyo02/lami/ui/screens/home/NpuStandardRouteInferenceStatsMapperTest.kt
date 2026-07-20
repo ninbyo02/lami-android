@@ -40,6 +40,18 @@ class NpuStandardRouteInferenceStatsMapperTest {
     }
 
     @Test
+    fun `retains native prefill and decode timing evidence`() {
+        val timing = NpuStandardRouteS1Timing(
+            prefillMs = 53L,
+            nativeDecodeMs = 2_574L,
+        )
+
+        assertEquals(53L, timing.prefillMs)
+        assertEquals(2_574L, timing.nativeDecodeMs)
+        assertEquals(true, timing.hasAnyValue)
+    }
+
+    @Test
     fun `keeps unavailable timing nullable instead of inventing GPU comparable values`() {
         val stats = successfulResult(
             timing = NpuStandardRouteS1Timing(),

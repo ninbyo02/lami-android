@@ -15,6 +15,43 @@ private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
 private const val HELD_ENGINE_LIFECYCLE_HISTORY_MAX = 24
 private const val GPU_TRANSIENT_ONSTOP_AFTER_SUCCESS_SUPPRESS_MS = 5_000L
 
+internal enum class GpuOnStopLifecycleAction {
+    DEFER_ACTIVE_GENERATE,
+    KEEP_FOREGROUND_REUSE,
+    RELEASE_CONFIRMED_BACKGROUND,
+}
+
+internal fun resolveGpuOnStopLifecycleAction(
+    gpuGenerateActive: Boolean,
+    preferredBackend: PreferredBackendDryRunSetting,
+    transientProtectionEnabled: Boolean,
+    recentSuccess: Boolean,
+): GpuOnStopLifecycleAction = when {
+    preferredBackend != PreferredBackendDryRunSetting.GPU ->
+        GpuOnStopLifecycleAction.RELEASE_CONFIRMED_BACKGROUND
+    gpuGenerateActive -> GpuOnStopLifecycleAction.DEFER_ACTIVE_GENERATE
+    transientProtectionEnabled && recentSuccess -> GpuOnStopLifecycleAction.KEEP_FOREGROUND_REUSE
+    else -> GpuOnStopLifecycleAction.RELEASE_CONFIRMED_BACKGROUND
+}
+
+internal fun resolveGpuLifecycleRaceSequenceForTest(
+    preferredBackend: PreferredBackendDryRunSetting,
+): List<GpuOnStopLifecycleAction> = listOf(
+    resolveGpuOnStopLifecycleAction(
+        gpuGenerateActive = true,
+        preferredBackend = preferredBackend,
+        transientProtectionEnabled = false,
+        recentSuccess = false,
+    ),
+    GpuOnStopLifecycleAction.KEEP_FOREGROUND_REUSE,
+    resolveGpuOnStopLifecycleAction(
+        gpuGenerateActive = false,
+        preferredBackend = preferredBackend,
+        transientProtectionEnabled = false,
+        recentSuccess = false,
+    ),
+)
+
 internal data class HeldLocalEngine(
     val engineKey: HeldEngineKey,
     val modelPath: String,
@@ -590,9 +627,25 @@ internal class LocalInferenceEngineHolder(
         nowElapsedMs: Long = SystemClock.elapsedRealtime(),
     ) {
         mutex.withLock {
+            val wasActive = gpuGenerateActive
             gpuGenerateActive = false
             if (success) {
                 lastGpuGenerationSuccessAtElapsedMs = nowElapsedMs
+            }
+            val current = held
+            if (wasActive && !appInForeground && current != null &&
+                resolveGpuOnStopLifecycleAction(
+                    gpuGenerateActive = false,
+                    preferredBackend = current.preferredBackendDryRunSetting,
+                    transientProtectionEnabled = false,
+                    recentSuccess = false,
+                ) == GpuOnStopLifecycleAction.RELEASE_CONFIRMED_BACKGROUND
+            ) {
+                applyLifecycleDecisionLocked(
+                    current = current,
+                    decision = resolveLifecycleDecision(reason = "app-backgrounded"),
+                    nowElapsedMs = nowElapsedMs,
+                )
             }
         }
     }
@@ -604,10 +657,16 @@ internal class LocalInferenceEngineHolder(
     private fun resolveGpuTransientOnStopDeferReasonLocked(
         nowElapsedMs: Long,
     ): String? {
-        if (!isGpuTransientOnStopProtectionEnabledForDebug()) return null
         val current = held ?: return null
         if (current.preferredBackendDryRunSetting != PreferredBackendDryRunSetting.GPU) return null
-        if (gpuGenerateActive) return "active_generate"
+        val onStopAction = resolveGpuOnStopLifecycleAction(
+            gpuGenerateActive = gpuGenerateActive,
+            preferredBackend = current.preferredBackendDryRunSetting,
+            transientProtectionEnabled = isGpuTransientOnStopProtectionEnabledForDebug(),
+            recentSuccess = false,
+        )
+        if (onStopAction == GpuOnStopLifecycleAction.DEFER_ACTIVE_GENERATE) return "active_generate"
+        if (!isGpuTransientOnStopProtectionEnabledForDebug()) return null
         val successAt = lastGpuGenerationSuccessAtElapsedMs ?: return null
         val clearAfterSuccessMs = (nowElapsedMs - successAt).coerceAtLeast(0L)
         if (clearAfterSuccessMs > GPU_TRANSIENT_ONSTOP_AFTER_SUCCESS_SUPPRESS_MS) return null
@@ -914,7 +973,7 @@ internal class LocalInferenceEngineHolder(
         if (appInForeground) return
         val current = held ?: return
         if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
-        if (gpuGenerateActive && isGpuTransientOnStopProtectionEnabledForDebug()) {
+        if (gpuGenerateActive && current.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
             recordGpuOnStopDeferredLocked(
                 target = current,
                 nowElapsedMs = nowElapsedMs,
@@ -937,7 +996,7 @@ internal class LocalInferenceEngineHolder(
         val backgroundedAt = appBackgroundedAtElapsedMs ?: return
         if (nowElapsedMs - backgroundedAt < HELD_ENGINE_BACKGROUND_TIMEOUT_MS) return
         val current = held
-        if (current != null && gpuGenerateActive && isGpuTransientOnStopProtectionEnabledForDebug()) {
+        if (current != null && gpuGenerateActive && current.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
             recordGpuOnStopDeferredLocked(
                 target = current,
                 nowElapsedMs = nowElapsedMs,

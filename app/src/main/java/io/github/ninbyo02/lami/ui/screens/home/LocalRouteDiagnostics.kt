@@ -4382,6 +4382,40 @@ internal fun resolveGpuExperimentCacheDirForDiagnostics(
         else -> if (modelPath.startsWith("/data/local/tmp")) cacheDirPath else null
     }
 
+internal data class GpuExperimentalTimeoutPolicy(
+    val useFirstTokenWatchdog: Boolean,
+    val useDetachedOperationTimeout: Boolean,
+)
+
+internal fun resolveGpuExperimentalTimeoutPolicy(
+    context: LocalRouteDiagnosticContext,
+    preferredBackend: PreferredBackendDryRunSetting,
+    gpuGenerateProbeMode: String,
+    currentFlavor: String,
+): GpuExperimentalTimeoutPolicy {
+    val experimentalTimeoutEligible = shouldApplyGpuExperimentalStageTimeout(context)
+    val standardNormalHeldBlocking =
+        currentFlavor == "standard" &&
+            preferredBackend == PreferredBackendDryRunSetting.GPU &&
+            gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
+    val enabled = experimentalTimeoutEligible && !standardNormalHeldBlocking
+    return GpuExperimentalTimeoutPolicy(
+        useFirstTokenWatchdog = enabled,
+        useDetachedOperationTimeout = enabled,
+    )
+}
+
+@Suppress("UNUSED_PARAMETER")
+internal fun shouldUseHeldOfficialBlockingFastPath(
+    currentFlavor: String,
+    preferredBackend: PreferredBackendDryRunSetting,
+    gpuGenerateProbeMode: String,
+    callbackStreamingDebugPropertyEnabled: Boolean,
+): Boolean =
+    currentFlavor == "standard" &&
+        preferredBackend == PreferredBackendDryRunSetting.GPU &&
+        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
+
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,
 ): Boolean =

@@ -5,6 +5,8 @@ import java.util.Locale
 internal data class NpuStandardRouteS1Timing(
     val totalMs: Long? = null,
     val decodeMs: Long? = null,
+    val prefillMs: Long? = null,
+    val nativeDecodeMs: Long? = null,
     val ttftMs: Long? = null,
     val outputTokens: Int? = null,
     val tokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
@@ -13,6 +15,8 @@ internal data class NpuStandardRouteS1Timing(
     val hasAnyValue: Boolean
         get() = totalMs != null ||
             decodeMs != null ||
+            prefillMs != null ||
+            nativeDecodeMs != null ||
             ttftMs != null ||
             outputTokens != null ||
             tokensPerSecond != null ||

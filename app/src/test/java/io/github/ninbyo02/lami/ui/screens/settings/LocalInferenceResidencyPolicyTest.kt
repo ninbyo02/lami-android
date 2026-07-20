@@ -171,6 +171,70 @@ class LocalInferenceResidencyPolicyTest {
 
 
     @Test
+    fun `automatic plan orders available NPU GPU and CPU backends`() {
+        assertEquals(
+            listOf(
+                ResidentInferenceBackend.NPU,
+                ResidentInferenceBackend.GPU,
+                ResidentInferenceBackend.CPU,
+            ),
+            automaticLocalBackendPlan(
+                capability = LocalBackendCapability(
+                    npuSupported = true,
+                    npuHealthy = true,
+                    gpuSupported = true,
+                    gpuHealthy = true,
+                    cpuSupported = true,
+                    cpuHealthy = true,
+                ),
+                npuModelAvailable = true,
+                genericModelAvailable = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `automatic plan gates backends by matching model availability`() {
+        val capability = LocalBackendCapability(
+            npuSupported = true,
+            npuHealthy = true,
+            gpuSupported = true,
+            gpuHealthy = true,
+            cpuSupported = true,
+            cpuHealthy = true,
+        )
+
+        assertEquals(
+            listOf(ResidentInferenceBackend.GPU, ResidentInferenceBackend.CPU),
+            automaticLocalBackendPlan(
+                capability = capability,
+                npuModelAvailable = false,
+                genericModelAvailable = true,
+            ),
+        )
+        assertEquals(
+            listOf(ResidentInferenceBackend.NPU),
+            automaticLocalBackendPlan(
+                capability = capability,
+                npuModelAvailable = true,
+                genericModelAvailable = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `automatic plan uses server only when no local backend is runnable`() {
+        assertEquals(
+            listOf(ResidentInferenceBackend.SERVER),
+            automaticLocalBackendPlan(
+                capability = LocalBackendCapability(),
+                npuModelAvailable = false,
+                genericModelAvailable = false,
+            ),
+        )
+    }
+
+    @Test
     fun dryRunKeepsInteractiveRequestsOnResidentBackend() {
         val policy = LocalInferenceResidencyPolicyResolver.resolve(
             LocalBackendCapability(
