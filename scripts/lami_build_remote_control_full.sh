@@ -1515,13 +1515,13 @@ run_debug_token_ui_case() {
   local host="$1" port="$2" case_name="$3"
   validate_host "$host"
   validate_port "$port"
-  case "$case_name" in gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32) ;; *) fail ;; esac
+  case "$case_name" in gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-22400|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32) ;; *) fail ;; esac
   local serial="${host}:${port}" package="io.github.ninbyo02.lami.gpunoconstraint"
   local main_component="$package/io.github.ninbyo02.lami.MainActivity"
   local debug_component="$package/io.github.ninbyo02.lami.gpu.DebugTokenBenchmarkActivity"
   local label
   case "$case_name" in
-    gpu16) label="GPU 16" ;; gpu32) label="GPU 32" ;; gpu128) label="GPU 128" ;; gpu512) label="GPU 512" ;; gpu1024) label="GPU 1024" ;; gpu2048) label="GPU 2048" ;; gpu4096) label="GPU 4096" ;; gpu8192) label="GPU 8192" ;; gpu16384) label="GPU 16384" ;; gpu32768) label="GPU 32768" ;; gpu65536) label="GPU 65536" ;; gpu131072) label="GPU 131072" ;; gpu262144) label="GPU 262144" ;; gpu524288) label="GPU 524288" ;; gpu1048576) label="GPU 1048576" ;; gpu-long-2048) label="GPU long context 2048" ;; gpu-long-8192) label="GPU long context 8192" ;; gpu-long-16384) label="GPU long context 16384" ;; gpu-long-24576) label="GPU long context 24576" ;; gpu-long-32768) label="GPU long context 32768" ;; gpu-long-32769) label="GPU long context 32769 boundary" ;; cpu32) label="CPU 32" ;;
+    gpu16) label="GPU 16" ;; gpu32) label="GPU 32" ;; gpu128) label="GPU 128" ;; gpu512) label="GPU 512" ;; gpu1024) label="GPU 1024" ;; gpu2048) label="GPU 2048" ;; gpu4096) label="GPU 4096" ;; gpu8192) label="GPU 8192" ;; gpu16384) label="GPU 16384" ;; gpu32768) label="GPU 32768" ;; gpu65536) label="GPU 65536" ;; gpu131072) label="GPU 131072" ;; gpu262144) label="GPU 262144" ;; gpu524288) label="GPU 524288" ;; gpu1048576) label="GPU 1048576" ;; gpu-long-2048) label="GPU long context 2048" ;; gpu-long-8192) label="GPU long context 8192" ;; gpu-long-16384) label="GPU long context 16384" ;; gpu-long-22400) label="GPU long context 22400" ;; gpu-long-24576) label="GPU long context 24576" ;; gpu-long-32768) label="GPU long context 32768" ;; gpu-long-32769) label="GPU long context 32769 boundary" ;; cpu32) label="CPU 32" ;;
   esac
   cd "$REPO"
   local devices connected_count model state pid_before pid_after resumed started_main=false
@@ -2013,7 +2013,7 @@ allowed commands:
   adb-start-app <10.5.5.3|192.168.52.52> <connect-port> [standard|npuExperiment|galleryStackExperiment|galleryAlignedNpuProbe|customBuildExperiment|trueEngineNpuProbe|standardGpuMinimalRuntimeCandidate|standardGpuNoConstraintProvider|gpunoconstraint|no-constraint]
   adb-dump-customnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
   adb-dump-standardnpu-diag <10.5.5.3|192.168.52.52> <connect-port>
-  debug-token-ui-run <192.168.52.52> <port> <gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32> # fixed foreground UI
+  debug-token-ui-run <192.168.52.52> <port> <gpu16|gpu32|gpu128|gpu512|gpu1024|gpu2048|gpu4096|gpu8192|gpu16384|gpu32768|gpu65536|gpu131072|gpu262144|gpu524288|gpu1048576|gpu-long-2048|gpu-long-8192|gpu-long-16384|gpu-long-22400|gpu-long-24576|gpu-long-32768|gpu-long-32769|cpu32> # fixed foreground UI
   debug-token-ui-artifact <YYYYMMDD_HHMMSS> # bounded timestamp readback
   debug-token-ui-live-state # fixed read-only state/marker/PID readback
   debug-token-ui-stop # exact foreground Stop button tap on NX733J

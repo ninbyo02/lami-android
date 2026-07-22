@@ -43,6 +43,7 @@ internal enum class DebugTokenBenchmarkCase(
     GPU_LONG_CONTEXT_2048("GPU long context 2048", "gpu", 2048, true),
     GPU_LONG_CONTEXT_8192("GPU long context 8192", "gpu", 8192, true),
     GPU_LONG_CONTEXT_16384("GPU long context 16384", "gpu", 16384, true),
+    GPU_LONG_CONTEXT_22400("GPU long context 22400", "gpu", 22400, true),
     GPU_LONG_CONTEXT_24576("GPU long context 24576", "gpu", 24576, true),
     GPU_LONG_CONTEXT_32768("GPU long context 32768", "gpu", 32768, true),
     GPU_LONG_CONTEXT_32769("GPU long context 32769 boundary", "gpu", 32769, true),
@@ -74,6 +75,7 @@ internal data class DebugTokenBenchmarkGateState(
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_2048,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_8192,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_16384,
+        DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_22400,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769,
@@ -84,7 +86,7 @@ internal data class DebugTokenBenchmarkGateState(
     fun after(case: DebugTokenBenchmarkCase, passed: Boolean): DebugTokenBenchmarkGateState = when (case) {
         DebugTokenBenchmarkCase.GPU_32 -> copy(gpu32Passed = passed, gpu128Passed = false)
         DebugTokenBenchmarkCase.GPU_128 -> copy(gpu128Passed = gpu32Passed && passed)
-        DebugTokenBenchmarkCase.GPU_16, DebugTokenBenchmarkCase.GPU_512, DebugTokenBenchmarkCase.GPU_1024, DebugTokenBenchmarkCase.GPU_2048, DebugTokenBenchmarkCase.GPU_4096, DebugTokenBenchmarkCase.GPU_8192, DebugTokenBenchmarkCase.GPU_16384, DebugTokenBenchmarkCase.GPU_32768, DebugTokenBenchmarkCase.GPU_65536, DebugTokenBenchmarkCase.GPU_131072, DebugTokenBenchmarkCase.GPU_262144, DebugTokenBenchmarkCase.GPU_524288, DebugTokenBenchmarkCase.GPU_1048576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_2048, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_8192, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_16384, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769, DebugTokenBenchmarkCase.CPU_32 -> this
+        DebugTokenBenchmarkCase.GPU_16, DebugTokenBenchmarkCase.GPU_512, DebugTokenBenchmarkCase.GPU_1024, DebugTokenBenchmarkCase.GPU_2048, DebugTokenBenchmarkCase.GPU_4096, DebugTokenBenchmarkCase.GPU_8192, DebugTokenBenchmarkCase.GPU_16384, DebugTokenBenchmarkCase.GPU_32768, DebugTokenBenchmarkCase.GPU_65536, DebugTokenBenchmarkCase.GPU_131072, DebugTokenBenchmarkCase.GPU_262144, DebugTokenBenchmarkCase.GPU_524288, DebugTokenBenchmarkCase.GPU_1048576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_2048, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_8192, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_16384, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_22400, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769, DebugTokenBenchmarkCase.CPU_32 -> this
     }
 }
 
@@ -249,10 +251,12 @@ internal class DebugTokenBenchmarkCoordinator(
     }
 
     private fun parseEvidence(case: DebugTokenBenchmarkCase, csvFile: File?): DebugTokenBenchmarkResultEvidence {
-        val lines = runCatching { csvFile?.readLines().orEmpty() }.getOrDefault(emptyList())
-        val headers = lines.firstOrNull()?.let(::csvCells).orEmpty()
-        val dataLines = lines.drop(1).filter { it.isNotBlank() }
-        val values = dataLines.singleOrNull()?.let(::csvCells).orEmpty()
+        val records = runCatching {
+            csvFile?.readText()?.let(DebugTokenBenchmarkCsvParser::records).orEmpty()
+        }.getOrDefault(emptyList())
+        val headers = records.firstOrNull()?.let(DebugTokenBenchmarkCsvParser::cells).orEmpty()
+        val dataLines = records.drop(1).filter { it.isNotBlank() }
+        val values = dataLines.singleOrNull()?.let(DebugTokenBenchmarkCsvParser::cells).orEmpty()
         val row = headers.zip(values).toMap()
         val outputTokens = row["output_tokens"]?.toIntOrNull()
         val reason = row["reason"]
@@ -336,5 +340,60 @@ internal class DebugTokenBenchmarkCoordinator(
         private const val CASE_TIMEOUT_MS = 180_000L
         private val TERMINAL_STATUS = setOf("success", "partial", "failure", "blocked")
         private const val TOTAL_CONTEXT_SEQUENCE_PROMPT = "Continue: 1 2 3 4"
+    }
+}
+
+internal object DebugTokenBenchmarkCsvParser {
+    fun records(text: String): List<String> {
+        val records = mutableListOf<String>()
+        val record = StringBuilder()
+        var quoted = false
+        var index = 0
+        while (index < text.length) {
+            val char = text[index]
+            if (char == '"') {
+                record.append(char)
+                if (quoted && index + 1 < text.length && text[index + 1] == '"') {
+                    record.append('"')
+                    index++
+                } else {
+                    quoted = !quoted
+                }
+            } else if ((char == '\n' || char == '\r') && !quoted) {
+                records += record.toString()
+                record.clear()
+                if (char == '\r' && index + 1 < text.length && text[index + 1] == '\n') index++
+            } else {
+                record.append(char)
+            }
+            index++
+        }
+        if (record.isNotEmpty()) records += record.toString()
+        return records
+    }
+
+    fun cells(line: String): List<String> {
+        val cells = mutableListOf<String>()
+        val cell = StringBuilder()
+        var quoted = false
+        var index = 0
+        while (index < line.length) {
+            val char = line[index]
+            when {
+                char == '"' && quoted && index + 1 < line.length && line[index + 1] == '"' -> {
+                    cell.append('"')
+                    index++
+                }
+                char == '"' -> quoted = !quoted
+                char == ',' && !quoted -> {
+                    cells += cell.toString()
+                    cell.clear()
+                }
+                else -> cell.append(char)
+            }
+            index++
+        }
+        cells += cell.toString()
+        return cells
     }
 }

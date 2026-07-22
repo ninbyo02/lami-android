@@ -122,6 +122,21 @@ class DebugTokenBenchmarkUiSourceContractTest {
     }
 
     @Test
+    fun `fixed 22400 long context profile is wired end to end`() {
+        val contract = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkContract.kt").readText()
+        val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()
+        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
+        val controller = File(root, "scripts/lami_build_remote_control_full.sh").readText()
+
+        assertTrue("missing fixed 22.4k enum", "GPU_LONG_CONTEXT_22400" in contract)
+        assertTrue("missing fixed 22.4k token value", "22400" in contract)
+        assertTrue("missing fixed 22.4k foreground button", "GPU long context 22400" in activity)
+        assertTrue("receiver must allow exactly 22400", Regex("16384, 22400, 24576").containsMatchIn(receiver))
+        assertTrue("host runner must allow fixed 22.4k case", "gpu-long-22400" in controller)
+        assertFalse("22.4k profile must not expose arbitrary prompt input", "OutlinedTextField" in contract)
+    }
+
+    @Test
     fun `frontend Stop contract cancels active native benchmark and reports terminal cancellation`() {
         val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
         val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()
