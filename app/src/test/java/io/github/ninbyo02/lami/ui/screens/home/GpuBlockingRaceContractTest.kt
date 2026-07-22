@@ -694,6 +694,38 @@ class GpuBlockingRaceContractTest {
     }
 
     @Test
+    fun `NPU fallback validates final responses before display persistence and TTS`() {
+        val source = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt",
+        ).readText()
+        val qualityFailureBlock = source
+            .substringAfter("if (shouldFallbackNpuFailure)")
+            .substringBefore("var npuStandardRouteUiAppendExecuted")
+        val exceptionFailureBlock = source
+            .substringAfter("Log.e(\"ChatScreen\", \"NPU standard route execution failed\", exception)")
+            .substringBefore("} finally {")
+
+        listOf(qualityFailureBlock, exceptionFailureBlock).forEach { fallbackBlock ->
+            assertTrue(
+                "Each fallback chain must reject blank or unexpected-script responses.",
+                fallbackBlock.contains("localInferenceResponseRejectionReason(requestPrompt, result.response)"),
+            )
+            assertTrue(
+                "A nonblank rejected result must not be accepted without a successful backend.",
+                fallbackBlock.contains("acceptedLocalInferenceResponse("),
+            )
+            assertFalse(
+                "Unvalidated fallback partials must never reach the normal UI.",
+                fallbackBlock.contains("localStreamingResponseText = partial"),
+            )
+            assertFalse(
+                "Unvalidated fallback partials must never reach the render buffer.",
+                fallbackBlock.contains("streamingResponseTextForRender = partial"),
+            )
+        }
+    }
+
+    @Test
     fun `quality rejected NPU fallback persists final local stats on the same assistant row`() {
         val source = File(
             "src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt",

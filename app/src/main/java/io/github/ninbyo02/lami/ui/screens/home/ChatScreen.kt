@@ -5069,12 +5069,7 @@ fun Home(
                                                                 preferredBackendDryRunSetting = backend,
                                                                 markdownStreamingMode = markdownStreamingMode,
                                                                 prompt = requestPrompt,
-                                                                onPartial = { partial ->
-                                                                    if (!localStopRequested) {
-                                                                        localStreamingResponseText = partial
-                                                                        streamingResponseTextForRender = partial
-                                                                    }
-                                                                },
+                                                                onPartial = { _ -> Unit },
                                                             )
                                                             val fallbackChain = runInferenceBackendChain(
                                                                 attempts = listOf(
@@ -5086,7 +5081,7 @@ fun Home(
                                                                     },
                                                                 ),
                                                                 shouldFallback = { result ->
-                                                                    result.response?.trim().isNullOrBlank()
+                                                                    localInferenceResponseRejectionReason(requestPrompt, result.response) != null
                                                                 },
                                                             )
                                                             val finalFallbackResult = fallbackChain.result
@@ -5098,11 +5093,12 @@ fun Home(
                                                                             fallbackChain.failureDiagnostics.joinToString(" | "),
                                                                     ),
                                                                 )
-                                                            val finalFallbackBackend = fallbackChain.successfulBackend
-                                                                ?: fallbackChain.attemptedBackends.lastOrNull()
-                                                                ?: "none"
-                                                            val finalFallbackResponse =
-                                                                finalFallbackResult.response?.trim().orEmpty()
+                                                            val finalFallbackBackend =
+                                                                fallbackChain.successfulBackend ?: "none"
+                                                            val finalFallbackResponse = acceptedLocalInferenceResponse(
+                                                                successfulBackend = fallbackChain.successfulBackend,
+                                                                response = finalFallbackResult.response,
+                                                            ).orEmpty()
                                                             val fallbackLocalFailureReason = buildNpuStandardRouteFallbackLocalFailureReason(
                                                                 localFailureDiagnosticsText = finalFallbackResult.trace.localFailureDiagnosticsText,
                                                             )
@@ -5997,12 +5993,7 @@ fun Home(
                                                                     preferredBackendDryRunSetting = backend,
                                                                     markdownStreamingMode = markdownStreamingMode,
                                                                     prompt = requestPrompt,
-                                                                    onPartial = { partial ->
-                                                                        if (!localStopRequested) {
-                                                                            localStreamingResponseText = partial
-                                                                            streamingResponseTextForRender = partial
-                                                                        }
-                                                                    },
+                                                                    onPartial = { _ -> Unit },
                                                                 )
                                                                 val exceptionFallbackChain = runInferenceBackendChain(
                                                                     attempts = listOf(
@@ -6014,14 +6005,16 @@ fun Home(
                                                                         },
                                                                     ),
                                                                     shouldFallback = { result ->
-                                                                        result.response?.trim().isNullOrBlank()
+                                                                        localInferenceResponseRejectionReason(requestPrompt, result.response) != null
                                                                     },
                                                                 )
                                                                 val exceptionFallbackResult = exceptionFallbackChain.result
                                                                 val exceptionFallbackBackend =
                                                                     exceptionFallbackChain.successfulBackend ?: "none"
-                                                                val exceptionFallbackResponse =
-                                                                    exceptionFallbackResult?.response?.trim().orEmpty()
+                                                                val exceptionFallbackResponse = acceptedLocalInferenceResponse(
+                                                                    successfulBackend = exceptionFallbackChain.successfulBackend,
+                                                                    response = exceptionFallbackResult?.response,
+                                                                ).orEmpty()
                                                                 val exceptionFallbackPersistence =
                                                                     buildSuccessfulNpuFallbackInferencePersistence(
                                                                         successfulBackend =
