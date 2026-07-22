@@ -154,7 +154,7 @@ internal fun buildNpuStandardRouteS1DevTraceText(
                 "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
                 "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
                 "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
-                "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+                "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
                 "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
                 "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
                 "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
@@ -396,7 +396,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
         "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
         "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
-        "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+        "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
         "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
         "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
         "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
@@ -540,7 +540,7 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         add("requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
         add("effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
         add("max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}")
-        add("max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}")
+        add("max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}")
         add("max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}")
         add("app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
         add("native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
@@ -615,7 +615,7 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
             "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
-            "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+            "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
             "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
             "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
             "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
@@ -820,12 +820,15 @@ internal fun npuStandardRouteS1EscapeCopyValue(text: String): String =
 internal fun npuStandardRouteMaxOutputTokensClamped(result: NpuStandardRouteS1Result): Boolean =
     result.selection.requestedMaxOutputTokens != result.selection.effectiveMaxOutputTokens
 
+internal fun npuStandardRouteMaxOutputTokensClampLimit(result: NpuStandardRouteS1Result): Int =
+    NpuStandardRouteS1Contract.maxOutputTokensClampLimitForPrompt(result.inputPrompt)
+
 internal fun npuStandardRouteMaxOutputTokensClampReason(result: NpuStandardRouteS1Result): String =
-    if (npuStandardRouteMaxOutputTokensClamped(result)) {
-        NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
-    } else {
-        NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
-    }
+    NpuStandardRouteS1Contract.maxOutputTokensClampReasonForPrompt(
+        userPrompt = result.inputPrompt,
+        requestedMaxOutputTokens = result.selection.requestedMaxOutputTokens,
+        effectiveMaxOutputTokens = result.selection.effectiveMaxOutputTokens,
+    )
 
 internal fun npuStandardRouteS1FailureExceptionClass(result: NpuStandardRouteS1Result): String =
     result.nativeDiagnostics.nativeErrorClass.takeUnless { it == "unavailable" || it.isBlank() }

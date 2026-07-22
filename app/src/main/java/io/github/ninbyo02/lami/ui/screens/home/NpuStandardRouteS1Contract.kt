@@ -243,18 +243,23 @@ internal object NpuStandardRouteS1Contract {
     fun rewritePromptForNative(userPrompt: String): NpuStandardRouteS1PromptRewrite {
         val normalizedPrompt = userPrompt.trim()
         val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
-        val rewrittenPrompt = if (arithmeticPromptDetected) {
-            "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
-                "問題: $normalizedPrompt\n" +
-                "答え:"
-        } else {
-            normalizedPrompt
+        val ambiguousShortPromptDetected = isAmbiguousShortPrompt(normalizedPrompt)
+        val rewrittenPrompt = when {
+            arithmeticPromptDetected ->
+                "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
+                    "問題: $normalizedPrompt\n" +
+                    "答え:"
+            ambiguousShortPromptDetected ->
+                "ユーザーの入力は「$normalizedPrompt」です。\n" +
+                    "入力の続きを自然に促す、短い日本語の返答をしてください。\n" +
+                    "回答だけを出力してください。"
+            else -> normalizedPrompt
         }
         return NpuStandardRouteS1PromptRewrite(
             originalPrompt = normalizedPrompt,
             finalPromptText = "<start_of_turn>user\n$rewrittenPrompt<end_of_turn>\n<start_of_turn>model",
             arithmeticPromptDetected = arithmeticPromptDetected,
-            shortPromptRewriteApplied = arithmeticPromptDetected,
+            shortPromptRewriteApplied = arithmeticPromptDetected || ambiguousShortPromptDetected,
             rewrittenPromptText = rewrittenPrompt,
         )
     }
@@ -286,6 +291,42 @@ internal object NpuStandardRouteS1Contract {
             "1+1は",
             "1+1は?",
         )
+
+    private fun isAmbiguousShortPrompt(prompt: String): Boolean =
+        prompt.isNotEmpty() && prompt.codePointCount(0, prompt.length) <= AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS
+
+    fun maxOutputTokensForPrompt(userPrompt: String, requestedMaxOutputTokens: Int): Int =
+        if (usesShortPromptTokenLimit(userPrompt.trim())) {
+            requestedMaxOutputTokens.coerceAtMost(SHORT_PROMPT_MAX_OUTPUT_TOKENS)
+        } else {
+            requestedMaxOutputTokens
+        }
+
+    fun maxOutputTokensClampLimitForPrompt(userPrompt: String): Int =
+        if (usesShortPromptTokenLimit(userPrompt.trim())) {
+            SHORT_PROMPT_MAX_OUTPUT_TOKENS
+        } else {
+            NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT
+        }
+
+    fun maxOutputTokensClampReasonForPrompt(
+        userPrompt: String,
+        requestedMaxOutputTokens: Int,
+        effectiveMaxOutputTokens: Int,
+    ): String = when {
+        requestedMaxOutputTokens == effectiveMaxOutputTokens ->
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
+        usesShortPromptTokenLimit(userPrompt.trim()) ->
+            MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT
+        else -> NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
+    }
+
+    private fun usesShortPromptTokenLimit(prompt: String): Boolean =
+        isAmbiguousShortPrompt(prompt)
+
+    const val MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT = "short_prompt_limit"
+    private const val AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS = 2
+    private const val SHORT_PROMPT_MAX_OUTPUT_TOKENS = 128
 
     private fun normalizeArithmeticPrompt(prompt: String): String =
         prompt
@@ -323,11 +364,12 @@ internal object NpuStandardRouteS1Contract {
             inputPrompt = inputPrompt,
         )
         val maxOutputTokensClamped = selection.requestedMaxOutputTokens != selection.effectiveMaxOutputTokens
-        val maxOutputTokensClampReason = if (maxOutputTokensClamped) {
-            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
-        } else {
-            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
-        }
+        val maxOutputTokensClampLimit = maxOutputTokensClampLimitForPrompt(inputPrompt)
+        val maxOutputTokensClampReason = maxOutputTokensClampReasonForPrompt(
+            userPrompt = inputPrompt,
+            requestedMaxOutputTokens = selection.requestedMaxOutputTokens,
+            effectiveMaxOutputTokens = selection.effectiveMaxOutputTokens,
+        )
         return listOfNotNull(
             "NPU プレビュー診断",
             "route_id=NPU_STANDARD_ROUTE_S1",
@@ -368,7 +410,7 @@ internal object NpuStandardRouteS1Contract {
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens_clamped=$maxOutputTokensClamped",
-            "max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}",
+            "max_output_tokens_clamp_limit=$maxOutputTokensClampLimit",
             "max_output_tokens_clamp_reason=$maxOutputTokensClampReason",
             "app_requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "native_requested_max_output_tokens=${selection.effectiveMaxOutputTokens}",

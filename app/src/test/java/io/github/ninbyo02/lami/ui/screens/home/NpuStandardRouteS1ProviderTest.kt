@@ -393,6 +393,39 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `S1 diagnostic copy records short prompt token clamp`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "どうしましたか？",
+                sanitizedOutput = "どうしましたか？",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 4096,
+                effectiveMaxOutputTokens = 128,
+                inputPrompt = "あ",
+            ),
+        )
+
+        val compact = buildNpuStandardRouteS1CompactDiagnosticCopyText(input = "あ", result = result)
+        val fullDump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(input = "あ", result = result)
+        val trace = buildNpuStandardRouteS1DevTraceText(input = "あ", result = result)
+
+        listOf(compact, fullDump, trace).forEach { text ->
+            assertTrue(text.contains("max_output_tokens_clamped=true"))
+            assertTrue(text.contains("max_output_tokens_clamp_limit=128"))
+            assertTrue(text.contains("max_output_tokens_clamp_reason=short_prompt_limit"))
+        }
+    }
+
+    @Test
     fun `compact resident dry run uses healthy NPU evidence for short prompt and GPU for long context`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(

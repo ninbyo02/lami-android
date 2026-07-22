@@ -127,6 +127,98 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `ambiguous one character prompt uses a short rewritten NPU request`() {
+        val prompt = "あ"
+
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(prompt)
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = prompt,
+            maxOutputTokens = 4096,
+        )
+
+        assertFalse(rewrite.arithmeticPromptDetected)
+        assertTrue(rewrite.shortPromptRewriteApplied)
+        assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの入力は「$prompt」です。"))
+        assertTrue(rewrite.rewrittenPromptText.contains("入力の続きを自然に促す"))
+        assertEquals(prompt, request.userPrompt)
+        assertEquals(128, request.maxOutputTokens)
+    }
+
+    @Test
+    fun `three character prompt keeps the normal NPU request`() {
+        val prompt = "あのね"
+
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(prompt)
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = prompt,
+            maxOutputTokens = 4096,
+        )
+
+        assertFalse(rewrite.arithmeticPromptDetected)
+        assertFalse(rewrite.shortPromptRewriteApplied)
+        assertEquals(prompt, rewrite.rewrittenPromptText)
+        assertEquals(prompt, request.userPrompt)
+        assertEquals(4096, request.maxOutputTokens)
+    }
+
+    @Test
+    fun `arithmetic rewrite keeps the existing token budget`() {
+        val prompt = "1+1"
+
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(prompt)
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = prompt,
+            maxOutputTokens = 4096,
+        )
+
+        assertTrue(rewrite.arithmeticPromptDetected)
+        assertTrue(rewrite.shortPromptRewriteApplied)
+        assertEquals(4096, request.maxOutputTokens)
+        assertEquals(
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE,
+            NpuStandardRouteS1Contract.maxOutputTokensClampReasonForPrompt(
+                userPrompt = prompt,
+                requestedMaxOutputTokens = 4096,
+                effectiveMaxOutputTokens = 4096,
+            ),
+        )
+    }
+
+    @Test
+    fun `supplementary Unicode short prompts use code point boundaries`() {
+        val oneCodePoint = "😀"
+        val twoCodePoints = "😀😀"
+        val threeCodePoints = "😀😀😀"
+
+        listOf(oneCodePoint, twoCodePoints).forEach { prompt ->
+            val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative("  $prompt  ")
+            assertTrue(rewrite.shortPromptRewriteApplied)
+            assertEquals(128, NpuStandardRouteS1Contract.maxOutputTokensForPrompt(prompt, 4096))
+            assertEquals(64, NpuStandardRouteS1Contract.maxOutputTokensForPrompt(prompt, 64))
+        }
+
+        val normalRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(threeCodePoints)
+        assertFalse(normalRewrite.shortPromptRewriteApplied)
+        assertEquals(4096, NpuStandardRouteS1Contract.maxOutputTokensForPrompt(threeCodePoints, 4096))
+    }
+
+    @Test
+    fun `ambiguous short prompt reports its own token clamp policy`() {
+        assertEquals(
+            128,
+            NpuStandardRouteS1Contract.maxOutputTokensClampLimitForPrompt("あ"),
+        )
+        assertEquals(
+            NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT,
+            NpuStandardRouteS1Contract.maxOutputTokensClampReasonForPrompt(
+                userPrompt = "あ",
+                requestedMaxOutputTokens = 4096,
+                effectiveMaxOutputTokens = 128,
+            ),
+        )
+    }
+
+    @Test
     fun `arithmetic answer with safe spaced end turn token passes quality candidate`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
@@ -444,6 +536,8 @@ class NpuStandardRouteS1MapperTest {
         timeout: Boolean = false,
         freshCrash: Boolean = false,
         inputPrompt: String = "",
+        requestedMaxOutputTokens: Int = 32,
+        effectiveMaxOutputTokens: Int = 32,
     ): NpuStandardRouteS1RawResult = NpuStandardRouteS1RawResult(
         status = status,
         result = result,
@@ -457,8 +551,8 @@ class NpuStandardRouteS1MapperTest {
         fallbackUsed = fallbackUsed,
         timeout = timeout,
         freshCrash = freshCrash,
-        requestedMaxOutputTokens = 32,
-        effectiveMaxOutputTokens = 32,
+        requestedMaxOutputTokens = requestedMaxOutputTokens,
+        effectiveMaxOutputTokens = effectiveMaxOutputTokens,
         inputPrompt = inputPrompt,
     )
 }

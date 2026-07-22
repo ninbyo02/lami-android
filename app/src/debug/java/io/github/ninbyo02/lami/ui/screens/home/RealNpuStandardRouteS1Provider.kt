@@ -33,25 +33,32 @@ internal class RealNpuStandardRouteS1Provider(
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult {
         val maxOutputTokensResolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(maxOutputTokens)
+        val effectiveMaxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
+            userPrompt = userPrompt,
+            requestedMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+        )
+        val maxOutputTokensClamped =
+            maxOutputTokensResolution.clamped ||
+                effectiveMaxOutputTokens != maxOutputTokensResolution.requestedMaxOutputTokens
         NpuEngineLogcatDiagnostics.i(
             event = "s1_engine_request_start",
             route = "RealNpuStandardRouteS1Provider.invoke",
             probeName = "npu_s1_provider",
             backendRequested = "NPU",
-            maxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+            maxOutputTokens = effectiveMaxOutputTokens,
             memorySnapshot = resolveApplicationContext()?.let { appContext ->
                 captureLocalMemorySnapshot(appContext, "s1_engine_request_start")
             },
             detail = "prompt_length=${userPrompt.length} " +
                 "requested_max_output_tokens=${maxOutputTokensResolution.requestedMaxOutputTokens} " +
-                "effective_max_output_tokens=${maxOutputTokensResolution.effectiveMaxOutputTokens} " +
-                "max_output_tokens_clamped=${maxOutputTokensResolution.clamped}",
+                "effective_max_output_tokens=${effectiveMaxOutputTokens} " +
+                "max_output_tokens_clamped=${maxOutputTokensClamped}",
         )
         return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
             val request = request(
                 userPrompt = userPrompt,
-                maxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                maxOutputTokens = effectiveMaxOutputTokens,
             )
             trace(buildNpuRealPromptRequestTrace(request))
             val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
@@ -69,7 +76,7 @@ internal class RealNpuStandardRouteS1Provider(
             val resolvedModelInfo = resolvedModel?.modelInfo
             val rawResult = mappedRawResult.copy(
                 requestedMaxOutputTokens = maxOutputTokensResolution.requestedMaxOutputTokens,
-                effectiveMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
                 selectedModelName = resolvedModelInfo?.canonicalModelBasename.orEmpty(),
                 selectedModelFile = resolvedModel?.path.orEmpty(),
                 npuModelEligible = resolvedModelInfo?.required,
@@ -104,7 +111,7 @@ internal class RealNpuStandardRouteS1Provider(
                 detail = "status=${rawResult.status} reason=${rawResult.reason} " +
                     "requested_max_output_tokens=${rawResult.requestedMaxOutputTokens} " +
                     "effective_max_output_tokens=${rawResult.effectiveMaxOutputTokens} " +
-                    "max_output_tokens_clamped=${maxOutputTokensResolution.clamped} " +
+                    "max_output_tokens_clamped=${maxOutputTokensClamped} " +
                     "run_decode_reached=${rawResult.runDecodeReached} fallback_used=${rawResult.fallbackUsed} " +
                     "timeout=${rawResult.timeout} fresh_crash=${rawResult.freshCrash}",
             )
@@ -132,7 +139,7 @@ internal class RealNpuStandardRouteS1Provider(
                     )
                 },
                 promptLength = userPrompt.length,
-                effectiveMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
             )
             NpuEngineLogcatDiagnostics.e(
                 event = "s1_adapter_failure",
@@ -140,22 +147,22 @@ internal class RealNpuStandardRouteS1Provider(
                 throwable = throwable,
                 probeName = "npu_s1_provider",
                 backendRequested = "NPU",
-                maxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                maxOutputTokens = effectiveMaxOutputTokens,
                 memorySnapshot = resolveApplicationContext()?.let { appContext ->
                     captureLocalMemorySnapshot(appContext, "s1_provider_failure")
                 },
                 detail = "prompt_length=${userPrompt.length} reason=$reason " +
                     "requested_max_output_tokens=${maxOutputTokensResolution.requestedMaxOutputTokens} " +
-                    "effective_max_output_tokens=${maxOutputTokensResolution.effectiveMaxOutputTokens} " +
-                    "max_output_tokens_clamped=${maxOutputTokensResolution.clamped} " +
+                    "effective_max_output_tokens=${effectiveMaxOutputTokens} " +
+                    "max_output_tokens_clamped=${maxOutputTokensClamped} " +
                     npuNativeLinkFailureDiagnosticsLines(nativeLinkDiagnostics).joinToString(" "),
             )
             RealNpuStandardRouteS1ResultMapper.failure(
                 reason = reason,
-                maxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                maxOutputTokens = effectiveMaxOutputTokens,
             ).copy(
                 requestedMaxOutputTokens = maxOutputTokensResolution.requestedMaxOutputTokens,
-                effectiveMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
                 inputPrompt = userPrompt,
                 nativeDiagnostics = NpuS1NativeStageDiagnostics(
                     nativeStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
@@ -181,15 +188,20 @@ internal class RealNpuStandardRouteS1Provider(
         fun request(
             userPrompt: String,
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
-        ): DevOnlyNpuOneTurnConversationRequest =
-            DevOnlyNpuOneTurnConversationRequest(
+        ): DevOnlyNpuOneTurnConversationRequest {
+            val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+            return DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = userPrompt,
                 contextText = "",
                 unsafeDevBypassPromptLengthGate = true,
-                maxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens),
+                maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
+                    userPrompt = userPrompt,
+                    requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+                ),
                 promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
                 timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
             )
+        }
 
         fun buildNpuRealPromptRequestTrace(
             request: DevOnlyNpuOneTurnConversationRequest,
