@@ -110,7 +110,7 @@ class DebugTokenBenchmarkUiSourceContractTest {
             "GPU_LONG_CONTEXT_24576",
             "GPU_LONG_CONTEXT_32768",
             "GPU_LONG_CONTEXT_32769",
-            "24576, 32768, 32769",
+            "24576, 28800, 32768, 32769",
             "LongContext",
             "EXTRA_SINGLE_PROMPT",
             "actual_input_tokens",
@@ -134,6 +134,21 @@ class DebugTokenBenchmarkUiSourceContractTest {
         assertTrue("receiver must allow exactly 22400", Regex("16384, 22400, 24576").containsMatchIn(receiver))
         assertTrue("host runner must allow fixed 22.4k case", "gpu-long-22400" in controller)
         assertFalse("22.4k profile must not expose arbitrary prompt input", "OutlinedTextField" in contract)
+    }
+
+    @Test
+    fun `fixed 28800 long context profile is wired end to end`() {
+        val contract = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkContract.kt").readText()
+        val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()
+        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
+        val controller = File(root, "scripts/lami_build_remote_control_full.sh").readText()
+
+        assertTrue("missing fixed 28.8k enum", "GPU_LONG_CONTEXT_28800" in contract)
+        assertTrue("missing fixed 28.8k token value", "28800" in contract)
+        assertTrue("missing fixed 28.8k foreground button", "GPU long context 28800" in activity)
+        assertTrue("receiver must allow exactly 28800", Regex("24576, 28800, 32768").containsMatchIn(receiver))
+        assertTrue("host runner must allow fixed 28.8k case", "gpu-long-28800" in controller)
+        assertFalse("28.8k profile must not expose arbitrary prompt input", "OutlinedTextField" in contract)
     }
 
     @Test
