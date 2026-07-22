@@ -152,6 +152,36 @@ class DebugTokenBenchmarkUiSourceContractTest {
     }
 
     @Test
+    fun `wireless adb benchmark helpers select one NX733J without stale port literals`() {
+        val controller = File(root, "scripts/lami_build_remote_control_full.sh").readText()
+        val helperStart = "single_nx733j_serial() {"
+        val helperEnd = "force_stop_debug_token_ui_benchmark() {"
+        assertTrue("shared one-device helper must exist", helperStart in controller)
+        assertTrue("force-stop helper boundary must exist", helperEnd in controller)
+        val helper = controller
+            .substringAfter(helperStart)
+            .substringBefore(helperEnd)
+        assertTrue("one-device helper must enumerate connected adb devices", "adb devices" in helper)
+        assertTrue(
+            "one-device helper must require exactly one connected device",
+            "[[ \"${'$'}connected_count\" == \"1\" ]]" in helper,
+        )
+        assertTrue("one-device helper must fail closed", "return 65" in helper)
+        assertTrue("one-device helper must verify NX733J", "NX733J" in helper)
+        listOf(
+            "force_stop_debug_token_ui_benchmark()",
+            "stop_debug_token_ui_benchmark()",
+            "read_debug_token_ui_live_state()",
+        ).forEach { functionName ->
+            val functionStart = "$functionName {"
+            assertTrue("$functionName must exist", functionStart in controller)
+            val body = controller.substringAfter(functionStart).substringBefore("\n}")
+            assertTrue("$functionName must use the shared device gate", "single_nx733j_serial" in body)
+            assertFalse("$functionName must not pin a rotating wireless adb port", Regex("192\\.168\\.52\\.52:[0-9]+").containsMatchIn(body))
+        }
+    }
+
+    @Test
     fun `frontend Stop contract cancels active native benchmark and reports terminal cancellation`() {
         val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
         val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()

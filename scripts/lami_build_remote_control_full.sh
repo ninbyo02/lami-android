@@ -1696,10 +1696,26 @@ PY
   }
 }
 
+single_nx733j_serial() {
+  local connected_serials connected_count serial model
+  connected_serials="$(adb devices | awk '$2 == "device" { print $1 }')"
+  connected_count="$(printf '%s\n' "$connected_serials" | awk 'NF { count++ } END { print count + 0 }')"
+  [[ "$connected_count" == "1" ]] || {
+    echo "single_nx733j_serial=device_gate_blocked connected_device_count=$connected_count" >&2
+    return 65
+  }
+  serial="$(printf '%s\n' "$connected_serials" | awk 'NF { print; exit }')"
+  model="$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')"
+  [[ "$model" == "NX733J" ]] || {
+    echo "single_nx733j_serial=model_gate_blocked serial=$serial model=${model:-missing}" >&2
+    return 65
+  }
+  printf '%s\n' "$serial"
+}
+
 force_stop_debug_token_ui_benchmark() {
-  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint" pid
-  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_force_stop=device_gate_blocked"; return 65; }
-  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_force_stop=model_gate_blocked"; return 65; }
+  local serial package="io.github.ninbyo02.lami.gpunoconstraint" pid
+  serial="$(single_nx733j_serial)" || { echo "debug_token_ui_force_stop=device_gate_blocked"; return 65; }
   adb -s "$serial" shell am force-stop "$package"
   sleep 1
   pid="$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
@@ -1708,12 +1724,11 @@ force_stop_debug_token_ui_benchmark() {
 }
 
 stop_debug_token_ui_benchmark() {
-  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint"
+  local serial package="io.github.ninbyo02.lami.gpunoconstraint"
   local component="$package/io.github.ninbyo02.lami.gpu.DebugTokenBenchmarkActivity"
   local remote_xml="/data/local/tmp/lami_debug_token_stop.xml" local_xml bounds x1 y1 x2 y2 tap_x tap_y
   local state_text="" terminal=false pid
-  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_stop=device_gate_blocked"; return 65; }
-  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_stop=model_gate_blocked"; return 65; }
+  serial="$(single_nx733j_serial)" || { echo "debug_token_ui_stop=device_gate_blocked"; return 65; }
   adb -s "$serial" shell am start -W -n "$component" >/dev/null || { echo "debug_token_ui_stop=activity_start_failed"; return 65; }
   adb -s "$serial" shell uiautomator dump "$remote_xml" >/dev/null
   local_xml="$(mktemp)"
@@ -1754,9 +1769,9 @@ PY_STOP
 }
 
 read_debug_token_ui_live_state() {
-  local serial="192.168.52.52:43045" package="io.github.ninbyo02.lami.gpunoconstraint"
-  [[ "$(adb -s "$serial" get-state 2>/dev/null || true)" == "device" ]] || { echo "debug_token_ui_live_state=device_gate_blocked"; return 65; }
-  [[ "$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')" == "NX733J" ]] || { echo "debug_token_ui_live_state=model_gate_blocked"; return 65; }
+  local package="io.github.ninbyo02.lami.gpunoconstraint"
+  local serial
+  serial="$(single_nx733j_serial)" || { echo "debug_token_ui_live_state=device_gate_blocked"; return 65; }
   echo "debug_token_ui_live_state=begin"
   echo "debug_token_ui_pid=$(adb -s "$serial" shell pidof "$package" 2>/dev/null | tr -d '\r\n' || true)"
   echo "debug_token_ui_top_resumed=$(adb -s "$serial" shell dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' || true)"
