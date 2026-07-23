@@ -110,7 +110,7 @@ class DebugTokenBenchmarkUiSourceContractTest {
             "GPU_LONG_CONTEXT_24576",
             "GPU_LONG_CONTEXT_32768",
             "GPU_LONG_CONTEXT_32769",
-            "24576, 28800, 32768, 32769",
+            "24576, 28800, 30400, 32768, 32769",
             "LongContext",
             "EXTRA_SINGLE_PROMPT",
             "actual_input_tokens",
@@ -146,9 +146,60 @@ class DebugTokenBenchmarkUiSourceContractTest {
         assertTrue("missing fixed 28.8k enum", "GPU_LONG_CONTEXT_28800" in contract)
         assertTrue("missing fixed 28.8k token value", "28800" in contract)
         assertTrue("missing fixed 28.8k foreground button", "GPU long context 28800" in activity)
-        assertTrue("receiver must allow exactly 28800", Regex("24576, 28800, 32768").containsMatchIn(receiver))
+        assertTrue("receiver must allow exactly 28800", Regex("24576, 28800, 30400").containsMatchIn(receiver))
         assertTrue("host runner must allow fixed 28.8k case", "gpu-long-28800" in controller)
         assertFalse("28.8k profile must not expose arbitrary prompt input", "OutlinedTextField" in contract)
+    }
+
+    @Test
+    fun `fixed 30400 long context profile is wired end to end`() {
+        val contract = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkContract.kt").readText()
+        val activity = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/DebugTokenBenchmarkActivity.kt").readText()
+        val receiver = File(root, "app/src/debug/java/io/github/ninbyo02/lami/gpu/LiteRtLmGpuBenchmarkReceiver.kt").readText()
+        val controller = File(root, "scripts/lami_build_remote_control_full.sh").readText()
+        val receiverAllowlist = receiver.lineSequence().single {
+            it.trimStart().startsWith("private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(")
+        }
+        val runtimeAllowlist = controller.lineSequence().single {
+            it.trimStart().startsWith("case \"${'$'}case_name\" in gpu16|")
+        }
+        val labelMappingLine = controller.lineSequence().zipWithNext().single { (caseLine, mappingLine) ->
+            caseLine.trim() == "case \"${'$'}case_name\" in" &&
+                mappingLine.trimStart().startsWith("gpu16) label=\"GPU 16\" ;;")
+        }.second
+        val helpLine = controller.lineSequence().single {
+            it.trimStart().startsWith("debug-token-ui-run <192.168.52.52> <port> <")
+        }
+
+        assertTrue(
+            "missing exact fixed 30.4k enum contract",
+            "GPU_LONG_CONTEXT_30400(\"GPU long context 30400\", \"gpu\", 30400, true)" in contract,
+        )
+        assertTrue(
+            "30.4k foreground button must be disabled while running and start the exact case",
+            Regex(
+                """FixedCaseButton\(\s*label = "GPU long context 30400",\s*enabled = !state\.running,\s*onClick = \{ coordinator\.start\(DebugTokenBenchmarkCase\.GPU_LONG_CONTEXT_30400\) \},\s*\)""",
+            ).containsMatchIn(activity),
+        )
+        assertTrue(
+            "receiver fixed-token allowlist must include exactly positioned 30.4k case",
+            "28800, 30400, 32768" in receiverAllowlist,
+        )
+        assertTrue(
+            "host runner runtime allowlist must include fixed 30.4k case",
+            "gpu-long-28800|gpu-long-30400|gpu-long-32768" in runtimeAllowlist &&
+                runtimeAllowlist.endsWith(") ;; *) fail ;; esac"),
+        )
+        assertTrue(
+            "host runner must map fixed 30.4k case to its exact UI label",
+            "gpu-long-30400) label=\"GPU long context 30400\"" in labelMappingLine,
+        )
+        assertTrue(
+            "host runner help must advertise fixed 30.4k case",
+            "gpu-long-28800|gpu-long-30400|gpu-long-32768" in helpLine &&
+                helpLine.endsWith("> # fixed foreground UI"),
+        )
+        assertFalse("30.4k profile must not expose arbitrary prompt input", "OutlinedTextField" in contract)
     }
 
     @Test

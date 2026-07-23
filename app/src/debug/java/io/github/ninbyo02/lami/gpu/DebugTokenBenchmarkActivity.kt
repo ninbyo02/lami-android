@@ -176,6 +176,11 @@ private fun DebugTokenBenchmarkScreen(coordinator: DebugTokenBenchmarkCoordinato
             onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_28800) },
         )
         FixedCaseButton(
+            label = "GPU long context 30400",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_30400) },
+        )
+        FixedCaseButton(
             label = "GPU long context 32768",
             enabled = !state.running,
             onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768) },
