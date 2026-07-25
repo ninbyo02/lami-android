@@ -24,6 +24,9 @@ internal enum class DebugTokenBenchmarkCase(
     val backend: String,
     val requestedTokens: Int,
     val longContext: Boolean = false,
+    val payloadBasisTokens: Int = requestedTokens,
+    val payloadRatioPermille: Int = 850,
+    val sendApiMode: String = "flow_string",
 ) {
     GPU_16("GPU 16", "gpu", 16),
     GPU_32("GPU 32", "gpu", 32),
@@ -49,6 +52,14 @@ internal enum class DebugTokenBenchmarkCase(
     GPU_LONG_CONTEXT_30400("GPU long context 30400", "gpu", 30400, true),
     GPU_LONG_CONTEXT_32768("GPU long context 32768", "gpu", 32768, true),
     GPU_LONG_CONTEXT_32769("GPU long context 32769 boundary", "gpu", 32769, true),
+    GPU_LONG_30400_R80("GPU long 30400 ratio 80%", "gpu", 30400, true, 30400, 800),
+    GPU_LONG_30400_R825("GPU long 30400 ratio 82.5%", "gpu", 30400, true, 30400, 825),
+    GPU_LONG_30400_R85("GPU long 30400 ratio 85%", "gpu", 30400, true, 30400, 850),
+    GPU_LONG_30400_PAYLOAD_22400("GPU 30400 payload-equivalent 22400", "gpu", 30400, true, 22400, 850),
+    GPU_LONG_30400_PAYLOAD_28800("GPU 30400 payload-equivalent 28800", "gpu", 30400, true, 28800, 850),
+    GPU_LONG_32768_PAYLOAD_30400_R85("GPU 32768 same bytes as 30400 ratio 85%", "gpu", 32768, true, 30400, 850),
+    GPU_LONG_30400_FLOW_COMPARE("GPU 30400 Flow comparison", "gpu", 30400, true, 30400, 850, "flow_string"),
+    GPU_LONG_30400_TYPED_CALLBACK_COMPARE("GPU 30400 typed callback comparison", "gpu", 30400, true, 30400, 850, "typed_contents_callback"),
     CPU_32("CPU 32", "cpu", 32),
 }
 
@@ -81,6 +92,14 @@ internal data class DebugTokenBenchmarkGateState(
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_28800,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_30400,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_R80,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_R825,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_R85,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_22400,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_28800,
+        DebugTokenBenchmarkCase.GPU_LONG_32768_PAYLOAD_30400_R85,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_FLOW_COMPARE,
+        DebugTokenBenchmarkCase.GPU_LONG_30400_TYPED_CALLBACK_COMPARE,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768,
         DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769,
         DebugTokenBenchmarkCase.CPU_32,
@@ -90,7 +109,7 @@ internal data class DebugTokenBenchmarkGateState(
     fun after(case: DebugTokenBenchmarkCase, passed: Boolean): DebugTokenBenchmarkGateState = when (case) {
         DebugTokenBenchmarkCase.GPU_32 -> copy(gpu32Passed = passed, gpu128Passed = false)
         DebugTokenBenchmarkCase.GPU_128 -> copy(gpu128Passed = gpu32Passed && passed)
-        DebugTokenBenchmarkCase.GPU_16, DebugTokenBenchmarkCase.GPU_512, DebugTokenBenchmarkCase.GPU_1024, DebugTokenBenchmarkCase.GPU_2048, DebugTokenBenchmarkCase.GPU_4096, DebugTokenBenchmarkCase.GPU_8192, DebugTokenBenchmarkCase.GPU_16384, DebugTokenBenchmarkCase.GPU_32768, DebugTokenBenchmarkCase.GPU_65536, DebugTokenBenchmarkCase.GPU_131072, DebugTokenBenchmarkCase.GPU_262144, DebugTokenBenchmarkCase.GPU_524288, DebugTokenBenchmarkCase.GPU_1048576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_2048, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_8192, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_16384, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_22400, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_28800, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_30400, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769, DebugTokenBenchmarkCase.CPU_32 -> this
+        DebugTokenBenchmarkCase.GPU_16, DebugTokenBenchmarkCase.GPU_512, DebugTokenBenchmarkCase.GPU_1024, DebugTokenBenchmarkCase.GPU_2048, DebugTokenBenchmarkCase.GPU_4096, DebugTokenBenchmarkCase.GPU_8192, DebugTokenBenchmarkCase.GPU_16384, DebugTokenBenchmarkCase.GPU_32768, DebugTokenBenchmarkCase.GPU_65536, DebugTokenBenchmarkCase.GPU_131072, DebugTokenBenchmarkCase.GPU_262144, DebugTokenBenchmarkCase.GPU_524288, DebugTokenBenchmarkCase.GPU_1048576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_2048, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_8192, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_16384, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_22400, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_24576, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_28800, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_30400, DebugTokenBenchmarkCase.GPU_LONG_30400_R80, DebugTokenBenchmarkCase.GPU_LONG_30400_R825, DebugTokenBenchmarkCase.GPU_LONG_30400_R85, DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_22400, DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_28800, DebugTokenBenchmarkCase.GPU_LONG_32768_PAYLOAD_30400_R85, DebugTokenBenchmarkCase.GPU_LONG_30400_FLOW_COMPARE, DebugTokenBenchmarkCase.GPU_LONG_30400_TYPED_CALLBACK_COMPARE, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32768, DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769, DebugTokenBenchmarkCase.CPU_32 -> this
     }
 }
 
@@ -150,6 +169,7 @@ internal class DebugTokenBenchmarkCoordinator(
         cancelled.set(false)
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val started = SystemClock.elapsedRealtime()
+        val deadlineElapsedRealtime = started + CASE_DEADLINE_MS
         mutableState.value = mutableState.value.copy(
             running = true,
             currentCase = case,
@@ -165,8 +185,8 @@ internal class DebugTokenBenchmarkCoordinator(
         writeEnvironmentArtifact(timestamp, case)
         scope.launch {
             try {
-                dispatch(case, timestamp)
-                awaitTerminal(case, timestamp, started)
+                dispatch(case, timestamp, deadlineElapsedRealtime)
+                awaitTerminal(case, timestamp, started, deadlineElapsedRealtime)
             } finally {
                 running.set(false)
                 mutableState.value = mutableState.value.copy(running = false)
@@ -192,12 +212,30 @@ internal class DebugTokenBenchmarkCoordinator(
         mutableState.value = mutableState.value.copy(stage = "cancelling", detail = reason)
     }
 
-    private suspend fun dispatch(case: DebugTokenBenchmarkCase, timestamp: String) {
+    fun recordLifecycle(stage: String) {
+        val snapshot = mutableState.value
+        val timestamp = snapshot.timestamp ?: return
+        val case = snapshot.currentCase ?: return
+        writeUiMarker(timestamp, case, "activity_lifecycle", stage)
+    }
+
+    private suspend fun dispatch(
+        case: DebugTokenBenchmarkCase,
+        timestamp: String,
+        deadlineElapsedRealtime: Long,
+    ) {
         val genericModelPath = withContext(Dispatchers.IO) {
             SettingsPreferences(appContext).getValidLocalGenericModelPathOrNull()
         }
         File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.GENERIC_MODEL_PATH_RELAY_FILE_NAME)
             .writeText(genericModelPath.orEmpty(), Charsets.UTF_8)
+        val remainingBudgetMs = remainingRunBudgetMs(deadlineElapsedRealtime)
+        if (remainingBudgetMs < MIN_RECEIVER_TIMEOUT_MS) {
+            withContext(Dispatchers.IO) {
+                publishPreDispatchTimeout(case, timestamp, remainingBudgetMs)
+            }
+            return
+        }
         val intent = Intent(LiteRtLmGpuBenchmarkReceiver.ACTION).apply {
             component = ComponentName(appContext, LiteRtLmGpuBenchmarkReceiver::class.java)
             setPackage(appContext.packageName)
@@ -208,16 +246,22 @@ internal class DebugTokenBenchmarkCoordinator(
             putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_CLOSE_POLICY, "normal")
             putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_PHASE, "send-message")
             putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_MODEL_PATH_SOURCE, "generic_fallback")
-            putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_TIMEOUT_MS, CASE_TIMEOUT_MS)
+            putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_SEND_API_MODE, case.sendApiMode)
+            putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_TIMEOUT_MS, remainingBudgetMs)
+            putExtra(LiteRtLmGpuBenchmarkReceiver.EXTRA_RUN_DEADLINE_ELAPSED_REALTIME, deadlineElapsedRealtime)
         }
         writeUiMarker(timestamp, case, "ui_internal_dispatch", "explicit_non_exported_receiver process_already_foreground")
         appContext.sendBroadcast(intent)
     }
 
-    private suspend fun awaitTerminal(case: DebugTokenBenchmarkCase, timestamp: String, started: Long) {
+    private suspend fun awaitTerminal(
+        case: DebugTokenBenchmarkCase,
+        timestamp: String,
+        started: Long,
+        deadlineElapsedRealtime: Long,
+    ) {
         val stateFile = File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.STATE_FILE_NAME)
-        val deadline = started + CASE_TIMEOUT_MS + 15_000L
-        while (SystemClock.elapsedRealtime() < deadline) {
+        while (true) {
             val elapsed = SystemClock.elapsedRealtime() - started
             val stateText = withContext(Dispatchers.IO) { runCatching { stateFile.readText() }.getOrDefault("") }
             val status = value(stateText, "status")
@@ -228,8 +272,12 @@ internal class DebugTokenBenchmarkCoordinator(
             )
             if (value(stateText, "timestamp") == timestamp && status in TERMINAL_STATUS) {
                 val csvName = value(stateText, "csv_file")
-                val csvFile = csvName?.let { File(appContext.filesDir, it) }
-                val evidence = parseEvidence(case, csvFile)
+                val markdownName = value(stateText, "markdown_file")
+                val expectedCsvName = "litert_lm_gpu_benchmark_$timestamp.csv"
+                val expectedMarkdownName = "litert_lm_gpu_benchmark_$timestamp.md"
+                val csvFile = csvName?.takeIf { it == expectedCsvName }?.let { File(appContext.filesDir, it) }
+                val markdownFile = markdownName?.takeIf { it == expectedMarkdownName }?.let { File(appContext.filesDir, it) }
+                val evidence = parseEvidence(case, timestamp, csvFile, markdownFile)
                 val gates = mutableState.value.gates.after(case, evidence.passed)
                 writeUiMarker(timestamp, case, "ui_terminal_readback", "passed=${evidence.passed} output_tokens=${evidence.outputTokens}")
                 mutableState.value = mutableState.value.copy(
@@ -241,7 +289,9 @@ internal class DebugTokenBenchmarkCoordinator(
                 )
                 return
             }
-            delay(250L)
+            val remainingBeforePollMs = remainingRunBudgetMs(deadlineElapsedRealtime)
+            if (remainingBeforePollMs <= 0L) break
+            delay(minOf(250L, remainingBeforePollMs))
         }
         mutableState.value = mutableState.value.copy(
             stage = "host_observation_timeout",
@@ -254,7 +304,12 @@ internal class DebugTokenBenchmarkCoordinator(
         )
     }
 
-    private fun parseEvidence(case: DebugTokenBenchmarkCase, csvFile: File?): DebugTokenBenchmarkResultEvidence {
+    private fun parseEvidence(
+        case: DebugTokenBenchmarkCase,
+        timestamp: String,
+        csvFile: File?,
+        markdownFile: File?,
+    ): DebugTokenBenchmarkResultEvidence {
         val records = runCatching {
             csvFile?.readText()?.let(DebugTokenBenchmarkCsvParser::records).orEmpty()
         }.getOrDefault(emptyList())
@@ -263,21 +318,36 @@ internal class DebugTokenBenchmarkCoordinator(
         val values = dataLines.singleOrNull()?.let(DebugTokenBenchmarkCsvParser::cells).orEmpty()
         val row = headers.zip(values).toMap()
         val outputTokens = row["output_tokens"]?.toIntOrNull()
+        val outputTokenSource = row["output_token_source"].orEmpty()
         val reason = row["reason"]
         val hasGeneratedOutput = !row["sanitized_output"].isNullOrBlank() || !row["raw_output"].isNullOrBlank()
+        val markdownText = runCatching { markdownFile?.readText().orEmpty() }.getOrDefault("")
+        val artifactTimestampMatched = row["timestamp"] == timestamp &&
+            markdownText.lineSequence().any { it == "- timestamp: `$timestamp`" }
+        val outputTokenProvenanceMatched = when {
+            outputTokens != null -> outputTokenSource == "LiteRT benchmarkInfo.lastDecodeTokenCount"
+            row["output_tokens"] == "unavailable" -> outputTokenSource == "unavailable"
+            else -> false
+        }
         return DebugTokenBenchmarkResultEvidence(
             status = row["status"].orEmpty(),
             requestedTokens = case.requestedTokens,
             effectiveTokens = row["max_output_tokens"]?.toIntOrNull(),
             outputTokens = outputTokens,
-            outputTokenSource = if (outputTokens != null) "LiteRT benchmarkInfo.lastDecodeTokenCount" else "missing",
+            outputTokenSource = outputTokenSource.ifBlank { "missing" },
             tokensPerSecond = row["tokens_per_second"]?.toDoubleOrNull(),
             totalMs = row["total_ms"]?.toLongOrNull(),
             finishReason = row["finish_reason"]?.ifBlank { row["stop_reason"] },
             timeout = row["timeout"].toBoolean(),
             fallback = row["fallback_used"].toBoolean(),
             freshCrash = row["fresh_crash"].toBoolean(),
-            finishEvidence = dataLines.size == 1 && reason == "completed" && hasGeneratedOutput,
+            finishEvidence = dataLines.size == 1 &&
+                reason == "completed" &&
+                hasGeneratedOutput &&
+                artifactTimestampMatched &&
+                outputTokenProvenanceMatched &&
+                csvFile?.isFile == true && csvFile.length() > 0L &&
+                markdownFile?.isFile == true && markdownFile.length() > 0L,
         )
     }
 
@@ -303,23 +373,23 @@ internal class DebugTokenBenchmarkCoordinator(
     private fun value(text: String, key: String): String? = text.lineSequence()
         .firstOrNull { it.startsWith("$key=") }?.substringAfter('=')
 
+    private fun remainingRunBudgetMs(deadlineElapsedRealtime: Long): Long =
+        (deadlineElapsedRealtime - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+
     private fun promptFor(case: DebugTokenBenchmarkCase): String =
         if (case.longContext) LongContext.fixedPrompt(case) else TOTAL_CONTEXT_SEQUENCE_PROMPT
 
     private object LongContext {
-        private const val ACCEPTED_RATIO_PERCENT = 85
-        private const val REJECTED_RATIO_PERCENT = 95
-
         fun boundary(case: DebugTokenBenchmarkCase): String =
-            if (case == DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769) {
+            if (case.requestedTokens > 32_768) {
                 "rejected_over_runtime_90pct"
             } else {
                 "accepted_under_runtime_90pct"
             }
 
         fun fixedPrompt(case: DebugTokenBenchmarkCase): String {
-            val ratio = if (case == DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769) REJECTED_RATIO_PERCENT else ACCEPTED_RATIO_PERCENT
-            val repetitions = (case.requestedTokens * ratio) / 100
+            val ratioPermille = if (case == DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_32769) 950 else case.payloadRatioPermille
+            val repetitions = (case.payloadBasisTokens * ratioPermille) / 1000
             return buildString(repetitions * 2 + 64) {
                 repeat(repetitions) { append(" x") }
                 append("\nReply with only the decimal digit 5.")
@@ -328,7 +398,7 @@ internal class DebugTokenBenchmarkCoordinator(
     }
 
     private fun writeUiMarker(timestamp: String, case: DebugTokenBenchmarkCase, stage: String, detail: String) {
-        val text = "timestamp=$timestamp\nroute_type=litert_lm_gpu_benchmark\ntransport=foreground_ui_internal\nstage=$stage\ncase=${case.name}\ntotal_context_tokens=${case.requestedTokens}\ncontext_boundary=${if (case.longContext) LongContext.boundary(case) else "short_prompt"}\nactual_input_tokens=${if (case.longContext) "unavailable_public_sdk" else "not_applicable"}\nprompt_utf8_bytes=${promptFor(case).toByteArray(Charsets.UTF_8).size}\ndetail=$detail\n\n"
+        val text = "timestamp=$timestamp\nroute_type=litert_lm_gpu_benchmark\ntransport=foreground_ui_internal\nstage=$stage\ncase=${case.name}\ntotal_context_tokens=${case.requestedTokens}\npayload_basis_tokens=${case.payloadBasisTokens}\npayload_ratio_permille=${case.payloadRatioPermille}\nsend_api_mode=${case.sendApiMode}\ncontext_boundary=${if (case.longContext) LongContext.boundary(case) else "short_prompt"}\nactual_input_tokens=${if (case.longContext) "pending_benchmark_info" else "not_applicable"}\nprompt_utf8_bytes=${promptFor(case).toByteArray(Charsets.UTF_8).size}\ndetail=$detail\n\n"
         runCatching { File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.MARKER_HISTORY_FILE_NAME).appendText(text) }
     }
 
@@ -340,9 +410,39 @@ internal class DebugTokenBenchmarkCoordinator(
         )
     }
 
+    private fun publishPreDispatchTimeout(
+        case: DebugTokenBenchmarkCase,
+        timestamp: String,
+        remainingBudgetMs: Long,
+    ) {
+        val reason = "run_deadline_expired_before_receiver_launch"
+        val csvName = "litert_lm_gpu_benchmark_$timestamp.csv"
+        val markdownName = "litert_lm_gpu_benchmark_$timestamp.md"
+        writeUtf8Atomically(
+            File(appContext.filesDir, csvName),
+            "timestamp,status,reason,timeout,max_output_tokens,fallback_used,fresh_crash,sanitized_output,raw_output\n" +
+                "$timestamp,failure,$reason,true,${case.requestedTokens},false,false,,\n",
+        )
+        writeUtf8Atomically(
+            File(appContext.filesDir, markdownName),
+            "# LiteRT-LM GPU benchmark\n\n" +
+                "- timestamp: `$timestamp`\n- status: `failure`\n- reason: `$reason`\n" +
+                "- remaining_budget_ms: `$remainingBudgetMs`\n",
+        )
+        writeUtf8Atomically(
+            File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.STATE_FILE_NAME),
+            "timestamp=$timestamp\nstatus=failure\nreason=$reason\n" +
+                "markdown_file=$markdownName\ncsv_file=$csvName\ntimeout_ms=$remainingBudgetMs\n" +
+                "requested_run_count=1\ncompleted_run_count=1\nsuccess_count=0\n" +
+                "failure_count=0\ntimeout_count=1\nfallback_count=0\n",
+        )
+        writeUiMarker(timestamp, case, "pre_dispatch_timeout_published", "remaining_budget_ms=$remainingBudgetMs")
+    }
+
     companion object {
-        private const val CASE_TIMEOUT_MS = 180_000L
-        private val TERMINAL_STATUS = setOf("success", "partial", "failure", "blocked")
+        private const val CASE_DEADLINE_MS = 600_000L
+        private const val MIN_RECEIVER_TIMEOUT_MS = 1_000L
+        private val TERMINAL_STATUS = setOf("success", "partial", "failure", "blocked", "timeout", "cancelled", "skipped")
         private const val TOTAL_CONTEXT_SEQUENCE_PROMPT = "Continue: 1 2 3 4"
     }
 }

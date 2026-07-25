@@ -1,10 +1,52 @@
 package io.github.ninbyo02.lami.gpu
 
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiteRtLmGpuBenchmarkRunSummaryTest {
+    @Test
+    fun `atomic UTF-8 publication replaces complete content and removes temporary files`() {
+        val directory = Files.createTempDirectory("gpu-report-atomic").toFile()
+        try {
+            val target = File(directory, "report.csv")
+            target.writeText("stale", Charsets.UTF_8)
+
+            writeUtf8Atomically(target, "complete UTF-8 report: 日本語\n")
+
+            assertEquals("complete UTF-8 report: 日本語\n", target.readText(Charsets.UTF_8))
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith(".${target.name}.") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `atomic UTF-8 publication removes temporary file when replacement fails`() {
+        val directory = Files.createTempDirectory("gpu-report-atomic-failure").toFile()
+        try {
+            val targetDirectory = File(directory, "report.csv").apply { mkdir() }
+            var failed = false
+
+            try {
+                writeUtf8Atomically(targetDirectory, "must not publish")
+            } catch (_: Throwable) {
+                failed = true
+            }
+
+            assertTrue("replacement failure must propagate", failed)
+            assertTrue("failed replacement must preserve the existing target", targetDirectory.isDirectory)
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith(".${targetDirectory.name}.") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     @Test
     fun `backend parser treats default as automatic`() {
         assertEquals(BenchmarkBackendVariant.AUTOMATIC, BenchmarkBackendVariant.parse("automatic"))
@@ -118,6 +160,80 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
     }
 
     @Test
+    fun `unsafe resource skips are not counted as completed runs`() {
+        val rows = listOf(
+            failureRow(
+                backendVariant = BenchmarkBackendVariant.GPU,
+                reason = "engine_close_timeout",
+                timeout = true,
+            ),
+            failureRow(
+                backendVariant = BenchmarkBackendVariant.GPU,
+                reason = "skipped_after_unsafe_resource_state",
+            ),
+        )
+
+        val summary = buildLiteRtLmGpuBenchmarkRunSummary(rows = rows, requestedRunCount = 2)
+
+        assertEquals(1, summary.completedRunCount)
+        assertEquals(0, summary.failureCount)
+        assertEquals(1, summary.timeoutCount)
+        assertEquals("failure", summary.status)
+        assertEquals("timeout", summary.reason)
+    }
+
+    @Test
+    fun `failed attempt followed by unsafe skip counts only the attempted failure`() {
+        val summary = buildLiteRtLmGpuBenchmarkRunSummary(
+            rows = listOf(
+                failureRow(BenchmarkBackendVariant.GPU, reason = "engine_create_failed"),
+                failureRow(BenchmarkBackendVariant.GPU, reason = "skipped_after_unsafe_resource_state"),
+            ),
+            requestedRunCount = 2,
+        )
+
+        assertEquals(1, summary.completedRunCount)
+        assertEquals(0, summary.successCount)
+        assertEquals(1, summary.failureCount)
+        assertEquals(0, summary.timeoutCount)
+        assertEquals("failure", summary.status)
+        assertEquals("engine_create_failed", summary.reason)
+    }
+
+    @Test
+    fun `successful attempt plus skipped row cannot be accepted as completed success`() {
+        val summary = buildLiteRtLmGpuBenchmarkRunSummary(
+            rows = listOf(
+                successRow(BenchmarkBackendVariant.GPU),
+                failureRow(BenchmarkBackendVariant.GPU, reason = "skipped_after_unsafe_resource_state"),
+            ),
+            requestedRunCount = 2,
+        )
+
+        assertEquals(1, summary.completedRunCount)
+        assertEquals(1, summary.successCount)
+        assertEquals(0, summary.failureCount)
+        assertEquals("partial", summary.status)
+        assertEquals("partial_success", summary.reason)
+    }
+
+    @Test
+    fun `atomic benchmark state write replaces content without temporary residue`() {
+        val directory = Files.createTempDirectory("lami-benchmark-state-test").toFile()
+        try {
+            val state = directory.resolve("state.txt")
+            state.writeText("old\n")
+
+            writeUtf8Atomically(state, "new\n")
+
+            assertEquals("new\n", state.readText())
+            assertTrue(directory.listFiles().orEmpty().none { it.name != state.name })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `generic fallback missing is reported clearly in markdown`() {
         val rows = List(20) {
             failureRow(
@@ -207,6 +323,289 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
         )
 
         assertTrue(evidence.passed)
+    }
+
+    @Test
+    fun `csv carries measured prefill flow callback and finish availability evidence`() {
+        val row = successRow(BenchmarkBackendVariant.GPU).copy(
+            measuredPrefillTokens = 25_840,
+            prefillTokenSource = "LiteRT benchmarkInfo.lastPrefillTokenCount",
+            outputTokenSource = "LiteRT benchmarkInfo.lastDecodeTokenCount",
+            emitCount = 4,
+            nonemptyEmitCount = 3,
+            rawLength = 12,
+            sanitizedLength = 9,
+            firstNonemptyMs = 42L,
+            flowExceptionType = null,
+            finishReasonAvailable = true,
+            stopReasonAvailable = false,
+            callbackOnMessageCount = 3,
+            callbackOnDoneCount = 1,
+            callbackOnErrorCount = 0,
+            chunkTypeLengthSummary = "Content=3:12",
+        )
+
+        val records = DebugTokenBenchmarkCsvParser.records(buildGpuBenchmarkCsv(listOf(row)))
+        val values = DebugTokenBenchmarkCsvParser.cells(records.single { it.startsWith("\"") && "20260701_120000" in it })
+        val headers = DebugTokenBenchmarkCsvParser.cells(records.first())
+        val mapped = headers.zip(values).toMap()
+
+        assertEquals("25840", mapped["measured_prefill_tokens"])
+        assertEquals("LiteRT benchmarkInfo.lastPrefillTokenCount", mapped["prefill_token_source"])
+        assertEquals("4", mapped["emit_count"])
+        assertEquals("3", mapped["callback_on_message_count"])
+        assertEquals("true", mapped["finish_reason_available"])
+        assertEquals("Content=3:12", mapped["chunk_type_length_summary"])
+    }
+
+    @Test
+    fun `callback accumulator records thread safe type length and partial evidence`() {
+        val accumulator = CallbackObservationAccumulator()
+        val workers = (0 until 8).map { index ->
+            Thread { accumulator.onMessage("Text", "chunk-$index", index.toLong()) }
+        }
+        workers.forEach(Thread::start)
+        workers.forEach(Thread::join)
+        accumulator.onError()
+
+        val snapshot = accumulator.snapshot()
+        assertEquals(8, snapshot.emitCount)
+        assertEquals(8, snapshot.nonemptyEmitCount)
+        assertEquals(1, snapshot.callbackOnErrorCount)
+        assertTrue(snapshot.chunkTypeLengthSummary.contains("Text:7"))
+        assertTrue(snapshot.rawOutput.isNotBlank())
+    }
+
+    @Test
+    fun `callback accumulator freezes the first terminal snapshot and ignores late callbacks`() {
+        val accumulator = CallbackObservationAccumulator()
+        accumulator.onMessage("Text", "before", 7L)
+
+        val doneWon = accumulator.onDone()
+        val errorLost = accumulator.onError()
+        val lateMessageWasFirst = accumulator.onMessage("Text", "after", 9L)
+        val snapshot = accumulator.snapshot()
+
+        assertTrue(doneWon)
+        assertTrue(!errorLost)
+        assertTrue(!lateMessageWasFirst)
+        assertEquals("before", snapshot.rawOutput)
+        assertEquals(1, snapshot.callbackOnMessageCount)
+        assertEquals(1, snapshot.callbackOnDoneCount)
+        assertEquals(0, snapshot.callbackOnErrorCount)
+    }
+
+    @Test
+    fun `callback accumulator allows exactly one terminal winner under race`() {
+        repeat(40) {
+            val accumulator = CallbackObservationAccumulator()
+            val done = Thread { accumulator.onDone() }
+            val error = Thread { accumulator.onError() }
+            done.start()
+            error.start()
+            done.join()
+            error.join()
+
+            val snapshot = accumulator.snapshot()
+            assertEquals(1, snapshot.callbackOnDoneCount + snapshot.callbackOnErrorCount)
+        }
+    }
+
+    @Test
+    fun `callback timeout competes as an atomic terminal winner`() {
+        repeat(40) {
+            val accumulator = CallbackObservationAccumulator()
+            val done = Thread { accumulator.onDone() }
+            val timeout = Thread { accumulator.onTimeout() }
+            done.start()
+            timeout.start()
+            done.join()
+            timeout.join()
+
+            assertTrue(accumulator.terminalKind() in setOf(CallbackTerminalKind.DONE, CallbackTerminalKind.TIMEOUT))
+            assertEquals(1, accumulator.snapshot().callbackOnDoneCount + if (accumulator.terminalKind() == CallbackTerminalKind.TIMEOUT) 1 else 0)
+        }
+    }
+
+    @Test
+    fun `real flow failure preserves partial observation and actual collect cause`() {
+        val failure = try {
+            runBlocking {
+                collectStringFlowForBenchmark(
+                    chunks = flow {
+                        emit("partial")
+                        throw IllegalStateException("boom")
+                    },
+                    elapsedMs = { 11L },
+                )
+            }
+            null
+        } catch (throwable: SendObservationException) {
+            throwable
+        }
+
+        assertEquals("partial", failure?.observation?.rawOutput)
+        assertEquals(1, failure?.observation?.emitCount)
+        assertEquals(IllegalStateException::class.java, failure?.cause?.javaClass)
+        assertEquals("boom", failure?.cause?.message)
+    }
+
+    @Test
+    fun `blocking fallback keeps successful output and durable partial flow evidence`() {
+        val partial = SendObservation(
+            rawOutput = "partial",
+            emitCount = 2,
+            nonemptyEmitCount = 1,
+            firstNonemptyMs = 11L,
+            callbackOnMessageCount = 0,
+            callbackOnDoneCount = 0,
+            callbackOnErrorCount = 0,
+            chunkTypeLengthSummary = "not_callback",
+        )
+        val blocking = SendObservation.blocking("complete", 25L)
+        val merged = blocking.withFlowPartialEvidence(partial)
+
+        assertEquals("complete", merged.rawOutput)
+        assertEquals("partial", merged.flowPartialRawOutput)
+        assertEquals(2, merged.flowPartialEmitCount)
+        assertEquals(1, merged.flowPartialNonemptyEmitCount)
+        assertEquals(11L, merged.flowPartialFirstNonemptyMs)
+    }
+
+    @Test
+    fun `blocking fallback failure keeps dedicated partial flow evidence`() {
+        val partial = SendObservation(
+            rawOutput = "partial",
+            emitCount = 2,
+            nonemptyEmitCount = 1,
+            firstNonemptyMs = 11L,
+            callbackOnMessageCount = 0,
+            callbackOnDoneCount = 0,
+            callbackOnErrorCount = 0,
+            chunkTypeLengthSummary = "not_callback",
+        )
+
+        val failure = mergeFlowFailureWithBlockingFailure(partial, IllegalStateException("blocking"))
+
+        assertEquals("partial", failure.observation.flowPartialRawOutput)
+        assertEquals(2, failure.observation.flowPartialEmitCount)
+        assertEquals(IllegalStateException::class.java, failure.cause?.javaClass)
+    }
+
+    @Test
+    fun `blocking fallback failure does not wrap interruption`() {
+        Thread.interrupted()
+        val interruption = InterruptedException("stop")
+        try {
+            mergeFlowFailureWithBlockingFailure(null, interruption)
+            throw AssertionError("interruption was wrapped")
+        } catch (actual: InterruptedException) {
+            assertTrue(actual === interruption)
+            assertTrue(Thread.currentThread().isInterrupted)
+        } finally {
+            Thread.interrupted()
+        }
+    }
+
+    @Test
+    fun `cancel command matches only the active run timestamp`() {
+        assertTrue(cancelTimestampMatches("20260724_220000", "20260724_220000"))
+        assertTrue(!cancelTimestampMatches("20260724_220000", "20260724_220001"))
+        assertTrue(!cancelTimestampMatches(null, "20260724_220000"))
+    }
+
+    @Test
+    fun `cancellation and interruption remain control flow`() {
+        val cancellation = java.util.concurrent.CancellationException("cancel")
+        try {
+            rethrowCancellationOrInterrupt(cancellation)
+            throw AssertionError("cancellation was swallowed")
+        } catch (actual: java.util.concurrent.CancellationException) {
+            assertTrue(actual === cancellation)
+        }
+
+        Thread.interrupted()
+        val interruption = InterruptedException("interrupt")
+        try {
+            rethrowCancellationOrInterrupt(interruption)
+            throw AssertionError("interruption was swallowed")
+        } catch (actual: InterruptedException) {
+            assertTrue(actual === interruption)
+            assertTrue(Thread.currentThread().isInterrupted)
+        } finally {
+            Thread.interrupted()
+        }
+    }
+
+    @Test
+    fun `csv preserves public zero decode token count`() {
+        val records = DebugTokenBenchmarkCsvParser.records(
+            buildGpuBenchmarkCsv(listOf(successRow(BenchmarkBackendVariant.GPU).copy(outputTokens = 0))),
+        )
+        val headers = DebugTokenBenchmarkCsvParser.cells(records.first())
+        val values = DebugTokenBenchmarkCsvParser.cells(records.drop(1).single())
+        assertEquals("0", headers.zip(values).toMap()["output_tokens"])
+    }
+
+    @Test
+    fun `csv writes unavailable literally for missing public token measurements`() {
+        val records = DebugTokenBenchmarkCsvParser.records(
+            buildGpuBenchmarkCsv(
+                listOf(
+                    successRow(BenchmarkBackendVariant.GPU).copy(
+                        outputTokens = null,
+                        measuredPrefillTokens = null,
+                        outputTokenSource = "unavailable",
+                        prefillTokenSource = "unavailable",
+                    ),
+                ),
+            ),
+        )
+        val headers = DebugTokenBenchmarkCsvParser.cells(records.first())
+        val values = DebugTokenBenchmarkCsvParser.cells(records.drop(1).single())
+        val mapped = headers.zip(values).toMap()
+
+        assertEquals("unavailable", mapped["output_tokens"])
+        assertEquals("unavailable", mapped["measured_prefill_tokens"])
+        assertEquals("unavailable", mapped["output_token_source"])
+        assertEquals("unavailable", mapped["prefill_token_source"])
+    }
+
+    @Test
+    fun `public benchmark measurement rejects negative sentinel values`() {
+        val evidence = BenchmarkMeasurementEvidence.fromPublicApi(
+            prefillTokens = -1,
+            decodeTokens = -1,
+        )
+
+        assertNull(evidence.measuredPrefillTokens)
+        assertNull(evidence.outputTokens)
+        assertEquals("unavailable", evidence.prefillTokenSource)
+        assertEquals("unavailable", evidence.outputTokenSource)
+    }
+
+    @Test
+    fun `public benchmark measurement preserves zero and names exact SDK fields`() {
+        val evidence = BenchmarkMeasurementEvidence.fromPublicApi(
+            prefillTokens = 0,
+            decodeTokens = 0,
+        )
+
+        assertEquals(0, evidence.measuredPrefillTokens)
+        assertEquals(0, evidence.outputTokens)
+        assertEquals("LiteRT benchmarkInfo.lastPrefillTokenCount", evidence.prefillTokenSource)
+        assertEquals("LiteRT benchmarkInfo.lastDecodeTokenCount", evidence.outputTokenSource)
+    }
+
+    @Test
+    fun `flow exception evidence is not attributed to typed callback failures`() {
+        val failure = IllegalStateException("boom")
+
+        assertEquals(
+            IllegalStateException::class.java.name,
+            flowExceptionType(BenchmarkSendApiMode.FLOW_STRING, failure),
+        )
+        assertNull(flowExceptionType(BenchmarkSendApiMode.TYPED_CONTENTS_CALLBACK, failure))
     }
 
     private fun successRow(

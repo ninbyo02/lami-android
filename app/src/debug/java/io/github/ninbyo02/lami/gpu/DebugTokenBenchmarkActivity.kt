@@ -47,8 +47,24 @@ class DebugTokenBenchmarkActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        coordinator.recordLifecycle("onStop screen_left")
         coordinator.cancel("screen_left")
         super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (::coordinator.isInitialized) coordinator.recordLifecycle("onStart")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::coordinator.isInitialized) coordinator.recordLifecycle("onResume")
+    }
+
+    override fun onPause() {
+        if (::coordinator.isInitialized) coordinator.recordLifecycle("onPause")
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -179,6 +195,46 @@ private fun DebugTokenBenchmarkScreen(coordinator: DebugTokenBenchmarkCoordinato
             label = "GPU long context 30400",
             enabled = !state.running,
             onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_CONTEXT_30400) },
+        )
+        FixedCaseButton(
+            label = "GPU long 30400 ratio 80%",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_R80) },
+        )
+        FixedCaseButton(
+            label = "GPU long 30400 ratio 82.5%",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_R825) },
+        )
+        FixedCaseButton(
+            label = "GPU long 30400 ratio 85%",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_R85) },
+        )
+        FixedCaseButton(
+            label = "GPU 30400 payload-equivalent 22400",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_22400) },
+        )
+        FixedCaseButton(
+            label = "GPU 30400 payload-equivalent 28800",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_PAYLOAD_28800) },
+        )
+        FixedCaseButton(
+            label = "GPU 32768 same bytes as 30400 ratio 85%",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_32768_PAYLOAD_30400_R85) },
+        )
+        FixedCaseButton(
+            label = "GPU 30400 Flow comparison",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_FLOW_COMPARE) },
+        )
+        FixedCaseButton(
+            label = "GPU 30400 typed callback comparison",
+            enabled = !state.running,
+            onClick = { coordinator.start(DebugTokenBenchmarkCase.GPU_LONG_30400_TYPED_CALLBACK_COMPARE) },
         )
         FixedCaseButton(
             label = "GPU long context 32768",
