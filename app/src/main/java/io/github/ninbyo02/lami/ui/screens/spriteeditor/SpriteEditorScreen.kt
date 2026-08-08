@@ -261,6 +261,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
     var isGridEnabled by remember { mutableStateOf(false) }
+    var isMinecraftSkinOverlayEnabled by rememberSaveable { mutableStateOf(false) }
     var isDirty by rememberSaveable { mutableStateOf(false) }
     var showExitConfirmDialog by rememberSaveable { mutableStateOf(false) }
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
@@ -660,6 +661,24 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     val previewContent: @Composable () -> Unit = {
+                        val minecraftSkinPartLabel = remember(
+                            isMinecraftSkinOverlayEnabled,
+                            state?.bitmap?.width,
+                            state?.bitmap?.height,
+                            state?.selection,
+                        ) {
+                            val current = state
+                            if (!isMinecraftSkinOverlayEnabled || current == null) {
+                                null
+                            } else {
+                                minecraftSkinPartLabelAt(
+                                    width = current.bitmap.width,
+                                    height = current.bitmap.height,
+                                    x = current.selection.x,
+                                    y = current.selection.y,
+                                ) ?: "-"
+                            }
+                        }
                         val gridRenderScale = remember(state, previewSize, displayScale) {
                             if (state == null) {
                                 0f
@@ -936,6 +955,41 @@ fun SpriteEditorScreen(navController: NavController) {
                                             ),
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f),
                                         )
+                                        if (isMinecraftSkinOverlayEnabled) {
+                                            val skinRegions = minecraftSkinRegions(
+                                                width = state.bitmap.width,
+                                                height = state.bitmap.height,
+                                            )
+                                            if (skinRegions.isNotEmpty()) {
+                                                val shadowColor = Color.Black.copy(alpha = 0.52f)
+                                                val lineColor = Color(0xFF40E0D0).copy(alpha = 0.86f)
+                                                val strokeWidth = max(1f, min(2.5f, renderScale / 3f))
+                                                skinRegions.forEach { region ->
+                                                    val left = renderLeft + region.x * renderScale
+                                                    val top = renderTop + region.y * renderScale
+                                                    val regionSize = Size(
+                                                        width = region.w * renderScale,
+                                                        height = region.h * renderScale,
+                                                    )
+                                                    drawRect(
+                                                        color = shadowColor,
+                                                        topLeft = Offset(left, top),
+                                                        size = regionSize,
+                                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                            width = strokeWidth + 1f,
+                                                        ),
+                                                    )
+                                                    drawRect(
+                                                        color = lineColor,
+                                                        topLeft = Offset(left, top),
+                                                        size = regionSize,
+                                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                            width = strokeWidth,
+                                                        ),
+                                                    )
+                                                }
+                                            }
+                                        }
                                         val copied = copiedSelection
                                         if (copied != null) {
                                             val copiedXPx = (copied.x * renderScale).roundToInt()
@@ -1007,6 +1061,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokePx.toFloat()),
                                         )
                                     }
+                                }
+                                if (minecraftSkinPartLabel != null) {
+                                    Text(
+                                        text = "MC: $minecraftSkinPartLabel",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(8.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                                                shape = RoundedCornerShape(4.dp),
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .testTag("spriteEditorMinecraftSkinPart"),
+                                    )
                                 }
                             }
                         }
@@ -1703,6 +1775,14 @@ fun SpriteEditorScreen(navController: NavController) {
                 SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
                 SheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
                 SheetItem(
+                    label = if (isMinecraftSkinOverlayEnabled) {
+                        "Minecraft Skin Overlay: ON"
+                    } else {
+                        "Minecraft Skin Overlay: OFF"
+                    },
+                    testTag = "spriteEditorSheetItemMinecraftSkinOverlay",
+                ),
+                SheetItem(
                     label = "Apply to Sprite...",
                     testTag = "spriteEditorSheetItemApply",
                     opensApplyDialog = true,
@@ -1912,6 +1992,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     showCanvasSizeDialog = true
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemMinecraftSkinOverlay") {
+                                isMinecraftSkinOverlayEnabled = !isMinecraftSkinOverlayEnabled
+                                activeSheet = SheetType.None
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
