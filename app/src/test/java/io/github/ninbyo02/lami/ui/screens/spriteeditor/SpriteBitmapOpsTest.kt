@@ -383,8 +383,78 @@ class SpriteBitmapOpsTest {
 
         assertEquals(Color.RED, updated.currentColor)
         assertEquals(8, updated.recentColors.size)
-        assertEquals(Color.RED, updated.recentColors.first())
-        assertNotEquals(updated.currentColor, updated.recentColors.drop(1).first())
+        assertEquals(Color.BLACK, updated.recentColors.first())
+        assertFalse(updated.recentColors.contains(updated.currentColor))
+    }
+
+    @Test
+    fun selectSpriteEditorCurrentColor_reselectingCurrentColorDoesNotChangeHistory() {
+        val initial = SpriteEditorColorHistory(
+            currentColor = Color.RED,
+            recentColors = listOf(Color.BLUE, Color.GREEN),
+        )
+
+        assertEquals(initial, initial.select(Color.RED))
+    }
+
+    @Test
+    fun colorPaletteSelection_keepsSheetOpenAndShowsVisibleSelectionRing() {
+        assertFalse(DISMISS_COLOR_PALETTE_AFTER_SELECTION)
+        assertEquals(3, spriteEditorPaletteSelectionRingWidthDp(selected = true))
+        assertEquals(0, spriteEditorPaletteSelectionRingWidthDp(selected = false))
+    }
+
+    @Test
+    fun findUniformSelectionColor_returnsExactRgbaInsideBoxAndIgnoresOutside() {
+        val bitmap = Bitmap.createBitmap(3, 2, Bitmap.Config.ARGB_8888)
+        val selected = Color.argb(128, 20, 40, 60)
+        bitmap.eraseColor(Color.YELLOW)
+        bitmap.setPixel(1, 0, selected)
+        bitmap.setPixel(2, 0, selected)
+
+        val result = findUniformSelectionColor(bitmap, RectPx.of(1, 0, 2, 1))
+
+        assertEquals(UniformSelectionColorStatus.UNIFORM, result.status)
+        assertEquals(selected, result.color)
+    }
+
+    @Test
+    fun findUniformSelectionColor_reportsMixedWithoutChoosingMajorityColor() {
+        val bitmap = Bitmap.createBitmap(3, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.RED)
+        bitmap.setPixel(1, 0, Color.RED)
+        bitmap.setPixel(2, 0, Color.BLUE)
+
+        val result = findUniformSelectionColor(bitmap, RectPx.of(0, 0, 3, 1))
+
+        assertEquals(UniformSelectionColorStatus.MIXED, result.status)
+        assertEquals(null, result.color)
+    }
+
+    @Test
+    fun findUniformSelectionColor_reportsFullyTransparentSelection() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val result = findUniformSelectionColor(bitmap, RectPx.of(0, 0, 2, 2))
+
+        assertEquals(UniformSelectionColorStatus.TRANSPARENT, result.status)
+        assertEquals(null, result.color)
+    }
+
+    @Test
+    fun findUniformSelectionColor_honorsRowCancellation() {
+        val bitmap = Bitmap.createBitmap(2, 3, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+
+        val result = findUniformSelectionColor(
+            bitmap,
+            RectPx.of(0, 0, 2, 3),
+            shouldCancel = { row -> row >= 1 },
+        )
+
+        assertEquals(UniformSelectionColorStatus.CANCELLED, result.status)
+        assertEquals(null, result.color)
     }
 
     @Test
