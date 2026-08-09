@@ -519,14 +519,12 @@ fun SpriteEditorScreen(navController: NavController) {
         onResult: (PaletteBitmapResult, PaletteBitmapResultOwner) -> PaletteBitmapApplicationDecision,
     ) {
         val owner = PaletteBitmapResultOwner(sourceBitmap)
-        var message: String? = null
-        try {
+        val message = try {
             withContext(Dispatchers.Default) {
                 owner.publish(operation { !isActive })
             }
             val result = owner.current() ?: return
-            val decision = onResult(result, owner)
-            message = decision.message
+            onResult(result, owner).message
         } finally {
             owner.close()
         }
