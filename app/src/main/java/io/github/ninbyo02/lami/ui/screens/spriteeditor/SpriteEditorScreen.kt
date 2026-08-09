@@ -216,6 +216,10 @@ internal data class SpriteEditorColorHistory(
     }
 }
 
+internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = true
+
+internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int = 0
+
 internal data class SpriteEditorPaletteSwatchSemantics(
     val contentDescription: String,
     val testTag: String,

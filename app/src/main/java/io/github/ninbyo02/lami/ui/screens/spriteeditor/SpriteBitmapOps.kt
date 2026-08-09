@@ -39,6 +39,26 @@ data class PaletteBitmapResult(
         get() = rejectionReason != PaletteBitmapRejectionReason.NONE
 }
 
+enum class UniformSelectionColorStatus {
+    UNIFORM,
+    MIXED,
+    TRANSPARENT,
+    CANCELLED,
+}
+
+data class UniformSelectionColorResult(
+    val status: UniformSelectionColorStatus,
+    val color: Int? = null,
+)
+
+fun findUniformSelectionColor(
+    bitmap: Bitmap,
+    selection: RectPx,
+    shouldCancel: (row: Int) -> Boolean = { false },
+): UniformSelectionColorResult {
+    return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+}
+
 enum class PaletteBitmapRejectionReason {
     NONE,
     TOO_LARGE,
