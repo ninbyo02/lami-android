@@ -516,7 +516,7 @@ fun SpriteEditorScreen(navController: NavController) {
     suspend fun runPaletteBitmapOperation(
         sourceBitmap: Bitmap,
         operation: ((row: Int) -> Boolean) -> PaletteBitmapResult,
-        onResult: (PaletteBitmapResult) -> PaletteBitmapApplicationDecision,
+        onResult: (PaletteBitmapResult, PaletteBitmapResultOwner) -> PaletteBitmapApplicationDecision,
     ) {
         val owner = PaletteBitmapResultOwner(sourceBitmap)
         var message: String? = null
@@ -525,20 +525,18 @@ fun SpriteEditorScreen(navController: NavController) {
                 owner.publish(operation { !isActive })
             }
             val result = owner.current() ?: return
-            val decision = onResult(result)
-            if (decision.adopted) {
-                owner.take()
-            }
+            val decision = onResult(result, owner)
             message = decision.message
         } finally {
             owner.close()
         }
-        message?.let { showSnackbarMessage(it) }
+        showSnackbarMessage(message)
     }
 
     fun applyPaletteBitmapResult(
         current: SpriteEditorState,
         result: PaletteBitmapResult,
+        owner: PaletteBitmapResultOwner,
         unchangedMessage: String = "No pixels changed",
         appliedMessage: String,
         applied: () -> Unit = {},
@@ -551,7 +549,9 @@ fun SpriteEditorScreen(navController: NavController) {
         )
         if (decision.adopted) {
             pushUndoSnapshot(current, undoStack, redoStack)
-            editorState = current.withBitmap(result.bitmap)
+            val nextEditorState = current.withBitmap(result.bitmap)
+            editorState = nextEditorState
+            owner.take()
             isDirty = true
             applied()
         }
@@ -1834,10 +1834,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                         operation = { shouldCancel ->
                                                                             reduceToFixedPalette(sourceBitmap, shouldCancel)
                                                                         },
-                                                                    ) { result ->
+                                                                    ) { result, owner ->
                                                                         applyPaletteBitmapResult(
                                                                             current = current,
                                                                             result = result,
+                                                                            owner = owner,
                                                                             appliedMessage = "Repeated: Reduce to 256 Colors",
                                                                         )
                                                                     }
@@ -2198,10 +2199,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                             operation = { shouldCancel ->
                                                 reduceToFixedPalette(sourceBitmap, shouldCancel)
                                             },
-                                        ) { result ->
+                                        ) { result, owner ->
                                             applyPaletteBitmapResult(
                                                 current = current,
                                                 result = result,
+                                                owner = owner,
                                                 appliedMessage = "Reduced to 256 colors",
                                             ) {
                                                 lastToolOp = LastToolOp.ReduceTo256Colors
@@ -2293,10 +2295,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     shouldCancel,
                                                 )
                                             },
-                                        ) { result ->
+                                        ) { result, owner ->
                                             applyPaletteBitmapResult(
                                                 current = current,
                                                 result = result,
+                                                owner = owner,
                                                 appliedMessage = "Selection filled",
                                             )
                                         }
