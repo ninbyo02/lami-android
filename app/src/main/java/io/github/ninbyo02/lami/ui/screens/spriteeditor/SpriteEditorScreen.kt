@@ -228,7 +228,7 @@ internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
 internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int? = if (selected) 3 else null
 
 internal fun eyedropperPaletteColorForSample(sampled: Int): Int? {
-    return if (Color.alpha(sampled) == 0) null else nearestFixedPaletteColor(sampled)
+    return if (android.graphics.Color.alpha(sampled) == 0) null else nearestFixedPaletteColor(sampled)
 }
 
 internal data class EyedropperSelectionDecision(
@@ -243,7 +243,7 @@ internal fun decideEyedropperSelectionResult(
     return when (result.status) {
         UniformSelectionColorStatus.UNIFORM -> {
             val color = result.color
-            if (color == null || Color.alpha(color) == 0) {
+            if (color == null || android.graphics.Color.alpha(color) == 0) {
                 EyedropperSelectionDecision(null, false, "Cannot read selection color")
             } else {
                 EyedropperSelectionDecision(
