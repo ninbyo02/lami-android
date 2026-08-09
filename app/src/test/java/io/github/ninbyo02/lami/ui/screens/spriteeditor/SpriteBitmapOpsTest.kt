@@ -208,13 +208,14 @@ class SpriteBitmapOpsTest {
         val viewSize = IntSize(width = 101, height = 101)
         val bitmapWidth = 10
         val bitmapHeight = 5
-        val displayScale = 1.5f
+        val displayScale = 0.5f
         val panOffset = Offset(0.75f, -0.25f)
 
+        // fitScale=10.1, renderScale=5.05, renderLeft=26.0, renderTop=37.625.
         assertEquals(
             androidx.compose.ui.unit.IntOffset(0, 0),
             previewOffsetToBitmapPixel(
-                position = Offset(13.26f, 13.50f),
+                position = Offset(26.01f, 37.635f),
                 viewSize = viewSize,
                 bitmapWidth = bitmapWidth,
                 bitmapHeight = bitmapHeight,
@@ -225,7 +226,7 @@ class SpriteBitmapOpsTest {
         assertEquals(
             androidx.compose.ui.unit.IntOffset(9, 4),
             previewOffsetToBitmapPixel(
-                position = Offset(87.99f, 50.99f),
+                position = Offset(76.49f, 62.865f),
                 viewSize = viewSize,
                 bitmapWidth = bitmapWidth,
                 bitmapHeight = bitmapHeight,
@@ -236,7 +237,7 @@ class SpriteBitmapOpsTest {
         assertEquals(
             androidx.compose.ui.unit.IntOffset(5, 2),
             previewOffsetToBitmapPixel(
-                position = Offset(50.75f, 28.75f),
+                position = Offset(51.35f, 47.825f),
                 viewSize = viewSize,
                 bitmapWidth = bitmapWidth,
                 bitmapHeight = bitmapHeight,
@@ -247,7 +248,7 @@ class SpriteBitmapOpsTest {
         assertEquals(
             null,
             previewOffsetToBitmapPixel(
-                position = Offset(13.24f, 13.50f),
+                position = Offset(25.99f, 37.635f),
                 viewSize = viewSize,
                 bitmapWidth = bitmapWidth,
                 bitmapHeight = bitmapHeight,
@@ -258,7 +259,7 @@ class SpriteBitmapOpsTest {
         assertEquals(
             null,
             previewOffsetToBitmapPixel(
-                position = Offset(88.25f, 50.99f),
+                position = Offset(76.50f, 62.865f),
                 viewSize = viewSize,
                 bitmapWidth = bitmapWidth,
                 bitmapHeight = bitmapHeight,
