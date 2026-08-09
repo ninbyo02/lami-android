@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import java.util.Collections
+import java.util.LinkedHashMap
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.pow
@@ -20,6 +22,7 @@ private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
+const val SPRITE_BITMAP_OPS_MAX_PIXELS = 4_194_304
 // Fill Connectedで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
 const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 const val FILL_CONNECTED_RGB_TOLERANCE = 24
@@ -29,6 +32,7 @@ val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePalette()
 data class PaletteBitmapResult(
     val bitmap: Bitmap,
     val changed: Boolean,
+    val rejected: Boolean = false,
 )
 
 enum class Mode { Alpha, Rgb }
@@ -70,8 +74,40 @@ private data class OklabColor(
     val b: Double,
 )
 
-private val FIXED_SPRITE_PALETTE_OKLAB: List<OklabColor> =
-    FIXED_SPRITE_PALETTE.map { colorToOklab(it) }
+private data class PaletteOklabEntry(
+    val index: Int,
+    val color: Int,
+    val oklab: OklabColor,
+)
+
+private data class PaletteKdNode(
+    val entry: PaletteOklabEntry,
+    val axis: Int,
+    val left: PaletteKdNode?,
+    val right: PaletteKdNode?,
+)
+
+private val FIXED_SPRITE_PALETTE_OKLAB: List<PaletteOklabEntry> =
+    FIXED_SPRITE_PALETTE.mapIndexed { index, color ->
+        PaletteOklabEntry(index = index, color = color, oklab = colorToOklab(color))
+    }
+
+private val FIXED_SPRITE_PALETTE_RGB_SET: Set<Int> =
+    FIXED_SPRITE_PALETTE.mapTo(HashSet(FIXED_SPRITE_PALETTE.size)) { it and 0x00FFFFFF }
+
+private val FIXED_SPRITE_PALETTE_KD_TREE: PaletteKdNode? =
+    buildPaletteKdTree(FIXED_SPRITE_PALETTE_OKLAB, depth = 0)
+
+private const val NEAREST_PALETTE_CACHE_MAX_SIZE = 4096
+private val nearestPaletteCache = object : LinkedHashMap<Int, Int>(
+    NEAREST_PALETTE_CACHE_MAX_SIZE,
+    0.75f,
+    true,
+) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Int>?): Boolean {
+        return size > NEAREST_PALETTE_CACHE_MAX_SIZE
+    }
+}
 
 fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
 
@@ -96,55 +132,112 @@ private fun buildFixedSpritePalette(): List<Int> {
 
     check(colors.size == 256)
     check(colors.toSet().size == 256)
-    return colors.toList()
+    return Collections.unmodifiableList(colors.toList())
 }
 
 fun nearestFixedPaletteColor(color: Int): Int {
-    val target = colorToOklab(color or 0xFF000000.toInt())
-    var bestIndex = 0
-    var bestDistance = Double.POSITIVE_INFINITY
-    for (index in FIXED_SPRITE_PALETTE_OKLAB.indices) {
-        val candidate = FIXED_SPRITE_PALETTE_OKLAB[index]
-        val dl = target.l - candidate.l
-        val da = target.a - candidate.a
-        val db = target.b - candidate.b
-        val distance = dl * dl + da * da + db * db
-        if (distance < bestDistance) {
-            bestDistance = distance
-            bestIndex = index
+    val opaqueRgb = color and 0x00FFFFFF
+    if (opaqueRgb in FIXED_SPRITE_PALETTE_RGB_SET) {
+        return 0xFF000000.toInt() or opaqueRgb
+    }
+    synchronized(nearestPaletteCache) {
+        nearestPaletteCache[opaqueRgb]?.let { return it }
+    }
+    val target = colorToOklab(0xFF000000.toInt() or opaqueRgb)
+    val nearest = nearestPaletteEntry(target).color
+    synchronized(nearestPaletteCache) {
+        nearestPaletteCache[opaqueRgb] = nearest
+    }
+    return nearest
+}
+
+private fun buildPaletteKdTree(entries: List<PaletteOklabEntry>, depth: Int): PaletteKdNode? {
+    if (entries.isEmpty()) return null
+    val axis = depth % 3
+    val sorted = entries.sortedWith(compareBy<PaletteOklabEntry> { it.oklab.component(axis) }.thenBy { it.index })
+    val median = sorted.size / 2
+    return PaletteKdNode(
+        entry = sorted[median],
+        axis = axis,
+        left = buildPaletteKdTree(sorted.subList(0, median), depth + 1),
+        right = buildPaletteKdTree(sorted.subList(median + 1, sorted.size), depth + 1),
+    )
+}
+
+private fun nearestPaletteEntry(target: OklabColor): PaletteOklabEntry {
+    var best = FIXED_SPRITE_PALETTE_OKLAB.first()
+    var bestDistance = oklabDistanceSquared(target, best.oklab)
+
+    fun visit(node: PaletteKdNode?) {
+        if (node == null) return
+        val candidateDistance = oklabDistanceSquared(target, node.entry.oklab)
+        if (
+            candidateDistance < bestDistance ||
+            (candidateDistance == bestDistance && node.entry.index < best.index)
+        ) {
+            best = node.entry
+            bestDistance = candidateDistance
+        }
+
+        val delta = target.component(node.axis) - node.entry.oklab.component(node.axis)
+        val near = if (delta <= 0.0) node.left else node.right
+        val far = if (delta <= 0.0) node.right else node.left
+        visit(near)
+        if (delta * delta <= bestDistance) {
+            visit(far)
         }
     }
-    return FIXED_SPRITE_PALETTE[bestIndex]
+
+    visit(FIXED_SPRITE_PALETTE_KD_TREE)
+    return best
+}
+
+private fun OklabColor.component(axis: Int): Double {
+    return when (axis) {
+        0 -> l
+        1 -> a
+        else -> b
+    }
+}
+
+private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
+    val dl = left.l - right.l
+    val da = left.a - right.a
+    val db = left.b - right.b
+    return dl * dl + da * da + db * db
 }
 
 fun reduceToFixedPalette(src: Bitmap): PaletteBitmapResult {
-    val safeSrc = ensureArgb8888(src)
-    val width = safeSrc.width
-    val height = safeSrc.height
+    val width = src.width
+    val height = src.height
     if (width <= 0 || height <= 0) {
-        return PaletteBitmapResult(safeSrc, changed = false)
+        return PaletteBitmapResult(src, changed = false)
+    }
+    if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return PaletteBitmapResult(src, changed = false, rejected = true)
     }
 
-    val pixels = IntArray(width * height)
-    safeSrc.getPixels(pixels, 0, width, 0, 0, width, height)
-    val outPixels = pixels.copyOf()
-    var changed = false
-    for (index in pixels.indices) {
-        val pixel = pixels[index]
-        val alpha = (pixel ushr 24) and 0xFF
-        if (alpha == 0) {
-            continue
-        }
-        val nearest = nearestFixedPaletteColor(pixel)
-        val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
-        if (mapped != pixel) {
-            outPixels[index] = mapped
-            changed = true
-        }
-    }
-
+    val rowPixels = IntArray(width)
     val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    var changed = false
+    for (y in 0 until height) {
+        src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+        for (x in 0 until width) {
+            val pixel = rowPixels[x]
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha == 0) {
+                continue
+            }
+            val nearest = nearestFixedPaletteColor(pixel)
+            val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
+            if (!premultipliedChannelsEquivalent(pixel, mapped)) {
+                rowPixels[x] = mapped
+                changed = true
+            }
+        }
+        output.setPixels(rowPixels, 0, width, 0, y, width, 1)
+    }
+
     return PaletteBitmapResult(output, changed)
 }
 
@@ -153,31 +246,47 @@ fun fillSelectionWithColor(
     selection: RectPx,
     color: Int,
 ): PaletteBitmapResult {
-    val safeSrc = ensureArgb8888(src)
-    val width = safeSrc.width
-    val height = safeSrc.height
+    val width = src.width
+    val height = src.height
     if (width <= 0 || height <= 0) {
-        return PaletteBitmapResult(safeSrc, changed = false)
+        return PaletteBitmapResult(src, changed = false)
+    }
+    if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return PaletteBitmapResult(src, changed = false, rejected = true)
     }
     val safeSelection = rectNormalizeClamp(selection, width, height)
     val fillColor = color or 0xFF000000.toInt()
-    val pixels = IntArray(width * height)
-    safeSrc.getPixels(pixels, 0, width, 0, 0, width, height)
-    val outPixels = pixels.copyOf()
+    val output = src.copy(Bitmap.Config.ARGB_8888, true)
+    val rowPixels = IntArray(safeSelection.w)
     var changed = false
     for (y in safeSelection.y until safeSelection.y + safeSelection.h) {
-        for (x in safeSelection.x until safeSelection.x + safeSelection.w) {
-            val index = y * width + x
-            if (outPixels[index] != fillColor) {
-                outPixels[index] = fillColor
+        output.getPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        for (x in rowPixels.indices) {
+            if (rowPixels[x] != fillColor) {
+                rowPixels[x] = fillColor
                 changed = true
             }
         }
+        output.setPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
     }
 
-    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    output.setPixels(outPixels, 0, width, 0, 0, width, height)
     return PaletteBitmapResult(output, changed)
+}
+
+private fun premultipliedChannelsEquivalent(left: Int, right: Int): Boolean {
+    val alpha = (left ushr 24) and 0xFF
+    if (alpha == 0) return true
+    if (alpha != ((right ushr 24) and 0xFF)) return false
+    return premultipliedChannel((left ushr 16) and 0xFF, alpha) ==
+        premultipliedChannel((right ushr 16) and 0xFF, alpha) &&
+        premultipliedChannel((left ushr 8) and 0xFF, alpha) ==
+        premultipliedChannel((right ushr 8) and 0xFF, alpha) &&
+        premultipliedChannel(left and 0xFF, alpha) ==
+        premultipliedChannel(right and 0xFF, alpha)
+}
+
+private fun premultipliedChannel(channel: Int, alpha: Int): Int {
+    return (channel * alpha + 127) / 255
 }
 
 private fun colorToOklab(color: Int): OklabColor {

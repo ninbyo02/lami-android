@@ -2,8 +2,12 @@ package io.github.ninbyo02.lami.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntSize
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +56,11 @@ class SpriteBitmapOpsTest {
         assertTrue(FIXED_SPRITE_PALETTE === fixedSpritePalette())
     }
 
+    @Test(expected = UnsupportedOperationException::class)
+    fun fixedSpritePalette_isUnmodifiable() {
+        (FIXED_SPRITE_PALETTE as MutableList<Int>).add(Color.RED)
+    }
+
     @Test
     fun nearestFixedPaletteColor_mapsExactAndNearColorsDeterministically() {
         assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(51, 102, 153)))
@@ -80,7 +89,25 @@ class SpriteBitmapOpsTest {
         assertEquals(Color.argb(255, 51, 102, 153), result.bitmap.getPixel(0, 0))
         assertEquals(Color.argb(128, 51, 102, 153), result.bitmap.getPixel(1, 0))
         assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(0, 1))
-        assertEquals(0x00112233, result.bitmap.getPixel(1, 1))
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(1, 1)))
+    }
+
+    @Test
+    fun reduceToFixedPalette_isIdempotentForLowAndMidAlphaPremultipliedPixels() {
+        val bitmap = Bitmap.createBitmap(3, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(1, 52, 100, 151))
+        bitmap.setPixel(1, 0, Color.argb(17, 52, 100, 151))
+        bitmap.setPixel(2, 0, Color.argb(128, 52, 100, 151))
+
+        val first = reduceToFixedPalette(bitmap)
+        val second = reduceToFixedPalette(first.bitmap)
+
+        assertTrue(first.changed)
+        assertFalse(second.changed)
+        assertEquals(pixelsOf(first.bitmap).toList(), pixelsOf(second.bitmap).toList())
+        for (x in 0 until 3) {
+            assertEquals(Color.alpha(first.bitmap.getPixel(x, 0)), Color.alpha(second.bitmap.getPixel(x, 0)))
+        }
     }
 
     @Test
@@ -95,6 +122,17 @@ class SpriteBitmapOpsTest {
         assertFalse(result.changed)
         assertEquals(before.toList(), pixelsOf(result.bitmap).toList())
         assertEquals(before.toList(), pixelsOf(bitmap).toList())
+    }
+
+    @Test
+    fun reduceToFixedPalette_rejectsImagesAboveSpriteEditingGuard() {
+        val bitmap = Bitmap.createBitmap(2049, 2048, Bitmap.Config.ARGB_8888)
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertTrue(result.rejected)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
     }
 
     @Test
@@ -152,6 +190,127 @@ class SpriteBitmapOpsTest {
 
         assertFalse(result.changed)
         assertEquals(pixelsOf(bitmap).toList(), pixelsOf(result.bitmap).toList())
+    }
+
+    @Test
+    fun fillSelectionWithColor_rejectsImagesAboveSpriteEditingGuard() {
+        val bitmap = Bitmap.createBitmap(2049, 2048, Bitmap.Config.ARGB_8888)
+
+        val result = fillSelectionWithColor(bitmap, RectPx.of(0, 0, 1, 1), Color.WHITE)
+
+        assertTrue(result.rejected)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+    }
+
+    @Test
+    fun previewOffsetToBitmapPixel_handlesNonSquareFractionalPanZoomEdgesAndOutside() {
+        val viewSize = IntSize(width = 101, height = 101)
+        val bitmapWidth = 10
+        val bitmapHeight = 5
+        val displayScale = 1.5f
+        val panOffset = Offset(0.75f, -0.25f)
+
+        assertEquals(
+            androidx.compose.ui.unit.IntOffset(0, 0),
+            previewOffsetToBitmapPixel(
+                position = Offset(13.26f, 13.50f),
+                viewSize = viewSize,
+                bitmapWidth = bitmapWidth,
+                bitmapHeight = bitmapHeight,
+                displayScale = displayScale,
+                panOffset = panOffset,
+            ),
+        )
+        assertEquals(
+            androidx.compose.ui.unit.IntOffset(9, 4),
+            previewOffsetToBitmapPixel(
+                position = Offset(87.99f, 50.99f),
+                viewSize = viewSize,
+                bitmapWidth = bitmapWidth,
+                bitmapHeight = bitmapHeight,
+                displayScale = displayScale,
+                panOffset = panOffset,
+            ),
+        )
+        assertEquals(
+            androidx.compose.ui.unit.IntOffset(5, 2),
+            previewOffsetToBitmapPixel(
+                position = Offset(50.75f, 28.75f),
+                viewSize = viewSize,
+                bitmapWidth = bitmapWidth,
+                bitmapHeight = bitmapHeight,
+                displayScale = displayScale,
+                panOffset = panOffset,
+            ),
+        )
+        assertEquals(
+            null,
+            previewOffsetToBitmapPixel(
+                position = Offset(13.24f, 13.50f),
+                viewSize = viewSize,
+                bitmapWidth = bitmapWidth,
+                bitmapHeight = bitmapHeight,
+                displayScale = displayScale,
+                panOffset = panOffset,
+            ),
+        )
+        assertEquals(
+            null,
+            previewOffsetToBitmapPixel(
+                position = Offset(88.25f, 50.99f),
+                viewSize = viewSize,
+                bitmapWidth = bitmapWidth,
+                bitmapHeight = bitmapHeight,
+                displayScale = displayScale,
+                panOffset = panOffset,
+            ),
+        )
+    }
+
+    @Test
+    fun spriteEditorToolsSheetOrder_preservesApprovedFillOrdering() {
+        val labels = spriteEditorToolsSheetItems().map { it.label }
+
+        assertTrue(labels.indexOf("Fill Connected") < labels.indexOf("Fill Selection"))
+        assertTrue(labels.indexOf("Fill Selection") < labels.indexOf("Clear Region"))
+    }
+
+    @Test
+    fun selectSpriteEditorCurrentColor_keepsCurrentSeparateFromEightRecentColors() {
+        val initial = SpriteEditorColorHistory(
+            currentColor = Color.BLACK,
+            recentColors = (0 until 8).map { Color.rgb(it, it, it) },
+        )
+
+        val updated = initial.select(Color.RED)
+
+        assertEquals(Color.RED, updated.currentColor)
+        assertEquals(8, updated.recentColors.size)
+        assertEquals(Color.RED, updated.recentColors.first())
+        assertNotEquals(updated.currentColor, updated.recentColors.drop(1).first())
+    }
+
+    @Test
+    fun paletteSwatchSemantics_keepsContentDescriptionSeparateFromStableTestTag() {
+        val semantics = spriteEditorPaletteSwatchSemantics(
+            contentDescription = "Palette Color 7",
+            testTag = "spriteEditorPaletteColor7",
+        )
+
+        assertEquals("Palette Color 7", semantics.contentDescription)
+        assertEquals("spriteEditorPaletteColor7", semantics.testTag)
+    }
+
+    @Test
+    fun noOpHistoryDecision_usesChangedAndRejectedResultContract() {
+        assertTrue(shouldPushHistoryForPaletteBitmapResult(PaletteBitmapResult(testBitmap(), changed = true)))
+        assertFalse(shouldPushHistoryForPaletteBitmapResult(PaletteBitmapResult(testBitmap(), changed = false)))
+        assertFalse(
+            shouldPushHistoryForPaletteBitmapResult(
+                PaletteBitmapResult(testBitmap(), changed = false, rejected = true),
+            ),
+        )
     }
 
     @Test
@@ -1238,6 +1397,10 @@ class SpriteBitmapOpsTest {
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         return pixels
+    }
+
+    private fun testBitmap(): Bitmap {
+        return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     }
 
 }
