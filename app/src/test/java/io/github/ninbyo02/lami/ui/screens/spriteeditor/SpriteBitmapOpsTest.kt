@@ -390,12 +390,139 @@ class SpriteBitmapOpsTest {
     @Test
     fun paletteSwatchSemantics_keepsContentDescriptionSeparateFromStableTestTag() {
         val semantics = spriteEditorPaletteSwatchSemantics(
-            contentDescription = "Palette Color 7",
+            label = "Palette Color 7",
+            color = Color.rgb(1, 10, 255),
+            currentColor = Color.BLACK,
             testTag = "spriteEditorPaletteColor7",
         )
 
-        assertEquals("Palette Color 7", semantics.contentDescription)
+        assertEquals("Palette Color 7 #010AFF", semantics.contentDescription)
         assertEquals("spriteEditorPaletteColor7", semantics.testTag)
+        assertFalse(semantics.selected)
+    }
+
+    @Test
+    fun paletteSwatchSemantics_marksSelectedWhenRgbMatchesCurrentColor() {
+        val semantics = spriteEditorPaletteSwatchSemantics(
+            label = "Recent Color 1",
+            color = Color.argb(128, 51, 102, 153),
+            currentColor = Color.rgb(51, 102, 153),
+            testTag = "spriteEditorRecentColor0",
+        )
+
+        assertEquals("Recent Color 1 #336699", semantics.contentDescription)
+        assertTrue(semantics.selected)
+    }
+
+    @Test
+    fun paletteBitmapResultOwner_publishNewThenCloseRecyclesNewBitmap() {
+        val source = testBitmap()
+        val created = testBitmap()
+        val owner = PaletteBitmapResultOwner(source)
+
+        owner.publish(PaletteBitmapResult(created, changed = true))
+        owner.close()
+
+        assertFalse(source.isRecycled)
+        assertTrue(created.isRecycled)
+    }
+
+    @Test
+    fun paletteBitmapResultOwner_publishSourceThenClosePreservesSourceBitmap() {
+        val source = testBitmap()
+        val owner = PaletteBitmapResultOwner(source)
+
+        owner.publish(PaletteBitmapResult(source, changed = false))
+        owner.close()
+
+        assertFalse(source.isRecycled)
+    }
+
+    @Test
+    fun paletteBitmapResultOwner_takeAdoptThenClosePreservesAdoptedBitmap() {
+        val source = testBitmap()
+        val adopted = testBitmap()
+        val owner = PaletteBitmapResultOwner(source)
+
+        owner.publish(PaletteBitmapResult(adopted, changed = true))
+        val taken = owner.take()
+        owner.close()
+
+        assertSame(adopted, taken?.bitmap)
+        assertFalse(source.isRecycled)
+        assertFalse(adopted.isRecycled)
+    }
+
+    @Test
+    fun paletteBitmapResultOwner_closeRecyclesRejectedNoOpNewBitmap() {
+        val source = testBitmap()
+        val rejectedNewBitmap = testBitmap()
+        val owner = PaletteBitmapResultOwner(source)
+
+        owner.publish(
+            PaletteBitmapResult(
+                rejectedNewBitmap,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.CANCELLED,
+            ),
+        )
+        owner.close()
+
+        assertFalse(source.isRecycled)
+        assertTrue(rejectedNewBitmap.isRecycled)
+    }
+
+    @Test
+    fun paletteBitmapApplicationDecision_adoptsOnlyCurrentChangedAcceptedResult() {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = true,
+            result = PaletteBitmapResult(testBitmap(), changed = true),
+            appliedMessage = "Reduced to 256 colors",
+        )
+
+        assertTrue(decision.adopted)
+        assertEquals("Reduced to 256 colors", decision.message)
+    }
+
+    @Test
+    fun paletteBitmapApplicationDecision_rejectsStaleResultWithUnchangedMessage() {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = false,
+            result = PaletteBitmapResult(testBitmap(), changed = true),
+            appliedMessage = "Reduced to 256 colors",
+        )
+
+        assertFalse(decision.adopted)
+        assertEquals("Sprite changed; operation skipped", decision.message)
+    }
+
+    @Test
+    fun paletteBitmapApplicationDecision_rejectsNoOpWithCallerMessage() {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = true,
+            result = PaletteBitmapResult(testBitmap(), changed = false),
+            unchangedMessage = "No pixels changed",
+            appliedMessage = "Selection filled",
+        )
+
+        assertFalse(decision.adopted)
+        assertEquals("No pixels changed", decision.message)
+    }
+
+    @Test
+    fun paletteBitmapApplicationDecision_rejectsRejectedResultWithExistingUiMessage() {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = true,
+            result = PaletteBitmapResult(
+                testBitmap(),
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+            ),
+            appliedMessage = "Selection filled",
+        )
+
+        assertFalse(decision.adopted)
+        assertEquals("Image too large for sprite operation (max 4,194,304 pixels)", decision.message)
     }
 
     @Test

@@ -66,6 +66,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,6 +107,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
@@ -138,6 +140,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.floor
@@ -216,15 +219,19 @@ internal data class SpriteEditorColorHistory(
 internal data class SpriteEditorPaletteSwatchSemantics(
     val contentDescription: String,
     val testTag: String,
+    val selected: Boolean,
 )
 
 internal fun spriteEditorPaletteSwatchSemantics(
-    contentDescription: String,
+    label: String,
+    color: Int,
+    currentColor: Int,
     testTag: String,
 ): SpriteEditorPaletteSwatchSemantics {
     return SpriteEditorPaletteSwatchSemantics(
-        contentDescription = contentDescription,
+        contentDescription = spriteEditorPaletteSwatchContentDescription(label, color),
         testTag = testTag,
+        selected = (color and 0x00FFFFFF) == (currentColor and 0x00FFFFFF),
     )
 }
 
@@ -232,9 +239,72 @@ internal fun shouldPushHistoryForPaletteBitmapResult(result: PaletteBitmapResult
     return result.changed && !result.rejected
 }
 
-private fun recyclePaletteResultBitmapIfNew(result: PaletteBitmapResult, source: Bitmap) {
-    if (result.bitmap !== source && !result.bitmap.isRecycled) {
-        result.bitmap.recycle()
+internal data class PaletteBitmapApplicationDecision(
+    val adopted: Boolean,
+    val message: String,
+)
+
+internal fun decidePaletteBitmapApplication(
+    currentUnchanged: Boolean,
+    result: PaletteBitmapResult,
+    unchangedMessage: String = "No pixels changed",
+    appliedMessage: String,
+): PaletteBitmapApplicationDecision {
+    return when {
+        !currentUnchanged -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = "Sprite changed; operation skipped",
+        )
+
+        result.rejected -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = paletteBitmapResultMessage(result),
+        )
+
+        !shouldPushHistoryForPaletteBitmapResult(result) -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = unchangedMessage,
+        )
+
+        else -> PaletteBitmapApplicationDecision(
+            adopted = true,
+            message = appliedMessage,
+        )
+    }
+}
+
+internal fun spriteEditorPaletteSwatchContentDescription(label: String, color: Int): String {
+    return "$label ${spriteEditorPaletteHexColor(color)}"
+}
+
+internal fun spriteEditorPaletteHexColor(color: Int): String {
+    return "#%06X".format(color and 0x00FFFFFF)
+}
+
+internal class PaletteBitmapResultOwner(
+    private val source: Bitmap,
+) : AutoCloseable {
+    private val owned = AtomicReference<PaletteBitmapResult?>(null)
+
+    fun publish(result: PaletteBitmapResult): PaletteBitmapResult {
+        val previous = owned.getAndSet(result)
+        recycleIfNew(previous)
+        return result
+    }
+
+    fun current(): PaletteBitmapResult? = owned.get()
+
+    fun take(): PaletteBitmapResult? = owned.getAndSet(null)
+
+    override fun close() {
+        recycleIfNew(owned.getAndSet(null))
+    }
+
+    private fun recycleIfNew(result: PaletteBitmapResult?) {
+        val bitmap = result?.bitmap ?: return
+        if (bitmap !== source && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
     }
 }
 
@@ -441,6 +511,51 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         jobRef = job
         paletteOperationJob = job
+    }
+
+    suspend fun runPaletteBitmapOperation(
+        sourceBitmap: Bitmap,
+        operation: ((row: Int) -> Boolean) -> PaletteBitmapResult,
+        onResult: (PaletteBitmapResult) -> PaletteBitmapApplicationDecision,
+    ) {
+        val owner = PaletteBitmapResultOwner(sourceBitmap)
+        var message: String? = null
+        try {
+            withContext(Dispatchers.Default) {
+                owner.publish(operation { !isActive })
+            }
+            val result = owner.current() ?: return
+            val decision = onResult(result)
+            if (decision.adopted) {
+                owner.take()
+            }
+            message = decision.message
+        } finally {
+            owner.close()
+        }
+        message?.let { showSnackbarMessage(it) }
+    }
+
+    fun applyPaletteBitmapResult(
+        current: SpriteEditorState,
+        result: PaletteBitmapResult,
+        unchangedMessage: String = "No pixels changed",
+        appliedMessage: String,
+        applied: () -> Unit = {},
+    ): PaletteBitmapApplicationDecision {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = editorState === current,
+            result = result,
+            unchangedMessage = unchangedMessage,
+            appliedMessage = appliedMessage,
+        )
+        if (decision.adopted) {
+            pushUndoSnapshot(current, undoStack, redoStack)
+            editorState = current.withBitmap(result.bitmap)
+            isDirty = true
+            applied()
+        }
+        return decision
     }
 
     fun runResizeSelection(
@@ -1714,23 +1829,17 @@ fun SpriteEditorScreen(navController: NavController) {
                                                             LastToolOp.ReduceTo256Colors -> {
                                                                 launchPaletteOperation {
                                                                     val sourceBitmap = current.bitmap
-                                                                    val result = withContext(Dispatchers.Default) {
-                                                                        reduceToFixedPalette(sourceBitmap) { !isActive }
-                                                                    }
-                                                                    if (editorState !== current) {
-                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                                                        showSnackbarMessage("Sprite changed; operation skipped")
-                                                                    } else if (result.rejected) {
-                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                                                        showSnackbarMessage(paletteBitmapResultMessage(result))
-                                                                    } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
-                                                                        pushUndoSnapshot(current, undoStack, redoStack)
-                                                                        editorState = current.withBitmap(result.bitmap)
-                                                                        isDirty = true
-                                                                        showSnackbarMessage("Repeated: Reduce to 256 Colors")
-                                                                    } else {
-                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                                                        showSnackbarMessage("No pixels changed")
+                                                                    runPaletteBitmapOperation(
+                                                                        sourceBitmap = sourceBitmap,
+                                                                        operation = { shouldCancel ->
+                                                                            reduceToFixedPalette(sourceBitmap, shouldCancel)
+                                                                        },
+                                                                    ) { result ->
+                                                                        applyPaletteBitmapResult(
+                                                                            current = current,
+                                                                            result = result,
+                                                                            appliedMessage = "Repeated: Reduce to 256 Colors",
+                                                                        )
                                                                     }
                                                                 }
                                                             }
@@ -2084,24 +2193,19 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     launchPaletteOperation {
                                         val sourceBitmap = current.bitmap
-                                        val result = withContext(Dispatchers.Default) {
-                                            reduceToFixedPalette(sourceBitmap) { !isActive }
-                                        }
-                                        if (editorState !== current) {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage("Sprite changed; operation skipped")
-                                        } else if (result.rejected) {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage(paletteBitmapResultMessage(result))
-                                        } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
-                                            pushUndoSnapshot(current, undoStack, redoStack)
-                                            editorState = current.withBitmap(result.bitmap)
-                                            isDirty = true
-                                            lastToolOp = LastToolOp.ReduceTo256Colors
-                                            showSnackbarMessage("Reduced to 256 colors")
-                                        } else {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage("No pixels changed")
+                                        runPaletteBitmapOperation(
+                                            sourceBitmap = sourceBitmap,
+                                            operation = { shouldCancel ->
+                                                reduceToFixedPalette(sourceBitmap, shouldCancel)
+                                            },
+                                        ) { result ->
+                                            applyPaletteBitmapResult(
+                                                current = current,
+                                                result = result,
+                                                appliedMessage = "Reduced to 256 colors",
+                                            ) {
+                                                lastToolOp = LastToolOp.ReduceTo256Colors
+                                            }
                                         }
                                     }
                                 }
@@ -2179,27 +2283,22 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     launchPaletteOperation {
                                         val sourceBitmap = current.bitmap
-                                        val result = withContext(Dispatchers.Default) {
-                                            fillSelectionWithColor(
-                                                sourceBitmap,
-                                                current.selection,
-                                                fillColor,
-                                            ) { !isActive }
-                                        }
-                                        if (editorState !== current) {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage("Sprite changed; operation skipped")
-                                        } else if (result.rejected) {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage(paletteBitmapResultMessage(result))
-                                        } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
-                                            pushUndoSnapshot(current, undoStack, redoStack)
-                                            editorState = current.withBitmap(result.bitmap)
-                                            isDirty = true
-                                            showSnackbarMessage("Selection filled")
-                                        } else {
-                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
-                                            showSnackbarMessage("No pixels changed")
+                                        runPaletteBitmapOperation(
+                                            sourceBitmap = sourceBitmap,
+                                            operation = { shouldCancel ->
+                                                fillSelectionWithColor(
+                                                    sourceBitmap,
+                                                    current.selection,
+                                                    fillColor,
+                                                    shouldCancel,
+                                                )
+                                            },
+                                        ) { result ->
+                                            applyPaletteBitmapResult(
+                                                current = current,
+                                                result = result,
+                                                appliedMessage = "Selection filled",
+                                            )
                                         }
                                     }
                                 }
@@ -3627,7 +3726,8 @@ private fun SpriteEditorColorPaletteSheet(
         Text("Current Color", style = MaterialTheme.typography.labelMedium)
         SpriteEditorPaletteSwatch(
             color = currentColor,
-            contentDescription = "Current Color",
+            label = "Current Color",
+            currentColor = currentColor,
             testTag = "spriteEditorCurrentColor",
             onClick = { onColorSelected(currentColor) },
         )
@@ -3640,9 +3740,11 @@ private fun SpriteEditorColorPaletteSheet(
                 recentColors.take(8).forEachIndexed { index, color ->
                     SpriteEditorPaletteSwatch(
                         color = color,
-                        contentDescription = "Recent Color ${index + 1}",
+                        label = "Recent Color ${index + 1}",
+                        currentColor = currentColor,
                         testTag = "spriteEditorRecentColor$index",
                         onClick = { onColorSelected(color) },
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -3660,7 +3762,8 @@ private fun SpriteEditorColorPaletteSheet(
                 val color = FIXED_SPRITE_PALETTE[index]
                 SpriteEditorPaletteSwatch(
                     color = color,
-                    contentDescription = "Palette Color $index",
+                    label = "Palette Color $index",
+                    currentColor = currentColor,
                     testTag = "spriteEditorPaletteColor$index",
                     onClick = { onColorSelected(color) },
                 )
@@ -3669,30 +3772,41 @@ private fun SpriteEditorColorPaletteSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpriteEditorPaletteSwatch(
     color: Int,
-    contentDescription: String,
+    label: String,
+    currentColor: Int,
     testTag: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val semantics = spriteEditorPaletteSwatchSemantics(contentDescription, testTag)
+    val semantics = spriteEditorPaletteSwatchSemantics(label, color, currentColor, testTag)
     Box(
         modifier = modifier
-            .size(32.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color(color))
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+            .fillMaxWidth()
+            .height(48.dp)
+            .minimumInteractiveComponentSize()
             .semantics {
                 this.contentDescription = semantics.contentDescription
+                this.selected = semantics.selected
             }
             .clickable(
                 role = Role.Button,
                 onClick = onClick,
             )
             .testTag(semantics.testTag),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(color))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)),
+        )
+    }
 }
 
 internal fun previewOffsetToBitmapPixel(
