@@ -399,25 +399,6 @@ fun SpriteEditorScreen(navController: NavController) {
         recentColors = updated.recentColors
     }
 
-    fun launchPaletteOperation(block: suspend CoroutineScope.() -> Unit) {
-        if (paletteOperationJob?.isActive == true) {
-            scope.launch { showSnackbarMessage("Sprite operation already running") }
-            return
-        }
-        var jobRef: Job? = null
-        val job = scope.launch {
-            try {
-                block()
-            } finally {
-                if (paletteOperationJob === jobRef) {
-                    paletteOperationJob = null
-                }
-            }
-        }
-        jobRef = job
-        paletteOperationJob = job
-    }
-
     suspend fun showSnackbarMessage(
         message: String,
         duration: SnackbarDuration = SnackbarDuration.Short,
@@ -441,6 +422,25 @@ fun SpriteEditorScreen(navController: NavController) {
             message = message,
             duration = duration,
         )
+    }
+
+    fun launchPaletteOperation(block: suspend CoroutineScope.() -> Unit) {
+        if (paletteOperationJob?.isActive == true) {
+            scope.launch { showSnackbarMessage("Sprite operation already running") }
+            return
+        }
+        var jobRef: Job? = null
+        val job = scope.launch {
+            try {
+                block()
+            } finally {
+                if (paletteOperationJob === jobRef) {
+                    paletteOperationJob = null
+                }
+            }
+        }
+        jobRef = job
+        paletteOperationJob = job
     }
 
     fun runResizeSelection(
