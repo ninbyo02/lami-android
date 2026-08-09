@@ -32,8 +32,23 @@ val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePalette()
 data class PaletteBitmapResult(
     val bitmap: Bitmap,
     val changed: Boolean,
-    val rejected: Boolean = false,
-)
+    val rejectionReason: PaletteBitmapRejectionReason = PaletteBitmapRejectionReason.NONE,
+    val cancelled: Boolean = false,
+) {
+    val rejected: Boolean
+        get() = rejectionReason != PaletteBitmapRejectionReason.NONE
+}
+
+enum class PaletteBitmapRejectionReason {
+    NONE,
+    TOO_LARGE,
+    RECYCLED,
+    UNSUPPORTED_CONFIG,
+    COPY_FAILED,
+    READ_FAILED,
+    WRITE_FAILED,
+    CANCELLED,
+}
 
 enum class Mode { Alpha, Rgb }
 
@@ -94,6 +109,13 @@ private val FIXED_SPRITE_PALETTE_OKLAB: List<PaletteOklabEntry> =
 
 private val FIXED_SPRITE_PALETTE_RGB_SET: Set<Int> =
     FIXED_SPRITE_PALETTE.mapTo(HashSet(FIXED_SPRITE_PALETTE.size)) { it and 0x00FFFFFF }
+
+private val fixedPalettePhysicalPremultipliedKeysByAlpha: Array<Set<Int>> =
+    Array(256) { alpha ->
+        FIXED_SPRITE_PALETTE.mapTo(HashSet(FIXED_SPRITE_PALETTE.size)) { color ->
+            physicalPremultipliedKey(alpha, color)
+        }
+    }
 
 private val FIXED_SPRITE_PALETTE_KD_TREE: PaletteKdNode? =
     buildPaletteKdTree(FIXED_SPRITE_PALETTE_OKLAB, depth = 0)
@@ -207,82 +229,219 @@ private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
     return dl * dl + da * da + db * db
 }
 
-fun reduceToFixedPalette(src: Bitmap): PaletteBitmapResult {
+fun reduceToFixedPalette(
+    src: Bitmap,
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult {
+    if (src.isRecycled) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.RECYCLED,
+        )
+    }
     val width = src.width
     val height = src.height
     if (width <= 0 || height <= 0) {
         return PaletteBitmapResult(src, changed = false)
     }
     if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
-        return PaletteBitmapResult(src, changed = false, rejected = true)
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+        )
     }
 
+    val readable = readableArgb8888Bitmap(src) ?: return PaletteBitmapResult(
+        src,
+        changed = false,
+        rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+    )
+    val safeSrc = readable.bitmap
+    val isPremultiplied = safeSrc.isPremultiplied
     val rowPixels = IntArray(width)
-    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val output = runCatching {
+        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            it.setPremultiplied(isPremultiplied)
+        }
+    }.getOrElse {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
     var changed = false
     for (y in 0 until height) {
-        src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+        if (shouldCancel(y)) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.CANCELLED,
+                cancelled = true,
+            )
+        }
+        if (!runCatching { safeSrc.getPixels(rowPixels, 0, width, 0, y, width, 1) }.isSuccess) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.READ_FAILED,
+            )
+        }
         for (x in 0 until width) {
             val pixel = rowPixels[x]
             val alpha = (pixel ushr 24) and 0xFF
             if (alpha == 0) {
                 continue
             }
+            if (isFixedPaletteNoOp(pixel, isPremultiplied)) {
+                continue
+            }
             val nearest = nearestFixedPaletteColor(pixel)
             val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
-            if (!premultipliedChannelsEquivalent(pixel, mapped)) {
+            if (pixel != mapped) {
                 rowPixels[x] = mapped
                 changed = true
             }
         }
-        output.setPixels(rowPixels, 0, width, 0, y, width, 1)
+        if (!runCatching { output.setPixels(rowPixels, 0, width, 0, y, width, 1) }.isSuccess) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.WRITE_FAILED,
+            )
+        }
     }
 
-    return PaletteBitmapResult(output, changed)
+    readable.recycleIfNew()
+    if (!changed) {
+        output.recycle()
+        return PaletteBitmapResult(src, changed = false)
+    }
+    return PaletteBitmapResult(output, changed = true)
 }
 
 fun fillSelectionWithColor(
     src: Bitmap,
     selection: RectPx,
     color: Int,
+    shouldCancel: (row: Int) -> Boolean = { false },
 ): PaletteBitmapResult {
+    if (src.isRecycled) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.RECYCLED,
+        )
+    }
     val width = src.width
     val height = src.height
     if (width <= 0 || height <= 0) {
         return PaletteBitmapResult(src, changed = false)
     }
     if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
-        return PaletteBitmapResult(src, changed = false, rejected = true)
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+        )
     }
     val safeSelection = rectNormalizeClamp(selection, width, height)
     val fillColor = color or 0xFF000000.toInt()
-    val output = src.copy(Bitmap.Config.ARGB_8888, true)
+    val output = runCatching { src.copy(Bitmap.Config.ARGB_8888, true) }.getOrNull()
+        ?: return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
     val rowPixels = IntArray(safeSelection.w)
     var changed = false
     for (y in safeSelection.y until safeSelection.y + safeSelection.h) {
-        output.getPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        if (shouldCancel(y)) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.CANCELLED,
+                cancelled = true,
+            )
+        }
+        if (!runCatching {
+            output.getPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        }.isSuccess) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.READ_FAILED,
+            )
+        }
         for (x in rowPixels.indices) {
             if (rowPixels[x] != fillColor) {
                 rowPixels[x] = fillColor
                 changed = true
             }
         }
-        output.setPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        if (!runCatching {
+            output.setPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        }.isSuccess) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.WRITE_FAILED,
+            )
+        }
     }
 
-    return PaletteBitmapResult(output, changed)
+    if (!changed) {
+        output.recycle()
+        return PaletteBitmapResult(src, changed = false)
+    }
+    return PaletteBitmapResult(output, changed = true)
 }
 
-private fun premultipliedChannelsEquivalent(left: Int, right: Int): Boolean {
-    val alpha = (left ushr 24) and 0xFF
-    if (alpha == 0) return true
-    if (alpha != ((right ushr 24) and 0xFF)) return false
-    return premultipliedChannel((left ushr 16) and 0xFF, alpha) ==
-        premultipliedChannel((right ushr 16) and 0xFF, alpha) &&
-        premultipliedChannel((left ushr 8) and 0xFF, alpha) ==
-        premultipliedChannel((right ushr 8) and 0xFF, alpha) &&
-        premultipliedChannel(left and 0xFF, alpha) ==
-        premultipliedChannel(right and 0xFF, alpha)
+private data class ReadableBitmap(
+    val bitmap: Bitmap,
+    val isNew: Boolean,
+) {
+    fun recycleIfNew() {
+        if (isNew && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
+    }
+}
+
+private fun readableArgb8888Bitmap(src: Bitmap): ReadableBitmap? {
+    if (src.config == Bitmap.Config.ARGB_8888) {
+        return ReadableBitmap(src, isNew = false)
+    }
+    val copy = runCatching { src.copy(Bitmap.Config.ARGB_8888, true) }.getOrNull() ?: return null
+    return ReadableBitmap(copy, isNew = true)
+}
+
+private fun isFixedPaletteNoOp(pixel: Int, isPremultiplied: Boolean): Boolean {
+    val alpha = (pixel ushr 24) and 0xFF
+    return if (isPremultiplied) {
+        physicalPremultipliedKey(alpha, pixel) in fixedPalettePhysicalPremultipliedKeysByAlpha[alpha]
+    } else {
+        (pixel and 0x00FFFFFF) in FIXED_SPRITE_PALETTE_RGB_SET
+    }
+}
+
+private fun physicalPremultipliedKey(alpha: Int, color: Int): Int {
+    return (alpha shl 24) or
+        (premultipliedChannel((color ushr 16) and 0xFF, alpha) shl 16) or
+        (premultipliedChannel((color ushr 8) and 0xFF, alpha) shl 8) or
+        premultipliedChannel(color and 0xFF, alpha)
 }
 
 private fun premultipliedChannel(channel: Int, alpha: Int): Int {

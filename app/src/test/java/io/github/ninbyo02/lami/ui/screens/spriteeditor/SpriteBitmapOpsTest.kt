@@ -111,6 +111,101 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun reduceToFixedPalette_alpha4RegressionPreservesPaletteRepresentablePhysicalGreen() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(4, 0, 153, 51))
+        val before = bitmap.getPixel(0, 0)
+
+        val first = reduceToFixedPalette(bitmap)
+        val second = reduceToFixedPalette(first.bitmap)
+
+        assertFalse(first.changed)
+        assertSame(bitmap, first.bitmap)
+        assertEquals(before, first.bitmap.getPixel(0, 0))
+        assertFalse(second.changed)
+        assertSame(first.bitmap, second.bitmap)
+        assertEquals(before, second.bitmap.getPixel(0, 0))
+    }
+
+    @Test
+    fun reduceToFixedPalette_isIdempotentForEveryAlphaAndFixedPalettePhysicalState() {
+        for (alpha in 1..255) {
+            val bitmap = Bitmap.createBitmap(FIXED_SPRITE_PALETTE.size, 1, Bitmap.Config.ARGB_8888)
+            FIXED_SPRITE_PALETTE.forEachIndexed { index, color ->
+                bitmap.setPixel(
+                    index,
+                    0,
+                    Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color)),
+                )
+            }
+            val before = pixelsOf(bitmap).toList()
+
+            val first = reduceToFixedPalette(bitmap)
+            val second = reduceToFixedPalette(first.bitmap)
+
+            assertFalse("alpha=$alpha should be a physical no-op", first.changed)
+            assertSame(bitmap, first.bitmap)
+            assertEquals("alpha=$alpha first pixels", before, pixelsOf(first.bitmap).toList())
+            assertFalse("alpha=$alpha second pass changed", second.changed)
+            assertSame(first.bitmap, second.bitmap)
+            assertEquals("alpha=$alpha second pixels", before, pixelsOf(second.bitmap).toList())
+        }
+    }
+
+    @Test
+    fun reduceToFixedPalette_nonPremultipliedBitmapUsesRawRgbNotPhysicalEquivalence() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPremultiplied(false)
+        bitmap.setPixel(0, 0, Color.argb(4, 0, 128, 0))
+        bitmap.setPixel(1, 0, Color.argb(4, 0, 153, 51))
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertTrue(result.changed)
+        assertNotEquals(bitmap.getPixel(0, 0), result.bitmap.getPixel(0, 0))
+        assertEquals(Color.argb(4, 0, 153, 51), result.bitmap.getPixel(1, 0))
+        assertFalse(result.bitmap.isPremultiplied)
+        val second = reduceToFixedPalette(result.bitmap)
+        assertFalse(second.changed)
+        assertSame(result.bitmap, second.bitmap)
+    }
+
+    @Test
+    fun reduceToFixedPalette_rejectsRecycledBitmapWithoutCrash() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.recycle()
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertTrue(result.rejected)
+        assertEquals(PaletteBitmapRejectionReason.RECYCLED, result.rejectionReason)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+    }
+
+    @Test
+    fun reduceToFixedPalette_handlesHardwareBitmapWithoutCrashWhenRobolectricSupportsIt() {
+        val bitmap = runCatching { Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE) }.getOrNull() ?: return
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+    }
+
+    @Test
+    fun reduceToFixedPalette_cancelsBeforeApplyingRowAndRecyclesNewOutput() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.rgb(52, 100, 151))
+
+        val result = reduceToFixedPalette(bitmap) { row -> row >= 1 }
+
+        assertTrue(result.cancelled)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+    }
+
+    @Test
     fun reduceToFixedPalette_noOpDetectionAndSourceImmutability() {
         val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.rgb(51, 102, 153))
@@ -309,7 +404,11 @@ class SpriteBitmapOpsTest {
         assertFalse(shouldPushHistoryForPaletteBitmapResult(PaletteBitmapResult(testBitmap(), changed = false)))
         assertFalse(
             shouldPushHistoryForPaletteBitmapResult(
-                PaletteBitmapResult(testBitmap(), changed = false, rejected = true),
+                PaletteBitmapResult(
+                    testBitmap(),
+                    changed = false,
+                    rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+                ),
             ),
         )
     }

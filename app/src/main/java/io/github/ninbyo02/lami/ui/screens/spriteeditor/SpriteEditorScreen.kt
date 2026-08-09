@@ -126,9 +126,12 @@ import io.github.ninbyo02.lami.sprite.resolveCurrentSpriteSheetOverrideFile
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
@@ -227,6 +230,25 @@ internal fun spriteEditorPaletteSwatchSemantics(
 
 internal fun shouldPushHistoryForPaletteBitmapResult(result: PaletteBitmapResult): Boolean {
     return result.changed && !result.rejected
+}
+
+private fun recyclePaletteResultBitmapIfNew(result: PaletteBitmapResult, source: Bitmap) {
+    if (result.bitmap !== source && !result.bitmap.isRecycled) {
+        result.bitmap.recycle()
+    }
+}
+
+private fun paletteBitmapResultMessage(result: PaletteBitmapResult): String {
+    return when (result.rejectionReason) {
+        PaletteBitmapRejectionReason.NONE -> "No pixels changed"
+        PaletteBitmapRejectionReason.TOO_LARGE -> "Image too large for sprite operation (max 4,194,304 pixels)"
+        PaletteBitmapRejectionReason.CANCELLED -> "Operation cancelled"
+        PaletteBitmapRejectionReason.RECYCLED,
+        PaletteBitmapRejectionReason.UNSUPPORTED_CONFIG,
+        PaletteBitmapRejectionReason.COPY_FAILED,
+        PaletteBitmapRejectionReason.READ_FAILED,
+        PaletteBitmapRejectionReason.WRITE_FAILED -> "Sprite operation rejected"
+    }
 }
 
 private sealed class LastToolOp {
@@ -364,6 +386,8 @@ fun SpriteEditorScreen(navController: NavController) {
     var currentColor by rememberSaveable { mutableStateOf(0xFF000000.toInt()) }
     var recentColors by rememberSaveable { mutableStateOf<List<Int>>(emptyList()) }
     var isEyedropperActive by remember { mutableStateOf(false) }
+    var paletteOperationJob by remember { mutableStateOf<Job?>(null) }
+    val isPaletteOperationRunning = paletteOperationJob?.isActive == true
     val latestEditorState by rememberUpdatedState(editorState)
     val latestPreviewSize by rememberUpdatedState(previewSize)
     val latestDisplayScale by rememberUpdatedState(displayScale)
@@ -373,6 +397,25 @@ fun SpriteEditorScreen(navController: NavController) {
         val updated = SpriteEditorColorHistory(currentColor, recentColors).select(color)
         currentColor = updated.currentColor
         recentColors = updated.recentColors
+    }
+
+    fun launchPaletteOperation(block: suspend CoroutineScope.() -> Unit) {
+        if (paletteOperationJob?.isActive == true) {
+            scope.launch { showSnackbarMessage("Sprite operation already running") }
+            return
+        }
+        var jobRef: Job? = null
+        val job = scope.launch {
+            try {
+                block()
+            } finally {
+                if (paletteOperationJob === jobRef) {
+                    paletteOperationJob = null
+                }
+            }
+        }
+        jobRef = job
+        paletteOperationJob = job
     }
 
     suspend fun showSnackbarMessage(
@@ -1633,6 +1676,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 .fillMaxWidth()
                                                 .testTag("spriteEditorRepeat"),
                                             label = "Repeat",
+                                            enabled = !isPaletteOperationRunning,
                                             onClick = {
                                                 val current = editorState
                                                 if (current == null) {
@@ -1668,20 +1712,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                                             }
 
                                                             LastToolOp.ReduceTo256Colors -> {
-                                                                scope.launch {
+                                                                launchPaletteOperation {
+                                                                    val sourceBitmap = current.bitmap
                                                                     val result = withContext(Dispatchers.Default) {
-                                                                        reduceToFixedPalette(current.bitmap)
+                                                                        reduceToFixedPalette(sourceBitmap) { !isActive }
                                                                     }
                                                                     if (editorState !== current) {
+                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                                                         showSnackbarMessage("Sprite changed; operation skipped")
                                                                     } else if (result.rejected) {
-                                                                        showSnackbarMessage("Image too large for sprite operation (max 4,194,304 pixels)")
+                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
+                                                                        showSnackbarMessage(paletteBitmapResultMessage(result))
                                                                     } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
                                                                         pushUndoSnapshot(current, undoStack, redoStack)
                                                                         editorState = current.withBitmap(result.bitmap)
                                                                         isDirty = true
                                                                         showSnackbarMessage("Repeated: Reduce to 256 Colors")
                                                                     } else {
+                                                                        recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                                                         showSnackbarMessage("No pixels changed")
                                                                     }
                                                                 }
@@ -2034,14 +2082,17 @@ fun SpriteEditorScreen(navController: NavController) {
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
                                     activeSheet = SheetType.None
-                                    scope.launch {
+                                    launchPaletteOperation {
+                                        val sourceBitmap = current.bitmap
                                         val result = withContext(Dispatchers.Default) {
-                                            reduceToFixedPalette(current.bitmap)
+                                            reduceToFixedPalette(sourceBitmap) { !isActive }
                                         }
                                         if (editorState !== current) {
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                             showSnackbarMessage("Sprite changed; operation skipped")
                                         } else if (result.rejected) {
-                                            showSnackbarMessage("Image too large for sprite operation (max 4,194,304 pixels)")
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
+                                            showSnackbarMessage(paletteBitmapResultMessage(result))
                                         } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
                                             pushUndoSnapshot(current, undoStack, redoStack)
                                             editorState = current.withBitmap(result.bitmap)
@@ -2049,6 +2100,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             lastToolOp = LastToolOp.ReduceTo256Colors
                                             showSnackbarMessage("Reduced to 256 colors")
                                         } else {
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                             showSnackbarMessage("No pixels changed")
                                         }
                                     }
@@ -2125,24 +2177,28 @@ fun SpriteEditorScreen(navController: NavController) {
                                 } else {
                                     val fillColor = currentColor
                                     activeSheet = SheetType.None
-                                    scope.launch {
+                                    launchPaletteOperation {
+                                        val sourceBitmap = current.bitmap
                                         val result = withContext(Dispatchers.Default) {
                                             fillSelectionWithColor(
-                                                current.bitmap,
+                                                sourceBitmap,
                                                 current.selection,
                                                 fillColor,
-                                            )
+                                            ) { !isActive }
                                         }
                                         if (editorState !== current) {
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                             showSnackbarMessage("Sprite changed; operation skipped")
                                         } else if (result.rejected) {
-                                            showSnackbarMessage("Image too large for sprite operation (max 4,194,304 pixels)")
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
+                                            showSnackbarMessage(paletteBitmapResultMessage(result))
                                         } else if (shouldPushHistoryForPaletteBitmapResult(result)) {
                                             pushUndoSnapshot(current, undoStack, redoStack)
                                             editorState = current.withBitmap(result.bitmap)
                                             isDirty = true
                                             showSnackbarMessage("Selection filled")
                                         } else {
+                                            recyclePaletteResultBitmapIfNew(result, sourceBitmap)
                                             showSnackbarMessage("No pixels changed")
                                         }
                                     }
@@ -2196,7 +2252,11 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag(item.testTag),
-                        enabled = item.testTag != "spriteEditorSheetItemFillSelection" || editorState != null,
+                        enabled = when (item.testTag) {
+                            "spriteEditorSheetItemReduceTo256Colors",
+                            "spriteEditorSheetItemFillSelection" -> !isPaletteOperationRunning && editorState != null
+                            else -> true
+                        },
                         // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         shape = RoundedCornerShape(999.dp),
@@ -3379,11 +3439,13 @@ private fun SpriteEditorStandardButton(
     modifier: Modifier = Modifier,
     label: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
             .height(SpriteEditorButtonHeight)
