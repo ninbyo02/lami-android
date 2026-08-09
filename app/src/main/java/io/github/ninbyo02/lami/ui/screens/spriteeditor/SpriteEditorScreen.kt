@@ -209,16 +209,23 @@ internal data class SpriteEditorColorHistory(
 ) {
     fun select(color: Int): SpriteEditorColorHistory {
         val opaqueColor = color or 0xFF000000.toInt()
+        val opaqueCurrent = currentColor or 0xFF000000.toInt()
+        if (opaqueColor == opaqueCurrent) {
+            return this
+        }
         return SpriteEditorColorHistory(
             currentColor = opaqueColor,
-            recentColors = (listOf(opaqueColor) + recentColors.filter { it != opaqueColor }).take(8),
+            recentColors = (listOf(opaqueCurrent) + recentColors.map { it or 0xFF000000.toInt() })
+                .filter { it != opaqueColor }
+                .distinct()
+                .take(8),
         )
     }
 }
 
-internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = true
+internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
 
-internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int = 0
+internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int = if (selected) 3 else 0
 
 internal data class SpriteEditorPaletteSwatchSemantics(
     val contentDescription: String,
@@ -2100,7 +2107,9 @@ fun SpriteEditorScreen(navController: NavController) {
                         recentColors = recentColors,
                         onColorSelected = { color ->
                             selectCurrentColor(color)
-                            activeSheet = SheetType.None
+                            if (DISMISS_COLOR_PALETTE_AFTER_SELECTION) {
+                                activeSheet = SheetType.None
+                            }
                         },
                     )
                 } else {
@@ -2115,13 +2124,62 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else if (item.testTag == "spriteEditorSheetItemColorPalette") {
                                 activeSheet = SheetType.ColorPalette
                             } else if (item.testTag == "spriteEditorSheetItemEyedropper") {
-                                activeSheet = SheetType.None
-                                if (editorState == null) {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
                                     isEyedropperActive = false
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
-                                    isEyedropperActive = true
-                                    scope.launch { showSnackbarMessage("Eyedropper ready") }
+                                    activeSheet = SheetType.None
+                                    launchPaletteOperation {
+                                        val sourceBitmap = current.bitmap
+                                        val sourceSelection = current.selection
+                                        val result = withContext(Dispatchers.Default) {
+                                            findUniformSelectionColor(
+                                                sourceBitmap,
+                                                sourceSelection,
+                                            ) { !isActive }
+                                        }
+                                        if (editorState !== current) {
+                                            return@launchPaletteOperation
+                                        }
+                                        val message = when (result.status) {
+                                            UniformSelectionColorStatus.UNIFORM -> {
+                                                val selectedColor = result.color
+                                                if (selectedColor == null) {
+                                                    isEyedropperActive = false
+                                                    "Cannot read selection color"
+                                                } else {
+                                                    selectCurrentColor(nearestFixedPaletteColor(selectedColor))
+                                                    isEyedropperActive = false
+                                                    "Color selected from box"
+                                                }
+                                            }
+                                            UniformSelectionColorStatus.TRANSPARENT -> {
+                                                isEyedropperActive = false
+                                                "Selection is transparent"
+                                            }
+                                            UniformSelectionColorStatus.MIXED -> {
+                                                isEyedropperActive = true
+                                                "Selection contains multiple colors. Tap a pixel."
+                                            }
+                                            UniformSelectionColorStatus.CANCELLED -> {
+                                                isEyedropperActive = false
+                                                "Color scan cancelled"
+                                            }
+                                            UniformSelectionColorStatus.TOO_LARGE -> {
+                                                isEyedropperActive = false
+                                                "Selection too large"
+                                            }
+                                            UniformSelectionColorStatus.RECYCLED,
+                                            UniformSelectionColorStatus.UNSUPPORTED_CONFIG,
+                                            UniformSelectionColorStatus.READ_FAILED -> {
+                                                isEyedropperActive = false
+                                                "Cannot read selection color"
+                                            }
+                                        }
+                                        showSnackbarMessage(message)
+                                    }
                                 }
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
                                 val current = editorState
@@ -3804,13 +3862,22 @@ private fun SpriteEditorPaletteSwatch(
             .testTag(semantics.testTag),
         contentAlignment = Alignment.Center,
     ) {
+        val ringWidth = spriteEditorPaletteSelectionRingWidthDp(semantics.selected).dp
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(color))
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)),
-        )
+                .size(38.dp)
+                .border(ringWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                .padding(ringWidth),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(color))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)),
+            )
+        }
     }
 }
 

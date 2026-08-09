@@ -44,6 +44,10 @@ enum class UniformSelectionColorStatus {
     MIXED,
     TRANSPARENT,
     CANCELLED,
+    TOO_LARGE,
+    RECYCLED,
+    UNSUPPORTED_CONFIG,
+    READ_FAILED,
 }
 
 data class UniformSelectionColorResult(
@@ -56,7 +60,57 @@ fun findUniformSelectionColor(
     selection: RectPx,
     shouldCancel: (row: Int) -> Boolean = { false },
 ): UniformSelectionColorResult {
-    return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+    if (bitmap.isRecycled) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.RECYCLED)
+    }
+    if (bitmap.config == Bitmap.Config.HARDWARE) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.UNSUPPORTED_CONFIG)
+    }
+    if (bitmap.width < 1 || bitmap.height < 1) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, bitmap.width, bitmap.height)
+    val selectionPixels = safeSelection.w.toLong() * safeSelection.h.toLong()
+    if (selectionPixels > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.TOO_LARGE)
+    }
+
+    val rowPixels = IntArray(safeSelection.w)
+    var firstColor: Int? = null
+    for (row in 0 until safeSelection.h) {
+        if (shouldCancel(row)) {
+            return UniformSelectionColorResult(UniformSelectionColorStatus.CANCELLED)
+        }
+        try {
+            bitmap.getPixels(
+                rowPixels,
+                0,
+                safeSelection.w,
+                safeSelection.x,
+                safeSelection.y + row,
+                safeSelection.w,
+                1,
+            )
+        } catch (_: RuntimeException) {
+            return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+        }
+        for (pixel in rowPixels) {
+            val expected = firstColor
+            if (expected == null) {
+                firstColor = pixel
+            } else if (pixel != expected) {
+                return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+            }
+        }
+    }
+
+    val color = firstColor ?: return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    return if (Color.alpha(color) == 0) {
+        UniformSelectionColorResult(UniformSelectionColorStatus.TRANSPARENT)
+    } else {
+        UniformSelectionColorResult(UniformSelectionColorStatus.UNIFORM, color)
+    }
 }
 
 enum class PaletteBitmapRejectionReason {
