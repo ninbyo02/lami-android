@@ -3838,15 +3838,29 @@ private fun SpriteEditorColorPaletteSheet(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            items(FIXED_SPRITE_PALETTE.size) { index ->
-                val color = FIXED_SPRITE_PALETTE[index]
-                SpriteEditorPaletteSwatch(
-                    color = color,
-                    label = "Palette Color $index",
-                    currentColor = currentColor,
-                    testTag = "spriteEditorPaletteColor$index",
-                    onClick = { onColorSelected(color) },
-                )
+            fixedSpritePaletteDisplaySections().forEachIndexed { sectionIndex, section ->
+                item(
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
+                    Text(
+                        text = section.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier
+                            .padding(top = if (sectionIndex == 0) 0.dp else 8.dp)
+                            .testTag("spriteEditorPaletteSection${section.label}"),
+                    )
+                }
+                items(section.colors.size) { sectionColorIndex ->
+                    val color = section.colors[sectionColorIndex]
+                    val canonicalIndex = FIXED_SPRITE_PALETTE.indexOf(color)
+                    SpriteEditorPaletteSwatch(
+                        color = color,
+                        label = "Palette Color $canonicalIndex",
+                        currentColor = currentColor,
+                        testTag = "spriteEditorPaletteColor$canonicalIndex",
+                        onClick = { onColorSelected(color) },
+                    )
+                }
             }
         }
     }

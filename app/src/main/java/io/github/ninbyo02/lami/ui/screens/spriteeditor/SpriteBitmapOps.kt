@@ -8,9 +8,11 @@ import android.graphics.Rect
 import java.util.Collections
 import java.util.LinkedHashMap
 import kotlin.math.ceil
+import kotlin.math.atan2
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
 const val BINARIZE_FALLBACK_THRESHOLD = 128
@@ -218,8 +220,81 @@ internal data class SpritePaletteDisplaySection(
     val colors: List<Int>,
 )
 
+private data class SpritePaletteDisplayEntry(
+    val color: Int,
+    val canonicalIndex: Int,
+    val lightness: Double,
+    val chroma: Double,
+    val hueDegrees: Double,
+)
+
+private val FIXED_SPRITE_PALETTE_DISPLAY_SECTIONS: List<SpritePaletteDisplaySection> =
+    buildFixedSpritePaletteDisplaySections()
+
 internal fun fixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
-    return listOf(SpritePaletteDisplaySection("Palette", FIXED_SPRITE_PALETTE))
+    return FIXED_SPRITE_PALETTE_DISPLAY_SECTIONS
+}
+
+private fun buildFixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
+    val grayscale = FIXED_SPRITE_PALETTE
+        .filter { color -> Color.red(color) == Color.green(color) && Color.green(color) == Color.blue(color) }
+        .sortedBy { color -> Color.red(color) }
+
+    val labels = listOf("Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta")
+    val grouped = labels.associateWith { ArrayList<SpritePaletteDisplayEntry>() }
+    FIXED_SPRITE_PALETTE.forEachIndexed { index, color ->
+        if (Color.red(color) == Color.green(color) && Color.green(color) == Color.blue(color)) {
+            return@forEachIndexed
+        }
+        val oklab = colorToOklab(color)
+        val chroma = sqrt(oklab.a * oklab.a + oklab.b * oklab.b)
+        val rawHue = Math.toDegrees(atan2(oklab.b, oklab.a))
+        val hue = if (rawHue < 0.0) rawHue + 360.0 else rawHue
+        val label = when {
+            hue < 42.0 || hue >= 344.0 -> "Red"
+            hue < 80.0 -> "Orange"
+            hue < 126.0 -> "Yellow"
+            hue < 168.0 -> "Green"
+            hue < 229.0 -> "Cyan"
+            hue < 282.0 -> "Blue"
+            hue < 314.0 -> "Purple"
+            else -> "Magenta"
+        }
+        grouped.getValue(label).add(
+            SpritePaletteDisplayEntry(
+                color = color,
+                canonicalIndex = index,
+                lightness = oklab.l,
+                chroma = chroma,
+                hueDegrees = hue,
+            ),
+        )
+    }
+
+    val sections = ArrayList<SpritePaletteDisplaySection>(labels.size + 1)
+    sections.add(
+        SpritePaletteDisplaySection(
+            label = "Grayscale",
+            colors = Collections.unmodifiableList(grayscale),
+        ),
+    )
+    labels.forEach { label ->
+        val colors = grouped.getValue(label)
+            .sortedWith(
+                compareBy<SpritePaletteDisplayEntry> { it.lightness }
+                    .thenBy { it.chroma }
+                    .thenBy { it.hueDegrees }
+                    .thenBy { it.canonicalIndex },
+            )
+            .map { it.color }
+        sections.add(
+            SpritePaletteDisplaySection(
+                label = label,
+                colors = Collections.unmodifiableList(colors),
+            ),
+        )
+    }
+    return Collections.unmodifiableList(sections)
 }
 
 private fun buildFixedSpritePalette(): List<Int> {
