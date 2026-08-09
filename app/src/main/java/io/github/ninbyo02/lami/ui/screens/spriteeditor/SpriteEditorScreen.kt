@@ -225,9 +225,48 @@ internal data class SpriteEditorColorHistory(
 
 internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
 
-internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int = if (selected) 3 else 0
+internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int? = if (selected) 3 else null
 
-internal fun eyedropperPaletteColorForSample(sampled: Int): Int = nearestFixedPaletteColor(sampled)
+internal fun eyedropperPaletteColorForSample(sampled: Int): Int? {
+    return if (Color.alpha(sampled) == 0) null else nearestFixedPaletteColor(sampled)
+}
+
+internal data class EyedropperSelectionDecision(
+    val selectedColor: Int?,
+    val activateTapFallback: Boolean,
+    val message: String,
+)
+
+internal fun decideEyedropperSelectionResult(
+    result: UniformSelectionColorResult,
+): EyedropperSelectionDecision {
+    return when (result.status) {
+        UniformSelectionColorStatus.UNIFORM -> {
+            val color = result.color
+            if (color == null || Color.alpha(color) == 0) {
+                EyedropperSelectionDecision(null, false, "Cannot read selection color")
+            } else {
+                EyedropperSelectionDecision(
+                    selectedColor = nearestFixedPaletteColor(color),
+                    activateTapFallback = false,
+                    message = "Color selected from box",
+                )
+            }
+        }
+        UniformSelectionColorStatus.TRANSPARENT ->
+            EyedropperSelectionDecision(null, false, "Selection is transparent")
+        UniformSelectionColorStatus.MIXED ->
+            EyedropperSelectionDecision(null, true, "Selection contains multiple colors. Tap a pixel.")
+        UniformSelectionColorStatus.CANCELLED ->
+            EyedropperSelectionDecision(null, false, "Color scan cancelled")
+        UniformSelectionColorStatus.TOO_LARGE ->
+            EyedropperSelectionDecision(null, false, "Selection too large")
+        UniformSelectionColorStatus.RECYCLED,
+        UniformSelectionColorStatus.UNSUPPORTED_CONFIG,
+        UniformSelectionColorStatus.READ_FAILED ->
+            EyedropperSelectionDecision(null, false, "Cannot read selection color")
+    }
+}
 
 internal data class SpriteEditorPaletteSwatchSemantics(
     val contentDescription: String,
@@ -1025,7 +1064,15 @@ fun SpriteEditorScreen(navController: NavController) {
                                             panOffset = latestPanOffset,
                                         ) ?: return@awaitEachGesture
                                         val sampled = current.bitmap.getPixel(pixelOffset.x, pixelOffset.y)
-                                        selectCurrentColor(eyedropperPaletteColorForSample(sampled))
+                                        val selectedColor = eyedropperPaletteColorForSample(sampled)
+                                        if (selectedColor == null) {
+                                            isEyedropperActive = false
+                                            scope.launch {
+                                                showSnackbarMessage("Selected pixel is transparent")
+                                            }
+                                            return@awaitEachGesture
+                                        }
+                                        selectCurrentColor(selectedColor)
                                         isEyedropperActive = false
                                     }
                                 }
@@ -2145,42 +2192,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                         if (editorState !== current) {
                                             return@launchPaletteOperation
                                         }
-                                        val message = when (result.status) {
-                                            UniformSelectionColorStatus.UNIFORM -> {
-                                                val selectedColor = result.color
-                                                if (selectedColor == null) {
-                                                    isEyedropperActive = false
-                                                    "Cannot read selection color"
-                                                } else {
-                                                    selectCurrentColor(nearestFixedPaletteColor(selectedColor))
-                                                    isEyedropperActive = false
-                                                    "Color selected from box"
-                                                }
-                                            }
-                                            UniformSelectionColorStatus.TRANSPARENT -> {
-                                                isEyedropperActive = false
-                                                "Selection is transparent"
-                                            }
-                                            UniformSelectionColorStatus.MIXED -> {
-                                                isEyedropperActive = true
-                                                "Selection contains multiple colors. Tap a pixel."
-                                            }
-                                            UniformSelectionColorStatus.CANCELLED -> {
-                                                isEyedropperActive = false
-                                                "Color scan cancelled"
-                                            }
-                                            UniformSelectionColorStatus.TOO_LARGE -> {
-                                                isEyedropperActive = false
-                                                "Selection too large"
-                                            }
-                                            UniformSelectionColorStatus.RECYCLED,
-                                            UniformSelectionColorStatus.UNSUPPORTED_CONFIG,
-                                            UniformSelectionColorStatus.READ_FAILED -> {
-                                                isEyedropperActive = false
-                                                "Cannot read selection color"
-                                            }
-                                        }
-                                        showSnackbarMessage(message)
+                                        val decision = decideEyedropperSelectionResult(result)
+                                        decision.selectedColor?.let(::selectCurrentColor)
+                                        isEyedropperActive = decision.activateTapFallback
+                                        showSnackbarMessage(decision.message)
                                     }
                                 }
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
@@ -3864,12 +3879,17 @@ private fun SpriteEditorPaletteSwatch(
             .testTag(semantics.testTag),
         contentAlignment = Alignment.Center,
     ) {
-        val ringWidth = spriteEditorPaletteSelectionRingWidthDp(semantics.selected).dp
-        Box(
-            modifier = Modifier
+        val ringWidth = spriteEditorPaletteSelectionRingWidthDp(semantics.selected)?.dp
+        val ringModifier = if (ringWidth == null) {
+            Modifier.size(38.dp)
+        } else {
+            Modifier
                 .size(38.dp)
                 .border(ringWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
-                .padding(ringWidth),
+                .padding(ringWidth)
+        }
+        Box(
+            modifier = ringModifier,
             contentAlignment = Alignment.Center,
         ) {
             Box(

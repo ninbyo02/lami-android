@@ -431,6 +431,35 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun eyedropperSelectionDecision_uniformSelectsColorWithoutTapFallback() {
+        val sampled = Color.argb(128, 52, 100, 151)
+        val decision = decideEyedropperSelectionResult(
+            UniformSelectionColorResult(UniformSelectionColorStatus.UNIFORM, sampled),
+        )
+
+        assertEquals(nearestFixedPaletteColor(sampled), decision.selectedColor)
+        assertFalse(decision.activateTapFallback)
+        assertEquals("Color selected from box", decision.message)
+    }
+
+    @Test
+    fun eyedropperSelectionDecision_mixedUsesTapAndTransparentDoesNotSelect() {
+        val mixed = decideEyedropperSelectionResult(
+            UniformSelectionColorResult(UniformSelectionColorStatus.MIXED),
+        )
+        val transparent = decideEyedropperSelectionResult(
+            UniformSelectionColorResult(UniformSelectionColorStatus.TRANSPARENT),
+        )
+
+        assertEquals(null, mixed.selectedColor)
+        assertTrue(mixed.activateTapFallback)
+        assertEquals("Selection contains multiple colors. Tap a pixel.", mixed.message)
+        assertEquals(null, transparent.selectedColor)
+        assertFalse(transparent.activateTapFallback)
+        assertEquals("Selection is transparent", transparent.message)
+    }
+
+    @Test
     fun findUniformSelectionColor_returnsExactRgbaInsideBoxAndIgnoresOutside() {
         val bitmap = Bitmap.createBitmap(3, 2, Bitmap.Config.ARGB_8888)
         val selected = Color.argb(128, 20, 40, 60)

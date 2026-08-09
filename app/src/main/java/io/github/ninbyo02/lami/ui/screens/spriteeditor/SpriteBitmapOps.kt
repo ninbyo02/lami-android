@@ -78,6 +78,7 @@ fun findUniformSelectionColor(
 
     val rowPixels = IntArray(safeSelection.w)
     var firstColor: Int? = null
+    var allTransparent = true
     for (row in 0 until safeSelection.h) {
         if (shouldCancel(row)) {
             return UniformSelectionColorResult(UniformSelectionColorStatus.CANCELLED)
@@ -96,17 +97,22 @@ fun findUniformSelectionColor(
             return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
         }
         for (pixel in rowPixels) {
+            if (Color.alpha(pixel) != 0) {
+                allTransparent = false
+            }
             val expected = firstColor
             if (expected == null) {
                 firstColor = pixel
             } else if (pixel != expected) {
-                return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+                if (!allTransparent) {
+                    return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+                }
             }
         }
     }
 
     val color = firstColor ?: return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
-    return if (Color.alpha(color) == 0) {
+    return if (allTransparent) {
         UniformSelectionColorResult(UniformSelectionColorStatus.TRANSPARENT)
     } else {
         UniformSelectionColorResult(UniformSelectionColorStatus.UNIFORM, color)
