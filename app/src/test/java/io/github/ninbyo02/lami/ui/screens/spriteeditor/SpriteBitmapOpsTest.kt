@@ -398,10 +398,36 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun selectSpriteEditorCurrentColor_ordersDeduplicatesAndCapsPreviousColors() {
+        var history = SpriteEditorColorHistory(Color.BLACK, emptyList())
+        val colors = (1..10).map { Color.rgb(it, it * 2, it * 3) }
+        colors.forEach { color -> history = history.select(color) }
+        history = history.select(colors[5])
+
+        assertEquals(colors[5], history.currentColor)
+        assertEquals(8, history.recentColors.size)
+        assertEquals(colors.last(), history.recentColors.first())
+        assertFalse(history.recentColors.contains(history.currentColor))
+        assertEquals(history.recentColors.size, history.recentColors.distinct().size)
+    }
+
+    @Test
     fun colorPaletteSelection_keepsSheetOpenAndShowsVisibleSelectionRing() {
         assertFalse(DISMISS_COLOR_PALETTE_AFTER_SELECTION)
         assertEquals(3, spriteEditorPaletteSelectionRingWidthDp(selected = true))
-        assertEquals(0, spriteEditorPaletteSelectionRingWidthDp(selected = false))
+        assertEquals(null, spriteEditorPaletteSelectionRingWidthDp(selected = false))
+    }
+
+    @Test
+    fun eyedropperPointSample_rejectsTransparentPixelsIncludingHiddenRgb() {
+        assertEquals(null, eyedropperPaletteColorForSample(Color.TRANSPARENT))
+        assertEquals(null, eyedropperPaletteColorForSample(0x00112233))
+    }
+
+    @Test
+    fun eyedropperPointSample_mapsNonTransparentPixelsToFixedPalette() {
+        val sampled = Color.argb(1, 52, 100, 151)
+        assertEquals(nearestFixedPaletteColor(sampled), eyedropperPaletteColorForSample(sampled))
     }
 
     @Test
@@ -437,6 +463,19 @@ class SpriteBitmapOpsTest {
         bitmap.eraseColor(Color.TRANSPARENT)
 
         val result = findUniformSelectionColor(bitmap, RectPx.of(0, 0, 2, 2))
+
+        assertEquals(UniformSelectionColorStatus.TRANSPARENT, result.status)
+        assertEquals(null, result.color)
+    }
+
+    @Test
+    fun findUniformSelectionColor_treatsDifferentHiddenRgbAsFullyTransparent() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPremultiplied(false)
+        bitmap.setPixel(0, 0, 0x00112233)
+        bitmap.setPixel(1, 0, 0x00445566)
+
+        val result = findUniformSelectionColor(bitmap, RectPx.of(0, 0, 2, 1))
 
         assertEquals(UniformSelectionColorStatus.TRANSPARENT, result.status)
         assertEquals(null, result.color)

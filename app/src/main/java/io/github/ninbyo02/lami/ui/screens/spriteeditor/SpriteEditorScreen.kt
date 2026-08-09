@@ -227,6 +227,8 @@ internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
 
 internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int = if (selected) 3 else 0
 
+internal fun eyedropperPaletteColorForSample(sampled: Int): Int = nearestFixedPaletteColor(sampled)
+
 internal data class SpriteEditorPaletteSwatchSemantics(
     val contentDescription: String,
     val testTag: String,
@@ -1023,7 +1025,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             panOffset = latestPanOffset,
                                         ) ?: return@awaitEachGesture
                                         val sampled = current.bitmap.getPixel(pixelOffset.x, pixelOffset.y)
-                                        selectCurrentColor(nearestFixedPaletteColor(sampled))
+                                        selectCurrentColor(eyedropperPaletteColorForSample(sampled))
                                         isEyedropperActive = false
                                     }
                                 }
