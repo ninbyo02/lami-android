@@ -213,6 +213,15 @@ private val nearestPaletteCache = object : LinkedHashMap<Int, Int>(
 
 fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
 
+internal data class SpritePaletteDisplaySection(
+    val label: String,
+    val colors: List<Int>,
+)
+
+internal fun fixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
+    return listOf(SpritePaletteDisplaySection("Palette", FIXED_SPRITE_PALETTE))
+}
+
 private fun buildFixedSpritePalette(): List<Int> {
     val levels = intArrayOf(0, 51, 102, 153, 204, 255)
     val colors = ArrayList<Int>(256)

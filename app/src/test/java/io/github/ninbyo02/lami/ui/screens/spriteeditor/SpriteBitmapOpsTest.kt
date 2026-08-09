@@ -62,6 +62,56 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun fixedSpritePaletteDisplaySections_preserveEveryCanonicalColorExactlyOnce() {
+        val sections = fixedSpritePaletteDisplaySections()
+        val displayed = sections.flatMap { it.colors }
+
+        assertEquals(
+            listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta"),
+            sections.map { it.label },
+        )
+        assertEquals(256, displayed.size)
+        assertEquals(256, displayed.distinct().size)
+        assertEquals(FIXED_SPRITE_PALETTE.toSet(), displayed.toSet())
+    }
+
+    @Test
+    fun fixedSpritePaletteDisplaySections_putExactGraysFirstFromBlackToWhite() {
+        val grayscale = fixedSpritePaletteDisplaySections().first()
+
+        assertTrue(grayscale.colors.all { color ->
+            Color.red(color) == Color.green(color) && Color.green(color) == Color.blue(color)
+        })
+        assertEquals(Color.BLACK, grayscale.colors.first())
+        assertEquals(Color.WHITE, grayscale.colors.last())
+        assertEquals(grayscale.colors.map { Color.red(it) }.sorted(), grayscale.colors.map { Color.red(it) })
+    }
+
+    @Test
+    fun fixedSpritePaletteDisplaySections_groupRepresentativeColorsByPerceptualHue() {
+        val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
+
+        assertTrue(sections.getValue("Red").contains(Color.RED))
+        assertTrue(sections.getValue("Orange").contains(Color.rgb(255, 102, 0)))
+        assertTrue(sections.getValue("Yellow").contains(Color.YELLOW))
+        assertTrue(sections.getValue("Green").contains(Color.GREEN))
+        assertTrue(sections.getValue("Cyan").contains(Color.CYAN))
+        assertTrue(sections.getValue("Blue").contains(Color.BLUE))
+        assertTrue(sections.getValue("Purple").contains(Color.rgb(102, 0, 204)))
+        assertTrue(sections.getValue("Magenta").contains(Color.MAGENTA))
+    }
+
+    @Test
+    fun fixedSpritePaletteDisplaySections_orderDarkBeforeBrightWithinHue() {
+        val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
+        val red = sections.getValue("Red")
+        val blue = sections.getValue("Blue")
+
+        assertTrue(red.indexOf(Color.rgb(51, 0, 0)) < red.indexOf(Color.RED))
+        assertTrue(blue.indexOf(Color.rgb(0, 0, 51)) < blue.indexOf(Color.BLUE))
+    }
+
+    @Test
     fun nearestFixedPaletteColor_mapsExactAndNearColorsDeterministically() {
         assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(51, 102, 153)))
         assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(52, 100, 151)))
