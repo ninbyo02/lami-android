@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,6 +13,147 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
 class SpriteBitmapOpsTest {
+    @Test
+    fun fixedSpritePalette_hasDeterministic256UniqueOpaqueColors() {
+        val palette = FIXED_SPRITE_PALETTE
+
+        assertEquals(256, palette.size)
+        assertEquals(256, palette.toSet().size)
+        palette.forEach { color ->
+            assertEquals(255, Color.alpha(color))
+        }
+        assertEquals(Color.rgb(0, 0, 0), palette.first())
+        assertEquals(Color.rgb(255, 255, 255), palette[215])
+
+        val cubeLevels = setOf(0, 51, 102, 153, 204, 255)
+        val expectedCube = buildList {
+            for (red in cubeLevels) {
+                for (green in cubeLevels) {
+                    for (blue in cubeLevels) {
+                        add(Color.rgb(red, green, blue))
+                    }
+                }
+            }
+        }
+        assertEquals(expectedCube, palette.take(216))
+
+        val cubeGrays = cubeLevels.map { Color.rgb(it, it, it) }.toSet()
+        val extraGrays = palette.drop(216)
+        assertEquals(40, extraGrays.size)
+        extraGrays.forEach { color ->
+            assertEquals(Color.red(color), Color.green(color))
+            assertEquals(Color.green(color), Color.blue(color))
+            assertFalse(cubeGrays.contains(color))
+        }
+    }
+
+    @Test
+    fun fixedSpritePalette_identityIsSharedAcrossCalls() {
+        assertTrue(FIXED_SPRITE_PALETTE === fixedSpritePalette())
+    }
+
+    @Test
+    fun nearestFixedPaletteColor_mapsExactAndNearColorsDeterministically() {
+        assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(51, 102, 153)))
+        assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(52, 100, 151)))
+
+        val first = nearestFixedPaletteColor(Color.rgb(17, 18, 19))
+        repeat(10) {
+            assertEquals(first, nearestFixedPaletteColor(Color.rgb(17, 18, 19)))
+        }
+        assertTrue(FIXED_SPRITE_PALETTE.contains(first))
+    }
+
+    @Test
+    fun reduceToFixedPalette_preservesDimensionsAlphaAndTransparency() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(255, 52, 100, 151))
+        bitmap.setPixel(1, 0, Color.argb(128, 52, 100, 151))
+        bitmap.setPixel(0, 1, Color.TRANSPARENT)
+        bitmap.setPixel(1, 1, 0x00112233)
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertTrue(result.changed)
+        assertEquals(2, result.bitmap.width)
+        assertEquals(2, result.bitmap.height)
+        assertEquals(Color.argb(255, 51, 102, 153), result.bitmap.getPixel(0, 0))
+        assertEquals(Color.argb(128, 51, 102, 153), result.bitmap.getPixel(1, 0))
+        assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(0, 1))
+        assertEquals(0x00112233, result.bitmap.getPixel(1, 1))
+    }
+
+    @Test
+    fun reduceToFixedPalette_noOpDetectionAndSourceImmutability() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.rgb(51, 102, 153))
+        bitmap.setPixel(1, 0, Color.argb(128, 204, 204, 204))
+        val before = pixelsOf(bitmap)
+
+        val result = reduceToFixedPalette(bitmap)
+
+        assertFalse(result.changed)
+        assertEquals(before.toList(), pixelsOf(result.bitmap).toList())
+        assertEquals(before.toList(), pixelsOf(bitmap).toList())
+    }
+
+    @Test
+    fun reduceToFixedPalette_sameInputProducesSameResult() {
+        val bitmap = Bitmap.createBitmap(3, 2, Bitmap.Config.ARGB_8888)
+        val colors = intArrayOf(
+            Color.rgb(1, 2, 3),
+            Color.rgb(10, 200, 40),
+            Color.rgb(230, 20, 120),
+            Color.argb(128, 18, 52, 241),
+            Color.TRANSPARENT,
+            Color.rgb(250, 250, 250),
+        )
+        bitmap.setPixels(colors, 0, 3, 0, 0, 3, 2)
+
+        val first = reduceToFixedPalette(bitmap)
+        val second = reduceToFixedPalette(bitmap)
+
+        assertEquals(pixelsOf(first.bitmap).toList(), pixelsOf(second.bitmap).toList())
+        assertEquals(first.changed, second.changed)
+    }
+
+    @Test
+    fun fillSelectionWithColor_fillsOnlySelectionAndPreservesSelectionContract() {
+        val bitmap = Bitmap.createBitmap(4, 3, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.RED)
+        val before = pixelsOf(bitmap)
+        val selection = RectPx.of(1, 1, 2, 1)
+
+        val result = fillSelectionWithColor(bitmap, selection, Color.rgb(51, 102, 153))
+
+        assertTrue(result.changed)
+        assertEquals(4, result.bitmap.width)
+        assertEquals(3, result.bitmap.height)
+        assertEquals(Color.RED, result.bitmap.getPixel(0, 0))
+        assertEquals(Color.rgb(51, 102, 153), result.bitmap.getPixel(1, 1))
+        assertEquals(Color.rgb(51, 102, 153), result.bitmap.getPixel(2, 1))
+        assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(3, 1))
+        assertEquals(before.toList(), pixelsOf(bitmap).toList())
+    }
+
+    @Test
+    fun fillSelectionWithColor_noOpWhenPixelsAlreadyMatch() {
+        val bitmap = Bitmap.createBitmap(3, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.BLACK)
+        bitmap.setPixel(1, 0, Color.rgb(51, 102, 153))
+        bitmap.setPixel(2, 0, Color.BLACK)
+
+        val result = fillSelectionWithColor(
+            bitmap,
+            RectPx.of(1, 0, 1, 1),
+            Color.rgb(51, 102, 153),
+        )
+
+        assertFalse(result.changed)
+        assertEquals(pixelsOf(bitmap).toList(), pixelsOf(result.bitmap).toList())
+    }
+
     @Test
     fun rectNormalizeClamp_clampsToImageBounds() {
         val rect = RectPx.of(x = -4, y = 10, w = 40, h = 40)
@@ -1090,6 +1232,12 @@ class SpriteBitmapOpsTest {
         assertEquals(bitmap.getPixel(1, 1), flipped.getPixel(1, 1))
         assertEquals(bitmap.getPixel(0, 1), flipped.getPixel(2, 1))
         assertEquals(0, Color.alpha(flipped.getPixel(2, 1)))
+    }
+
+    private fun pixelsOf(bitmap: Bitmap): IntArray {
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        return pixels
     }
 
 }

@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
@@ -22,6 +23,13 @@ private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
 // Fill Connectedで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
 const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 const val FILL_CONNECTED_RGB_TOLERANCE = 24
+
+val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePalette()
+
+data class PaletteBitmapResult(
+    val bitmap: Bitmap,
+    val changed: Boolean,
+)
 
 enum class Mode { Alpha, Rgb }
 
@@ -55,6 +63,150 @@ data class ResizeSelectionResult(
     val applied: Boolean,
     val debugText: String,
 )
+
+private data class OklabColor(
+    val l: Double,
+    val a: Double,
+    val b: Double,
+)
+
+private val FIXED_SPRITE_PALETTE_OKLAB: List<OklabColor> =
+    FIXED_SPRITE_PALETTE.map { colorToOklab(it) }
+
+fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
+
+private fun buildFixedSpritePalette(): List<Int> {
+    val levels = intArrayOf(0, 51, 102, 153, 204, 255)
+    val colors = ArrayList<Int>(256)
+    for (red in levels) {
+        for (green in levels) {
+            for (blue in levels) {
+                colors.add(Color.rgb(red, green, blue))
+            }
+        }
+    }
+
+    val cubeGrayLevels = levels.toSet()
+    for (step in 1 until 45) {
+        val gray = (step * 255.0 / 45.0).roundToInt()
+        if (gray !in cubeGrayLevels) {
+            colors.add(Color.rgb(gray, gray, gray))
+        }
+    }
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    return colors.toList()
+}
+
+fun nearestFixedPaletteColor(color: Int): Int {
+    val target = colorToOklab(color or 0xFF000000.toInt())
+    var bestIndex = 0
+    var bestDistance = Double.POSITIVE_INFINITY
+    for (index in FIXED_SPRITE_PALETTE_OKLAB.indices) {
+        val candidate = FIXED_SPRITE_PALETTE_OKLAB[index]
+        val dl = target.l - candidate.l
+        val da = target.a - candidate.a
+        val db = target.b - candidate.b
+        val distance = dl * dl + da * da + db * db
+        if (distance < bestDistance) {
+            bestDistance = distance
+            bestIndex = index
+        }
+    }
+    return FIXED_SPRITE_PALETTE[bestIndex]
+}
+
+fun reduceToFixedPalette(src: Bitmap): PaletteBitmapResult {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return PaletteBitmapResult(safeSrc, changed = false)
+    }
+
+    val pixels = IntArray(width * height)
+    safeSrc.getPixels(pixels, 0, width, 0, 0, width, height)
+    val outPixels = pixels.copyOf()
+    var changed = false
+    for (index in pixels.indices) {
+        val pixel = pixels[index]
+        val alpha = (pixel ushr 24) and 0xFF
+        if (alpha == 0) {
+            continue
+        }
+        val nearest = nearestFixedPaletteColor(pixel)
+        val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
+        if (mapped != pixel) {
+            outPixels[index] = mapped
+            changed = true
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return PaletteBitmapResult(output, changed)
+}
+
+fun fillSelectionWithColor(
+    src: Bitmap,
+    selection: RectPx,
+    color: Int,
+): PaletteBitmapResult {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return PaletteBitmapResult(safeSrc, changed = false)
+    }
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val fillColor = color or 0xFF000000.toInt()
+    val pixels = IntArray(width * height)
+    safeSrc.getPixels(pixels, 0, width, 0, 0, width, height)
+    val outPixels = pixels.copyOf()
+    var changed = false
+    for (y in safeSelection.y until safeSelection.y + safeSelection.h) {
+        for (x in safeSelection.x until safeSelection.x + safeSelection.w) {
+            val index = y * width + x
+            if (outPixels[index] != fillColor) {
+                outPixels[index] = fillColor
+                changed = true
+            }
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return PaletteBitmapResult(output, changed)
+}
+
+private fun colorToOklab(color: Int): OklabColor {
+    val red = srgbToLinear(((color ushr 16) and 0xFF) / 255.0)
+    val green = srgbToLinear(((color ushr 8) and 0xFF) / 255.0)
+    val blue = srgbToLinear((color and 0xFF) / 255.0)
+
+    val l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue
+    val m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue
+    val s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue
+
+    val lRoot = Math.cbrt(l)
+    val mRoot = Math.cbrt(m)
+    val sRoot = Math.cbrt(s)
+
+    return OklabColor(
+        l = 0.2104542553 * lRoot + 0.7936177850 * mRoot - 0.0040720468 * sRoot,
+        a = 1.9779984951 * lRoot - 2.4285922050 * mRoot + 0.4505937099 * sRoot,
+        b = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.8086757660 * sRoot,
+    )
+}
+
+private fun srgbToLinear(channel: Double): Double {
+    return if (channel <= 0.04045) {
+        channel / 12.92
+    } else {
+        ((channel + 0.055) / 1.055).pow(2.4)
+    }
+}
 
 enum class ResizeDownscaleMode {
     DefaultMultiStep,

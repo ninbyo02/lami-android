@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -150,6 +152,7 @@ private enum class SheetType {
     None,
     More,
     Tools,
+    ColorPalette,
 }
 
 private enum class ApplySource(val label: String) {
@@ -168,6 +171,7 @@ private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
     data object Binarize : LastToolOp()
+    data object ReduceTo256Colors : LastToolOp()
     data object ClearBackground : LastToolOp()
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
@@ -188,6 +192,7 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.Grayscale -> listOf("Grayscale")
             LastToolOp.Outline -> listOf("Outline")
             LastToolOp.Binarize -> listOf("Binarize")
+            LastToolOp.ReduceTo256Colors -> listOf("ReduceTo256Colors")
             LastToolOp.ClearBackground -> listOf("ClearBackground")
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
@@ -209,6 +214,7 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             "Grayscale" -> LastToolOp.Grayscale
             "Outline" -> LastToolOp.Outline
             "Binarize" -> LastToolOp.Binarize
+            "ReduceTo256Colors" -> LastToolOp.ReduceTo256Colors
             "ClearBackground" -> LastToolOp.ClearBackground
             "ClearRegion" -> LastToolOp.ClearRegion
             "FillConnected" -> LastToolOp.FillConnected
@@ -293,6 +299,15 @@ fun SpriteEditorScreen(navController: NavController) {
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
     var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
     var lastFillConnectedSeedType by remember { mutableStateOf<FillConnectedSeedType?>(null) }
+    var currentColor by remember { mutableStateOf(0xFF000000.toInt()) }
+    var recentColors by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var isEyedropperActive by remember { mutableStateOf(false) }
+
+    fun selectCurrentColor(color: Int) {
+        val opaqueColor = color or 0xFF000000.toInt()
+        currentColor = opaqueColor
+        recentColors = (listOf(opaqueColor) + recentColors.filter { it != opaqueColor }).take(8)
+    }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -754,6 +769,33 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .onSizeChanged { size ->
                                     previewSize = size
                                     panOffset = clampPanOffset(panOffset, displayScale)
+                                }
+                                .pointerInput(
+                                    isEyedropperActive,
+                                    editorState?.bitmap?.width,
+                                    editorState?.bitmap?.height,
+                                    previewSize,
+                                    displayScale,
+                                    panOffset,
+                                ) {
+                                    if (!isEyedropperActive) return@pointerInput
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown(requireUnconsumed = false)
+                                        val up = waitForUpOrCancellation()
+                                        val tapPosition = up?.position ?: down.position
+                                        val current = editorState ?: return@awaitEachGesture
+                                        val pixelOffset = previewOffsetToBitmapPixel(
+                                            position = tapPosition,
+                                            viewSize = previewSize,
+                                            bitmapWidth = current.bitmap.width,
+                                            bitmapHeight = current.bitmap.height,
+                                            displayScale = displayScale,
+                                            panOffset = panOffset,
+                                        ) ?: return@awaitEachGesture
+                                        val sampled = current.bitmap.getPixel(pixelOffset.x, pixelOffset.y)
+                                        selectCurrentColor(nearestFixedPaletteColor(sampled))
+                                        isEyedropperActive = false
+                                    }
                                 }
                                 .transformable(state = transformableState)
                                 .testTag("spriteEditorPreview"),
@@ -1570,6 +1612,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 scope.launch { showSnackbarMessage("Repeated: Binarize") }
                                                             }
 
+                                                            LastToolOp.ReduceTo256Colors -> {
+                                                                val result = reduceToFixedPalette(current.bitmap)
+                                                                if (result.changed) {
+                                                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                                                    editorState = current.withBitmap(result.bitmap)
+                                                                    isDirty = true
+                                                                    scope.launch { showSnackbarMessage("Repeated: Reduce to 256 Colors") }
+                                                                } else {
+                                                                    scope.launch { showSnackbarMessage("No pixels changed") }
+                                                                }
+                                                            }
+
                                                             LastToolOp.ClearBackground -> {
                                                                 pushUndoSnapshot(current, undoStack, redoStack)
                                                                 val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
@@ -1764,7 +1818,12 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     if (activeSheet != SheetType.None) {
-        val sheetTitle = if (activeSheet == SheetType.More) "More" else "Tools"
+        val sheetTitle = when (activeSheet) {
+            SheetType.More -> "More"
+            SheetType.Tools -> "Tools"
+            SheetType.ColorPalette -> "Color Palette"
+            SheetType.None -> ""
+        }
         data class SheetItem(
             val label: String,
             val testTag: String,
@@ -1788,30 +1847,42 @@ fun SpriteEditorScreen(navController: NavController) {
                     opensApplyDialog = true,
                 ),
             )
-        } else {
+        } else if (activeSheet == SheetType.Tools) {
             listOf(
+                SheetItem(label = "Color Palette", testTag = "spriteEditorSheetItemColorPalette"),
+                SheetItem(label = "Eyedropper", testTag = "spriteEditorSheetItemEyedropper"),
                 SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
                 SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
+                SheetItem(label = "Reduce to 256 Colors", testTag = "spriteEditorSheetItemReduceTo256Colors"),
                 SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
-                SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
                 SheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
+                SheetItem(label = "Fill Selection", testTag = "spriteEditorSheetItemFillSelection"),
+                SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
                 SheetItem(
                     label = "Center Content in Box",
                     testTag = "spriteEditorSheetItemCenterContentInBox",
                 ),
             )
+        } else {
+            emptyList()
         }
         ModalBottomSheet(
             onDismissRequest = { activeSheet = SheetType.None },
             sheetState = sheetState,
         ) {
-            Column(
-                modifier = Modifier
-                    // [dp] 全体: ボトムシート内容の最小余白(余白)に関係
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
+            val contentModifier = Modifier
+                // [dp] 全体: ボトムシート内容の最小余白(余白)に関係
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .then(
+                    if (activeSheet == SheetType.Tools) {
+                        Modifier.verticalScroll(rememberScrollState())
+                    } else {
+                        Modifier
+                    },
+                )
+            Column(modifier = contentModifier) {
                 Text(
                     text = sheetTitle,
                     style = MaterialTheme.typography.titleMedium,
@@ -1821,7 +1892,17 @@ fun SpriteEditorScreen(navController: NavController) {
                         // [dp] 上下: タイトルと項目の間隔(間隔)に関係
                         .height(8.dp)
                 )
-                sheetItems.forEach { item ->
+                if (activeSheet == SheetType.ColorPalette) {
+                    SpriteEditorColorPaletteSheet(
+                        currentColor = currentColor,
+                        recentColors = recentColors,
+                        onColorSelected = { color ->
+                            selectCurrentColor(color)
+                            activeSheet = SheetType.None
+                        },
+                    )
+                } else {
+                    sheetItems.forEach { item ->
                     Button(
                         onClick = {
                             if (item.opensApplyDialog) {
@@ -1829,6 +1910,17 @@ fun SpriteEditorScreen(navController: NavController) {
                                 applyDialogComment = ""
                                 applyDialogCommentKind = ApplyDialogCommentKind.None
                                 showApplyDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemColorPalette") {
+                                activeSheet = SheetType.ColorPalette
+                            } else if (item.testTag == "spriteEditorSheetItemEyedropper") {
+                                activeSheet = SheetType.None
+                                if (editorState == null) {
+                                    isEyedropperActive = false
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    isEyedropperActive = true
+                                    scope.launch { showSnackbarMessage("Eyedropper ready") }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
                                 val current = editorState
                                 if (current == null) {
@@ -1892,6 +1984,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                     lastToolOp = LastToolOp.Binarize
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Binarize applied") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemReduceTo256Colors") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val result = reduceToFixedPalette(current.bitmap)
+                                    activeSheet = SheetType.None
+                                    if (result.changed) {
+                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                        editorState = current.withBitmap(result.bitmap)
+                                        isDirty = true
+                                        lastToolOp = LastToolOp.ReduceTo256Colors
+                                        scope.launch { showSnackbarMessage("Reduced to 256 colors") }
+                                    } else {
+                                        scope.launch { showSnackbarMessage("No pixels changed") }
+                                    }
                                 }
                             } else if (item.testTag == "spriteEditorSheetItemClearBackground") {
                                 val current = editorState
@@ -1957,6 +2067,27 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemFillSelection") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val result = fillSelectionWithColor(
+                                        current.bitmap,
+                                        current.selection,
+                                        currentColor,
+                                    )
+                                    activeSheet = SheetType.None
+                                    if (result.changed) {
+                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                        editorState = current.withBitmap(result.bitmap)
+                                        isDirty = true
+                                        scope.launch { showSnackbarMessage("Selection filled") }
+                                    } else {
+                                        scope.launch { showSnackbarMessage("No pixels changed") }
+                                    }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemCenterContentInBox") {
                                 val current = editorState
                                 if (current == null) {
@@ -2006,6 +2137,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag(item.testTag),
+                        enabled = item.testTag != "spriteEditorSheetItemFillSelection" || editorState != null,
                         // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         shape = RoundedCornerShape(999.dp),
@@ -2017,6 +2149,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             // [dp] 上下: 項目間の間隔(間隔)に関係
                             .height(6.dp)
                     )
+                    }
                 }
             }
         }
@@ -3358,6 +3491,117 @@ private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEdi
         widthInput = normalized.w.toString(),
         heightInput = normalized.h.toString(),
     )
+}
+
+@Composable
+private fun SpriteEditorColorPaletteSheet(
+    currentColor: Int,
+    recentColors: List<Int>,
+    onColorSelected: (Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Current Color", style = MaterialTheme.typography.labelMedium)
+        SpriteEditorPaletteSwatch(
+            color = currentColor,
+            contentDescription = "Current Color",
+            onClick = { onColorSelected(currentColor) },
+            modifier = Modifier.testTag("spriteEditorCurrentColor"),
+        )
+        if (recentColors.isNotEmpty()) {
+            Text("Recent Colors", style = MaterialTheme.typography.labelMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                recentColors.take(8).forEachIndexed { index, color ->
+                    SpriteEditorPaletteSwatch(
+                        color = color,
+                        contentDescription = "Recent Color ${index + 1}",
+                        onClick = { onColorSelected(color) },
+                        modifier = Modifier.testTag("spriteEditorRecentColor$index"),
+                    )
+                }
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(8),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .testTag("spriteEditorFixedPalette"),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(FIXED_SPRITE_PALETTE.size) { index ->
+                val color = FIXED_SPRITE_PALETTE[index]
+                SpriteEditorPaletteSwatch(
+                    color = color,
+                    contentDescription = "Palette Color $index",
+                    onClick = { onColorSelected(color) },
+                    modifier = Modifier.testTag("spriteEditorPaletteColor$index"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpriteEditorPaletteSwatch(
+    color: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(32.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(color))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+            .clickable(
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .testTag(contentDescription),
+    )
+}
+
+private fun previewOffsetToBitmapPixel(
+    position: Offset,
+    viewSize: IntSize,
+    bitmapWidth: Int,
+    bitmapHeight: Int,
+    displayScale: Float,
+    panOffset: Offset,
+): IntOffset? {
+    if (viewSize.width <= 0 || viewSize.height <= 0 || bitmapWidth <= 0 || bitmapHeight <= 0) {
+        return null
+    }
+    val scaleX = viewSize.width.toFloat() / bitmapWidth
+    val scaleY = viewSize.height.toFloat() / bitmapHeight
+    val fitScale = min(scaleX, scaleY)
+    val renderScale = fitScale * displayScale
+    if (renderScale <= 0f) {
+        return null
+    }
+    val destinationWidth = bitmapWidth * renderScale
+    val destinationHeight = bitmapHeight * renderScale
+    val offsetXPx = ((viewSize.width - destinationWidth) / 2f).roundToInt()
+    val offsetYPx = ((viewSize.height - destinationHeight) / 2f).roundToInt()
+    val renderLeft = offsetXPx + panOffset.x.roundToInt()
+    val renderTop = offsetYPx + panOffset.y.roundToInt()
+    val bitmapXFloat = (position.x - renderLeft) / renderScale
+    val bitmapYFloat = (position.y - renderTop) / renderScale
+    if (bitmapXFloat < 0f || bitmapYFloat < 0f) {
+        return null
+    }
+    if (bitmapXFloat >= bitmapWidth.toFloat() || bitmapYFloat >= bitmapHeight.toFloat()) {
+        return null
+    }
+    return IntOffset(bitmapXFloat.toInt(), bitmapYFloat.toInt())
 }
 
 private fun internalAutosaveFile(context: android.content.Context): File {
