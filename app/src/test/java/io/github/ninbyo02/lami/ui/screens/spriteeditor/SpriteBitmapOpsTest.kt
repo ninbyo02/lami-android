@@ -577,11 +577,24 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun spriteEditorToolsSheetOrder_preservesApprovedFillOrdering() {
-        val labels = spriteEditorToolsSheetItems().map { it.label }
-
-        assertTrue(labels.indexOf("Fill Connected") < labels.indexOf("Fill Selection"))
-        assertTrue(labels.indexOf("Fill Selection") < labels.indexOf("Clear Region"))
+    fun spriteEditorToolsSheetOrder_preservesApprovedToolOrdering() {
+        assertEquals(
+            listOf(
+                "Color Palette",
+                "Eyedropper",
+                "Flip Copy",
+                "Grayscale",
+                "Outline",
+                "Binarize",
+                "Reduce to 256 Colors",
+                "Clear Background",
+                "Fill Connected",
+                "Fill Selection",
+                "Clear Region",
+                "Center Content in Box",
+            ),
+            spriteEditorToolsSheetItems().map { it.label },
+        )
     }
 
     @Test
