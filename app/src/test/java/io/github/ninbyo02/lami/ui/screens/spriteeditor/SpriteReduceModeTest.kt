@@ -42,7 +42,7 @@ class SpriteReduceModeTest {
 
         assertEquals(repeat, restored)
         assertEquals(listOf("ReduceTo256ColorsV2", "ImageAdaptive", "FFFF0000", "FF00FF00", "FF0000FF"), saved)
-        assertTrue(restored!!.rgbAnchors.all { Color.alpha(it) == 255 })
+        assertTrue(restored!!.rgbAnchors.all { (it ushr 24) == 0xFF })
     }
 
     @Test
@@ -61,7 +61,7 @@ class SpriteReduceModeTest {
 
     @Test
     fun malformedAdaptiveAnchors_failClosedWithoutReusePalette() {
-        val transparent = Color.argb(1, 10, 20, 30)
+        val transparent = 0x010A141E
         val malformed = listOf(
             "ReduceTo256ColorsV2",
             "ImageAdaptive",
