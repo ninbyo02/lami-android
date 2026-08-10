@@ -317,8 +317,23 @@ class SpriteBitmapOpsTest {
 
         val result = reduceToFixedPalette(bitmap)
 
+        assertEquals(PaletteBitmapRejectionReason.NONE, result.rejectionReason)
         assertFalse(result.changed)
         assertSame(bitmap, result.bitmap)
+        assertFalse(bitmap.isRecycled)
+    }
+
+    @Test
+    fun reduceToLegacyFixedPalette_handlesHardwareBitmapWithoutCrash() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE)
+        assertEquals(Bitmap.Config.HARDWARE, bitmap.config)
+
+        val result = reduceToLegacyFixedPalette(bitmap)
+
+        assertEquals(PaletteBitmapRejectionReason.NONE, result.rejectionReason)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertFalse(bitmap.isRecycled)
     }
 
     @Test
