@@ -8,11 +8,8 @@ import android.graphics.Rect
 import java.util.Collections
 import java.util.LinkedHashMap
 import kotlin.math.ceil
-import kotlin.math.atan2
 import kotlin.math.floor
-import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
 const val BINARIZE_FALLBACK_THRESHOLD = 128
@@ -29,7 +26,8 @@ const val SPRITE_BITMAP_OPS_MAX_PIXELS = 4_194_304
 const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 const val FILL_CONNECTED_RGB_TOLERANCE = 24
 
-val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePalette()
+internal val LEGACY_FIXED_SPRITE_PALETTE_V1: List<Int> = buildLegacyFixedSpritePaletteV1()
+val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePaletteV2()
 
 data class PaletteBitmapResult(
     val bitmap: Bitmap,
@@ -184,33 +182,60 @@ private data class PaletteKdNode(
     val right: PaletteKdNode?,
 )
 
-private val FIXED_SPRITE_PALETTE_OKLAB: List<PaletteOklabEntry> =
-    FIXED_SPRITE_PALETTE.mapIndexed { index, color ->
+private const val NEAREST_PALETTE_CACHE_MAX_SIZE = 4096
+
+private class SpritePaletteIndex(
+    val colors: List<Int>,
+) {
+    val entries: List<PaletteOklabEntry> = colors.mapIndexed { index, color ->
         PaletteOklabEntry(index = index, color = color, oklab = colorToOklab(color))
     }
-
-private val FIXED_SPRITE_PALETTE_RGB_SET: Set<Int> =
-    FIXED_SPRITE_PALETTE.mapTo(HashSet(FIXED_SPRITE_PALETTE.size)) { it and 0x00FFFFFF }
-
-private val fixedPalettePhysicalPremultipliedKeysByAlpha: Array<Set<Int>> =
-    Array(256) { alpha ->
-        FIXED_SPRITE_PALETTE.mapTo(HashSet(FIXED_SPRITE_PALETTE.size)) { color ->
-            physicalPremultipliedKey(alpha, color)
+    val rgbSet: Set<Int> = colors.mapTo(HashSet(colors.size)) { it and 0x00FFFFFF }
+    val physicalPremultipliedKeysByAlpha: Array<Set<Int>> = Array(256) { alpha ->
+        colors.mapTo(HashSet(colors.size)) { color -> physicalPremultipliedKey(alpha, color) }
+    }
+    val kdTree: PaletteKdNode? = buildPaletteKdTree(entries, depth = 0)
+    val cache = object : LinkedHashMap<Int, Int>(
+        NEAREST_PALETTE_CACHE_MAX_SIZE,
+        0.75f,
+        true,
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Int>?): Boolean {
+            return size > NEAREST_PALETTE_CACHE_MAX_SIZE
         }
     }
 
-private val FIXED_SPRITE_PALETTE_KD_TREE: PaletteKdNode? =
-    buildPaletteKdTree(FIXED_SPRITE_PALETTE_OKLAB, depth = 0)
-
-private const val NEAREST_PALETTE_CACHE_MAX_SIZE = 4096
-private val nearestPaletteCache = object : LinkedHashMap<Int, Int>(
-    NEAREST_PALETTE_CACHE_MAX_SIZE,
-    0.75f,
-    true,
-) {
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Int>?): Boolean {
-        return size > NEAREST_PALETTE_CACHE_MAX_SIZE
+    fun nearest(color: Int): Int {
+        val opaqueRgb = color and 0x00FFFFFF
+        if (opaqueRgb in rgbSet) {
+            return 0xFF000000.toInt() or opaqueRgb
+        }
+        synchronized(cache) {
+            cache[opaqueRgb]?.let { return it }
+        }
+        val target = colorToOklab(0xFF000000.toInt() or opaqueRgb)
+        val nearest = nearestPaletteEntry(target, entries, kdTree).color
+        synchronized(cache) {
+            cache[opaqueRgb] = nearest
+        }
+        return nearest
     }
+
+    fun isNoOp(pixel: Int, isPremultiplied: Boolean): Boolean {
+        val alpha = (pixel ushr 24) and 0xFF
+        return if (isPremultiplied) {
+            physicalPremultipliedKey(alpha, pixel) in physicalPremultipliedKeysByAlpha[alpha]
+        } else {
+            (pixel and 0x00FFFFFF) in rgbSet
+        }
+    }
+}
+
+private val FIXED_SPRITE_PALETTE_V2_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(FIXED_SPRITE_PALETTE)
+}
+private val LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(LEGACY_FIXED_SPRITE_PALETTE_V1)
 }
 
 fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
@@ -218,14 +243,6 @@ fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
 internal data class SpritePaletteDisplaySection(
     val label: String,
     val colors: List<Int>,
-)
-
-private data class SpritePaletteDisplayEntry(
-    val color: Int,
-    val canonicalIndex: Int,
-    val lightness: Double,
-    val chroma: Double,
-    val hueDegrees: Double,
 )
 
 private val FIXED_SPRITE_PALETTE_DISPLAY_SECTIONS: List<SpritePaletteDisplaySection> =
@@ -236,68 +253,25 @@ internal fun fixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySecti
 }
 
 private fun buildFixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
-    val grayscale = FIXED_SPRITE_PALETTE
-        .filter { color -> Color.red(color) == Color.green(color) && Color.green(color) == Color.blue(color) }
-        .sortedBy { color -> Color.red(color) }
-
-    val labels = listOf("Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta")
-    val grouped = labels.associateWith { ArrayList<SpritePaletteDisplayEntry>() }
-    FIXED_SPRITE_PALETTE.forEachIndexed { index, color ->
-        if (Color.red(color) == Color.green(color) && Color.green(color) == Color.blue(color)) {
-            return@forEachIndexed
-        }
-        val oklab = colorToOklab(color)
-        val chroma = sqrt(oklab.a * oklab.a + oklab.b * oklab.b)
-        val rawHue = Math.toDegrees(atan2(oklab.b, oklab.a))
-        val hue = if (rawHue < 0.0) rawHue + 360.0 else rawHue
-        val label = when {
-            hue < 42.0 || hue >= 344.0 -> "Red"
-            hue < 80.0 -> "Orange"
-            hue < 126.0 -> "Yellow"
-            hue < 168.0 -> "Green"
-            hue < 229.0 -> "Cyan"
-            hue < 282.0 -> "Blue"
-            hue < 314.0 -> "Purple"
-            else -> "Magenta"
-        }
-        grouped.getValue(label).add(
-            SpritePaletteDisplayEntry(
-                color = color,
-                canonicalIndex = index,
-                lightness = oklab.l,
-                chroma = chroma,
-                hueDegrees = hue,
-            ),
-        )
-    }
-
-    val sections = ArrayList<SpritePaletteDisplaySection>(labels.size + 1)
-    sections.add(
-        SpritePaletteDisplaySection(
-            label = "Grayscale",
-            colors = Collections.unmodifiableList(grayscale),
-        ),
-    )
-    labels.forEach { label ->
-        val colors = grouped.getValue(label)
-            .sortedWith(
-                compareBy<SpritePaletteDisplayEntry> { it.lightness }
-                    .thenBy { it.chroma }
-                    .thenBy { it.hueDegrees }
-                    .thenBy { it.canonicalIndex },
-            )
-            .map { it.color }
+    val labels = listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta")
+    val sectionSizes = intArrayOf(32, 28, 28, 28, 28, 28, 28, 28, 28)
+    val sections = ArrayList<SpritePaletteDisplaySection>(labels.size)
+    var start = 0
+    labels.forEachIndexed { index, label ->
+        val end = start + sectionSizes[index]
         sections.add(
             SpritePaletteDisplaySection(
                 label = label,
-                colors = Collections.unmodifiableList(colors),
+                colors = Collections.unmodifiableList(FIXED_SPRITE_PALETTE.subList(start, end).toList()),
             ),
         )
+        start = end
     }
+    check(start == FIXED_SPRITE_PALETTE.size)
     return Collections.unmodifiableList(sections)
 }
 
-private fun buildFixedSpritePalette(): List<Int> {
+private fun buildLegacyFixedSpritePaletteV1(): List<Int> {
     val levels = intArrayOf(0, 51, 102, 153, 204, 255)
     val colors = ArrayList<Int>(256)
     for (red in levels) {
@@ -321,21 +295,127 @@ private fun buildFixedSpritePalette(): List<Int> {
     return Collections.unmodifiableList(colors.toList())
 }
 
-fun nearestFixedPaletteColor(color: Int): Int {
-    val opaqueRgb = color and 0x00FFFFFF
-    if (opaqueRgb in FIXED_SPRITE_PALETTE_RGB_SET) {
-        return 0xFF000000.toInt() or opaqueRgb
+private fun buildFixedSpritePaletteV2(): List<Int> {
+    val colors = ArrayList<Int>(256)
+    val grayCodes = intArrayOf(
+        0x00, 0x01, 0x03, 0x07, 0x0D, 0x14, 0x1B, 0x22,
+        0x2A, 0x32, 0x3A, 0x42, 0x4A, 0x52, 0x5B, 0x64,
+        0x6D, 0x76, 0x7F, 0x88, 0x91, 0x9B, 0xA4, 0xAE,
+        0xB8, 0xC2, 0xCC, 0xD6, 0xE0, 0xEA, 0xF5, 0xFF,
+    )
+    grayCodes.forEach { gray ->
+        colors.add(Color.rgb(gray, gray, gray))
     }
-    synchronized(nearestPaletteCache) {
-        nearestPaletteCache[opaqueRgb]?.let { return it }
+
+    val lightnessRows = doubleArrayOf(0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88)
+    val chromaFractions = doubleArrayOf(0.25, 0.45, 0.70, 0.95)
+    val hueCenters = doubleArrayOf(29.0, 65.0, 105.0, 142.0, 195.0, 264.0, 295.0, 330.0)
+    val anchors = intArrayOf(
+        Color.rgb(255, 0, 0),
+        Color.rgb(255, 128, 0),
+        Color.rgb(255, 255, 0),
+        Color.rgb(0, 255, 0),
+        Color.rgb(0, 255, 255),
+        Color.rgb(0, 0, 255),
+        Color.rgb(128, 0, 255),
+        Color.rgb(255, 0, 255),
+    )
+
+    hueCenters.forEachIndexed { hueIndex, hue ->
+        val anchorRow = nearestLightnessRowIndex(lightnessRows, colorToOklab(anchors[hueIndex]).l)
+        lightnessRows.forEachIndexed { rowIndex, lightness ->
+            val maxChroma = maxDisplayableOklchChroma(lightness, hue)
+            chromaFractions.forEachIndexed { chromaIndex, fraction ->
+                val color = if (rowIndex == anchorRow && chromaIndex == chromaFractions.lastIndex) {
+                    anchors[hueIndex]
+                } else {
+                    oklchToSrgbColor(lightness, maxChroma * fraction, hue)
+                }
+                colors.add(color)
+            }
+        }
     }
-    val target = colorToOklab(0xFF000000.toInt() or opaqueRgb)
-    val nearest = nearestPaletteEntry(target).color
-    synchronized(nearestPaletteCache) {
-        nearestPaletteCache[opaqueRgb] = nearest
-    }
-    return nearest
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    check(colors.all { Color.alpha(it) == 255 })
+    return Collections.unmodifiableList(colors.toList())
 }
+
+private fun nearestLightnessRowIndex(lightnessRows: DoubleArray, anchorLightness: Double): Int {
+    var bestIndex = 0
+    var bestDistance = StrictMath.abs(lightnessRows[0] - anchorLightness)
+    for (index in 1 until lightnessRows.size) {
+        val distance = StrictMath.abs(lightnessRows[index] - anchorLightness)
+        if (distance < bestDistance) {
+            bestIndex = index
+            bestDistance = distance
+        }
+    }
+    return bestIndex
+}
+
+private fun maxDisplayableOklchChroma(lightness: Double, hueDegrees: Double): Double {
+    var low = 0.0
+    var high = 0.6
+    repeat(32) {
+        val mid = (low + high) * 0.5
+        if (oklchLinearSrgbInGamut(lightness, mid, hueDegrees)) {
+            low = mid
+        } else {
+            high = mid
+        }
+    }
+    return low
+}
+
+private fun oklchToSrgbColor(lightness: Double, chroma: Double, hueDegrees: Double): Int {
+    val rgb = oklchToLinearSrgb(lightness, chroma, hueDegrees)
+    return Color.rgb(
+        linearSrgbToByte(rgb[0]),
+        linearSrgbToByte(rgb[1]),
+        linearSrgbToByte(rgb[2]),
+    )
+}
+
+private fun oklchLinearSrgbInGamut(lightness: Double, chroma: Double, hueDegrees: Double): Boolean {
+    val rgb = oklchToLinearSrgb(lightness, chroma, hueDegrees)
+    return rgb[0] in 0.0..1.0 && rgb[1] in 0.0..1.0 && rgb[2] in 0.0..1.0
+}
+
+private fun oklchToLinearSrgb(lightness: Double, chroma: Double, hueDegrees: Double): DoubleArray {
+    val hueRadians = StrictMath.toRadians(hueDegrees)
+    val a = chroma * StrictMath.cos(hueRadians)
+    val b = chroma * StrictMath.sin(hueRadians)
+
+    val lPrime = lightness + 0.3963377774 * a + 0.2158037573 * b
+    val mPrime = lightness - 0.1055613458 * a - 0.0638541728 * b
+    val sPrime = lightness - 0.0894841775 * a - 1.2914855480 * b
+
+    val l = lPrime * lPrime * lPrime
+    val m = mPrime * mPrime * mPrime
+    val s = sPrime * sPrime * sPrime
+
+    return doubleArrayOf(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+    )
+}
+
+private fun linearSrgbToByte(channel: Double): Int {
+    val clamped = channel.coerceIn(0.0, 1.0)
+    val encoded = if (clamped <= 0.0031308) {
+        12.92 * clamped
+    } else {
+        1.055 * StrictMath.pow(clamped, 1.0 / 2.4) - 0.055
+    }
+    return StrictMath.floor(encoded * 255.0 + 0.5).toInt().coerceIn(0, 255)
+}
+
+fun nearestFixedPaletteColor(color: Int): Int = FIXED_SPRITE_PALETTE_V2_INDEX.nearest(color)
+
+internal fun nearestLegacyFixedPaletteColor(color: Int): Int = LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX.nearest(color)
 
 private fun buildPaletteKdTree(entries: List<PaletteOklabEntry>, depth: Int): PaletteKdNode? {
     if (entries.isEmpty()) return null
@@ -350,8 +430,12 @@ private fun buildPaletteKdTree(entries: List<PaletteOklabEntry>, depth: Int): Pa
     )
 }
 
-private fun nearestPaletteEntry(target: OklabColor): PaletteOklabEntry {
-    var best = FIXED_SPRITE_PALETTE_OKLAB.first()
+private fun nearestPaletteEntry(
+    target: OklabColor,
+    entries: List<PaletteOklabEntry>,
+    kdTree: PaletteKdNode?,
+): PaletteOklabEntry {
+    var best = entries.first()
     var bestDistance = oklabDistanceSquared(target, best.oklab)
 
     fun visit(node: PaletteKdNode?) {
@@ -374,7 +458,7 @@ private fun nearestPaletteEntry(target: OklabColor): PaletteOklabEntry {
         }
     }
 
-    visit(FIXED_SPRITE_PALETTE_KD_TREE)
+    visit(kdTree)
     return best
 }
 
@@ -396,6 +480,17 @@ private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
 fun reduceToFixedPalette(
     src: Bitmap,
     shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(src, FIXED_SPRITE_PALETTE_V2_INDEX, shouldCancel)
+
+internal fun reduceToLegacyFixedPalette(
+    src: Bitmap,
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(src, LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX, shouldCancel)
+
+private fun reduceToSpritePalette(
+    src: Bitmap,
+    paletteIndex: SpritePaletteIndex,
+    shouldCancel: (row: Int) -> Boolean,
 ): PaletteBitmapResult {
     if (src.isRecycled) {
         return PaletteBitmapResult(
@@ -464,10 +559,10 @@ fun reduceToFixedPalette(
             if (alpha == 0) {
                 continue
             }
-            if (isFixedPaletteNoOp(pixel, isPremultiplied)) {
+            if (paletteIndex.isNoOp(pixel, isPremultiplied)) {
                 continue
             }
-            val nearest = nearestFixedPaletteColor(pixel)
+            val nearest = paletteIndex.nearest(pixel)
             val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
             if (pixel != mapped) {
                 rowPixels[x] = mapped
@@ -592,15 +687,6 @@ private fun readableArgb8888Bitmap(src: Bitmap): ReadableBitmap? {
     return ReadableBitmap(copy, isNew = true)
 }
 
-private fun isFixedPaletteNoOp(pixel: Int, isPremultiplied: Boolean): Boolean {
-    val alpha = (pixel ushr 24) and 0xFF
-    return if (isPremultiplied) {
-        physicalPremultipliedKey(alpha, pixel) in fixedPalettePhysicalPremultipliedKeysByAlpha[alpha]
-    } else {
-        (pixel and 0x00FFFFFF) in FIXED_SPRITE_PALETTE_RGB_SET
-    }
-}
-
 private fun physicalPremultipliedKey(alpha: Int, color: Int): Int {
     return (alpha shl 24) or
         (premultipliedChannel((color ushr 16) and 0xFF, alpha) shl 16) or
@@ -621,9 +707,9 @@ private fun colorToOklab(color: Int): OklabColor {
     val m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue
     val s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue
 
-    val lRoot = Math.cbrt(l)
-    val mRoot = Math.cbrt(m)
-    val sRoot = Math.cbrt(s)
+    val lRoot = StrictMath.cbrt(l)
+    val mRoot = StrictMath.cbrt(m)
+    val sRoot = StrictMath.cbrt(s)
 
     return OklabColor(
         l = 0.2104542553 * lRoot + 0.7936177850 * mRoot - 0.0040720468 * sRoot,
@@ -636,7 +722,7 @@ private fun srgbToLinear(channel: Double): Double {
     return if (channel <= 0.04045) {
         channel / 12.92
     } else {
-        ((channel + 0.055) / 1.055).pow(2.4)
+        StrictMath.pow((channel + 0.055) / 1.055, 2.4)
     }
 }
 

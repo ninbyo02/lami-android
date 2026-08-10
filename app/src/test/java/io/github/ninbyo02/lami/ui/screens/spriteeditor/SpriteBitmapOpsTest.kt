@@ -173,6 +173,33 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun legacyAndV2NearestIndexes_areDeterministicAndCacheIsolated() {
+        val sampled = Color.rgb(52, 100, 151)
+        val legacy = Color.rgb(51, 102, 153)
+        val v2 = nearestFixedPaletteColor(sampled)
+
+        assertNotEquals(legacy, v2)
+        repeat(4) {
+            assertEquals(legacy, nearestLegacyFixedPaletteColor(sampled))
+            assertEquals(v2, nearestFixedPaletteColor(sampled))
+            assertEquals(legacy, nearestLegacyFixedPaletteColor(sampled))
+        }
+        assertTrue(LEGACY_FIXED_SPRITE_PALETTE_V1.contains(legacy))
+        assertTrue(FIXED_SPRITE_PALETTE.contains(v2))
+    }
+
+    @Test
+    fun reduceToLegacyFixedPalette_preservesOldMappingAndSourceAlpha() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(128, 52, 100, 151))
+
+        val result = reduceToLegacyFixedPalette(bitmap)
+
+        assertTrue(result.changed)
+        assertEquals(Color.argb(128, 51, 102, 153), result.bitmap.getPixel(0, 0))
+    }
+
+    @Test
     fun reduceToFixedPalette_preservesDimensionsAlphaAndTransparency() {
         val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.argb(255, 52, 100, 151))
@@ -257,13 +284,13 @@ class SpriteBitmapOpsTest {
         val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPremultiplied(false)
         bitmap.setPixel(0, 0, Color.argb(4, 0, 128, 0))
-        bitmap.setPixel(1, 0, Color.argb(4, 0, 153, 51))
+        bitmap.setPixel(1, 0, Color.argb(4, 0, 255, 0))
 
         val result = reduceToFixedPalette(bitmap)
 
         assertTrue(result.changed)
         assertNotEquals(bitmap.getPixel(0, 0), result.bitmap.getPixel(0, 0))
-        assertEquals(Color.argb(4, 0, 153, 51), result.bitmap.getPixel(1, 0))
+        assertEquals(Color.argb(4, 0, 255, 0), result.bitmap.getPixel(1, 0))
         assertFalse(result.bitmap.isPremultiplied)
         val second = reduceToFixedPalette(result.bitmap)
         assertFalse(second.changed)
@@ -308,7 +335,7 @@ class SpriteBitmapOpsTest {
     @Test
     fun reduceToFixedPalette_noOpDetectionAndSourceImmutability() {
         val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
-        bitmap.setPixel(0, 0, Color.rgb(51, 102, 153))
+        bitmap.setPixel(0, 0, Color.RED)
         bitmap.setPixel(1, 0, Color.argb(128, 204, 204, 204))
         val before = pixelsOf(bitmap)
 
