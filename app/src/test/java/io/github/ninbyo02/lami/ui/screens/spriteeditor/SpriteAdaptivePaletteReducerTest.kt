@@ -222,8 +222,9 @@ class SpriteAdaptivePaletteReducerTest {
     }
 
     @Test
-    fun hardwareBitmap_isRejectedFailClosedWhenRobolectricSupportsIt() {
-        val bitmap = runCatching { Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE) }.getOrNull() ?: return
+    fun hardwareBitmap_isRejectedFailClosed() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE)
+        assertEquals(Bitmap.Config.HARDWARE, bitmap.config)
 
         val result = reduceToAdaptivePalette(bitmap)
 

@@ -311,13 +311,50 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun reduceToFixedPalette_handlesHardwareBitmapWithoutCrashWhenRobolectricSupportsIt() {
-        val bitmap = runCatching { Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE) }.getOrNull() ?: return
+    fun reduceToFixedPalette_handlesHardwareBitmapWithoutCrash() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.HARDWARE)
+        assertEquals(Bitmap.Config.HARDWARE, bitmap.config)
 
         val result = reduceToFixedPalette(bitmap)
 
         assertFalse(result.changed)
         assertSame(bitmap, result.bitmap)
+    }
+
+    @Test
+    fun reduceToFixedPalette_rowBufferOomFailsClosed() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+        val before = pixelsOf(bitmap)
+
+        val result = reduceToFixedPalette(
+            bitmap,
+            rowBufferAllocator = { throw OutOfMemoryError("test row buffer") },
+        )
+
+        assertEquals(PaletteBitmapRejectionReason.COPY_FAILED, result.rejectionReason)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertFalse(bitmap.isRecycled)
+        assertArrayEquals(before, pixelsOf(bitmap))
+    }
+
+    @Test
+    fun reduceToLegacyFixedPalette_rowBufferOomFailsClosed() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+        val before = pixelsOf(bitmap)
+
+        val result = reduceToLegacyFixedPalette(
+            bitmap,
+            rowBufferAllocator = { throw OutOfMemoryError("test row buffer") },
+        )
+
+        assertEquals(PaletteBitmapRejectionReason.COPY_FAILED, result.rejectionReason)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertFalse(bitmap.isRecycled)
+        assertArrayEquals(before, pixelsOf(bitmap))
     }
 
     @Test
@@ -395,6 +432,26 @@ class SpriteBitmapOpsTest {
         assertEquals(Color.rgb(51, 102, 153), result.bitmap.getPixel(2, 1))
         assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(3, 1))
         assertEquals(before.toList(), pixelsOf(bitmap).toList())
+    }
+
+    @Test
+    fun fillSelectionWithColor_rowBufferOomFailsClosed() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+        val before = pixelsOf(bitmap)
+
+        val result = fillSelectionWithColor(
+            bitmap,
+            RectPx.of(0, 0, 2, 1),
+            Color.BLUE,
+            rowBufferAllocator = { throw OutOfMemoryError("test row buffer") },
+        )
+
+        assertEquals(PaletteBitmapRejectionReason.COPY_FAILED, result.rejectionReason)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertFalse(bitmap.isRecycled)
+        assertArrayEquals(before, pixelsOf(bitmap))
     }
 
     @Test
@@ -661,6 +718,24 @@ class SpriteBitmapOpsTest {
 
         assertEquals(UniformSelectionColorStatus.TRANSPARENT, result.status)
         assertEquals(null, result.color)
+    }
+
+    @Test
+    fun findUniformSelectionColor_rowBufferOomFailsClosed() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+        val before = pixelsOf(bitmap)
+
+        val result = findUniformSelectionColor(
+            bitmap,
+            RectPx.of(0, 0, 2, 1),
+            rowBufferAllocator = { throw OutOfMemoryError("test row buffer") },
+        )
+
+        assertEquals(UniformSelectionColorStatus.READ_FAILED, result.status)
+        assertEquals(null, result.color)
+        assertFalse(bitmap.isRecycled)
+        assertArrayEquals(before, pixelsOf(bitmap))
     }
 
     @Test
