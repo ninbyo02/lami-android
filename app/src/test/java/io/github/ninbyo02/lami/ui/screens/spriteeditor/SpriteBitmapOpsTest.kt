@@ -18,8 +18,8 @@ import org.robolectric.annotation.Config
 @Config(manifest = Config.NONE, sdk = [34])
 class SpriteBitmapOpsTest {
     @Test
-    fun fixedSpritePalette_hasDeterministic256UniqueOpaqueColors() {
-        val palette = FIXED_SPRITE_PALETTE
+    fun legacyFixedSpritePaletteV1_preservesExactCanonicalOrderAndValues() {
+        val palette = LEGACY_FIXED_SPRITE_PALETTE_V1
 
         assertEquals(256, palette.size)
         assertEquals(256, palette.toSet().size)
@@ -48,6 +48,53 @@ class SpriteBitmapOpsTest {
             assertEquals(Color.red(color), Color.green(color))
             assertEquals(Color.green(color), Color.blue(color))
             assertFalse(cubeGrays.contains(color))
+        }
+    }
+
+    @Test
+    fun fixedSpritePaletteV2_hasDeterministic256UniqueOpaquePerceptualRamps() {
+        val palette = FIXED_SPRITE_PALETTE
+        val sections = fixedSpritePaletteDisplaySections()
+
+        assertEquals(256, palette.size)
+        assertEquals(256, palette.toSet().size)
+        assertTrue(palette.all { Color.alpha(it) == 255 })
+        assertEquals(
+            listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta"),
+            sections.map { it.label },
+        )
+        assertEquals(listOf(32, 28, 28, 28, 28, 28, 28, 28, 28), sections.map { it.colors.size })
+        assertEquals(palette, sections.flatMap { it.colors })
+        assertEquals(Color.BLACK, sections.first().colors.first())
+        assertEquals(Color.WHITE, sections.first().colors.last())
+        assertTrue(sections.first().colors.zipWithNext().all { (left, right) -> Color.red(left) < Color.red(right) })
+    }
+
+    @Test
+    fun fixedSpritePaletteV2_keepsBasicEightHueAnchorsInTheirSections() {
+        val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
+
+        assertTrue(sections.getValue("Red").contains(Color.RED))
+        assertTrue(sections.getValue("Orange").contains(Color.rgb(255, 128, 0)))
+        assertTrue(sections.getValue("Yellow").contains(Color.YELLOW))
+        assertTrue(sections.getValue("Green").contains(Color.GREEN))
+        assertTrue(sections.getValue("Cyan").contains(Color.CYAN))
+        assertTrue(sections.getValue("Blue").contains(Color.BLUE))
+        assertTrue(sections.getValue("Purple").contains(Color.rgb(128, 0, 255)))
+        assertTrue(sections.getValue("Magenta").contains(Color.MAGENTA))
+    }
+
+    @Test
+    fun fixedSpritePaletteV2_mapsRepresentativeSkinColorsToChromaticColors() {
+        listOf(
+            Color.rgb(234, 182, 161),
+            Color.rgb(235, 181, 169),
+            Color.rgb(255, 226, 189),
+            Color.rgb(198, 134, 66),
+            Color.rgb(141, 85, 36),
+        ).forEach { skin ->
+            val mapped = nearestFixedPaletteColor(skin)
+            assertFalse("skin=${spriteEditorPaletteHexColor(skin)} mapped=${spriteEditorPaletteHexColor(mapped)}", Color.red(mapped) == Color.green(mapped) && Color.green(mapped) == Color.blue(mapped))
         }
     }
 
@@ -92,29 +139,31 @@ class SpriteBitmapOpsTest {
         val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
 
         assertTrue(sections.getValue("Red").contains(Color.RED))
-        assertTrue(sections.getValue("Orange").contains(Color.rgb(255, 102, 0)))
+        assertTrue(sections.getValue("Orange").contains(Color.rgb(255, 128, 0)))
         assertTrue(sections.getValue("Yellow").contains(Color.YELLOW))
         assertTrue(sections.getValue("Green").contains(Color.GREEN))
         assertTrue(sections.getValue("Cyan").contains(Color.CYAN))
         assertTrue(sections.getValue("Blue").contains(Color.BLUE))
-        assertTrue(sections.getValue("Purple").contains(Color.rgb(102, 0, 204)))
+        assertTrue(sections.getValue("Purple").contains(Color.rgb(128, 0, 255)))
         assertTrue(sections.getValue("Magenta").contains(Color.MAGENTA))
     }
 
     @Test
-    fun fixedSpritePaletteDisplaySections_orderDarkBeforeBrightWithinHue() {
-        val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
-        val red = sections.getValue("Red")
-        val blue = sections.getValue("Blue")
+    fun fixedSpritePaletteDisplaySections_preserveCanonicalContiguousSectionOrder() {
+        val sections = fixedSpritePaletteDisplaySections()
 
-        assertTrue(red.indexOf(Color.rgb(51, 0, 0)) < red.indexOf(Color.RED))
-        assertTrue(blue.indexOf(Color.rgb(0, 0, 51)) < blue.indexOf(Color.BLUE))
+        assertEquals(FIXED_SPRITE_PALETTE, sections.flatMap { it.colors })
+        assertEquals(FIXED_SPRITE_PALETTE.subList(0, 32), sections[0].colors)
+        sections.drop(1).forEachIndexed { index, section ->
+            val start = 32 + index * 28
+            assertEquals(FIXED_SPRITE_PALETTE.subList(start, start + 28), section.colors)
+        }
     }
 
     @Test
     fun nearestFixedPaletteColor_mapsExactAndNearColorsDeterministically() {
-        assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(51, 102, 153)))
-        assertEquals(Color.rgb(51, 102, 153), nearestFixedPaletteColor(Color.rgb(52, 100, 151)))
+        assertEquals(Color.RED, nearestFixedPaletteColor(Color.RED))
+        assertEquals(Color.rgb(255, 128, 0), nearestFixedPaletteColor(Color.rgb(255, 128, 0)))
 
         val first = nearestFixedPaletteColor(Color.rgb(17, 18, 19))
         repeat(10) {
@@ -136,8 +185,9 @@ class SpriteBitmapOpsTest {
         assertTrue(result.changed)
         assertEquals(2, result.bitmap.width)
         assertEquals(2, result.bitmap.height)
-        assertEquals(Color.argb(255, 51, 102, 153), result.bitmap.getPixel(0, 0))
-        assertEquals(Color.argb(128, 51, 102, 153), result.bitmap.getPixel(1, 0))
+        val expected = nearestFixedPaletteColor(Color.rgb(52, 100, 151))
+        assertEquals(Color.argb(255, Color.red(expected), Color.green(expected), Color.blue(expected)), result.bitmap.getPixel(0, 0))
+        assertEquals(Color.argb(128, Color.red(expected), Color.green(expected), Color.blue(expected)), result.bitmap.getPixel(1, 0))
         assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(0, 1))
         assertEquals(0, Color.alpha(result.bitmap.getPixel(1, 1)))
     }
@@ -163,7 +213,7 @@ class SpriteBitmapOpsTest {
     @Test
     fun reduceToFixedPalette_alpha4RegressionPreservesPaletteRepresentablePhysicalGreen() {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-        bitmap.setPixel(0, 0, Color.argb(4, 0, 153, 51))
+        bitmap.setPixel(0, 0, Color.argb(4, 0, 255, 0))
         val before = bitmap.getPixel(0, 0)
 
         val first = reduceToFixedPalette(bitmap)
