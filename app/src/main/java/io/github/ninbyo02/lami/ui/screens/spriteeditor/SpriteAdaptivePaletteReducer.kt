@@ -142,7 +142,7 @@ fun reduceToAdaptivePalette(
         }
     }
 
-    if (histogram.visibleCount == 0 || histogram.exactUnique in 1..maxRgbColors && !histogram.exactOverflowed) {
+    if (histogram.visibleCount == 0L || histogram.exactUnique in 1..maxRgbColors && !histogram.exactOverflowed) {
         readable.recycleIfNew()
         return PaletteBitmapResult(src, changed = false)
     }
