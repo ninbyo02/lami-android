@@ -162,6 +162,7 @@ private enum class SheetType {
     None,
     More,
     Tools,
+    ReduceTo256Colors,
     ColorPalette,
 }
 
@@ -201,6 +202,19 @@ internal fun spriteEditorToolsSheetItems(): List<SpriteEditorSheetItem> {
             testTag = "spriteEditorSheetItemCenterContentInBox",
         ),
     )
+}
+
+internal fun spriteEditorReduceSheetItems(): List<SpriteEditorSheetItem> {
+    return SPRITE_REDUCE_CHOICES.map { choice ->
+        SpriteEditorSheetItem(
+            label = choice.label,
+            testTag = when (choice) {
+                SpriteReduceChoice.ImageAdaptive -> "spriteEditorReduceImageAdaptive"
+                SpriteReduceChoice.FixedPalette -> "spriteEditorReduceFixedPalette"
+                SpriteReduceChoice.Cancel -> "spriteEditorReduceCancel"
+            },
+        )
+    }
 }
 
 internal data class SpriteEditorColorHistory(
@@ -379,7 +393,22 @@ private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
     data object Binarize : LastToolOp()
-    data object ReduceTo256Colors : LastToolOp()
+    data class ReduceTo256Colors private constructor(
+        val repeat: SpriteReduceRepeat,
+    ) : LastToolOp() {
+        companion object {
+            fun create(
+                mode: SpriteReduceMode,
+                rgbAnchors: List<Int> = emptyList(),
+            ): ReduceTo256Colors {
+                return ReduceTo256Colors(SpriteReduceRepeat.create(mode, rgbAnchors))
+            }
+
+            fun create(repeat: SpriteReduceRepeat): ReduceTo256Colors {
+                return create(repeat.mode, repeat.rgbAnchors)
+            }
+        }
+    }
     data object ClearBackground : LastToolOp()
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
@@ -400,7 +429,7 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.Grayscale -> listOf("Grayscale")
             LastToolOp.Outline -> listOf("Outline")
             LastToolOp.Binarize -> listOf("Binarize")
-            LastToolOp.ReduceTo256Colors -> listOf("ReduceTo256Colors")
+            is LastToolOp.ReduceTo256Colors -> saveSpriteReduceRepeat(op.repeat)
             LastToolOp.ClearBackground -> listOf("ClearBackground")
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
@@ -422,7 +451,10 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             "Grayscale" -> LastToolOp.Grayscale
             "Outline" -> LastToolOp.Outline
             "Binarize" -> LastToolOp.Binarize
-            "ReduceTo256Colors" -> LastToolOp.ReduceTo256Colors
+            "ReduceTo256Colors",
+            "ReduceTo256ColorsV2" -> restoreSpriteReduceRepeat(data)?.let {
+                LastToolOp.ReduceTo256Colors.create(it)
+            }
             "ClearBackground" -> LastToolOp.ClearBackground
             "ClearRegion" -> LastToolOp.ClearRegion
             "FillConnected" -> LastToolOp.FillConnected
@@ -608,6 +640,57 @@ fun SpriteEditorScreen(navController: NavController) {
             applied()
         }
         return decision
+    }
+
+    fun runSpriteReduce(repeat: SpriteReduceRepeat, repeated: Boolean) {
+        val current = editorState
+        if (current == null) {
+            scope.launch { showSnackbarMessage("No sprite loaded") }
+            return
+        }
+        val normalizedRepeat = SpriteReduceRepeat.create(repeat.mode, repeat.rgbAnchors)
+        val modeName = when (normalizedRepeat.mode) {
+            SpriteReduceMode.ImageAdaptive -> "Image Adaptive"
+            SpriteReduceMode.FixedPaletteV2 -> "Fixed Palette"
+            SpriteReduceMode.LegacyFixedPaletteV1 -> "Legacy Fixed Palette"
+        }
+        launchPaletteOperation {
+            val sourceBitmap = current.bitmap
+            runPaletteBitmapOperation(
+                sourceBitmap = sourceBitmap,
+                operation = { shouldCancel ->
+                    when (normalizedRepeat.mode) {
+                        SpriteReduceMode.ImageAdaptive -> reduceToAdaptivePalette(
+                            src = sourceBitmap,
+                            reuseRgbAnchors = normalizedRepeat.rgbAnchors.takeIf { it.isNotEmpty() },
+                            shouldCancel = shouldCancel,
+                        )
+                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPalette(sourceBitmap, shouldCancel)
+                        SpriteReduceMode.LegacyFixedPaletteV1 -> reduceToLegacyFixedPalette(
+                            sourceBitmap,
+                            shouldCancel,
+                        )
+                    }
+                },
+            ) { result, owner ->
+                applyPaletteBitmapResult(
+                    current = current,
+                    result = result,
+                    owner = owner,
+                    unchangedMessage = if (repeated) {
+                        "Repeated: $modeName unchanged"
+                    } else {
+                        "$modeName unchanged"
+                    },
+                    appliedMessage = if (repeated) "Repeated: $modeName" else "$modeName applied",
+                ) {
+                    lastToolOp = LastToolOp.ReduceTo256Colors.create(
+                        normalizedRepeat.mode,
+                        result.rgbAnchors,
+                    )
+                }
+            }
+        }
     }
 
     fun runResizeSelection(
@@ -1886,23 +1969,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 scope.launch { showSnackbarMessage("Repeated: Binarize") }
                                                             }
 
-                                                            LastToolOp.ReduceTo256Colors -> {
-                                                                launchPaletteOperation {
-                                                                    val sourceBitmap = current.bitmap
-                                                                    runPaletteBitmapOperation(
-                                                                        sourceBitmap = sourceBitmap,
-                                                                        operation = { shouldCancel ->
-                                                                            reduceToFixedPalette(sourceBitmap, shouldCancel)
-                                                                        },
-                                                                    ) { result, owner ->
-                                                                        applyPaletteBitmapResult(
-                                                                            current = current,
-                                                                            result = result,
-                                                                            owner = owner,
-                                                                            appliedMessage = "Repeated: Reduce to 256 Colors",
-                                                                        )
-                                                                    }
-                                                                }
+                                                            is LastToolOp.ReduceTo256Colors -> {
+                                                                runSpriteReduce(op.repeat, repeated = true)
                                                             }
 
                                                             LastToolOp.ClearBackground -> {
@@ -2102,11 +2170,12 @@ fun SpriteEditorScreen(navController: NavController) {
         val sheetTitle = when (activeSheet) {
             SheetType.More -> "More"
             SheetType.Tools -> "Tools"
+            SheetType.ReduceTo256Colors -> "Reduce to 256 Colors"
             SheetType.ColorPalette -> "Color Palette"
             SheetType.None -> ""
         }
-        val sheetItems = if (activeSheet == SheetType.More) {
-            listOf(
+        val sheetItems = when (activeSheet) {
+            SheetType.More -> listOf(
                 SpriteEditorSheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
                 SpriteEditorSheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
                 SpriteEditorSheetItem(
@@ -2123,10 +2192,10 @@ fun SpriteEditorScreen(navController: NavController) {
                     opensApplyDialog = true,
                 ),
             )
-        } else if (activeSheet == SheetType.Tools) {
-            spriteEditorToolsSheetItems()
-        } else {
-            emptyList()
+            SheetType.Tools -> spriteEditorToolsSheetItems()
+            SheetType.ReduceTo256Colors -> spriteEditorReduceSheetItems()
+            SheetType.ColorPalette,
+            SheetType.None -> emptyList()
         }
         ModalBottomSheet(
             onDismissRequest = { activeSheet = SheetType.None },
@@ -2152,18 +2221,23 @@ fun SpriteEditorScreen(navController: NavController) {
                         // [dp] 上下: タイトルと項目の間隔(間隔)に関係
                         .height(8.dp)
                 )
-                if (activeSheet == SheetType.ColorPalette) {
-                    SpriteEditorColorPaletteSheet(
-                        currentColor = currentColor,
-                        recentColors = recentColors,
-                        onColorSelected = { color ->
-                            selectCurrentColor(color)
-                            if (DISMISS_COLOR_PALETTE_AFTER_SELECTION) {
-                                activeSheet = SheetType.None
-                            }
-                        },
-                    )
-                } else {
+                when (activeSheet) {
+                    SheetType.ColorPalette -> {
+                        SpriteEditorColorPaletteSheet(
+                            currentColor = currentColor,
+                            recentColors = recentColors,
+                            onColorSelected = { color ->
+                                selectCurrentColor(color)
+                                if (DISMISS_COLOR_PALETTE_AFTER_SELECTION) {
+                                    activeSheet = SheetType.None
+                                }
+                            },
+                        )
+                    }
+
+                    SheetType.More,
+                    SheetType.Tools,
+                    SheetType.ReduceTo256Colors -> {
                     sheetItems.forEach { item ->
                     Button(
                         onClick = {
@@ -2174,6 +2248,20 @@ fun SpriteEditorScreen(navController: NavController) {
                                 showApplyDialog = true
                             } else if (item.testTag == "spriteEditorSheetItemColorPalette") {
                                 activeSheet = SheetType.ColorPalette
+                            } else if (item.testTag == "spriteEditorReduceImageAdaptive") {
+                                activeSheet = SheetType.None
+                                runSpriteReduce(
+                                    SpriteReduceRepeat.create(SpriteReduceMode.ImageAdaptive),
+                                    repeated = false,
+                                )
+                            } else if (item.testTag == "spriteEditorReduceFixedPalette") {
+                                activeSheet = SheetType.None
+                                runSpriteReduce(
+                                    SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV2),
+                                    repeated = false,
+                                )
+                            } else if (item.testTag == "spriteEditorReduceCancel") {
+                                activeSheet = SheetType.None
                             } else if (item.testTag == "spriteEditorSheetItemEyedropper") {
                                 val current = editorState
                                 if (current == null) {
@@ -2265,31 +2353,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     scope.launch { showSnackbarMessage("Binarize applied") }
                                 }
                             } else if (item.testTag == "spriteEditorSheetItemReduceTo256Colors") {
-                                val current = editorState
-                                if (current == null) {
-                                    activeSheet = SheetType.None
-                                    scope.launch { showSnackbarMessage("No sprite loaded") }
-                                } else {
-                                    activeSheet = SheetType.None
-                                    launchPaletteOperation {
-                                        val sourceBitmap = current.bitmap
-                                        runPaletteBitmapOperation(
-                                            sourceBitmap = sourceBitmap,
-                                            operation = { shouldCancel ->
-                                                reduceToFixedPalette(sourceBitmap, shouldCancel)
-                                            },
-                                        ) { result, owner ->
-                                            applyPaletteBitmapResult(
-                                                current = current,
-                                                result = result,
-                                                owner = owner,
-                                                appliedMessage = "Reduced to 256 colors",
-                                            ) {
-                                                lastToolOp = LastToolOp.ReduceTo256Colors
-                                            }
-                                        }
-                                    }
-                                }
+                                activeSheet = SheetType.ReduceTo256Colors
                             } else if (item.testTag == "spriteEditorSheetItemClearBackground") {
                                 val current = editorState
                                 if (current == null) {
@@ -2434,8 +2498,9 @@ fun SpriteEditorScreen(navController: NavController) {
                             .heightIn(min = 48.dp)
                             .testTag(item.testTag),
                         enabled = when (item.testTag) {
-                            "spriteEditorSheetItemReduceTo256Colors",
                             "spriteEditorSheetItemFillSelection" -> !isPaletteOperationRunning && editorState != null
+                            "spriteEditorReduceImageAdaptive",
+                            "spriteEditorReduceFixedPalette" -> !isPaletteOperationRunning
                             else -> true
                         },
                         // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
@@ -2450,6 +2515,9 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(6.dp)
                     )
                     }
+                    }
+
+                    SheetType.None -> Unit
                 }
             }
         }
