@@ -65,7 +65,7 @@ class SpriteBitmapOpsTest {
             sections.map { it.label },
         )
         assertEquals(listOf(32, 28, 28, 28, 28, 28, 28, 28, 28), sections.map { it.colors.size })
-        assertEquals(palette, sections.flatMap { it.colors })
+        assertEquals(palette.toSet(), sections.flatMap { it.colors }.toSet())
         assertEquals(Color.BLACK, sections.first().colors.first())
         assertEquals(Color.WHITE, sections.first().colors.last())
         assertTrue(sections.first().colors.zipWithNext().all { (left, right) -> Color.red(left) < Color.red(right) })
@@ -150,14 +150,19 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun fixedSpritePaletteDisplaySections_preserveCanonicalContiguousSectionOrder() {
+    fun fixedSpritePaletteDisplaySections_useSevenLightnessColumnsAndFourChromaRows() {
         val sections = fixedSpritePaletteDisplaySections()
 
-        assertEquals(FIXED_SPRITE_PALETTE, sections.flatMap { it.colors })
         assertEquals(FIXED_SPRITE_PALETTE.subList(0, 32), sections[0].colors)
         sections.drop(1).forEachIndexed { index, section ->
             val start = 32 + index * 28
-            assertEquals(FIXED_SPRITE_PALETTE.subList(start, start + 28), section.colors)
+            val canonical = FIXED_SPRITE_PALETTE.subList(start, start + 28)
+            val expectedDisplayOrder = (0 until 4).flatMap { chromaIndex ->
+                (0 until 7).map { lightnessIndex ->
+                    canonical[lightnessIndex * 4 + chromaIndex]
+                }
+            }
+            assertEquals(expectedDisplayOrder, section.colors)
         }
     }
 
