@@ -268,10 +268,22 @@ private fun buildFixedSpritePaletteDisplaySections(): List<SpritePaletteDisplayS
     var start = 0
     labels.forEachIndexed { index, label ->
         val end = start + sectionSizes[index]
+        val canonicalColors = FIXED_SPRITE_PALETTE.subList(start, end)
+        val displayColors = if (index == 0) {
+            canonicalColors.toList()
+        } else {
+            buildList(canonicalColors.size) {
+                for (chromaIndex in 0 until 4) {
+                    for (lightnessIndex in 0 until 7) {
+                        add(canonicalColors[lightnessIndex * 4 + chromaIndex])
+                    }
+                }
+            }
+        }
         sections.add(
             SpritePaletteDisplaySection(
                 label = label,
-                colors = Collections.unmodifiableList(FIXED_SPRITE_PALETTE.subList(start, end).toList()),
+                colors = Collections.unmodifiableList(displayColors),
             ),
         )
         start = end

@@ -3903,7 +3903,7 @@ private fun SpriteEditorColorPaletteSheet(
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Fixed(8),
+            columns = GridCells.Fixed(7),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 360.dp)
