@@ -21,6 +21,8 @@ The host is fixed to `192.168.3.19`. The port must use canonical ASCII decimal n
 - Exact endpoint: `192.168.3.19:<port>`
 - Expected model: `NX733J`
 - Package/activity: `io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity`
+- QAIRT build extension: `/usr/local/libexec/lami-build-qairt244-forced-commands.sh`
+- Required QAIRT extension SHA-256: `99631431604344db84bd09d185c81bd4533698054ebadf235b8df904d134659c`
 
 The installer does **not** modify `authorized_keys`, `sshd_config`, or the QAIRT extension.
 
@@ -28,16 +30,28 @@ The installer does **not** modify `authorized_keys`, `sshd_config`, or the QAIRT
 
 1. Acquires the existing mode-`0600` build lock without following symlinks and verifies owner, link count, and pathname/FD inode identity.
 2. Verifies a clean repository and the exact origin URL.
-3. Disables Git hooks/fsmonitor/credential helpers/file protocol, removes ignored build inputs, fetches only `origin`'s `future` branch, checks out the fetched commit detached, cleans again, and creates fixed `local.properties` bytes for `/opt/android-sdk`.
-4. Connects and probes only `192.168.3.19:<port>` with explicit `adb -s` selection.
-5. Requires model `NX733J` and a stable, non-empty `ro.serialno`.
-6. Safely removes a stale fixed standard APK, then runs only `:app:assembleStandardDebug` with a one-hour timeout and 4 MiB output cap; `local.properties` is rechecked after the build.
-7. Opens the fixed APK through a repository-anchored `dirfd/openat` chain with `O_NOFOLLOW`, copies it into an anonymous memfd, applies `F_SEAL_WRITE|GROW|SHRINK|SEAL`, and verifies the sealed FD hash.
-8. Re-probes the exact device, writes and fsyncs a private provenance log, then passes only that immutable FD to ADB as `/proc/self/fd/N` using `pass_fds`; the sealed FD hash is rechecked after ADB returns.
-9. Re-probes after installation, clears fresh logcat, starts the fixed MainActivity, verifies exact launch output, one numeric PID and exact top-resumed activity, observes for 3 seconds, then rechecks bounded all-process/PID logcat, PID stability, and the exact foreground activity.
-10. Closes the anonymous sealed APK FD on every exit path; no pathname APK snapshot is retained.
+3. Disables Git hooks/fsmonitor/credential helpers/file protocol, removes ignored build inputs, fetches only `origin`'s `future` branch, checks out the fetched commit detached, and cleans again.
+4. Immediately after that final clean, opens the fixed root-owned QAIRT extension with `O_NOFOLLOW`, requires exact owner `root:root`, mode `0755`, link count one, pathname/FD identity, and the pinned SHA-256, then copies the exact opened bytes to a fully sealed memfd. A separate fixed wrapper is also sealed and invoked only as `/usr/bin/bash --noprofile --norc /proc/self/fd/<wrapper> /proc/self/fd/<extension>` with those two FDs inherited; no SSH/user argument or shell text reaches it.
+5. Runs only `lami_qairt244_build_custom_jni` under the fixed clean environment and PATH, with a two-hour timeout and 16 MiB hard output cap. The extension's own temporary logs are confined to a private scratch directory that is removed and directory-fsynced on every exit; the bounded durable native log remains mode `0600` under `.deploy-logs`.
+6. Requires the six fixed staged custom-stack libraries, hashes exact `openat(O_NOFOLLOW)` bytes through sealed memfds, and requires both fixed `nativeRunEditablePrompt` and `nativeRunPersistentProbe` GLOBAL/DEFAULT JNI symbols from the sealed `liblami_qairt244_npu_jni.so`. Missing files, unsafe metadata, hash drift, or missing symbols stop before Gradle.
+7. Connects and probes only `192.168.3.19:<port>` with explicit `adb -s` selection and requires model `NX733J` plus a stable, non-empty `ro.serialno`.
+8. Safely removes a stale fixed standard APK, creates fixed `local.properties` bytes for `/opt/android-sdk`, then runs only `:app:assembleStandardDebug` with a one-hour timeout and 4 MiB output cap; `local.properties` is rechecked after the build. Before accepting the APK, the runtime reopens/reseals every staged native library, rechecks both JNI symbols, and requires all post-Gradle hashes/evidence to match the pre-Gradle evidence.
+9. Opens the fixed APK through a repository-anchored `dirfd/openat` chain with `O_NOFOLLOW`, copies it into an anonymous memfd, applies `F_SEAL_WRITE|GROW|SHRINK|SEAL`, and verifies the sealed FD hash.
+10. Re-probes the exact device and writes/fsyncs a private provenance log containing the QAIRT extension hash, bounded native-log hash, every required staged-library hash, and fixed JNI-symbol evidence in addition to commit/APK/device identity. It then passes only the immutable APK FD to ADB as `/proc/self/fd/N` using `pass_fds`; the sealed FD hash is rechecked after ADB returns.
+11. Re-probes after installation, clears fresh logcat, starts the fixed MainActivity, verifies exact launch output, one numeric PID and exact top-resumed activity, observes for 3 seconds, then rechecks bounded all-process/PID logcat, PID stability, and the exact foreground activity.
+12. Closes all extension/wrapper/library/APK FDs and removes native scratch state on every exit path; no pathname APK snapshot is retained.
 
-Any failed prerequisite exits nonzero. In particular, dirty/wrong-origin repositories, wrong or drifting devices, build failure, unsafe APK paths, hash drift, install failure, launch failure, or fresh crash evidence never produce the success marker.
+Any failed prerequisite exits nonzero. In particular, dirty/wrong-origin repositories, an unavailable or changed QAIRT extension, native build/stage failure, missing native symbol evidence, wrong or drifting devices, Gradle failure, unsafe APK paths, hash drift, install failure, launch failure, or fresh crash evidence never produce the success marker.
+
+## Promotion HOLD (2026-08-10)
+
+This package is a checkpoint and **must not be promoted to the live root gate yet**.
+
+- A real Android Build Tools 35 ADB invocation rejected the otherwise correctly inherited sealed path `/proc/self/fd/N` with `filename doesn't end .apk or .apex`. The rejection occurred before installation. The manual acceptance install succeeded only through a private `.apk`-suffixed alias to the inherited sealed FD. That namespace alias is not accepted here as the automated solution because it has not yet preserved the original same-UID substitution boundary.
+- An independent security architecture review requested a Git-tracked native-bundle manifest plus a root-managed content-addressed cache instead of invoking the existing QAIRT build extension on every deployment. The current post-clean QAIRT implementation and that stricter provenance design have not yet been reconciled.
+- Therefore the generated successor, installer, and runtime in this directory are testable checkpoint artifacts only. Do not update `future`, run the root installer, or invoke the generated deploy successor from this checkpoint.
+
+The reviewed palette APK was separately installed manually with sealed-FD SHA verification, matching signer verification, explicit NX733J serial selection, `adb install -r`, post-install byte-for-byte APK verification, cold launch, stable PID/top-resumed checks, a three-second fresh-crash window, and visual 7×4 palette acceptance. That manual acceptance does not clear this automation HOLD.
 
 ## Verify the package before privileged use
 
@@ -106,4 +120,4 @@ Revalidate the current port immediately before use; the example port is not pers
 
 ## Scope of repository verification
 
-The included tests use a byte-exact fixture of the reviewed baseline gate plus fake command/device/filesystem behavior. They do not contact SSH, ADB, GitHub, or a physical device, and they do not activate this package on the laptop.
+The included tests use a byte-exact fixture of the reviewed baseline gate plus fake QAIRT build, command, device, and filesystem behavior. They verify the sealed-FD invocation boundary, exact post-clean/pre-Gradle ordering, required staged files/symbols/hashes, failure cleanup, and provenance fields. They do not contact SSH, ADB, GitHub, or a physical device, do not perform the real native build, and do not activate this package on the laptop.

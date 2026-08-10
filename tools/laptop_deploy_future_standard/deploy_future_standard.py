@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import selectors
 import signal
+import shutil
 import stat
 import subprocess
 import sys
@@ -20,7 +21,34 @@ REPO = BUILD_HOME / "repos/lami-android"
 LOGS = BUILD_HOME / ".deploy-logs"
 SNAPSHOTS = BUILD_HOME / ".deploy-snapshots"
 LOCK = BUILD_HOME / ".build.lock"
+QAIRT_EXTENSION = Path("/usr/local/libexec/lami-build-qairt244-forced-commands.sh")
+QAIRT_EXTENSION_SHA256 = "99631431604344db84bd09d185c81bd4533698054ebadf235b8df904d134659c"
+QAIRT_EXTENSION_UID = 0
+QAIRT_EXTENSION_GID = 0
 APK_RELATIVE = Path("app/build/outputs/apk/standard/debug/app-standard-debug.apk")
+NATIVE_STAGE_RELATIVE = Path("app/src/customBuildExperimentDebug/jniLibs/arm64-v8a")
+REQUIRED_NATIVE_LIBS = (
+    "libLiteRt.so",
+    "libLiteRtDispatch_Qualcomm.so",
+    "liblitertlm_jni.so",
+    "liblami_qairt244_npu_jni.so",
+    "libLiteRtCompilerPlugin_Qualcomm.so",
+    "libGemmaModelConstraintProvider.so",
+)
+REQUIRED_NATIVE_SYMBOLS = (
+    "Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt",
+    "Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe",
+)
+QAIRT_BASH_WRAPPER = b"""#!/usr/bin/env bash
+set -euo pipefail
+[[ "$#" -eq 1 ]] || exit 64
+readonly REPO=/home/lami-build/repos/lami-android
+readonly LOG_DIR=/home/lami-build/.deploy-snapshots/qairt-native-build-scratch
+export REPO LOG_DIR
+source "$1"
+declare -F lami_qairt244_build_custom_jni >/dev/null
+lami_qairt244_build_custom_jni
+"""
 ORIGIN_URL = "https://github.com/ninbyo02/lami-android.git"
 FUTURE_REFSPEC = "+refs/heads/future:refs/remotes/origin/future"
 ADB = "/opt/android-sdk/platform-tools/adb"
@@ -31,6 +59,8 @@ PACKAGE = "io.github.ninbyo02.lami"
 ACTIVITY = "io.github.ninbyo02.lami.MainActivity"
 MAX_COMMAND_OUTPUT = 4 * 1024 * 1024
 BUILD_TIMEOUT = 3600
+NATIVE_BUILD_TIMEOUT = 7200
+NATIVE_BUILD_OUTPUT_LIMIT = 16 * 1024 * 1024
 ADB_TIMEOUT = 45
 OBSERVATION_INTERVAL = 3.0
 LOCAL_PROPERTIES_BYTES = b"sdk.dir=/opt/android-sdk\n"
@@ -52,12 +82,21 @@ class Paths:
     logs: Path = LOGS
     snapshots: Path = SNAPSHOTS
     lock: Path = LOCK
+    qairt_extension: Path = QAIRT_EXTENSION
 
 
 @dataclass(frozen=True)
 class DeviceIdentity:
     model: str
     hardware_serial: str
+
+
+@dataclass(frozen=True)
+class NativeBuildEvidence:
+    extension_sha256: str
+    log_sha256: str
+    library_sha256: dict[str, str]
+    symbols: dict[str, bool]
 
 
 @dataclass(frozen=True)
@@ -68,6 +107,7 @@ class DeployResult:
     hardware_serial: str
     pid: int
     log_path: Path
+    native_log_path: Path
     provenance_log_path: Path
 
 
@@ -366,6 +406,272 @@ class Deployment:
         ):
             raise DeployError("local.properties changed during build")
 
+    @staticmethod
+    def _create_sealed_bytes(name: str, payload: bytes) -> int:
+        fd = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+        try:
+            Deployment._write_all(fd, payload)
+            os.fsync(fd)
+            seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+            fcntl.fcntl(fd, fcntl.F_ADD_SEALS, seals)
+            if fcntl.fcntl(fd, fcntl.F_GET_SEALS) & seals != seals:
+                raise DeployError("memfd sealing failed")
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def _open_verified_qairt_extension(self) -> int:
+        path = self.paths.qairt_extension
+        fd = None
+        sealed_fd = None
+        try:
+            parent = path.parent.lstat()
+            if (
+                not stat.S_ISDIR(parent.st_mode)
+                or parent.st_uid != QAIRT_EXTENSION_UID
+                or parent.st_gid != QAIRT_EXTENSION_GID
+                or stat.S_IMODE(parent.st_mode) & 0o022
+                or path.parent.resolve() != path.parent
+            ):
+                raise DeployError("QAIRT extension parent directory is unsafe")
+            before = path.lstat()
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or before.st_uid != QAIRT_EXTENSION_UID
+                or before.st_gid != QAIRT_EXTENSION_GID
+                or stat.S_IMODE(before.st_mode) != 0o755
+            ):
+                raise DeployError("QAIRT extension metadata mismatch")
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            opened = os.fstat(fd)
+            current = path.lstat()
+            expected_identity = (before.st_dev, before.st_ino)
+            if (
+                (opened.st_dev, opened.st_ino) != expected_identity
+                or (current.st_dev, current.st_ino) != expected_identity
+                or not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or opened.st_uid != QAIRT_EXTENSION_UID
+                or opened.st_gid != QAIRT_EXTENSION_GID
+                or stat.S_IMODE(opened.st_mode) != 0o755
+            ):
+                raise DeployError("QAIRT extension changed while opening")
+            payload = bytearray()
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                payload.extend(chunk)
+            digest = hashlib.sha256(payload).hexdigest()
+            after = os.fstat(fd)
+            current = path.lstat()
+            if (
+                digest != QAIRT_EXTENSION_SHA256
+                or (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                != (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+                or (current.st_dev, current.st_ino) != expected_identity
+            ):
+                raise DeployError("QAIRT extension SHA-256 or identity mismatch")
+            sealed_fd = self._create_sealed_bytes("lami-qairt244-extension", bytes(payload))
+            if self._hash_fd(sealed_fd) != QAIRT_EXTENSION_SHA256:
+                raise DeployError("sealed QAIRT extension SHA-256 mismatch")
+            result = sealed_fd
+            sealed_fd = None
+            return result
+        except DeployError:
+            raise
+        except OSError as exc:
+            raise DeployError("QAIRT extension is missing or unsafe") from exc
+        finally:
+            if sealed_fd is not None:
+                os.close(sealed_fd)
+            if fd is not None:
+                os.close(fd)
+
+    def _open_repo_relative_regular(self, relative: Path) -> int:
+        if relative.is_absolute() or not relative.parts or any(part in ("", ".", "..") for part in relative.parts):
+            raise DeployError("native output path is not fixed")
+        fds = []
+        try:
+            current_fd = os.open(
+                self.paths.repo,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            )
+            fds.append(current_fd)
+            for component in relative.parts[:-1]:
+                current_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=current_fd,
+                )
+                fds.append(current_fd)
+            file_fd = os.open(
+                relative.name,
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=current_fd,
+            )
+            info = os.fstat(file_fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid():
+                os.close(file_fd)
+                raise DeployError("required staged native library is unsafe")
+            return file_fd
+        except DeployError:
+            raise
+        except OSError as exc:
+            raise DeployError("required staged native library is missing or unsafe") from exc
+        finally:
+            for directory_fd in reversed(fds):
+                os.close(directory_fd)
+
+    def _seal_open_fd(self, source_fd: int, name: str) -> tuple[int, str]:
+        before = os.fstat(source_fd)
+        sealed_fd = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+        try:
+            offset = 0
+            while True:
+                chunk = os.pread(source_fd, 1024 * 1024, offset)
+                if not chunk:
+                    break
+                self._write_all(sealed_fd, chunk)
+                offset += len(chunk)
+            os.fsync(sealed_fd)
+            source_hash = self._hash_fd(source_fd)
+            copied_hash = self._hash_fd(sealed_fd)
+            after = os.fstat(source_fd)
+            if (
+                source_hash != copied_hash
+                or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+            ):
+                raise DeployError("staged native library changed while sealing")
+            seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+            fcntl.fcntl(sealed_fd, fcntl.F_ADD_SEALS, seals)
+            if fcntl.fcntl(sealed_fd, fcntl.F_GET_SEALS) & seals != seals:
+                raise DeployError("staged native library was not fully sealed")
+            return sealed_fd, copied_hash
+        except BaseException:
+            os.close(sealed_fd)
+            raise
+
+    def _hash_private_log(self, path: Path) -> str:
+        try:
+            before = path.lstat()
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        except OSError as exc:
+            raise DeployError("native build log is missing or unsafe") from exc
+        try:
+            opened = os.fstat(fd)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or opened.st_uid != os.geteuid()
+                or stat.S_IMODE(opened.st_mode) != 0o600
+                or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)
+            ):
+                raise DeployError("native build log metadata mismatch")
+            digest = self._hash_fd(fd)
+            after = os.fstat(fd)
+            current = path.lstat()
+            if (
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                != (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+                or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+            ):
+                raise DeployError("native build log changed while hashing")
+            return digest
+        finally:
+            os.close(fd)
+
+    def _collect_staged_native_evidence(self) -> tuple[dict[str, str], dict[str, bool]]:
+        library_hashes = {}
+        symbols = {symbol: False for symbol in REQUIRED_NATIVE_SYMBOLS}
+        for library in REQUIRED_NATIVE_LIBS:
+            source_fd = self._open_repo_relative_regular(NATIVE_STAGE_RELATIVE / library)
+            sealed_library_fd = None
+            try:
+                sealed_library_fd, digest = self._seal_open_fd(source_fd, f"lami-native-{library}")
+                library_hashes[library] = digest
+                if library == "liblami_qairt244_npu_jni.so":
+                    readelf = self._run(
+                        ("/usr/bin/readelf", "-Ws", f"/proc/self/fd/{sealed_library_fd}"),
+                        timeout=30,
+                        output_limit=2 * 1024 * 1024,
+                        pass_fds=(sealed_library_fd,),
+                    )
+                    for symbol in REQUIRED_NATIVE_SYMBOLS:
+                        pattern = rf"(?m)\bGLOBAL\b.*\bDEFAULT\b.*\b{re.escape(symbol)}\b"
+                        symbols[symbol] = re.search(pattern, readelf) is not None
+            finally:
+                if sealed_library_fd is not None:
+                    os.close(sealed_library_fd)
+                os.close(source_fd)
+        if not all(symbols.values()):
+            raise DeployError("required JNI symbol is missing from staged liblami_qairt244_npu_jni.so")
+        return library_hashes, symbols
+
+    def _remove_native_scratch(self, scratch: Path) -> None:
+        if scratch.parent != self.paths.snapshots or scratch.name != "qairt-native-build-scratch":
+            raise DeployError("QAIRT native scratch cleanup path is not fixed")
+        parent_fd = os.open(
+            self.paths.snapshots,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        try:
+            try:
+                info = os.stat(scratch.name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return
+            if stat.S_ISDIR(info.st_mode):
+                shutil.rmtree(scratch.name, dir_fd=parent_fd)
+            else:
+                os.unlink(scratch.name, dir_fd=parent_fd)
+            os.fsync(parent_fd)
+        finally:
+            os.close(parent_fd)
+
+    def _build_and_stage_qairt(self, log_path: Path) -> NativeBuildEvidence:
+        self._prepare_snapshot_dir()
+        scratch = self.paths.snapshots / "qairt-native-build-scratch"
+        extension_fd = None
+        wrapper_fd = None
+        cleanup_error = None
+        try:
+            try:
+                scratch.mkdir(mode=0o700)
+            except OSError as exc:
+                raise DeployError("QAIRT native scratch directory already exists or is unsafe") from exc
+            self._fsync_dir(self.paths.snapshots)
+            extension_fd = self._open_verified_qairt_extension()
+            wrapper_fd = self._create_sealed_bytes("lami-qairt244-wrapper", QAIRT_BASH_WRAPPER)
+            self._run(
+                (
+                    "/usr/bin/bash", "--noprofile", "--norc",
+                    f"/proc/self/fd/{wrapper_fd}", f"/proc/self/fd/{extension_fd}",
+                ),
+                timeout=NATIVE_BUILD_TIMEOUT,
+                output_limit=NATIVE_BUILD_OUTPUT_LIMIT,
+                log_path=log_path,
+                pass_fds=(extension_fd, wrapper_fd),
+            )
+            log_hash = self._hash_private_log(log_path)
+            library_hashes, symbols = self._collect_staged_native_evidence()
+            return NativeBuildEvidence(QAIRT_EXTENSION_SHA256, log_hash, library_hashes, symbols)
+        finally:
+            for fd in (wrapper_fd, extension_fd):
+                if fd is not None:
+                    try:
+                        os.close(fd)
+                    except OSError as exc:
+                        cleanup_error = cleanup_error or exc
+            try:
+                self._remove_native_scratch(scratch)
+            except OSError as exc:
+                cleanup_error = cleanup_error or exc
+            if cleanup_error is not None and sys.exc_info()[0] is None:
+                raise DeployError("QAIRT native cleanup failed") from cleanup_error
+
     def _probe_device(self, serial: str) -> DeviceIdentity:
         if self._adb(serial, "get-state").strip() != "device":
             raise DeployError("exact ADB serial is not in device state")
@@ -454,15 +760,33 @@ class Deployment:
         apk_hash: str,
         serial: str,
         identity: DeviceIdentity,
+        native: NativeBuildEvidence,
+        native_log_path: Path,
     ) -> None:
-        payload = (
+        fields = [
             f"commit={commit}\n"
             f"apk_sha256={apk_hash}\n"
             f"adb_serial={serial}\n"
             f"model={identity.model}\n"
             f"ro.serialno={identity.hardware_serial}\n"
             "install_mode=adb install -r\n"
-        ).encode("ascii")
+            f"qairt_extension_path={self.paths.qairt_extension}\n"
+            f"qairt_extension_sha256={native.extension_sha256}\n"
+            f"native_build_log={native_log_path}\n"
+            f"native_build_log_sha256={native.log_sha256}\n"
+            f"native_build_timeout_seconds={NATIVE_BUILD_TIMEOUT}\n"
+            f"native_build_output_limit_bytes={NATIVE_BUILD_OUTPUT_LIMIT}\n"
+            f"native_stage_relative={NATIVE_STAGE_RELATIVE}\n"
+        ]
+        fields.extend(
+            f"native_library_{name}_sha256={digest}\n"
+            for name, digest in native.library_sha256.items()
+        )
+        fields.extend(
+            f"native_symbol_{symbol}={'present' if present else 'missing'}\n"
+            for symbol, present in native.symbols.items()
+        )
+        payload = "".join(fields).encode("ascii")
         fd = os.open(
             path,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
@@ -652,14 +976,24 @@ class Deployment:
             self._prepare_private_dir(self.paths.logs, "deploy log")
             timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
             build_log = self.paths.logs / f"deploy-future-standard-{timestamp}-{os.getpid()}.log"
+            native_build_log = self.paths.logs / f"deploy-future-standard-{timestamp}-{os.getpid()}-qairt-native.log"
             provenance_log = self.paths.logs / f"deploy-future-standard-{timestamp}-{os.getpid()}-provenance.log"
             pid_log = self.paths.logs / f"deploy-future-standard-{timestamp}-{os.getpid()}-pid.logcat"
             self._verify_repo()
             commit = self._checkout_future()
+            native_evidence = self._build_and_stage_qairt(native_build_log)
             self._run((ADB, "connect", serial), timeout=ADB_TIMEOUT)
             initial_identity = self._probe_device(serial)
             apk = self.paths.repo / APK_RELATIVE
             self._build(apk, build_log)
+            if self._hash_private_log(native_build_log) != native_evidence.log_sha256:
+                raise DeployError("native build log changed before provenance")
+            current_hashes, current_symbols = self._collect_staged_native_evidence()
+            if (
+                current_hashes != native_evidence.library_sha256
+                or current_symbols != native_evidence.symbols
+            ):
+                raise DeployError("staged native outputs changed during Gradle")
             sealed_apk_fd, apk_hash = self._open_sealed_apk(apk)
             before_install = self._probe_device(serial)
             if before_install != initial_identity:
@@ -671,6 +1005,8 @@ class Deployment:
                 apk_hash=apk_hash,
                 serial=serial,
                 identity=before_install,
+                native=native_evidence,
+                native_log_path=native_build_log,
             )
             inherited_path = f"/proc/self/fd/{sealed_apk_fd}"
             try:
@@ -712,6 +1048,7 @@ class Deployment:
                 initial_identity.hardware_serial,
                 pid,
                 build_log,
+                native_build_log,
                 provenance_log,
             )
         finally:
@@ -738,6 +1075,7 @@ def main(argv: list[str]) -> int:
     print(f"ro.serialno={result.hardware_serial}")
     print(f"pid={result.pid}")
     print(f"build_log={result.log_path}")
+    print(f"native_build_log={result.native_log_path}")
     print(f"provenance_log={result.provenance_log_path}")
     return 0
 

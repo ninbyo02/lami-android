@@ -24,6 +24,7 @@ MANIFEST_FILES = (
     Path("tests/fixtures/lami-build-gate.cb863e73"),
     Path("tests/test_installer_hardening.py"),
     Path("tests/test_package_integrity.py"),
+    Path("tests/test_qairt_native_integration.py"),
     Path("tests/test_runtime_hardening.py"),
     Path("tests/test_successor_package.py"),
 )

@@ -17,7 +17,7 @@ import sys
 BASELINE_SHA256 = "cb863e73ed1a72fe586dbe92d0a93eb413f666fca534b4a0cad0aaf060be0473"
 # build_package.py must stamp this from deploy_future_standard.py before hashing install.py.
 # There is no hash cycle: this pins the separate extension, not the installer itself.
-SOURCE_EXTENSION_SHA256 = "a3994cbda64d53f7be41ba1f9bb3aeb06d6cabb76266094cb9dfca11199c6cf9"
+SOURCE_EXTENSION_SHA256 = "c5acc73acb51eddee196172a384f4e293a7225b7a5ee905f63b504e62be5ecc7"
 GATE_PATH = Path("/usr/local/sbin/lami-build-gate")
 EXTENSION_PATH = Path("/usr/local/libexec/lami-deploy-future-standard.py")
 BACKUP_PATH = Path(f"/usr/local/sbin/lami-build-gate.pre-deploy-future-standard-{BASELINE_SHA256[:12]}.bak")
