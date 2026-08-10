@@ -189,6 +189,31 @@ class SpriteAdaptivePaletteReducerTest {
     }
 
     @Test
+    fun cancellationInsideWideOutputRow_failsClosedWithinBoundedPixelInterval() {
+        val bitmap = Bitmap.createBitmap(4096, 1, Bitmap.Config.ARGB_8888)
+        for (x in 0 until bitmap.width) {
+            bitmap.setPixel(x, 0, Color.rgb((x * 17) and 0xFF, (x * 43) and 0xFF, (x * 89) and 0xFF))
+        }
+        var checks = 0
+
+        val result = reduceToAdaptivePalette(
+            bitmap,
+            maxRgbColors = 1,
+            reuseRgbAnchors = listOf(Color.BLACK),
+        ) {
+            val cancel = checks >= 2
+            checks += 1
+            cancel
+        }
+
+        assertTrue(result.cancelled)
+        assertTrue(result.rejected)
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertTrue("checks=$checks", checks >= 3)
+    }
+
+    @Test
     fun recycledBitmap_isRejectedWithoutCrash() {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         bitmap.recycle()
