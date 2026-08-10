@@ -25,6 +25,18 @@ class SpriteReduceModeTest {
     }
 
     @Test
+    fun reduceSheetItems_keepApprovedLabelsAndStableTags() {
+        assertEquals(
+            listOf(
+                SpriteEditorSheetItem("Image Adaptive", "spriteEditorReduceImageAdaptive"),
+                SpriteEditorSheetItem("Fixed Palette", "spriteEditorReduceFixedPalette"),
+                SpriteEditorSheetItem("Cancel", "spriteEditorReduceCancel"),
+            ),
+            spriteEditorReduceSheetItems(),
+        )
+    }
+
+    @Test
     fun oldReduceToken_restoresLegacyV1ForCompatibility() {
         assertEquals(
             SpriteReduceRepeat(SpriteReduceMode.LegacyFixedPaletteV1),
