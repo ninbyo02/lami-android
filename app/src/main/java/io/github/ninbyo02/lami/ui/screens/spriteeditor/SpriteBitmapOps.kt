@@ -34,6 +34,7 @@ data class PaletteBitmapResult(
     val changed: Boolean,
     val rejectionReason: PaletteBitmapRejectionReason = PaletteBitmapRejectionReason.NONE,
     val cancelled: Boolean = false,
+    val rgbAnchors: List<Int> = emptyList(),
 ) {
     val rejected: Boolean
         get() = rejectionReason != PaletteBitmapRejectionReason.NONE
