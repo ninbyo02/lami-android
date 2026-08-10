@@ -66,8 +66,16 @@ class SpriteAdaptivePaletteReducerTest {
         assertTrue(second.changed)
         assertNotSame(firstSource, first.bitmap)
         assertEquals(first.rgbAnchors, second.rgbAnchors)
-        assertTrue(first.rgbAnchors.isNotEmpty())
-        assertTrue(first.rgbAnchors.size <= 32)
+        assertEquals(32, first.rgbAnchors.size)
+        assertEquals(first.rgbAnchors.size, first.rgbAnchors.toSet().size)
+        assertTrue(first.rgbAnchors.all { Color.alpha(it) == 255 })
+        try {
+            @Suppress("UNCHECKED_CAST")
+            (first.rgbAnchors as MutableList<Int>).add(Color.WHITE)
+            throw AssertionError("rgbAnchors must be immutable")
+        } catch (_: UnsupportedOperationException) {
+            // Expected.
+        }
         assertTrue(visibleRgb(first.bitmap).size <= 32)
         assertEquals(pixelsOf(first.bitmap).toList(), pixelsOf(second.bitmap).toList())
     }
