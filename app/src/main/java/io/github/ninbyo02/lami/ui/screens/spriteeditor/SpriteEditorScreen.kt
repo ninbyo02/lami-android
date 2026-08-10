@@ -393,7 +393,7 @@ private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
     data object Binarize : LastToolOp()
-    data class ReduceTo256Colors private constructor(
+    class ReduceTo256Colors private constructor(
         val repeat: SpriteReduceRepeat,
     ) : LastToolOp() {
         companion object {
