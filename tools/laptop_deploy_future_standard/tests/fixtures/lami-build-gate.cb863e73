@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+BUILD_HOME="/home/lami-build"
+REPO_DIR="${BUILD_HOME}/repos/lami-android"
+LOG_DIR="${BUILD_HOME}/build-logs"
+LOCK_FILE="${BUILD_HOME}/.build.lock"
+ENV_FILE="${BUILD_HOME}/.lami-build-env"
+
+export HOME="${BUILD_HOME}"
+[[ -r "${ENV_FILE}" ]] && source "${ENV_FILE}"
+export PATH="${ANDROID_HOME:-/opt/android-sdk}/cmdline-tools/latest/bin:${ANDROID_HOME:-/opt/android-sdk}/platform-tools:/usr/local/bin:/usr/bin:/bin"
+
+mkdir -p "${LOG_DIR}"
+cd "${REPO_DIR}"
+
+cmd="${SSH_ORIGINAL_COMMAND:-status}"
+
+QAIRT_EXTENSION="/usr/local/libexec/lami-build-qairt244-forced-commands.sh"
+QAIRT_EXTENSION_SHA256="99631431604344db84bd09d185c81bd4533698054ebadf235b8df904d134659c"
+
+load_qairt244_extension() {
+  local actual_sha
+  [[ -r "${QAIRT_EXTENSION}" ]] || { echo "QAIRT controller extension is missing." >&2; exit 66; }
+  actual_sha="$(/usr/bin/sha256sum "${QAIRT_EXTENSION}")"
+  actual_sha="${actual_sha%% *}"
+  [[ "${actual_sha}" == "${QAIRT_EXTENSION_SHA256}" ]] || {
+    echo "QAIRT controller extension SHA-256 mismatch." >&2
+    exit 65
+  }
+  REPO="${REPO_DIR}"
+  CMD="${cmd}"
+  source "${QAIRT_EXTENSION}"
+}
+
+run_qairt244() {
+  load_qairt244_extension
+  lami_qairt244_dispatch "${cmd}"
+}
+
+run_qairt244_locked() {
+  exec 9>"${LOCK_FILE}"
+  if ! /usr/bin/flock -n 9; then
+    echo "A LAMI build is already running." >&2
+    exit 75
+  fi
+  run_qairt244
+}
+
+run_gradle() {
+  local task="$1"
+  local tag="$2"
+  local log_file="${LOG_DIR}/${tag}-$(date +%Y%m%d-%H%M%S).log"
+  exec 9>"${LOCK_FILE}"
+  if ! flock -n 9; then
+    echo "A LAMI build is already running." >&2
+    exit 75
+  fi
+  set +e
+  ./gradlew --no-daemon --console=plain "${task}" 2>&1 | tee "${log_file}"
+  rc=${PIPESTATUS[0]}
+  set -e
+  ln -sfn "$(basename "${log_file}")" "${LOG_DIR}/latest.log"
+  exit "${rc}"
+}
+
+valid_ref() {
+  local ref="$1"
+  [[ "${ref}" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] || return 1
+  [[ "${ref}" != *".."* && "${ref}" != *"@{"* && "${ref}" != *"//"* && "${ref}" != */ ]]
+}
+
+case "${cmd}" in
+  status)
+    echo "host=$(hostname)"
+    echo "user=$(id -un)"
+    echo "repo=${REPO_DIR}"
+    echo "branch=$(git branch --show-current)"
+    echo "commit=$(git rev-parse --short=12 HEAD)"
+    echo "dirty=$(test -n "$(git status --porcelain)" && echo yes || echo no)"
+    echo "java=$(java -version 2>&1 | head -n1)"
+    echo "sdk=${ANDROID_SDK_ROOT:-unset}"
+    free -h
+    df -h "${BUILD_HOME}"
+    ;;
+  sync-main)
+    exec 9>"${LOCK_FILE}"
+    flock -n 9 || { echo "A LAMI build is already running." >&2; exit 75; }
+    git fetch --prune origin main
+    git checkout -B main origin/main
+    git reset --hard origin/main
+    git clean -fd
+    git status --short --branch
+    ;;
+  sync-ref\ *)
+    ref="${cmd#sync-ref }"
+    valid_ref "${ref}" || { echo "Rejected ref: ${ref}" >&2; exit 64; }
+    exec 9>"${LOCK_FILE}"
+    flock -n 9 || { echo "A LAMI build is already running." >&2; exit 75; }
+    git fetch --prune origin "${ref}"
+    git checkout --detach FETCH_HEAD
+    git clean -fd
+    git status --short --branch
+    ;;
+  compile-standard-debug)
+    run_gradle ":app:compileStandardDebugKotlin" "compile-standard-debug"
+    ;;
+  build-standard-debug)
+    run_gradle ":app:assembleStandardDebug" "build-standard-debug"
+    ;;
+  test-standard-debug)
+    run_gradle ":app:testStandardDebugUnitTest" "test-standard-debug"
+    ;;
+  lint-standard-debug)
+    run_gradle ":app:lintStandardDebug" "lint-standard-debug"
+    ;;
+  qairt244-sdk-status)
+    run_qairt244
+    ;;
+  qairt244-artifacts|setup-qairt244-user-patchelf|build-qairt244-custom-jni)
+    run_qairt244_locked
+    ;;
+  latest-log)
+    if [[ -r "${LOG_DIR}/latest.log" ]]; then
+      cat "${LOG_DIR}/latest.log"
+    else
+      echo "No build log exists yet." >&2
+      exit 66
+    fi
+    ;;
+  artifact-info)
+    apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+    [[ -r "${apk}" ]] || { echo "APK not found. Run build-standard-debug first." >&2; exit 66; }
+    sha256sum "${apk}"
+    stat --printf='size=%s bytes\nmodified=%y\n' "${apk}"
+    ;;
+  fetch-standard-debug-apk)
+    apk="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
+    [[ -r "${apk}" ]] || { echo "APK not found. Run build-standard-debug first." >&2; exit 66; }
+    exec cat "${apk}"
+    ;;
+  *)
+    cat >&2 <<'EOF_USAGE'
+Allowed commands:
+  status
+  sync-main
+  sync-ref <branch-or-tag>
+  compile-standard-debug
+  build-standard-debug
+  test-standard-debug
+  lint-standard-debug
+  qairt244-sdk-status
+  qairt244-artifacts
+  setup-qairt244-user-patchelf
+  build-qairt244-custom-jni
+  latest-log
+  artifact-info
+  fetch-standard-debug-apk
+EOF_USAGE
+    exit 64
+    ;;
+esac
