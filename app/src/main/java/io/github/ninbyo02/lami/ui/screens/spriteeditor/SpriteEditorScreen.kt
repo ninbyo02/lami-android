@@ -2438,7 +2438,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     sourceBitmap,
                                                     current.selection,
                                                     fillColor,
-                                                    shouldCancel,
+                                                    shouldCancel = shouldCancel,
                                                 )
                                             },
                                         ) { result, owner ->
