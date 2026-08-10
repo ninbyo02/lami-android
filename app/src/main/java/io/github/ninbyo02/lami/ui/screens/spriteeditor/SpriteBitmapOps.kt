@@ -59,6 +59,7 @@ data class UniformSelectionColorResult(
 fun findUniformSelectionColor(
     bitmap: Bitmap,
     selection: RectPx,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
     shouldCancel: (row: Int) -> Boolean = { false },
 ): UniformSelectionColorResult {
     if (bitmap.isRecycled) {
@@ -77,7 +78,14 @@ fun findUniformSelectionColor(
         return UniformSelectionColorResult(UniformSelectionColorStatus.TOO_LARGE)
     }
 
-    val rowPixels = IntArray(safeSelection.w)
+    val rowPixels = try {
+        rowBufferAllocator(safeSelection.w)
+    } catch (_: OutOfMemoryError) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
+    if (rowPixels.size != safeSelection.w) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
     var firstColor: Int? = null
     var allTransparent = true
     for (row in 0 until safeSelection.h) {
@@ -480,17 +488,30 @@ private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
 
 fun reduceToFixedPalette(
     src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
     shouldCancel: (row: Int) -> Boolean = { false },
-): PaletteBitmapResult = reduceToSpritePalette(src, FIXED_SPRITE_PALETTE_V2_INDEX, shouldCancel)
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    FIXED_SPRITE_PALETTE_V2_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
 
 internal fun reduceToLegacyFixedPalette(
     src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
     shouldCancel: (row: Int) -> Boolean = { false },
-): PaletteBitmapResult = reduceToSpritePalette(src, LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX, shouldCancel)
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
 
 private fun reduceToSpritePalette(
     src: Bitmap,
     paletteIndex: SpritePaletteIndex,
+    rowBufferAllocator: (size: Int) -> IntArray,
     shouldCancel: (row: Int) -> Boolean,
 ): PaletteBitmapResult {
     if (src.isRecycled) {
@@ -520,7 +541,24 @@ private fun reduceToSpritePalette(
     )
     val safeSrc = readable.bitmap
     val isPremultiplied = safeSrc.isPremultiplied
-    val rowPixels = IntArray(width)
+    val rowPixels = try {
+        rowBufferAllocator(width)
+    } catch (_: OutOfMemoryError) {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    if (rowPixels.size != width) {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
     val output = runCatching {
         Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
             it.setPremultiplied(isPremultiplied)
@@ -593,6 +631,7 @@ fun fillSelectionWithColor(
     src: Bitmap,
     selection: RectPx,
     color: Int,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
     shouldCancel: (row: Int) -> Boolean = { false },
 ): PaletteBitmapResult {
     if (src.isRecycled) {
@@ -622,7 +661,24 @@ fun fillSelectionWithColor(
             changed = false,
             rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
         )
-    val rowPixels = IntArray(safeSelection.w)
+    val rowPixels = try {
+        rowBufferAllocator(safeSelection.w)
+    } catch (_: OutOfMemoryError) {
+        output.recycle()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    if (rowPixels.size != safeSelection.w) {
+        output.recycle()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
     var changed = false
     for (y in safeSelection.y until safeSelection.y + safeSelection.h) {
         if (shouldCancel(y)) {

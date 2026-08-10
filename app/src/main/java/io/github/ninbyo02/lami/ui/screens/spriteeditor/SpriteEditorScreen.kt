@@ -665,10 +665,13 @@ fun SpriteEditorScreen(navController: NavController) {
                             reuseRgbAnchors = normalizedRepeat.rgbAnchors.takeIf { it.isNotEmpty() },
                             shouldCancel = shouldCancel,
                         )
-                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPalette(sourceBitmap, shouldCancel)
+                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPalette(
+                            sourceBitmap,
+                            shouldCancel = shouldCancel,
+                        )
                         SpriteReduceMode.LegacyFixedPaletteV1 -> reduceToLegacyFixedPalette(
                             sourceBitmap,
-                            shouldCancel,
+                            shouldCancel = shouldCancel,
                         )
                     }
                 },
