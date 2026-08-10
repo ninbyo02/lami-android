@@ -4,8 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
