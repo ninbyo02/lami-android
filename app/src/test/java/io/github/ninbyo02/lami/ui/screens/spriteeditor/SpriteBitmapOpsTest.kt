@@ -338,6 +338,19 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun fillSelectionWithColor_preservesSelectedRgbaAlpha() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        val sampled = Color.argb(96, 23, 45, 67)
+
+        val result = fillSelectionWithColor(bitmap, RectPx.of(0, 0, 1, 1), sampled)
+
+        assertTrue(result.changed)
+        assertEquals(sampled, result.bitmap.getPixel(0, 0))
+        assertEquals(Color.TRANSPARENT, result.bitmap.getPixel(1, 0))
+    }
+
+    @Test
     fun fillSelectionWithColor_rejectsImagesAboveSpriteEditingGuard() {
         val bitmap = Bitmap.createBitmap(2049, 2048, Bitmap.Config.ARGB_8888)
 
@@ -462,6 +475,19 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun selectSpriteEditorCurrentColor_preservesRgbaAndTreatsDifferentAlphaAsDifferentColors() {
+        val opaque = Color.argb(255, 20, 40, 60)
+        val translucent = Color.argb(96, 20, 40, 60)
+        val initial = SpriteEditorColorHistory(currentColor = opaque, recentColors = emptyList())
+
+        val updated = initial.select(translucent)
+
+        assertEquals(translucent, updated.currentColor)
+        assertEquals(listOf(opaque), updated.recentColors)
+        assertEquals(updated, updated.select(translucent))
+    }
+
+    @Test
     fun colorPaletteSelection_keepsSheetOpenAndShowsVisibleSelectionRing() {
         assertFalse(DISMISS_COLOR_PALETTE_AFTER_SELECTION)
         assertEquals(3, spriteEditorPaletteSelectionRingWidthDp(selected = true))
@@ -475,9 +501,9 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun eyedropperPointSample_mapsNonTransparentPixelsToFixedPalette() {
+    fun eyedropperPointSample_preservesExactNonTransparentRgba() {
         val sampled = Color.argb(1, 52, 100, 151)
-        assertEquals(nearestFixedPaletteColor(sampled), eyedropperPaletteColorForSample(sampled))
+        assertEquals(sampled, eyedropperPaletteColorForSample(sampled))
     }
 
     @Test
@@ -487,7 +513,7 @@ class SpriteBitmapOpsTest {
             UniformSelectionColorResult(UniformSelectionColorStatus.UNIFORM, sampled),
         )
 
-        assertEquals(nearestFixedPaletteColor(sampled), decision.selectedColor)
+        assertEquals(sampled, decision.selectedColor)
         assertFalse(decision.activateTapFallback)
         assertEquals("Color selected from box", decision.message)
     }
@@ -590,7 +616,7 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun paletteSwatchSemantics_marksSelectedWhenRgbMatchesCurrentColor() {
+    fun paletteSwatchSemantics_requiresExactRgbaMatchForSelection() {
         val semantics = spriteEditorPaletteSwatchSemantics(
             label = "Recent Color 1",
             color = Color.argb(128, 51, 102, 153),
@@ -598,7 +624,21 @@ class SpriteBitmapOpsTest {
             testTag = "spriteEditorRecentColor0",
         )
 
-        assertEquals("Recent Color 1 #336699", semantics.contentDescription)
+        assertEquals("Recent Color 1 #80336699", semantics.contentDescription)
+        assertFalse(semantics.selected)
+    }
+
+    @Test
+    fun paletteSwatchSemantics_formatsAndSelectsExactTranslucentRgba() {
+        val sampled = Color.argb(128, 1, 10, 255)
+        val semantics = spriteEditorPaletteSwatchSemantics(
+            label = "Current Color",
+            color = sampled,
+            currentColor = sampled,
+            testTag = "spriteEditorCurrentColor",
+        )
+
+        assertEquals("Current Color #80010AFF", semantics.contentDescription)
         assertTrue(semantics.selected)
     }
 
