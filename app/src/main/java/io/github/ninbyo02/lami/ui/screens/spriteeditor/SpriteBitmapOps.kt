@@ -519,7 +519,7 @@ fun fillSelectionWithColor(
         )
     }
     val safeSelection = rectNormalizeClamp(selection, width, height)
-    val fillColor = color or 0xFF000000.toInt()
+    val fillColor = color
     val output = runCatching { src.copy(Bitmap.Config.ARGB_8888, true) }.getOrNull()
         ?: return PaletteBitmapResult(
             src,

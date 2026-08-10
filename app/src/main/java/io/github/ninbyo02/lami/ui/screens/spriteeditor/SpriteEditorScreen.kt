@@ -208,15 +208,13 @@ internal data class SpriteEditorColorHistory(
     val recentColors: List<Int>,
 ) {
     fun select(color: Int): SpriteEditorColorHistory {
-        val opaqueColor = color or 0xFF000000.toInt()
-        val opaqueCurrent = currentColor or 0xFF000000.toInt()
-        if (opaqueColor == opaqueCurrent) {
+        if (color == currentColor) {
             return this
         }
         return SpriteEditorColorHistory(
-            currentColor = opaqueColor,
-            recentColors = (listOf(opaqueCurrent) + recentColors.map { it or 0xFF000000.toInt() })
-                .filter { it != opaqueColor }
+            currentColor = color,
+            recentColors = (listOf(currentColor) + recentColors)
+                .filter { it != color }
                 .distinct()
                 .take(8),
         )
@@ -228,7 +226,7 @@ internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
 internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int? = if (selected) 3 else null
 
 internal fun eyedropperPaletteColorForSample(sampled: Int): Int? {
-    return if (android.graphics.Color.alpha(sampled) == 0) null else nearestFixedPaletteColor(sampled)
+    return sampled.takeIf { android.graphics.Color.alpha(it) != 0 }
 }
 
 internal data class EyedropperSelectionDecision(
@@ -247,7 +245,7 @@ internal fun decideEyedropperSelectionResult(
                 EyedropperSelectionDecision(null, false, "Cannot read selection color")
             } else {
                 EyedropperSelectionDecision(
-                    selectedColor = nearestFixedPaletteColor(color),
+                    selectedColor = color,
                     activateTapFallback = false,
                     message = "Color selected from box",
                 )
@@ -283,7 +281,7 @@ internal fun spriteEditorPaletteSwatchSemantics(
     return SpriteEditorPaletteSwatchSemantics(
         contentDescription = spriteEditorPaletteSwatchContentDescription(label, color),
         testTag = testTag,
-        selected = (color and 0x00FFFFFF) == (currentColor and 0x00FFFFFF),
+        selected = color == currentColor,
     )
 }
 
@@ -330,7 +328,11 @@ internal fun spriteEditorPaletteSwatchContentDescription(label: String, color: I
 }
 
 internal fun spriteEditorPaletteHexColor(color: Int): String {
-    return "#%06X".format(color and 0x00FFFFFF)
+    return if (android.graphics.Color.alpha(color) == 255) {
+        "#%06X".format(color and 0x00FFFFFF)
+    } else {
+        "#%08X".format(color.toLong() and 0xFFFFFFFFL)
+    }
 }
 
 internal class PaletteBitmapResultOwner(
