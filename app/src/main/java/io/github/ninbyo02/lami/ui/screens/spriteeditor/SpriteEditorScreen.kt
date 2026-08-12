@@ -106,6 +106,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
@@ -651,6 +652,7 @@ fun SpriteEditorScreen(navController: NavController) {
         val normalizedRepeat = SpriteReduceRepeat.create(repeat.mode, repeat.rgbAnchors)
         val modeName = when (normalizedRepeat.mode) {
             SpriteReduceMode.ImageAdaptive -> "Image Adaptive"
+            SpriteReduceMode.FixedPaletteV3 -> "Fixed Palette"
             SpriteReduceMode.FixedPaletteV2 -> "Fixed Palette"
             SpriteReduceMode.LegacyFixedPaletteV1 -> "Legacy Fixed Palette"
         }
@@ -665,8 +667,12 @@ fun SpriteEditorScreen(navController: NavController) {
                             reuseRgbAnchors = normalizedRepeat.rgbAnchors.takeIf { it.isNotEmpty() },
                             shouldCancel = shouldCancel,
                         )
-                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPalette(
+                        SpriteReduceMode.FixedPaletteV3 -> reduceToFixedPalette(
                             sourceBitmap,
+                            shouldCancel = shouldCancel,
+                        )
+                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPaletteV2(
+                            src = sourceBitmap,
                             shouldCancel = shouldCancel,
                         )
                         SpriteReduceMode.LegacyFixedPaletteV1 -> reduceToLegacyFixedPalette(
@@ -2260,7 +2266,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else if (item.testTag == "spriteEditorReduceFixedPalette") {
                                 activeSheet = SheetType.None
                                 runSpriteReduce(
-                                    SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV2),
+                                    SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV3),
                                     repeated = false,
                                 )
                             } else if (item.testTag == "spriteEditorReduceCancel") {
@@ -3903,7 +3909,7 @@ private fun SpriteEditorColorPaletteSheet(
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
+            columns = GridCells.Fixed(5),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 360.dp)
@@ -3920,19 +3926,71 @@ private fun SpriteEditorColorPaletteSheet(
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier
                             .padding(top = if (sectionIndex == 0) 0.dp else 8.dp)
+                            .semantics { heading() }
                             .testTag("spriteEditorPaletteSection${section.label}"),
                     )
                 }
-                items(section.colors.size) { sectionColorIndex ->
-                    val color = section.colors[sectionColorIndex]
-                    val canonicalIndex = FIXED_SPRITE_PALETTE.indexOf(color)
-                    SpriteEditorPaletteSwatch(
-                        color = color,
-                        label = "Palette Color $canonicalIndex",
-                        currentColor = currentColor,
-                        testTag = "spriteEditorPaletteColor$canonicalIndex",
-                        onClick = { onColorSelected(color) },
-                    )
+                if (section.anchorColor == null) {
+                    items(section.colors.size) { sectionColorIndex ->
+                        val color = section.colors[sectionColorIndex]
+                        val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(color))
+                        SpriteEditorPaletteSwatch(
+                            color = color,
+                            label = "Palette Color $canonicalIndex",
+                            currentColor = currentColor,
+                            testTag = "spriteEditorPaletteColor$canonicalIndex",
+                            onClick = { onColorSelected(color) },
+                        )
+                    }
+                } else {
+                    val anchorColor = section.anchorColor
+                    item(
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        Text(
+                            text = "Base Color",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .semantics { heading() }
+                                .testTag("spriteEditorPalette${section.label}BaseColor"),
+                        )
+                    }
+                    item {
+                        val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(anchorColor))
+                        SpriteEditorPaletteSwatch(
+                            color = anchorColor,
+                            label = "${section.label} Base Color",
+                            currentColor = currentColor,
+                            testTag = "spriteEditorPaletteColor$canonicalIndex",
+                            onClick = { onColorSelected(anchorColor) },
+                        )
+                    }
+                    section.chromaGroups.forEach { group ->
+                        item(
+                            span = { GridItemSpan(maxLineSpan) },
+                        ) {
+                            Text(
+                                text = group.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .semantics { heading() }
+                                    .testTag("spriteEditorPalette${section.label}${group.label}"),
+                            )
+                        }
+                        items(group.colors.size) { groupColorIndex ->
+                            val color = group.colors[groupColorIndex]
+                            val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(color))
+                            SpriteEditorPaletteSwatch(
+                                color = color,
+                                label = "Palette Color $canonicalIndex",
+                                currentColor = currentColor,
+                                testTag = "spriteEditorPaletteColor$canonicalIndex",
+                                onClick = { onColorSelected(color) },
+                            )
+                        }
+                    }
                 }
             }
         }

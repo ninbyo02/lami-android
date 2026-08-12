@@ -53,7 +53,7 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun fixedSpritePaletteV2_hasDeterministic256UniqueOpaquePerceptualRamps() {
+    fun fixedSpritePaletteV3_hasDeterministic256UniqueOpaquePerceptualRamps() {
         val palette = FIXED_SPRITE_PALETTE
         val sections = fixedSpritePaletteDisplaySections()
 
@@ -64,25 +64,54 @@ class SpriteBitmapOpsTest {
             listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta"),
             sections.map { it.label },
         )
-        assertEquals(listOf(32, 28, 28, 28, 28, 28, 28, 28, 28), sections.map { it.colors.size })
+        assertEquals(listOf(8, 31, 31, 31, 31, 31, 31, 31, 31), sections.map { it.colors.size })
         assertEquals(palette.toSet(), sections.flatMap { it.colors }.toSet())
         assertEquals(Color.BLACK, sections.first().colors.first())
         assertEquals(Color.WHITE, sections.first().colors.last())
+        assertEquals(
+            listOf(0x00, 0x0A, 0x2A, 0x4F, 0x78, 0xA3, 0xD0, 0xFF),
+            sections.first().colors.map(Color::red),
+        )
         assertTrue(sections.first().colors.zipWithNext().all { (left, right) -> Color.red(left) < Color.red(right) })
     }
 
     @Test
-    fun fixedSpritePaletteV2_keepsBasicEightHueAnchorsInTheirSections() {
+    fun fixedSpritePaletteV2_remainsByteForByteCompatibleAndSeparateFromV3() {
+        assertEquals(256, FIXED_SPRITE_PALETTE_V2.size)
+        assertEquals(256, FIXED_SPRITE_PALETTE_V2.toSet().size)
+        assertEquals(
+            listOf(
+                0x00, 0x01, 0x03, 0x07, 0x0D, 0x14, 0x1B, 0x22,
+                0x2A, 0x32, 0x3A, 0x42, 0x4A, 0x52, 0x5B, 0x64,
+                0x6D, 0x76, 0x7F, 0x88, 0x91, 0x9B, 0xA4, 0xAE,
+                0xB8, 0xC2, 0xCC, 0xD6, 0xE0, 0xEA, 0xF5, 0xFF,
+            ),
+            FIXED_SPRITE_PALETTE_V2.take(32).map(Color::red),
+        )
+        assertNotEquals(FIXED_SPRITE_PALETTE_V2, FIXED_SPRITE_PALETTE)
+        assertEquals(Color.RED, nearestFixedPaletteV2Color(Color.RED))
+    }
+
+    @Test
+    fun fixedSpritePaletteV3_hasStableCanonicalIndicesForEveryDisplayColor() {
+        fixedSpritePaletteDisplaySections().flatMap { it.colors }.forEach { color ->
+            assertEquals(FIXED_SPRITE_PALETTE.indexOf(color), fixedSpritePaletteCanonicalIndex(color))
+        }
+        assertEquals(null, fixedSpritePaletteCanonicalIndex(Color.TRANSPARENT))
+    }
+
+    @Test
+    fun fixedSpritePaletteV3_putsBasicEightHueAnchorsFirstInTheirSections() {
         val sections = fixedSpritePaletteDisplaySections().associate { it.label to it.colors }
 
-        assertTrue(sections.getValue("Red").contains(Color.RED))
-        assertTrue(sections.getValue("Orange").contains(Color.rgb(255, 128, 0)))
-        assertTrue(sections.getValue("Yellow").contains(Color.YELLOW))
-        assertTrue(sections.getValue("Green").contains(Color.GREEN))
-        assertTrue(sections.getValue("Cyan").contains(Color.CYAN))
-        assertTrue(sections.getValue("Blue").contains(Color.BLUE))
-        assertTrue(sections.getValue("Purple").contains(Color.rgb(128, 0, 255)))
-        assertTrue(sections.getValue("Magenta").contains(Color.MAGENTA))
+        assertEquals(Color.RED, sections.getValue("Red").first())
+        assertEquals(Color.rgb(255, 128, 0), sections.getValue("Orange").first())
+        assertEquals(Color.YELLOW, sections.getValue("Yellow").first())
+        assertEquals(Color.GREEN, sections.getValue("Green").first())
+        assertEquals(Color.CYAN, sections.getValue("Cyan").first())
+        assertEquals(Color.BLUE, sections.getValue("Blue").first())
+        assertEquals(Color.rgb(128, 0, 255), sections.getValue("Purple").first())
+        assertEquals(Color.MAGENTA, sections.getValue("Magenta").first())
     }
 
     @Test
@@ -150,19 +179,21 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun fixedSpritePaletteDisplaySections_useSevenLightnessColumnsAndFourChromaRows() {
+    fun fixedSpritePaletteDisplaySections_useThreeChromaBlocksOfFiveVerticalLightnessPairs() {
         val sections = fixedSpritePaletteDisplaySections()
 
-        assertEquals(FIXED_SPRITE_PALETTE.subList(0, 32), sections[0].colors)
+        assertEquals(FIXED_SPRITE_PALETTE.subList(0, 8), sections[0].colors)
         sections.drop(1).forEachIndexed { index, section ->
-            val start = 32 + index * 28
-            val canonical = FIXED_SPRITE_PALETTE.subList(start, start + 28)
-            val expectedDisplayOrder = (0 until 4).flatMap { chromaIndex ->
-                (0 until 7).map { lightnessIndex ->
-                    canonical[lightnessIndex * 4 + chromaIndex]
+            val start = 8 + index * 31
+            val canonical = FIXED_SPRITE_PALETTE.subList(start, start + 31)
+            val expectedDisplayOrder = listOf(canonical.first()) + (0 until 3).flatMap { chromaIndex ->
+                listOf(0, 2, 4, 6, 8, 1, 3, 5, 7, 9).map { lightnessIndex ->
+                    canonical[1 + lightnessIndex * 3 + chromaIndex]
                 }
             }
             assertEquals(expectedDisplayOrder, section.colors)
+            assertEquals(listOf("Muted", "Normal", "Vivid"), section.chromaGroups.map { it.label })
+            assertTrue(section.chromaGroups.all { it.colors.size == 10 })
         }
     }
 
@@ -179,19 +210,22 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun legacyAndV2NearestIndexes_areDeterministicAndCacheIsolated() {
+    fun legacyV2AndV3NearestIndexes_areDeterministicAndCacheIsolated() {
         val sampled = Color.rgb(52, 100, 151)
         val legacy = Color.rgb(51, 102, 153)
-        val v2 = nearestFixedPaletteColor(sampled)
+        val v2 = nearestFixedPaletteV2Color(sampled)
+        val v3 = nearestFixedPaletteColor(sampled)
 
         assertNotEquals(legacy, v2)
         repeat(4) {
             assertEquals(legacy, nearestLegacyFixedPaletteColor(sampled))
-            assertEquals(v2, nearestFixedPaletteColor(sampled))
+            assertEquals(v2, nearestFixedPaletteV2Color(sampled))
+            assertEquals(v3, nearestFixedPaletteColor(sampled))
             assertEquals(legacy, nearestLegacyFixedPaletteColor(sampled))
         }
         assertTrue(LEGACY_FIXED_SPRITE_PALETTE_V1.contains(legacy))
-        assertTrue(FIXED_SPRITE_PALETTE.contains(v2))
+        assertTrue(FIXED_SPRITE_PALETTE_V2.contains(v2))
+        assertTrue(FIXED_SPRITE_PALETTE.contains(v3))
     }
 
     @Test
@@ -394,7 +428,7 @@ class SpriteBitmapOpsTest {
     fun reduceToFixedPalette_noOpDetectionAndSourceImmutability() {
         val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.RED)
-        bitmap.setPixel(1, 0, Color.argb(128, 204, 204, 204))
+        bitmap.setPixel(1, 0, Color.argb(128, 208, 208, 208))
         val before = pixelsOf(bitmap)
 
         val result = reduceToFixedPalette(bitmap)
@@ -402,6 +436,20 @@ class SpriteBitmapOpsTest {
         assertFalse(result.changed)
         assertEquals(before.toList(), pixelsOf(result.bitmap).toList())
         assertEquals(before.toList(), pixelsOf(bitmap).toList())
+    }
+
+    @Test
+    fun reduceToFixedPaletteV2_preservesItsFormerNoOpColors() {
+        val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.RED)
+        bitmap.setPixel(1, 0, Color.argb(128, 204, 204, 204))
+        val before = pixelsOf(bitmap)
+
+        val result = reduceToFixedPaletteV2(bitmap)
+
+        assertFalse(result.changed)
+        assertSame(bitmap, result.bitmap)
+        assertEquals(before.toList(), pixelsOf(result.bitmap).toList())
     }
 
     @Test

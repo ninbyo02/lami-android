@@ -27,7 +27,13 @@ const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 const val FILL_CONNECTED_RGB_TOLERANCE = 24
 
 internal val LEGACY_FIXED_SPRITE_PALETTE_V1: List<Int> = buildLegacyFixedSpritePaletteV1()
-val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePaletteV2()
+internal val FIXED_SPRITE_PALETTE_V2: List<Int> = buildFixedSpritePaletteV2()
+val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePaletteV3()
+private val FIXED_SPRITE_PALETTE_CANONICAL_INDICES: Map<Int, Int> = Collections.unmodifiableMap(
+    FIXED_SPRITE_PALETTE.withIndex().associate { (index, color) -> color to index },
+)
+
+internal fun fixedSpritePaletteCanonicalIndex(color: Int): Int? = FIXED_SPRITE_PALETTE_CANONICAL_INDICES[color]
 
 data class PaletteBitmapResult(
     val bitmap: Bitmap,
@@ -240,8 +246,11 @@ private class SpritePaletteIndex(
     }
 }
 
-private val FIXED_SPRITE_PALETTE_V2_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+private val FIXED_SPRITE_PALETTE_V3_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
     SpritePaletteIndex(FIXED_SPRITE_PALETTE)
+}
+private val FIXED_SPRITE_PALETTE_V2_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(FIXED_SPRITE_PALETTE_V2)
 }
 private val LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
     SpritePaletteIndex(LEGACY_FIXED_SPRITE_PALETTE_V1)
@@ -250,6 +259,13 @@ private val LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX: SpritePaletteIndex by lazy(Laz
 fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
 
 internal data class SpritePaletteDisplaySection(
+    val label: String,
+    val colors: List<Int>,
+    val anchorColor: Int? = null,
+    val chromaGroups: List<SpritePaletteDisplayGroup> = emptyList(),
+)
+
+internal data class SpritePaletteDisplayGroup(
     val label: String,
     val colors: List<Int>,
 )
@@ -263,27 +279,42 @@ internal fun fixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySecti
 
 private fun buildFixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
     val labels = listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta")
-    val sectionSizes = intArrayOf(32, 28, 28, 28, 28, 28, 28, 28, 28)
+    val sectionSizes = intArrayOf(8, 31, 31, 31, 31, 31, 31, 31, 31)
+    val chromaLabels = listOf("Muted", "Normal", "Vivid")
+    val verticalPairOrder = intArrayOf(0, 2, 4, 6, 8, 1, 3, 5, 7, 9)
     val sections = ArrayList<SpritePaletteDisplaySection>(labels.size)
     var start = 0
     labels.forEachIndexed { index, label ->
         val end = start + sectionSizes[index]
         val canonicalColors = FIXED_SPRITE_PALETTE.subList(start, end)
-        val displayColors = if (index == 0) {
-            canonicalColors.toList()
+        val anchorColor: Int?
+        val chromaGroups: List<SpritePaletteDisplayGroup>
+        val displayColors: List<Int>
+        if (index == 0) {
+            anchorColor = null
+            chromaGroups = emptyList()
+            displayColors = canonicalColors.toList()
         } else {
-            buildList(canonicalColors.size) {
-                for (chromaIndex in 0 until 4) {
-                    for (lightnessIndex in 0 until 7) {
-                        add(canonicalColors[lightnessIndex * 4 + chromaIndex])
+            anchorColor = canonicalColors.first()
+            chromaGroups = Collections.unmodifiableList(
+                chromaLabels.mapIndexed { chromaIndex, chromaLabel ->
+                    val groupColors = verticalPairOrder.map { lightnessIndex ->
+                        canonicalColors[1 + lightnessIndex * 3 + chromaIndex]
                     }
-                }
-            }
+                    SpritePaletteDisplayGroup(
+                        label = chromaLabel,
+                        colors = Collections.unmodifiableList(groupColors),
+                    )
+                },
+            )
+            displayColors = listOf(anchorColor) + chromaGroups.flatMap { it.colors }
         }
         sections.add(
             SpritePaletteDisplaySection(
                 label = label,
                 colors = Collections.unmodifiableList(displayColors),
+                anchorColor = anchorColor,
+                chromaGroups = chromaGroups,
             ),
         )
         start = end
@@ -353,6 +384,45 @@ private fun buildFixedSpritePaletteV2(): List<Int> {
                     oklchToSrgbColor(lightness, maxChroma * fraction, hue)
                 }
                 colors.add(color)
+            }
+        }
+    }
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    check(colors.all { Color.alpha(it) == 255 })
+    return Collections.unmodifiableList(colors.toList())
+}
+
+private fun buildFixedSpritePaletteV3(): List<Int> {
+    val colors = ArrayList<Int>(256)
+    val grayCodes = intArrayOf(
+        0x00, 0x0A, 0x2A, 0x4F, 0x78, 0xA3, 0xD0, 0xFF,
+    )
+    grayCodes.forEach { gray ->
+        colors.add(Color.rgb(gray, gray, gray))
+    }
+
+    val lightnessRows = doubleArrayOf(0.16, 0.24, 0.32, 0.40, 0.48, 0.56, 0.64, 0.72, 0.81, 0.90)
+    val chromaFractions = doubleArrayOf(0.35, 0.65, 0.95)
+    val hueCenters = doubleArrayOf(29.0, 65.0, 105.0, 142.0, 195.0, 264.0, 295.0, 330.0)
+    val anchors = intArrayOf(
+        Color.rgb(255, 0, 0),
+        Color.rgb(255, 128, 0),
+        Color.rgb(255, 255, 0),
+        Color.rgb(0, 255, 0),
+        Color.rgb(0, 255, 255),
+        Color.rgb(0, 0, 255),
+        Color.rgb(128, 0, 255),
+        Color.rgb(255, 0, 255),
+    )
+
+    hueCenters.forEachIndexed { hueIndex, hue ->
+        colors.add(anchors[hueIndex])
+        lightnessRows.forEach { lightness ->
+            val maxChroma = maxDisplayableOklchChroma(lightness, hue)
+            chromaFractions.forEach { fraction ->
+                colors.add(oklchToSrgbColor(lightness, maxChroma * fraction, hue))
             }
         }
     }
@@ -434,7 +504,9 @@ private fun linearSrgbToByte(channel: Double): Int {
     return StrictMath.floor(encoded * 255.0 + 0.5).toInt().coerceIn(0, 255)
 }
 
-fun nearestFixedPaletteColor(color: Int): Int = FIXED_SPRITE_PALETTE_V2_INDEX.nearest(color)
+fun nearestFixedPaletteColor(color: Int): Int = FIXED_SPRITE_PALETTE_V3_INDEX.nearest(color)
+
+internal fun nearestFixedPaletteV2Color(color: Int): Int = FIXED_SPRITE_PALETTE_V2_INDEX.nearest(color)
 
 internal fun nearestLegacyFixedPaletteColor(color: Int): Int = LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX.nearest(color)
 
@@ -499,6 +571,17 @@ private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
 }
 
 fun reduceToFixedPalette(
+    src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    FIXED_SPRITE_PALETTE_V3_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
+
+internal fun reduceToFixedPaletteV2(
     src: Bitmap,
     rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
     shouldCancel: (row: Int) -> Boolean = { false },

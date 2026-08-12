@@ -20,6 +20,7 @@ class SpriteReduceModeTest {
         )
         assertEquals("Image Adaptive", SpriteReduceChoice.ImageAdaptive.label)
         assertEquals("Fixed Palette", SpriteReduceChoice.FixedPalette.label)
+        assertEquals(SpriteReduceMode.FixedPaletteV3, SpriteReduceChoice.FixedPalette.mode)
         assertEquals("Cancel", SpriteReduceChoice.Cancel.label)
         assertFalse(SPRITE_REDUCE_CHOICES.any { it.mode == SpriteReduceMode.LegacyFixedPaletteV1 })
     }
@@ -62,6 +63,10 @@ class SpriteReduceModeTest {
         val anchors = listOf(Color.RED)
 
         assertEquals(
+            SpriteReduceRepeat(SpriteReduceMode.FixedPaletteV3),
+            SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV3, anchors),
+        )
+        assertEquals(
             SpriteReduceRepeat(SpriteReduceMode.FixedPaletteV2),
             SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV2, anchors),
         )
@@ -69,6 +74,23 @@ class SpriteReduceModeTest {
             SpriteReduceRepeat(SpriteReduceMode.LegacyFixedPaletteV1),
             SpriteReduceRepeat.create(SpriteReduceMode.LegacyFixedPaletteV1, anchors),
         )
+    }
+
+    @Test
+    fun fixedV3Repeat_roundTripsWithoutChangingSavedV2Compatibility() {
+        val v3 = SpriteReduceRepeat(SpriteReduceMode.FixedPaletteV3)
+
+        assertEquals(
+            listOf("ReduceTo256ColorsV3", "FixedPaletteV3"),
+            saveSpriteReduceRepeat(v3),
+        )
+        assertEquals(v3, restoreSpriteReduceRepeat(saveSpriteReduceRepeat(v3)))
+        assertEquals(
+            SpriteReduceRepeat(SpriteReduceMode.FixedPaletteV2),
+            restoreSpriteReduceRepeat(listOf("ReduceTo256ColorsV2", "FixedPaletteV2")),
+        )
+        assertEquals(null, restoreSpriteReduceRepeat(listOf("ReduceTo256ColorsV2", "FixedPaletteV3")))
+        assertEquals(null, restoreSpriteReduceRepeat(listOf("ReduceTo256ColorsV3", "FixedPaletteV2")))
     }
 
     @Test
