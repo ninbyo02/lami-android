@@ -1370,7 +1370,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                             if (skinRegions.isNotEmpty()) {
                                                 val shadowColor = Color.Black.copy(alpha = 0.52f)
                                                 val lineColor = Color(0xFF40E0D0).copy(alpha = 0.86f)
-                                                val strokeWidth = max(1f, min(2.5f, renderScale / 3f))
+                                                val strokeWidth = minecraftSkinOverlayStrokeWidth(
+                                                    bitmapWidth = state.bitmap.width,
+                                                    renderScale = renderScale,
+                                                )
                                                 skinRegions.forEach { region ->
                                                     val left = renderLeft + region.x * renderScale
                                                     val top = renderTop + region.y * renderScale

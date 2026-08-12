@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.spriteeditor
 
 internal const val MINECRAFT_SKIN_SIZE_PX = 64
+internal const val MINECRAFT_HD_SKIN_SIZE_PX = 128
 
 internal data class MinecraftSkinRegion(
     val label: String,
@@ -15,10 +16,11 @@ internal data class MinecraftSkinRegion(
 }
 
 internal fun minecraftSkinRegions(width: Int, height: Int): List<MinecraftSkinRegion> {
-    if (width != MINECRAFT_SKIN_SIZE_PX || height != MINECRAFT_SKIN_SIZE_PX) {
-        return emptyList()
+    return when {
+        width == MINECRAFT_SKIN_SIZE_PX && height == MINECRAFT_SKIN_SIZE_PX -> MinecraftSkinRegions64
+        width == MINECRAFT_HD_SKIN_SIZE_PX && height == MINECRAFT_HD_SKIN_SIZE_PX -> MinecraftSkinRegions128
+        else -> emptyList()
     }
-    return MinecraftSkinRegions64
 }
 
 internal fun minecraftSkinPartLabelAt(
@@ -30,6 +32,11 @@ internal fun minecraftSkinPartLabelAt(
     return minecraftSkinRegions(width, height)
         .firstOrNull { region -> region.contains(x, y) }
         ?.label
+}
+
+internal fun minecraftSkinOverlayStrokeWidth(bitmapWidth: Int, renderScale: Float): Float {
+    val logical64Scale = renderScale * bitmapWidth / MINECRAFT_SKIN_SIZE_PX.toFloat()
+    return (logical64Scale / 3f).coerceIn(1f, 2.5f)
 }
 
 private val MinecraftSkinRegions64 = listOf(
@@ -109,3 +116,13 @@ private val MinecraftSkinRegions64 = listOf(
     MinecraftSkinRegion("Left Arm Overlay Left", 56, 52, 4, 12),
     MinecraftSkinRegion("Left Arm Overlay Back", 60, 52, 4, 12),
 )
+
+private val MinecraftSkinRegions128 = MinecraftSkinRegions64.map { region ->
+    MinecraftSkinRegion(
+        label = region.label,
+        x = region.x * 2,
+        y = region.y * 2,
+        w = region.w * 2,
+        h = region.h * 2,
+    )
+}
