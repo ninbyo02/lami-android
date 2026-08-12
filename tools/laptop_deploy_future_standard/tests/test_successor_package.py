@@ -9,7 +9,6 @@ import stat
 import sys
 import tempfile
 import unittest
-from unittest import mock
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 BASELINE = PACKAGE_DIR / "tests" / "fixtures" / "lami-build-gate.cb863e73"
@@ -52,7 +51,6 @@ class FakeRunner:
         start_output=None,
         mutate_snapshot_after_install=False,
         mutate_local_properties=False,
-        mutate_native_after_gradle=False,
     ):
         self.module = module
         self.apk_path = apk_path
@@ -66,7 +64,6 @@ class FakeRunner:
         self.start_output = start_output
         self.mutate_snapshot_after_install = mutate_snapshot_after_install
         self.mutate_local_properties = mutate_local_properties
-        self.mutate_native_after_gradle = mutate_native_after_gradle
         self.calls = []
         self.installed_bytes = None
         self.provenance_at_install = None
@@ -95,20 +92,6 @@ class FakeRunner:
             return ""
         if normalized[:3] == ("/usr/bin/git", "clean", "-ffdx"):
             return ""
-        if argv[:3] == ("/usr/bin/bash", "--noprofile", "--norc"):
-            target = self.apk_path.parents[6] / self.module.NATIVE_STAGE_RELATIVE
-            target.mkdir(parents=True, exist_ok=True)
-            for library in self.module.REQUIRED_NATIVE_LIBS:
-                (target / library).write_bytes(("ELF:" + library).encode("ascii"))
-            if log_path is not None:
-                Path(log_path).write_text("native build bounded log\n", encoding="ascii")
-                os.chmod(log_path, 0o600)
-            return "== BUILD+STAGE OK ==\n"
-        if argv[:2] == ("/usr/bin/readelf", "-Ws"):
-            return "\n".join(
-                f"1: 0 0 FUNC GLOBAL DEFAULT 1 {symbol}"
-                for symbol in self.module.REQUIRED_NATIVE_SYMBOLS
-            ) + "\n"
         if argv and argv[0].endswith("gradlew"):
             local_properties = self.apk_path.parents[6] / "local.properties"
             if local_properties.read_bytes() != b"sdk.dir=/opt/android-sdk\n":
@@ -122,9 +105,6 @@ class FakeRunner:
                 self.apk_path.write_bytes(b"signed-apk-snapshot")
             if self.mutate_local_properties:
                 local_properties.write_text("sdk.dir=/attacker\n")
-            if self.mutate_native_after_gradle:
-                native = self.apk_path.parents[6] / self.module.NATIVE_STAGE_RELATIVE / self.module.REQUIRED_NATIVE_LIBS[0]
-                native.write_bytes(b"changed after native evidence")
             return "BUILD SUCCESSFUL\n"
         if argv[:2] == (self.module.ADB, "connect"):
             return "connected\n"
@@ -175,29 +155,13 @@ class DeployExtensionTest(unittest.TestCase):
         self.apk = self.repo / "app/build/outputs/apk/standard/debug/app-standard-debug.apk"
         self.logs = root / "logs"
         self.snapshots = root / "snapshots"
-        self.qairt_extension = root / "lami-build-qairt244-forced-commands.sh"
-        self.qairt_extension_bytes = b"lami_qairt244_build_custom_jni() { :; }\n"
-        self.qairt_extension.write_bytes(self.qairt_extension_bytes)
-        os.chmod(self.qairt_extension, 0o755)
-        self.paths = self.m.Paths(
-            repo=self.repo,
-            logs=self.logs,
-            snapshots=self.snapshots,
-            lock=root / ".build.lock",
-            qairt_extension=self.qairt_extension,
-        )
+        self.paths = self.m.Paths(repo=self.repo, logs=self.logs, snapshots=self.snapshots, lock=root / ".build.lock")
 
     def tearDown(self):
         self.temp.cleanup()
 
     def deploy(self, runner):
-        with mock.patch.multiple(
-            self.m,
-            QAIRT_EXTENSION_SHA256=hashlib.sha256(self.qairt_extension_bytes).hexdigest(),
-            QAIRT_EXTENSION_UID=os.getuid(),
-            QAIRT_EXTENSION_GID=os.getgid(),
-        ):
-            return self.m.Deployment(runner=runner, paths=self.paths, lock_already_held=True).run("37123")
+        return self.m.Deployment(runner=runner, paths=self.paths, lock_already_held=True).run("37123")
 
     def test_port_parser_accepts_canonical_range_only(self):
         for value in ("1", "37123", "65535"):
@@ -230,15 +194,6 @@ class DeployExtensionTest(unittest.TestCase):
         flattened = " ".join(" ".join(c) for c in runner.calls)
         self.assertNotIn("uninstall", flattened)
         self.assertNotIn(" pm clear ", f" {flattened} ")
-
-    def test_qairt_native_build_runs_after_final_clean_and_before_gradle(self):
-        runner = FakeRunner(self.m, self.apk)
-        self.deploy(runner)
-        clean_indexes = [index for index, call in enumerate(runner.calls) if call[-2:] == ("clean", "-ffdx")]
-        native_index = next(index for index, call in enumerate(runner.calls) if call[:3] == ("/usr/bin/bash", "--noprofile", "--norc"))
-        gradle_index = next(index for index, call in enumerate(runner.calls) if call and call[0].endswith("gradlew"))
-        self.assertGreater(native_index, clean_indexes[-1])
-        self.assertLess(native_index, gradle_index)
 
     def test_dirty_repository_fails_before_fetch_build_or_adb(self):
         runner = FakeRunner(self.m, self.apk, dirty=True)
@@ -307,12 +262,6 @@ class DeployExtensionTest(unittest.TestCase):
     def test_local_properties_mutation_during_build_is_rejected_before_install(self):
         runner = FakeRunner(self.m, self.apk, mutate_local_properties=True)
         with self.assertRaisesRegex(self.m.DeployError, "local.properties changed"):
-            self.deploy(runner)
-        self.assertFalse(any("install" in call for call in runner.calls))
-
-    def test_native_library_mutation_during_gradle_is_rejected_before_install(self):
-        runner = FakeRunner(self.m, self.apk, mutate_native_after_gradle=True)
-        with self.assertRaisesRegex(self.m.DeployError, "native.*changed"):
             self.deploy(runner)
         self.assertFalse(any("install" in call for call in runner.calls))
 

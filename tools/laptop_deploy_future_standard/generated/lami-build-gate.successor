@@ -20,7 +20,7 @@ QAIRT_EXTENSION="/usr/local/libexec/lami-build-qairt244-forced-commands.sh"
 QAIRT_EXTENSION_SHA256="99631431604344db84bd09d185c81bd4533698054ebadf235b8df904d134659c"
 
 DEPLOY_EXTENSION="/usr/local/libexec/lami-deploy-future-standard.py"
-DEPLOY_EXTENSION_SHA256="c5acc73acb51eddee196172a384f4e293a7225b7a5ee905f63b504e62be5ecc7"
+DEPLOY_EXTENSION_SHA256="a3994cbda64d53f7be41ba1f9bb3aeb06d6cabb76266094cb9dfca11199c6cf9"
 
 load_qairt244_extension() {
   local actual_sha
