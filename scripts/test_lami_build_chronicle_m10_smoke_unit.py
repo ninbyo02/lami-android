@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import fcntl
 import importlib.util
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,53 +21,40 @@ class ChronicleM10HelperUnitTest(unittest.TestCase):
         self.assertEqual(seed["restoredFacilityIds"], [])
         self.assertEqual(len(seed["answers"]), 36)
 
-    def test_exact_apk_snapshot_is_hash_checked_sealed_and_installed_from_memfd(self):
-        payload = APK_PATH.read_bytes()
-        seals_seen = []
+    def test_exact_apk_path_is_hash_checked_and_rechecked_after_install(self):
+        payload_size = APK_PATH.stat().st_size
         calls = []
 
-        def fake_adb(*args, **kwargs):
-            calls.append((args, kwargs))
-            fd = kwargs["pass_fds"][0]
-            seals_seen.append(fcntl.fcntl(fd, fcntl.F_GET_SEALS))
-            self.assertEqual(helper.hash_fd(fd), helper.EXPECTED_APK_SHA256)
+        def fake_adb(*args, **_kwargs):
+            calls.append(args)
             return "Success\n"
 
         with patch.object(helper, "APK_PATH", APK_PATH), patch.object(helper, "adb", side_effect=fake_adb):
-            self.assertEqual(helper.download_and_install(), len(payload))
+            self.assertEqual(helper.download_and_install(), payload_size)
 
-        self.assertEqual(calls[0][0][:3], ("install", "-r", "-t"))
-        required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
-        self.assertEqual(seals_seen[0] & required, required)
+        self.assertEqual(calls, [("install", "-r", "-t", str(APK_PATH))])
+        self.assertTrue(calls[0][-1].endswith(".apk"))
 
-    def test_short_write_and_eintr_still_install_exact_apk_bytes(self):
-        payload = APK_PATH.read_bytes()
-        real_write = helper.os.write
-        state = {"calls": 0}
+    def test_source_change_during_install_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate = Path(tmp) / "app-debug.apk"
+            shutil.copyfile(APK_PATH, candidate)
 
-        def interrupted_short_write(fd, data):
-            state["calls"] += 1
-            if state["calls"] == 1:
-                raise InterruptedError()
-            raw = bytes(data)
-            return real_write(fd, raw[:max(1, len(raw) // 2)])
+            def mutate_source(*_args, **_kwargs):
+                with candidate.open("r+b") as stream:
+                    stream.seek(0)
+                    first = stream.read(1)
+                    stream.seek(0)
+                    stream.write(bytes([first[0] ^ 0xFF]))
+                    stream.flush()
+                return "Success\n"
 
-        def fake_adb(*_args, **kwargs):
-            fd = kwargs["pass_fds"][0]
-            self.assertEqual(helper.os.fstat(fd).st_size, len(payload))
-            self.assertEqual(helper.hash_fd(fd), helper.EXPECTED_APK_SHA256)
-            return "Success\n"
-
-        with (
-            patch.object(helper, "APK_PATH", APK_PATH),
-            patch.object(helper, "adb", side_effect=fake_adb),
-            patch.object(helper.os, "write", side_effect=interrupted_short_write),
-        ):
-            self.assertEqual(helper.download_and_install(), len(payload))
-        self.assertGreater(state["calls"], 2)
+            with patch.object(helper, "APK_PATH", candidate), patch.object(helper, "adb", side_effect=mutate_source):
+                with self.assertRaisesRegex(helper.SmokeFailure, "changed during install"):
+                    helper.download_and_install()
 
     def test_hash_mismatch_fails_before_adb(self):
-        with tempfile.NamedTemporaryFile() as bad_apk:
+        with tempfile.NamedTemporaryFile(suffix=".apk") as bad_apk:
             bad_apk.write(b"not-the-reviewed-apk")
             bad_apk.flush()
             with patch.object(helper, "APK_PATH", Path(bad_apk.name)), patch.object(helper, "adb") as adb_mock:

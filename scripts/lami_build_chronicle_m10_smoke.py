@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Fixed, zero-argument M10 restoration-map acceptance smoke for Build PC emulator."""
 
-import fcntl
 import hashlib
 import json
 import os
@@ -40,7 +39,7 @@ def require(condition: bool, message: str) -> None:
         raise SmokeFailure(message)
 
 
-def adb(*args: str, input_bytes: bytes | None = None, pass_fds: tuple[int, ...] = (), text: bool = True):
+def adb(*args: str, input_bytes: bytes | None = None, text: bool = True):
     cmd = [str(ADB), "-s", SERIAL, *args]
     result = subprocess.run(
         cmd,
@@ -49,24 +48,11 @@ def adb(*args: str, input_bytes: bytes | None = None, pass_fds: tuple[int, ...] 
         text=text if input_bytes is None else False,
         check=False,
         timeout=180,
-        pass_fds=pass_fds,
     )
     if result.returncode != 0:
         stderr = result.stderr if isinstance(result.stderr, str) else result.stderr.decode("utf-8", "replace")
         raise SmokeFailure(f"fixed adb operation failed: {args[0] if args else 'unknown'}: {stderr[-500:]}")
     return result.stdout
-
-
-def write_all(fd: int, data: bytes) -> None:
-    view = memoryview(data)
-    while view:
-        try:
-            written = os.write(fd, view)
-        except InterruptedError:
-            continue
-        if written <= 0:
-            raise SmokeFailure("memfd write made no progress")
-        view = view[written:]
 
 
 def hash_fd(fd: int) -> str:
@@ -89,7 +75,6 @@ def emulator_preflight() -> None:
 
 def download_and_install() -> int:
     source_fd = os.open(APK_PATH, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
-    fd = os.memfd_create("lami-chronicle-m10-apk", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
     digest = hashlib.sha256()
     total = 0
     try:
@@ -106,37 +91,26 @@ def download_and_install() -> int:
             total += len(chunk)
             require(total <= MAX_APK_BYTES, "APK exceeds fixed byte ceiling")
             digest.update(chunk)
-            write_all(fd, chunk)
-        require(total > 0, "empty APK download")
-        digest = digest.hexdigest()
-        if digest != EXPECTED_APK_SHA256:
-            raise SmokeFailure("APK SHA-256 mismatch")
-        after = os.fstat(source_fd)
-        path_after = os.lstat(APK_PATH)
+        require(total > 0, "empty APK source")
+        require(digest.hexdigest() == EXPECTED_APK_SHA256, "APK SHA-256 mismatch")
+
         identity = lambda item: (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
-        require(identity(before) == identity(after), "APK source changed during snapshot")
-        require((after.st_dev, after.st_ino) == (path_after.st_dev, path_after.st_ino), "APK path changed during snapshot")
-        os.fsync(fd)
-        require(os.fstat(fd).st_size == total, "APK memfd size mismatch")
-        require(hash_fd(fd) == EXPECTED_APK_SHA256, "APK memfd hash mismatch")
-        required_seals = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
-        fcntl.fcntl(fd, fcntl.F_ADD_SEALS, required_seals)
-        require((fcntl.fcntl(fd, fcntl.F_GET_SEALS) & required_seals) == required_seals, "APK memfd not sealed")
-        sealed = os.fstat(fd)
-        require(sealed.st_size == total, "sealed APK memfd size mismatch")
-        require(hash_fd(fd) == EXPECTED_APK_SHA256, "sealed APK memfd hash mismatch")
-        adb("install", "-r", "-t", f"/proc/self/fd/{fd}", pass_fds=(fd,))
-        installed = os.fstat(fd)
-        require(
-            (installed.st_dev, installed.st_ino, installed.st_size)
-            == (sealed.st_dev, sealed.st_ino, sealed.st_size),
-            "sealed APK memfd identity changed during install",
-        )
-        require(hash_fd(fd) == EXPECTED_APK_SHA256, "sealed APK memfd hash changed during install")
+        verified = os.fstat(source_fd)
+        path_verified = os.lstat(APK_PATH)
+        require(identity(before) == identity(verified), "APK source changed during verification")
+        require((verified.st_dev, verified.st_ino) == (path_verified.st_dev, path_verified.st_ino), "APK path changed during verification")
+
+        result = adb("install", "-r", "-t", str(APK_PATH))
+        require("Success" in result, "adb install did not report Success")
+
+        installed = os.fstat(source_fd)
+        path_installed = os.lstat(APK_PATH)
+        require(identity(verified) == identity(installed), "APK source changed during install")
+        require((installed.st_dev, installed.st_ino) == (path_installed.st_dev, path_installed.st_ino), "APK path changed during install")
+        require(hash_fd(source_fd) == EXPECTED_APK_SHA256, "APK source hash changed during install")
         return total
     finally:
         os.close(source_fd)
-        os.close(fd)
 
 
 def start_app() -> None:

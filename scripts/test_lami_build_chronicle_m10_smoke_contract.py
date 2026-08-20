@@ -25,23 +25,20 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
         ):
             self.assertIn(literal, self.helper)
 
-    def test_local_apk_snapshot_is_bounded_nofollow_and_memfd_identity_checked(self):
+    def test_local_apk_is_bounded_nofollow_and_rechecked_after_install(self):
         for literal in (
             "MAX_APK_BYTES = 64 * 1024 * 1024",
             "os.O_NOFOLLOW",
             "before.st_nlink == 1",
             "APK source identity mismatch",
-            "APK source changed during snapshot",
-            "write_all(fd, chunk)",
-            "except InterruptedError:",
-            "hash_fd(fd) == EXPECTED_APK_SHA256",
-            "F_ADD_SEALS",
-            "F_GET_SEALS",
-            'f"/proc/self/fd/{fd}"',
-            "sealed APK memfd identity changed during install",
-            "sealed APK memfd hash changed during install",
+            "APK source changed during verification",
+            'adb("install", "-r", "-t", str(APK_PATH))',
+            "APK source changed during install",
+            "APK path changed during install",
+            "APK source hash changed during install",
         ):
             self.assertIn(literal, self.helper)
+        self.assertNotIn("/proc/self/fd/", self.helper)
 
     def test_emulator_and_adb_are_fixed(self):
         self.assertIn('cmd = [str(ADB), "-s", SERIAL, *args]', self.helper)
