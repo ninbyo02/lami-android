@@ -62,6 +62,13 @@ jobs:
       - name: Run standard debug unit tests
         run: ./gradlew --no-daemon :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
 
+      - name: Verify Room schema history
+        run: |
+          test -f app/schemas/io.github.ninbyo02.lami.db.ChatDatabase/13.json
+          test -f app/schemas/io.github.ninbyo02.lami.db.ChatDatabase/14.json
+          git diff --exit-code -- app/schemas
+          test -z "$(git status --porcelain --untracked-files=all -- app/schemas)"
+
       - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@v7
