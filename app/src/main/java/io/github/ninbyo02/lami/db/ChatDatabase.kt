@@ -12,7 +12,7 @@ import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.TitleSource
 
-@Database(entities = [Chat::class, Message::class], version = 13, exportSchema = false)
+@Database(entities = [Chat::class, Message::class], version = 13, exportSchema = true)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun chatDao(): ChatDao

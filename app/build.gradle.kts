@@ -6,10 +6,15 @@ import com.android.build.api.variant.BuildConfigField
 
 plugins {
     id("com.google.devtools.ksp")
+    id("androidx.room")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 fun gitShaShort(): String {
