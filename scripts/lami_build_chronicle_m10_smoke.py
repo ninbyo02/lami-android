@@ -342,10 +342,10 @@ def run_smoke() -> None:
     start_app()
     capture_stage(
         "20_locked_home",
-        "復旧マップ",
         "磁界測定塔・基礎復旧",
         "状態：未解放",
-        "解放条件：発電所制御室、静電界観測室を復旧",
+        "解放条件：発電所制御室",
+        "静電界観測室を復旧",
     )
 
     force_stop()

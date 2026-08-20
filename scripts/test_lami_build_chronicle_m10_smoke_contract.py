@@ -70,6 +70,8 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
     def test_smoke_oracles_cover_five_of_five_and_stable_artifacts(self):
         for literal in (
             '"20_locked_home"',
+            '"解放条件：発電所制御室"',
+            '"静電界観測室を復旧"',
             '"21_unlocked_home"',
             '"22_child_selected_after_restart"',
             '"23_child_unique_question"',
