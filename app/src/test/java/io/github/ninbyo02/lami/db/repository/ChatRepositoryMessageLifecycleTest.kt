@@ -105,6 +105,42 @@ class ChatRepositoryMessageLifecycleTest {
     }
 
     @Test
+    fun `cancel wins against delayed failure and completion`() = runTest {
+        val id = repository.insertAssistantMessageAndAutoTitleAndReturnId(
+            Message(
+                chatId = 1,
+                message = "partial answer",
+                isSendbyMe = false,
+                status = MessageStatus.GENERATING,
+                createdAtEpochMs = 100L,
+                updatedAtEpochMs = 200L,
+            ),
+        ).toInt()
+
+        assertTrue(repository.cancelAssistantMessage(id, updatedAtEpochMs = 300L))
+        assertFalse(
+            repository.failAssistantMessage(
+                messageId = id,
+                message = "late server error",
+                updatedAtEpochMs = 400L,
+            ),
+        )
+        assertFalse(
+            repository.completeAssistantMessage(
+                messageId = id,
+                message = "late final answer",
+                updatedAtEpochMs = 500L,
+            ),
+        )
+
+        val saved = repository.getMessageById(id)!!
+        assertEquals("partial answer", saved.message)
+        assertEquals(MessageStatus.CANCELLED, saved.status)
+        assertEquals(MessageErrorCode.USER_CANCELLED, saved.errorCode)
+        assertEquals(300L, saved.updatedAtEpochMs)
+    }
+
+    @Test
     fun `restart recovery respects process start cutoff`() = runTest {
         val oldId = repository.insertAssistantMessageAndAutoTitleAndReturnId(
             Message(

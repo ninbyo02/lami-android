@@ -151,6 +151,7 @@ import io.github.ninbyo02.lami.R
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.db.entity.toInferenceStats
 import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
 import io.github.ninbyo02.lami.db.entity.TitleSource
@@ -3442,6 +3443,27 @@ fun Home(
         }
 
         val existingMessage = viewModel.getMessageById(existingId)
+        if (existingMessage?.status in MessageStatus.IN_FLIGHT) {
+            if (!viewModel.completeAssistantMessage(existingId, finalizedResponseForPersist)) {
+                logStreamTrace("STREAM final lifecycle lost terminal race id=$existingId")
+                return existingId
+            }
+            viewModel.getMessageById(existingId)?.let { completedMessage ->
+                viewModel.updateMessage(
+                    finalPayload.copy(
+                        messageID = existingId,
+                        status = completedMessage.status,
+                        errorCode = completedMessage.errorCode,
+                        createdAtEpochMs = completedMessage.createdAtEpochMs,
+                        updatedAtEpochMs = completedMessage.updatedAtEpochMs,
+                    )
+                )
+            }
+            lastPersistedStreamingAssistantText = finalizedResponseForPersist
+            if (latestInferenceStats != null) immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
+            logStreamTrace("STREAM final lifecycle complete id=$existingId")
+            return existingId
+        }
         val updatedMessage = if (existingMessage != null) {
             existingMessage.copy(
                 message = finalPayload.message,
@@ -3905,13 +3927,15 @@ fun Home(
                     }
                     if (currentChatId != null) {
                         if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
-                        val assistantId = finalizeStreamingAssistantMessageSerialized(
-                            chatId = currentChatId,
-                            response = (uiState as UiState.Error).errorMessage,
-                        )
-                        if (assistantId != null) {
-                            streamingSpeechStartedForMessageId = assistantId
+                        val errorText = (uiState as UiState.Error).errorMessage
+                        val existingId = streamingAssistantMessageId
+                        val assistantId = if (existingId != null) {
+                            viewModel.failAssistantMessage(existingId, errorText)
+                            existingId
+                        } else {
+                            finalizeStreamingAssistantMessageSerialized(currentChatId, errorText)
                         }
+                        if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
@@ -3932,10 +3956,13 @@ fun Home(
                         resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
                     }
-                    // Server streaming is intentionally display-only here.
-                    // Persisting every partial chunk races with LaunchedEffect cancellation and can create
-                    // multiple assistant rows before the final Success state arrives. The finalized response
-                    // is saved exactly once in the UiState.Success branch above.
+                    val streamingState = uiState as UiState.Streaming
+                    val existingId = streamingAssistantMessageId
+                    val partialText = streamingState.partialText.trim()
+                    if (existingId != null && partialText.isNotBlank()) {
+                        viewModel.updateGeneratingAssistantMessageContent(existingId, partialText)
+                        lastPersistedStreamingAssistantText = partialText
+                    }
                 }
                 else -> Unit
             }
@@ -4497,9 +4524,13 @@ fun Home(
                                                 }
                                                 if (isServerRunningRaw) {
                                                     remoteStopRequested = true
+                                                    val cancelledAssistantId = streamingAssistantMessageId
                                                     remoteRequestJob?.cancel()
                                                     viewModel.cancelRemoteRequest()
                                                     remoteRequestJob = null
+                                                    if (cancelledAssistantId != null) {
+                                                        coroutineScope.launch { viewModel.cancelAssistantMessage(cancelledAssistantId) }
+                                                    }
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
                                                     toggle = false
@@ -4561,12 +4592,10 @@ fun Home(
                                                                     model = selectedModel,
                                                                     attachmentUris = requestAttachmentUris,
                                                                     context = context.applicationContext,
-                                                                    onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                                    onRequestPrepared = { savedAttachmentUriStrings ->
                                                                         if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
-                                                                            val attachmentJson = savedAttachmentUriStrings
-                                                                                ?.takeIf { it.isNotEmpty() }
-                                                                                ?.toAttachmentUriStringsJson()
-                                                                            viewModel.insert(
+                                                                            val attachmentJson = savedAttachmentUriStrings?.takeIf { it.isNotEmpty() }?.toAttachmentUriStringsJson()
+                                                                            viewModel.insertMessage(
                                                                                 Message(
                                                                                     chatId = currentChatId,
                                                                                     message = requestPrompt,
@@ -4576,8 +4605,20 @@ fun Home(
                                                                                 )
                                                                             )
                                                                         }
+                                                                        val lifecycleStartedAt = System.currentTimeMillis()
+                                                                        val pendingAssistant = createAssistantMessage(currentChatId, "").copy(
+                                                                            status = MessageStatus.PENDING,
+                                                                            updatedAtEpochMs = lifecycleStartedAt,
+                                                                        )
+                                                                        val assistantId = viewModel.insertAssistantMessageAndReturnId(pendingAssistant).toInt()
+                                                                        streamingAssistantMessageId = assistantId
+                                                                        lastPersistedStreamingAssistantText = null
+                                                                        if (!viewModel.markAssistantMessageGenerating(assistantId)) {
+                                                                            viewModel.failAssistantMessage(assistantId, "Failed to start server generation")
+                                                                            error("Failed to start durable server generation")
+                                                                        }
                                                                     },
-                                                                )
+                                                             )
                                                             } finally {
                                                                 remoteRequestJob = null
                                                             }
