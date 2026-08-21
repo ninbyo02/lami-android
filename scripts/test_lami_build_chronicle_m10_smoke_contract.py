@@ -50,6 +50,12 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
         self.assertIn('"acknowledgedLearningCardIds": []', self.helper)
         self.assertIn('"questionMasteries": []', self.helper)
         self.assertIn('CHILD_QUEST_ID = "magnetic-field-tower-restoration"', self.helper)
+        install_seed = self.helper.split("def install_seed() -> None:", 1)[1].split("def publish_success()", 1)[0]
+        mkdir = 'adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files")'
+        write = 'adb("shell", "run-as", PACKAGE, "sh", "-c", f"cat {REMOTE_SEED} > files/chronicle-save.json")'
+        self.assertIn(mkdir, install_seed)
+        self.assertIn(write, install_seed)
+        self.assertLess(install_seed.index(mkdir), install_seed.index(write))
 
     def test_ui_search_is_bidirectional_and_ime_is_closed(self):
         self.assertIn('search_moves = [None, *(["down"] * max_swipes), *(["up"] * (max_swipes * 2))]', self.helper)

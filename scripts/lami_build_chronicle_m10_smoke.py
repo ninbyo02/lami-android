@@ -293,6 +293,7 @@ def install_seed() -> None:
     seed_path.write_text(json.dumps(seed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     os.chmod(seed_path, 0o600)
     adb("push", str(seed_path), REMOTE_SEED)
+    adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files")
     adb("shell", "run-as", PACKAGE, "sh", "-c", f"cat {REMOTE_SEED} > files/chronicle-save.json")
     adb("shell", "rm", "-f", REMOTE_SEED)
 
