@@ -295,7 +295,7 @@ def install_seed() -> None:
     adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files")
     adb("exec-out", "run-as", PACKAGE, "tee", "files/chronicle-save.json", input_bytes=seed_bytes)
     expected = hashlib.sha256(seed_bytes).hexdigest()
-    actual = adb("exec-out", "run-as", PACKAGE, "sha256sum", "files/chronicle-save.json").stdout.split()[0]
+    actual = adb("exec-out", "run-as", PACKAGE, "sha256sum", "files/chronicle-save.json").split()[0]
     require(actual == expected, "app-private seed hash mismatch")
 
 

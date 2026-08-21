@@ -4,7 +4,6 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 HELPER_PATH = Path(__file__).with_name("lami_build_chronicle_m10_smoke.py")
@@ -62,8 +61,8 @@ class ChronicleM10HelperUnitTest(unittest.TestCase):
             if "sha256sum" in args:
                 seed_bytes = next(data for call, data in calls if "tee" in call)
                 digest = helper.hashlib.sha256(seed_bytes).hexdigest()
-                return SimpleNamespace(stdout=digest + "  files/chronicle-save.json\n")
-            return SimpleNamespace(stdout="")
+                return digest + "  files/chronicle-save.json\n"
+            return ""
 
         with tempfile.TemporaryDirectory() as td, patch.object(helper, "out_dir", Path(td), create=True), patch.object(helper, "adb", side_effect=fake_adb):
             helper.install_seed()
