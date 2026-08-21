@@ -70,8 +70,6 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
     def test_smoke_oracles_cover_five_of_five_and_stable_artifacts(self):
         for literal in (
             '"20_locked_home"',
-            '"解放条件：発電所制御室"',
-            '"静電界観測室を復旧"',
             '"21_unlocked_home"',
             '"22_child_selected_after_restart"',
             '"23_child_unique_question"',
@@ -81,6 +79,20 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
             "stage {stage} changed during screenshot",
         ):
             self.assertIn(literal, self.helper)
+
+    def test_locked_stage_oracle_matches_observed_ui_semantics(self):
+        run_smoke = self.helper.split("def run_smoke() -> None:", 1)[1].split("def main()", 1)[0]
+        start = run_smoke.index('capture_stage(\n        "20_locked_home",')
+        end = run_smoke.index("\n    )", start)
+        stage20 = run_smoke[start:end]
+        for literal in (
+            '"磁界測定塔・基礎復旧"',
+            '"状態：未解放"',
+            '"解放条件：発電所制御室"',
+            '"静電界観測室を復旧"',
+        ):
+            self.assertIn(literal, stage20)
+        self.assertNotIn('"復旧マップ"', stage20)
 
     def test_python_syntax(self):
         py_compile.compile(str(HELPER), doraise=True)
