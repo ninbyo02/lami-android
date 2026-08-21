@@ -393,6 +393,11 @@ class OllamaViewModel(
             chatRepository.cleanupEmptyTempPlaceholderChats()
         }
         viewModelScope.launch {
+            chatRepository.interruptInFlightAssistantMessagesAfterRestart(
+                processStartedAtEpochMs = PROCESS_STARTED_AT_EPOCH_MS,
+            )
+        }
+        viewModelScope.launch {
             settingsPreferences.markdownStreamingModeFlow
                 .distinctUntilChanged()
                 .collect { mode ->
@@ -481,6 +486,25 @@ class OllamaViewModel(
         return chatRepository.getMessageById(messageId)
     }
 
+    suspend fun insertMessage(message: Message) {
+        chatRepository.insert(message)
+    }
+
+    suspend fun markAssistantMessageGenerating(messageId: Int): Boolean =
+        chatRepository.markAssistantMessageGenerating(messageId)
+
+    suspend fun updateGeneratingAssistantMessageContent(messageId: Int, message: String): Boolean =
+        chatRepository.updateGeneratingAssistantMessageContent(messageId, message)
+
+    suspend fun completeAssistantMessage(messageId: Int, message: String): Boolean =
+        chatRepository.completeAssistantMessage(messageId, message)
+
+    suspend fun cancelAssistantMessage(messageId: Int): Boolean =
+        chatRepository.cancelAssistantMessage(messageId)
+
+    suspend fun failAssistantMessage(messageId: Int, message: String? = null): Boolean =
+        chatRepository.failAssistantMessage(messageId = messageId, message = message)
+
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
             insertChatAndReturnId(chat)
@@ -564,6 +588,7 @@ class OllamaViewModel(
         attachmentUris: List<Uri> = emptyList(),
         context: Context? = null,
         onAttachmentPrepared: ((List<String>?) -> Unit)? = null,
+        onRequestPrepared: (suspend (List<String>?) -> Unit)? = null,
     ) {
         viewModelScope.launch {
             var encodedImages: List<String> = emptyList()
@@ -578,7 +603,17 @@ class OllamaViewModel(
                 encodedImages = encodedAttachments.base64Images
                 savedAttachmentUriStrings = encodedAttachments.savedUriStrings
             }
-            onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
+            val preparedAttachmentUris = savedAttachmentUriStrings.takeIf { it.isNotEmpty() }
+            onAttachmentPrepared?.invoke(preparedAttachmentUris)
+            try {
+                onRequestPrepared?.invoke(preparedAttachmentUris)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("OllamaError", "Failed to prepare durable request lifecycle: ${error.message}")
+                updateErrorState(error.message ?: "Failed to prepare request")
+                return@launch
+            }
             onPromptSubmitted()
             cancelScheduledLemonadeUnload()
             val requestGeneration = beginRemoteRequestGeneration()
@@ -1916,6 +1951,7 @@ class OllamaViewModel(
     )
 
     companion object {
+        private val PROCESS_STARTED_AT_EPOCH_MS = System.currentTimeMillis()
         private const val AUTO_DELETE_DELAY_MS = 10 * 60 * 1000L
         private const val MAX_COMPOSER_ATTACHMENTS = 10
     }
