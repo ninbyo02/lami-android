@@ -27,7 +27,6 @@ MAX_PNG_BYTES = 8 * 1024 * 1024
 MAX_XML_BYTES = 2 * 1024 * 1024
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 REMOTE_XML = "/data/local/tmp/chronicle-m10-map-smoke.xml"
-REMOTE_SEED = "/data/local/tmp/chronicle-m10-map-seed.json"
 
 
 class SmokeFailure(RuntimeError):
@@ -289,13 +288,15 @@ def fixed_unlock_seed() -> dict:
 
 def install_seed() -> None:
     seed = fixed_unlock_seed()
+    seed_bytes = json.dumps(seed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     seed_path = out_dir / "fixed-unlock-seed.json"
-    seed_path.write_text(json.dumps(seed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    seed_path.write_bytes(seed_bytes)
     os.chmod(seed_path, 0o600)
-    adb("push", str(seed_path), REMOTE_SEED)
     adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files")
-    adb("shell", "run-as", PACKAGE, "sh", "-c", f"cat {REMOTE_SEED} > files/chronicle-save.json")
-    adb("shell", "rm", "-f", REMOTE_SEED)
+    adb("exec-out", "run-as", PACKAGE, "tee", "files/chronicle-save.json", input_bytes=seed_bytes)
+    expected = hashlib.sha256(seed_bytes).hexdigest()
+    actual = adb("exec-out", "run-as", PACKAGE, "sha256sum", "files/chronicle-save.json").stdout.split()[0]
+    require(actual == expected, "app-private seed hash mismatch")
 
 
 def publish_success() -> None:
@@ -391,7 +392,7 @@ def run_smoke() -> None:
         "復旧状態：復旧済み",
     )
     force_stop()
-    adb("shell", "rm", "-f", REMOTE_XML, REMOTE_SEED)
+    adb("shell", "rm", "-f", REMOTE_XML)
     (out_dir / ".tap.xml").unlink(missing_ok=True)
     publish_success()
     print(f"chronicle_commit={EXPECTED_COMMIT}")
@@ -433,7 +434,7 @@ def main() -> int:
         if ADB.exists():
             for cleanup in (
                 ["shell", "am", "force-stop", PACKAGE],
-                ["shell", "rm", "-f", REMOTE_XML, REMOTE_SEED],
+                ["shell", "rm", "-f", REMOTE_XML],
             ):
                 subprocess.run(
                     [str(ADB), "-s", SERIAL, *cleanup],

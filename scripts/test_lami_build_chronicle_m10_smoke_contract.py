@@ -52,10 +52,14 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
         self.assertIn('CHILD_QUEST_ID = "magnetic-field-tower-restoration"', self.helper)
         install_seed = self.helper.split("def install_seed() -> None:", 1)[1].split("def publish_success()", 1)[0]
         mkdir = 'adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files")'
-        write = 'adb("shell", "run-as", PACKAGE, "sh", "-c", f"cat {REMOTE_SEED} > files/chronicle-save.json")'
-        self.assertIn(mkdir, install_seed)
-        self.assertIn(write, install_seed)
+        write = 'adb("exec-out", "run-as", PACKAGE, "tee", "files/chronicle-save.json", input_bytes=seed_bytes)'
+        verify = 'adb("exec-out", "run-as", PACKAGE, "sha256sum", "files/chronicle-save.json")'
+        for literal in (mkdir, write, verify, 'require(actual == expected, "app-private seed hash mismatch")'):
+            self.assertIn(literal, install_seed)
         self.assertLess(install_seed.index(mkdir), install_seed.index(write))
+        self.assertLess(install_seed.index(write), install_seed.index(verify))
+        self.assertNotIn('"sh", "-c"', install_seed)
+        self.assertNotIn("> files/chronicle-save.json", install_seed)
 
     def test_ui_search_is_bidirectional_and_ime_is_closed(self):
         self.assertIn('search_moves = [None, *(["down"] * max_swipes), *(["up"] * (max_swipes * 2))]', self.helper)
@@ -69,7 +73,7 @@ class ChronicleM10SmokeContractTest(unittest.TestCase):
         self.assertIn('"status": "PASS"', self.helper)
         self.assertIn('"runId": out_dir.name', self.helper)
         self.assertLess(run_smoke.index("force_stop()"), run_smoke.rindex("publish_success()"))
-        self.assertLess(run_smoke.rindex('adb("shell", "rm", "-f", REMOTE_XML, REMOTE_SEED)'), run_smoke.rindex("publish_success()"))
+        self.assertLess(run_smoke.rindex('adb("shell", "rm", "-f", REMOTE_XML)'), run_smoke.rindex("publish_success()"))
         self.assertIn("os.fsync(out_fd)", self.helper)
         self.assertIn("os.fsync(root_fd)", self.helper)
 

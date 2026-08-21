@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 HELPER_PATH = Path(__file__).with_name("lami_build_chronicle_m10_smoke.py")
@@ -52,6 +53,27 @@ class ChronicleM10HelperUnitTest(unittest.TestCase):
             with patch.object(helper, "APK_PATH", candidate), patch.object(helper, "adb", side_effect=mutate_source):
                 with self.assertRaisesRegex(helper.SmokeFailure, "changed during install"):
                     helper.download_and_install()
+
+    def test_seed_is_written_via_run_as_tee_and_hash_verified(self):
+        calls = []
+
+        def fake_adb(*args, input_bytes=None):
+            calls.append((args, input_bytes))
+            if "sha256sum" in args:
+                seed_bytes = next(data for call, data in calls if "tee" in call)
+                digest = helper.hashlib.sha256(seed_bytes).hexdigest()
+                return SimpleNamespace(stdout=digest + "  files/chronicle-save.json\n")
+            return SimpleNamespace(stdout="")
+
+        with tempfile.TemporaryDirectory() as td, patch.object(helper, "out_dir", Path(td), create=True), patch.object(helper, "adb", side_effect=fake_adb):
+            helper.install_seed()
+
+        argv = [call for call, _ in calls]
+        self.assertEqual(argv[0], ("shell", "run-as", helper.PACKAGE, "mkdir", "-p", "files"))
+        self.assertEqual(argv[1], ("exec-out", "run-as", helper.PACKAGE, "tee", "files/chronicle-save.json"))
+        self.assertEqual(argv[2], ("exec-out", "run-as", helper.PACKAGE, "sha256sum", "files/chronicle-save.json"))
+        self.assertIsNotNone(calls[1][1])
+        self.assertFalse(any("sh" in call or "-c" in call for call in argv))
 
     def test_hash_mismatch_fails_before_adb(self):
         with tempfile.NamedTemporaryFile(suffix=".apk") as bad_apk:
