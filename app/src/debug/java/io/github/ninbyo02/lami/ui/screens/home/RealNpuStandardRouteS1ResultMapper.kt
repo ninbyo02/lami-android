@@ -54,6 +54,8 @@ internal object RealNpuStandardRouteS1ResultMapper {
             fallbackUsed = display.fallback,
             timeout = display.timeout,
             freshCrash = display.freshCrash,
+            prefillMs = display.prefillMs,
+            nativeDecodeMs = display.nativeDecodeMs,
             requestedMaxOutputTokens = display.requestedMaxOutputTokens,
             effectiveMaxOutputTokens = display.effectiveMaxOutputTokens,
             npuS1OutputTokens = display.outputTokenCount.toIntOrNull(),
