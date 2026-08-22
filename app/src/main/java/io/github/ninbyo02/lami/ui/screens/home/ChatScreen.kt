@@ -8660,6 +8660,7 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = assistantDisplayMessage,
                                                 isStreaming = isStreamingMessageRow,
+                                                lifecycleStatus = message.status,
                                                 showMessageActions = true,
                                                 isReplaying =
                                                     canShowTtsActions &&

@@ -77,6 +77,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
 import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
@@ -659,6 +660,7 @@ fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     isStreaming: Boolean = false,
+    lifecycleStatus: String = MessageStatus.COMPLETED,
     createdAtEpochMs: Long = 0L,
     showMessageActions: Boolean = false,
     isReplaying: Boolean = false,
@@ -689,6 +691,7 @@ fun PlainAssistantMessage(
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
     }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
+    val lifecycleLabel = remember(lifecycleStatus) { assistantLifecycleLabel(lifecycleStatus) }
     val timestampText = remember(createdAtEpochMs) { formatMessageTimestamp(createdAtEpochMs) }
     val pythonSyntaxWarnings = remember(message, isStreaming) {
         if (isStreaming) {
@@ -731,6 +734,14 @@ fun PlainAssistantMessage(
         if (pythonSyntaxWarnings.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             PythonSyntaxWarningSummary(warnings = pythonSyntaxWarnings)
+        }
+        if (lifecycleLabel != null && !isStreaming) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = lifecycleLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            )
         }
         if (timestampText != null && !isStreaming) {
             Spacer(modifier = Modifier.height(4.dp))
@@ -797,6 +808,13 @@ fun PlainAssistantMessage(
             }
         }
     }
+}
+
+internal fun assistantLifecycleLabel(status: String): String? = when (status) {
+    MessageStatus.FAILED -> "Generation failed"
+    MessageStatus.CANCELLED -> "Generation cancelled"
+    MessageStatus.INTERRUPTED -> "Generation interrupted"
+    else -> null
 }
 
 @Composable

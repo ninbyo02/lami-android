@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -269,5 +270,15 @@ class ChatBubbleStreamingTest {
         assertEquals(listOf("line1", "", "line3"), lines)
     }
 
+
+    @Test
+    fun assistantLifecycleLabel_onlyShowsNonSuccessfulTerminalStates() {
+        assertEquals("Generation failed", assistantLifecycleLabel(MessageStatus.FAILED))
+        assertEquals("Generation cancelled", assistantLifecycleLabel(MessageStatus.CANCELLED))
+        assertEquals("Generation interrupted", assistantLifecycleLabel(MessageStatus.INTERRUPTED))
+        assertEquals(null, assistantLifecycleLabel(MessageStatus.COMPLETED))
+        assertEquals(null, assistantLifecycleLabel(MessageStatus.GENERATING))
+        assertEquals(null, assistantLifecycleLabel(MessageStatus.PENDING))
+    }
 
 }
