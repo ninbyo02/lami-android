@@ -152,8 +152,11 @@ class MainActivity : ComponentActivity() {
                     SettingsRoute.SpriteEditor.route
                 )
                 val targetRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
-                // NavHost生成後に必要な場合のみ遷移して復元する
+                // NavHost生成後に必要な場合のみ遷移して復元する。
+                // showStartupSplash=false と NavHost の graph install は同一 frame 内で競合し得るため、
+                // 初期 back stack が生成されるまで待ってから navigate する。
                 if (targetRoute != Routes.CHAT_ROOT) {
+                    navController.currentBackStackEntryFlow.first()
                     navController.navigate(targetRoute) {
                         launchSingleTop = true
                         // ベースを固定して復元時のBackStack重複を防ぐ
