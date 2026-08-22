@@ -60,9 +60,12 @@ internal class RealNpuStandardRouteS1Provider(
                 userPrompt = userPrompt,
                 maxOutputTokens = effectiveMaxOutputTokens,
             )
-            trace(buildNpuRealPromptRequestTrace(request))
+            val nativeRequest = request.copy(
+                promptTailVariant = NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT,
+            )
+            trace(buildNpuRealPromptRequestTrace(nativeRequest))
             val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
-                display = requestRunner(request),
+                display = requestRunner(nativeRequest),
                 userPrompt = userPrompt,
             )
             val providerStage = if (mappedRawResult.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
@@ -182,6 +185,7 @@ internal class RealNpuStandardRouteS1Provider(
     }
 
     companion object {
+        private const val NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
 
