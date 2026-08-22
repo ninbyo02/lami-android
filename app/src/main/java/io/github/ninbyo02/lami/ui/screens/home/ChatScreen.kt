@@ -6552,6 +6552,31 @@ fun Home(
                                                             ),
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
+                                                        if (streamingAssistantMessageId == null) {
+                                                            val lifecycleStartedAt = System.currentTimeMillis()
+                                                            val assistantId = withContext(Dispatchers.IO) {
+                                                                viewModel.insertAssistantMessageAndReturnId(
+                                                                    createAssistantMessage(
+                                                                        chatId = resolvedChatId,
+                                                                        response = "",
+                                                                    ).copy(
+                                                                        status = MessageStatus.PENDING,
+                                                                        updatedAtEpochMs = lifecycleStartedAt,
+                                                                    )
+                                                                ).toInt()
+                                                            }
+                                                            streamingAssistantMessageId = assistantId
+                                                            lastPersistedStreamingAssistantText = null
+                                                            if (!viewModel.markAssistantMessageGenerating(assistantId)) {
+                                                                viewModel.failAssistantMessage(
+                                                                    assistantId,
+                                                                    "Failed to start local generation",
+                                                                )
+                                                                logStreamTrace("STREAM local lifecycle start failed id=$assistantId")
+                                                                return@launch
+                                                            }
+                                                            logStreamTrace("STREAM local lifecycle started id=$assistantId")
+                                                        }
                                                         localStopRequested = false
                                                         didReceiveRealLocalPartial = false
                                                         realLocalPartialChunkCount = 0
@@ -6682,6 +6707,56 @@ fun Home(
                                                                 } else {
                                                                     val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
+                                                                if (
+                                                                    preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU &&
+                                                                    !localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
+                                                                ) {
+                                                                    localInferenceEngineHolder.clear(
+                                                                        reason = "gpu_preflight_release_before_load",
+                                                                        failureStage = "gpu_preflight",
+                                                                        owner = "ChatScreen.gpuPreflight",
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                    Runtime.getRuntime().gc()
+                                                                    delay(GPU_MEMORY_PREFLIGHT_GC_DELAY_MS)
+                                                                    val memorySnapshot = captureGpuMemoryPreflightSnapshot(
+                                                                        context = context.applicationContext,
+                                                                        modelPath = resolvedModelPath,
+                                                                    )
+                                                                    val memoryDecision = decideGpuMemoryPreflight(memorySnapshot)
+                                                                    val memoryDebugText = buildGpuMemoryPreflightDebugText(
+                                                                        memorySnapshot,
+                                                                        memoryDecision,
+                                                                    )
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = memoryDebugText,
+                                                                    )
+                                                                    if (!memoryDecision.allowed) {
+                                                                        return@withContext LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE,
+                                                                            trace = LocalInferenceTrace(
+                                                                                localModelDisplayName = modelResolution.displayName,
+                                                                                mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                selectedLocalModelSlot = modelResolution.selectedModelSlot.diagnosticName,
+                                                                                npuPreviewModelConfigured = modelResolution.npuPreviewModelConfigured,
+                                                                                genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
+                                                                                requestedPreferredBackend = "GPU",
+                                                                                appliedPreferredBackend = "GPU",
+                                                                                preferredBackendApplyResult = "blocked-memory-preflight",
+                                                                                preferredBackendHookReached = true,
+                                                                                preferredBackendHookSource = "gpu-memory-preflight",
+                                                                                localFailureDiagnosticsText = memoryDebugText,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                }
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 val gpuGenerateProbeModeForRun =
                                                                     resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
@@ -11748,7 +11823,8 @@ private fun shouldInsertLocalFailureAssistantMessage(
     runResult?.state == LocalInferenceEngineState.ERROR &&
         (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
             runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
-            runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE)
+            runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE ||
+            runResult.response == GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE)
 
 private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
     text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
@@ -11922,6 +11998,14 @@ private suspend fun resolveLocalModelPathOrNull(
     }
 }
 
+private const val BYTES_PER_MB = 1024L * 1024L
+private const val GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB = 6_144L
+private const val GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER = 2L
+private const val GPU_MEMORY_PREFLIGHT_RESERVE_MB = 1_536L
+private const val GPU_MEMORY_PREFLIGHT_GC_DELAY_MS = 250L
+private const val GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE =
+    "GPUを安全に起動できる空きメモリが不足しています。CPUまたはNPUを使用してください。"
+
 private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
 
 private fun buildLocalLiteRtBackendKey(
@@ -11961,6 +12045,72 @@ private fun LocalInferenceTrace.withLocalModelResolution(
 
 internal fun shouldApplyHeldEngineModelPath(localBaseModelFilePath: String?): Boolean {
     return !localBaseModelFilePath.isNullOrBlank()
+}
+
+internal data class GpuMemoryPreflightSnapshot(
+    val availableMemoryMb: Long?,
+    val systemLowMemory: Boolean,
+    val systemThresholdMb: Long?,
+    val modelSizeMb: Long?,
+)
+
+internal data class GpuMemoryPreflightDecision(
+    val allowed: Boolean,
+    val requiredAvailableMemoryMb: Long?,
+    val reason: String,
+)
+
+internal fun decideGpuMemoryPreflight(snapshot: GpuMemoryPreflightSnapshot): GpuMemoryPreflightDecision {
+    if (snapshot.systemLowMemory) {
+        return GpuMemoryPreflightDecision(false, null, "system_low_memory")
+    }
+    val modelSizeMb = snapshot.modelSizeMb
+        ?: return GpuMemoryPreflightDecision(false, null, "model_size_unknown")
+    val availableMemoryMb = snapshot.availableMemoryMb
+        ?: return GpuMemoryPreflightDecision(false, null, "available_memory_unknown")
+    val requiredMb = maxOf(
+        GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB,
+        modelSizeMb * GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER + GPU_MEMORY_PREFLIGHT_RESERVE_MB,
+        (snapshot.systemThresholdMb ?: 0L) * 2L,
+    )
+    return if (availableMemoryMb >= requiredMb) {
+        GpuMemoryPreflightDecision(true, requiredMb, "enough_available_memory")
+    } else {
+        GpuMemoryPreflightDecision(false, requiredMb, "insufficient_available_memory")
+    }
+}
+
+private fun captureGpuMemoryPreflightSnapshot(context: Context, modelPath: String): GpuMemoryPreflightSnapshot {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val memoryInfo = ActivityManager.MemoryInfo()
+    val hasMemoryInfo = runCatching {
+        activityManager?.getMemoryInfo(memoryInfo)
+        activityManager != null
+    }.getOrDefault(false)
+    val modelFile = File(modelPath)
+    val modelSizeMb = modelFile.length()
+        .takeIf { modelFile.isFile && it > 0L }
+        ?.let { (it + BYTES_PER_MB - 1L) / BYTES_PER_MB }
+    return GpuMemoryPreflightSnapshot(
+        availableMemoryMb = if (hasMemoryInfo) memoryInfo.availMem / BYTES_PER_MB else null,
+        systemLowMemory = hasMemoryInfo && memoryInfo.lowMemory,
+        systemThresholdMb = if (hasMemoryInfo) memoryInfo.threshold / BYTES_PER_MB else null,
+        modelSizeMb = modelSizeMb,
+    )
+}
+
+internal fun buildGpuMemoryPreflightDebugText(
+    snapshot: GpuMemoryPreflightSnapshot,
+    decision: GpuMemoryPreflightDecision,
+): String = buildString {
+    appendLine("GPU MEMORY PREFLIGHT")
+    appendLine("allowed=${decision.allowed}")
+    appendLine("reason=${decision.reason}")
+    appendLine("available_memory_mb=${snapshot.availableMemoryMb ?: -1}")
+    appendLine("required_available_memory_mb=${decision.requiredAvailableMemoryMb ?: -1}")
+    appendLine("model_size_mb=${snapshot.modelSizeMb ?: -1}")
+    appendLine("system_low_memory=${snapshot.systemLowMemory}")
+    append("system_threshold_mb=${snapshot.systemThresholdMb ?: -1}")
 }
 
 private fun captureTtsMemorySnapshot(context: Context): TtsMemorySnapshot {
