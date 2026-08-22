@@ -3084,6 +3084,11 @@ fun Home(
         val previousId = streamingAssistantMessageId
         if (previousId != null) {
             logStreamTrace("STREAM reset placeholder id from $previousId to null reason=$reason")
+            if (reason == "stop") {
+                coroutineScope.launch(Dispatchers.IO) {
+                    viewModel.cancelAssistantMessage(previousId)
+                }
+            }
         }
         streamingAssistantMessageId = null
         lastPersistedStreamingAssistantText = null
@@ -3353,12 +3358,21 @@ fun Home(
             return existingId
         }
         if (existingId == null) {
+            val lifecycleStartedAt = System.currentTimeMillis()
             val placeholderMessage = createAssistantMessage(
                 chatId = chatId,
                 response = normalizedResponse,
+            ).copy(
+                status = MessageStatus.PENDING,
+                updatedAtEpochMs = lifecycleStartedAt,
             )
             val insertedId = viewModel.insertAssistantMessageAndReturnId(placeholderMessage).toInt()
             streamingAssistantMessageId = insertedId
+            if (!viewModel.markAssistantMessageGenerating(insertedId)) {
+                viewModel.failAssistantMessage(insertedId, "Failed to start local generation")
+                logStreamTrace("STREAM placeholder lifecycle start failed id=$insertedId")
+                return insertedId
+            }
             lastPersistedStreamingAssistantText = normalizedResponse
             streamingSpeechStartedForMessageId = insertedId
             currentSpeakingAssistantMessageId = insertedId
@@ -4860,6 +4874,28 @@ fun Home(
                                                                         }
                                                                         pendingLocalUserMessageText = null
                                                                     },
+                                                                    beforeInference = { chatId ->
+                                                                        val lifecycleStartedAt = System.currentTimeMillis()
+                                                                        val assistantId = withContext(Dispatchers.IO) {
+                                                                            viewModel.insertAssistantMessageAndReturnId(
+                                                                                createAssistantMessage(
+                                                                                    chatId = chatId,
+                                                                                    response = "",
+                                                                                ).copy(
+                                                                                    status = MessageStatus.PENDING,
+                                                                                    updatedAtEpochMs = lifecycleStartedAt,
+                                                                                )
+                                                                            ).toInt()
+                                                                        }
+                                                                        streamingAssistantMessageId = assistantId
+                                                                        if (!viewModel.markAssistantMessageGenerating(assistantId)) {
+                                                                            viewModel.failAssistantMessage(
+                                                                                assistantId,
+                                                                                "Failed to start NPU generation",
+                                                                            )
+                                                                            error("Failed to start NPU message lifecycle")
+                                                                        }
+                                                                    },
                                                                     runInference = {
                                                                         npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
                                                                         recordNpuS1MemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
@@ -5790,16 +5826,12 @@ fun Home(
                                                                         localSourceSummary = sharedInferenceStats.localSourceSummary.orEmpty(),
                                                                         assistantText = assistantTextForPersist,
                                                                     )
-                                                                val assistantId = withContext(Dispatchers.IO) {
-                                                                    viewModel.insertAssistantMessageAndReturnId(
-                                                                        createAssistantMessage(
-                                                                            chatId = resolvedChatId,
-                                                                            response = assistantTextForPersist,
-                                                                            latestInferenceStats = npuStandardRouteInferenceStats,
-                                                                            localSourceSummary = sharedInferenceStats.localSourceSummary,
-                                                                        )
-                                                                    ).toInt()
-                                                                }
+                                                                val assistantId = finalizeStreamingAssistantMessageSerialized(
+                                                                    chatId = resolvedChatId,
+                                                                    response = assistantTextForPersist,
+                                                                    latestInferenceStats = npuStandardRouteInferenceStats,
+                                                                    localSourceSummary = sharedInferenceStats.localSourceSummary,
+                                                                ) ?: return@launch
                                                                 lastPersistedStreamingAssistantText = assistantTextForPersist
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
@@ -17222,11 +17254,13 @@ internal suspend fun <T> runNpuInferenceAfterImmediateUserMessage(
     createChat: suspend () -> Int,
     onChatCreated: (Int) -> Unit,
     insertUserMessage: suspend (chatId: Int, promptText: String) -> Unit,
+    beforeInference: suspend (chatId: Int) -> Unit = {},
     runInference: suspend (chatId: Int) -> T,
 ): ImmediateNpuInferenceRun<T> {
     require(requestPrompt.isNotBlank()) { "requestPrompt must not be blank" }
     val resolvedChatId = currentChatId ?: createChat().also(onChatCreated)
     insertUserMessage(resolvedChatId, requestPrompt)
+    beforeInference(resolvedChatId)
     return ImmediateNpuInferenceRun(
         chatId = resolvedChatId,
         result = runInference(resolvedChatId),
