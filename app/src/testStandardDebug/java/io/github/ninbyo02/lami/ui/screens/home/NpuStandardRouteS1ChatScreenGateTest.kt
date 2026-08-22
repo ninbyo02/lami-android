@@ -2948,6 +2948,9 @@ class NpuStandardRouteS1ChatScreenGateTest {
             insertUserMessage = { chatId, promptText ->
                 events += "insert_user:$chatId:$promptText"
             },
+            beforeInference = { chatId ->
+                events += "prepare_assistant_lifecycle:$chatId"
+            },
             runInference = { chatId ->
                 events += "run_npu:$chatId"
                 "assistant"
@@ -2961,6 +2964,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 "create_chat",
                 "chat_created:7",
                 "insert_user:7:こんにちは",
+                "prepare_assistant_lifecycle:7",
                 "run_npu:7",
             ),
             events,

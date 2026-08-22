@@ -151,6 +151,7 @@ import io.github.ninbyo02.lami.R
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.MessageErrorCode
 import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.db.entity.toInferenceStats
 import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
@@ -3266,6 +3267,39 @@ fun Home(
             localStreamingResponseText = null
             showDelayedLocalRespondingPlaceholder = false
             resetStreamingSpeechState()
+            val watchdogAssistantId = streamingAssistantMessageId
+            val watchdogPayload = createAssistantMessage(
+                chatId = currentChatId,
+                response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+                localSourceSummary = diagnosticsText,
+                generationTimeMs = elapsedMs,
+            )
+            if (watchdogAssistantId != null && viewModel.failAssistantMessage(
+                    watchdogAssistantId,
+                    GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+                )
+            ) {
+                viewModel.getMessageById(watchdogAssistantId)?.let { failedMessage ->
+                    viewModel.updateMessage(
+                        watchdogPayload.copy(
+                            messageID = watchdogAssistantId,
+                            status = failedMessage.status,
+                            errorCode = failedMessage.errorCode,
+                            createdAtEpochMs = failedMessage.createdAtEpochMs,
+                            updatedAtEpochMs = failedMessage.updatedAtEpochMs,
+                        )
+                    )
+                }
+            } else if (watchdogAssistantId == null) {
+                val now = System.currentTimeMillis()
+                viewModel.insertAssistantMessageAndReturnId(
+                    watchdogPayload.copy(
+                        status = MessageStatus.FAILED,
+                        errorCode = MessageErrorCode.GENERATION_FAILED,
+                        updatedAtEpochMs = now,
+                    )
+                )
+            }
             resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
             localInferenceEngineState = LocalInferenceEngineState.ERROR
             isLocalInferenceRunning = false
@@ -3274,14 +3308,6 @@ fun Home(
             localGpuWatchdogJob = null
 
             withContext(Dispatchers.IO) {
-                viewModel.insertAssistantMessageAndReturnId(
-                    createAssistantMessage(
-                        chatId = currentChatId,
-                        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
-                        localSourceSummary = diagnosticsText,
-                        generationTimeMs = elapsedMs,
-                    ),
-                )
                 localInferenceEngineHolder.resetConversation(
                     chatId = currentChatId,
                     reason = "gpu_watchdog_timeout",
@@ -3527,6 +3553,72 @@ fun Home(
                 generationTimeMs = generationTimeMs,
             )
         }
+    }
+
+    suspend fun finalizeStreamingAssistantFailure(
+        chatId: Int,
+        response: String,
+        latestInferenceStats: InferenceStats? = null,
+        localSourceSummary: String? = null,
+        generationTimeMs: Long? = null,
+    ): Int? {
+        val failurePayload = createAssistantMessage(
+            chatId = chatId,
+            response = response,
+            latestInferenceStats = latestInferenceStats,
+            localSourceSummary = localSourceSummary,
+            generationTimeMs = generationTimeMs,
+        )
+        val existingId = streamingAssistantMessageId
+        if (existingId == null) {
+            val now = System.currentTimeMillis()
+            return viewModel.insertAssistantMessageAndReturnId(
+                failurePayload.copy(
+                    status = MessageStatus.FAILED,
+                    errorCode = MessageErrorCode.GENERATION_FAILED,
+                    updatedAtEpochMs = now,
+                )
+            ).toInt()
+        }
+
+        val existingMessage = viewModel.getMessageById(existingId)
+        if (existingMessage?.status in MessageStatus.IN_FLIGHT) {
+            if (!viewModel.failAssistantMessage(existingId, response)) {
+                logStreamTrace("STREAM failure lifecycle lost terminal race id=$existingId")
+                return existingId
+            }
+            viewModel.getMessageById(existingId)?.let { failedMessage ->
+                viewModel.updateMessage(
+                    failurePayload.copy(
+                        messageID = existingId,
+                        status = failedMessage.status,
+                        errorCode = failedMessage.errorCode,
+                        createdAtEpochMs = failedMessage.createdAtEpochMs,
+                        updatedAtEpochMs = failedMessage.updatedAtEpochMs,
+                    )
+                )
+            }
+            lastPersistedStreamingAssistantText = response
+            if (latestInferenceStats != null) immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
+            return existingId
+        }
+        return existingId
+    }
+
+    suspend fun finalizeStreamingAssistantFailureSerialized(
+        chatId: Int,
+        response: String,
+        latestInferenceStats: InferenceStats? = null,
+        localSourceSummary: String? = null,
+        generationTimeMs: Long? = null,
+    ): Int? = streamingAssistantPersistMutex.withLock {
+        finalizeStreamingAssistantFailure(
+            chatId = chatId,
+            response = response,
+            latestInferenceStats = latestInferenceStats,
+            localSourceSummary = localSourceSummary,
+            generationTimeMs = generationTimeMs,
+        )
     }
 
     fun sanitizeTextForTts(text: String): String = sanitizeAssistantTextForTts(text)
@@ -5053,15 +5145,11 @@ fun Home(
                                                             !shouldFallbackNpuFailure
                                                         ) {
                                                             npuStandardRouteS1FallbackText = null
-                                                            withContext(Dispatchers.IO) {
-                                                                viewModel.insertAssistantMessageAndReturnId(
-                                                                    createAssistantMessage(
-                                                                        chatId = currentChatId,
-                                                                        response = npuFailureAssistantText,
-                                                                        localSourceSummary = s1DisplayTextForDev,
-                                                                    )
-                                                                )
-                                                            }
+                                                            finalizeStreamingAssistantFailureSerialized(
+                                                                chatId = currentChatId,
+                                                                response = npuFailureAssistantText,
+                                                                localSourceSummary = s1DisplayTextForDev,
+                                                            )
                                                         }
                                                         npuStandardRouteS1DevTraceText = if (
                                                             BuildConfig.DEBUG &&
@@ -5222,16 +5310,12 @@ fun Home(
                                                                     }
                                                                 val fallbackAssistantResponse =
                                                                     "$fallbackAssistantResponsePrefix\n\n$finalFallbackResponse"
-                                                                val fallbackAssistantId = withContext(Dispatchers.IO) {
-                                                                    viewModel.insertAssistantMessageAndReturnId(
-                                                                        createAssistantMessage(
-                                                                            chatId = currentChatId,
-                                                                            response = fallbackAssistantResponse,
-                                                                            latestInferenceStats = fallbackPersistence.inferenceStats,
-                                                                            localSourceSummary = fallbackPersistence.localSourceSummary,
-                                                                        )
-                                                                    ).toInt()
-                                                                }
+                                                                val fallbackAssistantId = finalizeStreamingAssistantMessageSerialized(
+                                                                    chatId = currentChatId,
+                                                                    response = fallbackAssistantResponse,
+                                                                    latestInferenceStats = fallbackPersistence.inferenceStats,
+                                                                    localSourceSummary = fallbackPersistence.localSourceSummary,
+                                                                ) ?: return@launch
                                                                 scheduleNpuFallbackTokenizerStatsUpdate(
                                                                     assistantId = fallbackAssistantId,
                                                                     chatId = currentChatId,
@@ -5251,15 +5335,11 @@ fun Home(
                                                                 val fallbackFailureMessage = buildNpuStandardRouteFallbackFailureMessage(
                                                                     localFailureDiagnosticsText = finalFallbackResult.trace.localFailureDiagnosticsText,
                                                                 )
-                                                                withContext(Dispatchers.IO) {
-                                                                    viewModel.insertAssistantMessageAndReturnId(
-                                                                        createAssistantMessage(
-                                                                            chatId = currentChatId,
-                                                                            response = fallbackFailureMessage,
-                                                                            localSourceSummary = fallbackDiagnostics,
-                                                                        )
-                                                                    )
-                                                                }
+                                                                finalizeStreamingAssistantFailureSerialized(
+                                                                    chatId = currentChatId,
+                                                                    response = fallbackFailureMessage,
+                                                                    localSourceSummary = fallbackDiagnostics,
+                                                                )
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
                                                                 showDelayedLocalRespondingPlaceholder = false
@@ -5510,16 +5590,12 @@ fun Home(
                                                                 try {
                                                                     val sharedInferenceStats = s1Result
                                                                         .toSharedInferenceStats(npuStandardRouteAssistantTextForPersist)
-                                                                    val assistantId = withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            createAssistantMessage(
-                                                                                chatId = currentChatId,
-                                                                                response = npuStandardRouteAssistantTextForPersist,
-                                                                                latestInferenceStats = sharedInferenceStats,
-                                                                                localSourceSummary = sharedInferenceStats.localSourceSummary,
-                                                                            )
-                                                                        ).toInt()
-                                                                    }
+                                                                    val assistantId = finalizeStreamingAssistantMessageSerialized(
+                                                                        chatId = currentChatId,
+                                                                        response = npuStandardRouteAssistantTextForPersist,
+                                                                        latestInferenceStats = sharedInferenceStats,
+                                                                        localSourceSummary = sharedInferenceStats.localSourceSummary,
+                                                                    ) ?: return@launch
                                                                     lastPersistedStreamingAssistantText =
                                                                         npuStandardRouteAssistantTextForPersist
                                                                     localStreamingResponseText = null
@@ -6114,17 +6190,20 @@ fun Home(
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?.let { appendLine(it) }
                                                                     }.trimEnd()
-                                                                    val exceptionFallbackAssistantId = withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            createAssistantMessage(
-                                                                                chatId = failureChatId,
-                                                                                response = assistantResponse,
-                                                                                latestInferenceStats =
-                                                                                    exceptionFallbackPersistence?.inferenceStats,
-                                                                                localSourceSummary = exceptionFallbackPersistence
-                                                                                    ?.localSourceSummary ?: fallbackSummary,
-                                                                            )
-                                                                        ).toInt()
+                                                                    val exceptionFallbackAssistantId = if (exceptionFallbackResponse.isNotBlank()) {
+                                                                        finalizeStreamingAssistantMessageSerialized(
+                                                                            chatId = failureChatId,
+                                                                            response = assistantResponse,
+                                                                            latestInferenceStats = exceptionFallbackPersistence?.inferenceStats,
+                                                                            localSourceSummary = exceptionFallbackPersistence
+                                                                                ?.localSourceSummary ?: fallbackSummary,
+                                                                        ) ?: return@launch
+                                                                    } else {
+                                                                        finalizeStreamingAssistantFailureSerialized(
+                                                                            chatId = failureChatId,
+                                                                            response = assistantResponse,
+                                                                            localSourceSummary = fallbackSummary,
+                                                                        ) ?: return@launch
                                                                     }
                                                                     if (exceptionFallbackPersistence != null && exceptionFallbackResult != null) {
                                                                         scheduleNpuFallbackTokenizerStatsUpdate(
@@ -7853,7 +7932,6 @@ fun Home(
                                                             }
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
-                                                            resetStreamingAssistantPlaceholderId(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -7929,17 +8007,13 @@ fun Home(
                                                                     modelLabel = selectedLocalModelDisplayName ?: selectedModel,
                                                                     responseCharCount = failureAssistantText.length,
                                                                 )
-                                                                withContext(Dispatchers.IO) {
-                                                                    viewModel.insertAssistantMessageAndReturnId(
-                                                                        createAssistantMessage(
-                                                                            chatId = currentChatId,
-                                                                            response = failureAssistantText,
-                                                                            latestInferenceStats = failureStats,
-                                                                            localSourceSummary = localFailureCompactText,
-                                                                            generationTimeMs = localGenerationTimeMs,
-                                                                        ),
-                                                                    )
-                                                                }
+                                                                finalizeStreamingAssistantFailureSerialized(
+                                                                    chatId = currentChatId,
+                                                                    response = failureAssistantText,
+                                                                    latestInferenceStats = failureStats,
+                                                                    localSourceSummary = localFailureCompactText,
+                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                )
                                                             }
                                                             Log.e(
                                                                 "ChatScreen",
@@ -7998,7 +8072,6 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
-                                                            resetStreamingAssistantPlaceholderId(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -8025,17 +8098,13 @@ fun Home(
                                                                         modelLabel = selectedLocalModelDisplayName ?: selectedModel,
                                                                         responseCharCount = failureText.length,
                                                                     )
-                                                                    withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            createAssistantMessage(
-                                                                                chatId = chatId,
-                                                                                response = failureText,
-                                                                                latestInferenceStats = failureStats,
-                                                                                localSourceSummary = localFailureCompactText,
-                                                                                generationTimeMs = localGenerationTimeMs,
-                                                                            ),
-                                                                        )
-                                                                    }
+                                                                    finalizeStreamingAssistantFailureSerialized(
+                                                                        chatId = chatId,
+                                                                        response = failureText,
+                                                                        latestInferenceStats = failureStats,
+                                                                        localSourceSummary = localFailureCompactText,
+                                                                        generationTimeMs = localGenerationTimeMs,
+                                                                    )
                                                                 }
                                                             }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
