@@ -26,5 +26,9 @@ class NpuFailureLifecycleSourceContractTest {
         assertTrue("terminal NPU lifecycle must return from the launch", returnIndex >= 0)
         assertTrue("completion must precede terminal return", completeIndex < returnIndex)
         assertTrue("failure finalization must precede terminal return", failureIndex < returnIndex)
+        assertTrue(
+            "safe greeting completion must persist NPU inference statistics",
+            "latestInferenceStats = safeGreetingInferenceStats" in failureBlock,
+        )
     }
 }

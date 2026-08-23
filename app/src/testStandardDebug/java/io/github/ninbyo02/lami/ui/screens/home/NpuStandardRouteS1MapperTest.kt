@@ -7,6 +7,98 @@ import org.junit.Test
 
 class NpuStandardRouteS1MapperTest {
     @Test
+    fun `observed Chinese mixed greeting is rejected before display and TTS`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "こ你们好。",
+                sanitizedOutput = "こ你们好。",
+                inputPrompt = "こんばんは",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("greeting_response_mismatch"))
+        assertEquals("", result.displayText)
+        assertEquals("", result.actualDisplayText)
+        assertEquals("", result.ttsText)
+    }
+
+    @Test
+    fun `Chinese tail after a valid Japanese greeting prefix is still rejected`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "こんばんは。你们好",
+                sanitizedOutput = "こんばんは。你们好",
+                inputPrompt = "こんばんは",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("greeting_response_mismatch"))
+        assertEquals("", result.actualDisplayText)
+        assertEquals("", result.ttsText)
+    }
+
+    @Test
+    fun `observed Arabic mixed greeting is rejected before display and TTS`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "。こんにちはم",
+                sanitizedOutput = "。こんにちはم",
+                inputPrompt = "おはよう",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("unsupported_japanese_response_script"))
+        assertTrue(result.outputQualityCandidateReason.contains("greeting_response_mismatch"))
+        assertEquals("", result.displayText)
+        assertEquals("", result.actualDisplayText)
+        assertEquals("", result.ttsText)
+    }
+
+    @Test
+    fun `valid Japanese greetings remain accepted`() {
+        val evening = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "こんばんは。",
+                sanitizedOutput = "こんばんは。",
+                inputPrompt = "こんばんは",
+            ),
+        )
+        val morning = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "おはようございます。",
+                sanitizedOutput = "おはようございます。",
+                inputPrompt = "おはよう",
+            ),
+        )
+
+        assertTrue(evening.successCriteriaMet)
+        assertEquals("こんばんは。", evening.actualDisplayText)
+        assertTrue(morning.successCriteriaMet)
+        assertEquals("おはようございます。", morning.actualDisplayText)
+    }
+
+    @Test
+    fun `punctuated Japanese greeting prompt remains recognized`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                inputPrompt = "こんにちは。",
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("こんにちは。", result.actualDisplayText)
+        assertEquals("こんにちは。", NpuStandardRouteS1Contract.safeGreetingResponseForPrompt("こんにちは！"))
+    }
+
+    @Test
     fun `natural Japanese dev-only result maps to successful S1 result`() {
         val result = NpuStandardRouteS1Mapper.map(successRaw())
 

@@ -300,15 +300,48 @@ internal object NpuStandardRouteS1Contract {
             "1+1は?",
         )
 
-    private fun isSimpleGreetingPrompt(prompt: String): Boolean =
-        prompt.lowercase() in setOf(
-            "こんにちは",
-            "おはよう",
-            "こんばんは",
-            "ハロー",
-            "hello",
-            "hi",
-        )
+    fun safeGreetingResponseForPrompt(userPrompt: String): String? =
+        when (normalizeSimpleGreetingText(userPrompt)) {
+            "こんにちは" -> "こんにちは。"
+            "おはよう" -> "おはようございます。"
+            "こんばんは" -> "こんばんは。"
+            "ハロー", "hello", "hi" -> "こんにちは。"
+            else -> null
+        }
+
+    fun isSimpleGreetingPrompt(prompt: String): Boolean =
+        safeGreetingResponseForPrompt(prompt) != null
+
+    fun isAcceptableGreetingResponse(
+        userPrompt: String,
+        response: String,
+    ): Boolean {
+        val normalizedPrompt = normalizeSimpleGreetingText(userPrompt)
+        if (safeGreetingResponseForPrompt(normalizedPrompt) == null) return true
+        if (containsUnsupportedJapaneseResponseScript(response)) return false
+        val normalizedResponse = normalizeSimpleGreetingText(response)
+        if (normalizedResponse.isBlank()) return false
+        val acceptedResponses = when (normalizedPrompt) {
+            "おはよう" -> setOf("おはようございます", "おはよう")
+            "ハロー", "hello", "hi" -> setOf("こんにちは", "ハロー")
+            "こんにちは" -> setOf("こんにちは")
+            "こんばんは" -> setOf("こんばんは")
+            else -> return false
+        }
+        return normalizedResponse in acceptedResponses
+    }
+
+    fun containsUnsupportedJapaneseResponseScript(text: String): Boolean =
+        text.codePoints().anyMatch { codePoint ->
+            if (!Character.isLetter(codePoint)) return@anyMatch false
+            Character.UnicodeScript.of(codePoint) !in ALLOWED_JAPANESE_RESPONSE_SCRIPTS
+        }
+
+    private fun normalizeSimpleGreetingText(text: String): String =
+        text.trim()
+            .lowercase(Locale.ROOT)
+            .trimEnd { character -> character in SIMPLE_GREETING_TERMINATORS }
+            .trim()
 
     private fun isAmbiguousShortPrompt(prompt: String): Boolean =
         prompt.isNotEmpty() && prompt.codePointCount(0, prompt.length) <= AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS
@@ -345,6 +378,21 @@ internal object NpuStandardRouteS1Contract {
     const val MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT = "short_prompt_limit"
     private const val AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS = 2
     private const val SHORT_PROMPT_MAX_OUTPUT_TOKENS = 128
+    private val ALLOWED_JAPANESE_RESPONSE_SCRIPTS = setOf(
+        Character.UnicodeScript.COMMON,
+        Character.UnicodeScript.INHERITED,
+        Character.UnicodeScript.HIRAGANA,
+        Character.UnicodeScript.KATAKANA,
+        Character.UnicodeScript.HAN,
+        Character.UnicodeScript.LATIN,
+    )
+    private val SIMPLE_GREETING_TERMINATORS = setOf(
+        '。',
+        '！',
+        '!',
+        '？',
+        '?',
+    )
 
     private fun normalizeArithmeticPrompt(prompt: String): String =
         prompt

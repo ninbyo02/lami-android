@@ -557,8 +557,15 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
     val promptIgnoredSuspect = prompt.isNotBlank() &&
         prompt.length <= 16 &&
         containsPlaceholder
+    val unsupportedJapaneseResponseScript =
+        NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(output)
+    val greetingResponseMismatch =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(prompt) &&
+            !NpuStandardRouteS1Contract.isAcceptableGreetingResponse(prompt, output)
     val classification = when {
         outputEmpty || outputOnlyNewline -> NPU_S1_OUTPUT_QUALITY_UNKNOWN
+        unsupportedJapaneseResponseScript || greetingResponseMismatch ->
+            NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE
         outputEqualsAcrossRuns && (containsPlaceholder || containsBusinessPhrase) ->
             NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT
         promptIgnoredSuspect -> NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT
@@ -574,6 +581,8 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         if (containsBusinessPhrase) add("business_template_phrase")
         if (containsPlaceholder) add("placeholder_leak")
         if (promptIgnoredSuspect) add("prompt_ignored_suspect")
+        if (unsupportedJapaneseResponseScript) add("unsupported_japanese_response_script")
+        if (greetingResponseMismatch) add("greeting_response_mismatch")
         if (outputEqualsAcrossRuns) add("repeated_template_output")
         if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
         if (outputOnlyNewline) add("newline_only")
@@ -666,7 +675,7 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
 ): NpuS1PersistentCustomJniQualityCandidateResult {
     val rawRecoveryAllowed = sanitizedOutput.isBlank() &&
         hasSafeNpuS1EndOfTurnVariant(rawOutput) &&
-        !containsNpuS1Hangul(rawOutput)
+        !NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(rawOutput)
     val source = when {
         sanitizedOutput.isNotBlank() -> sanitizedOutput
         rawRecoveryAllowed -> rawOutput
@@ -717,10 +726,14 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
             prepared = prepared,
         )
     val arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakDetected
-    val promptRepetitionOnly = isNpuS1PromptRepetitionOnly(
-        prompt = inputPrompt,
-        output = prepared,
-    )
+    val acceptableGreetingResponse =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(inputPrompt) &&
+            NpuStandardRouteS1Contract.isAcceptableGreetingResponse(inputPrompt, prepared)
+    val promptRepetitionOnly = !acceptableGreetingResponse &&
+        isNpuS1PromptRepetitionOnly(
+            prompt = inputPrompt,
+            output = prepared,
+        )
     val arithmeticAnswerMissing = arithmeticPrompt && !containsNpuS1ArithmeticAnswerTwo(prepared)
     val bulletListRequired = inputPrompt.contains("箇条書き")
     val normalizedBulletPrompt = inputPrompt.map { char ->
@@ -754,6 +767,11 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
     val preparedBlank = prepared.isBlank()
     val preparedLiteralNewlineOnly = prepared == "\\n"
+    val unsupportedJapaneseResponseScript =
+        NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(prepared)
+    val greetingResponseMismatch =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(inputPrompt) &&
+            !NpuStandardRouteS1Contract.isAcceptableGreetingResponse(inputPrompt, prepared)
     val failedReasons = buildList {
         if (rawOutput.isBlank()) add("raw_output_empty")
         if (sanitizedOutput.isBlank() && prepared.isBlank()) add("sanitized_output_empty")
@@ -772,6 +790,8 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         if (rawUnexpectedStartTurn && !arithmeticTailLeakIgnoredForDisplay) add("raw_unexpected_start_turn")
         if (userTurnLeak && !arithmeticTailLeakIgnoredForDisplay) add("user_turn_leak")
         if (promptRepetitionOnly) add("prompt_repetition_only")
+        if (unsupportedJapaneseResponseScript) add("unsupported_japanese_response_script")
+        if (greetingResponseMismatch) add("greeting_response_mismatch")
         if (arithmeticAnswerMissing) add("arithmetic_answer_missing")
         if (bulletListRequirementNotMet) add("bullet_list_requirement_not_met")
     }
@@ -800,11 +820,6 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakIgnoredForDisplay,
     )
 }
-
-private fun containsNpuS1Hangul(text: String): Boolean =
-    text.codePoints().anyMatch { codePoint ->
-        Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HANGUL
-    }
 
 private fun removeSafeNpuS1EndOfTurnVariants(text: String): String {
     if (!hasSafeNpuS1EndOfTurnVariant(text)) return text
