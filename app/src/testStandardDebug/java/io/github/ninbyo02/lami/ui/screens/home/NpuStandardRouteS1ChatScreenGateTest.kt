@@ -211,6 +211,140 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `candidate failed mixed greetings resolve to deterministic Japanese fallback`() {
+        val chineseMixed = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = "こ你们好。",
+                sanitizedOutput = "こ你们好。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "こんばんは",
+            ),
+        )
+        val arabicMixed = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = "。こんにちはم",
+                sanitizedOutput = "。こんにちはم",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "おはよう",
+            ),
+        )
+
+        assertEquals(
+            "こんばんは。",
+            resolveNpuStandardRouteS1SafeGreetingFallback("こんばんは", chineseMixed)?.text,
+        )
+        assertEquals(
+            "おはようございます。",
+            resolveNpuStandardRouteS1SafeGreetingFallback("おはよう", arabicMixed)?.text,
+        )
+        assertFalse(
+            shouldRunNpuStandardRouteGenericFallback(
+                result = chineseMixed,
+                transientFallback = resolveNpuStandardRouteS1SafeGreetingFallback("こんばんは", chineseMixed),
+                localStopRequested = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `safe greeting fallback preserves rejected NPU inference statistics`() {
+        val result = s1EmptyAfterSanitizeFailureResult().copy(
+            inputPrompt = "こんにちは",
+            selectedModelName = "gemma-4-E2B-it",
+            timing = NpuStandardRouteS1Timing(
+                totalMs = 240L,
+                decodeMs = 180L,
+                ttftMs = 95L,
+                outputTokens = 9,
+                tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_NATIVE_REPORTED,
+                tokensPerSecond = 50.0,
+            ),
+        )
+        val summary = buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+            result = result,
+            existingSummary = "route_family=npu_standard",
+        )
+        val stats = buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+            result = result,
+            localSourceSummary = summary,
+            assistantText = "こんにちは。",
+        )
+
+        assertEquals(180L, stats.generationTimeMs)
+        assertEquals(180L, stats.decodeDurationMs)
+        assertEquals(240L, stats.totalDurationMs)
+        assertEquals(95L, stats.timeToFirstTokenMs)
+        assertEquals(9, stats.outputTokens)
+        assertEquals(50.0, stats.tokensPerSecond ?: 0.0, 0.001)
+        assertEquals(NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING, stats.finishReason)
+        assertTrue(stats.notes.orEmpty().contains("metrics_source=rejected_npu_attempt"))
+        assertTrue(summary.contains("fallback_display_source=deterministic_safe_greeting"))
+        assertTrue(summary.contains("inference_metrics_source=rejected_npu_attempt"))
+    }
+
+    @Test
+    fun `safe greeting fallback estimates missing token statistics from rejected raw output`() {
+        val rawOutput = "안녕하세요."
+        val result = s1EmptyAfterSanitizeFailureResult().copy(
+            inputPrompt = "こんにちは",
+            rawOutput = rawOutput,
+            sanitizedOutput = "",
+            selectedModelName = "gemma-4-E2B-it",
+            timing = NpuStandardRouteS1Timing(
+                totalMs = 1_704L,
+                decodeMs = 84L,
+                outputTokens = null,
+                tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
+                tokensPerSecond = null,
+            ),
+        )
+        val summary = buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+            result = result,
+            existingSummary = "route_family=npu_standard",
+        )
+        val stats = buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+            result = result,
+            localSourceSummary = summary,
+            assistantText = "こんにちは。",
+        )
+        val expectedOutputTokens = rawOutput.codePointCount(0, rawOutput.length)
+
+        assertEquals(expectedOutputTokens, stats.outputTokens)
+        assertEquals(expectedOutputTokens, stats.completionTokens)
+        assertEquals(
+            NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+            stats.tokenCountMode,
+        )
+        assertEquals(84L, stats.generationTimeMs)
+        assertEquals(84L, stats.decodeDurationMs)
+        assertEquals(1_704L, stats.totalDurationMs)
+        assertEquals(
+            expectedOutputTokens.toDouble() / 0.084,
+            stats.tokensPerSecond ?: 0.0,
+            0.001,
+        )
+        assertEquals(NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING, stats.finishReason)
+    }
+
+    @Test
     fun `safe greeting fallback completes a user visible assistant response`() {
         val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
             userPrompt = "こんにちは",

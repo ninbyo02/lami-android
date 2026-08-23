@@ -5133,10 +5133,22 @@ fun Home(
                                                         ) {
                                                             npuStandardRouteS1FallbackText = null
                                                             if (shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(s1Fallback)) {
+                                                                val safeGreetingSourceSummary =
+                                                                    buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+                                                                        result = s1Result,
+                                                                        existingSummary = s1DisplayTextForDev,
+                                                                    )
+                                                                val safeGreetingInferenceStats =
+                                                                    buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+                                                                        result = s1Result,
+                                                                        localSourceSummary = safeGreetingSourceSummary,
+                                                                        assistantText = npuFailureAssistantText,
+                                                                    )
                                                                 finalizeStreamingAssistantMessageSerialized(
                                                                     chatId = currentChatId,
                                                                     response = npuFailureAssistantText,
-                                                                    localSourceSummary = s1DisplayTextForDev,
+                                                                    latestInferenceStats = safeGreetingInferenceStats,
+                                                                    localSourceSummary = safeGreetingSourceSummary,
                                                                 )
                                                             } else {
                                                                 finalizeStreamingAssistantFailureSerialized(
@@ -13778,7 +13790,13 @@ private fun buildNpuStandardRouteInferenceStats(
     assistantText: String,
 ): InferenceStats {
     val timing = result.timing
-    val outputTokens = timing.outputTokens
+    val rejectedAttemptOutput = result.rawOutput
+        .trim()
+        .ifBlank { result.sanitizedOutput.trim() }
+    val estimatedOutputTokens = rejectedAttemptOutput
+        .takeIf { it.isNotBlank() }
+        ?.let { output -> output.codePointCount(0, output.length).coerceAtLeast(1) }
+    val outputTokens = timing.outputTokens ?: estimatedOutputTokens
     val inputTokens = result.inputPrompt
         .takeIf { it.isNotBlank() }
         ?.let { prompt -> prompt.codePointCount(0, prompt.length).coerceAtLeast(1) }
@@ -13790,7 +13808,18 @@ private fun buildNpuStandardRouteInferenceStats(
         .takeIf { it.isNotBlank() }
         ?: result.selectedModelFile.takeIf { it.isNotBlank() }
         ?: "NPU プレビュー"
-    val generationDurationNs = timing.decodeMs
+    val generationTimeMs = timing.decodeMs ?: timing.totalMs
+    val tokensPerSecond = timing.tokensPerSecond ?: run {
+        val measuredOutputTokens = outputTokens ?: return@run null
+        val measuredGenerationMs = generationTimeMs?.takeIf { it > 0L } ?: return@run null
+        measuredOutputTokens.toDouble() / (measuredGenerationMs.toDouble() / 1_000.0)
+    }
+    val tokenCountMode = when {
+        timing.outputTokens != null -> timing.tokenCountMode
+        estimatedOutputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+        else -> timing.tokenCountMode
+    }
+    val generationDurationNs = generationTimeMs
         ?.takeIf { it > 0L }
         ?.times(1_000_000L)
     return InferenceStats(
@@ -13798,11 +13827,11 @@ private fun buildNpuStandardRouteInferenceStats(
         inputTokens = inputTokens,
         outputTokens = outputTokens,
         totalTokens = totalTokens,
-        tokensPerSecond = timing.tokensPerSecond,
-        tokenCountMode = timing.tokenCountMode,
+        tokensPerSecond = tokensPerSecond,
+        tokenCountMode = tokenCountMode,
         completionTokens = outputTokens,
         finishReason = result.reason.takeIf { it.isNotBlank() } ?: "stop",
-        generationTimeMs = timing.decodeMs,
+        generationTimeMs = generationTimeMs,
         decodeDurationMs = timing.decodeMs,
         totalDurationMs = timing.totalMs,
         generationDurationNs = generationDurationNs,
@@ -13812,6 +13841,41 @@ private fun buildNpuStandardRouteInferenceStats(
         responseCharCount = assistantText.length,
     )
 }
+
+internal fun buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+    result: NpuStandardRouteS1Result,
+    existingSummary: String,
+): String = buildString {
+    existingSummary.trim().takeIf { it.isNotBlank() }?.let(::appendLine)
+    appendLine("fallback=${NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING}")
+    appendLine("fallback_display_source=deterministic_safe_greeting")
+    appendLine("inference_metrics_source=rejected_npu_attempt")
+    appendLine("npu_attempt_status=${result.status}")
+    appendLine("npu_attempt_reason=${result.reason}")
+    appendLine("npu_attempt_quality_candidate_status=${result.outputQualityCandidateStatus}")
+    append("npu_attempt_quality_candidate_reason=${result.outputQualityCandidateReason}")
+}.trim()
+
+internal fun buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+    result: NpuStandardRouteS1Result,
+    localSourceSummary: String,
+    assistantText: String,
+): InferenceStats =
+    buildNpuStandardRouteInferenceStats(
+        result = result,
+        localSourceSummary = localSourceSummary,
+        assistantText = assistantText,
+    ).copy(
+        finishReason = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+        notes = listOf(
+            "display_source=deterministic_safe_greeting",
+            "metrics_source=rejected_npu_attempt",
+            "npu_attempt_status=${result.status}",
+            "npu_attempt_reason=${result.reason}",
+            "npu_attempt_quality_candidate_status=${result.outputQualityCandidateStatus}",
+            "npu_attempt_quality_candidate_reason=${result.outputQualityCandidateReason}",
+        ).joinToString("; "),
+    )
 
 private fun buildLocalFinishReasonOrNull(
     existingFinishReason: String?,
@@ -17302,13 +17366,8 @@ internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
     result: NpuStandardRouteS1Result,
 ): NpuStandardRouteS1TransientFallback? {
     if (!isNpuStandardRouteS1SafeGreetingFallbackFailure(result)) return null
-    val fallbackText = when (userPrompt.trim().lowercase()) {
-        "こんにちは" -> "こんにちは。"
-        "おはよう" -> "おはようございます。"
-        "こんばんは" -> "こんばんは。"
-        "ハロー", "hello", "hi" -> "こんにちは。"
-        else -> return null
-    }
+    val fallbackText = NpuStandardRouteS1Contract.safeGreetingResponseForPrompt(userPrompt)
+        ?: return null
     return NpuStandardRouteS1TransientFallback(
         text = fallbackText,
         kind = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
@@ -17317,12 +17376,27 @@ internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
 
 private fun isNpuStandardRouteS1SafeGreetingFallbackFailure(
     result: NpuStandardRouteS1Result,
-): Boolean =
-    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
-        (
-            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
-                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE
-            )
+): Boolean {
+    if (result.successCriteriaMet) return false
+    val candidateFailureReasons = result.outputQualityCandidateReason
+        .split('+')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .toSet()
+    val candidateLanguageFailure =
+        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
+            candidateFailureReasons.any { reason ->
+                reason == "unsupported_japanese_response_script" ||
+                    reason == "greeting_response_mismatch"
+            }
+    val providerLanguageFailure =
+        result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
+            (
+                result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
+                    result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE
+                )
+    return candidateLanguageFailure || providerLanguageFailure
+}
 
 internal fun shouldShowNpuStandardRouteS1Fallback(
     result: NpuStandardRouteS1Result,
