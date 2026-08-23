@@ -25,12 +25,15 @@ internal object Qairt244NpuOutputSanitizer {
         val codeFenceCompleted: Boolean,
     )
 
-    fun sanitize(rawOutput: String, prompt: String): Result {
-        val normalizedRaw = rawOutput
-            .replace("\\r\\n", "\n")
-            .replace("\\n", "\n")
+    fun decodeEscapedNewlines(value: String): String =
+        value
+            .replace(Regex("""\\+r\\+n"""), "\n")
+            .replace(Regex("""\\+n"""), "\n")
             .replace("\r\n", "\n")
             .replace('\r', '\n')
+
+    fun sanitize(rawOutput: String, prompt: String): Result {
+        val normalizedRaw = decodeEscapedNewlines(rawOutput)
         var removedTemplateTokenCount = 0
         var withoutTemplateTokens = normalizedRaw
         templateTokenPatterns.forEach { pattern ->
@@ -61,12 +64,8 @@ internal object Qairt244NpuOutputSanitizer {
 
             val line = sourceLine.trim().trimStart('>').trim()
             if (line.isEmpty()) {
-                if (sourceLine.trim().isNotEmpty()) {
-                    removedTemplateTokenCount += 1
-                }
-                if (keptLines.isNotEmpty() && keptLines.last().isNotEmpty()) {
-                    keptLines += ""
-                }
+                if (sourceLine.trim().isNotEmpty()) removedTemplateTokenCount += 1
+                if (keptLines.isNotEmpty() && keptLines.last().isNotEmpty()) keptLines += ""
                 continue
             }
             if (roleLinePattern.matches(line)) {
@@ -74,14 +73,8 @@ internal object Qairt244NpuOutputSanitizer {
                 continue
             }
             if (
-                isPromptEcho(line, promptEcho) &&
-                !naturalTextStarted &&
-                !isStandaloneGreetingResponse(
-                    line = line,
-                    prompt = promptEcho,
-                    rawWithoutTemplateTokens = withoutTemplateTokens,
-                    removedTemplateTokenCount = removedTemplateTokenCount,
-                )
+                isPromptEcho(line, promptEcho) && !naturalTextStarted &&
+                !isStandaloneGreetingResponse(line, promptEcho, withoutTemplateTokens, removedTemplateTokenCount)
             ) {
                 removedPromptEcho = true
                 continue
@@ -89,9 +82,7 @@ internal object Qairt244NpuOutputSanitizer {
             if (userPrefixPattern.containsMatchIn(line)) {
                 if (naturalTextStarted) break
                 val withoutUserPrefix = userPrefixPattern.replace(line, "").trim()
-                if (isPromptEcho(withoutUserPrefix, promptEcho)) {
-                    removedPromptEcho = true
-                }
+                if (isPromptEcho(withoutUserPrefix, promptEcho)) removedPromptEcho = true
                 continue
             }
             if (turnBoundaryPattern.matches(line) && naturalTextStarted) break
@@ -126,34 +117,15 @@ internal object Qairt244NpuOutputSanitizer {
             codeFenceCompleted = true
         }
 
-        val sanitizedBeforeJapaneseSpaceNormalization = keptLines
-            .joinToString("\n")
-            .trim()
-        val withoutLeadingPromptEcho = stripLeadingPromptEcho(
-            value = sanitizedBeforeJapaneseSpaceNormalization,
-            prompt = promptEcho,
-        )
-        if (withoutLeadingPromptEcho != sanitizedBeforeJapaneseSpaceNormalization) {
-            removedPromptEcho = true
-        }
+        val sanitizedBeforeJapaneseSpaceNormalization = keptLines.joinToString("\n").trim()
+        val withoutLeadingPromptEcho = stripLeadingPromptEcho(sanitizedBeforeJapaneseSpaceNormalization, promptEcho)
+        if (withoutLeadingPromptEcho != sanitizedBeforeJapaneseSpaceNormalization) removedPromptEcho = true
         val sanitized = normalizeJapaneseInternalSpaces(withoutLeadingPromptEcho)
-        val sanitizerApplied = sanitized != rawOutput ||
-            removedTemplateTokenCount > 0 ||
-            removedPromptEcho ||
-            codeFenceCompleted
-        return Result(
-            rawOutput = rawOutput,
-            sanitizedOutput = sanitized,
-            sanitizerApplied = sanitizerApplied,
-            removedTemplateTokenCount = removedTemplateTokenCount,
-            removedPromptEcho = removedPromptEcho,
-            codeBlockDetected = codeBlockDetected,
-            codeFenceCompleted = codeFenceCompleted,
-        )
+        val sanitizerApplied = sanitized != rawOutput || removedTemplateTokenCount > 0 || removedPromptEcho || codeFenceCompleted
+        return Result(rawOutput, sanitized, sanitizerApplied, removedTemplateTokenCount, removedPromptEcho, codeBlockDetected, codeFenceCompleted)
     }
 
-    private fun isCodeFence(line: String): Boolean =
-        codeFencePattern.matches(line.trim())
+    private fun isCodeFence(line: String): Boolean = codeFencePattern.matches(line.trim())
 
     private fun stripLeadingPromptEcho(value: String, prompt: String): String {
         if (prompt.isEmpty() || value.isBlank()) return value
@@ -164,10 +136,7 @@ internal object Qairt244NpuOutputSanitizer {
         if (!isPromptEcho(firstMeaningfulLine, prompt)) return value
         val remainingLines = lines.drop(firstMeaningfulIndex + 1)
         if (remainingLines.none { it.trim().isNotEmpty() }) return value
-        return remainingLines
-            .dropWhile { it.trim().isEmpty() }
-            .joinToString("\n")
-            .trim()
+        return remainingLines.dropWhile { it.trim().isEmpty() }.joinToString("\n").trim()
     }
 
     fun normalizeJapaneseInternalSpaces(value: String): String {
@@ -192,11 +161,7 @@ internal object Qairt244NpuOutputSanitizer {
 
     private fun isPromptEcho(line: String, prompt: String): Boolean {
         if (prompt.isEmpty()) return false
-        val normalizedLine = line
-            .removePrefix(">")
-            .trim()
-            .removeSurrounding("(", ")")
-            .trim()
+        val normalizedLine = line.removePrefix(">").trim().removeSurrounding("(", ")").trim()
         return normalizedLine == prompt
     }
 
@@ -218,55 +183,31 @@ internal object Qairt244NpuOutputSanitizer {
     private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
         if (!containsJapanese(prompt) || containsJapanese(line)) return false
         val normalized = line.trim().lowercase()
-        val englishPrelude = normalized.startsWith("sure,") ||
-            normalized.startsWith("sure.") ||
-            normalized.startsWith("here is") ||
-            normalized.startsWith("here's") ||
-            normalized.startsWith("of course") ||
-            normalized.startsWith("certainly") ||
+        val englishPrelude = normalized.startsWith("sure,") || normalized.startsWith("sure.") ||
+            normalized.startsWith("here is") || normalized.startsWith("here's") ||
+            normalized.startsWith("of course") || normalized.startsWith("certainly") ||
             normalized.startsWith("the answer is")
-        val multilingualDrift = line.any { char ->
-            Character.isLetter(char) && !char.isLatinLetter()
-        }
+        val multilingualDrift = line.any { char -> Character.isLetter(char) && !char.isLatinLetter() }
         return englishPrelude || multilingualDrift
     }
 
-    private fun containsJapanese(value: String): Boolean =
-        value.any { char ->
-            val block = Character.UnicodeBlock.of(char)
-            block == Character.UnicodeBlock.HIRAGANA ||
-                block == Character.UnicodeBlock.KATAKANA ||
-                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
-                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
-        }
-
-    private fun Char.isLatinLetter(): Boolean =
-        this in 'A'..'Z' || this in 'a'..'z'
-
-    private fun StringBuilder.lastCodePointOrNull(): Int? {
-        if (isEmpty()) return null
-        return codePointBefore(length)
+    private fun containsJapanese(value: String): Boolean = value.any { char ->
+        val block = Character.UnicodeBlock.of(char)
+        block == Character.UnicodeBlock.HIRAGANA || block == Character.UnicodeBlock.KATAKANA ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
     }
 
-    private fun String.nextCodePointOrNull(index: Int): Int? =
-        if (index in indices) codePointAt(index) else null
-
+    private fun Char.isLatinLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
+    private fun StringBuilder.lastCodePointOrNull(): Int? = if (isEmpty()) null else codePointBefore(length)
+    private fun String.nextCodePointOrNull(index: Int): Int? = if (index in indices) codePointAt(index) else null
     private fun Int.isJapaneseTextCodePoint(): Boolean =
-        this in 0x3040..0x309F ||
-            this in 0x30A0..0x30FF ||
-            this in 0x3400..0x4DBF ||
-            this in 0x4E00..0x9FFF ||
-            this in 0xF900..0xFAFF
+        this in 0x3040..0x309F || this in 0x30A0..0x30FF || this in 0x3400..0x4DBF ||
+            this in 0x4E00..0x9FFF || this in 0xF900..0xFAFF
 
     private val standaloneGreetingResponses = setOf(
-        "こんにちは",
-        "こんにちは。",
-        "こんばんは",
-        "こんばんは。",
-        "おはよう",
-        "おはよう。",
-        "ありがとう",
-        "ありがとう。",
+        "こんにちは", "こんにちは。", "こんばんは", "こんばんは。",
+        "おはよう", "おはよう。", "ありがとう", "ありがとう。",
     )
 
     private const val HALF_WIDTH_SPACE_CODE_POINT = 0x0020

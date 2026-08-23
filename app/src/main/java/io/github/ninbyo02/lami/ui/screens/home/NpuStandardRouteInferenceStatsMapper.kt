@@ -27,8 +27,10 @@ internal fun NpuStandardRouteS1Result.toSharedInferenceStats(
             }
         },
         inferenceTimeSec = totalDurationMs?.div(1000.0),
-        generationTimeMs = timing.decodeMs,
-        decodeDurationMs = timing.decodeMs,
+        generationTimeMs = timing.nativeDecodeMs ?: timing.decodeMs,
+        generationDurationNs = (timing.nativeDecodeMs ?: timing.decodeMs)?.times(1_000_000L),
+        decodeDurationMs = timing.nativeDecodeMs ?: timing.decodeMs,
+        promptEvalDurationNs = timing.prefillMs?.times(1_000_000L),
         totalDurationMs = totalDurationMs,
         finishReason = reason,
         localSourceSummary = buildString {

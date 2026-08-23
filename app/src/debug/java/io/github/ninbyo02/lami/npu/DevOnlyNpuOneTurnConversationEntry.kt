@@ -63,6 +63,8 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val eosDetected: String = "",
     val outputTokenCount: String = "",
     val promptTokenCount: String = "",
+    val prefillMs: Long? = null,
+    val nativeDecodeMs: Long? = null,
     val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
@@ -210,7 +212,9 @@ object DevOnlyNpuOneTurnConversationContract {
         val rawSanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
             result.output.orEmpty()
         }
-        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(rawSanitizedOutput)
+        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(
+            Qairt244NpuOutputSanitizer.decodeEscapedNewlines(rawSanitizedOutput),
+        )
         val rawOutput = values["raw_native_output"].orEmpty().ifBlank {
             values["raw_output"].orEmpty()
         }
@@ -250,6 +254,9 @@ object DevOnlyNpuOneTurnConversationContract {
         val eosDetected = values["eos_detected"].orEmpty()
         val outputTokenCount = values["output_token_count"].orEmpty()
         val promptTokenCount = values["prompt_token_count"].orEmpty()
+        val prefillMs = values["prefill_elapsed_ms"]?.toLongOrNull()
+        val nativeDecodeMs = values["decode_elapsed_ms"]?.toLongOrNull()
+            ?: result.decodeElapsedMs
         val nativeDiagnostics = NpuS1NativeStageDiagnostics(
             nativeRunId = values.devValue("native_run_id"),
             nativeStage = values.devValue("native_stage", default = "unknown"),
@@ -366,6 +373,8 @@ object DevOnlyNpuOneTurnConversationContract {
             eosDetected = eosDetected,
             outputTokenCount = outputTokenCount,
             promptTokenCount = promptTokenCount,
+            prefillMs = prefillMs,
+            nativeDecodeMs = nativeDecodeMs,
             nativeDiagnostics = nativeDiagnostics,
         )
     }
