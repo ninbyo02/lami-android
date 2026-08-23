@@ -1,5 +1,56 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-08-23 Pinned Isolated StandardDebug Rebuild
+
+Use the repository-owned runner for the standardDebug native stack:
+
+```bash
+scripts/rebuild_qairt244_standard_debug_native_stack.sh
+```
+
+The runner resolves LiteRT-LM `v0.11.0` and requires the exact commit
+`c87189528a758db32ead241f4fc9c64836398ee7`. It creates a detached temporary
+Git worktree, applies the 128-token base patch and persistent-probe patch only
+inside that worktree, builds the limited Bazel targets, assigns the independent
+`liblami_qairt244_npu_jni.so` SONAME, verifies required GLOBAL JNI exports
+(including persistent-probe exports when required), and
+then stages only outputs whose SHA-256 and SONAME match the verified artifact.
+
+The existing source/mirror checkout is intentionally allowed to be dirty. The
+runner records its HEAD, status hash, and a content fingerprint covering the
+tracked binary diff plus all untracked file contents before and after the build
+in `source_checkout_integrity.txt`; it fails if the HEAD, status hash, or content
+fingerprint changes. It never runs
+`git reset --hard` or `git clean -fdx` against that checkout. The clean Bazel
+output base is temporary and removed after the verified libraries have been
+copied; pass `--keep-bazel-output-base` only when compiler-state inspection is
+needed.
+
+A source-and-patch-only check is available without running Bazel:
+
+```bash
+scripts/rebuild_qairt244_standard_debug_native_stack.sh --preflight-only
+```
+
+After a successful full rebuild and stage, verify a clean Android build with:
+
+```bash
+./gradlew :app:clean :app:assembleStandardDebug
+```
+
+The runner honors `ANDROID_HOME` or `ANDROID_SDK_ROOT`, and `ANDROID_NDK_HOME`
+or `ANDROID_NDK_ROOT`. Without those variables it uses the X870E defaults under
+`$HOME/Android/Sdk`.
+
+Each artifact directory records:
+
+- `reproducibility_inputs.tsv`: selected ref/commit, patch SHA-256 values,
+  QAIRT/NDK paths, provider SHA-256, and patchelf version;
+- `reproducibility_outputs.tsv`: output size, SHA-256, Build ID, and SONAME;
+- `source_checkout_integrity.txt`: before/after source checkout proof;
+- `reproducibility_stage.txt`: staged file and SHA-256 verification;
+- `reproducible_build.log`: the complete isolated build log.
+
 ## 2026-07-02 GPU Prefill Preinvoke Diagnostic Artifact
 
 The Build PC `build-qairt244-custom-jni` path now rebuilds from fetchable
