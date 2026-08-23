@@ -14,6 +14,10 @@ private data class MarkdownFence(
     val length: Int,
 )
 
+private const val LOCAL_DEGENERATE_REPETITION_MIN_SPAN_CODE_POINTS = 12
+private const val LOCAL_DEGENERATE_REPETITION_MIN_COUNT = 4
+private const val LOCAL_DEGENERATE_REPETITION_MAX_UNIT_CODE_POINTS = 12
+
 internal fun localInferenceResponseRejectionReason(
     userPrompt: String,
     response: String?,
@@ -22,6 +26,7 @@ internal fun localInferenceResponseRejectionReason(
     if (finalResponse.isBlank()) return "blank_response"
 
     val prose = proseOutsideClosedMarkdownCode(finalResponse)
+    if (hasDegenerateConsecutiveRepetition(prose)) return "degenerate_repetition"
     if (!containsCjkLetter(userPrompt) && !containsCjkLetter(prose)) return null
 
     val unexpected = LocalUnexpectedScript.entries.filter { target ->
@@ -32,6 +37,7 @@ internal fun localInferenceResponseRejectionReason(
 }
 
 internal fun acceptedLocalInferenceResponse(
+    userPrompt: String,
     successfulBackend: String?,
     response: String?,
 ): String? {
@@ -40,7 +46,61 @@ internal fun acceptedLocalInferenceResponse(
         ?.uppercase(Locale.US)
         ?.takeIf { it == "GPU" || it == "CPU" }
         ?: return null
-    return response?.trim()?.takeIf { it.isNotBlank() }
+    val finalResponse = response?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    return finalResponse.takeIf {
+        localInferenceResponseRejectionReason(userPrompt, finalResponse) == null
+    }
+}
+
+private fun hasDegenerateConsecutiveRepetition(text: String): Boolean {
+    val points = codePoints(text).toList()
+    if (points.size < LOCAL_DEGENERATE_REPETITION_MIN_SPAN_CODE_POINTS) return false
+
+    for (start in points.indices) {
+        val remaining = points.size - start
+        val maxUnitLength = minOf(
+            LOCAL_DEGENERATE_REPETITION_MAX_UNIT_CODE_POINTS,
+            remaining / LOCAL_DEGENERATE_REPETITION_MIN_COUNT,
+        )
+        for (unitLength in 1..maxUnitLength) {
+            if (!containsLetter(points, start, unitLength)) continue
+            val minimumRepeatCount = maxOf(
+                LOCAL_DEGENERATE_REPETITION_MIN_COUNT,
+                (LOCAL_DEGENERATE_REPETITION_MIN_SPAN_CODE_POINTS + unitLength - 1) / unitLength,
+            )
+            var repeatCount = 1
+            while (
+                start + (repeatCount + 1) * unitLength <= points.size &&
+                codePointRegionsEqual(
+                    points = points,
+                    firstStart = start,
+                    secondStart = start + repeatCount * unitLength,
+                    length = unitLength,
+                )
+            ) {
+                repeatCount += 1
+            }
+            if (repeatCount >= minimumRepeatCount) return true
+        }
+    }
+    return false
+}
+
+private fun containsLetter(
+    points: List<Int>,
+    start: Int,
+    length: Int,
+): Boolean = (start until start + length).any { index ->
+    Character.isLetter(points[index])
+}
+
+private fun codePointRegionsEqual(
+    points: List<Int>,
+    firstStart: Int,
+    secondStart: Int,
+    length: Int,
+): Boolean = (0 until length).all { offset ->
+    points[firstStart + offset] == points[secondStart + offset]
 }
 
 private fun containsCjkLetter(text: String): Boolean =

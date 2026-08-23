@@ -227,6 +227,37 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `safe greeting fallback bypasses the generic GPU CPU chain`() {
+        val result = s1EmptyAfterSanitizeFailureResult()
+        val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+            userPrompt = "こんにちは",
+            result = result,
+        )
+
+        assertFalse(
+            shouldRunNpuStandardRouteGenericFallback(
+                result = result,
+                transientFallback = fallback,
+                localStopRequested = false,
+            ),
+        )
+        assertTrue(
+            shouldRunNpuStandardRouteGenericFallback(
+                result = result,
+                transientFallback = null,
+                localStopRequested = false,
+            ),
+        )
+        assertFalse(
+            shouldRunNpuStandardRouteGenericFallback(
+                result = result,
+                transientFallback = null,
+                localStopRequested = true,
+            ),
+        )
+    }
+
+    @Test
     fun `safe greeting fallback also handles mixed language failure reason`() {
         val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
             userPrompt = "こんばんは",
