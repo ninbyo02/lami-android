@@ -5129,11 +5129,23 @@ fun Home(
                                                             !shouldFallbackNpuFailure
                                                         ) {
                                                             npuStandardRouteS1FallbackText = null
-                                                            finalizeStreamingAssistantFailureSerialized(
-                                                                chatId = currentChatId,
-                                                                response = npuFailureAssistantText,
-                                                                localSourceSummary = s1DisplayTextForDev,
-                                                            )
+                                                            if (shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(s1Fallback)) {
+                                                                finalizeStreamingAssistantMessageSerialized(
+                                                                    chatId = currentChatId,
+                                                                    response = npuFailureAssistantText,
+                                                                    localSourceSummary = s1DisplayTextForDev,
+                                                                )
+                                                            } else {
+                                                                finalizeStreamingAssistantFailureSerialized(
+                                                                    chatId = currentChatId,
+                                                                    response = npuFailureAssistantText,
+                                                                    localSourceSummary = s1DisplayTextForDev,
+                                                                )
+                                                            }
+                                                            localStreamingResponseText = null
+                                                            streamingResponseTextForRender = null
+                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            return@launch
                                                         }
                                                         npuStandardRouteS1DevTraceText = if (
                                                             BuildConfig.DEBUG &&
@@ -17264,6 +17276,12 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
     return transientFallback?.text
         ?: "NPU推論の応答生成に失敗しました: ${result.reason.ifBlank { "unknown" }}"
 }
+
+internal fun shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(
+    fallback: NpuStandardRouteS1TransientFallback?,
+): Boolean =
+    fallback?.kind == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING &&
+        fallback.text.isNotBlank()
 
 internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
     userPrompt: String,

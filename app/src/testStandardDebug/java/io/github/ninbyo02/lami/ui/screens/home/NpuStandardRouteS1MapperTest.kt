@@ -111,6 +111,53 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `sanitizer rejected Korean greeting never re-enters display or TTS`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "안녕하세요.",
+                sanitizedOutput = "",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE,
+                inputPrompt = "こんにちは",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("sanitized_output_empty"))
+        assertEquals("", result.preparedOutput)
+        assertEquals("", result.displayText)
+        assertEquals("", result.usableDisplayOutput)
+        assertEquals("", result.actualDisplayText)
+        assertEquals("", result.ttsText)
+    }
+
+    @Test
+    fun `Japanese greeting uses explicit Japanese response rewrite and short token budget`() {
+        val prompt = "こんにちは"
+
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(prompt)
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = prompt,
+            maxOutputTokens = 4096,
+        )
+
+        assertFalse(rewrite.arithmeticPromptDetected)
+        assertTrue(rewrite.shortPromptRewriteApplied)
+        assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの挨拶は「$prompt」です。"))
+        assertTrue(rewrite.rewrittenPromptText.contains("短く自然な日本語で挨拶を返してください。"))
+        assertEquals(prompt, request.userPrompt)
+        assertEquals(128, request.maxOutputTokens)
+        assertEquals(
+            NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT,
+            NpuStandardRouteS1Contract.maxOutputTokensClampReasonForPrompt(
+                userPrompt = prompt,
+                requestedMaxOutputTokens = 4096,
+                effectiveMaxOutputTokens = 128,
+            ),
+        )
+    }
+
+    @Test
     fun `non arithmetic prompt keeps TTS text equal to actual display text`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(

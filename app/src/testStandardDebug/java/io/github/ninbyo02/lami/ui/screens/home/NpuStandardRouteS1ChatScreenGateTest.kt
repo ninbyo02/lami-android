@@ -211,6 +211,22 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `safe greeting fallback completes a user visible assistant response`() {
+        val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+            userPrompt = "こんにちは",
+            result = s1EmptyAfterSanitizeFailureResult(),
+        )
+        val genericFailureFallback = NpuStandardRouteS1TransientFallback(
+            text = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+            kind = "generic_failure_fallback",
+        )
+
+        assertTrue(shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(fallback))
+        assertFalse(shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(genericFailureFallback))
+        assertFalse(shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(null))
+    }
+
+    @Test
     fun `safe greeting fallback also handles mixed language failure reason`() {
         val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
             userPrompt = "こんばんは",

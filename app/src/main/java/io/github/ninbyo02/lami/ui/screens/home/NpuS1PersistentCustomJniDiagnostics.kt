@@ -664,7 +664,14 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
     sanitizedOutput: String,
     inputPrompt: String = "",
 ): NpuS1PersistentCustomJniQualityCandidateResult {
-    val source = sanitizedOutput.ifBlank { rawOutput }
+    val rawRecoveryAllowed = sanitizedOutput.isBlank() &&
+        hasSafeNpuS1EndOfTurnVariant(rawOutput) &&
+        !containsNpuS1Hangul(rawOutput)
+    val source = when {
+        sanitizedOutput.isNotBlank() -> sanitizedOutput
+        rawRecoveryAllowed -> rawOutput
+        else -> ""
+    }
     val cleanupSource = removeSafeNpuS1EndOfTurnVariants(source)
     val cleanupRaw = removeSafeNpuS1EndOfTurnVariants(rawOutput)
     val cleanupSanitized = removeSafeNpuS1EndOfTurnVariants(sanitizedOutput)
@@ -793,6 +800,11 @@ private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakIgnoredForDisplay,
     )
 }
+
+private fun containsNpuS1Hangul(text: String): Boolean =
+    text.codePoints().anyMatch { codePoint ->
+        Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HANGUL
+    }
 
 private fun removeSafeNpuS1EndOfTurnVariants(text: String): String {
     if (!hasSafeNpuS1EndOfTurnVariant(text)) return text

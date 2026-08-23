@@ -126,9 +126,11 @@ internal data class NpuStandardRouteS1Result(
         get() = stripLeadingPromptEchoForDisplay(outputQualityCandidate.preparedOutput)
 
     val usableDisplayOutput: String
-        get() = preparedOutput
-            .ifBlank { stripLeadingPromptEchoForDisplay(sanitizedOutput) }
-            .ifBlank { stripLeadingPromptEchoForDisplay(rawOutput.trim()) }
+        get() = if (outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+            preparedOutput.ifBlank { stripLeadingPromptEchoForDisplay(sanitizedOutput) }
+        } else {
+            ""
+        }
 
     val actualDisplayText: String
         get() = stripLeadingPromptEchoForDisplay(usableDisplayOutput)
@@ -243,12 +245,17 @@ internal object NpuStandardRouteS1Contract {
     fun rewritePromptForNative(userPrompt: String): NpuStandardRouteS1PromptRewrite {
         val normalizedPrompt = userPrompt.trim()
         val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
+        val greetingPromptDetected = isSimpleGreetingPrompt(normalizedPrompt)
         val ambiguousShortPromptDetected = isAmbiguousShortPrompt(normalizedPrompt)
         val rewrittenPrompt = when {
             arithmeticPromptDetected ->
                 "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
                     "問題: $normalizedPrompt\n" +
                     "答え:"
+            greetingPromptDetected ->
+                "ユーザーの挨拶は「$normalizedPrompt」です。\n" +
+                    "短く自然な日本語で挨拶を返してください。\n" +
+                    "回答だけを出力してください。"
             ambiguousShortPromptDetected ->
                 "ユーザーの入力は「$normalizedPrompt」です。\n" +
                     "入力の続きを自然に促す、短い日本語の返答をしてください。\n" +
@@ -259,7 +266,8 @@ internal object NpuStandardRouteS1Contract {
             originalPrompt = normalizedPrompt,
             finalPromptText = "<start_of_turn>user\n$rewrittenPrompt<end_of_turn>\n<start_of_turn>model",
             arithmeticPromptDetected = arithmeticPromptDetected,
-            shortPromptRewriteApplied = arithmeticPromptDetected || ambiguousShortPromptDetected,
+            shortPromptRewriteApplied =
+                arithmeticPromptDetected || greetingPromptDetected || ambiguousShortPromptDetected,
             rewrittenPromptText = rewrittenPrompt,
         )
     }
@@ -292,6 +300,16 @@ internal object NpuStandardRouteS1Contract {
             "1+1は?",
         )
 
+    private fun isSimpleGreetingPrompt(prompt: String): Boolean =
+        prompt.lowercase() in setOf(
+            "こんにちは",
+            "おはよう",
+            "こんばんは",
+            "ハロー",
+            "hello",
+            "hi",
+        )
+
     private fun isAmbiguousShortPrompt(prompt: String): Boolean =
         prompt.isNotEmpty() && prompt.codePointCount(0, prompt.length) <= AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS
 
@@ -322,7 +340,7 @@ internal object NpuStandardRouteS1Contract {
     }
 
     private fun usesShortPromptTokenLimit(prompt: String): Boolean =
-        isAmbiguousShortPrompt(prompt)
+        isAmbiguousShortPrompt(prompt) || isSimpleGreetingPrompt(prompt)
 
     const val MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT = "short_prompt_limit"
     private const val AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS = 2

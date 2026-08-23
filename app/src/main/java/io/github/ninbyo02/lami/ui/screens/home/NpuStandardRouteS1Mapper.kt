@@ -47,9 +47,11 @@ internal object NpuStandardRouteS1Mapper {
             sanitizedOutput = sanitizedOutput,
             inputPrompt = raw.inputPrompt,
         )
-        val displayText = qualityCandidate.preparedOutput
-            .ifBlank { sanitizedOutput }
-            .ifBlank { raw.rawOutput.trim() }
+        val displayText = if (qualityCandidate.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+            qualityCandidate.preparedOutput.ifBlank { sanitizedOutput }
+        } else {
+            ""
+        }
         val selection = NpuStandardRouteS1Selection(
             enabled = true,
             requestedMaxOutputTokens = raw.requestedMaxOutputTokens,
