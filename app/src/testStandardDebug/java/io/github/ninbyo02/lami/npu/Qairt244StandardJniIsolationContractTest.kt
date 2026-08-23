@@ -16,8 +16,11 @@ class Qairt244StandardJniIsolationContractTest {
         } ?: error("could not locate app/build.gradle.kts containing the qairt244 Standard Debug overlay")
         val text = buildFile.readText()
 
-        assertTrue(text.contains("getByName(\"standardDebug\")"))
-        assertTrue(text.contains("generated/qairt244StandardDebugJniLibs"))
+        val standardDebugGeneratedSourceSet = Regex(
+            pattern = """(?:maybeCreate|getByName)\("standardDebug"\)[^{]*\{[^}]*generated/qairt244StandardDebugJniLibs""",
+            option = RegexOption.DOT_MATCHES_ALL,
+        )
+        assertTrue(standardDebugGeneratedSourceSet.containsMatchIn(text))
         assertTrue(text.contains("tasks.register(\"stageQairt244StandardDebugNativeLibs\")"))
         assertTrue(text.contains("tasks.register(\"overlayQairt244StandardDebugNativeLibs\")"))
         assertTrue(text.contains("tasks.register(\"overlayQairt244StandardDebugStrippedNativeLibs\")"))
@@ -29,12 +32,10 @@ class Qairt244StandardJniIsolationContractTest {
         assertTrue(text.contains("liblami_qairt244_npu_jni.so"))
         assertTrue(text.contains("nativeRunEditablePrompt"))
 
-        // Packaging must depend on the isolated overlay path; Standard must not point its
-        // source set directly at the custom-build experiment jniLibs directory.
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugNativeLibs\")"))
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugStrippedNativeLibs\")"))
         val standardDebugBlockDirectCustomJni = Regex(
-            pattern = """getByName\("standardDebug"\)\s*\{[^}]*src/customBuildExperimentDebug/jniLibs""",
+            pattern = """(?:maybeCreate|getByName)\("standardDebug"\)[^{]*\{[^}]*src/customBuildExperimentDebug/jniLibs""",
             option = RegexOption.DOT_MATCHES_ALL,
         )
         assertFalse(standardDebugBlockDirectCustomJni.containsMatchIn(text))
