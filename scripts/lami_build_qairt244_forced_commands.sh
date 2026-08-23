@@ -169,114 +169,6 @@ lami_qairt244_print_source_marker_stage_diagnostic() {
     "$stage" "$file" "$sha" "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" "$marker_present" >&2
 }
 
-lami_qairt244_ensure_litert_lm_checkout() {
-  local checkout
-  checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
-  if [[ -z "$checkout" ]]; then
-    checkout="$(lami_qairt244_default_litert_lm_checkout)"
-    mkdir -p "$(dirname "$checkout")"
-    echo "cloning LiteRT-LM into $checkout" >&2
-    git clone "$LITERT_LM_REPO" "$checkout" >&2
-  fi
-
-  if [[ ! -d "$checkout/.git" ]]; then
-    echo "LiteRT-LM checkout is not a git repo: $checkout" >&2
-    exit 65
-  fi
-
-  git -C "$checkout" fetch --tags origin >&2
-  local selected_commit
-  selected_commit="$(git -C "$checkout" rev-parse --verify "${LITERT_LM_REF}^{commit}")" || {
-    echo "LiteRT-LM ref is not a fetchable commit/tree: $LITERT_LM_REF" >&2
-    exit 65
-  }
-  if ! git -C "$checkout" for-each-ref --contains "$selected_commit" \
-      refs/remotes/origin refs/tags | grep -q .; then
-    echo "LiteRT-LM commit is not reachable from fetched origin refs/tags: $selected_commit ($LITERT_LM_REF)" >&2
-    exit 65
-  fi
-  echo "selected_litert_lm_ref=$LITERT_LM_REF" >&2
-  echo "selected_litert_lm_commit=$selected_commit" >&2
-  git -C "$checkout" checkout --detach "$selected_commit" >&2
-  git -C "$checkout" reset --hard "$selected_commit" >&2
-  git -C "$checkout" clean -fdx >&2
-
-  if git -C "$checkout" lfs version >/dev/null 2>&1; then
-    git -C "$checkout" lfs pull >&2
-  fi
-
-  local gemma_provider="$checkout/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
-  if [[ -f "$gemma_provider" ]] && head -n 1 "$gemma_provider" 2>/dev/null | grep -q 'git-lfs.github.com/spec'; then
-    echo "LiteRT-LM LFS object is not materialized: $gemma_provider" >&2
-    echo "Install git-lfs and run: git -C $checkout lfs pull" >&2
-    exit 65
-  fi
-
-  if [[ ! -f "$QAIRT244_PATCH" ]]; then
-    echo "missing qairt244 patch: $QAIRT244_PATCH" >&2
-    exit 65
-  fi
-  echo "applying qairt244 base patch: $QAIRT244_PATCH" >&2
-  if git -C "$checkout" apply --check "$QAIRT244_PATCH"; then
-    echo "qairt244_base_patch_check=ok" >&2
-    git -C "$checkout" apply "$QAIRT244_PATCH"
-  else
-    echo "qairt244 patch does not apply cleanly to $LITERT_LM_REF" >&2
-    exit 65
-  fi
-
-  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]]; then
-    if [[ ! -f "$QAIRT244_EXTRA_PATCH" ]]; then
-      echo "missing qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
-      exit 65
-    fi
-    echo "applying qairt244 extra patch: $QAIRT244_EXTRA_PATCH" >&2
-    if git -C "$checkout" apply --check "$QAIRT244_EXTRA_PATCH"; then
-      echo "qairt244_extra_patch_check_after_base=ok" >&2
-      git -C "$checkout" apply "$QAIRT244_EXTRA_PATCH"
-    else
-      echo "qairt244 extra patch does not apply cleanly to $LITERT_LM_REF after base patch" >&2
-      exit 65
-    fi
-  fi
-
-  if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' \
-    "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
-    echo "patched LiteRT-LM checkout is missing nativeRunEditablePrompt marker" >&2
-    exit 65
-  fi
-  if [[ "$QAIRT244_REQUIRE_PERSISTENT_PROBE" == "true" ]]; then
-    if ! grep -q 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' \
-      "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
-      echo "patched LiteRT-LM checkout is missing nativeRunPersistentProbe marker" >&2
-      exit 65
-    fi
-  fi
-  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
-     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
-     ! grep -q "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
-       "$checkout/runtime/executor/llm_litert_compiled_model_executor.cc"; then
-    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER executor marker" >&2
-    exit 65
-  fi
-  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
-     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]] &&
-     ! grep -q "$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER" \
-       "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"; then
-    echo "patched LiteRT-LM checkout is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER JNI marker" >&2
-    exit 65
-  fi
-  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]] &&
-     [[ "$(basename "$QAIRT244_EXTRA_PATCH")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]]; then
-    lami_qairt244_print_source_marker_stage_diagnostic \
-      "patched-source-after-apply-executor" \
-      "$checkout/runtime/executor/llm_litert_compiled_model_executor.cc"
-    lami_qairt244_print_source_marker_stage_diagnostic \
-      "patched-source-after-apply-jni" \
-      "$checkout/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
-  fi
-  printf '%s\n' "$checkout"
-}
 
 lami_qairt244_resolve_qairt_root() {
   if [[ -n "${QAIRT244_ROOT:-}" && -d "$QAIRT244_ROOT" ]]; then
@@ -578,67 +470,63 @@ lami_qairt244_build_custom_jni() {
   mkdir -p "$LOG_DIR"
   local timestamp
   timestamp="$(date +%Y%m%d-%H%M%S)"
-  local litert_lm_checkout
+  local source_checkout
   local qairt_root
-  litert_lm_checkout="$(lami_qairt244_ensure_litert_lm_checkout)"
+  source_checkout="$(lami_qairt244_resolve_litert_lm_checkout || true)"
+  if [[ -z "$source_checkout" ]]; then
+    source_checkout="$(lami_qairt244_default_litert_lm_checkout)"
+    mkdir -p "$(dirname "$source_checkout")"
+    echo "cloning LiteRT-LM source mirror into $source_checkout" >&2
+    git clone "$LITERT_LM_REPO" "$source_checkout" >&2
+  fi
   qairt_root="$(lami_qairt244_resolve_qairt_root || true)"
   if [[ -z "$qairt_root" ]]; then
     echo "missing QAIRT 2.44 root; checked: $HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225, /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225" >&2
-    exit 65
+    return 65
   fi
 
-  local artifact_dir="$LITERT_CUSTOM_ARTIFACT_ROOT/${timestamp}_${QAIRT244_BUILD_LABEL}"
   local log_file="$LOG_DIR/build-qairt244-custom-jni-${timestamp}.log"
+  local -a rebuild_args=(
+    --source-checkout "$source_checkout"
+    --selected-ref "$LITERT_LM_REF"
+    --expected-commit "${LITERT_LM_EXPECTED_COMMIT:-c87189528a758db32ead241f4fc9c64836398ee7}"
+    --base-patch "$QAIRT244_PATCH"
+    --qairt-root "$qairt_root"
+    --label "$QAIRT244_BUILD_LABEL"
+    --require-persistent-probe "$QAIRT244_REQUIRE_PERSISTENT_PROBE"
+    --artifact-dir "$LITERT_CUSTOM_ARTIFACT_ROOT/${timestamp}_${QAIRT244_BUILD_LABEL}"
+  )
+  if [[ -n "${QAIRT244_EXTRA_PATCH:-}" ]]; then
+    rebuild_args+=(--extra-patch "$QAIRT244_EXTRA_PATCH")
+  else
+    rebuild_args+=(--extra-patch "")
+  fi
 
+  local had_errexit=false
+  [[ $- == *e* ]] && had_errexit=true
+  set +e
   {
     echo "== LAMI build qairt244 custom JNI =="
     echo "time=$(date -Is)"
     echo "host=$(hostname)"
     echo "user=$(id -un)"
-    echo "litert_lm_checkout=$litert_lm_checkout"
+    echo "source_checkout=$source_checkout"
     echo "selected_litert_lm_ref=$LITERT_LM_REF"
-    echo "selected_litert_lm_commit=$(git -C "$litert_lm_checkout" rev-parse HEAD)"
-    echo "selected_litert_lm_describe=$(git -C "$litert_lm_checkout" describe --tags --always --dirty)"
     echo "qairt_root=$qairt_root"
     echo "label=$QAIRT244_BUILD_LABEL"
     echo "base_patch=$QAIRT244_PATCH"
     echo "extra_patch=${QAIRT244_EXTRA_PATCH:-<none>}"
     echo "require_persistent_probe=$QAIRT244_REQUIRE_PERSISTENT_PROBE"
-    echo "required_marker=$QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
-    echo "required_c_symbol=$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL"
-    echo "required_jni_symbol=$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL"
+    echo "artifact_root=$LITERT_CUSTOM_ARTIFACT_ROOT"
+    echo "isolated_worktree=true"
     cd "$REPO"
-    OUT_DIR="$artifact_dir" \
-      BAZEL_OUTPUT_BASE="$HOME/project/litert-custom-build/bazel_output_base/build_$timestamp" \
-      scripts/build_litert_custom_artifacts.sh \
-        "$litert_lm_checkout" \
-        --qairt-root "$qairt_root" \
-        --label "$QAIRT244_BUILD_LABEL"
-    lami_qairt244_artifact_has_symbol "$artifact_dir"
-    if [[ "${QAIRT244_BUILD_LABEL}" == *gpu_prefill_preinvoke_diag* ]]; then
-      lami_qairt244_print_artifact_marker_stage_diagnostic \
-        "forced-command-final-liblitertlm_jni" \
-        "$artifact_dir/built_libs/liblitertlm_jni.so"
-      lami_qairt244_artifact_has_gpu_prefill_preinvoke_marker "$artifact_dir" || {
-        lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir" >&2 || true
-        lami_qairt244_print_artifact_marker_stage_diagnostic \
-          "forced-command-final-liblitertlm_jni-failed" \
-          "$artifact_dir/built_libs/liblitertlm_jni.so" >&2 || true
-        echo "artifact is missing $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER in built_libs/liblitertlm_jni.so: $artifact_dir" >&2
-        exit 65
-      }
-      lami_qairt244_print_gpu_prefill_preinvoke_marker_evidence "$artifact_dir"
-      echo "gpu_prefill_preinvoke_marker_present=true"
-      echo "gpu_prefill_preinvoke_marker_check=strings $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
-      echo "gpu_prefill_preinvoke_marker_readelf_check=readelf -p .rodata $artifact_dir/built_libs/liblitertlm_jni.so | grep -F $QAIRT244_GPU_PREFILL_PREINVOKE_MARKER"
-      echo "gpu_prefill_preinvoke_symbol_check=readelf -Ws $artifact_dir/built_libs/liblitertlm_jni.so | grep -E '$QAIRT244_GPU_PREFILL_PREINVOKE_C_SYMBOL|$QAIRT244_GPU_PREFILL_PREINVOKE_JNI_SYMBOL'"
-    fi
-    scripts/stage_litert_custom_build_stack_for_experiment.sh "${artifact_dir#$REPO/}"
-    lami_qairt244_artifact_has_symbol "$artifact_dir"
-    echo "== BUILD+STAGE OK =="
+    scripts/rebuild_qairt244_standard_debug_native_stack.sh "${rebuild_args[@]}"
   } 2>&1 | tee "$log_file"
+  local build_rc="${PIPESTATUS[0]}"
+  [[ "$had_errexit" == true ]] && set -e
 
   ln -sfn "$log_file" "$LOG_DIR/latest.log"
+  return "$build_rc"
 }
 
 lami_qairt244_choose_adb_device() {
