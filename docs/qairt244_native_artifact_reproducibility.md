@@ -491,6 +491,24 @@ max_output_tokens_range=1..64
 
 This artifact is local evidence only. Do not stage `.so` files; pass the artifact explicitly to DEV-only runners or staging scripts when native validation of internal UTF-8 prompts is required.
 
+## Clean Checkout And Hosted CI
+
+`standardDebug` remains strict by default: an NPU-capable build must stage a verified
+`liblami_qairt244_npu_jni.so` and pass the exported-symbol check.
+
+GitHub-hosted runners do not have the pinned external LiteRT-LM checkout, QAIRT 2.44 SDK,
+or local Bazel output needed to reproduce that JNI. The Android CI workflow therefore uses
+`-Plami.allowMissingQairt244Jni=true` only while linting and assembling an explicitly named
+**non-NPU smoke APK** from a clean checkout.
+
+That opt-out is intentionally narrow:
+
+- It is false by default.
+- It only bypasses a missing separated JNI file.
+- A present but invalid JNI still fails the symbol verification.
+- The resulting hosted-runner APK must never be used as NPU promotion evidence.
+- Local/device NPU validation must omit the property and stage the pinned native stack.
+
 ## Git Safety
 
 Never add these artifact or runtime file types to Git:

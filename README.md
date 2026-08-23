@@ -180,6 +180,13 @@ milestone notes.
 
 TTS support is available. ASR integration, richer sprite editing, QR sharing, and a shareable local AI personality format are planned project directions.
 
+## Platform Requirements
+
+- Android 14 or later (`minSdk 34`)
+- Compiled and targeted against Android 16 (`compileSdk 36`, `targetSdk 36`)
+- Public server endpoints must use HTTPS. Plain HTTP is accepted only for explicitly configured loopback, private LAN, link-local, or Tailscale-range endpoints.
+- CPU, GPU, and NPU availability still depends on the device, model, and runtime combination.
+
 ## Supported / Tested Devices
 
 | Device | Status | Notes |

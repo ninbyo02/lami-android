@@ -147,6 +147,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.util.DebugTraceFile
 import io.github.ninbyo02.lami.R
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.db.entity.Chat
@@ -2984,6 +2985,7 @@ fun Home(
     }
 
     fun logStreamTrace(message: String) {
+        if (!BuildConfig.DEBUG) return
         Log.i("ChatScreen", message)
         appendLocalReflectionTrace(context, message)
     }
@@ -13208,11 +13210,7 @@ private fun localReflectionTraceLine(message: String): String {
 }
 
 private fun appendLocalReflectionTrace(context: Context, message: String) {
-    runCatching {
-        val traceFile = File(context.filesDir, "debug/local_reflection_trace.log")
-        traceFile.parentFile?.mkdirs()
-        traceFile.appendText(localReflectionTraceLine(message) + "\n", Charsets.UTF_8)
-    }
+    DebugTraceFile.append(context, localReflectionTraceLine(message))
 }
 
 private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenceTrace {

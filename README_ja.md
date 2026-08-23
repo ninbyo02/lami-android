@@ -179,6 +179,13 @@ NPU Beta milestone の詳細は `docs/release_notes_npu_beta_milestone.md` を�
 
 TTSは利用可能です。ASR連携、より豊かなスプライト編集、QR共有、共有可能なローカルAIパーソナリティ形式は今後の方向性です。
 
+## 対応プラットフォーム
+
+- Android 14 以降（`minSdk 34`）
+- Android 16 を compile / target 対象とします（`compileSdk 36`、`targetSdk 36`）
+- 公開ネットワーク上のサーバーは HTTPS が必須です。平文HTTPは、ユーザーが明示設定したloopback、private LAN、link-local、Tailscaleレンジの接続先だけを許可します。
+- CPU / GPU / NPU の利用可否は、端末・モデル・ランタイムの組み合わせに依存します。
+
 ## Supported / Tested Devices
 
 | Device | Status | Notes |

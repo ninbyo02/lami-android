@@ -58,12 +58,13 @@ val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
 android {
 
     namespace = "io.github.ninbyo02.lami"
-    compileSdk = 35
+    compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "io.github.ninbyo02.lami"
         minSdk = 34
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
 
@@ -552,6 +553,11 @@ val qairt244NativeRunEditablePromptSymbol =
 val qairt244NativeRunEditablePromptSymbolRegex =
     Regex("\\bGLOBAL\\b.*\\bDEFAULT\\b.*\\b" + Regex.escape(qairt244NativeRunEditablePromptSymbol) + "\\b")
 
+val allowMissingQairt244Jni =
+    providers.gradleProperty("lami.allowMissingQairt244Jni")
+        .map { it.toBooleanStrict() }
+        .orElse(false)
+
 fun prepareQairt244StandardDebugBuildOutputForCopy(
     outputFile: File,
     allowedOutputRoots: List<File>,
@@ -984,6 +990,7 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
         },
     )
     outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
+    inputs.property("allowMissingQairt244Jni", allowMissingQairt244Jni)
 
     doLast {
         val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
@@ -1003,6 +1010,13 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             into(outputDir)
         }
         val litertLmJni = File(outputDir, "liblami_qairt244_npu_jni.so")
+        if (!litertLmJni.isFile && allowMissingQairt244Jni.get()) {
+            logger.warn(
+                "standardDebug is being assembled as an explicit non-NPU smoke artifact because " +
+                    "liblami_qairt244_npu_jni.so is not staged. Do not use this APK as NPU promotion evidence.",
+            )
+            return@doLast
+        }
         require(litertLmJni.isFile) {
             "standardDebug NPU route requires staged separated liblami_qairt244_npu_jni.so with qairt244 custom JNI symbols. Missing: ${litertLmJni.absolutePath}"
         }

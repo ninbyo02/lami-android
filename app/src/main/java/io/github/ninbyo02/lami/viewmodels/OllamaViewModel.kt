@@ -28,6 +28,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.util.RuntimeFlags
+import io.github.ninbyo02.lami.util.validateUrlFormat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,7 +60,7 @@ import java.net.URLEncoder
 import java.util.Locale
 data class ModelInfo(val name: String)
 
-private const val LEMONADE_UNLOAD_EVENT_URL = "http://192.168.52.101:8650/lemonade/unloaded"
+private const val DEFAULT_LEMONADE_UNLOAD_EVENT_URL = ""
 
 internal fun fetchAvailableModelsFromServer(
     baseUrl: String,
@@ -131,11 +132,16 @@ internal fun buildLemonadeUnloadEventJson(modelName: String, source: String = "l
 
 internal fun notifyLemonadeUnloadEvent(
     modelName: String,
-    eventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+    eventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
 ): Boolean {
     if (modelName.isBlank() || eventUrl.isBlank()) return false
+    val validation = validateUrlFormat(eventUrl)
+    if (!validation.isValid) {
+        Log.w("LemonadeUnload", "Ignored invalid unload event URL")
+        return false
+    }
     val connection = runCatching {
-        (URL(eventUrl).openConnection() as HttpURLConnection).apply {
+        (URL(validation.normalizedUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 2000
             readTimeout = 3000
@@ -207,7 +213,7 @@ internal fun resolveLoadedLemonadeModelName(
 internal fun unloadLoadedLemonadeModelFromServer(
     baseUrl: String,
     fallbackModelName: String,
-    unloadEventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+    unloadEventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
 ): Boolean {
     val loadedModelName = resolveLoadedLemonadeModelName(baseUrl)
     val targetModelName = loadedModelName?.takeIf { it.isNotBlank() } ?: fallbackModelName
@@ -226,7 +232,7 @@ internal fun unloadLoadedLemonadeModelFromServer(
 internal fun unloadLemonadeModelFromServer(
     baseUrl: String,
     modelName: String,
-    unloadEventUrl: String = LEMONADE_UNLOAD_EVENT_URL,
+    unloadEventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
 ): Boolean {
     if (modelName.isBlank()) return false
     val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)

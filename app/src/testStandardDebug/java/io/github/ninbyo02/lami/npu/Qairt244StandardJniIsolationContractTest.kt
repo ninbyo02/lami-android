@@ -32,6 +32,13 @@ class Qairt244StandardJniIsolationContractTest {
         assertTrue(text.contains("liblami_qairt244_npu_jni.so"))
         assertTrue(text.contains("nativeRunEditablePrompt"))
 
+        // A clean hosted runner may opt into a deliberately non-NPU smoke APK, but the
+        // default and every staged-but-invalid JNI remain strict.
+        assertTrue(text.contains("lami.allowMissingQairt244Jni"))
+        assertTrue(text.contains("if (!litertLmJni.isFile && allowMissingQairt244Jni.get())"))
+        assertTrue(text.contains("Do not use this APK as NPU promotion evidence"))
+        assertTrue(text.contains("require(litertLmJni.isFile)"))
+
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugNativeLibs\")"))
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugStrippedNativeLibs\")"))
         val standardDebugBlockDirectCustomJni = Regex(

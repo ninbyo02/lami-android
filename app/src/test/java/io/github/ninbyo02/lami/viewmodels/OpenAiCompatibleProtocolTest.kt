@@ -80,6 +80,18 @@ class OpenAiCompatibleProtocolTest {
         assertEquals(15 * 60 * 1000L, LemonadeAutoUnloadMode.AFTER_15_MIN.delayMs)
         assertNull(LemonadeAutoUnloadMode.OFF.delayMs)
     }
+
+    @Test
+    fun `Lemonade unload event bridge is opt in and rejects public cleartext URLs`() {
+        assertFalse(notifyLemonadeUnloadEvent(modelName = "Gemma-4"))
+        assertFalse(
+            notifyLemonadeUnloadEvent(
+                modelName = "Gemma-4",
+                eventUrl = "http://example.com:8650/lemonade/unloaded",
+            ),
+        )
+    }
+
     @Test
     fun `builds Lemonade unload event payload`() {
         val payload = JSONObject(buildLemonadeUnloadEventJson("Gemma-4"))
