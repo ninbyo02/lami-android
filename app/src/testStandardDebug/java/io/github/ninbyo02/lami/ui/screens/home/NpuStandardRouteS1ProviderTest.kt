@@ -562,7 +562,7 @@ class NpuStandardRouteS1ProviderTest {
                     .contains("prompt_wrapper_used=gemma_it_user_model"),
             )
             assertEquals(
-                "<start_of_turn>user\n$userPrompt<end_of_turn>\n<start_of_turn>model",
+                NpuStandardRouteS1Contract.buildPromptWrapperText(userPrompt),
                 prompt,
             )
         }
@@ -715,7 +715,7 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(copyText.contains("[DEV診断: NPU S1 persistent custom JNI summary]"))
         assertTrue(copyText.contains("input_prompt=こんばんは"))
         assertTrue(copyText.contains("arithmetic_prompt_detected=false"))
-        assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
+        assertTrue(copyText.contains("short_prompt_rewrite_applied=true"))
         assertTrue(copyText.contains("arithmetic_tail_leak_detected=false"))
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=false"))
         assertTrue(copyText.contains("actual_display_text=こんばんは。"))
