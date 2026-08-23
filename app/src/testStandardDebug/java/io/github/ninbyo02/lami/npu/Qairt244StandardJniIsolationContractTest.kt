@@ -8,8 +8,12 @@ import org.junit.Test
 class Qairt244StandardJniIsolationContractTest {
     @Test
     fun `standard debug uses isolated generated qairt jni overlay`() {
-        val buildFile = File("build.gradle.kts")
-        assertTrue("app/build.gradle.kts must be readable from the app test working directory", buildFile.isFile)
+        val buildFile = sequenceOf(
+            File("app/build.gradle.kts"),
+            File("build.gradle.kts"),
+        ).firstOrNull { candidate ->
+            candidate.isFile && candidate.readText().contains("qairt244StandardDebugJniLibs")
+        } ?: error("could not locate app/build.gradle.kts containing the qairt244 Standard Debug overlay")
         val text = buildFile.readText()
 
         assertTrue(text.contains("getByName(\"standardDebug\")"))
@@ -29,10 +33,10 @@ class Qairt244StandardJniIsolationContractTest {
         // source set directly at the custom-build experiment jniLibs directory.
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugNativeLibs\")"))
         assertTrue(text.contains("dependsOn(\"overlayQairt244StandardDebugStrippedNativeLibs\")"))
-        assertFalse(
-            text.contains(
-                "getByName(\"standardDebug\") {\n            jniLibs.srcDir(\"src/customBuildExperimentDebug/jniLibs\")",
-            ),
+        val standardDebugBlockDirectCustomJni = Regex(
+            pattern = """getByName\("standardDebug"\)\s*\{[^}]*src/customBuildExperimentDebug/jniLibs""",
+            option = RegexOption.DOT_MATCHES_ALL,
         )
+        assertFalse(standardDebugBlockDirectCustomJni.containsMatchIn(text))
     }
 }
