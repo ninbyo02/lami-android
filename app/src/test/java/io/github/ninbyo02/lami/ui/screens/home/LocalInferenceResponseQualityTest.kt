@@ -18,6 +18,48 @@ class LocalInferenceResponseQualityTest {
     }
 
     @Test
+    fun `observed Japanese response with a repeated Korean tail is rejected`() {
+        val response = buildString {
+            append("いかがお過ごしでしょうか。皆さんの毎日が元気と喜びで満たされることを願っています。")
+            append("\n\n何かお手伝いできることがあれば、")
+            repeat(48) { append("든지") }
+        }
+
+        assertEquals(
+            "degenerate_repetition",
+            rejectionReason(
+                userPrompt = "こんにちは",
+                response = response,
+            ),
+        )
+    }
+
+    @Test
+    fun `short natural emphasis is not classified as degenerate repetition`() {
+        assertNull(
+            rejectionReason(
+                userPrompt = "日本語で挨拶して",
+                response = "とてもとても嬉しいです。こんにちは。",
+            ),
+        )
+    }
+
+    @Test
+    fun `repetition inside a closed code fence is excluded from prose quality checks`() {
+        assertNull(
+            rejectionReason(
+                userPrompt = "Unicodeのテストデータをコードとして示して",
+                response = """
+                    次の文字列をテストデータとして使えます。
+                    ```text
+                    ${"든지".repeat(48)}
+                    ```
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
     fun `Japanese technical prose with Latin terms remains accepted`() {
         assertNull(
             rejectionReason(
@@ -253,6 +295,31 @@ class LocalInferenceResponseQualityTest {
     }
 
     @Test
+    fun `GPU repeated Korean tail is rejected and CPU Japanese answer is selected`() = runBlocking {
+        val calls = mutableListOf<String>()
+        val badGpuResponse = "日本語の前置きです。" + "든지".repeat(48)
+        val chain = runInferenceBackendChain(
+            attempts = listOf(
+                InferenceBackendChainAttempt("GPU") {
+                    calls += "GPU"
+                    badGpuResponse
+                },
+                InferenceBackendChainAttempt("CPU") {
+                    calls += "CPU"
+                    "こんにちは。今日は何をお手伝いしましょうか。"
+                },
+            ),
+            shouldFallback = { response ->
+                rejectionReason("こんにちは", response) != null
+            },
+        )
+
+        assertEquals(listOf("GPU", "CPU"), calls)
+        assertEquals("CPU", chain.successfulBackend)
+        assertEquals("こんにちは。今日は何をお手伝いしましょうか。", chain.result)
+    }
+
+    @Test
     fun `GPU and CPU contamination leave no accepted response`() = runBlocking {
         val chain = runInferenceBackendChain(
             attempts = listOf(
@@ -274,6 +341,17 @@ class LocalInferenceResponseQualityTest {
     }
 
     @Test
+    fun `successful backend is revalidated before its response is accepted`() {
+        assertNull(
+            acceptedResponse(
+                userPrompt = "こんにちは",
+                successfulBackend = "GPU",
+                response = "日本語の前置きです。" + "든지".repeat(48),
+            ),
+        )
+    }
+
+    @Test
     fun `rejected nonblank result is never accepted without a successful backend`() {
         assertNull(
             acceptedResponse(
@@ -290,6 +368,14 @@ class LocalInferenceResponseQualityTest {
     private fun rejectionReason(userPrompt: String, response: String?): String? =
         localInferenceResponseRejectionReason(userPrompt, response)
 
-    private fun acceptedResponse(successfulBackend: String?, response: String?): String? =
-        acceptedLocalInferenceResponse(successfulBackend, response)
+    private fun acceptedResponse(
+        userPrompt: String = "日本語で答えて",
+        successfulBackend: String?,
+        response: String?,
+    ): String? =
+        acceptedLocalInferenceResponse(
+            userPrompt = userPrompt,
+            successfulBackend = successfulBackend,
+            response = response,
+        )
 }

@@ -5106,17 +5106,20 @@ fun Home(
                                                             s1Result.displayText
                                                         }
                                                         val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
-                                                        val shouldFallbackNpuFailure =
-                                                            shouldFallbackNpuStandardRouteFailureToLocal(s1Result) &&
-                                                                !localStopRequested
-                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
-                                                            shouldFallbackNpuFailure
-                                                        npuStandardRouteS1DisplayText =
-                                                            s1RouteDisplayText.takeUnless { shouldFallbackNpuFailure }
                                                         val s1Fallback = resolveNpuStandardRouteS1Fallback(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
                                                         )
+                                                        val shouldFallbackNpuFailure =
+                                                            shouldRunNpuStandardRouteGenericFallback(
+                                                                result = s1Result,
+                                                                transientFallback = s1Fallback,
+                                                                localStopRequested = localStopRequested,
+                                                            )
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
+                                                            shouldFallbackNpuFailure
+                                                        npuStandardRouteS1DisplayText =
+                                                            s1RouteDisplayText.takeUnless { shouldFallbackNpuFailure }
                                                         npuStandardRouteS1FallbackText =
                                                             s1Fallback?.text.takeUnless { shouldFallbackNpuFailure }
                                                         val npuFailureAssistantText = resolveNpuStandardRouteFailureAssistantMessage(
@@ -5257,6 +5260,7 @@ fun Home(
                                                             val finalFallbackBackend =
                                                                 fallbackChain.successfulBackend ?: "none"
                                                             val finalFallbackResponse = acceptedLocalInferenceResponse(
+                                                                userPrompt = requestPrompt,
                                                                 successfulBackend = fallbackChain.successfulBackend,
                                                                 response = finalFallbackResult.response,
                                                             ).orEmpty()
@@ -6157,6 +6161,7 @@ fun Home(
                                                                 val exceptionFallbackBackend =
                                                                     exceptionFallbackChain.successfulBackend ?: "none"
                                                                 val exceptionFallbackResponse = acceptedLocalInferenceResponse(
+                                                                    userPrompt = requestPrompt,
                                                                     successfulBackend = exceptionFallbackChain.successfulBackend,
                                                                     response = exceptionFallbackResult?.response,
                                                                 ).orEmpty()
@@ -17282,6 +17287,15 @@ internal fun shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(
 ): Boolean =
     fallback?.kind == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING &&
         fallback.text.isNotBlank()
+
+internal fun shouldRunNpuStandardRouteGenericFallback(
+    result: NpuStandardRouteS1Result,
+    transientFallback: NpuStandardRouteS1TransientFallback?,
+    localStopRequested: Boolean,
+): Boolean =
+    !localStopRequested &&
+        !shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(transientFallback) &&
+        shouldFallbackNpuStandardRouteFailureToLocal(result)
 
 internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
     userPrompt: String,
