@@ -254,9 +254,8 @@ object DevOnlyNpuOneTurnConversationContract {
         val eosDetected = values["eos_detected"].orEmpty()
         val outputTokenCount = values["output_token_count"].orEmpty()
         val promptTokenCount = values["prompt_token_count"].orEmpty()
-        val prefillMs = values["prefill_elapsed_ms"]?.toLongOrNull() ?: result.prefillMs
+        val prefillMs = values["prefill_elapsed_ms"]?.toLongOrNull()
         val nativeDecodeMs = values["decode_elapsed_ms"]?.toLongOrNull()
-            ?: result.nativeDecodeMs
             ?: result.decodeElapsedMs
         val nativeDiagnostics = NpuS1NativeStageDiagnostics(
             nativeRunId = values.devValue("native_run_id"),
