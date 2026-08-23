@@ -1,7 +1,5 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-import java.util.Locale
-
 private enum class LocalUnexpectedScript(
     val unicodeScript: Character.UnicodeScript,
 ) {
@@ -40,17 +38,12 @@ internal fun acceptedLocalInferenceResponse(
     userPrompt: String,
     successfulBackend: String?,
     response: String?,
-): String? {
-    successfulBackend
-        ?.trim()
-        ?.uppercase(Locale.US)
-        ?.takeIf { it == "GPU" || it == "CPU" }
-        ?: return null
-    val finalResponse = response?.trim()?.takeIf { it.isNotBlank() } ?: return null
-    return finalResponse.takeIf {
-        localInferenceResponseRejectionReason(userPrompt, finalResponse) == null
-    }
-}
+): String? =
+    LocalInferenceOutputPolicy.evaluateLocalCompletion(
+        userPrompt = userPrompt,
+        successfulBackend = successfulBackend,
+        response = response,
+    ).acceptedText.takeIf { it.isNotBlank() }
 
 private fun hasDegenerateConsecutiveRepetition(text: String): Boolean {
     val points = codePoints(text).toList()
