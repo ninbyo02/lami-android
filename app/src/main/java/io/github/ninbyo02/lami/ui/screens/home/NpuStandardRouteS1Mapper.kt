@@ -18,6 +18,8 @@ internal data class NpuStandardRouteS1RawResult(
     val selectedModelName: String = "",
     val selectedModelFile: String = "",
     val npuModelEligible: Boolean? = null,
+    val prefillMs: Long? = null,
+    val nativeDecodeMs: Long? = null,
     val npuS1DecodeMs: Long? = null,
     val npuS1OutputTokens: Int? = null,
     val npuS1TokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
@@ -76,14 +78,17 @@ internal object NpuStandardRouteS1Mapper {
             outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
             else -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
         }
+        val generationMs = raw.nativeDecodeMs ?: raw.npuS1DecodeMs
         val timing = NpuStandardRouteS1Timing(
-            decodeMs = raw.npuS1DecodeMs,
+            decodeMs = generationMs,
+            prefillMs = raw.prefillMs,
+            nativeDecodeMs = raw.nativeDecodeMs,
             ttftMs = null,
             outputTokens = outputTokens,
             tokenCountMode = tokenCountMode,
             tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(
                 outputTokens = outputTokens,
-                decodeMs = raw.npuS1DecodeMs,
+                decodeMs = generationMs,
             ),
         )
 
