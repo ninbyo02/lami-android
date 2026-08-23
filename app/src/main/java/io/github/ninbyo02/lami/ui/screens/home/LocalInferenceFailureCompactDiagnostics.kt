@@ -1283,13 +1283,11 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     val resolvedFailureExceptionClass = exceptionClass
         ?: parsed["failure_exception_class"]
         ?: parsed["exception class"]
-        ?: trace?.sessionAsyncPocErrorClassName
         ?: trace?.sessionTokenProbeErrorClassName
         ?: "unavailable"
     val resolvedFailureExceptionMessage = exceptionMessage
         ?: parsed["failure_exception_message"]
         ?: parsed["exception message"]
-        ?: trace?.sessionAsyncPocErrorMessage
         ?: trace?.preferredBackendApplyError
         ?: "unavailable"
     val exceptionExpansion = buildLocalFailureExceptionExpansion(
@@ -1318,7 +1316,6 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         failureStage = failureStage
             ?: parsed["failure_stage"]
             ?: parsed["failure stage"]
-            ?: trace?.sessionAsyncPocErrorStage
             ?: trace?.sessionTokenProbeErrorStage,
         timeoutStage = parsed["gpu_timeout_stage"] ?: parsed["probe_timeout_stage"],
         generateStarted = (parsed["gpu_generate_started"] ?: parsed["generate_started"])?.toBooleanStrictOrNull(),
@@ -1386,7 +1383,6 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         failureStage = failureStage
             ?: parsed["failure_stage"]
             ?: parsed["failure stage"]
-            ?: trace?.sessionAsyncPocErrorStage
             ?: trace?.sessionTokenProbeErrorStage
             ?: if (timeout) "timeout" else "unknown",
         failureExceptionClass = resolvedFailureExceptionClass,
@@ -1427,8 +1423,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
             trace?.llmInferenceCreateMethod != null ||
             trace?.createMethodSignature != null,
         localGenerateStarted = trace?.generateMethodSignature != null ||
-            trace?.officialFlowAttempted == true ||
-            trace?.sessionAsyncPocAttempted == true,
+            trace?.officialFlowAttempted == true,
         localGenerateFinished = trace?.localTraceCompletedElapsedRealtimeMs != null,
         fallbackUsed = trace?.officialFlowFallbackReason != null,
         timeout = timeout || trace?.preferredBackendApplyResult == "timeout",
