@@ -63,7 +63,6 @@ internal fun buildInferenceSummarySections(
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
-    enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
@@ -134,7 +133,6 @@ internal fun buildInferenceSummarySections(
             isLocalMinimal = isLocalMinimal,
             trace = localTraceForDev,
             stats = stats,
-            enableDevLlmSessionAsyncPoc = enableDevLlmSessionAsyncPoc,
         )
     } else {
         null
@@ -152,7 +150,6 @@ internal fun buildInferenceDetailSections(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     measuredTokenSnapshotSummary: String? = null,
-    enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
@@ -880,7 +877,7 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
                 }
-                if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
+                if (localTraceForDev != null) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
                     add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
@@ -1280,7 +1277,6 @@ private fun buildLocalInventorySectionForDev(
     isLocalMinimal: Boolean,
     trace: LocalInferenceTrace?,
     stats: InferenceStats,
-    enableDevLlmSessionAsyncPoc: Boolean,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
     val statsUiModel = createLocalInferenceStatsUiModel(trace = trace, stats = stats)
@@ -1334,25 +1330,6 @@ private fun buildLocalInventorySectionForDev(
         trace = trace,
         stats = stats,
     )
-    val sessionAsyncPocDetailItems = if (enableDevLlmSessionAsyncPoc) {
-        listOf(
-            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
-            InferenceStatItemUi(
-                label = "sessionAsyncPocResponseLength",
-                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
-            ),
-            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
-        )
-    } else {
-        emptyList()
-    }
     return InferenceStatsSectionUi(
         title = "LOCAL棚卸し（開発用）",
         items = listOf(
@@ -1465,12 +1442,10 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocEnabled", value = enableDevLlmSessionAsyncPoc.toString()),
-        ) + sessionAsyncPocDetailItems + listOf(
+        ) + listOf(
             InferenceStatItemUi(label = "assistantResponseSource", value = trace.selectedAssistantResponseSource ?: "—"),
             InferenceStatItemUi(label = "selectedAssistantResponseHead", value = trace.selectedAssistantResponseHead ?: "—"),
             InferenceStatItemUi(label = "oneShotResponseHead", value = trace.oneShotResponseHead ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocCandidateHead", value = trace.sessionAsyncPocSelectedCandidateHead ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),

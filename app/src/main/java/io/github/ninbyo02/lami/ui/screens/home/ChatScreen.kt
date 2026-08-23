@@ -224,8 +224,6 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
@@ -261,12 +259,7 @@ private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
 private const val LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS = 350L
 private const val TTS_HEADER_TALKING_GRACE_MS = 900L
-// DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
-private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
-private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-async-poc"
-private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
-private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
@@ -477,20 +470,9 @@ internal data class LocalInferenceTrace(
     val sessionTokenProbeErrorClassName: String? = null,
     val sessionListenerSignature: String? = null,
     val sessionLifecycleSignature: String? = null,
-    val sessionAsyncPocAttempted: Boolean = false,
-    val sessionAsyncPocCreateSucceeded: Boolean = false,
-    val sessionAsyncPocMethodSignature: String? = null,
-    val sessionAsyncPocFutureClassName: String? = null,
-    val sessionAsyncPocResponseLength: Int? = null,
-    val sessionAsyncPocResponseHead: String? = null,
     val selectedAssistantResponseSource: String? = null,
     val selectedAssistantResponseHead: String? = null,
     val oneShotResponseHead: String? = null,
-    val sessionAsyncPocSelectedCandidateHead: String? = null,
-    val sessionAsyncPocCloseSucceeded: Boolean? = null,
-    val sessionAsyncPocErrorStage: String? = null,
-    val sessionAsyncPocErrorClassName: String? = null,
-    val sessionAsyncPocErrorMessage: String? = null,
     val assistantUpdateCount: Int = 0,
     val streamedCharsPerSecond: Double? = null,
     val appendBatchSizeAvg: Double? = null,
@@ -12380,11 +12362,6 @@ private fun generateLiteRtResponseViaReflection(
     val sessionProbe = findSessionApiCandidate(inferenceClass = inferenceInstance.javaClass)
     Log.i("ChatScreen", "LOCAL reflection session-probe: result=${sessionProbe.result}, signature=${sessionProbe.signature}")
     val sessionMethodInventory = inspectLlmInferenceSessionMethods()
-    val sessionAsyncPocResult = tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
-        context = context,
-        inferenceInstance = inferenceInstance,
-        prompt = prompt,
-    )
     trace = trace.copy(
         streamingCandidateDetected = streamingCandidateDetected,
         listenerApiProbeResult = listenerProbe.result,
@@ -12399,17 +12376,6 @@ private fun generateLiteRtResponseViaReflection(
         sessionTokenSignature = sessionMethodInventory.tokenSignature,
         sessionListenerSignature = sessionMethodInventory.listenerSignature,
         sessionLifecycleSignature = sessionMethodInventory.lifecycleSignature,
-        sessionAsyncPocAttempted = sessionAsyncPocResult.attempted,
-        sessionAsyncPocCreateSucceeded = sessionAsyncPocResult.createSucceeded,
-        sessionAsyncPocMethodSignature = sessionAsyncPocResult.asyncMethodSignature,
-        sessionAsyncPocFutureClassName = sessionAsyncPocResult.futureClassName,
-        sessionAsyncPocResponseLength = sessionAsyncPocResult.responseLength,
-        sessionAsyncPocResponseHead = sessionAsyncPocResult.responseHead,
-        localTraceFirstResponseElapsedRealtimeMs = sessionAsyncPocResult.localTraceFirstResponseElapsedRealtimeMs,
-        sessionAsyncPocCloseSucceeded = sessionAsyncPocResult.closeSucceeded,
-        sessionAsyncPocErrorStage = sessionAsyncPocResult.errorStage,
-        sessionAsyncPocErrorClassName = sessionAsyncPocResult.errorClassName,
-        sessionAsyncPocErrorMessage = sessionAsyncPocResult.errorMessage,
     )
     Log.i(
         "ChatScreen",
@@ -12432,23 +12398,12 @@ private fun generateLiteRtResponseViaReflection(
             inferenceInstance = inferenceInstance,
             prompt = prompt,
             trace = trace,
-            sessionAsyncPocResult = sessionAsyncPocResult,
             onPartial = onPartial,
         )
         Log.i(
             "ChatScreen",
             "LOCAL reflection exit: selectedSource=${generated.trace.selectedAssistantResponseSource}, streamingDetected=$streamingCandidateDetected",
         )
-        when (generated.trace.selectedAssistantResponseSource) {
-            LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC -> appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC exit source=session-async",
-            )
-            else -> appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC exit source=oneshot-fallback",
-            )
-        }
         successReached = true
         generatedResponse = generated
     } finally {
@@ -12732,20 +12687,6 @@ private data class SessionMethodInventory(
     val lifecycleSignature: String? = null,
 )
 
-private data class DevSessionAsyncPocResult(
-    val attempted: Boolean = false,
-    val createSucceeded: Boolean = false,
-    val asyncMethodSignature: String? = null,
-    val futureClassName: String? = null,
-    val responseText: String? = null,
-    val responseLength: Int? = null,
-    val responseHead: String? = null,
-    val localTraceFirstResponseElapsedRealtimeMs: Long? = null,
-    val closeSucceeded: Boolean? = null,
-    val errorStage: String? = null,
-    val errorClassName: String? = null,
-    val errorMessage: String? = null,
-)
 
 private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
     val sessionClass = runCatching {
@@ -12868,7 +12809,7 @@ private fun findSessionApiCandidate(
     )
 }
 
-private fun tryCreateLlmInferenceSessionViaReflectionForDev(
+private fun tryCreateLlmInferenceSessionViaReflection(
     inferenceInstance: Any,
 ): Pair<Any, String?> {
     val sessionClass = Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
@@ -12887,7 +12828,7 @@ private fun tryCreateLlmInferenceSessionViaReflectionForDev(
         1 -> createMethod.invoke(null, inferenceInstance)
         2 -> {
             val optionsClass = createMethod.parameterTypes[1]
-            val options = buildSessionOptionsViaReflectionForDev(optionsClass)
+            val options = buildSessionOptionsViaReflection(optionsClass)
             createMethod.invoke(null, inferenceInstance, options)
         }
         else -> throw NoSuchMethodException("Unsupported createFromOptions signature: ${createMethod.toGenericString()}")
@@ -12895,7 +12836,7 @@ private fun tryCreateLlmInferenceSessionViaReflectionForDev(
     return created to createMethod.toGenericString()
 }
 
-private fun buildSessionOptionsViaReflectionForDev(
+private fun buildSessionOptionsViaReflection(
     optionsClass: Class<*>,
 ): Any {
     val builderFactory = optionsClass.methods.firstOrNull { method ->
@@ -12939,7 +12880,7 @@ private fun tryProbeLlmSessionTokensViaReflection(
 ): LocalSessionTokenProbeResult {
     var sessionInstance: Any? = null
     return try {
-        sessionInstance = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance).first
+        sessionInstance = tryCreateLlmInferenceSessionViaReflection(inferenceInstance).first
         val sizeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
             method.name == "sizeInTokens" &&
                 method.parameterTypes.size == 1 &&
@@ -12966,7 +12907,7 @@ private fun tryProbeLlmSessionTokensViaReflection(
     }
 }
 
-private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
+private fun sanitizeLocalResponseText(raw: String): String {
     val normalized = raw
         .replace("<end_of_turn>", "")
         .replace("\r\n", "\n")
@@ -12986,7 +12927,7 @@ private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
 
 private fun sanitizeDebugTraceHead(raw: String?): String? {
     if (raw == null) return null
-    val sanitized = sanitizeDevSessionAsyncPocResponse(raw)
+    val sanitized = sanitizeLocalResponseText(raw)
     val base = if (sanitized.isNotEmpty()) sanitized else raw.trim()
     return base.take(80)
 }
@@ -13051,7 +12992,7 @@ private fun sanitizeOneShotShortAnswerResponse(prompt: String, raw: String): Str
     if (!shortAnswerKeywords.any { prompt.contains(it) }) return raw
 
     return runCatching {
-        val normalized = sanitizeDevSessionAsyncPocResponse(raw)
+        val normalized = sanitizeLocalResponseText(raw)
         val segments = normalized
             .split("。", "!", "！", "?", "？", "\n")
             .map { it.trim() }
@@ -13078,248 +13019,6 @@ private fun sanitizeOneShotShortAnswerResponse(prompt: String, raw: String): Str
     }.getOrDefault(raw)
 }
 
-
-private fun shouldUseDevSessionAsyncPocResponse(
-    prompt: String,
-    pocResponse: String,
-    oneShotResponse: String,
-): Boolean {
-    val trimmedResponse = pocResponse.trim()
-    val trimmedOneShotResponse = oneShotResponse.trim()
-    if (trimmedResponse.isBlank()) return false
-    if (trimmedResponse.contains("<end_of_turn>")) return false
-    if (trimmedResponse.length > maxOf(oneShotResponse.length * 2, 120)) return false
-
-    val nonBlankLines = trimmedResponse.lines()
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-    if (nonBlankLines.size > 3) return false
-    if (nonBlankLines.distinct().size != nonBlankLines.size) return false
-
-    val shortAnswerKeywords = listOf(
-        "短く", "短文", "一言", "最短", "簡潔", "短く答えて", "短く回答",
-        "答えだけ", "回答だけ", "一語", "一行", "すぐ答えて", "端的に",
-    )
-    val repeatedFeatureTokens = listOf("答えは", "算数", "ですね", "2です", "ありがとうございます")
-    val hasRepeatedFeatureToken = repeatedFeatureTokens.any { token ->
-        Regex(Regex.escape(token)).findAll(trimmedResponse).count() >= 2
-    }
-    val sentenceCount = trimmedResponse
-        .split("。", "!", "！", "?", "？")
-        .map { it.trim() }
-        .count { it.isNotEmpty() }
-    val shortPhrases = trimmedResponse
-        .split("\n", "。", "!", "！", "?", "？", "、", ",", "　", " ")
-        .map { it.trim() }
-        .filter { it.length in 2..8 }
-    val hasRepeatedShortPhrase = shortPhrases.groupingBy { it }.eachCount().any { it.value >= 2 }
-    if (hasRepeatedFeatureToken || hasRepeatedShortPhrase) return false
-
-    val isShortAnswerPrompt = shortAnswerKeywords.any { prompt.contains(it) }
-    if (isShortAnswerPrompt) {
-        val hasEmoji = Regex("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]").containsMatchIn(trimmedResponse)
-        val forbiddenPolitePhrases = listOf(
-            "かしこまり", "承知", "ありがとうございます", "算数", "問題",
-            "お手伝い", "お答え", "ですね", "ます",
-        )
-        if (trimmedResponse.contains("<end_of_turn>")) return false
-        if (trimmedResponse.contains('\n')) return false
-        if (trimmedResponse.length > 12) return false
-        if (sentenceCount > 1) return false
-        if (hasEmoji) return false
-        if (forbiddenPolitePhrases.any { trimmedResponse.contains(it) }) return false
-        if (trimmedOneShotResponse.isNotEmpty() && trimmedResponse.length > trimmedOneShotResponse.length) return false
-    }
-
-    return true
-}
-
-
-private data class LocalAssistantResponseSelection(
-    val responseText: String,
-    val source: String,
-)
-
-private fun selectLocalAssistantResponse(
-    prompt: String,
-    oneShotResponse: String,
-    sessionAsyncPocResult: DevSessionAsyncPocResult,
-): LocalAssistantResponseSelection {
-    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-        return LocalAssistantResponseSelection(
-            responseText = oneShotResponse,
-            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
-        )
-    }
-    val pocResponse = sessionAsyncPocResult.responseText
-    val shouldUsePocResponse =
-        pocResponse != null &&
-            shouldUseDevSessionAsyncPocResponse(
-                prompt = prompt,
-                pocResponse = pocResponse,
-                oneShotResponse = oneShotResponse,
-            )
-    return if (shouldUsePocResponse) {
-        LocalAssistantResponseSelection(
-            responseText = pocResponse,
-            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC,
-        )
-    } else {
-        LocalAssistantResponseSelection(
-            responseText = oneShotResponse,
-            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
-        )
-    }
-}
-
-private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
-    context: Context,
-    inferenceInstance: Any,
-    prompt: String,
-): DevSessionAsyncPocResult {
-    appendLocalReflectionTrace(
-        context = context,
-        message = "DEV_POC entry enabled=$ENABLE_DEV_LLM_SESSION_ASYNC_POC",
-    )
-    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-        appendLocalReflectionTrace(context = context, message = "DEV_POC skipped reason=flag-off")
-        return DevSessionAsyncPocResult()
-    }
-
-    var sessionInstance: Any? = null
-    var closeSucceeded: Boolean? = null
-    val result = try {
-        appendLocalReflectionTrace(
-            context = context,
-            message = "DEV_POC create-session-start promptLength=${prompt.length}",
-        )
-        val (createdSession, createMethodSignature) = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance)
-        sessionInstance = createdSession
-        appendLocalReflectionTrace(
-            context = context,
-            message = "DEV_POC create-session-success method=${createMethodSignature ?: "unknown"}",
-        )
-
-        appendLocalReflectionTrace(context = context, message = "DEV_POC add-query-start promptLength=${prompt.length}")
-        val addQueryChunkMethod = createdSession.javaClass.methods.firstOrNull { method ->
-            method.name == "addQueryChunk" &&
-                method.parameterTypes.size == 1 &&
-                method.parameterTypes[0] == String::class.java
-        } ?: throw NoSuchMethodException("addQueryChunk(String) not found")
-        addQueryChunkMethod.invoke(createdSession, DEV_LLM_SESSION_ASYNC_POC_PROMPT)
-        appendLocalReflectionTrace(
-            context = context,
-            message = "DEV_POC add-query-success method=${addQueryChunkMethod.toGenericString()}",
-        )
-
-        appendLocalReflectionTrace(context = context, message = "DEV_POC async-start")
-        val asyncMethod = createdSession.javaClass.methods.firstOrNull { method ->
-            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
-        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
-        val future = asyncMethod.invoke(createdSession)
-            ?: throw IllegalStateException("generateResponseAsync() returned null")
-        appendLocalReflectionTrace(
-            context = context,
-            message = "DEV_POC async-future-created method=${asyncMethod.toGenericString()}",
-        )
-
-        val futureClassName = future.javaClass.name
-        val timeoutGetMethod = future.javaClass.methods.firstOrNull { method ->
-            method.name == "get" &&
-                method.parameterTypes.size == 2 &&
-                method.parameterTypes[0] == Long::class.javaPrimitiveType &&
-                method.parameterTypes[1] == TimeUnit::class.java
-        }
-        val responseAny = if (timeoutGetMethod != null) {
-            timeoutGetMethod.invoke(future, DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        } else {
-            val getMethod = future.javaClass.methods.firstOrNull { method ->
-                method.name == "get" && method.parameterTypes.isEmpty()
-            } ?: throw NoSuchMethodException("Future get(...) method not found")
-            getMethod.invoke(future)
-        }
-        val rawResponseText = (responseAny as? String) ?: responseAny?.toString()
-        val sanitizedResponseText = rawResponseText?.let(::sanitizeDevSessionAsyncPocResponse)
-        appendLocalReflectionTrace(
-            context = context,
-            message = "DEV_POC async-success responseLength=${sanitizedResponseText?.length ?: 0}",
-        )
-        DevSessionAsyncPocResult(
-            attempted = true,
-            createSucceeded = true,
-            asyncMethodSignature = asyncMethod.toGenericString(),
-            futureClassName = futureClassName,
-            responseText = sanitizedResponseText,
-            responseLength = sanitizedResponseText?.length,
-            responseHead = sanitizedResponseText?.take(60),
-            localTraceFirstResponseElapsedRealtimeMs =
-                if (!sanitizedResponseText.isNullOrBlank()) SystemClock.elapsedRealtime() else null,
-        )
-    } catch (throwable: Throwable) {
-        val root = throwable.cause ?: throwable
-        val errorClassSimpleName = if (throwable is java.lang.reflect.InvocationTargetException) {
-            throwable.javaClass.simpleName
-        } else {
-            root.javaClass.simpleName
-        }
-        val errorClassName = if (throwable is java.lang.reflect.InvocationTargetException) {
-            throwable.javaClass.name
-        } else {
-            root.javaClass.name
-        }
-        val stage = when {
-            root is ClassNotFoundException -> "create"
-            root.message?.contains("createFromOptions", ignoreCase = true) == true -> "create"
-            root.message?.contains("addQueryChunk", ignoreCase = true) == true -> "addQueryChunk"
-            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
-            root is TimeoutException -> "futureGetTimeout"
-            root.message?.contains("Future get", ignoreCase = true) == true -> "futureGet"
-            else -> "unknown"
-        }
-        when (stage) {
-            "create" -> appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC create-session-failed errorStage=$stage errorClass=$errorClassSimpleName",
-            )
-            "addQueryChunk" -> appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC add-query-failed errorStage=$stage errorClass=$errorClassSimpleName",
-            )
-            else -> appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC async-failed errorStage=$stage errorClass=$errorClassSimpleName",
-            )
-        }
-        DevSessionAsyncPocResult(
-            attempted = true,
-            createSucceeded = sessionInstance != null,
-            errorStage = stage,
-            errorClassName = errorClassName,
-            errorMessage = root.message?.take(120),
-        )
-    } finally {
-        appendLocalReflectionTrace(context = context, message = "DEV_POC close-start")
-        closeSucceeded = runCatching {
-            tryCloseLlmInferenceSessionViaReflection(sessionInstance)
-        }.onSuccess { succeeded ->
-            if (succeeded) {
-                appendLocalReflectionTrace(context = context, message = "DEV_POC close-success")
-            } else {
-                appendLocalReflectionTrace(
-                    context = context,
-                    message = "DEV_POC close-failed errorStage=close errorClass=CloseMethodNotFoundOrNullSession",
-                )
-            }
-        }.onFailure { throwable ->
-            val root = throwable.cause ?: throwable
-            appendLocalReflectionTrace(
-                context = context,
-                message = "DEV_POC close-failed errorStage=close errorClass=${root.javaClass.simpleName}",
-            )
-        }.getOrDefault(false)
-    }
-    return result.copy(closeSucceeded = closeSucceeded)
-}
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
     inferenceInstance: Any,
@@ -13358,7 +13057,6 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     inferenceInstance: Any,
     prompt: String,
     trace: LocalInferenceTrace,
-    sessionAsyncPocResult: DevSessionAsyncPocResult = DevSessionAsyncPocResult(),
     onPartial: (String) -> Unit = {},
 ): LocalLiteRtGeneratedResponse {
     val candidateMethodNames = listOf("generateResponse", "generate", "infer")
@@ -13410,35 +13108,28 @@ private fun generateLiteRtStringResponseOnceViaReflection(
             is String -> {
                 val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result)
                 val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
-                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
                     wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
-                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                     realPartialHookAttempted = partialHookSnapshot.attempted,
                     realPartialHookAttached = partialHookSnapshot.attached,
                     realPartialCallbackCount = partialHook.snapshot().callbackCount,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                val responseSelection = selectLocalAssistantResponse(
-                    prompt = prompt,
-                    oneShotResponse = oneShotResponse,
-                    sessionAsyncPocResult = sessionAsyncPocResult,
-                )
                 val responseCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime()
                 inventoryTrace = inventoryTrace.copy(
-                    selectedAssistantResponseSource = responseSelection.source,
-                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(oneShotResponse),
                     localTraceFirstResponseElapsedRealtimeMs =
                         inventoryTrace.localTraceFirstResponseElapsedRealtimeMs
-                            ?: responseCompletedElapsedRealtimeMs.takeIf { responseSelection.responseText.isNotBlank() },
+                            ?: responseCompletedElapsedRealtimeMs.takeIf { oneShotResponse.isNotBlank() },
                     localTraceCompletedElapsedRealtimeMs = responseCompletedElapsedRealtimeMs,
                 )
                 val tokenProbe = tryProbeLlmSessionTokensViaReflection(
                     inferenceInstance = inferenceInstance,
                     prompt = prompt,
-                    response = responseSelection.responseText,
+                    response = oneShotResponse,
                 )
                 inventoryTrace = inventoryTrace.copy(
                     sessionPromptTokens = tokenProbe.promptTokens,
@@ -13447,45 +13138,38 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionTokenProbeErrorStage = tokenProbe.errorStage,
                     sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
                 )
-                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${oneShotResponse.length}")
                 appendLocalReflectionTrace(
                     context = context,
-                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                    message = "oneshot-success method=${method.name} responseLength=${oneShotResponse.length}",
                 )
-                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
+                return LocalLiteRtGeneratedResponse(response = oneShotResponse, trace = inventoryTrace)
             }
             is CharSequence -> {
                 val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result.toString())
                 val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
-                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
                     wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
-                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                     realPartialHookAttempted = partialHookSnapshot.attempted,
                     realPartialHookAttached = partialHookSnapshot.attached,
                     realPartialCallbackCount = partialHook.snapshot().callbackCount,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                val responseSelection = selectLocalAssistantResponse(
-                    prompt = prompt,
-                    oneShotResponse = oneShotResponse,
-                    sessionAsyncPocResult = sessionAsyncPocResult,
-                )
                 val responseCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime()
                 inventoryTrace = inventoryTrace.copy(
-                    selectedAssistantResponseSource = responseSelection.source,
-                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(oneShotResponse),
                     localTraceFirstResponseElapsedRealtimeMs =
                         inventoryTrace.localTraceFirstResponseElapsedRealtimeMs
-                            ?: responseCompletedElapsedRealtimeMs.takeIf { responseSelection.responseText.isNotBlank() },
+                            ?: responseCompletedElapsedRealtimeMs.takeIf { oneShotResponse.isNotBlank() },
                     localTraceCompletedElapsedRealtimeMs = responseCompletedElapsedRealtimeMs,
                 )
                 val tokenProbe = tryProbeLlmSessionTokensViaReflection(
                     inferenceInstance = inferenceInstance,
                     prompt = prompt,
-                    response = responseSelection.responseText,
+                    response = oneShotResponse,
                 )
                 inventoryTrace = inventoryTrace.copy(
                     sessionPromptTokens = tokenProbe.promptTokens,
@@ -13494,12 +13178,12 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionTokenProbeErrorStage = tokenProbe.errorStage,
                     sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
                 )
-                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${oneShotResponse.length}")
                 appendLocalReflectionTrace(
                     context = context,
-                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                    message = "oneshot-success method=${method.name} responseLength=${oneShotResponse.length}",
                 )
-                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
+                return LocalLiteRtGeneratedResponse(response = oneShotResponse, trace = inventoryTrace)
             }
             else -> {
                 Log.i("ChatScreen", "LOCAL reflection oneshot-null-result: method=${method.name}")
@@ -15341,7 +15025,6 @@ private fun InferenceStatsSheetContent(
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
         promptText = promptText,
-        enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
     val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
         remember(context) { AcceleratorProbe.captureSnapshot(context = context.applicationContext) }
@@ -15363,7 +15046,6 @@ private fun InferenceStatsSheetContent(
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
         measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
-        enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
         acceleratorProbeSnapshot = acceleratorProbeSnapshot,
         preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
