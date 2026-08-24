@@ -152,8 +152,6 @@ import io.github.ninbyo02.lami.R
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
-import io.github.ninbyo02.lami.db.entity.MessageErrorCode
-import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.db.entity.toInferenceStats
 import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
 import io.github.ninbyo02.lami.db.entity.TitleSource
@@ -888,6 +886,12 @@ fun Home(
     val uiState by viewModel.uiState.collectAsState()
     val chats by viewModel.chats.collectAsState()
     var effectiveChatId by rememberSaveable { mutableStateOf<Int?>(chatId) }
+    val assistantMessageLifecycleCoordinator = remember(viewModel, effectiveChatId) {
+        AssistantMessageLifecycleCoordinator(
+            OllamaViewModelAssistantMessageLifecycleStore(viewModel),
+        )
+    }
+    val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
@@ -1400,7 +1404,6 @@ fun Home(
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
-    val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
 
     fun scheduleNpuFallbackTokenizerStatsUpdate(
         assistantId: Int,
@@ -3064,6 +3067,76 @@ fun Home(
         }
     }
 
+    suspend fun cancelStreamingAssistantLifecycleSerialized(
+        messageId: Int?,
+    ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
+        assistantMessageLifecycleCoordinator.cancel(messageId)
+    }
+
+    suspend fun finalizeStreamingAssistantFailure(
+        chatId: Int,
+        response: String,
+        latestInferenceStats: InferenceStats? = null,
+        localSourceSummary: String? = null,
+        generationTimeMs: Long? = null,
+    ): Int? {
+        val existingId = streamingAssistantMessageId
+        val result = assistantMessageLifecycleCoordinator.fail(
+            existingMessageId = existingId,
+            failurePayload = createAssistantMessage(
+                chatId = chatId,
+                response = response,
+                latestInferenceStats = latestInferenceStats,
+                localSourceSummary = localSourceSummary,
+                generationTimeMs = generationTimeMs,
+            ),
+            nowEpochMs = System.currentTimeMillis(),
+        )
+        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        when (result.outcome) {
+            AssistantMessageLifecycleExecutionOutcome.LOST_RACE -> {
+                logStreamTrace("STREAM failure lifecycle lost terminal race id=${result.messageId}")
+                return result.messageId ?: existingId
+            }
+            AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING -> {
+                logStreamTrace(
+                    "STREAM failure keep terminal id=${result.messageId} " +
+                        "status=${result.existingStatus}",
+                )
+                return result.messageId ?: existingId
+            }
+            AssistantMessageLifecycleExecutionOutcome.TERMINAL_ROW_MISSING ->
+                logStreamTrace(
+                    "STREAM failure terminal row missing after transition id=${result.messageId}",
+                )
+            AssistantMessageLifecycleExecutionOutcome.APPLIED -> Unit
+            else -> error("Unexpected failure execution outcome: ${result.outcome}")
+        }
+
+        val persistedId = requireNotNull(result.messageId)
+        lastPersistedStreamingAssistantText = response
+        if (latestInferenceStats != null) {
+            immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
+        }
+        return persistedId
+    }
+
+    suspend fun finalizeStreamingAssistantFailureSerialized(
+        chatId: Int,
+        response: String,
+        latestInferenceStats: InferenceStats? = null,
+        localSourceSummary: String? = null,
+        generationTimeMs: Long? = null,
+    ): Int? = streamingAssistantPersistMutex.withLock {
+        finalizeStreamingAssistantFailure(
+            chatId = chatId,
+            response = response,
+            latestInferenceStats = latestInferenceStats,
+            localSourceSummary = localSourceSummary,
+            generationTimeMs = generationTimeMs,
+        )
+    }
+
     fun resetStreamingAssistantPlaceholderId(reason: String) {
         streamingGuardEpoch += 1
         val previousId = streamingAssistantMessageId
@@ -3071,7 +3144,10 @@ fun Home(
             logStreamTrace("STREAM reset placeholder id from $previousId to null reason=$reason")
             if (reason == "stop") {
                 coroutineScope.launch(Dispatchers.IO) {
-                    viewModel.cancelAssistantMessage(previousId)
+                    val cancellation = cancelStreamingAssistantLifecycleSerialized(previousId)
+                    logStreamTrace(
+                        "STREAM lifecycle cancel outcome=${cancellation.outcome} id=$previousId",
+                    )
                 }
             }
         }
@@ -3251,39 +3327,12 @@ fun Home(
             localStreamingResponseText = null
             showDelayedLocalRespondingPlaceholder = false
             resetStreamingSpeechState()
-            val watchdogAssistantId = streamingAssistantMessageId
-            val watchdogPayload = createAssistantMessage(
+            finalizeStreamingAssistantFailureSerialized(
                 chatId = currentChatId,
                 response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
                 localSourceSummary = diagnosticsText,
                 generationTimeMs = elapsedMs,
             )
-            if (watchdogAssistantId != null && viewModel.failAssistantMessage(
-                    watchdogAssistantId,
-                    GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
-                )
-            ) {
-                viewModel.getMessageById(watchdogAssistantId)?.let { failedMessage ->
-                    viewModel.updateMessage(
-                        watchdogPayload.copy(
-                            messageID = watchdogAssistantId,
-                            status = failedMessage.status,
-                            errorCode = failedMessage.errorCode,
-                            createdAtEpochMs = failedMessage.createdAtEpochMs,
-                            updatedAtEpochMs = failedMessage.updatedAtEpochMs,
-                        )
-                    )
-                }
-            } else if (watchdogAssistantId == null) {
-                val now = System.currentTimeMillis()
-                viewModel.insertAssistantMessageAndReturnId(
-                    watchdogPayload.copy(
-                        status = MessageStatus.FAILED,
-                        errorCode = MessageErrorCode.GENERATION_FAILED,
-                        updatedAtEpochMs = now,
-                    )
-                )
-            }
             resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
             localInferenceEngineState = LocalInferenceEngineState.ERROR
             isLocalInferenceRunning = false
@@ -3368,76 +3417,98 @@ fun Home(
         }
     }
 
+    suspend fun startStreamingAssistantLifecycleSerialized(
+        chatId: Int,
+        startFailureMessage: String,
+    ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
+        val existingId = streamingAssistantMessageId
+        if (existingId != null) {
+            logStreamTrace("STREAM lifecycle start kept existing id=$existingId")
+            return@withLock AssistantMessageLifecycleExecutionResult(
+                action = AssistantMessageLifecycleAction.KEEP_EXISTING,
+                outcome = AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING,
+                messageId = existingId,
+            )
+        }
+        val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
+            existingMessageId = null,
+            placeholderPayload = createAssistantMessage(
+                chatId = chatId,
+                response = "",
+            ),
+            nowEpochMs = System.currentTimeMillis(),
+            startFailureMessage = startFailureMessage,
+        )
+        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        if (result.outcome == AssistantMessageLifecycleExecutionOutcome.APPLIED) {
+            lastPersistedStreamingAssistantText = null
+            logStreamTrace("STREAM lifecycle started id=${result.messageId}")
+        } else {
+            logStreamTrace(
+                "STREAM lifecycle start outcome=${result.outcome} id=${result.messageId}",
+            )
+        }
+        result
+    }
+
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
         val normalizedResponse = response.trim()
         if (normalizedResponse.isBlank()) return streamingAssistantMessageId
 
         val existingId = streamingAssistantMessageId
-        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
-        val placeholderPayload = createAssistantMessage(
-            chatId = chatId,
-            response = normalizedResponse,
-        )
-        val plan = AssistantMessageLifecycle.planPlaceholder(
+        val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
             existingMessageId = existingId,
-            existingMessage = existingMessage,
-            placeholderPayload = placeholderPayload,
+            placeholderPayload = createAssistantMessage(
+                chatId = chatId,
+                response = normalizedResponse,
+            ),
             nowEpochMs = System.currentTimeMillis(),
         )
-        return when (plan.action) {
-            AssistantMessageLifecycleAction.INSERT_PENDING -> {
-                val insertedId = viewModel.insertAssistantMessageAndReturnId(
-                    requireNotNull(plan.payload),
-                ).toInt()
-                streamingAssistantMessageId = insertedId
-                if (!viewModel.markAssistantMessageGenerating(insertedId)) {
-                    viewModel.failAssistantMessage(insertedId, "Failed to start local generation")
-                    logStreamTrace("STREAM placeholder lifecycle start failed id=$insertedId")
-                    insertedId
-                } else {
-                    bindStreamingAssistantMessageOwnership(insertedId, normalizedResponse)
-                    logStreamTrace("STREAM placeholder insert id=$insertedId")
-                    insertedId
-                }
-            }
-            AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT -> {
-                val messageId = requireNotNull(plan.messageId)
-                if (
-                    existingMessage?.status == MessageStatus.PENDING &&
-                    !viewModel.markAssistantMessageGenerating(messageId)
-                ) {
-                    logStreamTrace("STREAM placeholder lifecycle lost pending race id=$messageId")
-                    messageId
-                } else if (!viewModel.updateGeneratingAssistantMessageContent(messageId, normalizedResponse)) {
-                    logStreamTrace("STREAM placeholder lifecycle lost terminal race id=$messageId")
-                    messageId
-                } else {
+        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        when (result.outcome) {
+            AssistantMessageLifecycleExecutionOutcome.APPLIED -> {
+                val messageId = requireNotNull(result.messageId)
+                if (result.placeholderOwnershipReady) {
                     bindStreamingAssistantMessageOwnership(messageId, normalizedResponse)
-                    logStreamTrace("STREAM placeholder update id=$messageId len=${normalizedResponse.length}")
-                    messageId
+                }
+                when (result.action) {
+                    AssistantMessageLifecycleAction.INSERT_PENDING ->
+                        logStreamTrace("STREAM placeholder insert id=$messageId")
+                    AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT ->
+                        logStreamTrace(
+                            "STREAM placeholder update id=$messageId len=${normalizedResponse.length}",
+                        )
+                    else -> Unit
                 }
             }
-            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
-                val messageId = plan.messageId ?: existingId
-                if (existingMessage?.message == normalizedResponse) {
+            AssistantMessageLifecycleExecutionOutcome.START_FAILED ->
+                logStreamTrace("STREAM placeholder lifecycle start failed id=${result.messageId}")
+            AssistantMessageLifecycleExecutionOutcome.LOST_RACE ->
+                logStreamTrace(
+                    "STREAM placeholder lifecycle lost race id=${result.messageId} " +
+                        "status=${result.existingStatus}",
+                )
+            AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING -> {
+                if (result.persistedText == normalizedResponse) {
                     lastPersistedStreamingAssistantText = normalizedResponse
                     logStreamTrace("STREAM placeholder skip sameText")
                 } else {
                     logStreamTrace(
-                        "STREAM placeholder keep existing id=$messageId status=${existingMessage?.status}",
+                        "STREAM placeholder keep existing id=${result.messageId} " +
+                            "status=${result.existingStatus}",
                     )
                 }
-                messageId
             }
-            else -> error("Unexpected placeholder lifecycle action: ${plan.action}")
+            AssistantMessageLifecycleExecutionOutcome.TERMINAL_ROW_MISSING ->
+                error("Placeholder execution cannot produce a missing terminal row")
         }
+        return result.messageId ?: existingId
     }
 
-    suspend fun upsertStreamingAssistantPlaceholderSerialized(chatId: Int, response: String): Int? {
-        return streamingAssistantPersistMutex.withLock {
+    suspend fun upsertStreamingAssistantPlaceholderSerialized(chatId: Int, response: String): Int? =
+        streamingAssistantPersistMutex.withLock {
             upsertStreamingAssistantPlaceholder(chatId = chatId, response = response)
         }
-    }
 
     suspend fun finalizeStreamingAssistantMessage(
         chatId: Int,
@@ -3462,62 +3533,44 @@ fun Home(
             return streamingAssistantMessageId
         }
 
-        val finalPayload = createAssistantMessage(
-            chatId = chatId,
-            response = finalizedResponseForPersist,
-            latestInferenceStats = latestInferenceStats,
-            localSourceSummary = localSourceSummary,
-            imageInputCount = imageInputCount,
-            generationTimeMs = generationTimeMs,
-        )
         val existingId = streamingAssistantMessageId
-        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
-        val plan = AssistantMessageLifecycle.planCompletion(
+        val result = assistantMessageLifecycleCoordinator.complete(
             existingMessageId = existingId,
-            existingMessage = existingMessage,
-            finalPayload = finalPayload,
+            finalPayload = createAssistantMessage(
+                chatId = chatId,
+                response = finalizedResponseForPersist,
+                latestInferenceStats = latestInferenceStats,
+                localSourceSummary = localSourceSummary,
+                imageInputCount = imageInputCount,
+                generationTimeMs = generationTimeMs,
+            ),
         )
-        logStreamTrace("STREAM final path existingId=$existingId action=${plan.action}")
-
-        val persistedId = when (plan.action) {
-            AssistantMessageLifecycleAction.INSERT_COMPLETED -> {
-                val insertedId = viewModel.insertAssistantMessageAndReturnId(
-                    requireNotNull(plan.payload),
-                ).toInt()
-                streamingAssistantMessageId = insertedId
-                logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
-                insertedId
+        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        logStreamTrace(
+            "STREAM final path existingId=$existingId action=${result.action} " +
+                "outcome=${result.outcome}",
+        )
+        when (result.outcome) {
+            AssistantMessageLifecycleExecutionOutcome.LOST_RACE -> {
+                logStreamTrace("STREAM final lifecycle lost terminal race id=${result.messageId}")
+                return result.messageId ?: existingId
             }
-            AssistantMessageLifecycleAction.COMPLETE_IN_FLIGHT -> {
-                val messageId = requireNotNull(plan.messageId)
-                if (!viewModel.completeAssistantMessage(messageId, finalizedResponseForPersist)) {
-                    logStreamTrace("STREAM final lifecycle lost terminal race id=$messageId")
-                    return messageId
-                }
-                val terminalMessage = viewModel.getMessageById(messageId)
-                if (terminalMessage != null) {
-                    viewModel.updateMessage(
-                        AssistantMessageLifecycle.mergePayloadIntoTerminalMessage(
-                            terminalMessage = terminalMessage,
-                            payload = requireNotNull(plan.payload),
-                        )
-                    )
-                } else {
-                    logStreamTrace("STREAM final terminal row missing after transition id=$messageId")
-                }
-                logStreamTrace("STREAM final lifecycle complete id=$messageId")
-                messageId
-            }
-            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
-                val messageId = plan.messageId ?: existingId
+            AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING -> {
                 logStreamTrace(
-                    "STREAM final keep terminal id=$messageId status=${existingMessage?.status}",
+                    "STREAM final keep terminal id=${result.messageId} " +
+                        "status=${result.existingStatus}",
                 )
-                return messageId
+                return result.messageId ?: existingId
             }
-            else -> error("Unexpected completion lifecycle action: ${plan.action}")
+            AssistantMessageLifecycleExecutionOutcome.TERMINAL_ROW_MISSING ->
+                logStreamTrace(
+                    "STREAM final terminal row missing after transition id=${result.messageId}",
+                )
+            AssistantMessageLifecycleExecutionOutcome.APPLIED -> Unit
+            else -> error("Unexpected completion execution outcome: ${result.outcome}")
         }
 
+        val persistedId = requireNotNull(result.messageId)
         streamingResponseTextForRender = finalizedResponseForPersist
         lastPersistedStreamingAssistantText = finalizedResponseForPersist
         if (latestInferenceStats != null) {
@@ -3533,98 +3586,13 @@ fun Home(
         localSourceSummary: String? = null,
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
-    ): Int? {
-        return streamingAssistantPersistMutex.withLock {
-            finalizeStreamingAssistantMessage(
-                chatId = chatId,
-                response = response,
-                latestInferenceStats = latestInferenceStats,
-                localSourceSummary = localSourceSummary,
-                imageInputCount = imageInputCount,
-                generationTimeMs = generationTimeMs,
-            )
-        }
-    }
-
-    suspend fun finalizeStreamingAssistantFailure(
-        chatId: Int,
-        response: String,
-        latestInferenceStats: InferenceStats? = null,
-        localSourceSummary: String? = null,
-        generationTimeMs: Long? = null,
-    ): Int? {
-        val failurePayload = createAssistantMessage(
-            chatId = chatId,
-            response = response,
-            latestInferenceStats = latestInferenceStats,
-            localSourceSummary = localSourceSummary,
-            generationTimeMs = generationTimeMs,
-        )
-        val existingId = streamingAssistantMessageId
-        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
-        val plan = AssistantMessageLifecycle.planFailure(
-            existingMessageId = existingId,
-            existingMessage = existingMessage,
-            failurePayload = failurePayload,
-            nowEpochMs = System.currentTimeMillis(),
-        )
-
-        val persistedId = when (plan.action) {
-            AssistantMessageLifecycleAction.INSERT_FAILED -> {
-                val insertedId = viewModel.insertAssistantMessageAndReturnId(
-                    requireNotNull(plan.payload),
-                ).toInt()
-                streamingAssistantMessageId = insertedId
-                insertedId
-            }
-            AssistantMessageLifecycleAction.FAIL_IN_FLIGHT -> {
-                val messageId = requireNotNull(plan.messageId)
-                if (!viewModel.failAssistantMessage(messageId, response)) {
-                    logStreamTrace("STREAM failure lifecycle lost terminal race id=$messageId")
-                    return messageId
-                }
-                val terminalMessage = viewModel.getMessageById(messageId)
-                if (terminalMessage != null) {
-                    viewModel.updateMessage(
-                        AssistantMessageLifecycle.mergePayloadIntoTerminalMessage(
-                            terminalMessage = terminalMessage,
-                            payload = requireNotNull(plan.payload),
-                        )
-                    )
-                } else {
-                    logStreamTrace("STREAM failure terminal row missing after transition id=$messageId")
-                }
-                messageId
-            }
-            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
-                val messageId = plan.messageId ?: existingId
-                logStreamTrace(
-                    "STREAM failure keep terminal id=$messageId status=${existingMessage?.status}",
-                )
-                return messageId
-            }
-            else -> error("Unexpected failure lifecycle action: ${plan.action}")
-        }
-
-        lastPersistedStreamingAssistantText = response
-        if (latestInferenceStats != null) {
-            immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
-        }
-        return persistedId
-    }
-
-    suspend fun finalizeStreamingAssistantFailureSerialized(
-        chatId: Int,
-        response: String,
-        latestInferenceStats: InferenceStats? = null,
-        localSourceSummary: String? = null,
-        generationTimeMs: Long? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        finalizeStreamingAssistantFailure(
+        finalizeStreamingAssistantMessage(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
+            imageInputCount = imageInputCount,
             generationTimeMs = generationTimeMs,
         )
     }
@@ -4042,13 +4010,10 @@ fun Home(
                     if (currentChatId != null) {
                         if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
                         val errorText = (uiState as UiState.Error).errorMessage
-                        val existingId = streamingAssistantMessageId
-                        val assistantId = if (existingId != null) {
-                            viewModel.failAssistantMessage(existingId, errorText)
-                            existingId
-                        } else {
-                            finalizeStreamingAssistantMessageSerialized(currentChatId, errorText)
-                        }
+                        val assistantId = finalizeStreamingAssistantFailureSerialized(
+                            chatId = currentChatId,
+                            response = errorText,
+                        )
                         if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                     }
                     placeholder = "Enter your prompt..."
@@ -4069,13 +4034,15 @@ fun Home(
                         resetStreamingSpeechState()
                         resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
+                        return@LaunchedEffect
                     }
                     val streamingState = uiState as UiState.Streaming
-                    val existingId = streamingAssistantMessageId
                     val partialText = streamingState.partialText.trim()
-                    if (existingId != null && partialText.isNotBlank()) {
-                        viewModel.updateGeneratingAssistantMessageContent(existingId, partialText)
-                        lastPersistedStreamingAssistantText = partialText
+                    if (currentChatId != null && partialText.isNotBlank()) {
+                        upsertStreamingAssistantPlaceholderSerialized(
+                            chatId = currentChatId,
+                            response = partialText,
+                        )
                     }
                 }
                 else -> Unit
@@ -4638,13 +4605,9 @@ fun Home(
                                                 }
                                                 if (isServerRunningRaw) {
                                                     remoteStopRequested = true
-                                                    val cancelledAssistantId = streamingAssistantMessageId
                                                     remoteRequestJob?.cancel()
                                                     viewModel.cancelRemoteRequest()
                                                     remoteRequestJob = null
-                                                    if (cancelledAssistantId != null) {
-                                                        coroutineScope.launch { viewModel.cancelAssistantMessage(cancelledAssistantId) }
-                                                    }
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
                                                     toggle = false
@@ -4719,17 +4682,15 @@ fun Home(
                                                                                 )
                                                                             )
                                                                         }
-                                                                        val lifecycleStartedAt = System.currentTimeMillis()
-                                                                        val pendingAssistant = createAssistantMessage(currentChatId, "").copy(
-                                                                            status = MessageStatus.PENDING,
-                                                                            updatedAtEpochMs = lifecycleStartedAt,
+                                                                        val lifecycle = startStreamingAssistantLifecycleSerialized(
+                                                                            chatId = currentChatId,
+                                                                            startFailureMessage = "Failed to start server generation",
                                                                         )
-                                                                        val assistantId = viewModel.insertAssistantMessageAndReturnId(pendingAssistant).toInt()
-                                                                        streamingAssistantMessageId = assistantId
-                                                                        lastPersistedStreamingAssistantText = null
-                                                                        if (!viewModel.markAssistantMessageGenerating(assistantId)) {
-                                                                            viewModel.failAssistantMessage(assistantId, "Failed to start server generation")
-                                                                            error("Failed to start durable server generation")
+                                                                        if (!lifecycle.placeholderOwnershipReady) {
+                                                                            error(
+                                                                                "Failed to start durable server generation: " +
+                                                                                    lifecycle.outcome,
+                                                                            )
                                                                         }
                                                                     },
                                                              )
@@ -4975,25 +4936,15 @@ fun Home(
                                                                         pendingLocalUserMessageText = null
                                                                     },
                                                                     beforeInference = { chatId ->
-                                                                        val lifecycleStartedAt = System.currentTimeMillis()
-                                                                        val assistantId = withContext(Dispatchers.IO) {
-                                                                            viewModel.insertAssistantMessageAndReturnId(
-                                                                                createAssistantMessage(
-                                                                                    chatId = chatId,
-                                                                                    response = "",
-                                                                                ).copy(
-                                                                                    status = MessageStatus.PENDING,
-                                                                                    updatedAtEpochMs = lifecycleStartedAt,
-                                                                                )
-                                                                            ).toInt()
-                                                                        }
-                                                                        streamingAssistantMessageId = assistantId
-                                                                        if (!viewModel.markAssistantMessageGenerating(assistantId)) {
-                                                                            viewModel.failAssistantMessage(
-                                                                                assistantId,
-                                                                                "Failed to start NPU generation",
+                                                                        val lifecycle = startStreamingAssistantLifecycleSerialized(
+                                                                            chatId = chatId,
+                                                                            startFailureMessage = "Failed to start NPU generation",
+                                                                        )
+                                                                        if (!lifecycle.placeholderOwnershipReady) {
+                                                                            error(
+                                                                                "Failed to start NPU message lifecycle: " +
+                                                                                    lifecycle.outcome,
                                                                             )
-                                                                            error("Failed to start NPU message lifecycle")
                                                                         }
                                                                     },
                                                                     runInference = {
@@ -6589,29 +6540,18 @@ fun Home(
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
                                                         if (streamingAssistantMessageId == null) {
-                                                            val lifecycleStartedAt = System.currentTimeMillis()
-                                                            val assistantId = withContext(Dispatchers.IO) {
-                                                                viewModel.insertAssistantMessageAndReturnId(
-                                                                    createAssistantMessage(
-                                                                        chatId = resolvedChatId,
-                                                                        response = "",
-                                                                    ).copy(
-                                                                        status = MessageStatus.PENDING,
-                                                                        updatedAtEpochMs = lifecycleStartedAt,
-                                                                    )
-                                                                ).toInt()
-                                                            }
-                                                            streamingAssistantMessageId = assistantId
-                                                            lastPersistedStreamingAssistantText = null
-                                                            if (!viewModel.markAssistantMessageGenerating(assistantId)) {
-                                                                viewModel.failAssistantMessage(
-                                                                    assistantId,
-                                                                    "Failed to start local generation",
+                                                            val lifecycle = startStreamingAssistantLifecycleSerialized(
+                                                                chatId = resolvedChatId,
+                                                                startFailureMessage = "Failed to start local generation",
+                                                            )
+                                                            if (!lifecycle.placeholderOwnershipReady) {
+                                                                logStreamTrace(
+                                                                    "STREAM local lifecycle start failed " +
+                                                                        "outcome=${lifecycle.outcome} " +
+                                                                        "id=${lifecycle.messageId}",
                                                                 )
-                                                                logStreamTrace("STREAM local lifecycle start failed id=$assistantId")
                                                                 return@launch
                                                             }
-                                                            logStreamTrace("STREAM local lifecycle started id=$assistantId")
                                                         }
                                                         localStopRequested = false
                                                         didReceiveRealLocalPartial = false
