@@ -707,7 +707,15 @@ class GpuBlockingRaceContractTest {
 
         listOf(qualityFailureBlock, exceptionFailureBlock).forEach { fallbackBlock ->
             assertTrue(
-                "Each fallback chain must reject blank or unexpected-script responses.",
+                "Each fallback chain must route candidate validation through the unified output policy.",
+                fallbackBlock.contains("LocalInferenceOutputPolicy.evaluateLocalCandidate("),
+            )
+            assertTrue(
+                "Each fallback chain must use the policy decision to continue to the next backend.",
+                fallbackBlock.contains(".shouldFallbackToNextBackend"),
+            )
+            assertFalse(
+                "ChatScreen must not bypass the unified output policy with a direct quality call.",
                 fallbackBlock.contains("localInferenceResponseRejectionReason(requestPrompt, result.response)"),
             )
             assertTrue(

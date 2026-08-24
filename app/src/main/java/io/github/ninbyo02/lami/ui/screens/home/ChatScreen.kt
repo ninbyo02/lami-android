@@ -5106,33 +5106,28 @@ fun Home(
                                                             s1Result.displayText
                                                         }
                                                         val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
-                                                        val s1Fallback = resolveNpuStandardRouteS1Fallback(
+                                                        val npuOutputDecision = LocalInferenceOutputPolicy.evaluateNpu(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
+                                                            localStopRequested = localStopRequested,
                                                         )
+                                                        val s1Fallback = npuOutputDecision.transientFallback
                                                         val shouldFallbackNpuFailure =
-                                                            shouldRunNpuStandardRouteGenericFallback(
-                                                                result = s1Result,
-                                                                transientFallback = s1Fallback,
-                                                                localStopRequested = localStopRequested,
-                                                            )
+                                                            npuOutputDecision.shouldRunGenericFallback
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
                                                             shouldFallbackNpuFailure
                                                         npuStandardRouteS1DisplayText =
                                                             s1RouteDisplayText.takeUnless { shouldFallbackNpuFailure }
                                                         npuStandardRouteS1FallbackText =
                                                             s1Fallback?.text.takeUnless { shouldFallbackNpuFailure }
-                                                        val npuFailureAssistantText = resolveNpuStandardRouteFailureAssistantMessage(
-                                                            result = s1Result,
-                                                            transientFallback = s1Fallback,
-                                                        )
+                                                        val npuFailureAssistantText = npuOutputDecision.terminalText
                                                         if (
+                                                            npuOutputDecision.shouldFinalizeImmediately &&
                                                             npuFailureAssistantText != null &&
-                                                            !localStopRequested &&
-                                                            !shouldFallbackNpuFailure
+                                                            !localStopRequested
                                                         ) {
                                                             npuStandardRouteS1FallbackText = null
-                                                            if (shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(s1Fallback)) {
+                                                            if (npuOutputDecision.shouldFinalizeAsAssistantResponse) {
                                                                 val safeGreetingSourceSummary =
                                                                     buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
                                                                         result = s1Result,
@@ -5257,7 +5252,10 @@ fun Home(
                                                                     },
                                                                 ),
                                                                 shouldFallback = { result ->
-                                                                    localInferenceResponseRejectionReason(requestPrompt, result.response) != null
+                                                                    LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                        userPrompt = requestPrompt,
+                                                                        response = result.response,
+                                                                    ).shouldFallbackToNextBackend
                                                                 },
                                                             )
                                                             val finalFallbackResult = fallbackChain.result
@@ -5398,10 +5396,8 @@ fun Home(
                                                             else -> "standard_route_legacy"
                                                         }
                                                         var npuStandardRouteTtsExecutionBlockReason = "none"
-                                                        val npuStandardRouteSafeUiText = s1Result.actualDisplayText
-                                                            .ifBlank { s1Result.preparedOutput }
-                                                            .ifBlank { s1Result.sanitizedOutput }
-                                                            .trim()
+                                                        val npuStandardRouteSafeUiText =
+                                                            npuOutputDecision.acceptedText.trim()
                                                         var npuStandardRouteAssistantTextForPersist =
                                                             npuStandardRouteSafeUiText
                                                         if (
@@ -6166,7 +6162,10 @@ fun Home(
                                                                         },
                                                                     ),
                                                                     shouldFallback = { result ->
-                                                                        localInferenceResponseRejectionReason(requestPrompt, result.response) != null
+                                                                        LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                            userPrompt = requestPrompt,
+                                                                            response = result.response,
+                                                                        ).shouldFallbackToNextBackend
                                                                     },
                                                                 )
                                                                 val exceptionFallbackResult = exceptionFallbackChain.result
@@ -16996,21 +16995,6 @@ internal fun shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
         !hasImageInput &&
         requestPrompt.isNotBlank()
 
-internal fun shouldFallbackNpuStandardRouteFailureToLocal(
-    result: NpuStandardRouteS1Result,
-): Boolean {
-    if (result.successCriteriaMet) return false
-    if (result.reason == NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED) return false
-    if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) return false
-    if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) return false
-    if (result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) return true
-
-    return result.reason.startsWith("adapter_failure", ignoreCase = true) ||
-        result.nativeDiagnostics.nativeLinkFailureDetected == "true" ||
-        result.nativeDiagnostics.nativeErrorClass == "UnsatisfiedLinkError" ||
-        result.nativeDiagnostics.nativeErrorMessage.contains("UnsatisfiedLinkError", ignoreCase = true)
-}
-
 internal fun resolveNpuStandardRouteLocalFallbackBackend(
     preferredBackend: PreferredBackendDryRunSetting,
 ): PreferredBackendDryRunSetting =
@@ -17278,136 +17262,6 @@ internal fun shouldPrepareNpuStandardRouteS5Tts(
     mapping: NpuStandardRouteS5TtsMapping,
 ): Boolean =
     enabled && mapping.hasTtsCandidate
-
-internal const val NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT =
-    "すみません、応答を生成できませんでした。"
-internal const val NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE =
-    "NPU推論は安全確認中のため、通常チャットでは一時的に無効化されています。"
-
-internal data class NpuStandardRouteS1TransientFallback(
-    val text: String,
-    val kind: String,
-)
-
-internal fun resolveNpuStandardRouteS1Fallback(
-    userPrompt: String,
-    result: NpuStandardRouteS1Result,
-): NpuStandardRouteS1TransientFallback? {
-    val safeGreetingFallback = resolveNpuStandardRouteS1SafeGreetingFallback(
-        userPrompt = userPrompt,
-        result = result,
-    )
-    if (safeGreetingFallback != null) return safeGreetingFallback
-    return if (shouldShowNpuStandardRouteS1Fallback(result)) {
-        NpuStandardRouteS1TransientFallback(
-            text = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
-            kind = "generic_failure_fallback",
-        )
-    } else {
-        null
-    }
-}
-
-internal fun resolveNpuStandardRouteFailureAssistantMessage(
-    result: NpuStandardRouteS1Result,
-    transientFallback: NpuStandardRouteS1TransientFallback?,
-): String? {
-    if (result.successCriteriaMet) return null
-    if (
-        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
-        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
-        result.usableDisplayOutput.isNotBlank() &&
-        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
-    ) {
-        return null
-    }
-    if (
-        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
-        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS
-    ) {
-        val qualityReason = if (result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) {
-            result.outputQualityCandidateReason
-        } else {
-            result.qualityClassification
-        }
-        return transientFallback?.text
-            ?: "NPU推論の応答生成に失敗しました: ${qualityReason.ifBlank { "quality_check_failed" }}"
-    }
-    if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
-        return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE
-    }
-    if (result.reason == NpuStandardRouteS1Contract.REASON_COMPLETED_ROUTE_KILL_SWITCH_DISABLED) {
-        return null
-    }
-    if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) {
-        return NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE
-    }
-    return transientFallback?.text
-        ?: "NPU推論の応答生成に失敗しました: ${result.reason.ifBlank { "unknown" }}"
-}
-
-internal fun shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(
-    fallback: NpuStandardRouteS1TransientFallback?,
-): Boolean =
-    fallback?.kind == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING &&
-        fallback.text.isNotBlank()
-
-internal fun shouldRunNpuStandardRouteGenericFallback(
-    result: NpuStandardRouteS1Result,
-    transientFallback: NpuStandardRouteS1TransientFallback?,
-    localStopRequested: Boolean,
-): Boolean =
-    !localStopRequested &&
-        !shouldCompleteNpuStandardRouteFallbackAsAssistantResponse(transientFallback) &&
-        shouldFallbackNpuStandardRouteFailureToLocal(result)
-
-internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
-    userPrompt: String,
-    result: NpuStandardRouteS1Result,
-): NpuStandardRouteS1TransientFallback? {
-    if (!isNpuStandardRouteS1SafeGreetingFallbackFailure(result)) return null
-    val fallbackText = NpuStandardRouteS1Contract.safeGreetingResponseForPrompt(userPrompt)
-        ?: return null
-    return NpuStandardRouteS1TransientFallback(
-        text = fallbackText,
-        kind = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
-    )
-}
-
-private fun isNpuStandardRouteS1SafeGreetingFallbackFailure(
-    result: NpuStandardRouteS1Result,
-): Boolean {
-    if (result.successCriteriaMet) return false
-    val candidateFailureReasons = result.outputQualityCandidateReason
-        .split('+')
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .toSet()
-    val candidateLanguageFailure =
-        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
-            candidateFailureReasons.any { reason ->
-                reason == "unsupported_japanese_response_script" ||
-                    reason == "greeting_response_mismatch"
-            }
-    val providerLanguageFailure =
-        result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
-            (
-                result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
-                    result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE
-                )
-    return candidateLanguageFailure || providerLanguageFailure
-}
-
-internal fun shouldShowNpuStandardRouteS1Fallback(
-    result: NpuStandardRouteS1Result,
-): Boolean =
-    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
-        (
-            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
-                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE ||
-                result.reason == NpuStandardRouteS1Contract.REASON_QUESTION_ECHO ||
-                result.reason == NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
-            )
 
 internal fun shouldSpeakNpuStandardRouteS5Tts(
     enabled: Boolean,
