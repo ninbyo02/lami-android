@@ -35,6 +35,64 @@ class AssistantMessageLifecycleCoordinatorTest {
     }
 
     @Test
+    fun `existing generating placeholder is reusable lifecycle ownership`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            messages[9] = message(id = 9, text = "", status = MessageStatus.GENERATING)
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+
+        val result = coordinator.upsertPlaceholder(
+            existingMessageId = 9,
+            placeholderPayload = message(text = ""),
+            nowEpochMs = 180L,
+        )
+
+        assertEquals(AssistantMessageLifecycleAction.KEEP_EXISTING, result.action)
+        assertEquals(AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING, result.outcome)
+        assertTrue(result.placeholderOwnershipReady)
+        assertEquals(MessageStatus.GENERATING, result.existingStatus)
+        assertEquals(listOf("get:9"), store.calls)
+    }
+
+    @Test
+    fun `existing pending placeholder is promoted even when text is unchanged`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            messages[10] = message(id = 10, text = "", status = MessageStatus.PENDING)
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+
+        val result = coordinator.upsertPlaceholder(
+            existingMessageId = 10,
+            placeholderPayload = message(text = ""),
+            nowEpochMs = 190L,
+        )
+
+        assertEquals(AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT, result.action)
+        assertEquals(AssistantMessageLifecycleExecutionOutcome.APPLIED, result.outcome)
+        assertTrue(result.placeholderOwnershipReady)
+        assertEquals(MessageStatus.GENERATING, store.messages[10]?.status)
+        assertEquals(listOf("get:10", "mark-generating:10", "update-generating:10"), store.calls)
+    }
+
+    @Test
+    fun `terminal placeholder cannot be reused as lifecycle ownership`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            messages[11] = message(id = 11, text = "", status = MessageStatus.COMPLETED)
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+
+        val result = coordinator.upsertPlaceholder(
+            existingMessageId = 11,
+            placeholderPayload = message(text = ""),
+            nowEpochMs = 195L,
+        )
+
+        assertEquals(AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING, result.outcome)
+        assertFalse(result.placeholderOwnershipReady)
+        assertEquals(MessageStatus.COMPLETED, result.existingStatus)
+    }
+
+    @Test
     fun `placeholder start failure is terminalized by the coordinator`() = runBlocking {
         val store = FakeAssistantMessageLifecycleStore().apply {
             markGeneratingResult = false

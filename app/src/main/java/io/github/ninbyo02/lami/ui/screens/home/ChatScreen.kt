@@ -3420,16 +3420,8 @@ fun Home(
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
         val existingId = streamingAssistantMessageId
-        if (existingId != null) {
-            logStreamTrace("STREAM lifecycle start kept existing id=$existingId")
-            return@withLock AssistantMessageLifecycleExecutionResult(
-                action = AssistantMessageLifecycleAction.KEEP_EXISTING,
-                outcome = AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING,
-                messageId = existingId,
-            )
-        }
         val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
-            existingMessageId = null,
+            existingMessageId = existingId,
             placeholderPayload = createAssistantMessage(
                 chatId = chatId,
                 response = "",
@@ -3438,12 +3430,17 @@ fun Home(
             startFailureMessage = startFailureMessage,
         )
         result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
-        if (result.outcome == AssistantMessageLifecycleExecutionOutcome.APPLIED) {
-            lastPersistedStreamingAssistantText = null
-            logStreamTrace("STREAM lifecycle started id=${result.messageId}")
+        if (result.placeholderOwnershipReady) {
+            lastPersistedStreamingAssistantText = result.persistedText
+                ?.takeIf { it.isNotBlank() }
+            logStreamTrace(
+                "STREAM lifecycle ready action=${result.action} " +
+                    "outcome=${result.outcome} id=${result.messageId}",
+            )
         } else {
             logStreamTrace(
-                "STREAM lifecycle start outcome=${result.outcome} id=${result.messageId}",
+                "STREAM lifecycle start outcome=${result.outcome} " +
+                    "status=${result.existingStatus} id=${result.messageId}",
             )
         }
         result

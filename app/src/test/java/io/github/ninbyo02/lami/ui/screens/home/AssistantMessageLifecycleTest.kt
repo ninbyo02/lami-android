@@ -26,6 +26,39 @@ class AssistantMessageLifecycleTest {
     }
 
     @Test
+    fun `pending placeholder with unchanged text still plans promotion to generating`() {
+        val existing = message(id = 40, text = "", status = MessageStatus.PENDING)
+
+        val plan = AssistantMessageLifecycle.planPlaceholder(
+            existingMessageId = existing.messageID,
+            existingMessage = existing,
+            placeholderPayload = message(text = ""),
+            nowEpochMs = 250L,
+        )
+
+        assertEquals(AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT, plan.action)
+        assertEquals(40, plan.messageId)
+        assertEquals("", plan.payload?.message)
+        assertEquals(MessageStatus.PENDING, plan.payload?.status)
+    }
+
+    @Test
+    fun `generating placeholder with unchanged text is safely reused`() {
+        val existing = message(id = 41, text = "", status = MessageStatus.GENERATING)
+
+        val plan = AssistantMessageLifecycle.planPlaceholder(
+            existingMessageId = existing.messageID,
+            existingMessage = existing,
+            placeholderPayload = message(text = ""),
+            nowEpochMs = 260L,
+        )
+
+        assertEquals(AssistantMessageLifecycleAction.KEEP_EXISTING, plan.action)
+        assertEquals(41, plan.messageId)
+        assertNull(plan.payload)
+    }
+
+    @Test
     fun `changed generating placeholder plans atomic in flight update`() {
         val existing = message(id = 41, text = "partial", status = MessageStatus.GENERATING)
 
