@@ -781,7 +781,7 @@ internal fun buildSuccessfulNpuFallbackInferencePersistence(
             (finalTrace.wallClockTotalInferenceDurationNs / 1_000_000L).coerceAtLeast(0L)
         else -> 0L
     }
-    val stats = buildLocalInferenceStatsFromTrace(
+    val stats = InferenceStatsFactory.fromLocalTrace(
         trace = finalTrace,
         generationTimeMs = generationTimeMs,
         responseCharCount = finalResponse.length,
@@ -3358,60 +3358,79 @@ fun Home(
         return messageId != null && suppressedTtsAssistantMessageId == messageId
     }
 
+    fun bindStreamingAssistantMessageOwnership(messageId: Int, persistedText: String) {
+        lastPersistedStreamingAssistantText = persistedText
+        streamingSpeechStartedForMessageId = messageId
+        currentSpeakingAssistantMessageId = messageId
+        if (!isTtsSuppressedForAssistant(messageId)) {
+            stopButtonOwnerAssistantMessageId = messageId
+            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+        }
+    }
+
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
         val normalizedResponse = response.trim()
         if (normalizedResponse.isBlank()) return streamingAssistantMessageId
 
         val existingId = streamingAssistantMessageId
-        if (existingId != null && lastPersistedStreamingAssistantText == normalizedResponse) {
-            logStreamTrace("STREAM placeholder skip sameText")
-            return existingId
-        }
-        if (existingId == null) {
-            val lifecycleStartedAt = System.currentTimeMillis()
-            val placeholderMessage = createAssistantMessage(
-                chatId = chatId,
-                response = normalizedResponse,
-            ).copy(
-                status = MessageStatus.PENDING,
-                updatedAtEpochMs = lifecycleStartedAt,
-            )
-            val insertedId = viewModel.insertAssistantMessageAndReturnId(placeholderMessage).toInt()
-            streamingAssistantMessageId = insertedId
-            if (!viewModel.markAssistantMessageGenerating(insertedId)) {
-                viewModel.failAssistantMessage(insertedId, "Failed to start local generation")
-                logStreamTrace("STREAM placeholder lifecycle start failed id=$insertedId")
-                return insertedId
+        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
+        val placeholderPayload = createAssistantMessage(
+            chatId = chatId,
+            response = normalizedResponse,
+        )
+        val plan = AssistantMessageLifecycle.planPlaceholder(
+            existingMessageId = existingId,
+            existingMessage = existingMessage,
+            placeholderPayload = placeholderPayload,
+            nowEpochMs = System.currentTimeMillis(),
+        )
+        return when (plan.action) {
+            AssistantMessageLifecycleAction.INSERT_PENDING -> {
+                val insertedId = viewModel.insertAssistantMessageAndReturnId(
+                    requireNotNull(plan.payload),
+                ).toInt()
+                streamingAssistantMessageId = insertedId
+                if (!viewModel.markAssistantMessageGenerating(insertedId)) {
+                    viewModel.failAssistantMessage(insertedId, "Failed to start local generation")
+                    logStreamTrace("STREAM placeholder lifecycle start failed id=$insertedId")
+                    insertedId
+                } else {
+                    bindStreamingAssistantMessageOwnership(insertedId, normalizedResponse)
+                    logStreamTrace("STREAM placeholder insert id=$insertedId")
+                    insertedId
+                }
             }
-            lastPersistedStreamingAssistantText = normalizedResponse
-            streamingSpeechStartedForMessageId = insertedId
-            currentSpeakingAssistantMessageId = insertedId
-            if (!isTtsSuppressedForAssistant(insertedId)) {
-                stopButtonOwnerAssistantMessageId = insertedId
-                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+            AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT -> {
+                val messageId = requireNotNull(plan.messageId)
+                if (
+                    existingMessage?.status == MessageStatus.PENDING &&
+                    !viewModel.markAssistantMessageGenerating(messageId)
+                ) {
+                    logStreamTrace("STREAM placeholder lifecycle lost pending race id=$messageId")
+                    messageId
+                } else if (!viewModel.updateGeneratingAssistantMessageContent(messageId, normalizedResponse)) {
+                    logStreamTrace("STREAM placeholder lifecycle lost terminal race id=$messageId")
+                    messageId
+                } else {
+                    bindStreamingAssistantMessageOwnership(messageId, normalizedResponse)
+                    logStreamTrace("STREAM placeholder update id=$messageId len=${normalizedResponse.length}")
+                    messageId
+                }
             }
-            logStreamTrace("STREAM placeholder insert id=$insertedId")
-            return insertedId
+            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
+                val messageId = plan.messageId ?: existingId
+                if (existingMessage?.message == normalizedResponse) {
+                    lastPersistedStreamingAssistantText = normalizedResponse
+                    logStreamTrace("STREAM placeholder skip sameText")
+                } else {
+                    logStreamTrace(
+                        "STREAM placeholder keep existing id=$messageId status=${existingMessage?.status}",
+                    )
+                }
+                messageId
+            }
+            else -> error("Unexpected placeholder lifecycle action: ${plan.action}")
         }
-
-        val existingMessage = viewModel.getMessageById(existingId)
-        if (existingMessage?.message == normalizedResponse) {
-            lastPersistedStreamingAssistantText = normalizedResponse
-            logStreamTrace("STREAM placeholder skip sameText")
-            return existingId
-        }
-        val updateTarget = existingMessage?.copy(message = normalizedResponse)
-            ?: createAssistantMessage(chatId = chatId, response = normalizedResponse).copy(messageID = existingId)
-        viewModel.updateMessage(updateTarget)
-        lastPersistedStreamingAssistantText = normalizedResponse
-        streamingSpeechStartedForMessageId = existingId
-        currentSpeakingAssistantMessageId = existingId
-        if (!isTtsSuppressedForAssistant(existingId)) {
-            stopButtonOwnerAssistantMessageId = existingId
-            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-        }
-        logStreamTrace("STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
-        return existingId
     }
 
     suspend fun upsertStreamingAssistantPlaceholderSerialized(chatId: Int, response: String): Int? {
@@ -3428,7 +3447,6 @@ fun Home(
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
     ): Int? {
-        // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
         val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
             response = response,
             markdownStreamingMode = markdownStreamingMode,
@@ -3443,8 +3461,6 @@ fun Home(
             logStreamTrace("STREAM final skip displayOnlyText")
             return streamingAssistantMessageId
         }
-        // finalize後の本文をUI表示系にも反映し、streaming途中本文の残留を防ぐ。
-        streamingResponseTextForRender = finalizedResponseForPersist
 
         val finalPayload = createAssistantMessage(
             chatId = chatId,
@@ -3455,68 +3471,59 @@ fun Home(
             generationTimeMs = generationTimeMs,
         )
         val existingId = streamingAssistantMessageId
-        logStreamTrace("STREAM final path existingId=$existingId")
-        if (existingId == null) {
-            val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
-            lastPersistedStreamingAssistantText = finalizedResponseForPersist
-            if (latestInferenceStats != null) {
-                immediateInferenceStatsByMessageId[insertedId] = latestInferenceStats
+        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
+        val plan = AssistantMessageLifecycle.planCompletion(
+            existingMessageId = existingId,
+            existingMessage = existingMessage,
+            finalPayload = finalPayload,
+        )
+        logStreamTrace("STREAM final path existingId=$existingId action=${plan.action}")
+
+        val persistedId = when (plan.action) {
+            AssistantMessageLifecycleAction.INSERT_COMPLETED -> {
+                val insertedId = viewModel.insertAssistantMessageAndReturnId(
+                    requireNotNull(plan.payload),
+                ).toInt()
+                streamingAssistantMessageId = insertedId
+                logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
+                insertedId
             }
-            logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
-            return insertedId
+            AssistantMessageLifecycleAction.COMPLETE_IN_FLIGHT -> {
+                val messageId = requireNotNull(plan.messageId)
+                if (!viewModel.completeAssistantMessage(messageId, finalizedResponseForPersist)) {
+                    logStreamTrace("STREAM final lifecycle lost terminal race id=$messageId")
+                    return messageId
+                }
+                val terminalMessage = viewModel.getMessageById(messageId)
+                if (terminalMessage != null) {
+                    viewModel.updateMessage(
+                        AssistantMessageLifecycle.mergePayloadIntoTerminalMessage(
+                            terminalMessage = terminalMessage,
+                            payload = requireNotNull(plan.payload),
+                        )
+                    )
+                } else {
+                    logStreamTrace("STREAM final terminal row missing after transition id=$messageId")
+                }
+                logStreamTrace("STREAM final lifecycle complete id=$messageId")
+                messageId
+            }
+            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
+                val messageId = plan.messageId ?: existingId
+                logStreamTrace(
+                    "STREAM final keep terminal id=$messageId status=${existingMessage?.status}",
+                )
+                return messageId
+            }
+            else -> error("Unexpected completion lifecycle action: ${plan.action}")
         }
 
-        val existingMessage = viewModel.getMessageById(existingId)
-        if (existingMessage?.status in MessageStatus.IN_FLIGHT) {
-            if (!viewModel.completeAssistantMessage(existingId, finalizedResponseForPersist)) {
-                logStreamTrace("STREAM final lifecycle lost terminal race id=$existingId")
-                return existingId
-            }
-            viewModel.getMessageById(existingId)?.let { completedMessage ->
-                viewModel.updateMessage(
-                    finalPayload.copy(
-                        messageID = existingId,
-                        status = completedMessage.status,
-                        errorCode = completedMessage.errorCode,
-                        createdAtEpochMs = completedMessage.createdAtEpochMs,
-                        updatedAtEpochMs = completedMessage.updatedAtEpochMs,
-                    )
-                )
-            }
-            lastPersistedStreamingAssistantText = finalizedResponseForPersist
-            if (latestInferenceStats != null) immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
-            logStreamTrace("STREAM final lifecycle complete id=$existingId")
-            return existingId
-        }
-        val updatedMessage = if (existingMessage != null) {
-            existingMessage.copy(
-                message = finalPayload.message,
-                completionTokens = finalPayload.completionTokens,
-                generationTimeMs = finalPayload.generationTimeMs,
-                generationDurationNs = finalPayload.generationDurationNs,
-                evalDurationNs = finalPayload.evalDurationNs,
-                loadDurationNs = finalPayload.loadDurationNs,
-                promptEvalDurationNs = finalPayload.promptEvalDurationNs,
-                modelName = finalPayload.modelName,
-                inputTokens = finalPayload.inputTokens,
-                totalTokens = finalPayload.totalTokens,
-                tokensPerSecond = finalPayload.tokensPerSecond,
-                inferenceTimeSec = finalPayload.inferenceTimeSec,
-                finishReason = finalPayload.finishReason,
-                localSourceSummary = finalPayload.localSourceSummary,
-                timeToFirstTokenMs = finalPayload.timeToFirstTokenMs,
-                imageInputCount = finalPayload.imageInputCount,
-            )
-        } else {
-            finalPayload.copy(messageID = existingId)
-        }
-        viewModel.updateMessage(updatedMessage)
+        streamingResponseTextForRender = finalizedResponseForPersist
         lastPersistedStreamingAssistantText = finalizedResponseForPersist
         if (latestInferenceStats != null) {
-            immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
+            immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
         }
-        logStreamTrace("STREAM final update id=$existingId")
-        return existingId
+        return persistedId
     }
 
     suspend fun finalizeStreamingAssistantMessageSerialized(
@@ -3554,39 +3561,56 @@ fun Home(
             generationTimeMs = generationTimeMs,
         )
         val existingId = streamingAssistantMessageId
-        if (existingId == null) {
-            val now = System.currentTimeMillis()
-            return viewModel.insertAssistantMessageAndReturnId(
-                failurePayload.copy(
-                    status = MessageStatus.FAILED,
-                    errorCode = MessageErrorCode.GENERATION_FAILED,
-                    updatedAtEpochMs = now,
+        val existingMessage = existingId?.let { messageId -> viewModel.getMessageById(messageId) }
+        val plan = AssistantMessageLifecycle.planFailure(
+            existingMessageId = existingId,
+            existingMessage = existingMessage,
+            failurePayload = failurePayload,
+            nowEpochMs = System.currentTimeMillis(),
+        )
+
+        val persistedId = when (plan.action) {
+            AssistantMessageLifecycleAction.INSERT_FAILED -> {
+                val insertedId = viewModel.insertAssistantMessageAndReturnId(
+                    requireNotNull(plan.payload),
+                ).toInt()
+                streamingAssistantMessageId = insertedId
+                insertedId
+            }
+            AssistantMessageLifecycleAction.FAIL_IN_FLIGHT -> {
+                val messageId = requireNotNull(plan.messageId)
+                if (!viewModel.failAssistantMessage(messageId, response)) {
+                    logStreamTrace("STREAM failure lifecycle lost terminal race id=$messageId")
+                    return messageId
+                }
+                val terminalMessage = viewModel.getMessageById(messageId)
+                if (terminalMessage != null) {
+                    viewModel.updateMessage(
+                        AssistantMessageLifecycle.mergePayloadIntoTerminalMessage(
+                            terminalMessage = terminalMessage,
+                            payload = requireNotNull(plan.payload),
+                        )
+                    )
+                } else {
+                    logStreamTrace("STREAM failure terminal row missing after transition id=$messageId")
+                }
+                messageId
+            }
+            AssistantMessageLifecycleAction.KEEP_EXISTING -> {
+                val messageId = plan.messageId ?: existingId
+                logStreamTrace(
+                    "STREAM failure keep terminal id=$messageId status=${existingMessage?.status}",
                 )
-            ).toInt()
+                return messageId
+            }
+            else -> error("Unexpected failure lifecycle action: ${plan.action}")
         }
 
-        val existingMessage = viewModel.getMessageById(existingId)
-        if (existingMessage?.status in MessageStatus.IN_FLIGHT) {
-            if (!viewModel.failAssistantMessage(existingId, response)) {
-                logStreamTrace("STREAM failure lifecycle lost terminal race id=$existingId")
-                return existingId
-            }
-            viewModel.getMessageById(existingId)?.let { failedMessage ->
-                viewModel.updateMessage(
-                    failurePayload.copy(
-                        messageID = existingId,
-                        status = failedMessage.status,
-                        errorCode = failedMessage.errorCode,
-                        createdAtEpochMs = failedMessage.createdAtEpochMs,
-                        updatedAtEpochMs = failedMessage.updatedAtEpochMs,
-                    )
-                )
-            }
-            lastPersistedStreamingAssistantText = response
-            if (latestInferenceStats != null) immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
-            return existingId
+        lastPersistedStreamingAssistantText = response
+        if (latestInferenceStats != null) {
+            immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
         }
-        return existingId
+        return persistedId
     }
 
     suspend fun finalizeStreamingAssistantFailureSerialized(
@@ -5129,12 +5153,12 @@ fun Home(
                                                             npuStandardRouteS1FallbackText = null
                                                             if (npuOutputDecision.shouldFinalizeAsAssistantResponse) {
                                                                 val safeGreetingSourceSummary =
-                                                                    buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+                                                                    InferenceStatsFactory.safeGreetingSourceSummary(
                                                                         result = s1Result,
                                                                         existingSummary = s1DisplayTextForDev,
                                                                     )
                                                                 val safeGreetingInferenceStats =
-                                                                    buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+                                                                    InferenceStatsFactory.safeGreetingFallback(
                                                                         result = s1Result,
                                                                         localSourceSummary = safeGreetingSourceSummary,
                                                                         assistantText = npuFailureAssistantText,
@@ -5905,7 +5929,7 @@ fun Home(
                                                                 val sharedInferenceStats = npuStandardRoutePersistedResult
                                                                     .toSharedInferenceStats(assistantTextForPersist)
                                                                 val npuStandardRouteInferenceStats =
-                                                                    buildNpuStandardRouteInferenceStats(
+                                                                    InferenceStatsFactory.fromNpuStandardRoute(
                                                                         result = npuStandardRoutePersistedResult,
                                                                         localSourceSummary = sharedInferenceStats.localSourceSummary.orEmpty(),
                                                                         assistantText = assistantTextForPersist,
@@ -7787,7 +7811,7 @@ fun Home(
                                                                     val resolvedRunResult = runResultWithUiTrace
                                                                     var resolvedTrace = resolvedRunResult?.trace
                                                                     var localStats = if (resolvedTrace != null) {
-                                                                        buildLocalInferenceStatsFromTrace(
+                                                                        InferenceStatsFactory.fromLocalTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = resolvedAssistantResponse.length,
@@ -7890,7 +7914,7 @@ fun Home(
                                                                     latestLocalTraceForDev = resolvedTrace
                                                                     localStats = if (resolvedTrace != null) {
                                                                         statsBuildStartedAtElapsedMs = SystemClock.elapsedRealtime()
-                                                                        buildLocalInferenceStatsFromTrace(
+                                                                        InferenceStatsFactory.fromLocalTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = resolvedAssistantResponse.length,
@@ -13693,239 +13717,6 @@ private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): Stri
     }
 }
 
-
-private fun buildLocalGenerationOnlyMsOrNull(
-    generationTimeMs: Long,
-    timeToFirstTokenMs: Long?,
-): Long? {
-    val firstTokenMs = timeToFirstTokenMs ?: return null
-    if (generationTimeMs <= 0L || firstTokenMs < 0L) return null
-    return (generationTimeMs - firstTokenMs).coerceAtLeast(0L)
-}
-
-private fun buildLocalInferenceStatsFromTrace(
-    trace: LocalInferenceTrace,
-    generationTimeMs: Long,
-    responseCharCount: Int,
-    responseText: String? = null,
-    fallbackTimeToFirstTokenMs: Long? = null,
-): InferenceStats? {
-    val resolvedStats = resolveLocalInferenceStats(trace)
-    val measuredSnapshot = trace.measuredTokenSnapshot
-    val existingInputTokens: Int? = null
-    val existingOutputTokens = resolvedStats.outputTokens.value
-    val existingTotalTokens = resolvedStats.totalTokens.value
-    val existingTimeToFirstTokenMs = resolvedStats.firstTokenMs.value
-    val existingGenerationDurationNs = resolvedStats.generationDurationNs.value
-    val totalInferenceDurationNs = resolvedStats.evalDurationNs.value
-    val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
-    val existingLoadDurationNs =
-        wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
-    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
-    val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
-        generationTimeMs = generationTimeMs,
-        timeToFirstTokenMs = timeToFirstTokenMs,
-    )?.times(1_000_000L)
-    val fallbackPromptEvalNs =
-        if (resolvedStats.promptEvalDurationNs.value != null) {
-            resolvedStats.promptEvalDurationNs.value
-        } else {
-            val evalNs = totalInferenceDurationNs
-            val genNs = fallbackGenerationDurationNs
-            if (evalNs != null && genNs != null) {
-                (evalNs - genNs).takeIf { it > 0L }
-            } else {
-                null
-            }
-        }
-    val inputTokens = measuredSnapshot?.inputTokens ?: existingInputTokens ?: trace.sessionPromptTokens
-    val outputTokens = measuredSnapshot?.outputTokens ?: existingOutputTokens ?: trace.sessionResponseTokens
-    val totalTokens = measuredSnapshot?.totalTokens ?: existingTotalTokens ?: trace.sessionTotalTokens
-    val existingTokensPerSecond: Double? = null
-    val tokensPerSecond = measuredSnapshot?.tokensPerSecond
-        ?: existingTokensPerSecond
-        ?: buildLocalTokensPerSecondOrNull(
-            outputTokens = outputTokens,
-            generationTimeMs = generationTimeMs,
-        )
-    val modelName = trace.modelNameProbe.stringValueOrNull()
-        ?: trace.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
-    val finishReason = buildLocalFinishReasonOrNull(
-        existingFinishReason = trace.finishReasonProbe.stringValueOrNull(),
-        responseText = responseText,
-    )
-    val hasStats = modelName != null ||
-        finishReason != null ||
-        inputTokens != null ||
-        outputTokens != null ||
-        totalTokens != null
-    if (!hasStats) return null
-    return InferenceStats(
-        modelName = modelName,
-        inputTokens = inputTokens,
-        outputTokens = outputTokens,
-        totalTokens = totalTokens,
-        tokensPerSecond = tokensPerSecond,
-        charsPerSecond = measuredSnapshot?.charsPerSecond,
-        tokenCountMode = measuredSnapshot?.tokenCountMode,
-        notes = measuredSnapshot?.notes,
-        completionTokens = outputTokens,
-        finishReason = finishReason,
-        generationTimeMs = generationTimeMs,
-        decodeDurationMs = measuredSnapshot?.decodeDurationMs,
-        totalDurationMs = measuredSnapshot?.totalDurationMs,
-        generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
-        evalDurationNs = totalInferenceDurationNs,
-        modelLoadDurationNs = existingLoadDurationNs,
-        promptEvalDurationNs = fallbackPromptEvalNs,
-        timeToFirstTokenMs = measuredSnapshot?.ttftMs ?: timeToFirstTokenMs,
-        responseCharCount = responseCharCount,
-    )
-}
-
-private fun buildNpuStandardRouteInferenceStats(
-    result: NpuStandardRouteS1Result,
-    localSourceSummary: String,
-    assistantText: String,
-): InferenceStats {
-    val timing = result.timing
-    val rejectedAttemptOutput = result.rawOutput
-        .trim()
-        .ifBlank { result.sanitizedOutput.trim() }
-    val estimatedOutputTokens = rejectedAttemptOutput
-        .takeIf { it.isNotBlank() }
-        ?.let { output -> output.codePointCount(0, output.length).coerceAtLeast(1) }
-    val outputTokens = timing.outputTokens ?: estimatedOutputTokens
-    val inputTokens = result.inputPrompt
-        .takeIf { it.isNotBlank() }
-        ?.let { prompt -> prompt.codePointCount(0, prompt.length).coerceAtLeast(1) }
-    val totalTokens = when {
-        inputTokens != null && outputTokens != null -> inputTokens + outputTokens
-        else -> outputTokens
-    }
-    val modelName = result.selectedModelName
-        .takeIf { it.isNotBlank() }
-        ?: result.selectedModelFile.takeIf { it.isNotBlank() }
-        ?: "NPU プレビュー"
-    val generationTimeMs = timing.decodeMs ?: timing.totalMs
-    val tokensPerSecond = timing.tokensPerSecond ?: run {
-        val measuredOutputTokens = outputTokens ?: return@run null
-        val measuredGenerationMs = generationTimeMs?.takeIf { it > 0L } ?: return@run null
-        measuredOutputTokens.toDouble() / (measuredGenerationMs.toDouble() / 1_000.0)
-    }
-    val tokenCountMode = when {
-        timing.outputTokens != null -> timing.tokenCountMode
-        estimatedOutputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
-        else -> timing.tokenCountMode
-    }
-    val generationDurationNs = generationTimeMs
-        ?.takeIf { it > 0L }
-        ?.times(1_000_000L)
-    return InferenceStats(
-        modelName = modelName,
-        inputTokens = inputTokens,
-        outputTokens = outputTokens,
-        totalTokens = totalTokens,
-        tokensPerSecond = tokensPerSecond,
-        tokenCountMode = tokenCountMode,
-        completionTokens = outputTokens,
-        finishReason = result.reason.takeIf { it.isNotBlank() } ?: "stop",
-        generationTimeMs = generationTimeMs,
-        decodeDurationMs = timing.decodeMs,
-        totalDurationMs = timing.totalMs,
-        generationDurationNs = generationDurationNs,
-        evalDurationNs = timing.totalMs?.takeIf { it > 0L }?.times(1_000_000L),
-        localSourceSummary = localSourceSummary,
-        timeToFirstTokenMs = timing.ttftMs,
-        responseCharCount = assistantText.length,
-    )
-}
-
-internal fun buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
-    result: NpuStandardRouteS1Result,
-    existingSummary: String,
-): String = buildString {
-    existingSummary.trim().takeIf { it.isNotBlank() }?.let(::appendLine)
-    appendLine("fallback=${NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING}")
-    appendLine("fallback_display_source=deterministic_safe_greeting")
-    appendLine("inference_metrics_source=rejected_npu_attempt")
-    appendLine("npu_attempt_status=${result.status}")
-    appendLine("npu_attempt_reason=${result.reason}")
-    appendLine("npu_attempt_quality_candidate_status=${result.outputQualityCandidateStatus}")
-    append("npu_attempt_quality_candidate_reason=${result.outputQualityCandidateReason}")
-}.trim()
-
-internal fun buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
-    result: NpuStandardRouteS1Result,
-    localSourceSummary: String,
-    assistantText: String,
-): InferenceStats =
-    buildNpuStandardRouteInferenceStats(
-        result = result,
-        localSourceSummary = localSourceSummary,
-        assistantText = assistantText,
-    ).copy(
-        finishReason = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
-        notes = listOf(
-            "display_source=deterministic_safe_greeting",
-            "metrics_source=rejected_npu_attempt",
-            "npu_attempt_status=${result.status}",
-            "npu_attempt_reason=${result.reason}",
-            "npu_attempt_quality_candidate_status=${result.outputQualityCandidateStatus}",
-            "npu_attempt_quality_candidate_reason=${result.outputQualityCandidateReason}",
-        ).joinToString("; "),
-    )
-
-private fun buildLocalFinishReasonOrNull(
-    existingFinishReason: String?,
-    responseText: String?,
-): String? {
-    val normalizedExisting = existingFinishReason?.trim()?.takeIf { it.isNotBlank() }
-    if (normalizedExisting != null) return normalizedExisting
-    return if (responseText.isNullOrBlank()) null else "stop"
-}
-
-internal fun createAssistantMessage(
-    chatId: Int,
-    response: String,
-    latestInferenceStats: InferenceStats? = null,
-    localSourceSummary: String? = null,
-    imageInputCount: Int? = null,
-    generationTimeMs: Long? = null,
-): Message {
-    val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
-    val inputTokens = latestInferenceStats?.inputTokens
-    val persistedTotalTokens = latestInferenceStats?.totalTokens
-        ?: if (inputTokens != null && outputTokens != null) inputTokens + outputTokens else null
-    return Message(
-        message = response,
-        chatId = chatId,
-        isSendbyMe = false,
-        completionTokens = outputTokens,
-        generationTimeMs = generationTimeMs
-            ?: latestInferenceStats?.generationTimeMs
-            ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
-        generationDurationNs = latestInferenceStats?.generationDurationNs,
-        evalDurationNs = latestInferenceStats?.evalDurationNs,
-        loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
-        promptEvalDurationNs = latestInferenceStats?.promptEvalDurationNs,
-        modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,
-        inputTokens = inputTokens,
-        totalTokens = persistedTotalTokens,
-        tokensPerSecond = latestInferenceStats?.tokensPerSecond,
-        charsPerSecond = latestInferenceStats?.charsPerSecond,
-        tokenCountMode = latestInferenceStats?.tokenCountMode,
-        inferenceNotes = latestInferenceStats?.notes,
-        inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
-        decodeDurationMs = latestInferenceStats?.decodeDurationMs,
-        totalDurationMs = latestInferenceStats?.totalDurationMs,
-        finishReason = latestInferenceStats?.finishReason,
-        localSourceSummary = localSourceSummary,
-        timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
-        // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
-        imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
-    )
-}
 
 @Composable
 private fun MemoryRecoveryCheckDevSection(
