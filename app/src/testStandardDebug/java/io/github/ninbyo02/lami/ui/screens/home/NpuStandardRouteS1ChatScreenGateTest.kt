@@ -278,11 +278,11 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 tokensPerSecond = 50.0,
             ),
         )
-        val summary = buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+        val summary = InferenceStatsFactory.safeGreetingSourceSummary(
             result = result,
             existingSummary = "route_family=npu_standard",
         )
-        val stats = buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+        val stats = InferenceStatsFactory.safeGreetingFallback(
             result = result,
             localSourceSummary = summary,
             assistantText = "こんにちは。",
@@ -316,11 +316,11 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 tokensPerSecond = null,
             ),
         )
-        val summary = buildNpuStandardRouteSafeGreetingFallbackSourceSummary(
+        val summary = InferenceStatsFactory.safeGreetingSourceSummary(
             result = result,
             existingSummary = "route_family=npu_standard",
         )
-        val stats = buildNpuStandardRouteSafeGreetingFallbackInferenceStats(
+        val stats = InferenceStatsFactory.safeGreetingFallback(
             result = result,
             localSourceSummary = summary,
             assistantText = "こんにちは。",
