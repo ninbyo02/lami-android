@@ -11,6 +11,7 @@ internal enum class AssistantMessageLifecycleAction {
     COMPLETE_IN_FLIGHT,
     INSERT_FAILED,
     FAIL_IN_FLIGHT,
+    CANCEL_IN_FLIGHT,
     KEEP_EXISTING,
 }
 
@@ -121,6 +122,26 @@ internal object AssistantMessageLifecycle {
             action = AssistantMessageLifecycleAction.FAIL_IN_FLIGHT,
             messageId = existingMessageId,
             payload = failurePayload.copy(messageID = existingMessageId),
+        )
+    }
+
+    fun planCancellation(
+        existingMessageId: Int?,
+        existingMessage: Message?,
+    ): AssistantMessageLifecyclePlan {
+        if (
+            existingMessageId == null ||
+            existingMessage == null ||
+            existingMessage.status !in MessageStatus.IN_FLIGHT
+        ) {
+            return AssistantMessageLifecyclePlan(
+                action = AssistantMessageLifecycleAction.KEEP_EXISTING,
+                messageId = existingMessageId,
+            )
+        }
+        return AssistantMessageLifecyclePlan(
+            action = AssistantMessageLifecycleAction.CANCEL_IN_FLIGHT,
+            messageId = existingMessageId,
         )
     }
 

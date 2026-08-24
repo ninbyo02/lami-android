@@ -116,6 +116,42 @@ class AssistantMessageLifecycleTest {
     }
 
     @Test
+    fun `cancellation of an in flight row plans one terminal transition`() {
+        for (status in MessageStatus.IN_FLIGHT) {
+            val existing = message(id = 65, text = "partial", status = status)
+            val plan = AssistantMessageLifecycle.planCancellation(
+                existingMessageId = existing.messageID,
+                existingMessage = existing,
+            )
+
+            assertEquals(status, AssistantMessageLifecycleAction.CANCEL_IN_FLIGHT, plan.action)
+            assertEquals(status, existing.messageID, plan.messageId)
+            assertNull(status, plan.payload)
+        }
+    }
+
+    @Test
+    fun `cancellation cannot rewrite a terminal or missing row`() {
+        for (status in MessageStatus.TERMINAL) {
+            val existing = message(id = 66, text = "terminal", status = status)
+            val plan = AssistantMessageLifecycle.planCancellation(
+                existingMessageId = existing.messageID,
+                existingMessage = existing,
+            )
+
+            assertEquals(status, AssistantMessageLifecycleAction.KEEP_EXISTING, plan.action)
+            assertNull(status, plan.payload)
+        }
+        assertEquals(
+            AssistantMessageLifecycleAction.KEEP_EXISTING,
+            AssistantMessageLifecycle.planCancellation(
+                existingMessageId = null,
+                existingMessage = null,
+            ).action,
+        )
+    }
+
+    @Test
     fun `payload overlay preserves authoritative terminal metadata`() {
         val terminal = message(
             id = 71,
