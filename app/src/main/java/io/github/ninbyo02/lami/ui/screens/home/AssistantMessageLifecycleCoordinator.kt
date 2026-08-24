@@ -68,11 +68,20 @@ internal data class AssistantMessageLifecycleExecutionResult(
             outcome == AssistantMessageLifecycleExecutionOutcome.TERMINAL_ROW_MISSING
 
     val placeholderOwnershipReady: Boolean
-        get() = mutationApplied &&
-            action in setOf(
-                AssistantMessageLifecycleAction.INSERT_PENDING,
-                AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT,
-            )
+        get() =
+            (
+                mutationApplied &&
+                    action in setOf(
+                        AssistantMessageLifecycleAction.INSERT_PENDING,
+                        AssistantMessageLifecycleAction.UPDATE_IN_FLIGHT,
+                    )
+                ) ||
+                (
+                    outcome == AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING &&
+                        action == AssistantMessageLifecycleAction.KEEP_EXISTING &&
+                        messageId != null &&
+                        existingStatus == MessageStatus.GENERATING
+                    )
 
     val terminalTransitionApplied: Boolean
         get() = mutationApplied &&

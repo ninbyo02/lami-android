@@ -25,6 +25,8 @@ class InferenceArchitectureSourceContractTest {
 
         assertTrue(chat.contains("AssistantMessageLifecycleCoordinator("))
         assertTrue(streamingLifecycleBlock.contains("assistantMessageLifecycleCoordinator.upsertPlaceholder("))
+        assertTrue(streamingLifecycleBlock.contains("existingMessageId = existingId"))
+        assertFalse(streamingLifecycleBlock.contains("STREAM lifecycle start kept existing"))
         assertTrue(streamingLifecycleBlock.contains("assistantMessageLifecycleCoordinator.complete("))
         assertTrue(terminalLifecycleBlock.contains("assistantMessageLifecycleCoordinator.fail("))
         assertTrue(terminalLifecycleBlock.contains("assistantMessageLifecycleCoordinator.cancel("))

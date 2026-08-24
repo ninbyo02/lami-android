@@ -50,7 +50,10 @@ internal object AssistantMessageLifecycle {
                 messageId = existingMessageId,
             )
         }
-        if (existingMessage.message == placeholderPayload.message) {
+        if (
+            existingMessage.status == MessageStatus.GENERATING &&
+            existingMessage.message == placeholderPayload.message
+        ) {
             return AssistantMessageLifecyclePlan(
                 action = AssistantMessageLifecycleAction.KEEP_EXISTING,
                 messageId = existingMessageId,
