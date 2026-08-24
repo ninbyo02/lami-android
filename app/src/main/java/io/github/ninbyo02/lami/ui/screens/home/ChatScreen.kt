@@ -891,6 +891,11 @@ fun Home(
             OllamaViewModelAssistantMessageLifecycleStore(viewModel),
         )
     }
+    val postTerminalAssistantMetadataUpdater = remember(viewModel, effectiveChatId) {
+        PostTerminalAssistantMetadataUpdater(
+            OllamaViewModelPostTerminalAssistantMetadataStore(viewModel),
+        )
+    }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
@@ -1434,25 +1439,18 @@ fun Home(
                 updatedStats.outputTokens == null &&
                 updatedStats.totalTokens == null
             ) return@launch
-            val updated = withContext(Dispatchers.IO) {
-                val current = viewModel.getMessageById(assistantId) ?: return@withContext false
-                if (current.isSendbyMe ||
-                    current.chatId != chatId ||
-                    current.message != persistedResponse
-                ) return@withContext false
-                val replacement = createAssistantMessage(
-                    chatId = chatId,
-                    response = persistedResponse,
-                    latestInferenceStats = updatedStats,
-                    localSourceSummary = updatedPersistence.localSourceSummary,
-                ).copy(
-                    messageID = current.messageID,
-                    createdAtEpochMs = current.createdAtEpochMs,
+            val metadataUpdate = withContext(Dispatchers.IO) {
+                postTerminalAssistantMetadataUpdater.update(
+                    messageId = assistantId,
+                    expectedChatId = chatId,
+                    expectedMessage = persistedResponse,
+                    patch = PostTerminalAssistantMetadataPatch.fromInferenceStats(
+                        stats = updatedStats,
+                        localSourceSummary = updatedPersistence.localSourceSummary,
+                    ),
                 )
-                viewModel.updateMessage(replacement)
-                true
             }
-            if (updated) {
+            if (metadataUpdate.accepted) {
                 immediateInferenceStatsByMessageId[assistantId] = updatedStats
             }
         }
@@ -5969,12 +5967,22 @@ fun Home(
                                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                             npuStandardRouteS1DisplayText = s5SavedDisplayTextWithMemory
                                                                             try {
-                                                                                withContext(Dispatchers.IO) {
-                                                                                    viewModel.getMessageById(assistantId)?.let { message ->
-                                                                                        viewModel.updateMessage(
-                                                                                            message.copy(localSourceSummary = s5SavedDisplayTextWithMemory),
-                                                                                        )
-                                                                                    }
+                                                                                val metadataUpdate = withContext(Dispatchers.IO) {
+                                                                                    postTerminalAssistantMetadataUpdater.update(
+                                                                                        messageId = assistantId,
+                                                                                        expectedChatId = resolvedChatId,
+                                                                                        expectedMessage = assistantTextForPersist,
+                                                                                        patch = PostTerminalAssistantMetadataPatch(
+                                                                                            localSourceSummary = s5SavedDisplayTextWithMemory,
+                                                                                        ),
+                                                                                    )
+                                                                                }
+                                                                                if (!metadataUpdate.accepted) {
+                                                                                    Log.w(
+                                                                                        "ChatScreen",
+                                                                                        "NPU S5 TTS diagnostics metadata update skipped: " +
+                                                                                            metadataUpdate.outcome,
+                                                                                    )
                                                                                 }
                                                                             } catch (exception: CancellationException) {
                                                                                 throw exception
@@ -7970,13 +7978,24 @@ fun Home(
                                                                             timingSummary,
                                                                         ).joinToString("\n")
                                                                         val finalStats = localStats.copy(localSourceSummary = finalLocalSourceSummary)
-                                                                        immediateInferenceStatsByMessageId[assistantId] = finalStats
-                                                                        withContext(Dispatchers.IO) {
-                                                                            viewModel.getMessageById(assistantId)?.let { message ->
-                                                                                viewModel.updateMessage(
-                                                                                    message.copy(localSourceSummary = finalLocalSourceSummary),
-                                                                                )
-                                                                            }
+                                                                        val metadataUpdate = withContext(Dispatchers.IO) {
+                                                                            postTerminalAssistantMetadataUpdater.update(
+                                                                                messageId = assistantId,
+                                                                                expectedChatId = currentChatId,
+                                                                                expectedMessage = resolvedAssistantResponse,
+                                                                                patch = PostTerminalAssistantMetadataPatch(
+                                                                                    localSourceSummary = finalLocalSourceSummary,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        if (metadataUpdate.accepted) {
+                                                                            immediateInferenceStatsByMessageId[assistantId] = finalStats
+                                                                        } else {
+                                                                            Log.w(
+                                                                                "ChatScreen",
+                                                                                "Local timing metadata update skipped: " +
+                                                                                    metadataUpdate.outcome,
+                                                                            )
                                                                         }
                                                                     }
                                                                     return@launch
