@@ -1004,7 +1004,7 @@ fun Home(
     ) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, runInitialTurns, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -1023,6 +1023,7 @@ fun Home(
                     preferredBackendDryRunSetting = backend,
                     markdownStreamingMode = markdownStreamingMode,
                     prompt = runPrompt,
+                    initialTurns = runInitialTurns,
                     onPartial = onPartial,
                 )
             if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
@@ -4733,6 +4734,20 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
+                                                        .mapNotNull { message ->
+                                                            val text = message.message.trim().takeIf(String::isNotBlank)
+                                                                ?: return@mapNotNull null
+                                                            LocalConversationTurn(
+                                                                role = if (message.isSendbyMe) {
+                                                                    LocalConversationRole.USER
+                                                                } else {
+                                                                    LocalConversationRole.MODEL
+                                                                },
+                                                                text = text,
+                                                            )
+                                                        }
+                                                        .takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
                                                     val localSendTapElapsedMs = SystemClock.elapsedRealtime()
                                                     lastLocalSendTapElapsedMs = localSendTapElapsedMs
                                                     lastLocalSendPromptForTrace = requestPrompt
@@ -4977,6 +4992,7 @@ fun Home(
                                                                                 )
                                                                                     .run(
                                                                                         userPrompt = requestPrompt,
+                                                                                        contextText = LocalConversationHistoryPolicy.npuContext(localConversationHistorySnapshot),
                                                                                         maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                     )
                                                                             }
@@ -7236,6 +7252,7 @@ fun Home(
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         markdownStreamingMode = markdownStreamingMode,
+                                                                        initialTurns = localConversationHistorySnapshot,
                                                                         routeDiagnosticContext = localRouteDiagnosticContext,
                                                                         routeRunStartedAtMs = localRunStartedAtMs,
                                                                         heldEngineReused = heldEngineReused,
@@ -7463,6 +7480,7 @@ fun Home(
                                                                                 resolvedModelPath = modelResolution.modelPath,
                                                                                 cacheDirPath = modelResolution.cacheDirPath,
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
+                                                                                initialTurns = localConversationHistorySnapshot,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = normalizeStreamingPartialForRender(
@@ -10744,6 +10762,7 @@ private suspend fun runLocalInferenceOnceEntry(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     prompt: String,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
     val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
@@ -10878,6 +10897,7 @@ private suspend fun runLocalInferenceOnceEntry(
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
             markdownStreamingMode = markdownStreamingMode,
+            initialTurns = initialTurns,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1

@@ -290,8 +290,9 @@ class RealNpuStandardRouteS1ProviderTest {
                 capturedRequest = request
                 successDisplay(maxOutputTokens = request.maxOutputTokens)
             },
-        ).invoke(
+        ).invokeWithContext(
             userPrompt = userPrompt,
+            contextText = "ユーザー: 直前の質問\nアシスタント: 直前の回答",
             maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
             trace = traces::add,
         )
@@ -299,17 +300,19 @@ class RealNpuStandardRouteS1ProviderTest {
         val request = requireNotNull(capturedRequest)
         assertEquals("success", raw.status)
         assertEquals(userPrompt, request.userPrompt)
-        assertEquals("", request.contextText)
+        assertEquals("ユーザー: 直前の質問\nアシスタント: 直前の回答", request.contextText)
         assertTrue(request.unsafeDevBypassPromptLengthGate)
         assertEquals(128, request.maxOutputTokens)
         assertEquals(128, raw.requestedMaxOutputTokens)
         assertEquals(128, raw.effectiveMaxOutputTokens)
-        assertEquals("gemma_it_user_model", request.promptTailVariant)
+        assertEquals("raw_dialog_tail_variant_a", request.promptTailVariant)
         assertEquals(60_000L, request.timeoutMs)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT request_prompt_hash=") })
         assertTrue(traces.any { it.contains("prompt_source=dev_only_conversation") })
+        assertTrue(traces.any { it.contains("context_code_points=") })
         assertTrue(traces.any { it.contains("final_input_tokens=unavailable") })
+        assertTrue(traces.any { it.contains("final_input_hash=") })
         assertTrue(traces.any { it.contains("final_input_code_points=") })
         assertTrue(traces.any { it.contains("status=success") })
         assertTrue(traces.any { it.contains("reason=success") })

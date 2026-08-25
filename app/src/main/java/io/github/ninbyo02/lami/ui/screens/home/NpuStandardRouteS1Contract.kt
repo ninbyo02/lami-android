@@ -213,8 +213,8 @@ internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE = "standard_chat_screen_s1_npu_display_only"
     const val ROUTE_TYPE_S2_DB_SAVE = "standard_chat_screen_s2_npu_db_save"
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
-    const val PROMPT_TAIL_VARIANT = "gemma_it_user_model"
-    const val PROMPT_WRAPPER_USED = "gemma_it_user_model"
+    const val PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
+    const val PROMPT_WRAPPER_USED = PROMPT_TAIL_VARIANT
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
@@ -264,7 +264,9 @@ internal object NpuStandardRouteS1Contract {
         }
         return NpuStandardRouteS1PromptRewrite(
             originalPrompt = normalizedPrompt,
-            finalPromptText = "<start_of_turn>user\n$rewrittenPrompt<end_of_turn>\n<start_of_turn>model",
+            finalPromptText = "必ず日本語だけで短く返答してください。\n" +
+                "ユーザー: $rewrittenPrompt\n" +
+                "アシスタント:",
             arithmeticPromptDetected = arithmeticPromptDetected,
             shortPromptRewriteApplied =
                 arithmeticPromptDetected || greetingPromptDetected || ambiguousShortPromptDetected,

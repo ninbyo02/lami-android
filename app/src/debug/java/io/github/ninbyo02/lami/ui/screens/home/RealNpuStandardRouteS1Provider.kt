@@ -31,6 +31,18 @@ internal class RealNpuStandardRouteS1Provider(
         userPrompt: String,
         maxOutputTokens: Int,
         trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult = invokeWithContext(
+        userPrompt = userPrompt,
+        contextText = "",
+        maxOutputTokens = maxOutputTokens,
+        trace = trace,
+    )
+
+    override fun invokeWithContext(
+        userPrompt: String,
+        contextText: String,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult {
         val maxOutputTokensResolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(maxOutputTokens)
         val effectiveMaxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
@@ -56,12 +68,11 @@ internal class RealNpuStandardRouteS1Provider(
         )
         return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
-            val request = request(
-                userPrompt = userPrompt,
+            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt)
+            val nativeRequest = request(
+                userPrompt = promptRewrite.rewrittenPromptText,
+                contextText = contextText,
                 maxOutputTokens = effectiveMaxOutputTokens,
-            )
-            val nativeRequest = request.copy(
-                promptTailVariant = NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT,
             )
             trace(buildNpuRealPromptRequestTrace(nativeRequest))
             val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
@@ -185,18 +196,18 @@ internal class RealNpuStandardRouteS1Provider(
     }
 
     companion object {
-        private const val NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
 
         fun request(
             userPrompt: String,
+            contextText: String = "",
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
         ): DevOnlyNpuOneTurnConversationRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
             return DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = userPrompt,
-                contextText = "",
+                contextText = contextText,
                 unsafeDevBypassPromptLengthGate = true,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,
@@ -227,7 +238,11 @@ internal class RealNpuStandardRouteS1Provider(
                 append(npuRealPromptPreview(request.userPrompt))
                 append(" prompt_source=")
                 append(Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_DEV_ONLY_CONVERSATION)
+                append(" context_code_points=")
+                append(request.contextText.codePointCount(0, request.contextText.length))
                 append(" final_input_tokens=unavailable")
+                append(" final_input_hash=")
+                append(npuRealPromptHash(finalInput))
                 append(" final_input_code_points=")
                 append(finalInput.codePointCount(0, finalInput.length))
                 append(" prompt_tail_variant=")

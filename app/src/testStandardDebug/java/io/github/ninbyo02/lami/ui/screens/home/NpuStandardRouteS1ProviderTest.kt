@@ -533,16 +533,17 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `standard route uses Gemma IT user model wrapper`() {
+    fun `standard route reports the raw prompt profile actually sent to native`() {
         val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
         val contract = contractClass.getField("INSTANCE").get(null)
-        val gemmaVariant = contractClass.getField("GEMMA_IT_USER_MODEL_VARIANT").get(null) as String
-        assertEquals("gemma_it_user_model", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
+        val rawVariant = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_A").get(null) as String
+        assertEquals("raw_dialog_tail_variant_a", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
         listOf(
             "こんにちは",
             "あなたは誰ですか？",
             "カレーの材料を箇条書きで教えて",
         ).forEach { userPrompt ->
+            val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt)
             val prompt = contractClass
                 .getMethod(
                     "buildRawDialogTailPrompt",
@@ -550,29 +551,27 @@ class NpuStandardRouteS1ProviderTest {
                     String::class.java,
                     String::class.java,
                 )
-                .invoke(contract, "", userPrompt, gemmaVariant) as String
+                .invoke(contract, "", rewrite.rewrittenPromptText, rawVariant) as String
             val request = RealNpuStandardRouteS1Provider.request(
-                userPrompt = userPrompt,
+                userPrompt = rewrite.rewrittenPromptText,
                 maxOutputTokens = 32,
             )
 
-            assertEquals("gemma_it_user_model", request.promptTailVariant)
+            assertEquals("raw_dialog_tail_variant_a", request.promptTailVariant)
             assertTrue(
                 RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
-                    .contains("prompt_wrapper_used=gemma_it_user_model"),
+                    .contains("prompt_wrapper_used=raw_dialog_tail_variant_a"),
             )
-            assertEquals(
-                NpuStandardRouteS1Contract.buildPromptWrapperText(userPrompt),
-                prompt,
-            )
+            assertEquals(rewrite.finalPromptText, prompt)
         }
     }
 
     @Test
-    fun `standard route rewrites short arithmetic prompts inside Gemma IT wrapper`() {
+    fun `standard route rewrites short arithmetic prompts in the native raw prompt`() {
         val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
         val contract = contractClass.getField("INSTANCE").get(null)
-        val gemmaVariant = contractClass.getField("GEMMA_IT_USER_MODEL_VARIANT").get(null) as String
+        val rawVariant = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_A").get(null) as String
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative("１＋１は？")
         val prompt = contractClass
             .getMethod(
                 "buildRawDialogTailPrompt",
@@ -580,23 +579,24 @@ class NpuStandardRouteS1ProviderTest {
                 String::class.java,
                 String::class.java,
             )
-            .invoke(contract, "", "１＋１は？", gemmaVariant) as String
+            .invoke(contract, "", rewrite.rewrittenPromptText, rawVariant) as String
         val request = RealNpuStandardRouteS1Provider.request(
-            userPrompt = "１＋１は？",
+            userPrompt = rewrite.rewrittenPromptText,
             maxOutputTokens = 32,
         )
         val trace = RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
 
         assertEquals(
-            "<start_of_turn>user\n" +
-                "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
+            "必ず日本語だけで短く返答してください。\n" +
+                "ユーザー: 次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
                 "問題: １＋１は？\n" +
-                "答え:<end_of_turn>\n" +
-                "<start_of_turn>model",
+                "答え:\n" +
+                "アシスタント:",
             prompt,
         )
-        assertTrue(trace.contains("arithmetic_prompt_detected=true"))
-        assertTrue(trace.contains("short_prompt_rewrite_applied=true"))
+        assertTrue(rewrite.arithmeticPromptDetected)
+        assertTrue(rewrite.shortPromptRewriteApplied)
+        assertTrue(trace.contains("prompt_tail_variant=raw_dialog_tail_variant_a"))
     }
 
     @Test
@@ -2011,8 +2011,8 @@ class NpuStandardRouteS1ProviderTest {
                 "last_npu_s1_request_started_at_elapsed_realtime_ms=123",
                 "last_npu_s1_request_finished_at_elapsed_realtime_ms=456",
                 "last_npu_s1_prompt=あなたは誰ですか",
-                "last_npu_s1_final_prompt_tail=<start_of_turn>model",
-                "last_npu_s1_prompt_profile=gemma_it_user_model",
+                "last_npu_s1_final_prompt_tail=アシスタント:",
+                "last_npu_s1_prompt_profile=raw_dialog_tail_variant_a",
                 "last_npu_s1_model_path=hidden_from_failure_details",
                 "last_npu_s1_status=failure",
                 "last_npu_s1_reason=adapter_failure:LiteRtLmJniException",
@@ -2035,8 +2035,8 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
         assertTrue(copyText.contains("[DEV診断: NPU S1 failure details]"))
         assertTrue(copyText.contains("input_prompt=あなたは誰ですか"))
-        assertTrue(copyText.contains("final_prompt_text=<start_of_turn>user\\nあなたは誰ですか<end_of_turn>\\n<start_of_turn>model"))
-        assertTrue(copyText.contains("selected_prompt_profile=gemma_it_user_model"))
+        assertTrue(copyText.contains("final_prompt_text=必ず日本語だけで短く返答してください。\\nユーザー: あなたは誰ですか\\nアシスタント:"))
+        assertTrue(copyText.contains("selected_prompt_profile=raw_dialog_tail_variant_a"))
         assertTrue(copyText.contains("failure_exception_class=LiteRtLmJniException"))
         assertTrue(copyText.contains("failure_exception_message=engine-create-failed:INTERNAL"))
         assertTrue(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
