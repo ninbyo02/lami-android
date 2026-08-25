@@ -1066,6 +1066,11 @@ fun Home(
     val automaticNpuRouteSelected =
         preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT &&
             automaticBackendPlan.firstOrNull() == ResidentInferenceBackend.NPU
+    val activeLocalModelDisplayName = if (automaticNpuRouteSelected) {
+        localBaseModelDisplayName
+    } else {
+        selectedLocalModelDisplayName
+    }
     val effectiveNpuStandardRouteMode = if (automaticNpuRouteSelected) {
         NpuStandardRouteMode.FULL
     } else {
@@ -4321,7 +4326,7 @@ fun Home(
                             },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             selectedInferenceTarget = selectedInferenceTarget,
-                            localBaseModelDisplayName = selectedLocalModelDisplayName,
+                            localBaseModelDisplayName = activeLocalModelDisplayName,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                                 coroutineScope.launch {
@@ -17104,7 +17109,8 @@ internal fun buildNpuStandardRouteS5TtsCandidateTrace(
     append(streamingActive)
     append(" assistant_id=")
     append(assistantId ?: "null")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=")
+    append(assistantId != null)
 }
 
 internal fun buildNpuStandardRouteS5TtsSkipTrace(
@@ -17116,7 +17122,8 @@ internal fun buildNpuStandardRouteS5TtsSkipTrace(
     append(reason)
     append(" assistant_id=")
     append(assistantId ?: "null")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=")
+    append(assistantId != null)
 }
 
 internal fun buildNpuStandardRouteS5TtsSpeakTrace(
@@ -17134,7 +17141,7 @@ internal fun buildNpuStandardRouteS5TtsSpeakTrace(
     append(" cooldown=false")
     append(" stop_suppressed=false")
     append(" streaming_active=false")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=true")
 }
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {

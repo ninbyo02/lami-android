@@ -8,13 +8,19 @@ import com.google.ai.edge.litertlm.SamplerConfig
 internal object LocalConversationPolicy {
     const val SYSTEM_INSTRUCTION =
         "あなたは端末内で動作するアシスタントです。ユーザーが別の言語を明示的に求めない限り、自然で簡潔な日本語で回答してください。"
+    const val SAMPLER_PROFILE = "lami_stable_v1"
+    const val SAMPLER_TOP_K = 40
+    const val SAMPLER_TOP_P = 0.9
+    const val SAMPLER_TEMPERATURE = 0.3
+    const val SAMPLER_SEED = 42
+    const val THINKING_ENABLED = false
 
     val samplerConfig: SamplerConfig
         get() = SamplerConfig(
-            topK = 40,
-            topP = 0.9,
-            temperature = 0.3,
-            seed = 42,
+            topK = SAMPLER_TOP_K,
+            topP = SAMPLER_TOP_P,
+            temperature = SAMPLER_TEMPERATURE,
+            seed = SAMPLER_SEED,
         )
 
     fun conversationConfig(
@@ -29,6 +35,6 @@ internal object LocalConversationPolicy {
             }
         },
         samplerConfig = samplerOverride ?: samplerConfig,
-        extraContext = mapOf("enable_thinking" to false),
+        extraContext = mapOf("enable_thinking" to THINKING_ENABLED),
     )
 }

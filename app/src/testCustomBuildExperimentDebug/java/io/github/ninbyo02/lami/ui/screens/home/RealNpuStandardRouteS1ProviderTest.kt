@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import org.junit.Assert.assertEquals
@@ -314,6 +315,14 @@ class RealNpuStandardRouteS1ProviderTest {
         assertTrue(traces.any { it.contains("final_input_tokens=unavailable") })
         assertTrue(traces.any { it.contains("final_input_hash=") })
         assertTrue(traces.any { it.contains("final_input_code_points=") })
+        assertTrue(traces.any { it.contains("native_input_code_point_limit=128") })
+        assertTrue(traces.any { it.contains("native_input_within_limit=true") })
+        assertTrue(traces.any { it.contains("sampler_config_profile=lami_stable_v1") })
+        assertTrue(traces.any { it.contains("sampler_top_k=40") })
+        assertTrue(traces.any { it.contains("sampler_top_p=0.9") })
+        assertTrue(traces.any { it.contains("sampler_temperature=0.3") })
+        assertTrue(traces.any { it.contains("sampler_seed=42") })
+        assertTrue(traces.any { it.contains("thinking_enabled=false") })
         assertTrue(traces.any { it.contains("status=success") })
         assertTrue(traces.any { it.contains("reason=success") })
         assertTrue(traces.any { it.contains("raw_output_hash=") })
@@ -324,6 +333,50 @@ class RealNpuStandardRouteS1ProviderTest {
         assertTrue(traces.any { it.contains("timeout=false") })
         assertTrue(traces.any { it.contains("fresh_crash=false") })
         assertFalse(traces.joinToString("\n").contains(userPrompt))
+    }
+
+    @Test
+    fun `real provider bounds conversation history to native input limit`() {
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = "続きを教えて",
+            contextText = (1..20).joinToString("\n") { index ->
+                if (index % 2 == 0) {
+                    "アシスタント: これは直前の回答${index}です"
+                } else {
+                    "ユーザー: これは過去の質問${index}です"
+                }
+            },
+        )
+        val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = request.contextText,
+            userPrompt = request.userPrompt,
+            promptTailVariant = request.promptTailVariant,
+        )
+
+        assertTrue(request.contextText.isNotBlank())
+        assertTrue(request.contextText.endsWith("アシスタント: これは直前の回答20です"))
+        assertFalse(request.contextText.contains("これは過去の質問1です"))
+        assertTrue(
+            finalInput.codePointCount(0, finalInput.length) <=
+                RealNpuStandardRouteS1Provider.NATIVE_MAX_INPUT_CODE_POINTS,
+        )
+    }
+
+    @Test
+    fun `real provider reports short prompt rewrite and stable sampler policy`() {
+        val traces = mutableListOf<String>()
+
+        RealNpuStandardRouteS1Provider(
+            requestRunner = { request -> successDisplay(maxOutputTokens = request.maxOutputTokens) },
+        ).invoke(
+            userPrompt = "こんにちは",
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = traces::add,
+        )
+
+        assertTrue(traces.any { it.contains("short_prompt_rewrite_applied=true") })
+        assertTrue(traces.any { it.contains("sampler_config_profile=lami_stable_v1") })
+        assertTrue(traces.any { it.contains("thinking_enabled=false") })
     }
 
     @Test

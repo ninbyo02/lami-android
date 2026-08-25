@@ -1125,10 +1125,12 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
         assertTrue(candidateTrace.contains("NPU_S5_TTS ttsCandidate_created=true"))
         assertTrue(candidateTrace.contains("speak_text_length=6"))
-        assertTrue(candidateTrace.contains("backend_npu_persisted=false"))
+        assertTrue(candidateTrace.contains("backend_npu_persisted=true"))
         assertTrue(skipTrace.contains("tts_speak_invoked=false"))
         assertTrue(skipTrace.contains("tts_skipped_reason=gate_off"))
+        assertTrue(skipTrace.contains("backend_npu_persisted=false"))
         assertTrue(speakTrace.contains("tts_speak_invoked=true"))
+        assertTrue(speakTrace.contains("backend_npu_persisted=true"))
         assertTrue(speakTrace.contains("stage=before"))
     }
 

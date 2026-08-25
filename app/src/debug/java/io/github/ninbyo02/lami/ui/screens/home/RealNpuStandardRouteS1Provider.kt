@@ -74,7 +74,12 @@ internal class RealNpuStandardRouteS1Provider(
                 contextText = contextText,
                 maxOutputTokens = effectiveMaxOutputTokens,
             )
-            trace(buildNpuRealPromptRequestTrace(nativeRequest))
+            trace(
+                buildNpuRealPromptRequestTrace(
+                    request = nativeRequest,
+                    promptRewrite = promptRewrite,
+                ),
+            )
             val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
                 display = requestRunner(nativeRequest),
                 userPrompt = userPrompt,
@@ -199,29 +204,68 @@ internal class RealNpuStandardRouteS1Provider(
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
 
+        const val NATIVE_MAX_INPUT_CODE_POINTS = 128
+
         fun request(
             userPrompt: String,
             contextText: String = "",
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
         ): DevOnlyNpuOneTurnConversationRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+            val promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT
             return DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = userPrompt,
-                contextText = contextText,
+                contextText = boundContextForNativeInput(
+                    contextText = contextText,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                ),
                 unsafeDevBypassPromptLengthGate = true,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,
                     requestedMaxOutputTokens = sanitizedMaxOutputTokens,
                 ),
-                promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
+                promptTailVariant = promptTailVariant,
                 timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
             )
         }
 
+        internal fun boundContextForNativeInput(
+            contextText: String,
+            userPrompt: String,
+            promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
+        ): String {
+            val contextLines = contextText
+                .lineSequence()
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .toList()
+            val selectedLines = ArrayDeque<String>()
+
+            for (line in contextLines.asReversed()) {
+                val candidate = buildList {
+                    add(line)
+                    addAll(selectedLines)
+                }.joinToString("\n")
+                val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                    contextText = candidate,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                )
+                if (finalInput.codePointCount(0, finalInput.length) > NATIVE_MAX_INPUT_CODE_POINTS) {
+                    break
+                }
+                selectedLines.addFirst(line)
+            }
+
+            return selectedLines.joinToString("\n")
+        }
+
         fun buildNpuRealPromptRequestTrace(
             request: DevOnlyNpuOneTurnConversationRequest,
+            promptRewrite: NpuStandardRouteS1PromptRewrite =
+                NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt),
         ): String {
-            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt)
             val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
                 contextText = request.contextText,
                 userPrompt = request.userPrompt,
@@ -243,12 +287,29 @@ internal class RealNpuStandardRouteS1Provider(
                 append(" final_input_tokens=unavailable")
                 append(" final_input_hash=")
                 append(npuRealPromptHash(finalInput))
+                val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
                 append(" final_input_code_points=")
-                append(finalInput.codePointCount(0, finalInput.length))
+                append(finalInputCodePoints)
+                append(" native_input_code_point_limit=")
+                append(NATIVE_MAX_INPUT_CODE_POINTS)
+                append(" native_input_within_limit=")
+                append(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS)
                 append(" prompt_tail_variant=")
                 append(request.promptTailVariant)
                 append(" prompt_wrapper_used=")
                 append(NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED)
+                append(" sampler_config_profile=")
+                append(LocalConversationPolicy.SAMPLER_PROFILE)
+                append(" sampler_top_k=")
+                append(LocalConversationPolicy.SAMPLER_TOP_K)
+                append(" sampler_top_p=")
+                append(LocalConversationPolicy.SAMPLER_TOP_P)
+                append(" sampler_temperature=")
+                append(LocalConversationPolicy.SAMPLER_TEMPERATURE)
+                append(" sampler_seed=")
+                append(LocalConversationPolicy.SAMPLER_SEED)
+                append(" thinking_enabled=")
+                append(LocalConversationPolicy.THINKING_ENABLED)
                 append(" arithmetic_prompt_detected=")
                 append(promptRewrite.arithmeticPromptDetected)
                 append(" short_prompt_rewrite_applied=")

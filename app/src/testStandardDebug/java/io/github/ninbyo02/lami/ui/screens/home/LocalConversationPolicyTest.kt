@@ -23,4 +23,14 @@ class LocalConversationPolicyTest {
         assertTrue(npuContext.endsWith("アシスタント: message-14"))
         assertTrue(!npuContext.contains("message-2\n"))
     }
+
+    @Test
+    fun `stable local sampler and thinking policy are explicit`() {
+        assertEquals("lami_stable_v1", LocalConversationPolicy.SAMPLER_PROFILE)
+        assertEquals(40, LocalConversationPolicy.SAMPLER_TOP_K)
+        assertEquals(0.9, LocalConversationPolicy.SAMPLER_TOP_P, 0.0)
+        assertEquals(0.3, LocalConversationPolicy.SAMPLER_TEMPERATURE, 0.0)
+        assertEquals(42, LocalConversationPolicy.SAMPLER_SEED)
+        assertEquals(false, LocalConversationPolicy.THINKING_ENABLED)
+    }
 }

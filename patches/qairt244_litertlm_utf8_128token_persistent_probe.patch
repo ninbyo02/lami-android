@@ -1,8 +1,8 @@
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 421c3036..7f3f2a2e 100644
+index 3b67520b..8bce83e4 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -103,5 +104,7 @@ constexpr char kQairt244ShortMultitokenMarker[] =
+@@ -105,6 +105,8 @@ constexpr char kQairt244ShortMultitokenMarker[] =
      "qairt244_short_multitoken_smoke_v1";
  constexpr char kQairt244EditablePromptMarker[] =
      "qairt244_editable_prompt_smoke_v1";
@@ -10,7 +10,8 @@ index 421c3036..7f3f2a2e 100644
 +    "qairt244_persistent_custom_jni_probe_v1";
  constexpr char kQairt244EditablePromptValidationMode[] =
      "utf8_internal_intent";
-@@ -574,6 +577,119 @@ void Qairt244SentinelLog(const char* format, ...) {
+ constexpr char kQairt244NativeDiagPath[] =
+@@ -477,6 +479,119 @@ void Qairt244SentinelLog(const char* format, ...) {
    va_end(args);
  }
 
@@ -130,7 +131,7 @@ index 421c3036..7f3f2a2e 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,1015 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2090,6 +2205,1032 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -1013,6 +1014,17 @@ index 421c3036..7f3f2a2e 100644
 +                      " before CreateSession");
 +    write_result();
 +    auto session_config = SessionConfig::CreateDefault();
++    auto& sampler_params = session_config.GetMutableSamplerParams();
++    sampler_params.set_type(SamplerParameters::TOP_P);
++    sampler_params.set_k(40);
++    sampler_params.set_p(0.9f);
++    sampler_params.set_temperature(0.3f);
++    sampler_params.set_seed(42);
++    append_stage_diag(
++        "run=" + std::to_string(run_index) +
++        " sampler_config_profile=lami_stable_v1"
++        " top_k=40 top_p=0.9 temperature=0.3 seed=42"
++        " thinking_control=raw_prompt_answer_only");
 +    auto session = engine_ptr->CreateSession(session_config);
 +    if (!session.ok()) {
 +      run_status = "failure";
@@ -1088,6 +1100,12 @@ index 421c3036..7f3f2a2e 100644
 +    detail_lines.push_back("prefill_finished=" + prefill_finished);
 +    detail_lines.push_back("decode_started=" + decode_started);
 +    detail_lines.push_back("decode_finished=" + decode_finished);
++    detail_lines.push_back("sampler_config_profile=lami_stable_v1");
++    detail_lines.push_back("sampler_top_k=40");
++    detail_lines.push_back("sampler_top_p=0.9");
++    detail_lines.push_back("sampler_temperature=0.3");
++    detail_lines.push_back("sampler_seed=42");
++    detail_lines.push_back("thinking_control=raw_prompt_answer_only");
 +    detail_lines.push_back("raw_output=" + Qairt244FlattenValue(output));
 +    detail_lines.push_back("sanitized_output=");
 +    detail_lines.push_back("quality_classification=unavailable");
