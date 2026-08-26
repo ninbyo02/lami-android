@@ -15,6 +15,9 @@ internal object LocalConversationPolicy {
     const val SAMPLER_SEED = 42
     const val THINKING_ENABLED = false
 
+    val generationExtraContext: Map<String, Any> =
+        mapOf("enable_thinking" to THINKING_ENABLED)
+
     val samplerConfig: SamplerConfig
         get() = SamplerConfig(
             topK = SAMPLER_TOP_K,
@@ -35,6 +38,5 @@ internal object LocalConversationPolicy {
             }
         },
         samplerConfig = samplerOverride ?: samplerConfig,
-        extraContext = mapOf("enable_thinking" to THINKING_ENABLED),
     )
 }

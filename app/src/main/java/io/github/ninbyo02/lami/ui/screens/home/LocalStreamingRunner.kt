@@ -7556,7 +7556,10 @@ private suspend fun runOfficialLiteRtLmDirect(
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
-            conversation.sendMessageAsync(prompt).collect { message ->
+            conversation.sendMessageAsync(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            ).collect { message ->
                 val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
                 val normalizedContents = rawContents.trim()
@@ -7797,7 +7800,10 @@ private fun runOfficialLiteRtLmBlocking(
 
             failureStage = "generate-response"
             val startedAtMs = SystemClock.elapsedRealtime()
-            val message = conversation.sendMessage(prompt)
+            val message = conversation.sendMessage(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            )
             val rawContents = message.contents.toString()
             val normalizedContents = rawContents.trim()
             val rawMessage = message.toString()

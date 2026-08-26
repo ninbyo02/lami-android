@@ -32,5 +32,9 @@ class LocalConversationPolicyTest {
         assertEquals(0.3, LocalConversationPolicy.SAMPLER_TEMPERATURE, 0.0)
         assertEquals(42, LocalConversationPolicy.SAMPLER_SEED)
         assertEquals(false, LocalConversationPolicy.THINKING_ENABLED)
+        assertEquals(
+            false,
+            LocalConversationPolicy.generationExtraContext["enable_thinking"],
+        )
     }
 }
