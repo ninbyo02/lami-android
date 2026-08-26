@@ -13,6 +13,12 @@ internal object Qairt244NpuOutputSanitizer {
     private val userPrefixPattern = Regex("^(?:user|ユーザー)\\s*:\\s*", RegexOption.IGNORE_CASE)
     private val assistantPrefixPattern = Regex("^(?:assistant|model|アシスタント)\\s*:\\s*", RegexOption.IGNORE_CASE)
     private val turnBoundaryPattern = Regex("^-{3,}\\s*$")
+    private val promptInstructionEchoPrefixes = listOf(
+        "必ず日本語だけで",
+        "日本語で最終回答だけ",
+        "ユーザーの文を繰り返さず",
+        "あなたは日本語だけで短く答える",
+    )
     private val codeFencePattern = Regex("^```[A-Za-z0-9_+.#-]*\\s*$")
 
     data class Result(
@@ -86,6 +92,10 @@ internal object Qairt244NpuOutputSanitizer {
                 continue
             }
             if (turnBoundaryPattern.matches(line) && naturalTextStarted) break
+            if (naturalTextStarted && promptInstructionEchoPrefixes.any(line::startsWith)) {
+                removedPromptEcho = true
+                break
+            }
 
             val assistantText = assistantPrefixPattern.replace(line, "").trim()
             if (assistantText.isEmpty()) {

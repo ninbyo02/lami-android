@@ -27,10 +27,20 @@ grep -q 'adb connect "$ENDPOINT"' "$RUNNER" ||
   fail "runner must connect only to explicit endpoint"
 grep -q 'install -r "$APK"' "$RUNNER" ||
   fail "runner must replace-install the selected APK"
+grep -q 'shell monkey -p "$APP_ID"' "$RUNNER" ||
+  fail "runner must cold-start the installed app before receiver validation"
+grep -q 'shell pidof "$APP_ID"' "$RUNNER" ||
+  fail "runner must confirm the app process is ready"
+grep -q 'qairt244_persistent_custom_jni_probe_result.txt' "$RUNNER" ||
+  fail "runner must collect the persistent native result"
+grep -q 'qairt244_persistent_custom_jni_probe_diag.txt' "$RUNNER" ||
+  fail "runner must collect the persistent native diagnostics"
 grep -q 'turn1' "$RUNNER" || fail "runner must include turn 1"
 grep -q 'turn2' "$RUNNER" || fail "runner must include turn 2"
-grep -q -- '--es context "$context"' "$RUNNER" ||
-  fail "turn 2 must pass conversation context"
+grep -q -- '--es context_base64' "$RUNNER" ||
+  fail "turn 2 must pass shell-safe base64 conversation context"
+grep -q "base64 | tr -d" "$RUNNER" ||
+  fail "turn 2 context must not expose embedded newlines to adb shell"
 
 for expected in \
   'sampler_top_k=40' \

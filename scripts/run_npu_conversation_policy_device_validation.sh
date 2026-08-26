@@ -7,8 +7,8 @@ APP_ID="io.github.ninbyo02.lami.customnpu"
 ACTION="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
 RECEIVER="$APP_ID/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
 RESULT_FILE="dev_only_npu_one_turn_conversation_result.txt"
-NATIVE_RESULT_FILE="qairt244_short_multitoken_smoke_result.txt"
-NATIVE_DIAG_FILE="qairt244_native_diag.txt"
+NATIVE_RESULT_FILE="qairt244_persistent_custom_jni_probe_result.txt"
+NATIVE_DIAG_FILE="qairt244_persistent_custom_jni_probe_diag.txt"
 ENDPOINT=""
 TIMEOUT_SECONDS=90
 INSTALL=true
@@ -81,6 +81,22 @@ pull_app_file() {
   adb -s "$ENDPOINT" exec-out run-as "$APP_ID" cat "files/$remote" \
     >"$target" 2>"$target.err" || true
 }
+ensure_app_process_ready() {
+  adb -s "$ENDPOINT" shell monkey -p "$APP_ID" \
+    -c android.intent.category.LAUNCHER 1 >"$OUT_DIR/app_start.txt" 2>&1 ||
+    fail "failed to launch $APP_ID before receiver validation"
+  local waited=0
+  while ((waited < 15)); do
+    if adb -s "$ENDPOINT" shell pidof "$APP_ID" >"$OUT_DIR/app_pid.txt" 2>/dev/null &&
+      [[ -s "$OUT_DIR/app_pid.txt" ]]; then
+      return 0
+    fi
+    sleep 1
+    ((waited += 1))
+  done
+  fail "$APP_ID process did not become ready after launch"
+}
+
 wait_for_result() {
   local target="$1" waited=0 status
   while ((waited < TIMEOUT_SECONDS)); do
@@ -242,7 +258,7 @@ run_turn() {
     --ei max_output_tokens 32
   )
   if [[ -n "$context" ]]; then
-    args+=(--es context "$context")
+    args+=(--es context_base64 "$(printf '%s' "$context" | base64 | tr -d '\n')")
   fi
   adb -s "$ENDPOINT" shell am broadcast "${args[@]}" \
     >"$run_dir/broadcast.txt" 2>&1 ||
@@ -305,15 +321,16 @@ main() {
   adb -s "$ENDPOINT" shell getprop ro.product.manufacturer >"$OUT_DIR/manufacturer.txt"
   adb -s "$ENDPOINT" shell getprop ro.product.model >"$OUT_DIR/model.txt"
   adb -s "$ENDPOINT" shell getprop ro.soc.model >"$OUT_DIR/soc_model.txt"
+  ensure_app_process_ready
 
   local failure=0 turn1_output turn2_context
-  run_turn turn1 "日本の首都を一語で答えてください。" "" "東京" || failure=1
+  run_turn turn1 "日本の首都を句読点なしの一語で答えてください。" "" "東京" || failure=1
   turn1_output="$(safe_kv_value sanitized_output "$OUT_DIR/turn1/result.txt")"
   turn2_context=""
   if [[ -n "$turn1_output" ]]; then
-    turn2_context=$'ユーザー: 日本の首都を一語で答えてください。\nアシスタント: '"$turn1_output"
+    turn2_context=$'ユーザー: 日本の首都を句読点なしの一語で答えてください。\nアシスタント: '"$turn1_output"
   fi
-  run_turn turn2 "前の回答を踏まえ、国名を一語で答えてください。" \
+  run_turn turn2 "前の回答を踏まえ、国名を句読点なしの一語で答えてください。" \
     "$turn2_context" "日本" || failure=1
 
   {

@@ -63,6 +63,8 @@ internal object NpuStandardRoutePersistentProbeRunner {
             .trim()
         val nativeStatus = values["persistent_custom_jni_status"].orEmpty()
         val nativeHypothesis = values["persistent_custom_jni_hypothesis_result"].orEmpty()
+        val nativeBackendEvidence = values["backend_evidence"].orEmpty()
+        val contractBackendEvidence = normalizeNpuBackendEvidence(nativeBackendEvidence)
         val throwableUnavailable = nativeResult.throwableClass == "unavailable"
         val decodeReached = (values["decode_reached"] == "true") ||
             ((values["decode_count"]?.toIntOrNull() ?: 0) > 0) ||
@@ -92,7 +94,8 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 appendLine("holder_reused_count=${values["holder_reused_count"] ?: "unavailable"}")
                 appendLine("decode_count=${values["decode_count"] ?: values["decode_success_count"] ?: "unavailable"}")
                 appendLine("engine_holder_open_after_run=${values["engine_holder_open_during_decode"] ?: "unavailable"}")
-                appendLine("npu_backend_evidence=${values["backend_evidence"] ?: NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE}")
+                appendLine("npu_backend_evidence=$contractBackendEvidence")
+                appendLine("native_backend_evidence=$nativeBackendEvidence")
                 appendLine("raw_output=$rawOutput")
                 appendLine("sanitized_output=$sanitizedOutput")
             }.trimEnd(),
@@ -101,7 +104,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
             reason = reason,
             nativeReached = true,
             decodeReached = decodeReached,
-            npuEvidence = values["backend_evidence"] ?: NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            npuEvidence = contractBackendEvidence,
             fallback = false,
             freshCrash = false,
             timeout = false,
@@ -198,6 +201,16 @@ internal object NpuStandardRoutePersistentProbeRunner {
             nativeLinkFailureDetected = "false",
         ),
     )
+
+    internal fun normalizeNpuBackendEvidence(nativeEvidence: String): String =
+        if (listOf("QNN", "HTP", "FastRPC").all { marker ->
+                nativeEvidence.contains(marker, ignoreCase = true)
+            }
+        ) {
+            NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+        } else {
+            nativeEvidence.ifBlank { "unavailable" }
+        }
 
     private fun parseKeyValues(text: String): Map<String, String> = text
         .lineSequence()

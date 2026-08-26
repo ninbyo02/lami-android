@@ -131,7 +131,7 @@ index 3b67520b..8bce83e4 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2090,6 +2205,1032 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2090,6 +2205,1038 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -587,6 +587,10 @@ index 3b67520b..8bce83e4 100644
 +    lines.push_back("engine_create_backend=" + engine_create_backend);
 +    lines.push_back("engine_create_prompt_input_limit_mode=" +
 +                    engine_create_prompt_input_limit_mode);
++    lines.push_back("prompt_input_code_points=" +
++                    std::to_string(prompt_input_code_points));
++    lines.push_back("prompt_input_code_point_limit=" +
++                    std::to_string(prompt_input_code_point_limit));
 +    lines.push_back("engine_create_requested_max_output_tokens=" +
 +                    (engine_create_requested_max_output_tokens >= 0
 +                         ? std::to_string(engine_create_requested_max_output_tokens)
@@ -1014,6 +1018,7 @@ index 3b67520b..8bce83e4 100644
 +                      " before CreateSession");
 +    write_result();
 +    auto session_config = SessionConfig::CreateDefault();
++    session_config.SetSamplerBackend(Backend::NPU);
 +    auto& sampler_params = session_config.GetMutableSamplerParams();
 +    sampler_params.set_type(SamplerParameters::TOP_P);
 +    sampler_params.set_k(40);
@@ -1022,7 +1027,7 @@ index 3b67520b..8bce83e4 100644
 +    sampler_params.set_seed(42);
 +    append_stage_diag(
 +        "run=" + std::to_string(run_index) +
-+        " sampler_config_profile=lami_stable_v1"
++        " sampler_config_profile=lami_stable_v1 sampler_backend=NPU"
 +        " top_k=40 top_p=0.9 temperature=0.3 seed=42"
 +        " thinking_control=raw_prompt_answer_only");
 +    auto session = engine_ptr->CreateSession(session_config);
@@ -1101,6 +1106,7 @@ index 3b67520b..8bce83e4 100644
 +    detail_lines.push_back("decode_started=" + decode_started);
 +    detail_lines.push_back("decode_finished=" + decode_finished);
 +    detail_lines.push_back("sampler_config_profile=lami_stable_v1");
++    detail_lines.push_back("sampler_backend=NPU");
 +    detail_lines.push_back("sampler_top_k=40");
 +    detail_lines.push_back("sampler_top_p=0.9");
 +    detail_lines.push_back("sampler_temperature=0.3");

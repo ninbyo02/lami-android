@@ -372,6 +372,8 @@ if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditableEngineCreateOnlyMinimal'
   for marker in \
     'sampler_config_profile=lami_stable_v1' \
+    'sampler_backend=NPU' \
+    'prompt_input_code_points=' \
     'sampler_top_k=40' \
     'sampler_top_p=0.9' \
     'sampler_temperature=0.3' \

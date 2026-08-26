@@ -14,6 +14,10 @@ rebuild_script="scripts/rebuild_qairt244_standard_debug_native_stack.sh"
 
 grep -q 'GetMutableSamplerParams' "$patch_file" ||
   fail "native patch must configure sampler parameters"
+grep -q 'SetSamplerBackend(Backend::NPU)' "$patch_file" ||
+  fail "native patch must keep sampling on the NPU compiled model path"
+grep -q 'prompt_input_code_points=' "$patch_file" ||
+  fail "native patch must expose the validated prompt input length"
 grep -q 'sampler_config_profile=lami_stable_v1' "$patch_file" ||
   fail "native patch must expose sampler profile"
 grep -q 'sampler_top_k=40' "$patch_file" || fail "native patch must expose top-k"

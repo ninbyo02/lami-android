@@ -144,6 +144,17 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `conversation context base64 transport preserves embedded newlines`() {
+        val context = listOf("ユーザー: 質問", "アシスタント: 東京").joinToString("\n")
+        val encoded = java.util.Base64.getEncoder().encodeToString(context.toByteArray())
+
+        assertEquals(
+            context,
+            DevOnlyNpuOneTurnConversationContract.decodeContextTransport(encoded, "fallback"),
+        )
+    }
+
+    @Test
     fun `activity prompt tail variant option allows only raw dialog tail variants`() {
         val requestA = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",

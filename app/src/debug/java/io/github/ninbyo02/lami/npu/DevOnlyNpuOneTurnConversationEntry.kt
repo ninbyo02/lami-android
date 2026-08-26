@@ -1,12 +1,12 @@
 package io.github.ninbyo02.lami.npu
 
 import android.content.Context
-import android.util.Base64
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
+import java.util.Base64
 
 data class DevOnlyNpuOneTurnConversationRequest(
     val userPrompt: String,
@@ -77,6 +77,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
+    const val EXTRA_CONTEXT_BASE64 = "context_base64"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val EXTRA_NATIVE_PROBE_MODE = "native_probe_mode"
     const val EXTRA_NATIVE_PROBE_RUN_COUNT = "native_probe_run_count"
@@ -134,10 +135,16 @@ object DevOnlyNpuOneTurnConversationContract {
 
     fun sanitizeMaxOutputTokens(requestedMaxOutputTokens: Int): Int =
         when (requestedMaxOutputTokens) {
-            16, 32, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 ->
-                requestedMaxOutputTokens
+            DEFAULT_MAX_OUTPUT_TOKENS, COMPARE_MAX_OUTPUT_TOKENS -> requestedMaxOutputTokens
             else -> DEFAULT_MAX_OUTPUT_TOKENS
         }
+
+    fun decodeContextTransport(encodedContext: String?, plainContext: String?): String {
+        if (encodedContext.isNullOrBlank()) return plainContext.orEmpty()
+        return runCatching {
+            String(Base64.getDecoder().decode(encodedContext), Charsets.UTF_8)
+        }.getOrElse { plainContext.orEmpty() }
+    }
 
     fun sanitizePromptTailVariant(requestedPromptTailVariant: String?): String =
         when (requestedPromptTailVariant) {
@@ -551,8 +558,8 @@ class DevOnlyNpuOneTurnConversationEntry(
     }
 
     private fun transportPromptBase64(prompt: String): String {
-        val encoded = Base64.encodeToString(prompt.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        return String(Base64.decode(encoded, Base64.DEFAULT), Charsets.UTF_8)
+        val encoded = Base64.getEncoder().encodeToString(prompt.toByteArray(Charsets.UTF_8))
+        return String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
     }
 
     private companion object {

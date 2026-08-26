@@ -7,6 +7,7 @@ import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePersistentProbeRunner
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -140,9 +141,14 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                     ).orEmpty().ifBlank {
                         DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT
                     },
-                    contextText = intent.getStringExtra(
-                        DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT,
-                    ).orEmpty(),
+                    contextText = DevOnlyNpuOneTurnConversationContract.decodeContextTransport(
+                        encodedContext = intent.getStringExtra(
+                            DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT_BASE64,
+                        ),
+                        plainContext = intent.getStringExtra(
+                            DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT,
+                        ),
+                    ),
                     unsafeDevBypassPromptLengthGate = intent.getBooleanExtra(
                         DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
                         true,
@@ -173,6 +179,13 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                         DevOnlyNpuOneTurnConversationContract.receiverResultText(
                             display = display,
                             timestampMs = System.currentTimeMillis(),
+                            safety = DevOnlyNpuOneTurnConversationContract
+                                .safety(request.promptTailVariant)
+                                .copy(
+                                    standardRouteConnected = display.status == "success",
+                                    backendNpuPersisted = display.status == "success" &&
+                                        display.npuEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                                ),
                         ),
                     )
                 }

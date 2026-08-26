@@ -175,6 +175,18 @@ class Qairt244NpuOutputSanitizerCodeAwareTest {
     }
 
     @Test
+    fun `stops after answer when raw prompt instruction is echoed`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            rawOutput = "日本\\n\\n必ず日本語だけで短日本語で短く日本語で短く返答してください。",
+            prompt = "前の回答を踏まえ、国名を句読点なしの一語で答えてください。",
+        )
+
+        assertEquals("日本", result.sanitizedOutput)
+        assertTrue(result.removedPromptEcho)
+        assertTrue(result.sanitizerApplied)
+    }
+
+    @Test
     fun `keeps leading non japanese drift suppression before natural answer`() {
         val result = Qairt244NpuOutputSanitizer.sanitize(
             rawOutput = """

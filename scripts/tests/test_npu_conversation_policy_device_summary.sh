@@ -29,6 +29,8 @@ case "$*" in
   "shell getprop ro.product.manufacturer") printf 'TestMaker\n' ;;
   "shell getprop ro.product.model") printf 'TestDevice\n' ;;
   "shell getprop ro.soc.model") printf 'SM8750\n' ;;
+  "shell monkey -p io.github.ninbyo02.lami.customnpu -c android.intent.category.LAUNCHER 1") ;;
+  "shell pidof io.github.ninbyo02.lami.customnpu") printf '1234\n' ;;
   "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/dev_only_npu_one_turn_conversation_result.txt")
     [[ "${FAKE_ADB_RESULT_MODE:-success}" == success ]] || exit 0
     count=0
@@ -55,10 +57,10 @@ prompt_transport=base64
 sanitized_output=$output
 RESULT
     ;;
-  "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/qairt244_short_multitoken_smoke_result.txt")
+  "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/qairt244_persistent_custom_jni_probe_result.txt")
     printf '%s\n' sampler_top_k=40 sampler_top_p=0.9 \
       sampler_temperature=0.3 sampler_seed=42 prompt_input_code_points=96 ;;
-  "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/qairt244_native_diag.txt")
+  "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/qairt244_persistent_custom_jni_probe_diag.txt")
     printf 'QNN HTP FastRPC\n' ;;
   *) ;;
 esac
@@ -90,7 +92,8 @@ grep -q '| 96 | 日本 |' "$summary"
 grep -q 'top-k=40, top-p=0.9, temperature=0.3, seed=42' "$summary"
 grep -q 'DB/TTS/Markdown/streaming/selected-path=false' "$summary"
 grep -q 'prompt_tail_variant raw_dialog_tail_variant_a' "$FAKE_ADB_LOG"
-grep -q 'アシスタント: 東京' "$FAKE_ADB_LOG"
+expected_context_base64="$(printf '%s' $'ユーザー: 日本の首都を句読点なしの一語で答えてください。\nアシスタント: 東京' | base64 | tr -d '\n')"
+grep -q "context_base64 $expected_context_base64" "$FAKE_ADB_LOG"
 
 before_failure="$after"
 : >"$FAKE_ADB_LOG"
