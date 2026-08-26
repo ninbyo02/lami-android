@@ -157,6 +157,61 @@ assert_common_policy() {
   ((check == 0))
 }
 
+markdown_value() {
+  local value="$1"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/<br>}"
+  value="${value//|/\\|}"
+  printf '%s' "$value" | sed 's/`/\\`/g'
+}
+
+native_code_points() {
+  local run_dir="$1"
+  cat "$run_dir/native_result.txt" "$run_dir/native_diag.txt" 2>/dev/null |
+    sed -n 's/.*prompt_input_code_points=\([0-9][0-9]*\).*/\1/p' |
+    tail -1
+}
+
+write_markdown_summary() {
+  local failure="$1" overall=PASS label run_dir output evidence code_points
+  [[ "$failure" -eq 0 ]] || overall=FAIL
+  {
+    printf '# NPU Conversation Policy Device Validation\n\n'
+    printf -- '- Result: **%s**\n' "$overall"
+    printf -- '- Generated: `%s`\n' "$(date -Is)"
+    printf -- '- Commit: `%s`\n' "$(git rev-parse HEAD)"
+    printf -- '- Package: `%s`\n' "$APP_ID"
+    printf -- '- Device: `%s %s`\n' \
+      "$(tr -d '\r\n' <"$OUT_DIR/manufacturer.txt")" \
+      "$(tr -d '\r\n' <"$OUT_DIR/model.txt")"
+    printf -- '- SoC: `%s`\n' "$(tr -d '\r\n' <"$OUT_DIR/soc_model.txt")"
+    printf -- '- APK SHA-256: `%s`\n\n' "$(awk '{print $1}' "$OUT_DIR/apk_sha256.txt")"
+    printf '| Turn | Status | Decode | Fallback | NPU evidence | Input code points | Output |\n'
+    printf '|---|---|---|---|---|---:|---|\n'
+    for label in turn1 turn2; do
+      run_dir="$OUT_DIR/$label"
+      output="$(markdown_value "$(kv_value sanitized_output "$run_dir/result.txt")")"
+      evidence="$(markdown_value "$(kv_value npu_backend_evidence "$run_dir/result.txt")")"
+      code_points="$(native_code_points "$run_dir")"
+      printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
+        "$label" "$(kv_value status "$run_dir/result.txt")" \
+        "$(kv_value run_decode_reached "$run_dir/result.txt")" \
+        "$(kv_value fallback_used "$run_dir/result.txt")" \
+        "$evidence" "${code_points:-unavailable}" "$output"
+    done
+    printf '\n## Expected policy\n\n'
+    printf -- '- Sampler: `top-k=40, top-p=0.9, temperature=0.3, seed=42`\n'
+    printf -- '- Prompt mode: `raw + base64 transport + final answer only`\n'
+    printf -- '- Native input limit: `128 code points`\n'
+    printf -- '- Side effects: `DB/TTS/Markdown/streaming/selected-path=false`\n'
+    printf '\n## Evidence files\n\n'
+    printf -- '- `turn1/assertions.txt` and `turn2/assertions.txt`\n'
+    printf -- '- Each turn contains `result.txt`, `native_result.txt`, '
+    printf '`native_diag.txt`, and `logcat.txt`.\n'
+    printf -- '- Local artifact directory: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
+  } >"$OUT_DIR/summary.md"
+}
+
 run_turn() {
   local label="$1" prompt="$2" context="$3"
   local run_dir="$OUT_DIR/$label"
@@ -250,6 +305,8 @@ main() {
     printf 'result=%s\n' "$([[ "$failure" -eq 0 ]] && printf PASS || printf FAIL)"
     printf 'artifact_dir=%s\n' "${OUT_DIR#$ROOT_DIR/}"
   } | tee "$OUT_DIR/summary.txt"
+  write_markdown_summary "$failure"
+  printf 'markdown_summary=%s\n' "$OUT_DIR/summary.md"
 
   [[ "$failure" -eq 0 ]] || exit 1
   printf 'npu_conversation_policy_device_validation=ok\n'
