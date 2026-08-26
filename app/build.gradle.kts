@@ -1,7 +1,9 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.Properties
+import java.util.zip.ZipFile
 import com.android.build.api.variant.BuildConfigField
 
 plugins {
@@ -1130,6 +1132,31 @@ tasks.register("verifyQairt244CustomBuildExperimentDebugNativeLibs") {
                 "expectedSymbol=$qairt244NativeRunEditablePromptSymbol file=${litertLmJni.absolutePath} " +
                 "readelf_error=${symbolError.toString().take(400)}"
         }
+        val stringsOutput = ByteArrayOutputStream()
+        val stringsError = ByteArrayOutputStream()
+        val stringsResult = exec {
+            commandLine("strings", litertLmJni.absolutePath)
+            standardOutput = stringsOutput
+            errorOutput = stringsError
+            isIgnoreExitValue = true
+        }
+        val nativeStrings = stringsOutput.toString()
+        val stableSamplerMarkers = listOf(
+            "sampler_config_profile=lami_stable_v1",
+            "sampler_top_k=40",
+            "sampler_top_p=0.9",
+            "sampler_temperature=0.3",
+            "sampler_seed=42",
+            "thinking_control=raw_prompt_answer_only",
+        )
+        require(
+            stringsResult.exitValue == 0 &&
+                stableSamplerMarkers.all(nativeStrings::contains),
+        ) {
+            "customBuildExperimentDebug requires stable NPU sampler markers. " +
+                "missing=${stableSamplerMarkers.filterNot(nativeStrings::contains)} " +
+                "file=${litertLmJni.absolutePath} strings_error=${stringsError.toString().take(400)}"
+        }
     }
 }
 
@@ -1138,6 +1165,49 @@ tasks.matching {
 }.configureEach {
     dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
     dependsOn("verifyQairt244CustomBuildExperimentDebugNativeLibs")
+}
+
+tasks.register("verifyQairt244CustomBuildExperimentDebugApkNpuJni") {
+    group = "verification"
+    description = "Verifies the packaged custom NPU JNI is byte-identical to the staged stable-sampler artifact."
+    dependsOn("assembleCustomBuildExperimentDebug")
+
+    doLast {
+        val stagedJni = qairt244StandardDebugNativeSourceDir
+            .file("liblami_qairt244_npu_jni.so")
+            .asFile
+        require(stagedJni.isFile) {
+            "staged custom NPU JNI is missing: ${stagedJni.absolutePath}"
+        }
+        val apkCandidates = fileTree(
+            layout.buildDirectory.dir("outputs/apk/customBuildExperiment/debug"),
+        ) {
+            include("*.apk")
+        }.files.sortedBy(File::getName)
+        require(apkCandidates.size == 1) {
+            "expected one customBuildExperimentDebug APK, found=${apkCandidates.map(File::getName)}"
+        }
+        val apk = apkCandidates.single()
+        val apkJniBytes = ZipFile(apk).use { zip ->
+            val entry = zip.getEntry("lib/arm64-v8a/liblami_qairt244_npu_jni.so")
+                ?: error("packaged custom NPU JNI is missing from ${apk.absolutePath}")
+            zip.getInputStream(entry).use { it.readBytes() }
+        }
+        val stagedJniBytes = stagedJni.readBytes()
+        fun sha256(bytes: ByteArray): String =
+            MessageDigest.getInstance("SHA-256")
+                .digest(bytes)
+                .joinToString("") { byte -> "%02x".format(byte) }
+        val stagedSha256 = sha256(stagedJniBytes)
+        val apkSha256 = sha256(apkJniBytes)
+        require(stagedJniBytes.contentEquals(apkJniBytes)) {
+            "packaged custom NPU JNI differs from staged artifact: " +
+                "staged_sha256=$stagedSha256 apk_sha256=$apkSha256 apk=${apk.absolutePath}"
+        }
+        logger.lifecycle(
+            "qairt244_custom_apk_npu_jni_verified=true sha256=$apkSha256 apk=${apk.absolutePath}",
+        )
+    }
 }
 
 tasks.register("dumpStandardDebugApkNativeLibs") {
