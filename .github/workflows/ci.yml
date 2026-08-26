@@ -56,7 +56,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Verify NPU conversation policy artifact wiring
-        run: bash scripts/tests/test_npu_conversation_policy_artifact_verification.sh
+        run: |
+          bash scripts/tests/test_npu_conversation_policy_artifact_verification.sh
+          bash scripts/tests/test_npu_conversation_policy_device_validation.sh
 
       - name: Run standard debug unit tests
         run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
