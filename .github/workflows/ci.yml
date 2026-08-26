@@ -55,6 +55,9 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
+      - name: Reject tracked native binaries
+        run: bash scripts/tests/test_no_tracked_native_binaries.sh
+
       - name: Verify NPU conversation policy artifact wiring
         run: |
           bash scripts/tests/test_npu_conversation_policy_artifact_verification.sh

@@ -67,6 +67,9 @@ _debug/
 /app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a/*.so
 /app/src/standardGpuMinimalRuntimeCandidateDebug/jniLibs/arm64-v8a/*.so
 /app/src/trueEngineNpuProbeDebug/jniLibs/arm64-v8a/*.so
+# Cover current and future debug-only experiment flavors, including
+# galleryStackExperimentDebug and npuExperimentDebug.
+/app/src/*Debug/jniLibs/**/*.so
 /third_party/qairt/
 
 # Emulator local config
