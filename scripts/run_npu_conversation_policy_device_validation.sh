@@ -94,12 +94,14 @@ wait_for_result() {
 }
 
 assert_npu_evidence() {
-  local result="$1" native_result="$2" native_diag="$3" logcat="$4" evidence
+  local result="$1" native_result="$2" native_diag="$3" logcat="$4" evidence marker
   evidence="$(kv_value npu_backend_evidence "$result")"
-  [[ -n "$evidence" && "$evidence" != "-" ]] ||
-    { printf 'FAIL npu_backend_evidence missing\n' >&2; return 1; }
-  grep -Eqi 'QNN|HTP|FastRPC' "$result" "$native_result" "$native_diag" "$logcat" ||
-    { printf 'FAIL missing QNN/HTP/FastRPC evidence\n' >&2; return 1; }
+  [[ "$evidence" == "QNN_HTP_V79_FastRPC_native_diag" ]] ||
+    { printf 'FAIL unexpected npu_backend_evidence=%s\n' "${evidence:-missing}" >&2; return 1; }
+  for marker in QNN HTP FastRPC; do
+    grep -Eqi "$marker" "$result" "$native_result" "$native_diag" "$logcat" ||
+      { printf 'FAIL missing %s runtime evidence\n' "$marker" >&2; return 1; }
+  done
   printf 'PASS npu_runtime_evidence=%s\n' "$evidence"
 }
 
@@ -127,7 +129,7 @@ assert_input_bound() {
 }
 
 assert_output_policy() {
-  local result="$1" output
+  local result="$1" expected="$2" output
   output="$(kv_value sanitized_output "$result")"
   [[ -n "$output" ]] ||
     { printf 'FAIL sanitized_output is empty\n' >&2; return 1; }
@@ -135,11 +137,13 @@ assert_output_policy() {
     printf 'FAIL output contains a role label: %s\n' "$output" >&2
     return 1
   fi
-  printf 'PASS final_answer_only=true output=%s\n' "$output"
+  [[ "$output" == "$expected" ]] ||
+    { printf 'FAIL expected_output=%s actual=%s\n' "$expected" "$output" >&2; return 1; }
+  printf 'PASS final_answer_only=true expected_output=%s output=%s\n' "$expected" "$output"
 }
 
 assert_common_policy() {
-  local result="$1" check=0
+  local result="$1" expected_output="$2" check=0
   require_value "$result" status success || check=1
   require_value "$result" run_decode_reached true || check=1
   require_value "$result" fallback_used false || check=1
@@ -153,7 +157,7 @@ assert_common_policy() {
   require_value "$result" selected_path_npu_saved false || check=1
   require_value "$result" app_template_mode raw || check=1
   require_value "$result" prompt_transport base64 || check=1
-  assert_output_policy "$result" || check=1
+  assert_output_policy "$result" "$expected_output" || check=1
   ((check == 0))
 }
 
@@ -165,11 +169,21 @@ markdown_value() {
   printf '%s' "$value" | sed 's/`/\\`/g'
 }
 
+safe_kv_value() {
+  local key="$1" file="$2"
+  [[ -f "$file" ]] || return 0
+  kv_value "$key" "$file" || true
+}
+
 native_code_points() {
   local run_dir="$1"
-  cat "$run_dir/native_result.txt" "$run_dir/native_diag.txt" 2>/dev/null |
+  local -a files=()
+  [[ -f "$run_dir/native_result.txt" ]] && files+=("$run_dir/native_result.txt")
+  [[ -f "$run_dir/native_diag.txt" ]] && files+=("$run_dir/native_diag.txt")
+  (("${#files[@]}" > 0)) || return 0
+  cat "${files[@]}" |
     sed -n 's/.*prompt_input_code_points=\([0-9][0-9]*\).*/\1/p' |
-    tail -1
+    tail -1 || true
 }
 
 write_markdown_summary() {
@@ -190,14 +204,14 @@ write_markdown_summary() {
     printf '|---|---|---|---|---|---:|---|\n'
     for label in turn1 turn2; do
       run_dir="$OUT_DIR/$label"
-      output="$(markdown_value "$(kv_value sanitized_output "$run_dir/result.txt")")"
-      evidence="$(markdown_value "$(kv_value npu_backend_evidence "$run_dir/result.txt")")"
+      output="$(markdown_value "$(safe_kv_value sanitized_output "$run_dir/result.txt")")"
+      evidence="$(markdown_value "$(safe_kv_value npu_backend_evidence "$run_dir/result.txt")")"
       code_points="$(native_code_points "$run_dir")"
       printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
-        "$label" "$(kv_value status "$run_dir/result.txt")" \
-        "$(kv_value run_decode_reached "$run_dir/result.txt")" \
-        "$(kv_value fallback_used "$run_dir/result.txt")" \
-        "$evidence" "${code_points:-unavailable}" "$output"
+        "$label" "$(safe_kv_value status "$run_dir/result.txt")" \
+        "$(safe_kv_value run_decode_reached "$run_dir/result.txt")" \
+        "$(safe_kv_value fallback_used "$run_dir/result.txt")" \
+        "${evidence:-unavailable}" "${code_points:-unavailable}" "${output:-unavailable}"
     done
     printf '\n## Expected policy\n\n'
     printf -- '- Sampler: `top-k=40, top-p=0.9, temperature=0.3, seed=42`\n'
@@ -213,7 +227,7 @@ write_markdown_summary() {
 }
 
 run_turn() {
-  local label="$1" prompt="$2" context="$3"
+  local label="$1" prompt="$2" context="$3" expected_output="$4"
   local run_dir="$OUT_DIR/$label"
   mkdir -p "$run_dir"
   adb -s "$ENDPOINT" logcat -c >/dev/null 2>&1 || true
@@ -224,7 +238,7 @@ run_turn() {
   local -a args=(
     -a "$ACTION" -p "$APP_ID" -n "$RECEIVER"
     --es user_prompt "$prompt"
-    --es prompt_tail_variant raw_dialog_tail_variant_b
+    --es prompt_tail_variant raw_dialog_tail_variant_a
     --ei max_output_tokens 32
   )
   if [[ -n "$context" ]]; then
@@ -243,7 +257,7 @@ run_turn() {
   {
     local check=0
     printf 'turn=%s\n' "$label"
-    assert_common_policy "$run_dir/result.txt" || check=1
+    assert_common_policy "$run_dir/result.txt" "$expected_output" || check=1
     assert_npu_evidence "$run_dir/result.txt" "$run_dir/native_result.txt" \
       "$run_dir/native_diag.txt" "$run_dir/logcat.txt" || check=1
     assert_sampler "$run_dir/native_result.txt" "$run_dir/native_diag.txt" || check=1
@@ -259,7 +273,7 @@ main() {
   cd "$ROOT_DIR"
 
   local timestamp
-  timestamp="$(date +%Y%m%d_%H%M%S)"
+  timestamp="$(date +%Y%m%d_%H%M%S_%N)"
   OUT_DIR="$ROOT_DIR/artifacts/npu_conversation_policy_device_validation/$timestamp"
   mkdir -p "$OUT_DIR"
   printf '%s\n' "$ENDPOINT" >"$OUT_DIR/endpoint.txt"
@@ -292,10 +306,15 @@ main() {
   adb -s "$ENDPOINT" shell getprop ro.product.model >"$OUT_DIR/model.txt"
   adb -s "$ENDPOINT" shell getprop ro.soc.model >"$OUT_DIR/soc_model.txt"
 
-  local failure=0
-  run_turn turn1 "日本の首都を一語で答えてください。" "" || failure=1
+  local failure=0 turn1_output turn2_context
+  run_turn turn1 "日本の首都を一語で答えてください。" "" "東京" || failure=1
+  turn1_output="$(safe_kv_value sanitized_output "$OUT_DIR/turn1/result.txt")"
+  turn2_context=""
+  if [[ -n "$turn1_output" ]]; then
+    turn2_context=$'ユーザー: 日本の首都を一語で答えてください。\nアシスタント: '"$turn1_output"
+  fi
   run_turn turn2 "前の回答を踏まえ、国名を一語で答えてください。" \
-    $'ユーザー: 日本の首都を一語で答えてください。\nアシスタント: 東京' || failure=1
+    "$turn2_context" "日本" || failure=1
 
   {
     printf 'endpoint=%s\n' "$ENDPOINT"

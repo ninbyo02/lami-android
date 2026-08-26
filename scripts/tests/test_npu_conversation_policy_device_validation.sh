@@ -47,8 +47,14 @@ for expected in \
     fail "missing policy assertion: $expected"
 done
 
-grep -q "grep -Eqi 'QNN|HTP|FastRPC'" "$RUNNER" ||
-  fail "runner must require concrete NPU runtime evidence"
+grep -q 'for marker in QNN HTP FastRPC' "$RUNNER" ||
+  fail "runner must require every NPU runtime marker"
+grep -q 'QNN_HTP_V79_FastRPC_native_diag' "$RUNNER" ||
+  fail "runner must require the exact NPU evidence profile"
+grep -q 'prompt_tail_variant raw_dialog_tail_variant_a' "$RUNNER" ||
+  fail "runner must exercise the production raw prompt variant"
+grep -q 'turn1_output=' "$RUNNER" ||
+  fail "turn 2 must use the actual turn 1 output"
 grep -q 'ユーザー:|アシスタント:' "$RUNNER" ||
   fail "runner must reject role-label continuation"
 

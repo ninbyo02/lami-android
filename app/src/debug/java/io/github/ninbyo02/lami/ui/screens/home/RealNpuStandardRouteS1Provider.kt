@@ -203,6 +203,7 @@ internal class RealNpuStandardRouteS1Provider(
     companion object {
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
+        const val REASON_NATIVE_INPUT_TOO_LONG = "native_input_too_long"
 
         const val NATIVE_MAX_INPUT_CODE_POINTS = 128
 
@@ -213,13 +214,25 @@ internal class RealNpuStandardRouteS1Provider(
         ): DevOnlyNpuOneTurnConversationRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
             val promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT
+            val boundedContext = boundContextForNativeInput(
+                contextText = contextText,
+                userPrompt = userPrompt,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                contextText = boundedContext,
+                userPrompt = userPrompt,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
+            require(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                "$REASON_NATIVE_INPUT_TOO_LONG:" +
+                    "code_points=$finalInputCodePoints:" +
+                    "limit=$NATIVE_MAX_INPUT_CODE_POINTS"
+            }
             return DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = userPrompt,
-                contextText = boundContextForNativeInput(
-                    contextText = contextText,
-                    userPrompt = userPrompt,
-                    promptTailVariant = promptTailVariant,
-                ),
+                contextText = boundedContext,
                 unsafeDevBypassPromptLengthGate = true,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,

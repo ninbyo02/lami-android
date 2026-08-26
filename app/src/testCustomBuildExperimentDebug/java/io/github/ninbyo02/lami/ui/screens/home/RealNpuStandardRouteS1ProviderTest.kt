@@ -336,6 +336,27 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider rejects over-limit final input before native decode`() {
+        var runnerInvoked = false
+        val raw = RealNpuStandardRouteS1Provider(
+            requestRunner = {
+                runnerInvoked = true
+                successDisplay()
+            },
+        ).invoke(
+            userPrompt = "あ".repeat(200),
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+
+        assertFalse(runnerInvoked)
+        assertEquals("failure", raw.status)
+        assertTrue(raw.reason.startsWith(RealNpuStandardRouteS1Provider.REASON_NATIVE_INPUT_TOO_LONG))
+        assertFalse(raw.runDecodeReached)
+        assertFalse(raw.fallbackUsed)
+    }
+
+    @Test
     fun `real provider bounds conversation history to native input limit`() {
         val request = RealNpuStandardRouteS1Provider.request(
             userPrompt = "続きを教えて",

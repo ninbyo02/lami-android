@@ -11,6 +11,7 @@ touch "$TMP_DIR/fake.apk"
 cat >"$TMP_DIR/bin/adb" <<'ADB'
 #!/usr/bin/env bash
 set -euo pipefail
+printf '%s\n' "$*" >>"${FAKE_ADB_LOG:?}"
 if [[ "${1:-}" == connect ]]; then
   printf 'connected to %s\n' "$2"
   exit 0
@@ -29,7 +30,14 @@ case "$*" in
   "shell getprop ro.product.model") printf 'TestDevice\n' ;;
   "shell getprop ro.soc.model") printf 'SM8750\n' ;;
   "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/dev_only_npu_one_turn_conversation_result.txt")
-    cat <<'RESULT'
+    [[ "${FAKE_ADB_RESULT_MODE:-success}" == success ]] || exit 0
+    count=0
+    [[ ! -f "${FAKE_ADB_STATE_FILE:?}" ]] || read -r count <"$FAKE_ADB_STATE_FILE"
+    count=$((count + 1))
+    printf '%s\n' "$count" >"$FAKE_ADB_STATE_FILE"
+    output=東京
+    ((count < 2)) || output=日本
+    cat <<RESULT
 status=success
 run_decode_reached=true
 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
@@ -44,7 +52,7 @@ streaming=false
 selected_path_npu_saved=false
 app_template_mode=raw
 prompt_transport=base64
-sanitized_output=東京
+sanitized_output=$output
 RESULT
     ;;
   "exec-out run-as io.github.ninbyo02.lami.customnpu cat files/qairt244_short_multitoken_smoke_result.txt")
@@ -56,6 +64,9 @@ RESULT
 esac
 ADB
 chmod +x "$TMP_DIR/bin/adb"
+export FAKE_ADB_LOG="$TMP_DIR/adb.log"
+export FAKE_ADB_STATE_FILE="$TMP_DIR/adb-state"
+export FAKE_ADB_RESULT_MODE=success
 
 cd "$ROOT_DIR"
 before="$(find artifacts/npu_conversation_policy_device_validation -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort || true)"
@@ -75,7 +86,27 @@ grep -q '| turn1 | success | true | false |' "$summary"
 grep -q '| turn2 | success | true | false |' "$summary"
 grep -q 'QNN_HTP_V79_FastRPC_native_diag' "$summary"
 grep -q '| 96 | 東京 |' "$summary"
+grep -q '| 96 | 日本 |' "$summary"
 grep -q 'top-k=40, top-p=0.9, temperature=0.3, seed=42' "$summary"
 grep -q 'DB/TTS/Markdown/streaming/selected-path=false' "$summary"
+grep -q 'prompt_tail_variant raw_dialog_tail_variant_a' "$FAKE_ADB_LOG"
+grep -q 'アシスタント: 東京' "$FAKE_ADB_LOG"
+
+before_failure="$after"
+: >"$FAKE_ADB_LOG"
+: >"$FAKE_ADB_STATE_FILE"
+export FAKE_ADB_RESULT_MODE=missing
+if PATH="$TMP_DIR/bin:$PATH" "$RUNNER" --endpoint 192.0.2.1:5555 \
+  --apk "$TMP_DIR/fake.apk" --timeout 1 --skip-install \
+  --skip-artifact-verification >"$TMP_DIR/failure.log" 2>&1; then
+  printf 'FAIL: missing result must fail validation\n' >&2
+  exit 1
+fi
+after_failure="$(find artifacts/npu_conversation_policy_device_validation -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort || true)"
+failure_artifact="$(comm -13 <(printf '%s\n' "$before_failure") <(printf '%s\n' "$after_failure") | tail -1)"
+[[ -n "$failure_artifact" ]] || { printf 'FAIL: failure artifact not created\n' >&2; exit 1; }
+trap 'rm -rf "$TMP_DIR" "$artifact" "$failure_artifact"' EXIT
+grep -q 'Result: \*\*FAIL\*\*' "$failure_artifact/summary.md"
+grep -q '| turn1 |  |  |  | unavailable | unavailable | unavailable |' "$failure_artifact/summary.md"
 
 printf 'npu_conversation_policy_device_summary_test=ok\n'
