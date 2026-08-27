@@ -1,7 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
@@ -220,7 +220,7 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
-            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, mapped.reason)
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, mapped.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("こんにちは。", mapped.displayText)
@@ -240,7 +240,7 @@ class NpuStandardRouteS1ProviderTest {
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
             assertEquals("failure", raw.status)
-            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, raw.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("success", raw.status)
@@ -274,7 +274,7 @@ class NpuStandardRouteS1ProviderTest {
 
         assertFalse(mapped.successCriteriaMet)
         assertEquals("failure", raw.status)
-        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, raw.reason)
         assertTrue(
             mapped.withTiming(NpuStandardRouteS1Timing(totalMs = 0L))
                 .displayText
@@ -300,7 +300,7 @@ class NpuStandardRouteS1ProviderTest {
 
         assertTrue(NpuStandardRouteS1ProviderSelector.normalChatNativeRouteUnblockAllowed(promotionGate))
         assertEquals("failure", raw.status)
-        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, raw.reason)
     }
 
     @Test
@@ -312,7 +312,7 @@ class NpuStandardRouteS1ProviderTest {
         )
 
         assertEquals("failure", raw.status)
-        assertEquals("dev_only_entry_unavailable", raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, raw.reason)
     }
 
     @Test
@@ -496,13 +496,13 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
-            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, offRaw.reason)
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, offRaw.reason)
         } else {
             assertEquals("success", offRaw.status)
             assertEquals("こんにちは。", offRaw.sanitizedOutput)
         }
         assertEquals("failure", s1Raw.status)
-        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, s1Raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, s1Raw.reason)
     }
 
     @Test
@@ -2188,8 +2188,8 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
     }
 
-    private fun npuStandardRouteDisplayForMaxOutputTokens(maxOutputTokens: Int): DevOnlyNpuOneTurnConversationDisplay =
-        DevOnlyNpuOneTurnConversationDisplay(
+    private fun npuStandardRouteDisplayForMaxOutputTokens(maxOutputTokens: Int): NpuStandardRouteNativeDisplay =
+        NpuStandardRouteNativeDisplay(
             text = "test display",
             output = "こんにちは。",
             status = NpuStandardRouteS1Contract.STATUS_SUCCESS,

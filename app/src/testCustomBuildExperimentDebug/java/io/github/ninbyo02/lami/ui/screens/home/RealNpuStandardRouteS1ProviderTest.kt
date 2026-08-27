@@ -1,8 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -120,7 +120,7 @@ class RealNpuStandardRouteS1ProviderTest {
         assertEquals("failure", raw.status)
         assertEquals("failure", raw.result)
         assertEquals(false, raw.success)
-        assertEquals("dev_only_entry_unavailable", raw.reason)
+        assertEquals("native_entry_unavailable", raw.reason)
         assertEquals("", raw.rawOutput)
         assertEquals("", raw.sanitizedOutput)
         assertEquals("unknown", raw.qualityClassification)
@@ -250,8 +250,8 @@ class RealNpuStandardRouteS1ProviderTest {
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", raw.status)
-        assertEquals("dev_only_entry_unavailable", raw.reason)
-        assertEquals("dev_only_entry_unavailable", result.reason)
+        assertEquals("native_entry_unavailable", raw.reason)
+        assertEquals("native_entry_unavailable", result.reason)
         assertTrue(result.selection.sideEffects.allDisconnected)
     }
 
@@ -267,7 +267,7 @@ class RealNpuStandardRouteS1ProviderTest {
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", raw.status)
-        assertEquals("dev_only_entry_unavailable", raw.reason)
+        assertEquals("native_entry_unavailable", raw.reason)
         assertTrue(result.selection.sideEffects.allDisconnected)
     }
 
@@ -277,13 +277,13 @@ class RealNpuStandardRouteS1ProviderTest {
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", result.status)
-        assertEquals("dev_only_entry_unavailable", result.reason)
+        assertEquals("native_entry_unavailable", result.reason)
         assertTrue(result.selection.sideEffects.allDisconnected)
     }
 
     @Test
     fun `real provider passes user prompt into dev only request`() {
-        var capturedRequest: DevOnlyNpuOneTurnConversationRequest? = null
+        var capturedRequest: NpuStandardRouteNativeRequest? = null
         val traces = mutableListOf<String>()
 
         val raw = RealNpuStandardRouteS1Provider(
@@ -310,7 +310,7 @@ class RealNpuStandardRouteS1ProviderTest {
         assertEquals(60_000L, request.timeoutMs)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT request_prompt_hash=") })
-        assertTrue(traces.any { it.contains("prompt_source=dev_only_conversation") })
+        assertTrue(traces.any { it.contains("prompt_source=standard_route_persistent_npu") })
         assertTrue(traces.any { it.contains("context_code_points=") })
         assertTrue(traces.any { it.contains("final_input_tokens=unavailable") })
         assertTrue(traces.any { it.contains("final_input_hash=") })
@@ -402,7 +402,7 @@ class RealNpuStandardRouteS1ProviderTest {
 
     @Test
     fun `real provider allows explicit max output tokens within native experiment limit`() {
-        var capturedRequest: DevOnlyNpuOneTurnConversationRequest? = null
+        var capturedRequest: NpuStandardRouteNativeRequest? = null
 
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { request ->
@@ -425,8 +425,8 @@ class RealNpuStandardRouteS1ProviderTest {
         output: String = "こんにちは。",
         rawOutput: String = output,
         maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
-    ): DevOnlyNpuOneTurnConversationDisplay =
-        DevOnlyNpuOneTurnConversationDisplay(
+    ): NpuStandardRouteNativeDisplay =
+        NpuStandardRouteNativeDisplay(
             text = "DEV ONLY NPU ONE TURN",
             output = output,
             status = "success",
@@ -458,8 +458,8 @@ class RealNpuStandardRouteS1ProviderTest {
     private fun failureDisplay(
         reason: String,
         maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
-    ): DevOnlyNpuOneTurnConversationDisplay =
-        DevOnlyNpuOneTurnConversationDisplay(
+    ): NpuStandardRouteNativeDisplay =
+        NpuStandardRouteNativeDisplay(
             text = "DEV ONLY NPU ONE TURN",
             output = "",
             status = "failure",

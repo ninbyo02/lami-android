@@ -168,8 +168,8 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 val display = if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
                     NpuStandardRoutePersistentProbeRunner.run(
                         context = appContext,
-                        request = request,
-                    )
+                        request = request.toStandardRouteNativeRequest(),
+                    ).toDevOnlyConversationDisplay()
                 } else {
                     runBlocking {
                         DevOnlyNpuOneTurnConversationEntry(appContext).run(request)

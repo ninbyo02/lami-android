@@ -9,8 +9,9 @@ The Qualcomm NPU path is a development preview. Two parts are verified separatel
    Markdown rendering, pseudo streaming, TTS, cancellation, and kill-switch behavior.
 
 These parts have not yet passed a combined Standard Release device validation.
-The real QAIRT 2.44 provider remains under the debug source set, so the Standard Release
-APK must not be described as NPU-enabled.
+The real QAIRT 2.44 provider now compiles in the Standard source set, but normal Release
+builds exclude vendor runtime binaries. Therefore, the distributed Standard Release APK
+must not yet be described as NPU-enabled.
 
 ## Verified device evidence
 
@@ -21,6 +22,22 @@ APK must not be described as NPU-enabled.
 - Sampler: top-k 40, top-p 0.9, temperature 0.3, seed 42
 - Two-turn outputs: `東京`, then `日本`
 - Validation artifact: `20260826_230151_700539701`
+
+## Local Standard candidate build
+
+A release-equivalent validation candidate may be built only on a licensed workstation
+that supplies QAIRT/QNN libraries outside Git:
+
+```bash
+./gradlew assembleStandardRelease -Plami.standardNpuRuntimeEnabled=true
+scripts/tests/test_standard_release_npu_packaging.sh \
+  app/build/outputs/apk/standard/release/app-standard-release-unsigned.apk \
+  enabled app/src/customBuildExperimentDebug/jniLibs/arm64-v8a
+```
+
+Omitting the Gradle property produces the distributable Standard Release shape and the
+packaging check must pass in `disabled` mode. The property is a validation gate, not a
+redistribution approval.
 
 ## Distribution boundary
 

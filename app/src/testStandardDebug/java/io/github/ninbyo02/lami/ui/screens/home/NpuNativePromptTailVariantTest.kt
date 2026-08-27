@@ -1,6 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -23,7 +23,7 @@ class NpuNativePromptTailVariantTest {
         assertEquals(true, result.success)
     }
 
-    private fun successDisplay(maxOutputTokens: Int) = DevOnlyNpuOneTurnConversationDisplay(
+    private fun successDisplay(maxOutputTokens: Int) = NpuStandardRouteNativeDisplay(
         text = "test",
         output = "こんにちは。",
         status = NpuStandardRouteS1Contract.STATUS_SUCCESS,

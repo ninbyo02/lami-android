@@ -2,29 +2,19 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.Build
-import io.github.ninbyo02.lami.BuildConfig
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
-import io.github.ninbyo02.lami.npu.Qairt244DevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
-import kotlinx.coroutines.runBlocking
 
 internal class RealNpuStandardRouteS1Provider(
-    private val requestRunner: (DevOnlyNpuOneTurnConversationRequest) -> DevOnlyNpuOneTurnConversationDisplay = { request ->
+    private val requestRunner: (NpuStandardRouteNativeRequest) -> NpuStandardRouteNativeDisplay = { request ->
         val appContext = resolveApplicationContext()
-            ?: error(REASON_DEV_ONLY_ENTRY_UNAVAILABLE)
-        if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-            NpuStandardRoutePersistentProbeRunner.run(
-                context = appContext,
-                request = request,
-            )
-        } else {
-            runBlocking {
-                DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
-            }
-        }
+            ?: error(REASON_NATIVE_ENTRY_UNAVAILABLE)
+        NpuStandardRoutePersistentProbeRunner.run(
+            context = appContext,
+            request = request,
+        )
     },
 ) : NpuStandardRouteS1Provider {
     override fun invoke(
@@ -146,7 +136,7 @@ internal class RealNpuStandardRouteS1Provider(
             } else {
                 throwable.message
                     ?.takeIf { it.isNotBlank() }
-                    ?: REASON_DEV_ONLY_REQUEST_FAILED
+                    ?: REASON_NATIVE_REQUEST_FAILED
             }
             NpuS1LogcatDiagnostics.logAdapterFailure(
                 reason = reason,
@@ -201,9 +191,10 @@ internal class RealNpuStandardRouteS1Provider(
     }
 
     companion object {
-        const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
-        const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
+        const val REASON_NATIVE_ENTRY_UNAVAILABLE = "native_entry_unavailable"
+        const val REASON_NATIVE_REQUEST_FAILED = "native_request_failed"
         const val REASON_NATIVE_INPUT_TOO_LONG = "native_input_too_long"
+        const val PROMPT_SOURCE_STANDARD_ROUTE = "standard_route_persistent_npu"
 
         const val NATIVE_MAX_INPUT_CODE_POINTS = 128
 
@@ -211,7 +202,7 @@ internal class RealNpuStandardRouteS1Provider(
             userPrompt: String,
             contextText: String = "",
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
-        ): DevOnlyNpuOneTurnConversationRequest {
+        ): NpuStandardRouteNativeRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
             val promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT
             val boundedContext = boundContextForNativeInput(
@@ -219,7 +210,7 @@ internal class RealNpuStandardRouteS1Provider(
                 userPrompt = userPrompt,
                 promptTailVariant = promptTailVariant,
             )
-            val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                 contextText = boundedContext,
                 userPrompt = userPrompt,
                 promptTailVariant = promptTailVariant,
@@ -230,16 +221,15 @@ internal class RealNpuStandardRouteS1Provider(
                     "code_points=$finalInputCodePoints:" +
                     "limit=$NATIVE_MAX_INPUT_CODE_POINTS"
             }
-            return DevOnlyNpuOneTurnConversationRequest(
+            return NpuStandardRouteNativeRequest(
                 userPrompt = userPrompt,
                 contextText = boundedContext,
-                unsafeDevBypassPromptLengthGate = true,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,
                     requestedMaxOutputTokens = sanitizedMaxOutputTokens,
                 ),
                 promptTailVariant = promptTailVariant,
-                timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
+                timeoutMs = NpuStandardRouteNativeContract.TIMEOUT_MS,
             )
         }
 
@@ -260,7 +250,7 @@ internal class RealNpuStandardRouteS1Provider(
                     add(line)
                     addAll(selectedLines)
                 }.joinToString("\n")
-                val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                     contextText = candidate,
                     userPrompt = userPrompt,
                     promptTailVariant = promptTailVariant,
@@ -275,11 +265,11 @@ internal class RealNpuStandardRouteS1Provider(
         }
 
         fun buildNpuRealPromptRequestTrace(
-            request: DevOnlyNpuOneTurnConversationRequest,
+            request: NpuStandardRouteNativeRequest,
             promptRewrite: NpuStandardRouteS1PromptRewrite =
                 NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt),
         ): String {
-            val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                 contextText = request.contextText,
                 userPrompt = request.userPrompt,
                 promptTailVariant = request.promptTailVariant,
@@ -294,7 +284,7 @@ internal class RealNpuStandardRouteS1Provider(
                 append(" request_prompt_preview=")
                 append(npuRealPromptPreview(request.userPrompt))
                 append(" prompt_source=")
-                append(Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_DEV_ONLY_CONVERSATION)
+                append(PROMPT_SOURCE_STANDARD_ROUTE)
                 append(" context_code_points=")
                 append(request.contextText.codePointCount(0, request.contextText.length))
                 append(" final_input_tokens=unavailable")

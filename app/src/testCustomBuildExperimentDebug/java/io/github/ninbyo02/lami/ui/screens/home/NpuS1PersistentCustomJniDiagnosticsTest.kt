@@ -380,7 +380,7 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertEquals("ready_and_policy_allowed", readiness.status)
         assertTrue(readiness.policyAllowed)
         assertTrue(NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED)
-        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, result.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, result.reason)
         assertEquals("failure", result.status)
     }
 

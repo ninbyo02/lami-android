@@ -2,9 +2,9 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 
@@ -14,8 +14,8 @@ internal object NpuStandardRoutePersistentProbeRunner {
 
     fun run(
         context: Context,
-        request: DevOnlyNpuOneTurnConversationRequest,
-    ): DevOnlyNpuOneTurnConversationDisplay {
+        request: NpuStandardRouteNativeRequest,
+    ): NpuStandardRouteNativeDisplay {
         val appContext = context.applicationContext
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         val modelPath = modelResolution.path.orEmpty()
@@ -27,7 +27,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
             )
         }
 
-        val finalPrompt = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+        val finalPrompt = NpuStandardRouteNativeContract.buildPrompt(
             contextText = request.contextText,
             userPrompt = request.userPrompt,
             promptTailVariant = request.promptTailVariant,
@@ -83,7 +83,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 ?: "standard_route_reuse_once_failure"
         }
         val finishedAt = SystemClock.elapsedRealtime()
-        return DevOnlyNpuOneTurnConversationDisplay(
+        return NpuStandardRouteNativeDisplay(
             text = buildString {
                 appendLine("NPU STANDARD ROUTE S1 PERSISTENT")
                 appendLine("status=${if (success) "success" else "failure"}")
@@ -162,10 +162,10 @@ internal object NpuStandardRoutePersistentProbeRunner {
     }
 
     private fun failureDisplay(
-        request: DevOnlyNpuOneTurnConversationRequest,
+        request: NpuStandardRouteNativeRequest,
         reason: String,
         nativeErrorMessage: String,
-    ): DevOnlyNpuOneTurnConversationDisplay = DevOnlyNpuOneTurnConversationDisplay(
+    ): NpuStandardRouteNativeDisplay = NpuStandardRouteNativeDisplay(
         text = "NPU STANDARD ROUTE S1 PERSISTENT\nstatus=failure\nreason=$reason",
         output = "",
         status = "failure",

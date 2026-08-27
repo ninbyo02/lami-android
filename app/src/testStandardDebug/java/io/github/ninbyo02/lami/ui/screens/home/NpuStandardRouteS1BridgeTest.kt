@@ -120,7 +120,7 @@ class NpuStandardRouteS1BridgeTest {
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", result.status)
-        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, result.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_NATIVE_ENTRY_UNAVAILABLE, result.reason)
         assertFalse(result.runDecodeReached)
         assertTrue(
             result.withTiming(NpuStandardRouteS1Timing(totalMs = 0L))
