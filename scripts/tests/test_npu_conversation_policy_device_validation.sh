@@ -17,10 +17,16 @@ grep -q -- '--endpoint <IPv4:port>' <<<"$help_output" ||
   fail "help must require explicit endpoint"
 grep -q -- '--skip-install' <<<"$help_output" ||
   fail "help must document install override"
+grep -q -- '--app-id <package>' <<<"$help_output" ||
+  fail "help must document the validation package override"
 
 if "$RUNNER" --endpoint invalid --skip-install --skip-artifact-verification \
   >/dev/null 2>&1; then
   fail "invalid endpoint must fail before ADB use"
+fi
+if "$RUNNER" --endpoint 127.0.0.1:5555 --app-id invalid \
+  --skip-install --skip-artifact-verification >/dev/null 2>&1; then
+  fail "invalid app id must fail before ADB use"
 fi
 
 grep -q 'adb connect "$ENDPOINT"' "$RUNNER" ||

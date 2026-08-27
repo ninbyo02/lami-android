@@ -165,7 +165,13 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                         ),
                     ),
                 )
-                val display = if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
+                val display = if (
+                    shouldUsePersistentStandardRoute(
+                        currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                        customBuildExperiment = BuildConfig.CUSTOM_BUILD_EXPERIMENT,
+                        standardNpuRuntimeEnabled = BuildConfig.STANDARD_NPU_RUNTIME_ENABLED,
+                    )
+                ) {
                     NpuStandardRoutePersistentProbeRunner.run(
                         context = appContext,
                         request = request.toStandardRouteNativeRequest(),

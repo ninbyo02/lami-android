@@ -8,10 +8,11 @@ The Qualcomm NPU path is a development preview. Two parts are verified separatel
 2. Standard-route contracts exist for finalized safe text, UI append, DB persistence,
    Markdown rendering, pseudo streaming, TTS, cancellation, and kill-switch behavior.
 
-These parts have not yet passed a combined Standard Release device validation.
-The real QAIRT 2.44 provider now compiles in the Standard source set, but normal Release
-builds exclude vendor runtime binaries. Therefore, the distributed Standard Release APK
-must not yet be described as NPU-enabled.
+The real QAIRT 2.44 provider now compiles in the Standard source set. An explicitly
+enabled Standard Debug candidate passes the production persistent provider on SM8750,
+but the equivalent Standard Release candidate crashes during NPU engine creation.
+Normal Release builds still exclude vendor runtime binaries. Therefore, the distributed
+Standard Release APK must not yet be described as NPU-enabled.
 
 ## Verified device evidence
 
@@ -21,12 +22,26 @@ must not yet be described as NPU-enabled.
 - Backend evidence: `QNN_HTP_V79_FastRPC_native_diag`
 - Sampler: top-k 40, top-p 0.9, temperature 0.3, seed 42
 - Two-turn outputs: `東京`, then `日本`
-- Validation artifact: `20260826_230151_700539701`
+- Custom Debug validation artifact: `20260826_230151_700539701`
+- Standard Debug persistent-route artifact: `20260827_215704_290186100`
+- Standard Debug native input sizes: 57 and 105 code points (limit: 128)
 
-## Local Standard candidate build
+## Local Standard candidate builds
 
-A release-equivalent validation candidate may be built only on a licensed workstation
-that supplies QAIRT/QNN libraries outside Git:
+Validation candidates may be built only on a licensed workstation that supplies
+QAIRT/QNN libraries outside Git. The Standard Debug candidate is the currently verified
+persistent-route device shape:
+
+```bash
+./gradlew assembleStandardDebug -Plami.standardNpuRuntimeEnabled=true
+scripts/run_npu_conversation_policy_device_validation.sh \
+  --endpoint <IPv4:port> \
+  --apk app/build/outputs/apk/standard/debug/app-standard-debug.apk \
+  --app-id io.github.ninbyo02.lami.npuvalidation \
+  --skip-artifact-verification
+```
+
+The Standard Release candidate remains a diagnostic build and is not promotion evidence:
 
 ```bash
 ./gradlew assembleStandardRelease -Plami.standardNpuRuntimeEnabled=true
@@ -40,6 +55,19 @@ packaging check must pass in `disabled` mode. Enabling it also changes the appli
 to `io.github.ninbyo02.lami.npuvalidation`, preventing a locally signed validation APK
 from replacing or deleting data from the installed product app. The property is a
 validation gate, not a redistribution approval.
+
+## Known Standard Release blocker
+
+On nubia NX733J / SM8750, the locally signed Standard Release candidate reaches
+`EngineFactory::CreateDefault` and then crashes in
+`DispatchDelegate::CreateDelegateKernelInterface`. The same model, signing certificate,
+package data, and byte-identical common native libraries pass under Standard Debug.
+Changing package length, native extraction, debuggability, `liblitertlm_jni.so`, and the
+persistent-holder stub did not remove the Release-only crash. Evidence is stored under
+`artifacts/standard_npu_release_device_validation/20260827_202200_f56a4339`.
+
+Until this build-type boundary is resolved, Standard Debug evidence must not be relabeled
+as Standard Release evidence and PR #2542 should remain Draft.
 
 ## Distribution boundary
 

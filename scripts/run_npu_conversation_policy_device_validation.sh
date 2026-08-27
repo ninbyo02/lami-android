@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APK="$ROOT_DIR/app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk"
 APP_ID="io.github.ninbyo02.lami.customnpu"
 ACTION="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
-RECEIVER="$APP_ID/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
+RECEIVER=""
 RESULT_FILE="dev_only_npu_one_turn_conversation_result.txt"
 NATIVE_RESULT_FILE="qairt244_persistent_custom_jni_probe_result.txt"
 NATIVE_DIAG_FILE="qairt244_persistent_custom_jni_probe_diag.txt"
@@ -17,10 +17,10 @@ VERIFY_ARTIFACT=true
 usage() {
   cat <<'USAGE'
 Usage: scripts/run_npu_conversation_policy_device_validation.sh \
-  --endpoint <IPv4:port> [--apk <path>] [--timeout <seconds>] \
-  [--skip-install] [--skip-artifact-verification]
+  --endpoint <IPv4:port> [--apk <path>] [--app-id <package>] \
+  [--timeout <seconds>] [--skip-install] [--skip-artifact-verification]
 
-Connects only to the explicit ADB endpoint, installs the latest custom NPU APK,
+Connects only to the explicit ADB endpoint, installs the selected NPU APK,
 runs two isolated DEV-only NPU conversation turns, and saves machine-readable
 policy, sampler, input-length, fallback, and QNN/HTP/FastRPC evidence.
 USAGE
@@ -30,6 +30,7 @@ while (($#)); do
   case "$1" in
     --endpoint) ENDPOINT="${2:-}"; shift 2 ;;
     --apk) APK="${2:-}"; shift 2 ;;
+    --app-id) APP_ID="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --skip-install) INSTALL=false; shift ;;
     --skip-artifact-verification) VERIFY_ARTIFACT=false; shift ;;
@@ -37,6 +38,8 @@ while (($#)); do
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+RECEIVER="$APP_ID/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -58,6 +61,10 @@ validate_timeout() {
     fail "--timeout must be a positive integer"
   ((TIMEOUT_SECONDS >= 1 && TIMEOUT_SECONDS <= 600)) ||
     fail "--timeout must be between 1 and 600 seconds"
+}
+validate_app_id() {
+  [[ "$APP_ID" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]] ||
+    fail "--app-id must be a valid Android package name"
 }
 
 kv_value() {
@@ -286,6 +293,7 @@ run_turn() {
 main() {
   validate_endpoint
   validate_timeout
+  validate_app_id
   cd "$ROOT_DIR"
 
   local timestamp

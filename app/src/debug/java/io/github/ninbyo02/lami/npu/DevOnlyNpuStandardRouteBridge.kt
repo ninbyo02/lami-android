@@ -1,5 +1,12 @@
 package io.github.ninbyo02.lami.npu
 
+internal fun shouldUsePersistentStandardRoute(
+    currentFlavor: String,
+    customBuildExperiment: Boolean,
+    standardNpuRuntimeEnabled: Boolean,
+): Boolean = customBuildExperiment ||
+    (currentFlavor == "standard" && standardNpuRuntimeEnabled)
+
 internal fun DevOnlyNpuOneTurnConversationRequest.toStandardRouteNativeRequest():
     NpuStandardRouteNativeRequest = NpuStandardRouteNativeRequest(
     userPrompt = userPrompt,
