@@ -104,6 +104,9 @@ android {
     productFlavors {
         create("standard") {
             dimension = "dispatchExperiment"
+            if (standardNpuRuntimeEnabled.get()) {
+                applicationIdSuffix = ".npuvalidation"
+            }
             buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
             buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"local SDK inputs; packaged only when lami.standardNpuRuntimeEnabled=true\"")

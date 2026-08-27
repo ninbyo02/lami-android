@@ -18,5 +18,11 @@ class NpuStandardRouteS1ReleaseGateTest {
             BuildConfig.STANDARD_NPU_RUNTIME_ENABLED,
             NpuStandardRouteS1GateConfig.isEnabledForMode(NpuStandardRouteMode.S1_ONLY),
         )
+        val expectedApplicationId = if (BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) {
+            "io.github.ninbyo02.lami.npuvalidation"
+        } else {
+            "io.github.ninbyo02.lami"
+        }
+        assertEquals(expectedApplicationId, BuildConfig.APPLICATION_ID)
     }
 }

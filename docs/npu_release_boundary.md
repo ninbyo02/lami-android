@@ -36,8 +36,10 @@ scripts/tests/test_standard_release_npu_packaging.sh \
 ```
 
 Omitting the Gradle property produces the distributable Standard Release shape and the
-packaging check must pass in `disabled` mode. The property is a validation gate, not a
-redistribution approval.
+packaging check must pass in `disabled` mode. Enabling it also changes the application ID
+to `io.github.ninbyo02.lami.npuvalidation`, preventing a locally signed validation APK
+from replacing or deleting data from the installed product app. The property is a
+validation gate, not a redistribution approval.
 
 ## Distribution boundary
 
