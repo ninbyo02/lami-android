@@ -130,7 +130,11 @@ internal object Qairt244NpuOutputSanitizer {
         val sanitizedBeforeJapaneseSpaceNormalization = keptLines.joinToString("\n").trim()
         val withoutLeadingPromptEcho = stripLeadingPromptEcho(sanitizedBeforeJapaneseSpaceNormalization, promptEcho)
         if (withoutLeadingPromptEcho != sanitizedBeforeJapaneseSpaceNormalization) removedPromptEcho = true
-        val sanitized = normalizeJapaneseInternalSpaces(withoutLeadingPromptEcho)
+        val withoutConstrainedRepetition = collapseConstrainedRepeatedAnswer(
+            value = withoutLeadingPromptEcho,
+            prompt = promptEcho,
+        )
+        val sanitized = normalizeJapaneseInternalSpaces(withoutConstrainedRepetition)
         val sanitizerApplied = sanitized != rawOutput || removedTemplateTokenCount > 0 || removedPromptEcho || codeFenceCompleted
         return Result(rawOutput, sanitized, sanitizerApplied, removedTemplateTokenCount, removedPromptEcho, codeBlockDetected, codeFenceCompleted)
     }
@@ -147,6 +151,15 @@ internal object Qairt244NpuOutputSanitizer {
         val remainingLines = lines.drop(firstMeaningfulIndex + 1)
         if (remainingLines.none { it.trim().isNotEmpty() }) return value
         return remainingLines.dropWhile { it.trim().isEmpty() }.joinToString("\n").trim()
+    }
+
+    private fun collapseConstrainedRepeatedAnswer(value: String, prompt: String): String {
+        if (constrainedShortAnswerMarkers.none(prompt::contains) || '\n' in value) return value
+        val words = value.trim().split(Regex("\\s+")).filter(String::isNotBlank)
+        if (words.size !in 2..4 || words.distinct().size != 1) return value
+        val answer = words.first()
+        val codePoints = answer.codePointCount(0, answer.length)
+        return if (codePoints in 1..8) answer else value
     }
 
     fun normalizeJapaneseInternalSpaces(value: String): String {
@@ -214,6 +227,14 @@ internal object Qairt244NpuOutputSanitizer {
     private fun Int.isJapaneseTextCodePoint(): Boolean =
         this in 0x3040..0x309F || this in 0x30A0..0x30FF || this in 0x3400..0x4DBF ||
             this in 0x4E00..0x9FFF || this in 0xF900..0xFAFF
+
+    private val constrainedShortAnswerMarkers = listOf(
+        "だけ答えて",
+        "一度だけ",
+        "一語",
+        "一文字",
+        "二文字",
+    )
 
     private val standaloneGreetingResponses = setOf(
         "こんにちは", "こんにちは。", "こんばんは", "こんばんは。",

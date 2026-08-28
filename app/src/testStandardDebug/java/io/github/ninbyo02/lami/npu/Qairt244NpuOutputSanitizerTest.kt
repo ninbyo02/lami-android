@@ -16,6 +16,27 @@ class Qairt244NpuOutputSanitizerTest {
     }
 
     @Test
+    fun `collapses repeated short answer when prompt explicitly requests one answer`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            rawOutput = "青葉 青葉",
+            prompt = "前に伝えた私の名前を一度だけ答えてください。",
+        )
+
+        assertEquals("青葉", result.sanitizedOutput)
+        assertTrue(result.sanitizerApplied)
+    }
+
+    @Test
+    fun `keeps repeated words when prompt does not constrain a short answer`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            rawOutput = "とても とても",
+            prompt = "感想を自然に答えてください。",
+        )
+
+        assertEquals("とてもとても", result.sanitizedOutput)
+    }
+
+    @Test
     fun `removes spaced end of turn variant after answer`() {
         val result = Qairt244NpuOutputSanitizer.sanitize(">\n2\n< end_of_turn>", "１＋１は？")
 

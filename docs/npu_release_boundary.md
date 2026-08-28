@@ -67,7 +67,13 @@ scripts/run_standard_npu_release_preflight.sh \
   --mode dispatch_initialize_preflight
 scripts/run_standard_npu_release_conversation_validation.sh \
   --endpoint <IPv4:port> --apk <signed-validation.apk>
+scripts/run_standard_npu_release_automated_conversation_suite.sh \
+  --endpoint <IPv4:port> --apk <signed-validation.apk>
 ```
+
+The automated suite keeps the strict capital handoff and adds name retention plus
+preference-correction scenarios. It carries each real response into the next request,
+asserts the 128-code-point production boundary, and saves per-turn NPU evidence.
 
 The preflight receiver is present only in an explicitly enabled Standard Release and
 runs in `:npu_preflight` under the shell-only `android.permission.DUMP` gate.

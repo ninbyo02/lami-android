@@ -243,12 +243,25 @@ internal class RealNpuStandardRouteS1Provider(
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .toList()
-            val selectedLines = ArrayDeque<String>()
+            val contextTurns = mutableListOf<MutableList<String>>()
+            contextLines.forEach { line ->
+                if (line.startsWith("ユーザー:")) {
+                    contextTurns += mutableListOf(line)
+                } else if (
+                    line.startsWith("アシスタント:") &&
+                    contextTurns.lastOrNull()?.firstOrNull()?.startsWith("ユーザー:") == true
+                ) {
+                    contextTurns.last() += line
+                } else {
+                    contextTurns += mutableListOf(line)
+                }
+            }
+            val selectedTurns = ArrayDeque<List<String>>()
 
-            for (line in contextLines.asReversed()) {
+            for (turn in contextTurns.asReversed()) {
                 val candidate = buildList {
-                    add(line)
-                    addAll(selectedLines)
+                    addAll(turn)
+                    selectedTurns.forEach(::addAll)
                 }.joinToString("\n")
                 val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                     contextText = candidate,
@@ -258,10 +271,10 @@ internal class RealNpuStandardRouteS1Provider(
                 if (finalInput.codePointCount(0, finalInput.length) > NATIVE_MAX_INPUT_CODE_POINTS) {
                     break
                 }
-                selectedLines.addFirst(line)
+                selectedTurns.addFirst(turn)
             }
 
-            return selectedLines.joinToString("\n")
+            return selectedTurns.flatten().joinToString("\n")
         }
 
         fun buildNpuRealPromptRequestTrace(

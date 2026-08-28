@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Base64
-import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 
 internal class StandardNpuReleasePreflightReceiver : BroadcastReceiver() {
@@ -24,13 +23,14 @@ internal class StandardNpuReleasePreflightReceiver : BroadcastReceiver() {
                     val userPrompt = decodeExtra(intent, EXTRA_USER_PROMPT_BASE64)
                     val contextText = decodeExtra(intent, EXTRA_CONTEXT_BASE64)
                     require(userPrompt.isNotBlank()) { "user_prompt_base64 is required" }
+                    val request = RealNpuStandardRouteS1Provider.request(
+                        userPrompt = userPrompt,
+                        contextText = contextText,
+                        maxOutputTokens = intent.getIntExtra(EXTRA_MAX_OUTPUT_TOKENS, 32),
+                    )
                     val display = NpuStandardRoutePersistentProbeRunner.run(
                         context = appContext,
-                        request = NpuStandardRouteNativeRequest(
-                            userPrompt = userPrompt,
-                            contextText = contextText,
-                            maxOutputTokens = intent.getIntExtra(EXTRA_MAX_OUTPUT_TOKENS, 32),
-                        ),
+                        request = request,
                     )
                     val outputBase64 = Base64.encodeToString(
                         display.output.toByteArray(Charsets.UTF_8),
