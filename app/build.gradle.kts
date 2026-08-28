@@ -1132,6 +1132,11 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
 
 tasks.matching { it.name == "mergeStandardReleaseJniLibFolders" }.configureEach {
     dependsOn("stageQairt244StandardReleaseNativeLibs")
+    // The same output directory serves enabled and disabled validation builds.
+    // AGP does not reliably snapshot the generated source directory contents,
+    // so force a fresh merge to prevent a previous NPU candidate from leaking
+    // custom LiteRT/QNN libraries into the normal distributable Release.
+    outputs.upToDateWhen { false }
 }
 
 tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {

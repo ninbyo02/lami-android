@@ -7,11 +7,51 @@ source_dir=${3:-}
 vendor_regex='^(base/)?lib/arm64-v8a/(libQnn.*|libqnn_.*|libLiteRtDispatch_Qualcomm\.so|libLiteRtCompilerPlugin_Qualcomm\.so|libGemmaModelConstraintProvider\.so|liblami_qairt244_npu_jni\.so)$'
 
 test -f "$apk"
+
+assert_cdsprpc_visibility() {
+  case "$apk" in
+    *.apk)
+      analyzer=${APK_ANALYZER:-}
+      if [[ -z "$analyzer" ]]; then
+        analyzer=$(command -v apkanalyzer || true)
+      fi
+      if [[ -z "$analyzer" || ! -x "$analyzer" ]]; then
+        echo "apkanalyzer is required to verify Standard APK native-library visibility" >&2
+        exit 1
+      fi
+      manifest=$("$analyzer" manifest print "$apk")
+      if ! tr '\n' ' ' <<<"$manifest" \
+        | grep -Eq '<uses-native-library[^>]*android:name="libcdsprpc\.so"[^>]*android:required="false"'; then
+        echo "Standard APK must request optional libcdsprpc.so visibility for targetSdk 31+" >&2
+        exit 1
+      fi
+      echo "standard_release_cdsprpc_visibility=declared"
+      ;;
+  esac
+}
+
+assert_cdsprpc_visibility
+
 case "$mode" in
   disabled)
     if unzip -Z1 "$apk" | grep -E "$vendor_regex"; then
       echo "normal Standard Release contains Qualcomm/NPU vendor runtime" >&2
       exit 1
+    fi
+    if [[ -n "$source_dir" && -f "$source_dir/libLiteRt.so" ]]; then
+      entry="lib/arm64-v8a/libLiteRt.so"
+      entries=$(unzip -Z1 "$apk")
+      if ! grep -Fxq "$entry" <<<"$entries"; then
+        entry="base/$entry"
+      fi
+      grep -Fxq "$entry" <<<"$entries"
+      candidate_hash=$(sha256sum "$source_dir/libLiteRt.so" | cut -d' ' -f1)
+      packaged_hash=$(unzip -p "$apk" "$entry" | sha256sum | cut -d' ' -f1)
+      if [[ "$candidate_hash" == "$packaged_hash" ]]; then
+        echo "normal Standard Release contains stale custom LiteRT core from an enabled candidate build" >&2
+        exit 1
+      fi
+      echo "standard_release_custom_litert_core=none"
     fi
     echo "standard_release_vendor_runtime=none"
     ;;

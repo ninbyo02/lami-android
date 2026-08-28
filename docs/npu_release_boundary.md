@@ -66,6 +66,19 @@ Changing package length, native extraction, debuggability, `liblitertlm_jni.so`,
 persistent-holder stub did not remove the Release-only crash. Evidence is stored under
 `artifacts/standard_npu_release_device_validation/20260827_202200_f56a4339`.
 
+An offline APK comparison then found that all 29 common arm64 native libraries were
+byte-identical, but only the successful Standard Debug manifest requested optional
+`libcdsprpc.so` visibility. Because the app targets API 36, vendor-provided non-NDK
+libraries are inaccessible unless requested with `<uses-native-library>`. The declaration
+now lives in the shared Standard manifest and both enabled and disabled Release packaging
+checks require it. This is the leading root-cause candidate, but it still requires an SM8750
+Release-equivalent device run before the crash can be considered fixed.
+
+The comparison also exposed property-switch contamination: an enabled candidate's custom
+`libLiteRt.so` could survive into a later disabled build when the Release JNI merge was
+incorrectly considered up-to-date. The Release JNI merge is now always refreshed, and the
+disabled packaging check rejects a staged custom LiteRT core when local SDK inputs exist.
+
 Until this build-type boundary is resolved, Standard Debug evidence must not be relabeled
 as Standard Release evidence and PR #2542 should remain Draft.
 
