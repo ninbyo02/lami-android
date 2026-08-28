@@ -140,6 +140,25 @@ class NpuStandardRouteS1ContractTest {
         assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
     }
 
+    @Test
+    fun `engine diagnostics are enabled only for debug or explicit Standard NPU validation`() {
+        assertFalse(npuEngineDiagnosticsEnabled(debugBuild = false, standardNpuRuntimeEnabled = false))
+        assertTrue(npuEngineDiagnosticsEnabled(debugBuild = true, standardNpuRuntimeEnabled = false))
+        assertTrue(npuEngineDiagnosticsEnabled(debugBuild = false, standardNpuRuntimeEnabled = true))
+    }
+
+    @Test
+    fun `native load order reflects the actual build type libraries`() {
+        assertEquals(
+            "lami_qairt244_npu_jni>lami_npu_persistent_holder_stub",
+            npuStandardRouteNativeLoadOrder(debugBuild = true),
+        )
+        assertEquals(
+            "lami_qairt244_npu_jni",
+            npuStandardRouteNativeLoadOrder(debugBuild = false),
+        )
+    }
+
     private fun successResult(
         selection: NpuStandardRouteS1Selection = NpuStandardRouteS1Selection(enabled = true),
         rawOutput: String = "こんにちは。",

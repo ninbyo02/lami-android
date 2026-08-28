@@ -20,12 +20,29 @@ assert_cdsprpc_visibility() {
         exit 1
       fi
       manifest=$("$analyzer" manifest print "$apk")
-      if ! tr '\n' ' ' <<<"$manifest" \
+      declared=false
+      if tr '\n' ' ' <<<"$manifest" \
         | grep -Eq '<uses-native-library[^>]*android:name="libcdsprpc\.so"[^>]*android:required="false"'; then
-        echo "Standard APK must request optional libcdsprpc.so visibility for targetSdk 31+" >&2
+        declared=true
+      fi
+      if [[ "$mode" == "enabled" && "$declared" != "true" ]]; then
+        echo "enabled Standard NPU candidate must request optional libcdsprpc.so visibility" >&2
         exit 1
       fi
-      echo "standard_release_cdsprpc_visibility=declared"
+      if [[ "$mode" == "disabled" && "$declared" == "true" ]]; then
+        echo "normal Standard Release must not request vendor libcdsprpc.so visibility" >&2
+        exit 1
+      fi
+      extracted=false
+      if grep -Fq 'android:extractNativeLibs="true"' <<<"$manifest"; then
+        extracted=true
+      fi
+      if [[ "$mode" == "enabled" && "$extracted" != "true" ]]; then
+        echo "enabled Standard NPU candidate must extract its nativeLibraryDir" >&2
+        exit 1
+      fi
+      echo "standard_release_cdsprpc_visibility=$declared"
+      echo "standard_release_native_extraction=$extracted"
       ;;
   esac
 }
@@ -80,6 +97,33 @@ case "$mode" in
       fi
       echo "$library=$apk_hash"
     done
+
+    if ! readelf -Ws "$source_dir/libLiteRtDispatch_Qualcomm.so"       | grep -Eq 'GLOBAL.*DEFAULT.*LiteRtDispatchGetApi'; then
+      echo "Qualcomm Dispatch runtime does not export LiteRtDispatchGetApi" >&2
+      exit 1
+    fi
+    system_dependency_regex='^(lib(android|c|dl|EGL|GLESv2|GLESv3|log|m)\.so|libc\+\+\.so\.1|libc\+\+abi\.so\.1|libcdsprpc\.so)$'
+    for source_library in "$source_dir"/*.so; do
+      library=$(basename "$source_library")
+      case "$library" in
+        liblami_qairt244_smoke.so|liblitertlm_jni.so) continue ;;
+      esac
+      for dependency in $(readelf -d "$source_library" 2>/dev/null         | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p'); do
+        if [[ "$dependency" =~ $system_dependency_regex ]]; then
+          continue
+        fi
+        if [[ ! -f "$source_dir/$dependency" ]]; then
+          echo "unresolved native dependency: $library -> $dependency" >&2
+          exit 1
+        fi
+        if ! grep -Eq "^(base/)?lib/arm64-v8a/$dependency$" <<<"$entries"; then
+          echo "unpackaged native dependency: $library -> $dependency" >&2
+          exit 1
+        fi
+      done
+    done
+    echo "standard_release_native_dependency_closure=verified"
+    echo "standard_release_dispatch_get_api_export=verified"
     echo "standard_release_npu_runtime=verified"
     ;;
   *)

@@ -289,8 +289,13 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             }
 
             val appContext = context.applicationContext
-            val resultFile = appContext.filesDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
-            val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            val diagnosticsDir = if (!BuildConfig.DEBUG && BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) {
+                appContext.getExternalFilesDir(null) ?: appContext.filesDir
+            } else {
+                appContext.filesDir
+            }
+            val resultFile = diagnosticsDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = diagnosticsDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
             resultFile.delete()
             diagFile.delete()
             val nativeResult = runPersistentNativeCallWithOptionalTimeout(

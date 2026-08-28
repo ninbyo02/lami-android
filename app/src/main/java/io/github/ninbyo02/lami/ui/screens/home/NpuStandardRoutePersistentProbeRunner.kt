@@ -2,11 +2,20 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
+
+internal fun npuStandardRouteNativeLoadOrder(
+    debugBuild: Boolean = BuildConfig.DEBUG,
+): String = if (debugBuild) {
+    "lami_qairt244_npu_jni>lami_npu_persistent_holder_stub"
+} else {
+    "lami_qairt244_npu_jni"
+}
 
 internal object NpuStandardRoutePersistentProbeRunner {
     private const val NATIVE_PROBE_MODE_STANDARD_ROUTE_REUSE_ONCE = "standard_route_reuse_once"
@@ -154,7 +163,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 nativeErrorSource = if (success) "unavailable" else "persistent_probe",
                 nativeLinkFailureDetected = "false",
                 nativeLinkFailureLibrary = "unavailable",
-                nativeLoadOrder = "litertlm_jni>lami_npu_persistent_holder_stub",
+                nativeLoadOrder = npuStandardRouteNativeLoadOrder(),
                 javaLibraryPath = System.getProperty("java.library.path") ?: "unavailable",
                 supportedAbis = android.os.Build.SUPPORTED_ABIS?.joinToString(",") ?: "unavailable",
             ),

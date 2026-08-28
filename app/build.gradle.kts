@@ -334,6 +334,10 @@ android {
         }
         maybeCreate("standardRelease").apply {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardReleaseJniLibs"))
+            if (standardNpuRuntimeEnabled.get()) {
+                java.srcDir("src/standardNpuRuntime/java")
+                manifest.srcFile("src/standardNpuRuntime/AndroidManifest.xml")
+            }
         }
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
@@ -386,6 +390,15 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        if (
+            variant.buildType == "release" &&
+            flavor == "standard" &&
+            standardNpuRuntimeEnabled.get()
+        ) {
+            // LiteRT-LM receives ApplicationInfo.nativeLibraryDir, so the explicit
+            // local validation candidate must expose real filesystem entries.
+            variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
         if (
             variant.buildType == "release" &&
             flavor == "standard" &&

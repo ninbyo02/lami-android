@@ -378,7 +378,12 @@ if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
     'sampler_top_p=0.9' \
     'sampler_temperature=0.3' \
     'sampler_seed=42' \
-    'thinking_control=raw_prompt_answer_only'; do
+    'thinking_control=raw_prompt_answer_only' \
+    'dispatch_api_preflight' \
+    'dispatch_preflight_get_api_status=' \
+    'dispatch_preflight_api_version=' \
+    'dispatch_initialize_status=' \
+    'dispatch_initialize_device_context_status='; do
     strings "$NPU_JNI" | grep -F "$marker" >/dev/null ||
       fail "stable NPU conversation policy marker is missing: $marker"
   done
