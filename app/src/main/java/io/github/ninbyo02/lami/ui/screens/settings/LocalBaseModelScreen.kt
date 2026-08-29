@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,7 +106,12 @@ internal fun LocalModelSlotCard(
         if (!isLitertlmDisplayName(displayName)) return@rememberLauncherForActivityResult
         scope.launch {
             isImporting = true
-            val importedResult = importLocalModelToAppStorage(context, uri, savedFilePath)
+            val importedResult = importLocalModelToAppStorage(
+                context = context,
+                uri = uri,
+                previousSlotFilePath = savedFilePath,
+                slot = slot,
+            )
             if (importedResult != null) {
                 slot.saveModelInfo(settingsPreferences, importedResult.displayName, importedResult.filePath)
             }
@@ -259,7 +265,10 @@ private fun LocalModelScreen(
         scope.launch {
             importState = LocalModelImportState.Importing
             val importedResult = importLocalModelToAppStorage(
-                context = context, uri = uri, previousSlotFilePath = savedFilePath,
+                context = context,
+                uri = uri,
+                previousSlotFilePath = savedFilePath,
+                slot = slot,
             )
             if (importedResult != null) {
                 slot.saveModelInfo(
@@ -379,6 +388,7 @@ private suspend fun importLocalModelToAppStorage(
     context: Context,
     uri: Uri,
     previousSlotFilePath: String?,
+    slot: LocalModelSlot,
 ): LocalModelImportResult? = withContext(Dispatchers.IO) {
     runCatching {
         val modelsDir = File(context.filesDir, "local_models")
@@ -415,7 +425,14 @@ private suspend fun importLocalModelToAppStorage(
         val previousSlotFile = previousSlotFilePath
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
-        val oldModelFiles = listOfNotNull(previousSlotFile).filter { file ->
+        val oldModelFiles = buildList {
+            previousSlotFile?.let(::add)
+            if (slot == LocalModelSlot.NpuPreview) {
+                modelsDir.listFiles()
+                    ?.filter { Qairt244ModelPathResolver.isRequiredSm8750ModelPath(it.absolutePath) }
+                    ?.let(::addAll)
+            }
+        }.distinctBy { it.absolutePath }.filter { file ->
             file.isFile && file != targetFile &&
                 runCatching { file.parentFile?.canonicalPath == modelsDir.canonicalPath }.getOrDefault(false)
         }

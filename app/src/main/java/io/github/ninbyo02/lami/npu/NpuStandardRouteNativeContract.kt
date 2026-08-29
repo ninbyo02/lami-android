@@ -6,6 +6,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 internal data class NpuStandardRouteNativeRequest(
     val userPrompt: String,
     val contextText: String = "",
+    val selectedModelFile: String? = null,
     val unsafeDevBypassPromptLengthGate: Boolean = true,
     val maxOutputTokens: Int,
     val promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,

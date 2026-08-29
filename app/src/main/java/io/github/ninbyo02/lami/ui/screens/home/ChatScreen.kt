@@ -157,6 +157,7 @@ import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
@@ -294,6 +295,15 @@ internal fun emptyChatActionDestination(
         settingsRouteForLocalModelFocus(resolveMissingLocalModelFocus(it, false, false))
     } ?: Routes.SETTINGS
 } else Routes.SETTINGS
+
+internal fun resolveActiveLocalHeaderModelDisplayName(
+    effectiveBackendModelDisplayName: String?,
+    automaticNpuRouteSelected: Boolean,
+    npuModelDisplayName: String?,
+    selectedModelDisplayName: String?,
+): String? = effectiveBackendModelDisplayName
+    ?.takeIf { it.isNotBlank() }
+    ?: if (automaticNpuRouteSelected) npuModelDisplayName else selectedModelDisplayName
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -1066,11 +1076,15 @@ fun Home(
     val automaticNpuRouteSelected =
         preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT &&
             automaticBackendPlan.firstOrNull() == ResidentInferenceBackend.NPU
-    val activeLocalModelDisplayName = if (automaticNpuRouteSelected) {
-        localBaseModelDisplayName
-    } else {
-        selectedLocalModelDisplayName
+    var effectiveLocalModelDisplayNameForHeader by remember(effectiveChatId) {
+        mutableStateOf<String?>(null)
     }
+    val activeLocalModelDisplayName = resolveActiveLocalHeaderModelDisplayName(
+        effectiveBackendModelDisplayName = effectiveLocalModelDisplayNameForHeader,
+        automaticNpuRouteSelected = automaticNpuRouteSelected,
+        npuModelDisplayName = localBaseModelDisplayName,
+        selectedModelDisplayName = selectedLocalModelDisplayName,
+    )
     val effectiveNpuStandardRouteMode = if (automaticNpuRouteSelected) {
         NpuStandardRouteMode.FULL
     } else {
@@ -1123,6 +1137,22 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    LaunchedEffect(localBaseModelFilePath) {
+        val selectedNpuModelPath = localBaseModelFilePath?.trim().orEmpty()
+        if (selectedNpuModelPath.isNotBlank()) {
+            val cleanupResult = withContext(Dispatchers.IO) {
+                Qairt244ModelPathResolver.cleanupOrphanedCompatibleCopies(
+                    localModelsDir = context.applicationContext.filesDir.resolve("local_models"),
+                    selectedModelPath = selectedNpuModelPath,
+                )
+            }
+            Log.i(
+                "ChatScreen",
+                "NPU model migration selected_valid=${cleanupResult.selectedPathValid} " +
+                    "deleted=${cleanupResult.deletedPaths.size} failed=${cleanupResult.failedPaths.size}",
+            )
+        }
+    }
     LaunchedEffect(selectedLocalModelFilePath, selectedLocalModelDisplayName, isLocalInferenceRunning) {
         val hasSavedLocalModelInfo = !selectedLocalModelFilePath.isNullOrBlank() ||
             !selectedLocalModelDisplayName.isNullOrBlank()
@@ -1737,6 +1767,7 @@ fun Home(
                             allowDevNativeRoute = true,
                         ).run(
                             userPrompt = promptForRun,
+                            selectedModelFile = localBaseModelFilePath,
                             maxOutputTokens = maxTokensForRun,
                         )
                     }
@@ -2103,6 +2134,7 @@ fun Home(
                             allowDevNativeRoute = true,
                         ).run(
                             userPrompt = promptForRun,
+                            selectedModelFile = localBaseModelFilePath,
                             maxOutputTokens = requestedMaxTokens,
                         )
                     }
@@ -4887,6 +4919,7 @@ fun Home(
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
+                                                        effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
                                                         isLocalInferenceRunning = true
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -4998,6 +5031,7 @@ fun Home(
                                                                                     .run(
                                                                                         userPrompt = requestPrompt,
                                                                                         contextText = LocalConversationHistoryPolicy.npuContext(localConversationHistorySnapshot),
+                                                                                        selectedModelFile = localBaseModelFilePath,
                                                                                         maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                     )
                                                                             }
@@ -5233,6 +5267,8 @@ fun Home(
                                                                 prompt = requestPrompt,
                                                                 onPartial = { _ -> Unit },
                                                             )
+                                                            effectiveLocalModelDisplayNameForHeader =
+                                                                localGenericModelDisplayName
                                                             val fallbackChain = runInferenceBackendChain(
                                                                 attempts = listOf(
                                                                     InferenceBackendChainAttempt("GPU") {
@@ -6153,6 +6189,8 @@ fun Home(
                                                                     prompt = requestPrompt,
                                                                     onPartial = { _ -> Unit },
                                                                 )
+                                                                effectiveLocalModelDisplayNameForHeader =
+                                                                    localGenericModelDisplayName
                                                                 val exceptionFallbackChain = runInferenceBackendChain(
                                                                     attempts = listOf(
                                                                         InferenceBackendChainAttempt("GPU") {
@@ -6242,6 +6280,7 @@ fun Home(
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                 isLocalInferenceRunning = false
+                                                                effectiveLocalModelDisplayNameForHeader = null
                                                                 localInferenceJob = null
                                                             }
                                                         }

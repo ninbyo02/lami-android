@@ -3,6 +3,8 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 
 internal object InferenceStatsFactory {
+    internal const val DETERMINISTIC_SAFE_GREETING_MODEL_LABEL = "固定応答（NPU失敗）"
+
     fun fromLocalTrace(
         trace: LocalInferenceTrace,
         generationTimeMs: Long,
@@ -161,6 +163,9 @@ internal object InferenceStatsFactory {
         localSourceSummary = localSourceSummary,
         assistantText = assistantText,
     ).copy(
+        modelName = DETERMINISTIC_SAFE_GREETING_MODEL_LABEL,
+        model = DETERMINISTIC_SAFE_GREETING_MODEL_LABEL,
+        modelLabel = DETERMINISTIC_SAFE_GREETING_MODEL_LABEL,
         finishReason = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
         notes = listOf(
             "display_source=deterministic_safe_greeting",

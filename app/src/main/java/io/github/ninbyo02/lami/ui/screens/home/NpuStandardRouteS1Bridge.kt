@@ -20,6 +20,7 @@ internal class NpuStandardRouteS1Bridge(
     fun run(
         userPrompt: String,
         contextText: String = "",
+        selectedModelFile: String? = null,
         maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     ): NpuStandardRouteS1Result {
         trace(buildNpuRealPromptHandoffTrace(stage = "bridge", userPrompt = userPrompt))
@@ -27,6 +28,7 @@ internal class NpuStandardRouteS1Bridge(
         val rawResult = invoker.invoke(
             userPrompt = userPrompt,
             contextText = contextText,
+            selectedModelFile = selectedModelFile,
             maxOutputTokens = maxOutputTokens,
         )
         val decodeMs = ((System.nanoTime() - decodeStartedAtNs) / 1_000_000L).coerceAtLeast(0L)

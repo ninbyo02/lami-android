@@ -26,13 +26,22 @@ internal object NpuStandardRoutePersistentProbeRunner {
         request: NpuStandardRouteNativeRequest,
     ): NpuStandardRouteNativeDisplay {
         val appContext = context.applicationContext
-        val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
+        val modelResolution = Qairt244ModelPathResolver.resolve(
+            context = appContext,
+            preferredModelPath = request.selectedModelFile,
+        )
         val modelPath = modelResolution.path.orEmpty()
         if (modelPath.isBlank()) {
             return failureDisplay(
                 request = request,
                 reason = "model_resolution_failed:${modelResolution.reasonCode}",
                 nativeErrorMessage = modelResolution.reasonCode,
+            )
+        }
+        request.selectedModelFile?.let { selectedModelPath ->
+            Qairt244ModelPathResolver.cleanupOrphanedCompatibleCopies(
+                localModelsDir = appContext.filesDir.resolve("local_models"),
+                selectedModelPath = selectedModelPath,
             )
         }
 

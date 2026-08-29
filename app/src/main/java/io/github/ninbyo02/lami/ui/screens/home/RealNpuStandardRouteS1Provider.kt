@@ -31,6 +31,7 @@ internal class RealNpuStandardRouteS1Provider(
     override fun invokeWithContext(
         userPrompt: String,
         contextText: String,
+        selectedModelFile: String?,
         maxOutputTokens: Int,
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult {
@@ -62,6 +63,7 @@ internal class RealNpuStandardRouteS1Provider(
             val nativeRequest = request(
                 userPrompt = promptRewrite.rewrittenPromptText,
                 contextText = contextText,
+                selectedModelFile = selectedModelFile,
                 maxOutputTokens = effectiveMaxOutputTokens,
             )
             trace(
@@ -80,7 +82,12 @@ internal class RealNpuStandardRouteS1Provider(
                 NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE
             }
             val resolvedModel = resolveApplicationContext()
-                ?.let(Qairt244ModelPathResolver::resolve)
+                ?.let { appContext ->
+                    Qairt244ModelPathResolver.resolve(
+                        context = appContext,
+                        preferredModelPath = selectedModelFile,
+                    )
+                }
                 ?.takeIf { it.resolved }
             val resolvedModelInfo = resolvedModel?.modelInfo
             val rawResult = mappedRawResult.copy(
@@ -201,6 +208,7 @@ internal class RealNpuStandardRouteS1Provider(
         fun request(
             userPrompt: String,
             contextText: String = "",
+            selectedModelFile: String? = null,
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
         ): NpuStandardRouteNativeRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
@@ -224,6 +232,7 @@ internal class RealNpuStandardRouteS1Provider(
             return NpuStandardRouteNativeRequest(
                 userPrompt = userPrompt,
                 contextText = boundedContext,
+                selectedModelFile = selectedModelFile,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,
                     requestedMaxOutputTokens = sanitizedMaxOutputTokens,
@@ -298,6 +307,13 @@ internal class RealNpuStandardRouteS1Provider(
                 append(npuRealPromptPreview(request.userPrompt))
                 append(" prompt_source=")
                 append(PROMPT_SOURCE_STANDARD_ROUTE)
+                append(" selected_model_file=")
+                append(
+                    request.selectedModelFile
+                        ?.substringAfterLast('/')
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "unavailable",
+                )
                 append(" context_code_points=")
                 append(request.contextText.codePointCount(0, request.contextText.length))
                 append(" final_input_tokens=unavailable")
