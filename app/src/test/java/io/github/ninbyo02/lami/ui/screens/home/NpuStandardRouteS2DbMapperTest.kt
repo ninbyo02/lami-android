@@ -95,8 +95,22 @@ class NpuStandardRouteS2DbMapperTest {
     }
 
     @Test
-    fun `raw output containing Japanese user role marker creates no DB save candidate`() {
-        assertRawRoleContaminationBlocked("どうしましたか。\nユーザー: ああああ")
+    fun `sanitized Japanese answer before a trailing user turn creates DB save candidate`() {
+        assertRawRoleTailRepaired("どうしましたか。\nユーザー: ああああ")
+    }
+
+    @Test
+    fun `mismatched sanitized text keeps trailing user turn blocked`() {
+        val mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "こんにちは",
+            s1Result = successResult(
+                rawOutput = "どうしましたか。\nユーザー: ああああ",
+                sanitizedOutput = "異なる応答。",
+            ),
+        )
+
+        assertFalse(mapping.hasSaveCandidate)
+        assertEquals(NpuStandardRouteS2DbContract.FAILURE_RAW_ROLE_CONTAMINATION, mapping.failureReason)
     }
 
     @Test
@@ -105,8 +119,8 @@ class NpuStandardRouteS2DbMapperTest {
     }
 
     @Test
-    fun `raw output containing English user role marker creates no DB save candidate`() {
-        assertRawRoleContaminationBlocked("Hello.\nUser: test")
+    fun `sanitized answer before a trailing English user turn creates DB save candidate`() {
+        assertRawRoleTailRepaired("どうしましたか。\nUser: test")
     }
 
     @Test
@@ -115,7 +129,7 @@ class NpuStandardRouteS2DbMapperTest {
     }
 
     @Test
-    fun `natural sanitized output is blocked when raw output has role contamination`() {
+    fun `natural sanitized prefix is accepted when raw output continues into a user turn`() {
         val contaminated = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
                 status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
@@ -137,13 +151,14 @@ class NpuStandardRouteS2DbMapperTest {
             s1Result = contaminated,
         )
 
-        assertFalse(contaminated.successCriteriaMet)
-        assertEquals(FailureNpuStandardRouteS1Provider.STATUS_FAILURE, contaminated.status)
-        assertEquals(NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION, contaminated.reason)
-        assertEquals(NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION, contaminated.qualityClassification)
-        assertFalse(mapping.hasSaveCandidate)
-        assertNull(mapping.saveCandidate)
-        assertEquals(NpuStandardRouteS2DbContract.FAILURE_RAW_ROLE_CONTAMINATION, mapping.failureReason)
+        assertTrue(contaminated.successCriteriaMet)
+        assertEquals(NpuStandardRouteS1Contract.STATUS_SUCCESS, contaminated.status)
+        assertEquals(NpuStandardRouteS1Contract.REASON_SUCCESS, contaminated.reason)
+        assertEquals(NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE, contaminated.qualityClassification)
+        assertEquals("どうしましたか。", contaminated.actualDisplayText)
+        assertTrue(mapping.hasSaveCandidate)
+        assertEquals("どうしましたか。", mapping.saveCandidate?.assistantMessage?.text)
+        assertNull(mapping.failureReason)
     }
 
     @Test
@@ -177,6 +192,20 @@ class NpuStandardRouteS2DbMapperTest {
         assertFalse(candidate.sideEffects.tts)
         assertFalse(candidate.sideEffects.markdown)
         assertFalse(candidate.sideEffects.streaming)
+    }
+
+    private fun assertRawRoleTailRepaired(rawOutput: String) {
+        val mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "こんにちは",
+            s1Result = successResult(
+                rawOutput = rawOutput,
+                sanitizedOutput = "どうしましたか。",
+            ),
+        )
+
+        assertTrue(mapping.hasSaveCandidate)
+        assertEquals("どうしましたか。", mapping.saveCandidate?.assistantMessage?.text)
+        assertNull(mapping.failureReason)
     }
 
     private fun assertRawRoleContaminationBlocked(rawOutput: String) {

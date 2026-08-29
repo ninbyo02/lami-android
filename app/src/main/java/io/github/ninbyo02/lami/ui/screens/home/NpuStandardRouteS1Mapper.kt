@@ -29,24 +29,22 @@ internal data class NpuStandardRouteS1RawResult(
 
 internal object NpuStandardRouteS1Mapper {
     fun map(raw: NpuStandardRouteS1RawResult): NpuStandardRouteS1Result {
-        val rawRoleContamination = hasNpuStandardRouteRawRoleContamination(raw.rawOutput)
-        val successLikeRaw = raw.success == true ||
-            raw.status == NpuStandardRouteS1Contract.STATUS_SUCCESS ||
-            raw.result == NpuStandardRouteS1Contract.STATUS_SUCCESS
-        val rawRoleContaminationOverridesQuality =
-            rawRoleContamination &&
-                successLikeRaw &&
-                raw.qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
-        val successEquivalent = !rawRoleContaminationOverridesQuality &&
-            (
-                successLikeRaw
-                )
         val sanitizedOutput = raw.sanitizedOutput.trim()
         val qualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = raw.rawOutput,
             sanitizedOutput = sanitizedOutput,
             inputPrompt = raw.inputPrompt,
         )
+        val rawRoleContaminationOverridesQuality =
+            hasUnsafeNpuStandardRouteRawRoleContamination(
+                rawOutput = raw.rawOutput,
+                sanitizedOutput = sanitizedOutput,
+                inputPrompt = raw.inputPrompt,
+            )
+        val successLikeRaw = raw.success == true ||
+            raw.status == NpuStandardRouteS1Contract.STATUS_SUCCESS ||
+            raw.result == NpuStandardRouteS1Contract.STATUS_SUCCESS
+        val successEquivalent = !rawRoleContaminationOverridesQuality && successLikeRaw
         val displayText = if (qualityCandidate.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
             qualityCandidate.preparedOutput.ifBlank { sanitizedOutput }
         } else {
@@ -135,6 +133,28 @@ internal fun hasNpuStandardRouteRawRoleContamination(rawOutput: String): Boolean
         rawOutput.contains(marker, ignoreCase = marker.first().code < 128)
     }
 }
+
+internal fun hasUnsafeNpuStandardRouteRawRoleContamination(
+    rawOutput: String,
+    sanitizedOutput: String,
+    inputPrompt: String = "",
+): Boolean {
+    if (!hasNpuStandardRouteRawRoleContamination(rawOutput)) return false
+    val userTurnMarker = NPU_STANDARD_ROUTE_PLAIN_USER_TURN_MARKER.find(rawOutput)
+    val sanitizedMatchesSafePrefix = userTurnMarker != null &&
+        rawOutput.substring(0, userTurnMarker.range.first).trim() == sanitizedOutput.trim()
+    val qualityCandidatePassed = sanitizedMatchesSafePrefix &&
+        evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = rawOutput,
+            sanitizedOutput = sanitizedOutput,
+            inputPrompt = inputPrompt,
+        ).status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+    return !qualityCandidatePassed
+}
+
+private val NPU_STANDARD_ROUTE_PLAIN_USER_TURN_MARKER = Regex(
+    """(?im)(?:^|\n)\s*(?:ユーザー|User)\s*[:：]""",
+)
 
 private val NPU_STANDARD_ROUTE_RAW_ROLE_MARKERS = listOf(
     "ユーザー:",

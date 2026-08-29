@@ -1254,7 +1254,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 success = true,
                 reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
-                rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                rawOutput = "どうしましたか。\nアシスタント: 何か困っていますか。",
                 sanitizedOutput = "どうしましたか。",
                 qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
                 runDecodeReached = true,

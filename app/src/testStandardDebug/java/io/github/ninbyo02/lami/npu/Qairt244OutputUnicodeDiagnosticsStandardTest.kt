@@ -5,6 +5,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Mapper
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1RawResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Qairt244OutputUnicodeDiagnosticsStandardTest {
@@ -63,7 +64,7 @@ class Qairt244OutputUnicodeDiagnosticsStandardTest {
     }
 
     @Test
-    fun `raw role contamination remains role contamination`() {
+    fun `sanitized prefix before trailing user turn remains usable`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
                 status = "success",
@@ -80,8 +81,9 @@ class Qairt244OutputUnicodeDiagnosticsStandardTest {
             ),
         )
 
-        assertFalse(result.successCriteriaMet)
-        assertEquals(NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION, result.reason)
-        assertEquals(NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION, result.qualityClassification)
+        assertTrue(result.successCriteriaMet)
+        assertEquals(NpuStandardRouteS1Contract.REASON_SUCCESS, result.reason)
+        assertEquals(NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE, result.qualityClassification)
+        assertEquals("Pythonは便利です。", result.actualDisplayText)
     }
 }

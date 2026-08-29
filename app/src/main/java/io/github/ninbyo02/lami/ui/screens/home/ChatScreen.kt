@@ -3157,6 +3157,18 @@ fun Home(
         return persistedId
     }
 
+    fun releaseStreamingAssistantLifecycleOwnership(
+        terminalMessageId: Int?,
+        reason: String,
+    ) {
+        if (terminalMessageId != null && streamingAssistantMessageId == terminalMessageId) {
+            logStreamTrace(
+                "STREAM lifecycle ownership released id=$terminalMessageId reason=$reason",
+            )
+            streamingAssistantMessageId = null
+        }
+    }
+
     suspend fun finalizeStreamingAssistantFailureSerialized(
         chatId: Int,
         response: String,
@@ -3164,13 +3176,18 @@ fun Home(
         localSourceSummary: String? = null,
         generationTimeMs: Long? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        finalizeStreamingAssistantFailure(
+        val terminalMessageId = finalizeStreamingAssistantFailure(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
             generationTimeMs = generationTimeMs,
         )
+        releaseStreamingAssistantLifecycleOwnership(
+            terminalMessageId = terminalMessageId,
+            reason = "failure",
+        )
+        terminalMessageId
     }
 
     fun resetStreamingAssistantPlaceholderId(reason: String) {
@@ -3458,15 +3475,29 @@ fun Home(
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
         val existingId = streamingAssistantMessageId
-        val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
+        val placeholderPayload = createAssistantMessage(
+            chatId = chatId,
+            response = "",
+        )
+        var result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
             existingMessageId = existingId,
-            placeholderPayload = createAssistantMessage(
-                chatId = chatId,
-                response = "",
-            ),
+            placeholderPayload = placeholderPayload,
             nowEpochMs = System.currentTimeMillis(),
             startFailureMessage = startFailureMessage,
         )
+        if (shouldRecoverAssistantPlaceholderOwnership(existingId, result)) {
+            logStreamTrace(
+                "STREAM lifecycle stale ownership recovered oldId=$existingId " +
+                    "oldStatus=${result.existingStatus}",
+            )
+            streamingAssistantMessageId = null
+            result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
+                existingMessageId = null,
+                placeholderPayload = placeholderPayload,
+                nowEpochMs = System.currentTimeMillis(),
+                startFailureMessage = startFailureMessage,
+            )
+        }
         result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
         if (result.placeholderOwnershipReady) {
             lastPersistedStreamingAssistantText = result.persistedText
@@ -3620,7 +3651,7 @@ fun Home(
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        finalizeStreamingAssistantMessage(
+        val terminalMessageId = finalizeStreamingAssistantMessage(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
@@ -3628,6 +3659,11 @@ fun Home(
             imageInputCount = imageInputCount,
             generationTimeMs = generationTimeMs,
         )
+        releaseStreamingAssistantLifecycleOwnership(
+            terminalMessageId = terminalMessageId,
+            reason = "completed",
+        )
+        terminalMessageId
     }
 
     fun sanitizeTextForTts(text: String): String = sanitizeAssistantTextForTts(text)

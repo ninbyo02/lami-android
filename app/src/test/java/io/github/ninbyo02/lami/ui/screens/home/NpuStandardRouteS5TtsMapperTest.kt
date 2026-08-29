@@ -161,9 +161,22 @@ class NpuStandardRouteS5TtsMapperTest {
     }
 
     @Test
-    fun `role contamination creates no TTS candidate`() {
+    fun `sanitized answer before trailing user turn creates TTS candidate`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(rawOutput = "こんにちは。\nユーザー: お願い"),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertTrue(mapping.hasTtsCandidate)
+        assertEquals("こんにちは。", mapping.ttsCandidate?.speakText)
+        assertNull(mapping.failureReason)
+    }
+
+    @Test
+    fun `assistant role contamination creates no TTS candidate`() {
+        val mapping = NpuStandardRouteS5TtsMapper.map(
+            s1Result = successResult(rawOutput = "こんにちは。\nアシスタント: お願い"),
             finalAssistantText = "こんにちは。",
             ttsEnabled = true,
         )

@@ -554,7 +554,7 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
-    fun `raw role contamination is classified as failure even with natural sanitized output`() {
+    fun `matching sanitized prefix repairs a trailing raw user turn`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
                 rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
@@ -563,11 +563,15 @@ class NpuStandardRouteS1MapperTest {
             ),
         )
 
-        assertFalse(result.successCriteriaMet)
-        assertEquals("failure", result.status)
-        assertEquals("raw_role_contamination", result.reason)
-        assertEquals("role_contamination", result.qualityClassification)
-        assertEquals("どうしましたか。", result.sanitizedOutput)
+        assertTrue(result.successCriteriaMet)
+        assertEquals("success", result.status)
+        assertEquals("success", result.reason)
+        assertEquals("natural_japanese", result.qualityClassification)
+        assertEquals("どうしましたか。", result.actualDisplayText)
+        assertEquals(
+            "natural_japanese_after_plain_role_tail_cleanup_and_revalidation",
+            result.outputQualityCandidateReason,
+        )
     }
 
     @Test
