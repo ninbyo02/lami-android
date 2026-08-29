@@ -613,6 +613,9 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     if (initial.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) return initial
 
     val repair = extractNpuS1RepairableTurnBody(rawOutput) ?: return initial
+    if (repair.requiresSanitizedMatch && sanitizedOutput.trim() != repair.text.trim()) {
+        return initial
+    }
     val repaired = evaluateNpuS1PersistentCustomJniQualityCandidateCore(
         rawOutput = repair.text,
         sanitizedOutput = repair.text,
@@ -627,6 +630,7 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
 private data class NpuS1RepairableTurnBody(
     val text: String,
     val successReason: String,
+    val requiresSanitizedMatch: Boolean = false,
 )
 
 private val npuS1CompleteTurnMarker = Regex(
@@ -644,6 +648,10 @@ private val npuS1UserTurnMarker = Regex(
     RegexOption.IGNORE_CASE,
 )
 
+private val npuS1PlainUserTurnMarker = Regex(
+    """(?im)(?:^|\n)\s*(?:ユーザー|User)\s*[:：]""",
+)
+
 private fun extractNpuS1RepairableTurnBody(rawOutput: String): NpuS1RepairableTurnBody? {
     val modelMarker = npuS1ModelTurnMarker.find(rawOutput)
     if (modelMarker != null) {
@@ -659,12 +667,24 @@ private fun extractNpuS1RepairableTurnBody(rawOutput: String): NpuS1RepairableTu
         }
     }
 
-    val userMarker = npuS1UserTurnMarker.find(rawOutput) ?: return null
-    val prefix = rawOutput.substring(0, userMarker.range.first).trim()
+    val userMarker = npuS1UserTurnMarker.find(rawOutput)
+    if (userMarker != null) {
+        val prefix = rawOutput.substring(0, userMarker.range.first).trim()
+        if (prefix.isNotBlank()) {
+            return NpuS1RepairableTurnBody(
+                text = prefix,
+                successReason = "natural_japanese_after_tail_turn_leak_prefix_revalidation",
+            )
+        }
+    }
+
+    val plainUserMarker = npuS1PlainUserTurnMarker.find(rawOutput) ?: return null
+    val prefix = rawOutput.substring(0, plainUserMarker.range.first).trim()
     if (prefix.isBlank()) return null
     return NpuS1RepairableTurnBody(
         text = prefix,
-        successReason = "natural_japanese_after_tail_turn_leak_prefix_revalidation",
+        successReason = "natural_japanese_after_plain_role_tail_cleanup_and_revalidation",
+        requiresSanitizedMatch = true,
     )
 }
 

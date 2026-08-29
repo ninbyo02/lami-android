@@ -1,7 +1,9 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.Properties
+import java.util.zip.ZipFile
 import com.android.build.api.variant.BuildConfigField
 
 plugins {
@@ -42,7 +44,7 @@ fun resolveBuildPrNumber(): String {
     return ""
 }
 
-val liteRtLmAndroidReleaseVersion = "0.10.0"
+val liteRtLmAndroidReleaseVersion = "0.11.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
@@ -54,6 +56,9 @@ val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
+val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
 
 android {
 
@@ -79,6 +84,7 @@ android {
         buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
         buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
         buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+        buildConfigField("Boolean", "STANDARD_NPU_RUNTIME_ENABLED", "false")
         buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
         buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
         buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
@@ -98,10 +104,18 @@ android {
     productFlavors {
         create("standard") {
             dimension = "dispatchExperiment"
+            if (standardNpuRuntimeEnabled.get()) {
+                applicationIdSuffix = ".npuvalidation"
+            }
             buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
             buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
-            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"local SDK inputs; packaged only when lami.standardNpuRuntimeEnabled=true\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField(
+                "Boolean",
+                "STANDARD_NPU_RUNTIME_ENABLED",
+                standardNpuRuntimeEnabled.get().toString(),
+            )
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
@@ -318,6 +332,13 @@ android {
         maybeCreate("standardDebug").apply {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
         }
+        maybeCreate("standardRelease").apply {
+            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardReleaseJniLibs"))
+            if (standardNpuRuntimeEnabled.get()) {
+                java.srcDir("src/standardNpuRuntime/java")
+                manifest.srcFile("src/standardNpuRuntime/AndroidManifest.xml")
+            }
+        }
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
         }
@@ -369,6 +390,31 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        if (
+            variant.buildType == "release" &&
+            flavor == "standard" &&
+            standardNpuRuntimeEnabled.get()
+        ) {
+            // LiteRT-LM receives ApplicationInfo.nativeLibraryDir, so the explicit
+            // local validation candidate must expose real filesystem entries.
+            variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
+        if (
+            variant.buildType == "release" &&
+            flavor == "standard" &&
+            !standardNpuRuntimeEnabled.get()
+        ) {
+            listOf(
+                "**/libLiteRtDispatch_Qualcomm.so",
+                "**/libLiteRtCompilerPlugin_Qualcomm.so",
+                "**/libGemmaModelConstraintProvider.so",
+                "**/libQnn*.so",
+                "**/libqnn_*.so",
+                "**/liblami_qairt244_npu_jni.so",
+            ).forEach { pattern ->
+                variant.packaging.jniLibs.excludes.add(pattern)
+            }
+        }
         if (variant.buildType == "debug" && flavor == "standardGpuMinimalRuntimeCandidate") {
             listOf(
                 "**/libLiteRt.so",
@@ -544,6 +590,8 @@ val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildE
 val qairt244StandardDebugNativeSourceDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
 val qairt244StandardDebugGeneratedJniOutputDir =
     layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs/arm64-v8a")
+val qairt244StandardReleaseGeneratedJniOutputDir =
+    layout.buildDirectory.dir("generated/qairt244StandardReleaseJniLibs/arm64-v8a")
 val qairt244StandardDebugMergedNativeLibDir =
     layout.buildDirectory.dir("intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a")
 val qairt244StandardDebugStrippedNativeLibDir =
@@ -1041,6 +1089,69 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
     }
 }
 
+tasks.register("stageQairt244StandardReleaseNativeLibs") {
+    group = "build"
+    description = "Stages local SM8750 NPU runtime inputs for an explicitly enabled Standard Release candidate."
+    inputs.files(
+        fileTree(qairt244StandardDebugNativeSourceDir) {
+            include("*.so")
+            exclude("liblami_qairt244_smoke.so")
+            exclude("liblitertlm_jni.so")
+        },
+    )
+    inputs.property("standardNpuRuntimeEnabled", standardNpuRuntimeEnabled)
+    outputs.dir(qairt244StandardReleaseGeneratedJniOutputDir)
+
+    doLast {
+        val sourceDir = qairt244StandardDebugNativeSourceDir.asFile
+        val outputDir = qairt244StandardReleaseGeneratedJniOutputDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = sourceDir,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardReleaseGeneratedJniOutputDir.get().asFile),
+            taskName = name,
+        )
+        outputDir.mkdirs()
+        if (!standardNpuRuntimeEnabled.get()) {
+            logger.lifecycle("Standard Release NPU runtime disabled; generated vendor runtime directory is clean.")
+            return@doLast
+        }
+        copy {
+            from(sourceDir) {
+                include("*.so")
+                exclude("liblami_qairt244_smoke.so")
+                exclude("liblitertlm_jni.so")
+            }
+            into(outputDir)
+        }
+        val npuJni = File(outputDir, "liblami_qairt244_npu_jni.so")
+        require(npuJni.isFile) {
+            "Enabled Standard Release NPU runtime requires local liblami_qairt244_npu_jni.so: ${npuJni.absolutePath}"
+        }
+        val symbolOutput = ByteArrayOutputStream()
+        val symbolResult = exec {
+            commandLine("readelf", "-Ws", npuJni.absolutePath)
+            standardOutput = symbolOutput
+            isIgnoreExitValue = true
+        }
+        require(
+            symbolResult.exitValue == 0 &&
+                qairt244NativeRunEditablePromptSymbolRegex.containsMatchIn(symbolOutput.toString()),
+        ) {
+            "Enabled Standard Release NPU runtime requires the pinned patched JNI artifact: ${npuJni.absolutePath}"
+        }
+    }
+}
+
+tasks.matching { it.name == "mergeStandardReleaseJniLibFolders" }.configureEach {
+    dependsOn("stageQairt244StandardReleaseNativeLibs")
+    // The same output directory serves enabled and disabled validation builds.
+    // AGP does not reliably snapshot the generated source directory contents,
+    // so force a fresh merge to prevent a previous NPU candidate from leaking
+    // custom LiteRT/QNN libraries into the normal distributable Release.
+    outputs.upToDateWhen { false }
+}
+
 tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
     group = "build"
     description = "Keeps qairt244 SM8750 staged native libraries in standardDebug after AGP strip."
@@ -1130,6 +1241,31 @@ tasks.register("verifyQairt244CustomBuildExperimentDebugNativeLibs") {
                 "expectedSymbol=$qairt244NativeRunEditablePromptSymbol file=${litertLmJni.absolutePath} " +
                 "readelf_error=${symbolError.toString().take(400)}"
         }
+        val stringsOutput = ByteArrayOutputStream()
+        val stringsError = ByteArrayOutputStream()
+        val stringsResult = exec {
+            commandLine("strings", litertLmJni.absolutePath)
+            standardOutput = stringsOutput
+            errorOutput = stringsError
+            isIgnoreExitValue = true
+        }
+        val nativeStrings = stringsOutput.toString()
+        val stableSamplerMarkers = listOf(
+            "sampler_config_profile=lami_stable_v1",
+            "sampler_top_k=40",
+            "sampler_top_p=0.9",
+            "sampler_temperature=0.3",
+            "sampler_seed=42",
+            "thinking_control=raw_prompt_answer_only",
+        )
+        require(
+            stringsResult.exitValue == 0 &&
+                stableSamplerMarkers.all(nativeStrings::contains),
+        ) {
+            "customBuildExperimentDebug requires stable NPU sampler markers. " +
+                "missing=${stableSamplerMarkers.filterNot(nativeStrings::contains)} " +
+                "file=${litertLmJni.absolutePath} strings_error=${stringsError.toString().take(400)}"
+        }
     }
 }
 
@@ -1138,6 +1274,49 @@ tasks.matching {
 }.configureEach {
     dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
     dependsOn("verifyQairt244CustomBuildExperimentDebugNativeLibs")
+}
+
+tasks.register("verifyQairt244CustomBuildExperimentDebugApkNpuJni") {
+    group = "verification"
+    description = "Verifies the packaged custom NPU JNI is byte-identical to the staged stable-sampler artifact."
+    dependsOn("assembleCustomBuildExperimentDebug")
+
+    doLast {
+        val stagedJni = qairt244StandardDebugNativeSourceDir
+            .file("liblami_qairt244_npu_jni.so")
+            .asFile
+        require(stagedJni.isFile) {
+            "staged custom NPU JNI is missing: ${stagedJni.absolutePath}"
+        }
+        val apkCandidates = fileTree(
+            layout.buildDirectory.dir("outputs/apk/customBuildExperiment/debug"),
+        ) {
+            include("*.apk")
+        }.files.sortedBy(File::getName)
+        require(apkCandidates.size == 1) {
+            "expected one customBuildExperimentDebug APK, found=${apkCandidates.map(File::getName)}"
+        }
+        val apk = apkCandidates.single()
+        val apkJniBytes = ZipFile(apk).use { zip ->
+            val entry = zip.getEntry("lib/arm64-v8a/liblami_qairt244_npu_jni.so")
+                ?: error("packaged custom NPU JNI is missing from ${apk.absolutePath}")
+            zip.getInputStream(entry).use { it.readBytes() }
+        }
+        val stagedJniBytes = stagedJni.readBytes()
+        fun sha256(bytes: ByteArray): String =
+            MessageDigest.getInstance("SHA-256")
+                .digest(bytes)
+                .joinToString("") { byte -> "%02x".format(byte) }
+        val stagedSha256 = sha256(stagedJniBytes)
+        val apkSha256 = sha256(apkJniBytes)
+        require(stagedJniBytes.contentEquals(apkJniBytes)) {
+            "packaged custom NPU JNI differs from staged artifact: " +
+                "staged_sha256=$stagedSha256 apk_sha256=$apkSha256 apk=${apk.absolutePath}"
+        }
+        logger.lifecycle(
+            "qairt244_custom_apk_npu_jni_verified=true sha256=$apkSha256 apk=${apk.absolutePath}",
+        )
+    }
 }
 
 tasks.register("dumpStandardDebugApkNativeLibs") {

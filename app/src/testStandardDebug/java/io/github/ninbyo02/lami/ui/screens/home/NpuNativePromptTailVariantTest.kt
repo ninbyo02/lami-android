@@ -1,7 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NpuNativePromptTailVariantTest {
@@ -21,9 +22,27 @@ class NpuNativePromptTailVariantTest {
 
         assertEquals("raw_dialog_tail_variant_a", capturedPromptTailVariant)
         assertEquals(true, result.success)
+        val diagnostics = NpuStandardRouteS1Contract.displayText(
+            selection = NpuStandardRouteS1Selection(enabled = true),
+            status = result.status,
+            reason = result.reason,
+            rawOutput = result.rawOutput,
+            sanitizedOutput = result.sanitizedOutput,
+            qualityClassification = result.qualityClassification,
+            runDecodeReached = result.runDecodeReached,
+            npuBackendEvidence = result.npuBackendEvidence,
+            fallbackUsed = result.fallbackUsed,
+            timeout = result.timeout,
+            freshCrash = result.freshCrash,
+        )
+        assertTrue(diagnostics.contains("prompt_template_owner=native_npu_adapter_exception"))
+        assertTrue(diagnostics.contains("prompt_template_evaluator=native_adapter_serialization"))
+        assertTrue(diagnostics.contains("conversation_api_used=false"))
+        assertTrue(diagnostics.contains("app_template_used=true"))
+        assertTrue(diagnostics.contains("template_ownership_unified=false"))
     }
 
-    private fun successDisplay(maxOutputTokens: Int) = DevOnlyNpuOneTurnConversationDisplay(
+    private fun successDisplay(maxOutputTokens: Int) = NpuStandardRouteNativeDisplay(
         text = "test",
         output = "こんにちは。",
         status = NpuStandardRouteS1Contract.STATUS_SUCCESS,

@@ -107,6 +107,9 @@ class InferenceStatsFactoryTest {
         assertTrue(summary.contains("fallback=${NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING}"))
         assertTrue(summary.contains("inference_metrics_source=rejected_npu_attempt"))
         assertEquals(NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING, stats.finishReason)
+        assertEquals(InferenceStatsFactory.DETERMINISTIC_SAFE_GREETING_MODEL_LABEL, stats.modelName)
+        assertEquals(InferenceStatsFactory.DETERMINISTIC_SAFE_GREETING_MODEL_LABEL, stats.model)
+        assertEquals(InferenceStatsFactory.DETERMINISTIC_SAFE_GREETING_MODEL_LABEL, stats.modelLabel)
         assertTrue(stats.notes.orEmpty().contains("display_source=deterministic_safe_greeting"))
         assertEquals("こんにちは。".length, stats.responseCharCount)
     }

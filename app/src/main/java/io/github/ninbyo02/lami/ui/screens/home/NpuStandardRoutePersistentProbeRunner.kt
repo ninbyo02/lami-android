@@ -2,11 +2,20 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
+
+internal fun npuStandardRouteNativeLoadOrder(
+    debugBuild: Boolean = BuildConfig.DEBUG,
+): String = if (debugBuild) {
+    "lami_qairt244_npu_jni>lami_npu_persistent_holder_stub"
+} else {
+    "lami_qairt244_npu_jni"
+}
 
 internal object NpuStandardRoutePersistentProbeRunner {
     private const val NATIVE_PROBE_MODE_STANDARD_ROUTE_REUSE_ONCE = "standard_route_reuse_once"
@@ -14,10 +23,13 @@ internal object NpuStandardRoutePersistentProbeRunner {
 
     fun run(
         context: Context,
-        request: DevOnlyNpuOneTurnConversationRequest,
-    ): DevOnlyNpuOneTurnConversationDisplay {
+        request: NpuStandardRouteNativeRequest,
+    ): NpuStandardRouteNativeDisplay {
         val appContext = context.applicationContext
-        val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
+        val modelResolution = Qairt244ModelPathResolver.resolve(
+            context = appContext,
+            preferredModelPath = request.selectedModelFile,
+        )
         val modelPath = modelResolution.path.orEmpty()
         if (modelPath.isBlank()) {
             return failureDisplay(
@@ -26,8 +38,14 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 nativeErrorMessage = modelResolution.reasonCode,
             )
         }
+        request.selectedModelFile?.let { selectedModelPath ->
+            Qairt244ModelPathResolver.cleanupOrphanedCompatibleCopies(
+                localModelsDir = appContext.filesDir.resolve("local_models"),
+                selectedModelPath = selectedModelPath,
+            )
+        }
 
-        val finalPrompt = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+        val finalPrompt = NpuStandardRouteNativeContract.buildPrompt(
             contextText = request.contextText,
             userPrompt = request.userPrompt,
             promptTailVariant = request.promptTailVariant,
@@ -63,6 +81,8 @@ internal object NpuStandardRoutePersistentProbeRunner {
             .trim()
         val nativeStatus = values["persistent_custom_jni_status"].orEmpty()
         val nativeHypothesis = values["persistent_custom_jni_hypothesis_result"].orEmpty()
+        val nativeBackendEvidence = values["backend_evidence"].orEmpty()
+        val contractBackendEvidence = normalizeNpuBackendEvidence(nativeBackendEvidence)
         val throwableUnavailable = nativeResult.throwableClass == "unavailable"
         val decodeReached = (values["decode_reached"] == "true") ||
             ((values["decode_count"]?.toIntOrNull() ?: 0) > 0) ||
@@ -81,7 +101,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 ?: "standard_route_reuse_once_failure"
         }
         val finishedAt = SystemClock.elapsedRealtime()
-        return DevOnlyNpuOneTurnConversationDisplay(
+        return NpuStandardRouteNativeDisplay(
             text = buildString {
                 appendLine("NPU STANDARD ROUTE S1 PERSISTENT")
                 appendLine("status=${if (success) "success" else "failure"}")
@@ -92,7 +112,8 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 appendLine("holder_reused_count=${values["holder_reused_count"] ?: "unavailable"}")
                 appendLine("decode_count=${values["decode_count"] ?: values["decode_success_count"] ?: "unavailable"}")
                 appendLine("engine_holder_open_after_run=${values["engine_holder_open_during_decode"] ?: "unavailable"}")
-                appendLine("npu_backend_evidence=${values["backend_evidence"] ?: NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE}")
+                appendLine("npu_backend_evidence=$contractBackendEvidence")
+                appendLine("native_backend_evidence=$nativeBackendEvidence")
                 appendLine("raw_output=$rawOutput")
                 appendLine("sanitized_output=$sanitizedOutput")
             }.trimEnd(),
@@ -101,7 +122,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
             reason = reason,
             nativeReached = true,
             decodeReached = decodeReached,
-            npuEvidence = values["backend_evidence"] ?: NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            npuEvidence = contractBackendEvidence,
             fallback = false,
             freshCrash = false,
             timeout = false,
@@ -151,7 +172,7 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 nativeErrorSource = if (success) "unavailable" else "persistent_probe",
                 nativeLinkFailureDetected = "false",
                 nativeLinkFailureLibrary = "unavailable",
-                nativeLoadOrder = "litertlm_jni>lami_npu_persistent_holder_stub",
+                nativeLoadOrder = npuStandardRouteNativeLoadOrder(),
                 javaLibraryPath = System.getProperty("java.library.path") ?: "unavailable",
                 supportedAbis = android.os.Build.SUPPORTED_ABIS?.joinToString(",") ?: "unavailable",
             ),
@@ -159,10 +180,10 @@ internal object NpuStandardRoutePersistentProbeRunner {
     }
 
     private fun failureDisplay(
-        request: DevOnlyNpuOneTurnConversationRequest,
+        request: NpuStandardRouteNativeRequest,
         reason: String,
         nativeErrorMessage: String,
-    ): DevOnlyNpuOneTurnConversationDisplay = DevOnlyNpuOneTurnConversationDisplay(
+    ): NpuStandardRouteNativeDisplay = NpuStandardRouteNativeDisplay(
         text = "NPU STANDARD ROUTE S1 PERSISTENT\nstatus=failure\nreason=$reason",
         output = "",
         status = "failure",
@@ -198,6 +219,16 @@ internal object NpuStandardRoutePersistentProbeRunner {
             nativeLinkFailureDetected = "false",
         ),
     )
+
+    internal fun normalizeNpuBackendEvidence(nativeEvidence: String): String =
+        if (listOf("QNN", "HTP", "FastRPC").all { marker ->
+                nativeEvidence.contains(marker, ignoreCase = true)
+            }
+        ) {
+            NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+        } else {
+            nativeEvidence.ifBlank { "unavailable" }
+        }
 
     private fun parseKeyValues(text: String): Map<String, String> = text
         .lineSequence()

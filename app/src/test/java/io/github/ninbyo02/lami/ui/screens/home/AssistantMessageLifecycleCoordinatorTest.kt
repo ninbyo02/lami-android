@@ -50,6 +50,7 @@ class AssistantMessageLifecycleCoordinatorTest {
         assertEquals(AssistantMessageLifecycleAction.KEEP_EXISTING, result.action)
         assertEquals(AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING, result.outcome)
         assertTrue(result.placeholderOwnershipReady)
+        assertFalse(shouldRecoverAssistantPlaceholderOwnership(9, result))
         assertEquals(MessageStatus.GENERATING, result.existingStatus)
         assertEquals(listOf("get:9"), store.calls)
     }
@@ -89,6 +90,7 @@ class AssistantMessageLifecycleCoordinatorTest {
 
         assertEquals(AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING, result.outcome)
         assertFalse(result.placeholderOwnershipReady)
+        assertTrue(shouldRecoverAssistantPlaceholderOwnership(11, result))
         assertEquals(MessageStatus.COMPLETED, result.existingStatus)
     }
 

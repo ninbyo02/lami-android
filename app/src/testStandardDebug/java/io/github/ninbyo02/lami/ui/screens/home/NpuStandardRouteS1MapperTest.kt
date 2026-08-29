@@ -250,6 +250,53 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `strict compact answers suppress repetition and preserve complete readings`() {
+        val compact = NpuStandardRouteS1Contract.rewritePromptForNative(
+            "前に伝えた私の名前を一度だけ答えてください。",
+        )
+        val reading = NpuStandardRouteS1Contract.rewritePromptForNative(
+            "「佐藤」をひらがなだけで答えてください。",
+        )
+
+        assertTrue(compact.shortPromptRewriteApplied)
+        assertTrue(compact.strictCompactAnswerPromptDetected)
+        assertFalse(compact.completeReadingPromptDetected)
+        assertTrue(compact.rewrittenPromptText.contains("重複・説明・句読点なし"))
+        assertTrue(reading.strictCompactAnswerPromptDetected)
+        assertTrue(reading.completeReadingPromptDetected)
+        assertTrue(reading.rewrittenPromptText.contains("読みを省略しない"))
+    }
+
+    @Test
+    fun `natural self name conversation is rewritten to concise Japanese answers`() {
+        val continuation = NpuStandardRouteS1Contract.rewritePromptForNative("私の名前は")
+        val declaration = NpuStandardRouteS1Contract.rewritePromptForNative("私の名前は佐藤です。")
+        val context = "ユーザー: 私の名前は佐藤です。\n" +
+            "アシスタント: 佐藤さんですね。\n" +
+            "ユーザー: 私の名前は分かりますか。\n" +
+            "アシスタント: 佐藤"
+        val recall = NpuStandardRouteS1Contract.rewritePromptForNative(
+            userPrompt = "私の名前は分かりますか。",
+            contextText = context,
+        )
+        val followUp = NpuStandardRouteS1Contract.rewritePromptForNative(
+            userPrompt = "何ですか。",
+            contextText = context,
+        )
+
+        assertEquals("「お名前を教えてください。」とだけ答えてください。", continuation.rewrittenPromptText)
+        assertEquals(
+            "ユーザー名は佐藤です。「佐藤さんですね。」とだけ答えてください。",
+            declaration.rewrittenPromptText,
+        )
+        listOf(recall, followUp).forEach { rewrite ->
+            assertTrue(rewrite.contextualFactEmbedded)
+            assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの名前は佐藤です"))
+            assertTrue(rewrite.rewrittenPromptText.contains("佐藤だけ答えてください"))
+        }
+    }
+
+    @Test
     fun `non arithmetic prompt keeps TTS text equal to actual display text`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
@@ -554,7 +601,7 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
-    fun `raw role contamination is classified as failure even with natural sanitized output`() {
+    fun `matching sanitized prefix repairs a trailing raw user turn`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
                 rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
@@ -563,11 +610,15 @@ class NpuStandardRouteS1MapperTest {
             ),
         )
 
-        assertFalse(result.successCriteriaMet)
-        assertEquals("failure", result.status)
-        assertEquals("raw_role_contamination", result.reason)
-        assertEquals("role_contamination", result.qualityClassification)
-        assertEquals("どうしましたか。", result.sanitizedOutput)
+        assertTrue(result.successCriteriaMet)
+        assertEquals("success", result.status)
+        assertEquals("success", result.reason)
+        assertEquals("natural_japanese", result.qualityClassification)
+        assertEquals("どうしましたか。", result.actualDisplayText)
+        assertEquals(
+            "natural_japanese_after_plain_role_tail_cleanup_and_revalidation",
+            result.outputQualityCandidateReason,
+        )
     }
 
     @Test

@@ -13,7 +13,7 @@ class NpuStandardRouteS1ContractTest {
         assertFalse(selection.enabled)
         assertFalse(selection.selectable)
         assertEquals("standard_chat_screen_s1_npu_display_only", selection.routeType)
-        assertEquals("gemma_it_user_model", selection.promptTailVariant)
+        assertEquals("raw_dialog_tail_variant_a", selection.promptTailVariant)
         assertEquals(32, selection.requestedMaxOutputTokens)
         assertEquals(32, selection.effectiveMaxOutputTokens)
         assertTrue(selection.sideEffects.allDisconnected)
@@ -39,7 +39,7 @@ class NpuStandardRouteS1ContractTest {
         assertFalse(selection.copy(requestedMaxOutputTokens = 16).selectable)
         assertFalse(selection.copy(effectiveMaxOutputTokens = 16).selectable)
         assertFalse(selection.copy(requestedMaxOutputTokens = 17).selectable)
-        assertFalse(selection.copy(promptTailVariant = "raw_dialog_tail_variant_a").selectable)
+        assertFalse(selection.copy(promptTailVariant = "gemma_it_user_model").selectable)
         assertFalse(selection.copy(promptTailVariant = "raw_dialog_tail_variant_b").selectable)
         assertFalse(selection.copy(sideEffects = NpuStandardRouteS1SideEffects(db = true)).selectable)
         assertFalse(selection.copy(sideEffects = NpuStandardRouteS1SideEffects(tts = true)).selectable)
@@ -60,8 +60,8 @@ class NpuStandardRouteS1ContractTest {
         assertTrue(result.displayText.contains("standard_route_connected=true"))
         assertTrue(result.displayText.contains("status=success"))
         assertTrue(result.displayText.contains("reason=success"))
-        assertTrue(result.displayText.contains("prompt_tail_variant=gemma_it_user_model"))
-        assertTrue(result.displayText.contains("prompt_wrapper_used=gemma_it_user_model"))
+        assertTrue(result.displayText.contains("prompt_tail_variant=raw_dialog_tail_variant_a"))
+        assertTrue(result.displayText.contains("prompt_wrapper_used=raw_dialog_tail_variant_a"))
         assertTrue(result.displayText.contains("requested_max_output_tokens=32"))
         assertTrue(result.displayText.contains("effective_max_output_tokens=32"))
         assertTrue(result.displayText.contains("max_output_tokens=32"))
@@ -138,6 +138,25 @@ class NpuStandardRouteS1ContractTest {
 
         assertTrue(result.successCriteriaMet)
         assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+    }
+
+    @Test
+    fun `engine diagnostics are enabled only for debug or explicit Standard NPU validation`() {
+        assertFalse(npuEngineDiagnosticsEnabled(debugBuild = false, standardNpuRuntimeEnabled = false))
+        assertTrue(npuEngineDiagnosticsEnabled(debugBuild = true, standardNpuRuntimeEnabled = false))
+        assertTrue(npuEngineDiagnosticsEnabled(debugBuild = false, standardNpuRuntimeEnabled = true))
+    }
+
+    @Test
+    fun `native load order reflects the actual build type libraries`() {
+        assertEquals(
+            "lami_qairt244_npu_jni>lami_npu_persistent_holder_stub",
+            npuStandardRouteNativeLoadOrder(debugBuild = true),
+        )
+        assertEquals(
+            "lami_qairt244_npu_jni",
+            npuStandardRouteNativeLoadOrder(debugBuild = false),
+        )
     }
 
     private fun successResult(

@@ -16,6 +16,14 @@ internal fun interface NpuStandardRouteS1Provider {
         maxOutputTokens: Int,
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult
+
+    fun invokeWithContext(
+        userPrompt: String,
+        contextText: String,
+        selectedModelFile: String? = null,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult = invoke(userPrompt, maxOutputTokens, trace)
 }
 
 internal fun buildNpuRealPromptHandoffTrace(

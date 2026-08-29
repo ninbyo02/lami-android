@@ -2,33 +2,36 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.Build
-import io.github.ninbyo02.lami.BuildConfig
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
-import io.github.ninbyo02.lami.npu.Qairt244DevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
-import kotlinx.coroutines.runBlocking
 
 internal class RealNpuStandardRouteS1Provider(
-    private val requestRunner: (DevOnlyNpuOneTurnConversationRequest) -> DevOnlyNpuOneTurnConversationDisplay = { request ->
+    private val requestRunner: (NpuStandardRouteNativeRequest) -> NpuStandardRouteNativeDisplay = { request ->
         val appContext = resolveApplicationContext()
-            ?: error(REASON_DEV_ONLY_ENTRY_UNAVAILABLE)
-        if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-            NpuStandardRoutePersistentProbeRunner.run(
-                context = appContext,
-                request = request,
-            )
-        } else {
-            runBlocking {
-                DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
-            }
-        }
+            ?: error(REASON_NATIVE_ENTRY_UNAVAILABLE)
+        NpuStandardRoutePersistentProbeRunner.run(
+            context = appContext,
+            request = request,
+        )
     },
 ) : NpuStandardRouteS1Provider {
     override fun invoke(
         userPrompt: String,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult = invokeWithContext(
+        userPrompt = userPrompt,
+        contextText = "",
+        maxOutputTokens = maxOutputTokens,
+        trace = trace,
+    )
+
+    override fun invokeWithContext(
+        userPrompt: String,
+        contextText: String,
+        selectedModelFile: String?,
         maxOutputTokens: Int,
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult {
@@ -56,14 +59,22 @@ internal class RealNpuStandardRouteS1Provider(
         )
         return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
-            val request = request(
+            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
                 userPrompt = userPrompt,
+                contextText = contextText,
+            )
+            val nativeRequest = request(
+                userPrompt = promptRewrite.rewrittenPromptText,
+                contextText = if (promptRewrite.contextualFactEmbedded) "" else contextText,
+                selectedModelFile = selectedModelFile,
                 maxOutputTokens = effectiveMaxOutputTokens,
             )
-            val nativeRequest = request.copy(
-                promptTailVariant = NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT,
+            trace(
+                buildNpuRealPromptRequestTrace(
+                    request = nativeRequest,
+                    promptRewrite = promptRewrite,
+                ),
             )
-            trace(buildNpuRealPromptRequestTrace(nativeRequest))
             val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
                 display = requestRunner(nativeRequest),
                 userPrompt = userPrompt,
@@ -74,7 +85,12 @@ internal class RealNpuStandardRouteS1Provider(
                 NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE
             }
             val resolvedModel = resolveApplicationContext()
-                ?.let(Qairt244ModelPathResolver::resolve)
+                ?.let { appContext ->
+                    Qairt244ModelPathResolver.resolve(
+                        context = appContext,
+                        preferredModelPath = selectedModelFile,
+                    )
+                }
                 ?.takeIf { it.resolved }
             val resolvedModelInfo = resolvedModel?.modelInfo
             val rawResult = mappedRawResult.copy(
@@ -130,7 +146,7 @@ internal class RealNpuStandardRouteS1Provider(
             } else {
                 throwable.message
                     ?.takeIf { it.isNotBlank() }
-                    ?: REASON_DEV_ONLY_REQUEST_FAILED
+                    ?: REASON_NATIVE_REQUEST_FAILED
             }
             NpuS1LogcatDiagnostics.logAdapterFailure(
                 reason = reason,
@@ -185,33 +201,138 @@ internal class RealNpuStandardRouteS1Provider(
     }
 
     companion object {
-        private const val NPU_STANDARD_ROUTE_NATIVE_PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
-        const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
-        const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
+        const val REASON_NATIVE_ENTRY_UNAVAILABLE = "native_entry_unavailable"
+        const val REASON_NATIVE_REQUEST_FAILED = "native_request_failed"
+        const val REASON_NATIVE_INPUT_TOO_LONG = "native_input_too_long"
+        const val PROMPT_SOURCE_STANDARD_ROUTE = "standard_route_persistent_npu"
+
+        const val NATIVE_MAX_INPUT_CODE_POINTS = 128
 
         fun request(
             userPrompt: String,
+            contextText: String = "",
+            selectedModelFile: String? = null,
             maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
-        ): DevOnlyNpuOneTurnConversationRequest {
+        ): NpuStandardRouteNativeRequest {
             val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
-            return DevOnlyNpuOneTurnConversationRequest(
+            val promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT
+            val boundedContext = boundContextForNativeInput(
+                contextText = contextText,
                 userPrompt = userPrompt,
-                contextText = "",
-                unsafeDevBypassPromptLengthGate = true,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                contextText = boundedContext,
+                userPrompt = userPrompt,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
+            require(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                "$REASON_NATIVE_INPUT_TOO_LONG:" +
+                    "code_points=$finalInputCodePoints:" +
+                    "limit=$NATIVE_MAX_INPUT_CODE_POINTS"
+            }
+            return NpuStandardRouteNativeRequest(
+                userPrompt = userPrompt,
+                contextText = boundedContext,
+                selectedModelFile = selectedModelFile,
                 maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
                     userPrompt = userPrompt,
                     requestedMaxOutputTokens = sanitizedMaxOutputTokens,
                 ),
-                promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
-                timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
+                promptTailVariant = promptTailVariant,
+                timeoutMs = NpuStandardRouteNativeContract.TIMEOUT_MS,
             )
         }
 
-        fun buildNpuRealPromptRequestTrace(
-            request: DevOnlyNpuOneTurnConversationRequest,
+        internal fun boundContextForNativeInput(
+            contextText: String,
+            userPrompt: String,
+            promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
         ): String {
-            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt)
-            val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            val contextLines = contextText
+                .lineSequence()
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .toList()
+            val contextTurns = mutableListOf<MutableList<String>>()
+            contextLines.forEach { line ->
+                if (line.startsWith("ユーザー:")) {
+                    contextTurns += mutableListOf(line)
+                } else if (
+                    line.startsWith("アシスタント:") &&
+                    contextTurns.lastOrNull()?.firstOrNull()?.startsWith("ユーザー:") == true
+                ) {
+                    contextTurns.last() += line
+                } else {
+                    contextTurns += mutableListOf(line)
+                }
+            }
+            val includePreviousAssistantAnswer = referencesPreviousAssistantAnswer(userPrompt)
+            val policyTurns = contextTurns.mapIndexedNotNull { index, turn ->
+                turn.filter { line ->
+                    !line.startsWith("アシスタント:") ||
+                        (includePreviousAssistantAnswer && index == contextTurns.lastIndex)
+                }.takeIf(List<String>::isNotEmpty)
+            }
+            val strictCompactAnswer =
+                userPrompt.startsWith(NpuStandardRouteS1Contract.STRICT_COMPACT_ANSWER_INSTRUCTION)
+            val windowedPolicyTurns = if (strictCompactAnswer) {
+                policyTurns.takeLast(1).map(::compactLatestCorrection)
+            } else {
+                policyTurns
+            }
+            val selectedTurns = ArrayDeque<List<String>>()
+
+            for (turn in windowedPolicyTurns.asReversed()) {
+                val candidate = buildList {
+                    addAll(turn)
+                    selectedTurns.forEach(::addAll)
+                }.joinToString("\n")
+                val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                    contextText = candidate,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                )
+                if (finalInput.codePointCount(0, finalInput.length) > NATIVE_MAX_INPUT_CODE_POINTS) {
+                    break
+                }
+                selectedTurns.addFirst(turn)
+            }
+
+            return selectedTurns.flatten().joinToString("\n")
+        }
+
+        private fun compactLatestCorrection(turn: List<String>): List<String> =
+            turn.map { line ->
+                if (!line.startsWith("ユーザー:")) return@map line
+                val userText = line.removePrefix("ユーザー:").trim()
+                val correction = CORRECTION_PATTERN.find(userText) ?: return@map line
+                val subject = correction.groupValues[1].trim()
+                val value = correction.groupValues[2].trim()
+                if (subject.isBlank() || value.isBlank()) line else "ユーザー: ${subject}の最新値は${value}です。"
+            }
+
+        private val CORRECTION_PATTERN = Regex("^(.{1,40}?)を([^。、\\s]{1,16})に訂正")
+
+        private fun referencesPreviousAssistantAnswer(userPrompt: String): Boolean =
+            listOf(
+                "前の回答",
+                "前回の回答",
+                "直前の回答",
+                "さっきの回答",
+                "先ほどの回答",
+                "その回答",
+                "回答の続き",
+                "続きを",
+            ).any(userPrompt::contains)
+
+        fun buildNpuRealPromptRequestTrace(
+            request: NpuStandardRouteNativeRequest,
+            promptRewrite: NpuStandardRouteS1PromptRewrite =
+                NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt),
+        ): String {
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                 contextText = request.contextText,
                 userPrompt = request.userPrompt,
                 promptTailVariant = request.promptTailVariant,
@@ -226,18 +347,53 @@ internal class RealNpuStandardRouteS1Provider(
                 append(" request_prompt_preview=")
                 append(npuRealPromptPreview(request.userPrompt))
                 append(" prompt_source=")
-                append(Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_DEV_ONLY_CONVERSATION)
+                append(PROMPT_SOURCE_STANDARD_ROUTE)
+                append(" selected_model_file=")
+                append(
+                    request.selectedModelFile
+                        ?.substringAfterLast('/')
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "unavailable",
+                )
+                append(" context_code_points=")
+                append(request.contextText.codePointCount(0, request.contextText.length))
                 append(" final_input_tokens=unavailable")
+                append(" final_input_hash=")
+                append(npuRealPromptHash(finalInput))
+                val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
                 append(" final_input_code_points=")
-                append(finalInput.codePointCount(0, finalInput.length))
+                append(finalInputCodePoints)
+                append(" native_input_code_point_limit=")
+                append(NATIVE_MAX_INPUT_CODE_POINTS)
+                append(" native_input_within_limit=")
+                append(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS)
                 append(" prompt_tail_variant=")
                 append(request.promptTailVariant)
                 append(" prompt_wrapper_used=")
                 append(NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED)
+                append(" sampler_config_profile=")
+                append(LocalConversationPolicy.SAMPLER_PROFILE)
+                append(" sampler_top_k=")
+                append(LocalConversationPolicy.SAMPLER_TOP_K)
+                append(" sampler_top_p=")
+                append(LocalConversationPolicy.SAMPLER_TOP_P)
+                append(" sampler_temperature=")
+                append(LocalConversationPolicy.SAMPLER_TEMPERATURE)
+                append(" sampler_seed=")
+                append(LocalConversationPolicy.SAMPLER_SEED)
+                append(" thinking_enabled=")
+                append(LocalConversationPolicy.THINKING_ENABLED)
                 append(" arithmetic_prompt_detected=")
                 append(promptRewrite.arithmeticPromptDetected)
                 append(" short_prompt_rewrite_applied=")
                 append(promptRewrite.shortPromptRewriteApplied)
+                append(" strict_compact_answer_prompt_detected=")
+                append(promptRewrite.strictCompactAnswerPromptDetected)
+                append(" complete_reading_prompt_detected=")
+                append(promptRewrite.completeReadingPromptDetected)
+                append(" contextual_fact_embedded=")
+                append(promptRewrite.contextualFactEmbedded)
+                append(" npu_history_policy=user_facts_plus_referenced_answer_v2")
                 append(" rewritten_prompt_tail=")
                 append(npuRealPromptPreview(promptRewrite.rewrittenPromptText.takeLast(120)))
                 append(" max_output_tokens=")

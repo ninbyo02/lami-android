@@ -94,6 +94,14 @@ internal data class AssistantMessageLifecycleExecutionResult(
             )
 }
 
+internal fun shouldRecoverAssistantPlaceholderOwnership(
+    existingMessageId: Int?,
+    result: AssistantMessageLifecycleExecutionResult,
+): Boolean =
+    existingMessageId != null &&
+        result.outcome == AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING &&
+        !result.placeholderOwnershipReady
+
 /** Executes assistant lifecycle plans against the persistence boundary. */
 internal class AssistantMessageLifecycleCoordinator(
     private val store: AssistantMessageLifecycleStore,

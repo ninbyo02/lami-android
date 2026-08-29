@@ -1,11 +1,11 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 
 internal object RealNpuStandardRouteS1ResultMapper {
     fun fromDisplay(
-        display: DevOnlyNpuOneTurnConversationDisplay,
+        display: NpuStandardRouteNativeDisplay,
         userPrompt: String = "",
     ): NpuStandardRouteS1RawResult {
         val sanitizedOutput = Qairt244NpuOutputSanitizer
@@ -14,7 +14,19 @@ internal object RealNpuStandardRouteS1ResultMapper {
         val rawOutput = display.rawOutput.ifBlank { display.rawOutputFirst200Chars }
         val standaloneAssistantStub = isAssistantStub(sanitizedOutput)
         val rawRoleContamination =
-            hasNpuStandardRouteRawRoleContamination(rawOutput) && !standaloneAssistantStub
+            hasUnsafeNpuStandardRouteRawRoleContamination(
+                rawOutput = rawOutput,
+                sanitizedOutput = sanitizedOutput,
+                inputPrompt = userPrompt,
+            ) && !standaloneAssistantStub
+        val recoveredPlainRoleTail =
+            hasNpuStandardRouteRawRoleContamination(rawOutput) &&
+                !rawRoleContamination &&
+                display.reason == NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION &&
+                display.decodeReached &&
+                !display.fallback &&
+                !display.timeout &&
+                !display.freshCrash
         val questionEcho = !rawRoleContamination &&
             sanitizedOutput.isNotBlank() &&
             isQuestionEcho(
@@ -24,7 +36,10 @@ internal object RealNpuStandardRouteS1ResultMapper {
         val assistantStub = !rawRoleContamination && !questionEcho && standaloneAssistantStub
         val status = if (rawRoleContamination || questionEcho || assistantStub) {
             FailureNpuStandardRouteS1Provider.STATUS_FAILURE
-        } else if (display.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+        } else if (
+            display.status == NpuStandardRouteS1Contract.STATUS_SUCCESS ||
+            recoveredPlainRoleTail
+        ) {
             NpuStandardRouteS1Contract.STATUS_SUCCESS
         } else {
             FailureNpuStandardRouteS1Provider.STATUS_FAILURE
@@ -33,12 +48,14 @@ internal object RealNpuStandardRouteS1ResultMapper {
             rawRoleContamination -> NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION
             questionEcho -> NpuStandardRouteS1Contract.REASON_QUESTION_ECHO
             assistantStub -> NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
+            recoveredPlainRoleTail -> NpuStandardRouteS1Contract.REASON_SUCCESS
             else -> display.reason
         }
         val qualityClassification = when {
             rawRoleContamination -> NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION
             questionEcho -> NpuStandardRouteS1Contract.QUALITY_QUESTION_ECHO
             assistantStub -> NpuStandardRouteS1Contract.QUALITY_ASSISTANT_STUB
+            recoveredPlainRoleTail -> NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
             else -> display.quality
         }
         return NpuStandardRouteS1RawResult(

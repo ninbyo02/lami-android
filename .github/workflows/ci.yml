@@ -55,6 +55,16 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
+      - name: Reject tracked native binaries
+        run: bash scripts/tests/test_no_tracked_native_binaries.sh
+
+      - name: Verify NPU conversation policy artifact wiring
+        run: |
+          bash scripts/tests/test_npu_conversation_policy_artifact_verification.sh
+          bash scripts/tests/test_npu_conversation_policy_device_validation.sh
+          bash scripts/tests/test_npu_conversation_policy_device_summary.sh
+          bash scripts/tests/test_standard_release_automated_conversation_suite.sh
+
       - name: Run standard debug unit tests
         run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
 
@@ -141,6 +151,10 @@ jobs:
             | xargs -0 sha256sum > "$report_dir/sha256sums.txt"
           apk=$(find app/build/outputs/apk/standard/release -type f -name '*.apk' -print -quit)
           test -n "$apk"
+          scripts/tests/test_standard_release_npu_packaging.sh "$apk" disabled
+          while IFS= read -r -d "" artifact; do
+            scripts/tests/test_standard_release_npu_packaging.sh "$artifact" disabled
+          done < <(find app/build/outputs/bundle/standardRelease -type f -name "*.aab" -print0)
           "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk" > "$report_dir/zipalign-16k.txt"
           stat -c '%s bytes %n' "$apk" > "$report_dir/artifact-sizes.txt"
           while IFS= read -r -d '' artifact; do

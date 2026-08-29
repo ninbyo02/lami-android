@@ -17,9 +17,17 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
         private val allowedTrueEngineCreateCloseFlavors = allowedDebugFlavors + "trueEngineNpuProbe"
 
+        private fun standardRouteRuntimeAllowed(): Boolean =
+            (BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) ||
+                (!BuildConfig.DEBUG &&
+                    BuildConfig.CURRENT_FLAVOR == "standard" &&
+                    BuildConfig.STANDARD_NPU_RUNTIME_ENABLED)
+
         init {
             System.loadLibrary("lami_qairt244_npu_jni")
-            System.loadLibrary("lami_npu_persistent_holder_stub")
+            if (BuildConfig.DEBUG) {
+                System.loadLibrary("lami_npu_persistent_holder_stub")
+            }
         }
 
         @JvmStatic
@@ -35,7 +43,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         fun createStandardRouteAdapterHolder(
             request: NpuPersistentHolderCreateRequest,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             return nativeCreateStandardRouteAdapterHolder(
@@ -50,7 +58,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         fun runStandardRouteAdapterHolderOnce(
             request: NpuPersistentHolderRunRequest,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             return nativeRunStandardRouteAdapterHolderOnce(
@@ -64,7 +72,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         fun closeStandardRouteAdapterHolder(
             request: NpuPersistentHolderCloseRequest,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             return nativeCloseStandardRouteAdapterHolder(
@@ -75,7 +83,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
 
         @JvmStatic
         fun getStandardRouteAdapterHolderDiagnostics(holderId: String): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             return nativeGetStandardRouteAdapterHolderDiagnostics(holderId = holderId)
@@ -130,7 +138,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             modelPath: String,
             runId: String,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "short multi-token smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
@@ -165,7 +173,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
             unsafeDevBypassPromptLengthGate: Boolean = false,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "editable prompt smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
@@ -232,7 +240,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             unsafeDevBypassPromptLengthGate: Boolean = false,
         ): Qairt244PersistentProbeResult {
             check(
-                BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors ||
+                standardRouteRuntimeAllowed() ||
                     (
                         (BuildConfig.CURRENT_FLAVOR == "trueEngineNpuProbe" ||
                             BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") &&
@@ -281,8 +289,13 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             }
 
             val appContext = context.applicationContext
-            val resultFile = appContext.filesDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
-            val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            val diagnosticsDir = if (!BuildConfig.DEBUG && BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) {
+                appContext.getExternalFilesDir(null) ?: appContext.filesDir
+            } else {
+                appContext.filesDir
+            }
+            val resultFile = diagnosticsDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = diagnosticsDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
             resultFile.delete()
             diagFile.delete()
             val nativeResult = runPersistentNativeCallWithOptionalTimeout(

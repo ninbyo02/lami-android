@@ -1,8 +1,8 @@
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 421c3036..7f3f2a2e 100644
+index 3b67520b..78cf3fbe 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -103,5 +104,7 @@ constexpr char kQairt244ShortMultitokenMarker[] =
+@@ -105,6 +105,8 @@ constexpr char kQairt244ShortMultitokenMarker[] =
      "qairt244_short_multitoken_smoke_v1";
  constexpr char kQairt244EditablePromptMarker[] =
      "qairt244_editable_prompt_smoke_v1";
@@ -10,7 +10,8 @@ index 421c3036..7f3f2a2e 100644
 +    "qairt244_persistent_custom_jni_probe_v1";
  constexpr char kQairt244EditablePromptValidationMode[] =
      "utf8_internal_intent";
-@@ -574,6 +577,119 @@ void Qairt244SentinelLog(const char* format, ...) {
+ constexpr char kQairt244NativeDiagPath[] =
+@@ -477,6 +479,347 @@ void Qairt244SentinelLog(const char* format, ...) {
    va_end(args);
  }
 
@@ -47,6 +48,234 @@ index 421c3036..7f3f2a2e 100644
 +      ";max_token_budget=" + std::to_string(max_token_budget) +
 +      ";assets_source=" + assets_source + ";settings_source=" +
 +      settings_source);
++}
++
++struct Qairt244DispatchApiVersion {
++  int major;
++  int minor;
++  int patch;
++};
++
++struct Qairt244DispatchApiShape {
++  Qairt244DispatchApiVersion version;
++  void* interface_ptr;
++  void* async_interface_ptr;
++  void* graph_interface_ptr;
++};
++
++struct Qairt244LiteRtAnyShape {
++  int type;
++  union {
++    bool bool_value;
++    int64_t int_value;
++    double real_value;
++    const char* str_value;
++    const void* ptr_value;
++  };
++};
++
++struct Qairt244LiteRtEnvOptionShape {
++  int tag;
++  Qairt244LiteRtAnyShape value;
++};
++
++static_assert(sizeof(Qairt244LiteRtAnyShape) == 16);
++static_assert(sizeof(Qairt244LiteRtEnvOptionShape) == 24);
++
++using Qairt244DispatchInitializeFn = int (*)(const void*, void*, void*);
++using Qairt244DispatchGetStringFn = int (*)(const char**);
++using Qairt244DispatchGetCapabilitiesFn = int (*)(int*);
++using Qairt244DispatchDeviceContextCreateFn =
++    int (*)(const void*, void*, void**);
++using Qairt244DispatchDeviceContextDestroyFn = int (*)(void*);
++
++struct Qairt244DispatchInterfaceShape {
++  Qairt244DispatchInitializeFn initialize;
++  Qairt244DispatchGetStringFn get_vendor_id;
++  Qairt244DispatchGetStringFn get_build_id;
++  Qairt244DispatchGetCapabilitiesFn get_capabilities;
++  Qairt244DispatchDeviceContextCreateFn device_context_create;
++  Qairt244DispatchDeviceContextDestroyFn device_context_destroy;
++};
++
++using Qairt244DispatchGetApiFn = int (*)(Qairt244DispatchApiShape*);
++using Qairt244CreateEnvironmentFn =
++    int (*)(int, const Qairt244LiteRtEnvOptionShape*, void**);
++using Qairt244DestroyEnvironmentFn = void (*)(void*);
++
++bool Qairt244RunDispatchApiPreflight(
++    const std::string& native_library_dir,
++    std::vector<std::string>* diagnostics) {
++  const std::string library_path =
++      native_library_dir + "/libLiteRtDispatch_Qualcomm.so";
++  diagnostics->push_back("dispatch_preflight_library=" + library_path);
++  dlerror();
++  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
++  if (handle == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_preflight_dlopen=failed error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return false;
++  }
++  diagnostics->push_back("dispatch_preflight_dlopen=success");
++  dlerror();
++  void* symbol = dlsym(handle, "LiteRtDispatchGetApi");
++  const char* symbol_error = dlerror();
++  if (symbol == nullptr || symbol_error != nullptr) {
++    diagnostics->push_back(
++        "dispatch_preflight_dlsym=failed error=" +
++        Qairt244FlattenValue(
++            symbol_error == nullptr ? "unavailable" : symbol_error));
++    dlclose(handle);
++    return false;
++  }
++  diagnostics->push_back("dispatch_preflight_dlsym=success");
++  Qairt244DispatchApiShape api{};
++  const int status =
++      reinterpret_cast<Qairt244DispatchGetApiFn>(symbol)(&api);
++  diagnostics->push_back(
++      "dispatch_preflight_get_api_status=" + std::to_string(status));
++  diagnostics->push_back(
++      "dispatch_preflight_api_version=" + std::to_string(api.version.major) +
++      "." + std::to_string(api.version.minor) + "." +
++      std::to_string(api.version.patch));
++  diagnostics->push_back(
++      std::string("dispatch_preflight_interface=") +
++      (api.interface_ptr == nullptr ? "missing" : "present"));
++  const bool version_present = api.version.major > 0 || api.version.minor > 0 ||
++                               api.version.patch > 0;
++  const bool success =
++      status == 0 && version_present && api.interface_ptr != nullptr;
++  diagnostics->push_back(
++      std::string("dispatch_preflight_result=") +
++      (success ? "success" : "failure"));
++  dlclose(handle);
++  return success;
++}
++
++bool Qairt244RunDispatchInitializePreflight(
++    const std::string& native_library_dir,
++    std::vector<std::string>* diagnostics) {
++  const std::string library_path =
++      native_library_dir + "/libLiteRtDispatch_Qualcomm.so";
++  dlerror();
++  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
++  if (handle == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_initialize_dlopen=failed error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return false;
++  }
++  auto close_and_fail = [&]() {
++    dlclose(handle);
++    return false;
++  };
++  auto get_api = reinterpret_cast<Qairt244DispatchGetApiFn>(
++      dlsym(handle, "LiteRtDispatchGetApi"));
++  auto create_environment = reinterpret_cast<Qairt244CreateEnvironmentFn>(
++      dlsym(handle, "LiteRtCreateEnvironment"));
++  auto destroy_environment = reinterpret_cast<Qairt244DestroyEnvironmentFn>(
++      dlsym(handle, "LiteRtDestroyEnvironment"));
++  if (get_api == nullptr || create_environment == nullptr ||
++      destroy_environment == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_initialize_symbols=missing error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return close_and_fail();
++  }
++  diagnostics->push_back("dispatch_initialize_symbols=present");
++
++  Qairt244DispatchApiShape api{};
++  const int get_api_status = get_api(&api);
++  diagnostics->push_back(
++      "dispatch_initialize_get_api_status=" +
++      std::to_string(get_api_status));
++  if (get_api_status != 0 || api.interface_ptr == nullptr) {
++    return close_and_fail();
++  }
++  auto* interface = reinterpret_cast<Qairt244DispatchInterfaceShape*>(
++      api.interface_ptr);
++  if (interface->initialize == nullptr ||
++      interface->get_vendor_id == nullptr ||
++      interface->get_build_id == nullptr ||
++      interface->get_capabilities == nullptr ||
++      interface->device_context_create == nullptr ||
++      interface->device_context_destroy == nullptr) {
++    diagnostics->push_back("dispatch_initialize_interface_functions=missing");
++    return close_and_fail();
++  }
++  diagnostics->push_back("dispatch_initialize_interface_functions=present");
++
++  Qairt244LiteRtEnvOptionShape option{};
++  option.tag = 1;
++  option.value.type = 8;
++  option.value.str_value = native_library_dir.c_str();
++  void* environment = nullptr;
++  const int environment_status =
++      create_environment(1, &option, &environment);
++  diagnostics->push_back(
++      "dispatch_initialize_environment_status=" +
++      std::to_string(environment_status));
++  if (environment_status != 0 || environment == nullptr) {
++    return close_and_fail();
++  }
++
++  const int initialize_status =
++      interface->initialize(nullptr, environment, nullptr);
++  diagnostics->push_back(
++      "dispatch_initialize_status=" + std::to_string(initialize_status));
++  if (initialize_status != 0) {
++    destroy_environment(environment);
++    return close_and_fail();
++  }
++
++  const char* vendor_id = nullptr;
++  const char* build_id = nullptr;
++  int capabilities = 0;
++  const int vendor_status = interface->get_vendor_id(&vendor_id);
++  const int build_status = interface->get_build_id(&build_id);
++  const int capabilities_status =
++      interface->get_capabilities(&capabilities);
++  diagnostics->push_back(
++      "dispatch_initialize_vendor_status=" +
++      std::to_string(vendor_status) + " vendor=" +
++      Qairt244FlattenValue(vendor_id == nullptr ? "unavailable" : vendor_id));
++  diagnostics->push_back(
++      "dispatch_initialize_build_status=" +
++      std::to_string(build_status) + " build=" +
++      Qairt244FlattenValue(build_id == nullptr ? "unavailable" : build_id));
++  diagnostics->push_back(
++      "dispatch_initialize_capabilities_status=" +
++      std::to_string(capabilities_status) + " capabilities=" +
++      std::to_string(capabilities));
++
++  void* device_context = nullptr;
++  const int device_context_status =
++      interface->device_context_create(nullptr, nullptr, &device_context);
++  diagnostics->push_back(
++      "dispatch_initialize_device_context_status=" +
++      std::to_string(device_context_status));
++  int device_destroy_status = -1;
++  if (device_context_status == 0 && device_context != nullptr) {
++    device_destroy_status =
++        interface->device_context_destroy(device_context);
++  }
++  diagnostics->push_back(
++      "dispatch_initialize_device_destroy_status=" +
++      std::to_string(device_destroy_status));
++  destroy_environment(environment);
++  const bool success =
++      vendor_status == 0 && build_status == 0 &&
++      capabilities_status == 0 && (capabilities & 1) != 0 &&
++      device_context_status == 0 && device_destroy_status == 0;
++  diagnostics->push_back(
++      std::string("dispatch_initialize_result=") +
++      (success ? "success" : "failure"));
++  dlclose(handle);
++  return success;
 +}
 +
 +constexpr char kQairt244DefaultPromptInputLimitMode[] =
@@ -130,7 +359,7 @@ index 421c3036..7f3f2a2e 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,1015 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2090,6 +2431,1087 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -586,6 +815,10 @@ index 421c3036..7f3f2a2e 100644
 +    lines.push_back("engine_create_backend=" + engine_create_backend);
 +    lines.push_back("engine_create_prompt_input_limit_mode=" +
 +                    engine_create_prompt_input_limit_mode);
++    lines.push_back("prompt_input_code_points=" +
++                    std::to_string(prompt_input_code_points));
++    lines.push_back("prompt_input_code_point_limit=" +
++                    std::to_string(prompt_input_code_point_limit));
 +    lines.push_back("engine_create_requested_max_output_tokens=" +
 +                    (engine_create_requested_max_output_tokens >= 0
 +                         ? std::to_string(engine_create_requested_max_output_tokens)
@@ -705,6 +938,8 @@ index 421c3036..7f3f2a2e 100644
 +    native_probe_mode_str = "full_20";
 +  }
 +  if (native_probe_mode_str != "entrypoint_only" &&
++      native_probe_mode_str != "dispatch_api_preflight" &&
++      native_probe_mode_str != "dispatch_initialize_preflight" &&
 +      native_probe_mode_str != "model_assets_only" &&
 +      native_probe_mode_str != "engine_settings_only" &&
 +      native_probe_mode_str != "before_engine_create" &&
@@ -716,7 +951,9 @@ index 421c3036..7f3f2a2e 100644
 +      native_probe_mode_str != "full_20") {
 +    record_failure(0, "argument", "invalid_native_probe_mode",
 +                   "native_probe_mode must be entrypoint_only, "
-+                   "model_assets_only, engine_settings_only, "
++                   "dispatch_api_preflight, "
++                   "dispatch_initialize_preflight, model_assets_only, "
++                   "engine_settings_only, "
 +                   "before_engine_create, engine_create_only, "
 +                   "editable_engine_create_only, "
 +                   "true_engine_create_close_only, held_engine_run_once, "
@@ -736,6 +973,51 @@ index 421c3036..7f3f2a2e 100644
 +    hypothesis_result = "entrypoint_only_success";
 +    write_result();
 +    append_stage_diag("entrypoint_only completed");
++    return NewStringStandardUTF(env, status);
++  }
++
++  if (native_probe_mode_str == "dispatch_api_preflight") {
++    last_native_stage = "dispatch_api_preflight";
++    std::vector<std::string> diagnostics;
++    const bool preflight_success =
++        Qairt244RunDispatchApiPreflight(native_library_dir_str, &diagnostics);
++    for (const std::string& diagnostic : diagnostics) {
++      append_stage_diag(diagnostic);
++    }
++    if (!preflight_success) {
++      record_failure(0, "dispatch_api_preflight",
++                     "dispatch_api_preflight_failed",
++                     "Dispatch API dlopen/GetApi preflight failed");
++      write_result();
++      return NewStringStandardUTF(env, "");
++    }
++    status = "completed";
++    hypothesis_result = "dispatch_api_preflight_success";
++    write_result();
++    append_stage_diag("dispatch_api_preflight completed");
++    return NewStringStandardUTF(env, status);
++  }
++
++  if (native_probe_mode_str == "dispatch_initialize_preflight") {
++    last_native_stage = "dispatch_initialize_preflight";
++    std::vector<std::string> diagnostics;
++    const bool preflight_success =
++        Qairt244RunDispatchInitializePreflight(
++            native_library_dir_str, &diagnostics);
++    for (const std::string& diagnostic : diagnostics) {
++      append_stage_diag(diagnostic);
++    }
++    if (!preflight_success) {
++      record_failure(0, "dispatch_initialize_preflight",
++                     "dispatch_initialize_preflight_failed",
++                     "Dispatch initialize/device-context preflight failed");
++      write_result();
++      return NewStringStandardUTF(env, "");
++    }
++    status = "completed";
++    hypothesis_result = "dispatch_initialize_preflight_success";
++    write_result();
++    append_stage_diag("dispatch_initialize_preflight completed");
 +    return NewStringStandardUTF(env, status);
 +  }
 +
@@ -1013,6 +1295,18 @@ index 421c3036..7f3f2a2e 100644
 +                      " before CreateSession");
 +    write_result();
 +    auto session_config = SessionConfig::CreateDefault();
++    session_config.SetSamplerBackend(Backend::NPU);
++    auto& sampler_params = session_config.GetMutableSamplerParams();
++    sampler_params.set_type(SamplerParameters::TOP_P);
++    sampler_params.set_k(40);
++    sampler_params.set_p(0.9f);
++    sampler_params.set_temperature(0.3f);
++    sampler_params.set_seed(42);
++    append_stage_diag(
++        "run=" + std::to_string(run_index) +
++        " sampler_config_profile=lami_stable_v1 sampler_backend=NPU"
++        " top_k=40 top_p=0.9 temperature=0.3 seed=42"
++        " thinking_control=raw_prompt_answer_only");
 +    auto session = engine_ptr->CreateSession(session_config);
 +    if (!session.ok()) {
 +      run_status = "failure";
@@ -1088,6 +1382,13 @@ index 421c3036..7f3f2a2e 100644
 +    detail_lines.push_back("prefill_finished=" + prefill_finished);
 +    detail_lines.push_back("decode_started=" + decode_started);
 +    detail_lines.push_back("decode_finished=" + decode_finished);
++    detail_lines.push_back("sampler_config_profile=lami_stable_v1");
++    detail_lines.push_back("sampler_backend=NPU");
++    detail_lines.push_back("sampler_top_k=40");
++    detail_lines.push_back("sampler_top_p=0.9");
++    detail_lines.push_back("sampler_temperature=0.3");
++    detail_lines.push_back("sampler_seed=42");
++    detail_lines.push_back("thinking_control=raw_prompt_answer_only");
 +    detail_lines.push_back("raw_output=" + Qairt244FlattenValue(output));
 +    detail_lines.push_back("sanitized_output=");
 +    detail_lines.push_back("quality_classification=unavailable");

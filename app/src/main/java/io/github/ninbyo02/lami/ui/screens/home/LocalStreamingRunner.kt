@@ -80,6 +80,7 @@ internal interface LocalStreamingRunner<T> {
         resolvedModelPath: String? = null,
         cacheDirPath: String? = null,
         mediaPipeProbeContext: Context? = null,
+        initialTurns: List<LocalConversationTurn> = emptyList(),
         onPartial: (String) -> Unit = {},
     ): T?
 }
@@ -93,6 +94,7 @@ internal class DefaultLocalStreamingRunner<T>(
         resolvedModelPath: String?,
         cacheDirPath: String?,
         mediaPipeProbeContext: Context?,
+        initialTurns: List<LocalConversationTurn>,
         onPartial: (String) -> Unit,
     ) -> T,
 ) : LocalStreamingRunner<T> {
@@ -103,6 +105,7 @@ internal class DefaultLocalStreamingRunner<T>(
         resolvedModelPath: String?,
         cacheDirPath: String?,
         mediaPipeProbeContext: Context?,
+        initialTurns: List<LocalConversationTurn>,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeoutMs) {
@@ -113,6 +116,7 @@ internal class DefaultLocalStreamingRunner<T>(
                 resolvedModelPath,
                 cacheDirPath,
                 mediaPipeProbeContext,
+                initialTurns,
                 onPartial,
             )
         }
@@ -2969,6 +2973,7 @@ internal suspend fun runWithHeldEngine(
     mediaPipeProbeModelPath: String? = null,
     mediaPipeProbeContext: Context? = null,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
@@ -3297,6 +3302,7 @@ internal suspend fun runWithHeldEngine(
             engine = heldEngine.engineInstance,
             namespace = namespace,
             preferredBackendDryRunSetting = heldEngine.preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
             routeDiagnosticContext = routeDiagnosticContext,
             routeRunStartedAtMs = routeRunStartedAtMs,
@@ -6390,6 +6396,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     mediaPipeProbeContext: Context? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
@@ -6427,6 +6434,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 startElapsedMs = startElapsedMs,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                 markdownStreamingMode = markdownStreamingMode,
+                initialTurns = initialTurns,
                 onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
@@ -6807,6 +6815,7 @@ private suspend fun <T> runWithConversation(
     engine: Any,
     namespace: String?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
     closeSummaryPath: String? = null,
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
@@ -6842,6 +6851,7 @@ private suspend fun <T> runWithConversation(
             engine = engine,
             namespace = namespace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
         )
         onConversationCreateElapsedMs((SystemClock.elapsedRealtime() - conversationCreateStartedAtMs).coerceAtLeast(0L))
@@ -6909,6 +6919,7 @@ private fun createConversationForHeldEngine(
     engine: Any,
     namespace: String?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
 ): Any? {
     safeAppendTrace(
@@ -6920,6 +6931,7 @@ private fun createConversationForHeldEngine(
             engine = engine,
             engineClass = engine.javaClass,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
         )
     } else {
@@ -7033,6 +7045,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
     markdownStreamingMode: MarkdownStreamingMode,
+    initialTurns: List<LocalConversationTurn>,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -7047,6 +7060,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             markdownStreamingMode = markdownStreamingMode,
+            initialTurns = initialTurns,
             onPreferredBackendApplied = onPreferredBackendApplied,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
@@ -7482,6 +7496,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -7489,6 +7504,10 @@ private suspend fun runOfficialLiteRtLmDirect(
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -7529,7 +7548,7 @@ private suspend fun runOfficialLiteRtLmDirect(
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
             failureStage = "conversation-create"
-            conversation = engine.createConversation()
+            conversation = engine.createConversation(LocalConversationPolicy.conversationConfig(initialTurns))
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
@@ -7541,7 +7560,10 @@ private suspend fun runOfficialLiteRtLmDirect(
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
-            conversation.sendMessageAsync(prompt).collect { message ->
+            conversation.sendMessageAsync(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            ).collect { message ->
                 val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
                 val normalizedContents = rawContents.trim()
@@ -7696,6 +7718,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
                 markdownStreamingMode = markdownStreamingMode,
+                initialTurns = initialTurns,
                 onPreferredBackendApplied = {},
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
@@ -7728,11 +7751,16 @@ private fun runOfficialLiteRtLmBlocking(
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -7774,13 +7802,16 @@ private fun runOfficialLiteRtLmBlocking(
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
             failureStage = "conversation-create"
-            conversation = engine.createConversation()
+            conversation = engine.createConversation(LocalConversationPolicy.conversationConfig(initialTurns))
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
             failureStage = "generate-response"
             val startedAtMs = SystemClock.elapsedRealtime()
-            val message = conversation.sendMessage(prompt)
+            val message = conversation.sendMessage(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            )
             val rawContents = message.contents.toString()
             val normalizedContents = rawContents.trim()
             val rawMessage = message.toString()
@@ -8403,13 +8434,18 @@ private fun createOfficialLiteRtLmConversation(
     engine: Any,
     engineClass: Class<*>,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
 ): Any? {
     val configClassName = "com.google.ai.edge.litertlm.ConversationConfig"
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-conversation configClass=$configClassName")
     return runCatching {
         val configClass = Class.forName(configClassName)
-        val config = buildOfficialLiteRtLmConversationConfig(preferredBackendDryRunSetting)
+        val config = buildOfficialLiteRtLmConversationConfig(preferredBackendDryRunSetting, initialTurns)
         safeAppendTrace(appendTrace, "UPSTREAM official-conversation configCreated class=${config.javaClass.name}")
         val createConversationMethod = engineClass.methods.first { method ->
             method.name == "createConversation" &&
@@ -8427,6 +8463,7 @@ private fun createOfficialLiteRtLmConversation(
 
 private fun buildOfficialLiteRtLmConversationConfig(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
 ): ConversationConfig {
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
     val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
@@ -8437,20 +8474,22 @@ private fun buildOfficialLiteRtLmConversationConfig(
         overrideValue = outputQualityExperimentOverride
             ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
     )
-    return if (
+    val samplerOverride = if (
         shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name) &&
         shouldUseGpuDiagnosticSamplerConfig(gpuExperimentMode)
     ) {
-        ConversationConfig(
-            samplerConfig = SamplerConfig(
-                topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
-                topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
-                temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
-            ),
+        SamplerConfig(
+            topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
+            topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
+            temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
         )
     } else {
-        ConversationConfig()
+        null
     }
+    return LocalConversationPolicy.conversationConfig(
+        initialTurns = initialTurns,
+        samplerOverride = samplerOverride,
+    )
 }
 
 private fun createOfficialConversation(

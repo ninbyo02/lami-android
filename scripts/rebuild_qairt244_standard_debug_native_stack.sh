@@ -370,6 +370,23 @@ require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home
 if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe'
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditableEngineCreateOnlyMinimal'
+  for marker in \
+    'sampler_config_profile=lami_stable_v1' \
+    'sampler_backend=NPU' \
+    'prompt_input_code_points=' \
+    'sampler_top_k=40' \
+    'sampler_top_p=0.9' \
+    'sampler_temperature=0.3' \
+    'sampler_seed=42' \
+    'thinking_control=raw_prompt_answer_only' \
+    'dispatch_api_preflight' \
+    'dispatch_preflight_get_api_status=' \
+    'dispatch_preflight_api_version=' \
+    'dispatch_initialize_status=' \
+    'dispatch_initialize_device_context_status='; do
+    strings "$NPU_JNI" | grep -F "$marker" >/dev/null ||
+      fail "stable NPU conversation policy marker is missing: $marker"
+  done
 fi
 if [[ "$(basename "${EXTRA_PATCH:-none}")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]]; then
   strings "$NPU_JNI" | grep -F 'qairt244_gpu_prefill_preinvoke_v1' >/dev/null || fail "GPU prefill marker string is missing"

@@ -1125,10 +1125,12 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
         assertTrue(candidateTrace.contains("NPU_S5_TTS ttsCandidate_created=true"))
         assertTrue(candidateTrace.contains("speak_text_length=6"))
-        assertTrue(candidateTrace.contains("backend_npu_persisted=false"))
+        assertTrue(candidateTrace.contains("backend_npu_persisted=true"))
         assertTrue(skipTrace.contains("tts_speak_invoked=false"))
         assertTrue(skipTrace.contains("tts_skipped_reason=gate_off"))
+        assertTrue(skipTrace.contains("backend_npu_persisted=false"))
         assertTrue(speakTrace.contains("tts_speak_invoked=true"))
+        assertTrue(speakTrace.contains("backend_npu_persisted=true"))
         assertTrue(speakTrace.contains("stage=before"))
     }
 
@@ -1252,7 +1254,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 success = true,
                 reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
-                rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                rawOutput = "どうしましたか。\nアシスタント: 何か困っていますか。",
                 sanitizedOutput = "どうしましたか。",
                 qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
                 runDecodeReached = true,

@@ -9,6 +9,11 @@ import java.io.File
 
 internal const val NPU_ENGINE_LOGCAT_TAG = "LamiNpuEngine"
 
+internal fun npuEngineDiagnosticsEnabled(
+    debugBuild: Boolean = BuildConfig.DEBUG,
+    standardNpuRuntimeEnabled: Boolean = BuildConfig.STANDARD_NPU_RUNTIME_ENABLED,
+): Boolean = debugBuild || standardNpuRuntimeEnabled
+
 internal object NpuEngineLogcatDiagnostics {
     fun i(
         event: String,
@@ -54,7 +59,7 @@ internal object NpuEngineLogcatDiagnostics {
         memorySnapshot: MemorySnapshot? = null,
         detail: String = "",
     ) {
-        if (!BuildConfig.DEBUG) return
+        if (!npuEngineDiagnosticsEnabled()) return
         runCatching {
             Log.e(
                 NPU_ENGINE_LOGCAT_TAG,
@@ -86,7 +91,7 @@ internal object NpuEngineLogcatDiagnostics {
         memorySnapshot: MemorySnapshot?,
         detail: String,
     ) {
-        if (!BuildConfig.DEBUG) return
+        if (!npuEngineDiagnosticsEnabled()) return
         runCatching {
             Log.println(
                 priority,

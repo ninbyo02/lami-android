@@ -157,6 +157,7 @@ import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
@@ -294,6 +295,15 @@ internal fun emptyChatActionDestination(
         settingsRouteForLocalModelFocus(resolveMissingLocalModelFocus(it, false, false))
     } ?: Routes.SETTINGS
 } else Routes.SETTINGS
+
+internal fun resolveActiveLocalHeaderModelDisplayName(
+    effectiveBackendModelDisplayName: String?,
+    automaticNpuRouteSelected: Boolean,
+    npuModelDisplayName: String?,
+    selectedModelDisplayName: String?,
+): String? = effectiveBackendModelDisplayName
+    ?.takeIf { it.isNotBlank() }
+    ?: if (automaticNpuRouteSelected) npuModelDisplayName else selectedModelDisplayName
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -1004,7 +1014,7 @@ fun Home(
     ) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, runInitialTurns, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -1023,6 +1033,7 @@ fun Home(
                     preferredBackendDryRunSetting = backend,
                     markdownStreamingMode = markdownStreamingMode,
                     prompt = runPrompt,
+                    initialTurns = runInitialTurns,
                     onPartial = onPartial,
                 )
             if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
@@ -1065,6 +1076,15 @@ fun Home(
     val automaticNpuRouteSelected =
         preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT &&
             automaticBackendPlan.firstOrNull() == ResidentInferenceBackend.NPU
+    var effectiveLocalModelDisplayNameForHeader by remember(effectiveChatId) {
+        mutableStateOf<String?>(null)
+    }
+    val activeLocalModelDisplayName = resolveActiveLocalHeaderModelDisplayName(
+        effectiveBackendModelDisplayName = effectiveLocalModelDisplayNameForHeader,
+        automaticNpuRouteSelected = automaticNpuRouteSelected,
+        npuModelDisplayName = localBaseModelDisplayName,
+        selectedModelDisplayName = selectedLocalModelDisplayName,
+    )
     val effectiveNpuStandardRouteMode = if (automaticNpuRouteSelected) {
         NpuStandardRouteMode.FULL
     } else {
@@ -1117,6 +1137,22 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    LaunchedEffect(localBaseModelFilePath) {
+        val selectedNpuModelPath = localBaseModelFilePath?.trim().orEmpty()
+        if (selectedNpuModelPath.isNotBlank()) {
+            val cleanupResult = withContext(Dispatchers.IO) {
+                Qairt244ModelPathResolver.cleanupOrphanedCompatibleCopies(
+                    localModelsDir = context.applicationContext.filesDir.resolve("local_models"),
+                    selectedModelPath = selectedNpuModelPath,
+                )
+            }
+            Log.i(
+                "ChatScreen",
+                "NPU model migration selected_valid=${cleanupResult.selectedPathValid} " +
+                    "deleted=${cleanupResult.deletedPaths.size} failed=${cleanupResult.failedPaths.size}",
+            )
+        }
+    }
     LaunchedEffect(selectedLocalModelFilePath, selectedLocalModelDisplayName, isLocalInferenceRunning) {
         val hasSavedLocalModelInfo = !selectedLocalModelFilePath.isNullOrBlank() ||
             !selectedLocalModelDisplayName.isNullOrBlank()
@@ -1731,6 +1767,7 @@ fun Home(
                             allowDevNativeRoute = true,
                         ).run(
                             userPrompt = promptForRun,
+                            selectedModelFile = localBaseModelFilePath,
                             maxOutputTokens = maxTokensForRun,
                         )
                     }
@@ -2097,6 +2134,7 @@ fun Home(
                             allowDevNativeRoute = true,
                         ).run(
                             userPrompt = promptForRun,
+                            selectedModelFile = localBaseModelFilePath,
                             maxOutputTokens = requestedMaxTokens,
                         )
                     }
@@ -3119,6 +3157,18 @@ fun Home(
         return persistedId
     }
 
+    fun releaseStreamingAssistantLifecycleOwnership(
+        terminalMessageId: Int?,
+        reason: String,
+    ) {
+        if (terminalMessageId != null && streamingAssistantMessageId == terminalMessageId) {
+            logStreamTrace(
+                "STREAM lifecycle ownership released id=$terminalMessageId reason=$reason",
+            )
+            streamingAssistantMessageId = null
+        }
+    }
+
     suspend fun finalizeStreamingAssistantFailureSerialized(
         chatId: Int,
         response: String,
@@ -3126,13 +3176,18 @@ fun Home(
         localSourceSummary: String? = null,
         generationTimeMs: Long? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        finalizeStreamingAssistantFailure(
+        val terminalMessageId = finalizeStreamingAssistantFailure(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
             generationTimeMs = generationTimeMs,
         )
+        releaseStreamingAssistantLifecycleOwnership(
+            terminalMessageId = terminalMessageId,
+            reason = "failure",
+        )
+        terminalMessageId
     }
 
     fun resetStreamingAssistantPlaceholderId(reason: String) {
@@ -3420,15 +3475,29 @@ fun Home(
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
         val existingId = streamingAssistantMessageId
-        val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
+        val placeholderPayload = createAssistantMessage(
+            chatId = chatId,
+            response = "",
+        )
+        var result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
             existingMessageId = existingId,
-            placeholderPayload = createAssistantMessage(
-                chatId = chatId,
-                response = "",
-            ),
+            placeholderPayload = placeholderPayload,
             nowEpochMs = System.currentTimeMillis(),
             startFailureMessage = startFailureMessage,
         )
+        if (shouldRecoverAssistantPlaceholderOwnership(existingId, result)) {
+            logStreamTrace(
+                "STREAM lifecycle stale ownership recovered oldId=$existingId " +
+                    "oldStatus=${result.existingStatus}",
+            )
+            streamingAssistantMessageId = null
+            result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
+                existingMessageId = null,
+                placeholderPayload = placeholderPayload,
+                nowEpochMs = System.currentTimeMillis(),
+                startFailureMessage = startFailureMessage,
+            )
+        }
         result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
         if (result.placeholderOwnershipReady) {
             lastPersistedStreamingAssistantText = result.persistedText
@@ -3582,7 +3651,7 @@ fun Home(
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        finalizeStreamingAssistantMessage(
+        val terminalMessageId = finalizeStreamingAssistantMessage(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
@@ -3590,6 +3659,11 @@ fun Home(
             imageInputCount = imageInputCount,
             generationTimeMs = generationTimeMs,
         )
+        releaseStreamingAssistantLifecycleOwnership(
+            terminalMessageId = terminalMessageId,
+            reason = "completed",
+        )
+        terminalMessageId
     }
 
     fun sanitizeTextForTts(text: String): String = sanitizeAssistantTextForTts(text)
@@ -4320,7 +4394,7 @@ fun Home(
                             },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             selectedInferenceTarget = selectedInferenceTarget,
-                            localBaseModelDisplayName = selectedLocalModelDisplayName,
+                            localBaseModelDisplayName = activeLocalModelDisplayName,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                                 coroutineScope.launch {
@@ -4733,6 +4807,20 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
+                                                        .mapNotNull { message ->
+                                                            val text = message.message.trim().takeIf(String::isNotBlank)
+                                                                ?: return@mapNotNull null
+                                                            LocalConversationTurn(
+                                                                role = if (message.isSendbyMe) {
+                                                                    LocalConversationRole.USER
+                                                                } else {
+                                                                    LocalConversationRole.MODEL
+                                                                },
+                                                                text = text,
+                                                            )
+                                                        }
+                                                        .takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
                                                     val localSendTapElapsedMs = SystemClock.elapsedRealtime()
                                                     lastLocalSendTapElapsedMs = localSendTapElapsedMs
                                                     lastLocalSendPromptForTrace = requestPrompt
@@ -4867,6 +4955,7 @@ fun Home(
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
+                                                        effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
                                                         isLocalInferenceRunning = true
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -4977,6 +5066,8 @@ fun Home(
                                                                                 )
                                                                                     .run(
                                                                                         userPrompt = requestPrompt,
+                                                                                        contextText = LocalConversationHistoryPolicy.npuContext(localConversationHistorySnapshot),
+                                                                                        selectedModelFile = localBaseModelFilePath,
                                                                                         maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                     )
                                                                             }
@@ -5212,6 +5303,8 @@ fun Home(
                                                                 prompt = requestPrompt,
                                                                 onPartial = { _ -> Unit },
                                                             )
+                                                            effectiveLocalModelDisplayNameForHeader =
+                                                                localGenericModelDisplayName
                                                             val fallbackChain = runInferenceBackendChain(
                                                                 attempts = listOf(
                                                                     InferenceBackendChainAttempt("GPU") {
@@ -6132,6 +6225,8 @@ fun Home(
                                                                     prompt = requestPrompt,
                                                                     onPartial = { _ -> Unit },
                                                                 )
+                                                                effectiveLocalModelDisplayNameForHeader =
+                                                                    localGenericModelDisplayName
                                                                 val exceptionFallbackChain = runInferenceBackendChain(
                                                                     attempts = listOf(
                                                                         InferenceBackendChainAttempt("GPU") {
@@ -6221,6 +6316,7 @@ fun Home(
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                 isLocalInferenceRunning = false
+                                                                effectiveLocalModelDisplayNameForHeader = null
                                                                 localInferenceJob = null
                                                             }
                                                         }
@@ -7236,6 +7332,7 @@ fun Home(
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         markdownStreamingMode = markdownStreamingMode,
+                                                                        initialTurns = localConversationHistorySnapshot,
                                                                         routeDiagnosticContext = localRouteDiagnosticContext,
                                                                         routeRunStartedAtMs = localRunStartedAtMs,
                                                                         heldEngineReused = heldEngineReused,
@@ -7463,6 +7560,7 @@ fun Home(
                                                                                 resolvedModelPath = modelResolution.modelPath,
                                                                                 cacheDirPath = modelResolution.cacheDirPath,
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
+                                                                                initialTurns = localConversationHistorySnapshot,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = normalizeStreamingPartialForRender(
@@ -10744,6 +10842,7 @@ private suspend fun runLocalInferenceOnceEntry(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     prompt: String,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
     val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
@@ -10878,6 +10977,7 @@ private suspend fun runLocalInferenceOnceEntry(
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
             markdownStreamingMode = markdownStreamingMode,
+            initialTurns = initialTurns,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
@@ -17084,7 +17184,8 @@ internal fun buildNpuStandardRouteS5TtsCandidateTrace(
     append(streamingActive)
     append(" assistant_id=")
     append(assistantId ?: "null")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=")
+    append(assistantId != null)
 }
 
 internal fun buildNpuStandardRouteS5TtsSkipTrace(
@@ -17096,7 +17197,8 @@ internal fun buildNpuStandardRouteS5TtsSkipTrace(
     append(reason)
     append(" assistant_id=")
     append(assistantId ?: "null")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=")
+    append(assistantId != null)
 }
 
 internal fun buildNpuStandardRouteS5TtsSpeakTrace(
@@ -17114,7 +17216,7 @@ internal fun buildNpuStandardRouteS5TtsSpeakTrace(
     append(" cooldown=false")
     append(" stop_suppressed=false")
     append(" streaming_active=false")
-    append(" backend_npu_persisted=false")
+    append(" backend_npu_persisted=true")
 }
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {

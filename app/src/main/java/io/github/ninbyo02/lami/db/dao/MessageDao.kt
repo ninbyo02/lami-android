@@ -17,7 +17,7 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMessageAndReturnId(message: Message): Long
 
-    @Query("SELECT * FROM chat_table WHERE chatId = :chatId ")
+    @Query("SELECT * FROM chat_table WHERE chatId = :chatId ORDER BY messageID ASC")
     fun getAllMessages(chatId: Int): Flow<List<Message>>
 
     @Query("SELECT * FROM chat_table WHERE messageID = :messageId LIMIT 1")
