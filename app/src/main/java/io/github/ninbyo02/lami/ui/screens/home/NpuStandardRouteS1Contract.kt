@@ -48,6 +48,8 @@ internal data class NpuStandardRouteS1PromptRewrite(
     val rewrittenPromptText: String,
     val promptWrapperUsed: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
     val selectedPromptProfile: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
+    val strictCompactAnswerPromptDetected: Boolean = false,
+    val completeReadingPromptDetected: Boolean = false,
 )
 
 internal data class NpuStandardRouteS1Selection(
@@ -221,6 +223,8 @@ internal object NpuStandardRouteS1Contract {
     const val APP_TEMPLATE_USED = true
     const val TEMPLATE_OWNERSHIP_UNIFIED = false
     const val MAX_OUTPUT_TOKENS = 32
+    const val STRICT_COMPACT_ANSWER_INSTRUCTION =
+        "重複・説明・句読点なしで一度だけ答えてください。"
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
     const val QUALITY_MIXED_LANGUAGE = "mixed_language"
@@ -252,6 +256,8 @@ internal object NpuStandardRouteS1Contract {
         val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
         val greetingPromptDetected = isSimpleGreetingPrompt(normalizedPrompt)
         val ambiguousShortPromptDetected = isAmbiguousShortPrompt(normalizedPrompt)
+        val strictCompactAnswerPromptDetected = isStrictCompactAnswerPrompt(normalizedPrompt)
+        val completeReadingPromptDetected = normalizedPrompt.contains("ひらがな")
         val rewrittenPrompt = when {
             arithmeticPromptDetected ->
                 "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
@@ -261,6 +267,12 @@ internal object NpuStandardRouteS1Contract {
                 "ユーザーの挨拶は「$normalizedPrompt」です。\n" +
                     "短く自然な日本語で挨拶を返してください。\n" +
                     "回答だけを出力してください。"
+            strictCompactAnswerPromptDetected -> buildString {
+                append(STRICT_COMPACT_ANSWER_INSTRUCTION)
+                if (completeReadingPromptDetected) append("読みを省略しないでください。")
+                append('\n')
+                append(normalizedPrompt)
+            }
             ambiguousShortPromptDetected ->
                 "ユーザーの入力は「$normalizedPrompt」です。\n" +
                     "入力の続きを自然に促す、短い日本語の返答をしてください。\n" +
@@ -274,8 +286,13 @@ internal object NpuStandardRouteS1Contract {
                 "アシスタント:",
             arithmeticPromptDetected = arithmeticPromptDetected,
             shortPromptRewriteApplied =
-                arithmeticPromptDetected || greetingPromptDetected || ambiguousShortPromptDetected,
+                arithmeticPromptDetected ||
+                    greetingPromptDetected ||
+                    ambiguousShortPromptDetected ||
+                    strictCompactAnswerPromptDetected,
             rewrittenPromptText = rewrittenPrompt,
+            strictCompactAnswerPromptDetected = strictCompactAnswerPromptDetected,
+            completeReadingPromptDetected = completeReadingPromptDetected,
         )
     }
 
@@ -299,6 +316,15 @@ internal object NpuStandardRouteS1Contract {
             actualDisplayText
         }
     }
+
+    private fun isStrictCompactAnswerPrompt(prompt: String): Boolean =
+        listOf(
+            "だけ答えて",
+            "だけで答えて",
+            "一文字だけ",
+            "一語で答えて",
+            "一度だけ答えて",
+        ).any(prompt::contains)
 
     private fun isShortArithmeticPrompt(prompt: String): Boolean =
         normalizeArithmeticPrompt(prompt) in setOf(

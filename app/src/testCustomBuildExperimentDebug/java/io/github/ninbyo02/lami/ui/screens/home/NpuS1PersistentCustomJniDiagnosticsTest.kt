@@ -75,14 +75,15 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
-    fun `output quality flags prompt ignored for greeting placeholder leak`() {
+    fun `output quality prioritizes greeting mismatch while retaining prompt ignored reason`() {
         val quality = classifyNpuS1PersistentCustomJniOutputQuality(
             output = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
             prompt = "こんにちは",
         )
 
-        assertEquals(NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT, quality.qualityClassification)
+        assertEquals(NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE, quality.qualityClassification)
         assertTrue(quality.reason.contains("prompt_ignored_suspect"))
+        assertTrue(quality.reason.contains("greeting_response_mismatch"))
     }
 
     @Test
@@ -180,7 +181,7 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, qaContinuation.status)
         assertTrue(qaContinuation.reason.contains("qa_continuation"))
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, newlineOnly.status)
-        assertTrue(newlineOnly.reason.contains("output_only_newline"))
+        assertTrue(newlineOnly.reason.contains("raw_output_empty"))
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, empty.status)
         assertTrue(empty.reason.contains("raw_output_empty"))
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, literalNewline.status)

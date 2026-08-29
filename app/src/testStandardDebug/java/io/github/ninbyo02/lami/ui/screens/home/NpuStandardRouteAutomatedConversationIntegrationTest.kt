@@ -118,7 +118,7 @@ class NpuStandardRouteAutomatedConversationIntegrationTest {
 
         assertTrue(request.contextText.startsWith("ユーザー:"))
         assertTrue(request.contextText.contains("青に訂正"))
-        assertTrue(request.contextText.contains("アシスタント: **青**"))
+        assertFalse(request.contextText.contains("アシスタント:"))
         assertFalse(request.contextText.contains("私の名前は青葉"))
         assertTrue(
             finalInput.codePointCount(0, finalInput.length) <=

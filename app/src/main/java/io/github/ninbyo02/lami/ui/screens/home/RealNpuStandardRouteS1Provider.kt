@@ -265,9 +265,23 @@ internal class RealNpuStandardRouteS1Provider(
                     contextTurns += mutableListOf(line)
                 }
             }
+            val includePreviousAssistantAnswer = referencesPreviousAssistantAnswer(userPrompt)
+            val policyTurns = contextTurns.mapIndexedNotNull { index, turn ->
+                turn.filter { line ->
+                    !line.startsWith("アシスタント:") ||
+                        (includePreviousAssistantAnswer && index == contextTurns.lastIndex)
+                }.takeIf(List<String>::isNotEmpty)
+            }
+            val strictCompactAnswer =
+                userPrompt.startsWith(NpuStandardRouteS1Contract.STRICT_COMPACT_ANSWER_INSTRUCTION)
+            val windowedPolicyTurns = if (strictCompactAnswer) {
+                policyTurns.takeLast(1).map(::compactLatestCorrection)
+            } else {
+                policyTurns
+            }
             val selectedTurns = ArrayDeque<List<String>>()
 
-            for (turn in contextTurns.asReversed()) {
+            for (turn in windowedPolicyTurns.asReversed()) {
                 val candidate = buildList {
                     addAll(turn)
                     selectedTurns.forEach(::addAll)
@@ -285,6 +299,30 @@ internal class RealNpuStandardRouteS1Provider(
 
             return selectedTurns.flatten().joinToString("\n")
         }
+
+        private fun compactLatestCorrection(turn: List<String>): List<String> =
+            turn.map { line ->
+                if (!line.startsWith("ユーザー:")) return@map line
+                val userText = line.removePrefix("ユーザー:").trim()
+                val correction = CORRECTION_PATTERN.find(userText) ?: return@map line
+                val subject = correction.groupValues[1].trim()
+                val value = correction.groupValues[2].trim()
+                if (subject.isBlank() || value.isBlank()) line else "ユーザー: ${subject}の最新値は${value}です。"
+            }
+
+        private val CORRECTION_PATTERN = Regex("^(.{1,40}?)を([^。、\\s]{1,16})に訂正")
+
+        private fun referencesPreviousAssistantAnswer(userPrompt: String): Boolean =
+            listOf(
+                "前の回答",
+                "前回の回答",
+                "直前の回答",
+                "さっきの回答",
+                "先ほどの回答",
+                "その回答",
+                "回答の続き",
+                "続きを",
+            ).any(userPrompt::contains)
 
         fun buildNpuRealPromptRequestTrace(
             request: NpuStandardRouteNativeRequest,
@@ -346,6 +384,11 @@ internal class RealNpuStandardRouteS1Provider(
                 append(promptRewrite.arithmeticPromptDetected)
                 append(" short_prompt_rewrite_applied=")
                 append(promptRewrite.shortPromptRewriteApplied)
+                append(" strict_compact_answer_prompt_detected=")
+                append(promptRewrite.strictCompactAnswerPromptDetected)
+                append(" complete_reading_prompt_detected=")
+                append(promptRewrite.completeReadingPromptDetected)
+                append(" npu_history_policy=user_facts_plus_referenced_answer_v1")
                 append(" rewritten_prompt_tail=")
                 append(npuRealPromptPreview(promptRewrite.rewrittenPromptText.takeLast(120)))
                 append(" max_output_tokens=")

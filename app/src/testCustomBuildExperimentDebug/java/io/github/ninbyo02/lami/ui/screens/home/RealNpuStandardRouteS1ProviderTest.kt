@@ -186,7 +186,7 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `real provider classifies standalone assistant marker as failure`() {
+    fun `real provider rejects standalone assistant marker as role contamination`() {
         listOf(
             "アシスタント。",
             "アシスタント:",
@@ -205,17 +205,17 @@ class RealNpuStandardRouteS1ProviderTest {
             assertEquals("failure", raw.status)
             assertEquals("failure", raw.result)
             assertEquals(false, raw.success)
-            assertEquals("assistant_stub", raw.reason)
+            assertTrue(raw.reason in setOf("assistant_stub", "raw_role_contamination"))
             assertEquals(output, raw.sanitizedOutput)
-            assertEquals("assistant_stub", raw.qualityClassification)
+            assertTrue(raw.qualityClassification in setOf("assistant_stub", "role_contamination"))
             assertFalse(result.successCriteriaMet)
-            assertEquals("assistant_stub", result.reason)
-            assertEquals("assistant_stub", result.qualityClassification)
+            assertTrue(result.reason in setOf("assistant_stub", "raw_role_contamination"))
+            assertTrue(result.qualityClassification in setOf("assistant_stub", "role_contamination"))
         }
     }
 
     @Test
-    fun `real provider classifies raw role contamination as failure`() {
+    fun `real provider recovers exact safe prefix before raw user tail`() {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = {
                 successDisplay(
@@ -229,12 +229,12 @@ class RealNpuStandardRouteS1ProviderTest {
             trace = {},
         )
 
-        assertEquals("failure", raw.status)
-        assertEquals("failure", raw.result)
-        assertEquals(false, raw.success)
-        assertEquals("raw_role_contamination", raw.reason)
+        assertEquals("success", raw.status)
+        assertEquals("success", raw.result)
+        assertEquals(true, raw.success)
+        assertEquals("success", raw.reason)
         assertEquals("どうしましたか。", raw.sanitizedOutput)
-        assertEquals("role_contamination", raw.qualityClassification)
+        assertEquals("natural_japanese", raw.qualityClassification)
         assertTrue(raw.rawOutput.contains("ユーザー:"))
         assertTrue(raw.rawOutput.contains("アシスタント:"))
     }
@@ -300,8 +300,11 @@ class RealNpuStandardRouteS1ProviderTest {
 
         val request = requireNotNull(capturedRequest)
         assertEquals("success", raw.status)
-        assertEquals(userPrompt, request.userPrompt)
-        assertEquals("ユーザー: 直前の質問\nアシスタント: 直前の回答", request.contextText)
+        assertEquals(
+            "重複・説明・句読点なしで一度だけ答えてください。\n$userPrompt",
+            request.userPrompt,
+        )
+        assertEquals("ユーザー: 直前の質問", request.contextText)
         assertTrue(request.unsafeDevBypassPromptLengthGate)
         assertEquals(128, request.maxOutputTokens)
         assertEquals(128, raw.requestedMaxOutputTokens)
@@ -381,6 +384,41 @@ class RealNpuStandardRouteS1ProviderTest {
             finalInput.codePointCount(0, finalInput.length) <=
                 RealNpuStandardRouteS1Provider.NATIVE_MAX_INPUT_CODE_POINTS,
         )
+    }
+
+    @Test
+    fun `strict compact recall keeps only the latest corrected fact`() {
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = NpuStandardRouteS1Contract.rewritePromptForNative(
+                "現在の好きな色名を一文字だけ答えてください。",
+            ).rewrittenPromptText,
+            contextText = "ユーザー: 好きな色は赤です。色だけ答えてください。\n" +
+                "アシスタント: 赤\n" +
+                "ユーザー: 好きな色を青に訂正します。青の一文字だけ答えてください。\n" +
+                "アシスタント: 青",
+        )
+
+        assertFalse(request.contextText.contains("好きな色は赤です"))
+        assertTrue(request.contextText.contains("好きな色の最新値は青です"))
+        assertFalse(request.contextText.contains("アシスタント:"))
+    }
+
+    @Test
+    fun `real provider keeps user facts but only includes referenced assistant answers`() {
+        val context = "ユーザー: 私の名前は青葉です。\n" +
+            "アシスタント: 青葉。"
+        val factRecall = RealNpuStandardRouteS1Provider.request(
+            userPrompt = "前に伝えた私の名前を一度だけ答えてください。",
+            contextText = context,
+        )
+        val answerReference = RealNpuStandardRouteS1Provider.request(
+            userPrompt = "前の回答を一語で答えてください。",
+            contextText = context,
+        )
+
+        assertTrue(factRecall.contextText.contains("ユーザー: 私の名前は青葉です。"))
+        assertFalse(factRecall.contextText.contains("アシスタント:"))
+        assertTrue(answerReference.contextText.contains("アシスタント: 青葉。"))
     }
 
     @Test

@@ -250,6 +250,24 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `strict compact answers suppress repetition and preserve complete readings`() {
+        val compact = NpuStandardRouteS1Contract.rewritePromptForNative(
+            "前に伝えた私の名前を一度だけ答えてください。",
+        )
+        val reading = NpuStandardRouteS1Contract.rewritePromptForNative(
+            "「佐藤」をひらがなだけで答えてください。",
+        )
+
+        assertTrue(compact.shortPromptRewriteApplied)
+        assertTrue(compact.strictCompactAnswerPromptDetected)
+        assertFalse(compact.completeReadingPromptDetected)
+        assertTrue(compact.rewrittenPromptText.contains("重複・説明・句読点なし"))
+        assertTrue(reading.strictCompactAnswerPromptDetected)
+        assertTrue(reading.completeReadingPromptDetected)
+        assertTrue(reading.rewrittenPromptText.contains("読みを省略しない"))
+    }
+
+    @Test
     fun `non arithmetic prompt keeps TTS text equal to actual display text`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
