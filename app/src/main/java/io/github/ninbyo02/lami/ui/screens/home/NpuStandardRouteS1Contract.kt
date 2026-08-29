@@ -50,6 +50,7 @@ internal data class NpuStandardRouteS1PromptRewrite(
     val selectedPromptProfile: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
     val strictCompactAnswerPromptDetected: Boolean = false,
     val completeReadingPromptDetected: Boolean = false,
+    val contextualFactEmbedded: Boolean = false,
 )
 
 internal data class NpuStandardRouteS1Selection(
@@ -251,13 +252,26 @@ internal object NpuStandardRouteS1Contract {
     const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
         "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
-    fun rewritePromptForNative(userPrompt: String): NpuStandardRouteS1PromptRewrite {
+    fun rewritePromptForNative(
+        userPrompt: String,
+        contextText: String = "",
+    ): NpuStandardRouteS1PromptRewrite {
         val normalizedPrompt = userPrompt.trim()
         val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
         val greetingPromptDetected = isSimpleGreetingPrompt(normalizedPrompt)
         val ambiguousShortPromptDetected = isAmbiguousShortPrompt(normalizedPrompt)
         val strictCompactAnswerPromptDetected = isStrictCompactAnswerPrompt(normalizedPrompt)
         val completeReadingPromptDetected = normalizedPrompt.contains("ひらがな")
+        val declaredSelfName = extractDeclaredSelfName(normalizedPrompt)
+        val contextSelfName = latestDeclaredSelfName(contextText)
+        val selfNameContinuationPromptDetected = isIncompleteSelfNamePrompt(normalizedPrompt)
+        val selfNameRecallPromptDetected =
+            contextSelfName != null &&
+                (
+                    isSelfNameRecallPrompt(normalizedPrompt) ||
+                        isSelfNameRecallFollowUp(normalizedPrompt, contextText)
+                    )
+        val contextualFactEmbedded = selfNameRecallPromptDetected
         val rewrittenPrompt = when {
             arithmeticPromptDetected ->
                 "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
@@ -267,6 +281,13 @@ internal object NpuStandardRouteS1Contract {
                 "ユーザーの挨拶は「$normalizedPrompt」です。\n" +
                     "短く自然な日本語で挨拶を返してください。\n" +
                     "回答だけを出力してください。"
+            selfNameContinuationPromptDetected ->
+                "「お名前を教えてください。」とだけ答えてください。"
+            declaredSelfName != null ->
+                "ユーザー名は${declaredSelfName}です。「${declaredSelfName}さんですね。」とだけ答えてください。"
+            selfNameRecallPromptDetected ->
+                "$STRICT_COMPACT_ANSWER_INSTRUCTION\n" +
+                    "ユーザーの名前は${contextSelfName}です。${contextSelfName}だけ答えてください。"
             strictCompactAnswerPromptDetected -> buildString {
                 append(STRICT_COMPACT_ANSWER_INSTRUCTION)
                 if (completeReadingPromptDetected) append("読みを省略しないでください。")
@@ -288,11 +309,15 @@ internal object NpuStandardRouteS1Contract {
             shortPromptRewriteApplied =
                 arithmeticPromptDetected ||
                     greetingPromptDetected ||
+                    selfNameContinuationPromptDetected ||
+                    declaredSelfName != null ||
+                    selfNameRecallPromptDetected ||
                     ambiguousShortPromptDetected ||
                     strictCompactAnswerPromptDetected,
             rewrittenPromptText = rewrittenPrompt,
             strictCompactAnswerPromptDetected = strictCompactAnswerPromptDetected,
             completeReadingPromptDetected = completeReadingPromptDetected,
+            contextualFactEmbedded = contextualFactEmbedded,
         )
     }
 
@@ -315,6 +340,57 @@ internal object NpuStandardRouteS1Contract {
         } else {
             actualDisplayText
         }
+    }
+
+    private fun isIncompleteSelfNamePrompt(prompt: String): Boolean =
+        prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS } == "私の名前は"
+
+    private fun latestDeclaredSelfName(contextText: String): String? =
+        contextText.lineSequence()
+            .map(String::trim)
+            .filter { it.startsWith("ユーザー:") }
+            .map { it.removePrefix("ユーザー:").trim() }
+            .mapNotNull(::extractDeclaredSelfName)
+            .lastOrNull()
+
+    private fun extractDeclaredSelfName(prompt: String): String? {
+        val normalized = prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS }
+        if (!normalized.startsWith("私の名前は")) return null
+        val candidate = normalized.removePrefix("私の名前は").trim()
+        if (
+            candidate.isBlank() ||
+            candidate.endsWith("ですか") ||
+            candidate.contains("分か") ||
+            candidate.contains("覚えて") ||
+            candidate in setOf("何", "なん", "何ですか", "なんですか")
+        ) {
+            return null
+        }
+        val name = candidate
+            .removeSuffix("といいます")
+            .removeSuffix("です")
+            .trim()
+        val codePoints = name.codePointCount(0, name.length)
+        return name.takeIf { codePoints in 1..SELF_NAME_MAX_CODE_POINTS }
+    }
+
+    private fun isSelfNameRecallPrompt(prompt: String): Boolean =
+        prompt.contains("私の名前") &&
+            listOf("分か", "覚え", "何", "なん").any(prompt::contains)
+
+    private fun isSelfNameRecallFollowUp(
+        prompt: String,
+        contextText: String,
+    ): Boolean {
+        val normalized = prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS }
+        if (normalized !in setOf("何", "なん", "何ですか", "なんですか")) return false
+        val previousUserPrompt = contextText.lineSequence()
+            .map(String::trim)
+            .filter { it.startsWith("ユーザー:") }
+            .map { it.removePrefix("ユーザー:").trim() }
+            .lastOrNull()
+            ?: return false
+        return isSelfNameRecallPrompt(previousUserPrompt)
     }
 
     private fun isStrictCompactAnswerPrompt(prompt: String): Boolean =
@@ -411,6 +487,8 @@ internal object NpuStandardRouteS1Contract {
     const val MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT = "short_prompt_limit"
     private const val AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS = 2
     private const val SHORT_PROMPT_MAX_OUTPUT_TOKENS = 128
+    private const val SELF_NAME_MAX_CODE_POINTS = 16
+    private val SELF_NAME_TERMINATORS = setOf('。', '．', '.', '！', '!', '？', '?')
     private val ALLOWED_JAPANESE_RESPONSE_SCRIPTS = setOf(
         Character.UnicodeScript.COMMON,
         Character.UnicodeScript.INHERITED,

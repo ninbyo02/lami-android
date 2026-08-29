@@ -268,6 +268,35 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `natural self name conversation is rewritten to concise Japanese answers`() {
+        val continuation = NpuStandardRouteS1Contract.rewritePromptForNative("私の名前は")
+        val declaration = NpuStandardRouteS1Contract.rewritePromptForNative("私の名前は佐藤です。")
+        val context = "ユーザー: 私の名前は佐藤です。\n" +
+            "アシスタント: 佐藤さんですね。\n" +
+            "ユーザー: 私の名前は分かりますか。\n" +
+            "アシスタント: 佐藤"
+        val recall = NpuStandardRouteS1Contract.rewritePromptForNative(
+            userPrompt = "私の名前は分かりますか。",
+            contextText = context,
+        )
+        val followUp = NpuStandardRouteS1Contract.rewritePromptForNative(
+            userPrompt = "何ですか。",
+            contextText = context,
+        )
+
+        assertEquals("「お名前を教えてください。」とだけ答えてください。", continuation.rewrittenPromptText)
+        assertEquals(
+            "ユーザー名は佐藤です。「佐藤さんですね。」とだけ答えてください。",
+            declaration.rewrittenPromptText,
+        )
+        listOf(recall, followUp).forEach { rewrite ->
+            assertTrue(rewrite.contextualFactEmbedded)
+            assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの名前は佐藤です"))
+            assertTrue(rewrite.rewrittenPromptText.contains("佐藤だけ答えてください"))
+        }
+    }
+
+    @Test
     fun `non arithmetic prompt keeps TTS text equal to actual display text`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(

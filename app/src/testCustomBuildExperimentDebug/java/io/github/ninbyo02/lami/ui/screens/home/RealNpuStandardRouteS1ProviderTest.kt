@@ -422,6 +422,41 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `contextual self name recall embeds the fact and omits redundant history`() {
+        val context = "ユーザー: 私の名前は佐藤です。\n" +
+            "アシスタント: 佐藤さんですね。\n" +
+            "ユーザー: 私の名前は分かりますか。\n" +
+            "アシスタント: 佐藤"
+        var capturedRequest: NpuStandardRouteNativeRequest? = null
+
+        RealNpuStandardRouteS1Provider(
+            requestRunner = { request ->
+                capturedRequest = request
+                successDisplay(output = "佐藤", maxOutputTokens = request.maxOutputTokens)
+            },
+        ).invokeWithContext(
+            userPrompt = "何ですか。",
+            contextText = context,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+
+        val request = requireNotNull(capturedRequest)
+        assertEquals("", request.contextText)
+        assertTrue(request.userPrompt.contains("ユーザーの名前は佐藤です"))
+        assertTrue(request.userPrompt.contains("佐藤だけ答えてください"))
+        val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = request.contextText,
+            userPrompt = request.userPrompt,
+            promptTailVariant = request.promptTailVariant,
+        )
+        assertTrue(
+            finalInput.codePointCount(0, finalInput.length) <=
+                RealNpuStandardRouteS1Provider.NATIVE_MAX_INPUT_CODE_POINTS,
+        )
+    }
+
+    @Test
     fun `real provider reports short prompt rewrite and stable sampler policy`() {
         val traces = mutableListOf<String>()
 

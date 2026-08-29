@@ -59,10 +59,13 @@ internal class RealNpuStandardRouteS1Provider(
         )
         return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
-            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt)
+            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                userPrompt = userPrompt,
+                contextText = contextText,
+            )
             val nativeRequest = request(
                 userPrompt = promptRewrite.rewrittenPromptText,
-                contextText = contextText,
+                contextText = if (promptRewrite.contextualFactEmbedded) "" else contextText,
                 selectedModelFile = selectedModelFile,
                 maxOutputTokens = effectiveMaxOutputTokens,
             )
@@ -388,7 +391,9 @@ internal class RealNpuStandardRouteS1Provider(
                 append(promptRewrite.strictCompactAnswerPromptDetected)
                 append(" complete_reading_prompt_detected=")
                 append(promptRewrite.completeReadingPromptDetected)
-                append(" npu_history_policy=user_facts_plus_referenced_answer_v1")
+                append(" contextual_fact_embedded=")
+                append(promptRewrite.contextualFactEmbedded)
+                append(" npu_history_policy=user_facts_plus_referenced_answer_v2")
                 append(" rewritten_prompt_tail=")
                 append(npuRealPromptPreview(promptRewrite.rewrittenPromptText.takeLast(120)))
                 append(" max_output_tokens=")

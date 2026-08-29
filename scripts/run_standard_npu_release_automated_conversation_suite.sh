@@ -55,6 +55,18 @@ matches_expected() {
       normalized=$(printf '%s' "$actual" | tr -d '[:space:]' | sed -E 's/[。．.]$//')
       [[ "$normalized" == "$expected" ]]
       ;;
+    name_invitation)
+      [[ "$actual" == *"$expected"* ]] &&
+        ! grep -Eqi 'この時点|会話の流れ|自然です|ユーザー:|アシスタント:' <<<"$actual"
+      ;;
+    japanese_name_ack)
+      [[ "$actual" == *"$expected"* ]] &&
+        ! grep -Eqi 'Sato|この時点|会話の流れ|自然です|ユーザー:|アシスタント:' <<<"$actual"
+      ;;
+    japanese_name_answer)
+      [[ "$actual" == *"$expected"* ]] &&
+        ! grep -Eqi 'Sato|この時点|会話の流れ|自然です|ユーザー:|アシスタント:|こんにちは' <<<"$actual"
+      ;;
     *) return 2 ;;
   esac
 }
@@ -125,11 +137,26 @@ capital_prompt2='前の回答を踏まえ、国名を句読点なしの一語で
 run_turn capital/turn2 "$capital_prompt2" "$capital_context" '日本' exact || failure=1
 
 name_prompt1='私の名前は青葉です。名前だけ答えてください。'
-run_turn name_memory/turn1 "$name_prompt1" '' '青葉' normalized_word || failure=1
+run_turn name_memory/turn1 "$name_prompt1" '' '青葉' japanese_name_answer || failure=1
 name_output1=$turn_output
 name_context=$'ユーザー: 私の名前は青葉です。名前だけ答えてください。\nアシスタント: '"$name_output1"
 name_prompt2='前に伝えた私の名前を一度だけ答えてください。'
-run_turn name_memory/turn2 "$name_prompt2" "$name_context" '青葉' normalized_word || failure=1
+run_turn name_memory/turn2 "$name_prompt2" "$name_context" '青葉' japanese_name_answer || failure=1
+
+natural_name_prompt1='私の名前は'
+run_turn natural_name/turn1 "$natural_name_prompt1" '' 'お名前を教えてください' name_invitation || failure=1
+natural_name_output1=$turn_output
+natural_name_context=$'ユーザー: 私の名前は\nアシスタント: '"$natural_name_output1"
+natural_name_prompt2='私の名前は佐藤です。'
+run_turn natural_name/turn2 "$natural_name_prompt2" "$natural_name_context" '佐藤' japanese_name_ack || failure=1
+natural_name_output2=$turn_output
+natural_name_context+=$'\nユーザー: 私の名前は佐藤です。\nアシスタント: '"$natural_name_output2"
+natural_name_prompt3='私の名前は分かりますか。'
+run_turn natural_name/turn3 "$natural_name_prompt3" "$natural_name_context" '佐藤' japanese_name_answer || failure=1
+natural_name_output3=$turn_output
+natural_name_context+=$'\nユーザー: 私の名前は分かりますか。\nアシスタント: '"$natural_name_output3"
+natural_name_prompt4='何ですか。'
+run_turn natural_name/turn4 "$natural_name_prompt4" "$natural_name_context" '佐藤' japanese_name_answer || failure=1
 
 color_prompt1='好きな色は赤です。色だけ答えてください。'
 run_turn correction/turn1 "$color_prompt1" '' '赤' normalized_word || failure=1
@@ -151,6 +178,7 @@ result=FAIL
   echo "- App ID: \`$app_id\`"
   echo "- Capital: \`$(cat "$out_dir/capital/turn1/output.txt" 2>/dev/null) -> $(cat "$out_dir/capital/turn2/output.txt" 2>/dev/null)\`"
   echo "- Name memory: \`$(cat "$out_dir/name_memory/turn1/output.txt" 2>/dev/null) -> $(cat "$out_dir/name_memory/turn2/output.txt" 2>/dev/null)\`"
+  echo "- Natural name: \`$(cat "$out_dir/natural_name/turn1/output.txt" 2>/dev/null) -> $(cat "$out_dir/natural_name/turn2/output.txt" 2>/dev/null) -> $(cat "$out_dir/natural_name/turn3/output.txt" 2>/dev/null) -> $(cat "$out_dir/natural_name/turn4/output.txt" 2>/dev/null)\`"
   echo "- Correction: \`$(cat "$out_dir/correction/turn1/output.txt" 2>/dev/null) -> $(cat "$out_dir/correction/turn2/output.txt" 2>/dev/null) -> $(cat "$out_dir/correction/turn3/output.txt" 2>/dev/null)\`"
   echo "- APK SHA-256: \`$(sha256sum "$apk" | cut -d' ' -f1)\`"
   echo "- Isolated process: \`:npu_preflight\`"

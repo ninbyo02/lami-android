@@ -23,11 +23,13 @@ internal class StandardNpuReleasePreflightReceiver : BroadcastReceiver() {
                     val userPrompt = decodeExtra(intent, EXTRA_USER_PROMPT_BASE64)
                     val contextText = decodeExtra(intent, EXTRA_CONTEXT_BASE64)
                     require(userPrompt.isNotBlank()) { "user_prompt_base64 is required" }
-                    val rewrittenPrompt =
-                        NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt).rewrittenPromptText
-                    val request = RealNpuStandardRouteS1Provider.request(
-                        userPrompt = rewrittenPrompt,
+                    val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                        userPrompt = userPrompt,
                         contextText = contextText,
+                    )
+                    val request = RealNpuStandardRouteS1Provider.request(
+                        userPrompt = promptRewrite.rewrittenPromptText,
+                        contextText = if (promptRewrite.contextualFactEmbedded) "" else contextText,
                         maxOutputTokens = intent.getIntExtra(EXTRA_MAX_OUTPUT_TOKENS, 32),
                     )
                     val display = NpuStandardRoutePersistentProbeRunner.run(
