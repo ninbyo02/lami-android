@@ -179,6 +179,11 @@ assert_common_policy() {
   require_value "$result" streaming false || check=1
   require_value "$result" selected_path_npu_saved false || check=1
   require_value "$result" app_template_mode raw || check=1
+  require_value "$result" prompt_template_owner native_npu_adapter_exception || check=1
+  require_value "$result" prompt_template_evaluator native_adapter_serialization || check=1
+  require_value "$result" conversation_api_used false || check=1
+  require_value "$result" app_template_used true || check=1
+  require_value "$result" template_ownership_unified false || check=1
   require_value "$result" prompt_transport base64 || check=1
   assert_output_policy "$result" "$expected_output" || check=1
   ((check == 0))

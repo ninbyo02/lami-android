@@ -215,6 +215,11 @@ internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
     const val PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
     const val PROMPT_WRAPPER_USED = PROMPT_TAIL_VARIANT
+    const val PROMPT_TEMPLATE_OWNER = "native_npu_adapter_exception"
+    const val PROMPT_TEMPLATE_EVALUATOR = "native_adapter_serialization"
+    const val CONVERSATION_API_USED = false
+    const val APP_TEMPLATE_USED = true
+    const val TEMPLATE_OWNERSHIP_UNIFIED = false
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
@@ -467,6 +472,11 @@ internal object NpuStandardRouteS1Contract {
             "java_library_path=${nativeDiagnostics.javaLibraryPath}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
             "supported_abis=${nativeDiagnostics.supportedAbis}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
             "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
+            "prompt_template_owner=$PROMPT_TEMPLATE_OWNER",
+            "prompt_template_evaluator=$PROMPT_TEMPLATE_EVALUATOR",
+            "conversation_api_used=$CONVERSATION_API_USED",
+            "app_template_used=$APP_TEMPLATE_USED",
+            "template_ownership_unified=$TEMPLATE_OWNERSHIP_UNIFIED",
             "prompt_tail_variant=${selection.promptTailVariant}",
             "prompt_wrapper_used=$PROMPT_WRAPPER_USED",
             "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",

@@ -7504,6 +7504,10 @@ private suspend fun runOfficialLiteRtLmDirect(
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -7753,6 +7757,10 @@ private fun runOfficialLiteRtLmBlocking(
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -8430,6 +8438,10 @@ private fun createOfficialLiteRtLmConversation(
     appendTrace: (String) -> Unit,
 ): Any? {
     val configClassName = "com.google.ai.edge.litertlm.ConversationConfig"
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-conversation configClass=$configClassName")
     return runCatching {
         val configClass = Class.forName(configClassName)

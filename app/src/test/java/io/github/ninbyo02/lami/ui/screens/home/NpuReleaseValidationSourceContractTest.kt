@@ -58,4 +58,66 @@ class NpuReleaseValidationSourceContractTest {
         assertTrue("Release validation must assert NPU evidence", "QNN_HTP_V79_FastRPC_native_diag" in conversationRunner)
         assertTrue("Release validation must enforce the input bound", "-le 128" in conversationRunner)
     }
+
+    @Test
+    fun `normal route owns no chat template and native NPU is an explicit exception`() {
+        val policy = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalConversationPolicy.kt",
+        ).readText()
+        val history = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalConversationHistoryPolicy.kt",
+        ).readText()
+        val runner = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt",
+        ).readText()
+        val npuContract = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuStandardRouteS1Contract.kt",
+        ).readText()
+        val normalRouteSources = listOf(policy, history, runner).joinToString("\n")
+
+        listOf(
+            "<start_of_turn>",
+            "<end_of_turn>",
+            "<|im_start|>",
+            "<|im_end|>",
+            "raw_dialog_tail_variant_a",
+            "simple_ja_chat",
+            "gemma_it_like",
+        ).forEach { marker ->
+            assertFalse("normal route must not own template marker $marker", marker in normalRouteSources)
+        }
+        assertTrue(
+            "normal route must configure roles through ConversationConfig",
+            "LocalConversationPolicy.conversationConfig(initialTurns)" in runner,
+        )
+        assertTrue(
+            "normal route must create a Conversation API conversation",
+            Regex(
+                """engine\.createConversation\(\s*LocalConversationPolicy\.conversationConfig\(initialTurns\)\s*\)""",
+            ).containsMatchIn(runner),
+        )
+        assertTrue(
+            "normal route must send unwrapped user content",
+            Regex("""conversation\.sendMessageAsync\(\s*prompt,""").containsMatchIn(runner),
+        )
+        assertTrue(
+            "normal route diagnostics must report model-owned template evaluation",
+            "PROMPT_TEMPLATE_OWNER = \"model_metadata\"" in policy &&
+                "PROMPT_TEMPLATE_EVALUATOR = \"litert_lm_conversation_api\"" in policy &&
+                "APP_TEMPLATE_USED = false" in policy &&
+                "TEMPLATE_OWNERSHIP_UNIFIED = true" in policy,
+        )
+        assertTrue(
+            "native NPU serialization must be reported as a non-unified adapter exception",
+            "PROMPT_TEMPLATE_OWNER = \"native_npu_adapter_exception\"" in npuContract &&
+                "PROMPT_TEMPLATE_EVALUATOR = \"native_adapter_serialization\"" in npuContract &&
+                "CONVERSATION_API_USED = false" in npuContract &&
+                "APP_TEMPLATE_USED = true" in npuContract &&
+                "TEMPLATE_OWNERSHIP_UNIFIED = false" in npuContract,
+        )
+    }
 }

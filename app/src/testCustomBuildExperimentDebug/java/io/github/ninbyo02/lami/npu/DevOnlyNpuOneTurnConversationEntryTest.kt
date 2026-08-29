@@ -69,6 +69,19 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
+                "prompt_template_owner=native_npu_adapter_exception",
+            ),
+        )
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
+                "prompt_template_evaluator=native_adapter_serialization",
+            ),
+        )
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("conversation_api_used=false"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("app_template_used=true"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("template_ownership_unified=false"))
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
                 "prompt_tail_variant=raw_dialog_tail_variant_b",
             ),
         )

@@ -58,6 +58,11 @@ for expected in \
   'fallback_used false' \
   'selected_path_npu_saved false' \
   'app_template_mode raw' \
+  'prompt_template_owner native_npu_adapter_exception' \
+  'prompt_template_evaluator native_adapter_serialization' \
+  'conversation_api_used false' \
+  'app_template_used true' \
+  'template_ownership_unified false' \
   'prompt_transport base64'; do
   grep -q "$expected" "$RUNNER" ||
     fail "missing policy assertion: $expected"

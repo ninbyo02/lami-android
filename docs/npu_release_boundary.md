@@ -14,6 +14,22 @@ production persistent provider on SM8750. Normal Release builds still exclude ve
 runtime binaries, and the Release validation receiver/runtime is property-gated.
 Therefore, the distributed Standard Release APK must not yet be described as NPU-enabled.
 
+## Prompt template ownership
+
+Normal LiteRT-LM chat owns no application-side model template. It passes system
+instruction and prior user/model roles through `ConversationConfig`, sends unwrapped
+user content through `sendMessage` or `sendMessageAsync`, and delegates the embedded
+Jinja template to the LiteRT-LM Conversation API.
+
+The native NPU validation path cannot currently use that API. Its
+`raw_dialog_tail_variant_a` serialization is therefore a
+`native_npu_adapter_exception`, not evidence of full prompt-template unification.
+Diagnostics must report `conversation_api_used=false`,
+`app_template_used=true`, and `template_ownership_unified=false`. The exception may
+not select serialization by model filename, provider, or SoC, and it must remain
+isolated from the normal CPU/GPU production route. Promotion requires Conversation API
+support or an equivalent verified evaluator of model-owned template metadata.
+
 ## Verified device evidence
 
 - Device: nubia NX733J
