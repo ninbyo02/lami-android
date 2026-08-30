@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,6 +25,25 @@ class ModelOwnedChatTemplateTest {
             rendered,
         )
     }
+
+    @Test
+    fun `debug NPU greeting probe defaults to the product model metadata template`() {
+        assertEquals(
+            ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT,
+            DevOnlyNpuOneTurnConversationContract.DEFAULT_PROMPT_TAIL_VARIANT,
+        )
+        assertEquals(
+            ModelOwnedChatTemplate.renderForNativeAdapter(
+                contextText = "",
+                userPrompt = "こんにちは",
+            ),
+            DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                contextText = "",
+                userPrompt = "こんにちは",
+            ),
+        )
+    }
+
     @Test
     fun `unknown model metadata template is rejected before native decode`() {
         val model = File.createTempFile("unsupported-template", ".litertlm")

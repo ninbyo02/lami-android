@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
@@ -96,7 +97,8 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
     const val RAW_DIALOG_TAIL_VARIANT_C = "raw_dialog_tail_variant_c"
     const val GEMMA_IT_USER_MODEL_VARIANT = "gemma_it_user_model"
-    const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
+    const val MODEL_METADATA_GEMMA4_TURN_VARIANT = ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT
+    const val DEFAULT_PROMPT_TAIL_VARIANT = MODEL_METADATA_GEMMA4_TURN_VARIANT
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
     const val DEFAULT_MAX_OUTPUT_TOKENS = 16
@@ -171,6 +173,7 @@ object DevOnlyNpuOneTurnConversationContract {
             RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
             RAW_DIALOG_TAIL_VARIANT_C -> RAW_DIALOG_TAIL_VARIANT_C
             GEMMA_IT_USER_MODEL_VARIANT -> GEMMA_IT_USER_MODEL_VARIANT
+            MODEL_METADATA_GEMMA4_TURN_VARIANT -> MODEL_METADATA_GEMMA4_TURN_VARIANT
             else -> DEFAULT_PROMPT_TAIL_VARIANT
         }
 
@@ -181,7 +184,14 @@ object DevOnlyNpuOneTurnConversationContract {
     ): String {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
-        if (sanitizePromptTailVariant(promptTailVariant) == GEMMA_IT_USER_MODEL_VARIANT) {
+        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
+        if (sanitizedPromptTailVariant == MODEL_METADATA_GEMMA4_TURN_VARIANT) {
+            return ModelOwnedChatTemplate.renderForNativeAdapter(
+                contextText = normalizedContext,
+                userPrompt = normalizedUserPrompt,
+            )
+        }
+        if (sanitizedPromptTailVariant == GEMMA_IT_USER_MODEL_VARIANT) {
             return NpuStandardRouteS1Contract.buildPromptWrapperText(normalizedUserPrompt)
         }
         val head = if (normalizedContext.isBlank()) {
@@ -189,7 +199,6 @@ object DevOnlyNpuOneTurnConversationContract {
         } else {
             "$normalizedContext\n\n"
         }
-        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
         val instructionLines = when (sanitizedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_B -> listOf(RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION)
             RAW_DIALOG_TAIL_VARIANT_C -> listOf(
