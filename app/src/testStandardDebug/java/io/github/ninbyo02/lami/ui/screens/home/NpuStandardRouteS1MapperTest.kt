@@ -234,9 +234,10 @@ class NpuStandardRouteS1MapperTest {
         )
 
         assertFalse(rewrite.arithmeticPromptDetected)
-        assertTrue(rewrite.shortPromptRewriteApplied)
-        assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの挨拶は「$prompt」です。"))
-        assertTrue(rewrite.rewrittenPromptText.contains("短く自然な日本語で挨拶を返してください。"))
+        assertFalse(rewrite.shortPromptRewriteApplied)
+        assertEquals(prompt, rewrite.rewrittenPromptText)
+        assertTrue(rewrite.finalPromptText.startsWith("<|turn>system\n"))
+        assertTrue(rewrite.finalPromptText.contains("<|turn>user\n$prompt<turn|>"))
         assertEquals(prompt, request.userPrompt)
         assertEquals(128, request.maxOutputTokens)
         assertEquals(
@@ -258,13 +259,13 @@ class NpuStandardRouteS1MapperTest {
             "「佐藤」をひらがなだけで答えてください。",
         )
 
-        assertTrue(compact.shortPromptRewriteApplied)
+        assertFalse(compact.shortPromptRewriteApplied)
         assertTrue(compact.strictCompactAnswerPromptDetected)
         assertFalse(compact.completeReadingPromptDetected)
-        assertTrue(compact.rewrittenPromptText.contains("重複・説明・句読点なし"))
+        assertEquals("前に伝えた私の名前を一度だけ答えてください。", compact.rewrittenPromptText)
         assertTrue(reading.strictCompactAnswerPromptDetected)
         assertTrue(reading.completeReadingPromptDetected)
-        assertTrue(reading.rewrittenPromptText.contains("読みを省略しない"))
+        assertEquals("「佐藤」をひらがなだけで答えてください。", reading.rewrittenPromptText)
     }
 
     @Test
@@ -284,15 +285,13 @@ class NpuStandardRouteS1MapperTest {
             contextText = context,
         )
 
-        assertEquals("「お名前を教えてください。」とだけ答えてください。", continuation.rewrittenPromptText)
-        assertEquals(
-            "ユーザー名は佐藤です。「佐藤さんですね。」とだけ答えてください。",
-            declaration.rewrittenPromptText,
-        )
+        assertEquals("私の名前は", continuation.rewrittenPromptText)
+        assertEquals("私の名前は佐藤です。", declaration.rewrittenPromptText)
         listOf(recall, followUp).forEach { rewrite ->
-            assertTrue(rewrite.contextualFactEmbedded)
-            assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの名前は佐藤です"))
-            assertTrue(rewrite.rewrittenPromptText.contains("佐藤だけ答えてください"))
+            assertFalse(rewrite.contextualFactEmbedded)
+            assertTrue(rewrite.finalPromptText.contains("<|turn>user\n私の名前は佐藤です。<turn|>"))
+            assertTrue(rewrite.finalPromptText.contains("<|turn>model\n佐藤さんですね。<turn|>"))
+            assertTrue(rewrite.finalPromptText.endsWith("<|turn>model\n"))
         }
     }
 
@@ -323,9 +322,9 @@ class NpuStandardRouteS1MapperTest {
         )
 
         assertFalse(rewrite.arithmeticPromptDetected)
-        assertTrue(rewrite.shortPromptRewriteApplied)
-        assertTrue(rewrite.rewrittenPromptText.contains("ユーザーの入力は「$prompt」です。"))
-        assertTrue(rewrite.rewrittenPromptText.contains("入力の続きを自然に促す"))
+        assertFalse(rewrite.shortPromptRewriteApplied)
+        assertEquals(prompt, rewrite.rewrittenPromptText)
+        assertTrue(rewrite.finalPromptText.contains("<|turn>user\n$prompt<turn|>"))
         assertEquals(prompt, request.userPrompt)
         assertEquals(128, request.maxOutputTokens)
     }
@@ -358,7 +357,9 @@ class NpuStandardRouteS1MapperTest {
         )
 
         assertTrue(rewrite.arithmeticPromptDetected)
-        assertTrue(rewrite.shortPromptRewriteApplied)
+        assertFalse(rewrite.shortPromptRewriteApplied)
+        assertEquals(prompt, rewrite.rewrittenPromptText)
+        assertTrue(rewrite.finalPromptText.contains("<|turn>user\n$prompt<turn|>"))
         assertEquals(4096, request.maxOutputTokens)
         assertEquals(
             NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE,
@@ -378,7 +379,8 @@ class NpuStandardRouteS1MapperTest {
 
         listOf(oneCodePoint, twoCodePoints).forEach { prompt ->
             val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative("  $prompt  ")
-            assertTrue(rewrite.shortPromptRewriteApplied)
+            assertFalse(rewrite.shortPromptRewriteApplied)
+            assertEquals(prompt, rewrite.rewrittenPromptText)
             assertEquals(128, NpuStandardRouteS1Contract.maxOutputTokensForPrompt(prompt, 4096))
             assertEquals(64, NpuStandardRouteS1Contract.maxOutputTokensForPrompt(prompt, 64))
         }

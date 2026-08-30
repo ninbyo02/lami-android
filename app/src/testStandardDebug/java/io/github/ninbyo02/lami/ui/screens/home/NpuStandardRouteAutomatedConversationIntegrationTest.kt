@@ -118,8 +118,11 @@ class NpuStandardRouteAutomatedConversationIntegrationTest {
 
         assertTrue(request.contextText.startsWith("ユーザー:"))
         assertTrue(request.contextText.contains("青に訂正"))
-        assertFalse(request.contextText.contains("アシスタント:"))
+        assertTrue(request.contextText.contains("アシスタント:"))
         assertFalse(request.contextText.contains("私の名前は青葉"))
+        assertTrue(finalInput.startsWith("<|turn>"))
+        assertFalse(finalInput.contains("<bos>"))
+        assertTrue(finalInput.endsWith("<|turn>model\n"))
         assertTrue(
             finalInput.codePointCount(0, finalInput.length) <=
                 RealNpuStandardRouteS1Provider.NATIVE_MAX_INPUT_CODE_POINTS,

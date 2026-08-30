@@ -207,6 +207,7 @@ internal class RealNpuStandardRouteS1Provider(
         const val PROMPT_SOURCE_STANDARD_ROUTE = "standard_route_persistent_npu"
 
         const val NATIVE_MAX_INPUT_CODE_POINTS = 128
+        private const val MIN_CONTEXT_TURN_CODE_POINTS = 4
 
         fun request(
             userPrompt: String,
@@ -250,82 +251,67 @@ internal class RealNpuStandardRouteS1Provider(
             userPrompt: String,
             promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
         ): String {
-            val contextLines = contextText
-                .lineSequence()
-                .map(String::trim)
-                .filter(String::isNotBlank)
-                .toList()
-            val contextTurns = mutableListOf<MutableList<String>>()
-            contextLines.forEach { line ->
-                if (line.startsWith("ユーザー:")) {
-                    contextTurns += mutableListOf(line)
-                } else if (
-                    line.startsWith("アシスタント:") &&
-                    contextTurns.lastOrNull()?.firstOrNull()?.startsWith("ユーザー:") == true
-                ) {
-                    contextTurns.last() += line
-                } else {
-                    contextTurns += mutableListOf(line)
-                }
-            }
-            val includePreviousAssistantAnswer = referencesPreviousAssistantAnswer(userPrompt)
-            val policyTurns = contextTurns.mapIndexedNotNull { index, turn ->
-                turn.filter { line ->
-                    !line.startsWith("アシスタント:") ||
-                        (includePreviousAssistantAnswer && index == contextTurns.lastIndex)
-                }.takeIf(List<String>::isNotEmpty)
-            }
-            val strictCompactAnswer =
-                userPrompt.startsWith(NpuStandardRouteS1Contract.STRICT_COMPACT_ANSWER_INSTRUCTION)
-            val windowedPolicyTurns = if (strictCompactAnswer) {
-                policyTurns.takeLast(1).map(::compactLatestCorrection)
-            } else {
-                policyTurns
-            }
-            val selectedTurns = ArrayDeque<List<String>>()
+            val boundedTurns = LocalConversationHistoryPolicy.bounded(
+                ModelOwnedChatTemplate.parseContext(contextText),
+            )
+            val latestUserIndex = boundedTurns.indexOfLast { it.role == LocalConversationRole.USER }
+            if (latestUserIndex < 0) return ""
+            val selectedTurns = mutableListOf<LocalConversationTurn>()
 
-            for (turn in windowedPolicyTurns.asReversed()) {
-                val candidate = buildList {
-                    addAll(turn)
-                    selectedTurns.forEach(::addAll)
-                }.joinToString("\n")
+            boundedTurns.drop(latestUserIndex).forEach { turn ->
+                val candidateTurns = selectedTurns + turn
+                val candidate = serializeContextTurns(candidateTurns)
                 val finalInput = NpuStandardRouteNativeContract.buildPrompt(
                     contextText = candidate,
                     userPrompt = userPrompt,
                     promptTailVariant = promptTailVariant,
                 )
-                if (finalInput.codePointCount(0, finalInput.length) > NATIVE_MAX_INPUT_CODE_POINTS) {
-                    break
+                if (finalInput.codePointCount(0, finalInput.length) <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                    selectedTurns += turn
+                } else {
+                    fitTrailingTurn(
+                        turn = turn,
+                        selectedTurns = selectedTurns,
+                        userPrompt = userPrompt,
+                        promptTailVariant = promptTailVariant,
+                    )?.let(selectedTurns::add)
                 }
-                selectedTurns.addFirst(turn)
             }
 
-            return selectedTurns.flatten().joinToString("\n")
+            return serializeContextTurns(selectedTurns)
         }
 
-        private fun compactLatestCorrection(turn: List<String>): List<String> =
-            turn.map { line ->
-                if (!line.startsWith("ユーザー:")) return@map line
-                val userText = line.removePrefix("ユーザー:").trim()
-                val correction = CORRECTION_PATTERN.find(userText) ?: return@map line
-                val subject = correction.groupValues[1].trim()
-                val value = correction.groupValues[2].trim()
-                if (subject.isBlank() || value.isBlank()) line else "ユーザー: ${subject}の最新値は${value}です。"
+        private fun fitTrailingTurn(
+            turn: LocalConversationTurn,
+            selectedTurns: Collection<LocalConversationTurn>,
+            userPrompt: String,
+            promptTailVariant: String,
+        ): LocalConversationTurn? {
+            var text = turn.text.trim()
+            while (text.codePointCount(0, text.length) >= MIN_CONTEXT_TURN_CODE_POINTS) {
+                val fittedTurn = turn.copy(text = text)
+                val candidate = serializeContextTurns(selectedTurns + fittedTurn)
+                val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                    contextText = candidate,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                )
+                if (finalInput.codePointCount(0, finalInput.length) <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                    return fittedTurn
+                }
+                val codePoints = text.codePointCount(0, text.length)
+                text = text.substring(0, text.offsetByCodePoints(0, codePoints - 1))
             }
+            return null
+        }
 
-        private val CORRECTION_PATTERN = Regex("^(.{1,40}?)を([^。、\\s]{1,16})に訂正")
-
-        private fun referencesPreviousAssistantAnswer(userPrompt: String): Boolean =
-            listOf(
-                "前の回答",
-                "前回の回答",
-                "直前の回答",
-                "さっきの回答",
-                "先ほどの回答",
-                "その回答",
-                "回答の続き",
-                "続きを",
-            ).any(userPrompt::contains)
+        private fun serializeContextTurns(turns: Collection<LocalConversationTurn>): String =
+            turns.joinToString("\n") { turn ->
+                when (turn.role) {
+                    LocalConversationRole.USER -> "ユーザー: ${turn.text}"
+                    LocalConversationRole.MODEL -> "アシスタント: ${turn.text}"
+                }
+            }
 
         fun buildNpuRealPromptRequestTrace(
             request: NpuStandardRouteNativeRequest,

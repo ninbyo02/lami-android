@@ -7782,7 +7782,7 @@ fun Home(
                                                             logLocalStatsInventoryClassification(runResult = runResultWithUiTrace)
                                                             val initialState = runResultWithUiTrace?.state
                                                             val initialResponse = runResultWithUiTrace?.response.orEmpty()
-                                                            val initialResponseBlank = sanitizeLocalAssistantResponse(initialResponse).isBlank()
+                                                            val initialResponseBlank = sanitizeLocalAssistantResponse(initialResponse, requestPrompt).isBlank()
                                                             val initialTimedOut = runResultWithUiTrace == null
                                                             val initialResponseLength = initialResponse.length
                                                             val initialTracePresent = runResultWithUiTrace?.trace != null
@@ -7802,7 +7802,10 @@ fun Home(
                                                                 val recheckedState = runResultWithUiTrace?.state ?: localInferenceEngineState.takeIf {
                                                                     it == LocalInferenceEngineState.READY || it == LocalInferenceEngineState.PREPARING
                                                                 }
-                                                                val recheckedResponseBlank = sanitizeLocalAssistantResponse(runResultWithUiTrace?.response.orEmpty()).isBlank()
+                                                                val recheckedResponseBlank = sanitizeLocalAssistantResponse(
+                                                                    runResultWithUiTrace?.response.orEmpty(),
+                                                                    requestPrompt,
+                                                                ).isBlank()
                                                                 Log.i(
                                                                     "ChatScreen",
                                                                     "LOCAL state grace check after recheck: recheckedState=$recheckedState, recheckedResponseBlank=$recheckedResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
@@ -7811,14 +7814,15 @@ fun Home(
                                                             } else {
                                                                 initialState
                                                             }
-                                                            val assistantResponse = sanitizeLocalAssistantResponse(initialResponse)
+                                                            val assistantResponse = sanitizeLocalAssistantResponse(initialResponse, requestPrompt)
                                                             var resolvedAssistantResponse = assistantResponse
                                                             if (resolvedState == LocalInferenceEngineState.READY) {
                                                                 if (resolvedAssistantResponse.isBlank()) {
                                                                     delay(250L)
                                                                     val fallbackUiResponse = localStreamingResponseText?.trim().orEmpty()
                                                                     resolvedAssistantResponse = sanitizeLocalAssistantResponse(
-                                                                        assistantResponse.ifBlank { fallbackUiResponse }
+                                                                        assistantResponse.ifBlank { fallbackUiResponse },
+                                                                        requestPrompt,
                                                                     )
                                                                     if (resolvedAssistantResponse.isBlank()) {
                                                                         Log.e(
@@ -7831,7 +7835,10 @@ fun Home(
                                                             val recheckedRunResult = runResultWithUiTrace
                                                             val recheckedTimedOut = recheckedRunResult == null
                                                             val recheckedResponseBlank =
-                                                                sanitizeLocalAssistantResponse(recheckedRunResult?.response.orEmpty()).isBlank()
+                                                                sanitizeLocalAssistantResponse(
+                                                                    recheckedRunResult?.response.orEmpty(),
+                                                                    requestPrompt,
+                                                                ).isBlank()
                                                             val recheckedResponseLength = recheckedRunResult?.response?.length ?: -1
                                                             val recheckedTracePresent = recheckedRunResult?.trace != null
                                                             val resolvedAssistantBlank = resolvedAssistantResponse.isBlank()
@@ -13672,12 +13679,16 @@ private fun InferenceStatsSection(
     }
 }
 
-private fun sanitizeLocalAssistantResponse(raw: String): String {
-    val sanitized = raw
-        .replace("<end_of_turn>", "")
-        .replace("<eot>", "")
-        .replace("<|eot_id|>", "")
-        .replace("<|end_of_text|>", "")
+private fun sanitizeLocalAssistantResponse(
+    raw: String,
+    prompt: String = "",
+): String {
+    val sanitized = LocalInferenceResponseSanitizer
+        .sanitize(
+            rawOutput = raw,
+            prompt = prompt,
+        )
+        .sanitizedOutput
         .replace(Regex("\n{3,}"), "\n\n")
         .trim()
     logLocalStreamingWhitespace(

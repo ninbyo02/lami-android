@@ -4,6 +4,7 @@ private enum class LocalUnexpectedScript(
     val unicodeScript: Character.UnicodeScript,
 ) {
     ARABIC(Character.UnicodeScript.ARABIC),
+    CYRILLIC(Character.UnicodeScript.CYRILLIC),
     HANGUL(Character.UnicodeScript.HANGUL),
 }
 

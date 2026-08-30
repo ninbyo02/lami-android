@@ -67,7 +67,7 @@ object NpuDiagnosticPromptValidator {
             inputLimitMode = DEFAULT_INPUT_LIMIT_MODE,
             allowLineFeed = false,
         )?.let { return it }
-        if (normalized.any(Char::isSurrogate)) {
+        if (hasUnpairedSurrogate(normalized)) {
             return invalid(
                 normalized,
                 "invalid_utf8",
@@ -89,7 +89,7 @@ object NpuDiagnosticPromptValidator {
             inputLimitMode = DEFAULT_INPUT_LIMIT_MODE,
             allowLineFeed = false,
         )?.let { return it }
-        if (normalized.any(Char::isSurrogate)) {
+        if (hasUnpairedSurrogate(normalized)) {
             return invalid(
                 normalized,
                 "invalid_utf8",
@@ -111,7 +111,7 @@ object NpuDiagnosticPromptValidator {
             inputLimitMode = HIDDEN_TEMPLATE_INPUT_LIMIT_MODE,
             allowLineFeed = true,
         )?.let { return it }
-        if (normalized.any(Char::isSurrogate)) {
+        if (hasUnpairedSurrogate(normalized)) {
             return invalid(
                 normalized,
                 "invalid_utf8",
@@ -144,6 +144,22 @@ object NpuDiagnosticPromptValidator {
         normalized.any { it == '\u0000' } -> invalid(normalized, "contains_nul", "Prompt must not contain NUL characters.", mode, maxCodePoints, inputLimitMode)
         normalized.any { it.isISOControl() && !(allowLineFeed && it == '\n') } -> invalid(normalized, "contains_control_char", "Prompt must not contain control characters.", mode, maxCodePoints, inputLimitMode)
         else -> null
+    }
+
+    private fun hasUnpairedSurrogate(value: String): Boolean {
+        var index = 0
+        while (index < value.length) {
+            val current = value[index]
+            when {
+                current.isHighSurrogate() -> {
+                    if (index + 1 >= value.length || !value[index + 1].isLowSurrogate()) return true
+                    index += 2
+                }
+                current.isLowSurrogate() -> return true
+                else -> index += 1
+            }
+        }
+        return false
     }
 
     private fun valid(

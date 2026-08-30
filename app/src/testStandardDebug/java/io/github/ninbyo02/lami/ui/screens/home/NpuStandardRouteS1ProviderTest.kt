@@ -533,70 +533,58 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `standard route reports the raw prompt profile actually sent to native`() {
-        val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
-        val contract = contractClass.getField("INSTANCE").get(null)
-        val rawVariant = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_A").get(null) as String
-        assertEquals("raw_dialog_tail_variant_a", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
+    fun `standard route reports the model metadata prompt profile actually sent to native`() {
+        assertEquals(
+            ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT,
+            NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
+        )
         listOf(
             "こんにちは",
             "あなたは誰ですか？",
             "カレーの材料を箇条書きで教えて",
         ).forEach { userPrompt ->
             val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt)
-            val prompt = contractClass
-                .getMethod(
-                    "buildRawDialogTailPrompt",
-                    String::class.java,
-                    String::class.java,
-                    String::class.java,
-                )
-                .invoke(contract, "", rewrite.rewrittenPromptText, rawVariant) as String
             val request = RealNpuStandardRouteS1Provider.request(
-                userPrompt = rewrite.rewrittenPromptText,
+                userPrompt = userPrompt,
                 maxOutputTokens = 32,
             )
+            val prompt = io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract.buildPrompt(
+                contextText = request.contextText,
+                userPrompt = request.userPrompt,
+                promptTailVariant = request.promptTailVariant,
+            )
 
-            assertEquals("raw_dialog_tail_variant_a", request.promptTailVariant)
+            assertEquals(ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT, request.promptTailVariant)
             assertTrue(
                 RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
-                    .contains("prompt_wrapper_used=raw_dialog_tail_variant_a"),
+                    .contains("prompt_wrapper_used=${ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT}"),
             )
             assertEquals(rewrite.finalPromptText, prompt)
         }
     }
 
     @Test
-    fun `standard route rewrites short arithmetic prompts in the native raw prompt`() {
-        val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
-        val contract = contractClass.getField("INSTANCE").get(null)
-        val rawVariant = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_A").get(null) as String
-        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative("１＋１は？")
-        val prompt = contractClass
-            .getMethod(
-                "buildRawDialogTailPrompt",
-                String::class.java,
-                String::class.java,
-                String::class.java,
-            )
-            .invoke(contract, "", rewrite.rewrittenPromptText, rawVariant) as String
+    fun `standard route preserves arithmetic content in the model metadata prompt`() {
+        val userPrompt = "１＋１は？"
+        val rewrite = NpuStandardRouteS1Contract.rewritePromptForNative(userPrompt)
         val request = RealNpuStandardRouteS1Provider.request(
-            userPrompt = rewrite.rewrittenPromptText,
+            userPrompt = userPrompt,
             maxOutputTokens = 32,
+        )
+        val prompt = io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract.buildPrompt(
+            contextText = request.contextText,
+            userPrompt = request.userPrompt,
+            promptTailVariant = request.promptTailVariant,
         )
         val trace = RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
 
-        assertEquals(
-            "必ず日本語だけで短く返答してください。\n" +
-                "ユーザー: 次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
-                "問題: １＋１は？\n" +
-                "答え:\n" +
-                "アシスタント:",
-            prompt,
-        )
+        assertEquals(userPrompt, rewrite.rewrittenPromptText)
+        assertEquals(rewrite.finalPromptText, prompt)
+        assertTrue(prompt.contains("<|turn>user\n$userPrompt<turn|>"))
+        assertTrue(prompt.endsWith("<|turn>model\n"))
         assertTrue(rewrite.arithmeticPromptDetected)
-        assertTrue(rewrite.shortPromptRewriteApplied)
-        assertTrue(trace.contains("prompt_tail_variant=raw_dialog_tail_variant_a"))
+        assertFalse(rewrite.shortPromptRewriteApplied)
+        assertTrue(trace.contains("prompt_tail_variant=${ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT}"))
     }
 
     @Test
@@ -715,7 +703,7 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(copyText.contains("[DEV診断: NPU S1 persistent custom JNI summary]"))
         assertTrue(copyText.contains("input_prompt=こんばんは"))
         assertTrue(copyText.contains("arithmetic_prompt_detected=false"))
-        assertTrue(copyText.contains("short_prompt_rewrite_applied=true"))
+        assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
         assertTrue(copyText.contains("arithmetic_tail_leak_detected=false"))
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=false"))
         assertTrue(copyText.contains("actual_display_text=こんばんは。"))
@@ -2011,8 +1999,8 @@ class NpuStandardRouteS1ProviderTest {
                 "last_npu_s1_request_started_at_elapsed_realtime_ms=123",
                 "last_npu_s1_request_finished_at_elapsed_realtime_ms=456",
                 "last_npu_s1_prompt=あなたは誰ですか",
-                "last_npu_s1_final_prompt_tail=アシスタント:",
-                "last_npu_s1_prompt_profile=raw_dialog_tail_variant_a",
+                "last_npu_s1_final_prompt_tail=<|turn>model\\n",
+                "last_npu_s1_prompt_profile=model_metadata_gemma4_turn_v1",
                 "last_npu_s1_model_path=hidden_from_failure_details",
                 "last_npu_s1_status=failure",
                 "last_npu_s1_reason=adapter_failure:LiteRtLmJniException",
@@ -2035,8 +2023,9 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
         assertTrue(copyText.contains("[DEV診断: NPU S1 failure details]"))
         assertTrue(copyText.contains("input_prompt=あなたは誰ですか"))
-        assertTrue(copyText.contains("final_prompt_text=必ず日本語だけで短く返答してください。\\nユーザー: あなたは誰ですか\\nアシスタント:"))
-        assertTrue(copyText.contains("selected_prompt_profile=raw_dialog_tail_variant_a"))
+        assertTrue(copyText.contains("final_prompt_text=<|turn>system\\n"))
+        assertTrue(copyText.contains("<|turn>user\\nあなたは誰ですか<turn|>\\n<|turn>model\\n"))
+        assertTrue(copyText.contains("selected_prompt_profile=model_metadata_gemma4_turn_v1"))
         assertTrue(copyText.contains("failure_exception_class=LiteRtLmJniException"))
         assertTrue(copyText.contains("failure_exception_message=engine-create-failed:INTERNAL"))
         assertTrue(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
