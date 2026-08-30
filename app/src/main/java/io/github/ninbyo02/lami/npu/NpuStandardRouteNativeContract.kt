@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.npu
 
+import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 
@@ -52,20 +53,18 @@ internal data class NpuStandardRouteNativeDisplay(
 
 internal object NpuStandardRouteNativeContract {
     const val TIMEOUT_MS = 60_000L
-    private const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
 
     fun buildPrompt(
         contextText: String,
         userPrompt: String,
         promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
     ): String {
-        require(promptTailVariant == NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT) {
+        require(promptTailVariant == ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT) {
             "unsupported_npu_prompt_tail_variant:$promptTailVariant"
         }
-        val normalizedContext = contextText.trim()
-        val head = if (normalizedContext.isBlank()) "" else "$normalizedContext\n\n"
-        return "$head$JAPANESE_ONLY_TAIL_INSTRUCTION\n" +
-            "ユーザー: ${userPrompt.trim()}\n" +
-            "アシスタント:"
+        return ModelOwnedChatTemplate.renderForNativeAdapter(
+            contextText = contextText,
+            userPrompt = userPrompt,
+        )
     }
 }

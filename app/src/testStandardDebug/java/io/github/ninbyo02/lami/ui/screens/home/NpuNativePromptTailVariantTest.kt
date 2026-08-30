@@ -20,7 +20,7 @@ class NpuNativePromptTailVariantTest {
             trace = {},
         )
 
-        assertEquals("raw_dialog_tail_variant_a", capturedPromptTailVariant)
+        assertEquals("model_metadata_gemma4_turn_v1", capturedPromptTailVariant)
         assertEquals(true, result.success)
         val diagnostics = NpuStandardRouteS1Contract.displayText(
             selection = NpuStandardRouteS1Selection(enabled = true),
@@ -35,11 +35,11 @@ class NpuNativePromptTailVariantTest {
             timeout = result.timeout,
             freshCrash = result.freshCrash,
         )
-        assertTrue(diagnostics.contains("prompt_template_owner=native_npu_adapter_exception"))
-        assertTrue(diagnostics.contains("prompt_template_evaluator=native_adapter_serialization"))
+        assertTrue(diagnostics.contains("prompt_template_owner=model_metadata"))
+        assertTrue(diagnostics.contains("prompt_template_evaluator=lami_verified_model_template_renderer"))
         assertTrue(diagnostics.contains("conversation_api_used=false"))
-        assertTrue(diagnostics.contains("app_template_used=true"))
-        assertTrue(diagnostics.contains("template_ownership_unified=false"))
+        assertTrue(diagnostics.contains("app_template_used=false"))
+        assertTrue(diagnostics.contains("template_ownership_unified=true"))
     }
 
     private fun successDisplay(maxOutputTokens: Int) = NpuStandardRouteNativeDisplay(

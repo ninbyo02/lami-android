@@ -20,7 +20,6 @@ internal fun sanitizeAssistantTextForTts(text: String): String {
         .replace(Regex("([。、！？,.!?])\\s+"), "\$1")
         .replace(Regex("\n{3,}"), "\n\n")
         .trim()
-    if (normalized.length < 2) return ""
     if (normalized.all { !it.isLetterOrDigit() }) return ""
     return normalized
 }

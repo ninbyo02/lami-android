@@ -112,12 +112,12 @@ class NpuReleaseValidationSourceContractTest {
                 "TEMPLATE_OWNERSHIP_UNIFIED = true" in policy,
         )
         assertTrue(
-            "native NPU serialization must be reported as a non-unified adapter exception",
-            "PROMPT_TEMPLATE_OWNER = \"native_npu_adapter_exception\"" in npuContract &&
-                "PROMPT_TEMPLATE_EVALUATOR = \"native_adapter_serialization\"" in npuContract &&
+            "native NPU serialization must use the verified model-owned template profile",
+            "PROMPT_TEMPLATE_OWNER = LocalConversationPolicy.PROMPT_TEMPLATE_OWNER" in npuContract &&
+                "PROMPT_TEMPLATE_EVALUATOR = ModelOwnedChatTemplate.EVALUATOR" in npuContract &&
                 "CONVERSATION_API_USED = false" in npuContract &&
-                "APP_TEMPLATE_USED = true" in npuContract &&
-                "TEMPLATE_OWNERSHIP_UNIFIED = false" in npuContract,
+                "APP_TEMPLATE_USED = false" in npuContract &&
+                "TEMPLATE_OWNERSHIP_UNIFIED = true" in npuContract,
         )
     }
 }

@@ -160,6 +160,17 @@ class LocalInferenceResponseQualityTest {
     }
 
     @Test
+    fun `Cyrillic fragment joined to Japanese is rejected`() {
+        assertEquals(
+            "unexpected_script:CYRILLIC",
+            rejectionReason(
+                userPrompt = "日本語で答えて",
+                response = "これはваш回答です。",
+            ),
+        )
+    }
+
+    @Test
     fun `closed multi backtick inline code is excluded`() {
         assertNull(
             rejectionReason(

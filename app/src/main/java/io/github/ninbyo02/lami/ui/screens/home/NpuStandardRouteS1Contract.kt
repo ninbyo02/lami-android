@@ -216,13 +216,13 @@ internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE = "standard_chat_screen_s1_npu_display_only"
     const val ROUTE_TYPE_S2_DB_SAVE = "standard_chat_screen_s2_npu_db_save"
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
-    const val PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_a"
+    const val PROMPT_TAIL_VARIANT = ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT
     const val PROMPT_WRAPPER_USED = PROMPT_TAIL_VARIANT
-    const val PROMPT_TEMPLATE_OWNER = "native_npu_adapter_exception"
-    const val PROMPT_TEMPLATE_EVALUATOR = "native_adapter_serialization"
+    const val PROMPT_TEMPLATE_OWNER = LocalConversationPolicy.PROMPT_TEMPLATE_OWNER
+    const val PROMPT_TEMPLATE_EVALUATOR = ModelOwnedChatTemplate.EVALUATOR
     const val CONVERSATION_API_USED = false
-    const val APP_TEMPLATE_USED = true
-    const val TEMPLATE_OWNERSHIP_UNIFIED = false
+    const val APP_TEMPLATE_USED = false
+    const val TEMPLATE_OWNERSHIP_UNIFIED = true
     const val MAX_OUTPUT_TOKENS = 32
     const val STRICT_COMPACT_ANSWER_INSTRUCTION =
         "重複・説明・句読点なしで一度だけ答えてください。"
@@ -257,67 +257,18 @@ internal object NpuStandardRouteS1Contract {
         contextText: String = "",
     ): NpuStandardRouteS1PromptRewrite {
         val normalizedPrompt = userPrompt.trim()
-        val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
-        val greetingPromptDetected = isSimpleGreetingPrompt(normalizedPrompt)
-        val ambiguousShortPromptDetected = isAmbiguousShortPrompt(normalizedPrompt)
-        val strictCompactAnswerPromptDetected = isStrictCompactAnswerPrompt(normalizedPrompt)
-        val completeReadingPromptDetected = normalizedPrompt.contains("ひらがな")
-        val declaredSelfName = extractDeclaredSelfName(normalizedPrompt)
-        val contextSelfName = latestDeclaredSelfName(contextText)
-        val selfNameContinuationPromptDetected = isIncompleteSelfNamePrompt(normalizedPrompt)
-        val selfNameRecallPromptDetected =
-            contextSelfName != null &&
-                (
-                    isSelfNameRecallPrompt(normalizedPrompt) ||
-                        isSelfNameRecallFollowUp(normalizedPrompt, contextText)
-                    )
-        val contextualFactEmbedded = selfNameRecallPromptDetected
-        val rewrittenPrompt = when {
-            arithmeticPromptDetected ->
-                "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
-                    "問題: $normalizedPrompt\n" +
-                    "答え:"
-            greetingPromptDetected ->
-                "ユーザーの挨拶は「$normalizedPrompt」です。\n" +
-                    "短く自然な日本語で挨拶を返してください。\n" +
-                    "回答だけを出力してください。"
-            selfNameContinuationPromptDetected ->
-                "「お名前を教えてください。」とだけ答えてください。"
-            declaredSelfName != null ->
-                "ユーザー名は${declaredSelfName}です。「${declaredSelfName}さんですね。」とだけ答えてください。"
-            selfNameRecallPromptDetected ->
-                "$STRICT_COMPACT_ANSWER_INSTRUCTION\n" +
-                    "ユーザーの名前は${contextSelfName}です。${contextSelfName}だけ答えてください。"
-            strictCompactAnswerPromptDetected -> buildString {
-                append(STRICT_COMPACT_ANSWER_INSTRUCTION)
-                if (completeReadingPromptDetected) append("読みを省略しないでください。")
-                append('\n')
-                append(normalizedPrompt)
-            }
-            ambiguousShortPromptDetected ->
-                "ユーザーの入力は「$normalizedPrompt」です。\n" +
-                    "入力の続きを自然に促す、短い日本語の返答をしてください。\n" +
-                    "回答だけを出力してください。"
-            else -> normalizedPrompt
-        }
         return NpuStandardRouteS1PromptRewrite(
             originalPrompt = normalizedPrompt,
-            finalPromptText = "必ず日本語だけで短く返答してください。\n" +
-                "ユーザー: $rewrittenPrompt\n" +
-                "アシスタント:",
-            arithmeticPromptDetected = arithmeticPromptDetected,
-            shortPromptRewriteApplied =
-                arithmeticPromptDetected ||
-                    greetingPromptDetected ||
-                    selfNameContinuationPromptDetected ||
-                    declaredSelfName != null ||
-                    selfNameRecallPromptDetected ||
-                    ambiguousShortPromptDetected ||
-                    strictCompactAnswerPromptDetected,
-            rewrittenPromptText = rewrittenPrompt,
-            strictCompactAnswerPromptDetected = strictCompactAnswerPromptDetected,
-            completeReadingPromptDetected = completeReadingPromptDetected,
-            contextualFactEmbedded = contextualFactEmbedded,
+            finalPromptText = ModelOwnedChatTemplate.renderForNativeAdapter(
+                contextText = contextText,
+                userPrompt = normalizedPrompt,
+            ),
+            arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt),
+            shortPromptRewriteApplied = false,
+            rewrittenPromptText = normalizedPrompt,
+            strictCompactAnswerPromptDetected = isStrictCompactAnswerPrompt(normalizedPrompt),
+            completeReadingPromptDetected = normalizedPrompt.contains("ひらがな"),
+            contextualFactEmbedded = false,
         )
     }
 

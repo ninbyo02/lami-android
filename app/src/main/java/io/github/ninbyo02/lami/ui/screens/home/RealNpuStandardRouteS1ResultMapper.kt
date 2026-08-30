@@ -1,14 +1,13 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
-import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 
 internal object RealNpuStandardRouteS1ResultMapper {
     fun fromDisplay(
         display: NpuStandardRouteNativeDisplay,
         userPrompt: String = "",
     ): NpuStandardRouteS1RawResult {
-        val sanitizedOutput = Qairt244NpuOutputSanitizer
+        val sanitizedOutput = LocalInferenceResponseSanitizer
             .normalizeJapaneseInternalSpaces(display.output)
             .trim()
         val rawOutput = display.rawOutput.ifBlank { display.rawOutputFirst200Chars }

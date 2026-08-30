@@ -7,7 +7,6 @@ import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
 import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
-import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 
 internal fun npuStandardRouteNativeLoadOrder(
     debugBuild: Boolean = BuildConfig.DEBUG,
@@ -44,6 +43,15 @@ internal object NpuStandardRoutePersistentProbeRunner {
                 selectedModelPath = selectedModelPath,
             )
         }
+        val templateVerification = ModelOwnedChatTemplate.verify(modelPath)
+        if (!templateVerification.supported) {
+            val verificationReason = "model_chat_template_unsupported:${templateVerification.reason}"
+            return failureDisplay(
+                request = request,
+                reason = verificationReason,
+                nativeErrorMessage = verificationReason,
+            )
+        }
 
         val finalPrompt = NpuStandardRouteNativeContract.buildPrompt(
             contextText = request.contextText,
@@ -68,15 +76,15 @@ internal object NpuStandardRoutePersistentProbeRunner {
             ).joinToString(separator = "|"),
             nativeProbeMode = NATIVE_PROBE_MODE_STANDARD_ROUTE_REUSE_ONCE,
             promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
-            unsafeDevBypassPromptLengthGate = true,
+            unsafeDevBypassPromptLengthGate = false,
         )
         val values = parseKeyValues(nativeResult.resultText)
         val rawOutput = unflatten(values["raw_output"].orEmpty())
-        val sanitizer = Qairt244NpuOutputSanitizer.sanitize(
+        val sanitizer = LocalInferenceResponseSanitizer.sanitize(
             rawOutput = rawOutput,
             prompt = request.userPrompt,
         )
-        val sanitizedOutput = Qairt244NpuOutputSanitizer
+        val sanitizedOutput = LocalInferenceResponseSanitizer
             .normalizeJapaneseInternalSpaces(sanitizer.sanitizedOutput)
             .trim()
         val nativeStatus = values["persistent_custom_jni_status"].orEmpty()

@@ -238,7 +238,10 @@ internal object LocalInferenceOutputPolicy {
         userPrompt: String,
         response: String?,
     ): LocalInferenceOutputDecision {
-        val finalResponse = response?.trim().orEmpty()
+        val finalResponse = LocalInferenceResponseSanitizer.sanitize(
+            rawOutput = response.orEmpty(),
+            prompt = userPrompt,
+        ).sanitizedOutput.trim()
         val rejectionReason = localInferenceResponseRejectionReason(
             userPrompt = userPrompt,
             response = finalResponse,
