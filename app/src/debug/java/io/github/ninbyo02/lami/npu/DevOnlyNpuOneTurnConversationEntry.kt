@@ -3,6 +3,8 @@ package io.github.ninbyo02.lami.npu
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationRole
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationTurn
 import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
@@ -82,6 +84,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_CONTEXT_BASE64 = "context_base64"
     const val EXTRA_CONVERSATION_PROMPTS_BASE64 = "conversation_prompts_base64"
+    const val EXTRA_CONVERSATION_INITIAL_MESSAGES_BASE64 = "conversation_initial_messages_base64"
     const val EXTRA_CONVERSATION_SAMPLER_PROFILE = "conversation_sampler_profile"
     const val EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64 = "conversation_system_instruction_base64"
     const val EXTRA_CONVERSATION_STATE_PROFILE = "conversation_state_profile"
@@ -187,6 +190,34 @@ object DevOnlyNpuOneTurnConversationContract {
             .also { prompts ->
                 require(prompts.size in 1..11)
                 require(prompts.none { it.isBlank() })
+            }
+    }
+
+    internal fun decodeConversationInitialTurns(encodedMessages: String?): List<LocalConversationTurn> {
+        if (encodedMessages.isNullOrBlank()) return emptyList()
+        val json = String(Base64.getDecoder().decode(encodedMessages), Charsets.UTF_8)
+        val messagesType = object : TypeToken<List<Map<String, String>>>() {}.type
+        return Gson().fromJson<List<Map<String, String>>>(json, messagesType)
+            .map { message ->
+                val role = when (message["role"]?.trim()) {
+                    "user" -> LocalConversationRole.USER
+                    "model" -> LocalConversationRole.MODEL
+                    else -> error("unsupported initial message role")
+                }
+                LocalConversationTurn(
+                    role = role,
+                    text = message["text"]?.trim().orEmpty().also {
+                        require(it.isNotBlank()) { "initial message text must not be blank" }
+                    },
+                )
+            }
+            .also { turns ->
+                require(turns.size <= 6)
+                require(turns.chunked(2).all { pair ->
+                    pair.size == 2 &&
+                        pair[0].role == LocalConversationRole.USER &&
+                        pair[1].role == LocalConversationRole.MODEL
+                })
             }
     }
 

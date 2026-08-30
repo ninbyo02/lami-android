@@ -317,6 +317,11 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64,
             ),
         ) ?: LocalConversationPolicy.SYSTEM_INSTRUCTION
+        val initialTurns = DevOnlyNpuOneTurnConversationContract.decodeConversationInitialTurns(
+            intent.getStringExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_INITIAL_MESSAGES_BASE64,
+            ),
+        )
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         val modelPath = modelResolution.path.orEmpty()
         if (modelPath.isBlank()) {
@@ -369,6 +374,7 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             samplerProfile = samplerProfile,
             conversationStateProfile = conversationStateProfile,
             systemInstruction = systemInstruction,
+            initialTurns = initialTurns,
         )
         val nativeValues = parseKeyValueLines(result.resultText)
         val sendSuccessCount = nativeValues["send_success_count"]?.toIntOrNull() ?: 0

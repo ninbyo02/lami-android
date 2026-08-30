@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.npu
 
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationRole
 import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -209,6 +210,36 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             "conversation_prompts_base64",
             DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_PROMPTS_BASE64,
         )
+    }
+
+    @Test
+    fun `conversation API initial messages preserve completed preface pairs`() {
+        val json = """
+            [
+              {"role":"user","text":"私の名字は佐藤です。"},
+              {"role":"model","text":"了解しました。"}
+            ]
+        """.trimIndent()
+        val encoded = java.util.Base64.getEncoder().encodeToString(json.toByteArray())
+
+        val turns = DevOnlyNpuOneTurnConversationContract.decodeConversationInitialTurns(encoded)
+
+        assertEquals(2, turns.size)
+        assertEquals(LocalConversationRole.USER, turns[0].role)
+        assertEquals("私の名字は佐藤です。", turns[0].text)
+        assertEquals(LocalConversationRole.MODEL, turns[1].role)
+        assertEquals("了解しました。", turns[1].text)
+        assertEquals(
+            "conversation_initial_messages_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_INITIAL_MESSAGES_BASE64,
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DevOnlyNpuOneTurnConversationContract.decodeConversationInitialTurns(
+                java.util.Base64.getEncoder().encodeToString(
+                    """[{"role":"user","text":"incomplete"}]""".toByteArray(),
+                ),
+            )
+        }
     }
 
     @Test
