@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -69,17 +70,17 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
-                "prompt_template_owner=native_npu_adapter_exception",
+                "prompt_template_owner=model_metadata",
             ),
         )
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
-                "prompt_template_evaluator=native_adapter_serialization",
+                "prompt_template_evaluator=lami_verified_model_template_renderer",
             ),
         )
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("conversation_api_used=false"))
-        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("app_template_used=true"))
-        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("template_ownership_unified=false"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("app_template_used=false"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("template_ownership_unified=true"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
                 "prompt_tail_variant=raw_dialog_tail_variant_b",
@@ -164,6 +165,34 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals(
             context,
             DevOnlyNpuOneTurnConversationContract.decodeContextTransport(encoded, "fallback"),
+        )
+    }
+
+    @Test
+    fun `conversation API prompt transport preserves ordered multi turn input`() {
+        val json = """["好きな色は赤です。","何色ですか。色だけ答えてください。"]"""
+        val encoded = java.util.Base64.getEncoder().encodeToString(json.toByteArray())
+
+        assertEquals(
+            listOf("好きな色は赤です。", "何色ですか。色だけ答えてください。"),
+            DevOnlyNpuOneTurnConversationContract.decodeConversationPrompts(
+                encodedPrompts = encoded,
+                fallbackPrompt = "fallback",
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DevOnlyNpuOneTurnConversationContract.decodeConversationPrompts(
+                encodedPrompts = "not-base64",
+                fallbackPrompt = "fallback",
+            )
+        }
+        assertEquals(
+            "conversation_api",
+            DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_CONVERSATION_API,
+        )
+        assertEquals(
+            "conversation_prompts_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_PROMPTS_BASE64,
         )
     }
 

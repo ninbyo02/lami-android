@@ -126,7 +126,20 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 val nativeProbeMode = intent.getStringExtra(
                     DevOnlyNpuOneTurnConversationContract.EXTRA_NATIVE_PROBE_MODE,
                 ).orEmpty()
-                if (nativeProbeMode == DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_FULL_20) {
+                if (
+                    nativeProbeMode ==
+                    DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_CONVERSATION_API
+                ) {
+                    resultFile.writeText(
+                        runConversationApiProbe(
+                            appContext = appContext,
+                            intent = intent,
+                            timestampMs = System.currentTimeMillis(),
+                        ),
+                    )
+                } else if (
+                    nativeProbeMode == DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_FULL_20
+                ) {
                     resultFile.writeText(
                         runPersistentFull20Probe(
                             appContext = appContext,
@@ -195,6 +208,7 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                         ),
                     )
                 }
+                resultFile.appendText("native_probe_mode_received=$nativeProbeMode\n")
                 val workerFinishedAtElapsedMs = SystemClock.elapsedRealtime()
                 appendReceiverLifecycle(
                     resultFile = resultFile,
@@ -259,6 +273,110 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 )
             }
         }, "DevOnlyNpuOneTurnConversationReceiver").start()
+    }
+
+    private fun runConversationApiProbe(
+        appContext: Context,
+        intent: Intent,
+        timestampMs: Long,
+    ): String {
+        val fallbackPrompt = intent.getStringExtra(
+            DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
+        ).orEmpty().ifBlank { DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT }
+        val prompts = DevOnlyNpuOneTurnConversationContract.decodeConversationPrompts(
+            encodedPrompts = intent.getStringExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_PROMPTS_BASE64,
+            ),
+            fallbackPrompt = fallbackPrompt,
+        )
+        val maxOutputTokens = intent.getIntExtra(
+            DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
+            DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+        ).coerceIn(1, 128)
+        val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
+        val modelPath = modelResolution.path.orEmpty()
+        if (modelPath.isBlank()) {
+            return conversationApiReceiverText(
+                timestampMs = timestampMs,
+                status = "failure",
+                reason = "model_resolution_failed:${modelResolution.reasonCode}",
+                promptCount = prompts.size,
+                maxOutputTokens = maxOutputTokens,
+                nativeText = "resolved_model_path=\nmodel_resolution_reason=${modelResolution.reasonCode}\n",
+            )
+        }
+        val result = Qairt244ShortMultitokenSmoke.runConversationApiProbe(
+            context = appContext,
+            modelPath = modelPath,
+            runId = "dev_receiver_conversation_api_${SystemClock.elapsedRealtime()}",
+            prompts = prompts,
+            maxOutputTokens = maxOutputTokens,
+        )
+        val nativeValues = parseKeyValueLines(result.resultText)
+        val sendSuccessCount = nativeValues["send_success_count"]?.toIntOrNull() ?: 0
+        val success = result.throwableClass == "unavailable" &&
+            result.nativeReturn == "success" &&
+            nativeValues["status"] == "success" &&
+            sendSuccessCount == prompts.size
+        val reason = if (success) {
+            "conversation_api_probe_success"
+        } else {
+            result.throwableMessage.takeIf { it != "unavailable" }
+                ?: nativeValues["failure_reason"]
+                ?: "conversation_api_probe_failure"
+        }
+        return conversationApiReceiverText(
+            timestampMs = timestampMs,
+            status = if (success) "success" else "failure",
+            reason = reason,
+            promptCount = prompts.size,
+            maxOutputTokens = maxOutputTokens,
+            nativeText = result.resultText,
+            diagText = result.diagText,
+            throwableClass = result.throwableClass,
+            throwableMessage = result.throwableMessage,
+        )
+    }
+
+    private fun conversationApiReceiverText(
+        timestampMs: Long,
+        status: String,
+        reason: String,
+        promptCount: Int,
+        maxOutputTokens: Int,
+        nativeText: String,
+        diagText: String = "",
+        throwableClass: String = "unavailable",
+        throwableMessage: String = "unavailable",
+    ): String {
+        val values = parseKeyValueLines(nativeText)
+        return buildList {
+            add("timestamp=$timestampMs")
+            add("status=$status")
+            add("result=$status")
+            add("success=${status == "success"}")
+            add("reason=$reason")
+            add("route_type=dev_only_conversation_api_probe")
+            add("native_probe_mode=${DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_CONVERSATION_API}")
+            add("conversation_api_used=${values["conversation_api_used"] ?: "false"}")
+            add("conversation_api_surface=${values["conversation_api_surface"] ?: "unavailable"}")
+            add("direct_session_api_used=${values["direct_session_api_used"] ?: "unavailable"}")
+            add("app_template_used=${values["app_template_used"] ?: "unavailable"}")
+            add("model_template_source=${values["model_template_source"] ?: "unavailable"}")
+            add("prompt_count=$promptCount")
+            add("send_success_count=${values["send_success_count"] ?: "0"}")
+            add("requested_max_output_tokens=$maxOutputTokens")
+            add("effective_max_output_tokens=$maxOutputTokens")
+            add("fallback_used=false")
+            add("native_error_class=$throwableClass")
+            add("native_error_message=${flattenValue(throwableMessage)}")
+            add("native_result_begin")
+            add(nativeText.trim())
+            add("native_result_end")
+            if (diagText.isNotBlank()) {
+                add("native_diag_tail=${flattenValue(diagText.takeLast(1600))}")
+            }
+        }.joinToString(separator = "\n", postfix = "\n")
     }
 
     private fun runPersistentFull20Probe(

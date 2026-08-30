@@ -7,6 +7,7 @@ SELECTED_REF="${LITERT_LM_REF:-v0.11.0}"
 EXPECTED_COMMIT="${LITERT_LM_EXPECTED_COMMIT:-c87189528a758db32ead241f4fc9c64836398ee7}"
 BASE_PATCH="${QAIRT244_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.patch}"
 EXTRA_PATCH="${QAIRT244_EXTRA_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_persistent_probe.patch}"
+CONVERSATION_PATCH="${QAIRT244_CONVERSATION_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_conversation_api_probe.patch}"
 QAIRT_ROOT="${QAIRT244_ROOT:-$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225}"
 LABEL="${QAIRT244_BUILD_LABEL:-qairt244_128token_persistent_probe_repro}"
 REQUIRE_PERSISTENT_PROBE="${QAIRT244_REQUIRE_PERSISTENT_PROBE:-true}"
@@ -32,7 +33,9 @@ Options:
   --selected-ref REF      Fetchable LiteRT-LM ref. Default: v0.11.0.
   --expected-commit SHA   Required commit resolved by --selected-ref.
   --base-patch PATH       Base qairt244 JNI patch.
-  --extra-patch PATH      Follow-up patch; pass an empty string to disable it.
+  --extra-patch PATH      Follow-up persistent-probe patch; pass an empty string to disable it.
+  --conversation-patch PATH
+                          Isolated C++ Conversation API probe patch; pass an empty string to disable it.
   --qairt-root PATH       Exact QAIRT 2.44 SDK root.
   --label LABEL           Artifact directory label.
   --require-persistent-probe BOOL
@@ -58,6 +61,7 @@ while (($#)); do
     --expected-commit) EXPECTED_COMMIT="${2:?missing sha}"; shift 2 ;;
     --base-patch) BASE_PATCH="${2:?missing path}"; shift 2 ;;
     --extra-patch) EXTRA_PATCH="${2-}"; shift 2 ;;
+    --conversation-patch) CONVERSATION_PATCH="${2-}"; shift 2 ;;
     --qairt-root) QAIRT_ROOT="${2:?missing path}"; shift 2 ;;
     --label) LABEL="${2:?missing label}"; shift 2 ;;
     --require-persistent-probe) REQUIRE_PERSISTENT_PROBE="${2:?missing boolean}"; shift 2 ;;
@@ -142,6 +146,7 @@ git -C "$SOURCE_CHECKOUT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
   fail "LiteRT-LM source checkout is not a Git worktree: $SOURCE_CHECKOUT"
 [[ -f "$BASE_PATCH" ]] || fail "base patch is missing: $BASE_PATCH"
 [[ -z "$EXTRA_PATCH" || -f "$EXTRA_PATCH" ]] || fail "extra patch is missing: $EXTRA_PATCH"
+[[ -z "$CONVERSATION_PATCH" || -f "$CONVERSATION_PATCH" ]] || fail "conversation patch is missing: $CONVERSATION_PATCH"
 [[ -d "$QAIRT_ROOT" ]] || fail "QAIRT root is missing: $QAIRT_ROOT"
 [[ "$(basename "$QAIRT_ROOT")" == "2.44.0.260225" ]] || fail "QAIRT root must resolve to 2.44.0.260225: $QAIRT_ROOT"
 [[ -d "$ANDROID_HOME_VALUE" ]] || fail "Android SDK is missing: $ANDROID_HOME_VALUE"
@@ -154,6 +159,7 @@ esac
 SOURCE_CHECKOUT="$(realpath "$SOURCE_CHECKOUT")"
 BASE_PATCH="$(realpath "$BASE_PATCH")"
 [[ -z "$EXTRA_PATCH" ]] || EXTRA_PATCH="$(realpath "$EXTRA_PATCH")"
+[[ -z "$CONVERSATION_PATCH" ]] || CONVERSATION_PATCH="$(realpath "$CONVERSATION_PATCH")"
 QAIRT_ROOT="$(realpath "$QAIRT_ROOT")"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 if [[ -z "$ARTIFACT_DIR" ]]; then
@@ -251,6 +257,7 @@ printf 'selected_ref=%s\n' "$SELECTED_REF"
 printf 'expected_commit=%s\n' "$EXPECTED_COMMIT"
 printf 'base_patch=%s\n' "$BASE_PATCH"
 printf 'extra_patch=%s\n' "${EXTRA_PATCH:-<none>}"
+printf 'conversation_patch=%s\n' "${CONVERSATION_PATCH:-<none>}"
 printf 'qairt_root=%s\n' "$QAIRT_ROOT"
 printf 'artifact_dir=%s\n' "$ARTIFACT_DIR"
 
@@ -295,6 +302,9 @@ apply_patch "$BASE_PATCH" base
 if [[ -n "$EXTRA_PATCH" ]]; then
   apply_patch "$EXTRA_PATCH" extra
 fi
+if [[ -n "$CONVERSATION_PATCH" ]]; then
+  apply_patch "$CONVERSATION_PATCH" conversation
+fi
 git -C "$WORKTREE_DIR" diff --check
 
 JNI_SOURCE="$WORKTREE_DIR/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
@@ -302,6 +312,9 @@ grep -Fq 'Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt' "$JNI_SOURCE" ||
 if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
   grep -Fq 'Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe' "$JNI_SOURCE" || fail "persistent probe JNI source marker is missing"
   grep -Fq 'Qairt244ShortMultitokenSmoke_nativeRunEditableEngineCreateOnlyMinimal' "$JNI_SOURCE" || fail "engine-create JNI source marker is missing"
+fi
+if [[ -n "$CONVERSATION_PATCH" ]]; then
+  grep -Fq 'Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe' "$JNI_SOURCE" || fail "Conversation API JNI source marker is missing"
 fi
 
 {
@@ -318,6 +331,8 @@ fi
   printf 'base_patch_sha256\t%s\n' "$(sha_for "$BASE_PATCH")"
   printf 'extra_patch\t%s\n' "${EXTRA_PATCH:-none}"
   [[ -z "$EXTRA_PATCH" ]] || printf 'extra_patch_sha256\t%s\n' "$(sha_for "$EXTRA_PATCH")"
+  printf 'conversation_patch\t%s\n' "${CONVERSATION_PATCH:-none}"
+  [[ -z "$CONVERSATION_PATCH" ]] || printf 'conversation_patch_sha256\t%s\n' "$(sha_for "$CONVERSATION_PATCH")"
   printf 'provider_sha256\t%s\n' "$(sha_for "$PROVIDER_FILE")"
   printf 'require_persistent_probe\t%s\n' "$REQUIRE_PERSISTENT_PROBE"
   printf 'qairt_root\t%s\n' "$QAIRT_ROOT"
@@ -386,6 +401,18 @@ if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
     'dispatch_initialize_device_context_status='; do
     strings "$NPU_JNI" | grep -F "$marker" >/dev/null ||
       fail "stable NPU conversation policy marker is missing: $marker"
+  done
+fi
+if [[ -n "$CONVERSATION_PATCH" ]]; then
+  require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe'
+  for marker in \
+    'qairt244_conversation_api_probe_v1' \
+    'conversation_api_used=true' \
+    'conversation_api_surface=C++' \
+    'app_template_used=false' \
+    'model_template_source=model_metadata'; do
+    strings "$NPU_JNI" | grep -F "$marker" >/dev/null ||
+      fail "Conversation API probe marker is missing: $marker"
   done
 fi
 if [[ "$(basename "${EXTRA_PATCH:-none}")" == "qairt244_litertlm_gpu_prefill_preinvoke_diag.patch" ]]; then
