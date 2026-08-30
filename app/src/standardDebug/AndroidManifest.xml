@@ -28,5 +28,14 @@
                 <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.gpu.ConversationAbGpuReceiver"
+            android:exported="true"
+            android:process=":conversation_ab_gpu">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.CONVERSATION_AB_GPU" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
