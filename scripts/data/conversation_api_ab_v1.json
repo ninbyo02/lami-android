@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "scenario_id": "conversation_api_ab_v1",
+  "description": "Same-Conversation GPU/NPU functional and quality comparison",
+  "system_instruction": "あなたは端末内で動作するアシスタントです。ユーザーが別の言語を明示的に求めない限り、自然で簡潔な日本語で回答してください。",
+  "sampler": {
+    "profile": "lami_stable_v1",
+    "top_k": 40,
+    "top_p": 0.9,
+    "temperature": 0.3,
+    "seed": 42
+  },
+  "requested_max_output_tokens": 16,
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "私の名前は佐藤です。了解だけ答えてください。",
+      "match_mode": "contains_any",
+      "expected": [
+        "了解"
+      ]
+    },
+    {
+      "index": 2,
+      "prompt": "私の姓は何ですか。姓だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "佐藤"
+      ]
+    },
+    {
+      "index": 3,
+      "prompt": "好きな色は赤です。了解だけ答えてください。",
+      "match_mode": "contains_any",
+      "expected": [
+        "了解"
+      ]
+    },
+    {
+      "index": 4,
+      "prompt": "好きな色は何ですか。色だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "赤"
+      ]
+    },
+    {
+      "index": 5,
+      "prompt": "青と赤を読点で区切って答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "青、赤"
+      ]
+    },
+    {
+      "index": 6,
+      "prompt": "日本の首都はどこですか。都市名だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "東京"
+      ]
+    },
+    {
+      "index": 7,
+      "prompt": "その都市がある国はどこですか。国名だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "日本"
+      ]
+    },
+    {
+      "index": 8,
+      "prompt": "2足す3は。数字だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "5"
+      ]
+    },
+    {
+      "index": 9,
+      "prompt": "春、夏、秋の次は。季節名だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "冬"
+      ]
+    },
+    {
+      "index": 10,
+      "prompt": "猫を英語で。英単語だけ答えてください。",
+      "match_mode": "casefold_exact",
+      "expected": [
+        "cat"
+      ]
+    },
+    {
+      "index": 11,
+      "prompt": "最初に伝えた私の姓は何ですか。姓だけ答えてください。",
+      "match_mode": "normalized_exact",
+      "expected": [
+        "佐藤"
+      ]
+    }
+  ]
+}

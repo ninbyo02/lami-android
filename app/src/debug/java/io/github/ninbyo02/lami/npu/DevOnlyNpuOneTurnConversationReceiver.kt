@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.benchmark.ConversationAbBenchmarkContract
+import io.github.ninbyo02.lami.benchmark.ConversationAbRunResult
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePersistentProbeRunner
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
@@ -280,6 +282,10 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
         intent: Intent,
         timestampMs: Long,
     ): String {
+        val scenarioId = intent.getStringExtra(
+            ConversationAbBenchmarkContract.EXTRA_SCENARIO_ID,
+        )?.trim()?.takeIf { it.isNotBlank() }
+            ?: ConversationAbBenchmarkContract.DEFAULT_SCENARIO_ID
         val fallbackPrompt = intent.getStringExtra(
             DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
         ).orEmpty().ifBlank { DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT }
@@ -296,10 +302,27 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         val modelPath = modelResolution.path.orEmpty()
         if (modelPath.isBlank()) {
+            val reason = "model_resolution_failed:${modelResolution.reasonCode}"
+            ConversationAbBenchmarkContract.write(
+                appContext,
+                ConversationAbRunResult(
+                    scenarioId = scenarioId,
+                    backend = "NPU",
+                    apiSurface = "LiteRT-LM C++ Conversation::SendMessage",
+                    modelFileName = "",
+                    modelBytes = 0L,
+                    requestedMaxOutputTokens = maxOutputTokens,
+                    effectiveMaxOutputTokens = maxOutputTokens,
+                    outputLimitSource = "C++ OptionalArgs.max_output_tokens",
+                    status = "failure",
+                    reason = reason,
+                    turns = emptyList(),
+                ),
+            )
             return conversationApiReceiverText(
                 timestampMs = timestampMs,
                 status = "failure",
-                reason = "model_resolution_failed:${modelResolution.reasonCode}",
+                reason = reason,
                 promptCount = prompts.size,
                 maxOutputTokens = maxOutputTokens,
                 nativeText = "resolved_model_path=\nmodel_resolution_reason=${modelResolution.reasonCode}\n",
@@ -314,20 +337,47 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
         )
         val nativeValues = parseKeyValueLines(result.resultText)
         val sendSuccessCount = nativeValues["send_success_count"]?.toIntOrNull() ?: 0
-        val success = result.throwableClass == "unavailable" &&
+        val nativeSuccess = result.throwableClass == "unavailable" &&
             result.nativeReturn == "success" &&
             nativeValues["status"] == "success" &&
             sendSuccessCount == prompts.size
-        val reason = if (success) {
+        val reason = if (nativeSuccess) {
             "conversation_api_probe_success"
         } else {
             result.throwableMessage.takeIf { it != "unavailable" }
                 ?: nativeValues["failure_reason"]
                 ?: "conversation_api_probe_failure"
         }
+        val turns = ConversationAbBenchmarkContract.parseNativeTurns(
+            nativeText = result.resultText,
+            prompts = prompts,
+        )
+        val commonSuccess = nativeSuccess &&
+            turns.size == prompts.size &&
+            turns.all { it.status == "success" }
+        val modelFile = File(modelPath)
+        ConversationAbBenchmarkContract.write(
+            appContext,
+            ConversationAbRunResult(
+                scenarioId = scenarioId,
+                backend = "NPU",
+                apiSurface = "LiteRT-LM C++ Conversation::SendMessage",
+                modelFileName = modelFile.name,
+                modelBytes = modelFile.takeIf { it.isFile }?.length() ?: 0L,
+                requestedMaxOutputTokens = maxOutputTokens,
+                effectiveMaxOutputTokens = maxOutputTokens,
+                outputLimitSource = "C++ OptionalArgs.max_output_tokens",
+                totalMs = nativeValues["probe_elapsed_ms"]?.toLongOrNull(),
+                status = if (commonSuccess) "success" else "failure",
+                reason = if (commonSuccess) "completed" else reason,
+                exceptionClass = result.throwableClass.takeIf { it != "unavailable" },
+                exceptionMessage = result.throwableMessage.takeIf { it != "unavailable" },
+                turns = turns,
+            ),
+        )
         return conversationApiReceiverText(
             timestampMs = timestampMs,
-            status = if (success) "success" else "failure",
+            status = if (nativeSuccess) "success" else "failure",
             reason = reason,
             promptCount = prompts.size,
             maxOutputTokens = maxOutputTokens,
