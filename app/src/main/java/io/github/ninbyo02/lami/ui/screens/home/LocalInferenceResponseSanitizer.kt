@@ -21,15 +21,19 @@ internal object LocalInferenceResponseSanitizer {
             value = base.sanitizedOutput,
             prompt = prompt,
         )
+        val sanitizedOutput = stripLeadingRoleDelimiter(withoutInlineScriptContamination)
         return base.copy(
-            sanitizedOutput = withoutInlineScriptContamination,
+            sanitizedOutput = sanitizedOutput,
             sanitizerApplied = base.sanitizerApplied ||
-                withoutInlineScriptContamination != base.sanitizedOutput,
+                sanitizedOutput != base.sanitizedOutput,
         )
     }
 
     fun normalizeJapaneseInternalSpaces(value: String): String =
         Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(value)
+
+    private fun stripLeadingRoleDelimiter(value: String): String =
+        value.replace(Regex("^\\s*[:：]+\\s*(?=[\\p{L}\\p{N}])"), "")
 
     private fun stripUnexpectedJapaneseInlineScripts(
         value: String,

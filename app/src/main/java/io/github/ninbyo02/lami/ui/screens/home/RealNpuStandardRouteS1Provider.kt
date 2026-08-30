@@ -75,10 +75,44 @@ internal class RealNpuStandardRouteS1Provider(
                     promptRewrite = promptRewrite,
                 ),
             )
-            val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+            val initialMappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
                 display = requestRunner(nativeRequest),
                 userPrompt = userPrompt,
             )
+            val mappedRawResult = if (
+                shouldRetryContextFreeAfterEmptyDecode(
+                    result = initialMappedRawResult,
+                    hadContext = nativeRequest.contextText.isNotBlank(),
+                )
+            ) {
+                val retryPromptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                    userPrompt = userPrompt,
+                    contextText = "",
+                )
+                val retryRequest = request(
+                    userPrompt = retryPromptRewrite.rewrittenPromptText,
+                    contextText = "",
+                    selectedModelFile = selectedModelFile,
+                    maxOutputTokens = effectiveMaxOutputTokens,
+                )
+                trace("NPU_EMPTY_OUTPUT_RETRY attempted=true strategy=context_free_same_user_prompt")
+                trace(
+                    buildNpuRealPromptRequestTrace(
+                        request = retryRequest,
+                        promptRewrite = retryPromptRewrite,
+                    ),
+                )
+                val retryResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+                    display = requestRunner(retryRequest),
+                    userPrompt = userPrompt,
+                )
+                retryResult.takeIf {
+                    it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+                        it.sanitizedOutput.isNotBlank()
+                } ?: initialMappedRawResult
+            } else {
+                initialMappedRawResult
+            }
             val providerStage = if (mappedRawResult.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
                 NPU_S1_NATIVE_STAGE_PROVIDER_SUCCESS
             } else {
@@ -208,6 +242,18 @@ internal class RealNpuStandardRouteS1Provider(
 
         const val NATIVE_MAX_INPUT_CODE_POINTS = 128
         private const val MIN_CONTEXT_TURN_CODE_POINTS = 4
+
+        internal fun shouldRetryContextFreeAfterEmptyDecode(
+            result: NpuStandardRouteS1RawResult,
+            hadContext: Boolean,
+        ): Boolean =
+            hadContext &&
+                result.runDecodeReached &&
+                result.rawOutput.isBlank() &&
+                result.sanitizedOutput.isBlank() &&
+                !result.fallbackUsed &&
+                !result.timeout &&
+                !result.freshCrash
 
         fun request(
             userPrompt: String,

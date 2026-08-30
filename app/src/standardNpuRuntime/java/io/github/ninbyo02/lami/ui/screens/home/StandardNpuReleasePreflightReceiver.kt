@@ -23,29 +23,28 @@ internal class StandardNpuReleasePreflightReceiver : BroadcastReceiver() {
                     val userPrompt = decodeExtra(intent, EXTRA_USER_PROMPT_BASE64)
                     val contextText = decodeExtra(intent, EXTRA_CONTEXT_BASE64)
                     require(userPrompt.isNotBlank()) { "user_prompt_base64 is required" }
-                    val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                    val provider = RealNpuStandardRouteS1Provider { request ->
+                        NpuStandardRoutePersistentProbeRunner.run(
+                            context = appContext,
+                            request = request,
+                        )
+                    }
+                    val result = provider.invokeWithContext(
                         userPrompt = userPrompt,
                         contextText = contextText,
-                    )
-                    val request = RealNpuStandardRouteS1Provider.request(
-                        userPrompt = promptRewrite.rewrittenPromptText,
-                        contextText = if (promptRewrite.contextualFactEmbedded) "" else contextText,
                         maxOutputTokens = intent.getIntExtra(EXTRA_MAX_OUTPUT_TOKENS, 32),
-                    )
-                    val display = NpuStandardRoutePersistentProbeRunner.run(
-                        context = appContext,
-                        request = request,
+                        trace = {},
                     )
                     val outputBase64 = Base64.encodeToString(
-                        display.output.toByteArray(Charsets.UTF_8),
+                        result.sanitizedOutput.toByteArray(Charsets.UTF_8),
                         Base64.NO_WRAP,
                     )
                     statusFile.writeText(
-                        "status=returned\nmode=$mode\nroute_status=${display.status}\n" +
-                            "reason=${display.reason}\noutput_base64=$outputBase64\n" +
-                            "decode_reached=${display.decodeReached}\n" +
-                            "npu_evidence=${display.npuEvidence}\n" +
-                            "fallback=${display.fallback}\ntimeout=${display.timeout}\n",
+                        "status=returned\nmode=$mode\nroute_status=${result.status}\n" +
+                            "reason=${result.reason}\noutput_base64=$outputBase64\n" +
+                            "decode_reached=${result.runDecodeReached}\n" +
+                            "npu_evidence=${result.npuBackendEvidence}\n" +
+                            "fallback=${result.fallbackUsed}\ntimeout=${result.timeout}\n",
                     )
                 } else {
                     val model = Qairt244ModelPathResolver.resolve(appContext)

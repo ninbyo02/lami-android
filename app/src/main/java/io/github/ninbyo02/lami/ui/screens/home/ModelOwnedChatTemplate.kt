@@ -16,7 +16,7 @@ internal object ModelOwnedChatTemplate {
     const val PROFILE = "gemma4_turn_v1"
     const val PROMPT_TAIL_VARIANT = "model_metadata_gemma4_turn_v1"
     const val EVALUATOR = "lami_verified_model_template_renderer"
-    const val NATIVE_SYSTEM_INSTRUCTION = "日本語で簡潔に回答。"
+    const val NATIVE_SYSTEM_INSTRUCTION = "日本語で簡潔に、空でなく単独で意味が通る回答を返す。"
     const val SUPPORTED_TEMPLATE_SHA256 =
         "e085010dd7227ccad0f450ea3e5d621b06abe765e8c94e8c63a02be3e7d70b2e"
 

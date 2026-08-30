@@ -144,7 +144,7 @@ name_prompt2='前に伝えた私の名前を一度だけ答えてください。
 run_turn name_memory/turn2 "$name_prompt2" "$name_context" '青葉' japanese_name_answer || failure=1
 
 natural_name_prompt1='私の名前は'
-run_turn natural_name/turn1 "$natural_name_prompt1" '' 'お名前を教えてください' name_invitation || failure=1
+run_turn natural_name/turn1 "$natural_name_prompt1" '' '名前を教えてください' name_invitation || failure=1
 natural_name_output1=$turn_output
 natural_name_context=$'ユーザー: 私の名前は\nアシスタント: '"$natural_name_output1"
 natural_name_prompt2='私の名前は佐藤です。'

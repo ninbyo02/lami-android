@@ -85,4 +85,17 @@ class ModelOwnedChatTemplateTest {
         assertEquals("はい、先ほど教えていただいた「佐藤さん」 名前です。", result.sanitizedOutput)
         assertTrue(result.sanitizerApplied)
     }
+
+    @Test
+    fun `shared sanitizer removes a leading role delimiter from a compact answer`() {
+        listOf(": 青", "：赤").forEach { rawOutput ->
+            val result = LocalInferenceResponseSanitizer.sanitize(
+                rawOutput = rawOutput,
+                prompt = "色だけ答えてください。",
+            )
+
+            assertTrue(result.sanitizedOutput in setOf("青", "赤"))
+            assertTrue(result.sanitizerApplied)
+        }
+    }
 }

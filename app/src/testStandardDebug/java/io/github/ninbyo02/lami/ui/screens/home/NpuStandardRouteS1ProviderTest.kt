@@ -2177,6 +2177,58 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
     }
 
+    @Test
+    fun `empty contextual decode retries same prompt without context once`() {
+        val requests = mutableListOf<io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest>()
+        val provider = RealNpuStandardRouteS1Provider { request ->
+            requests += request
+            if (requests.size == 1) {
+                npuStandardRouteDisplayForMaxOutputTokens(request.maxOutputTokens).copy(
+                    output = "",
+                    status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                    reason = NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE,
+                    rawLen = 0,
+                    sanitizedLen = 0,
+                    rawOutputFirst200Chars = "",
+                    rawOutputLast200Chars = "",
+                    rawOutput = "",
+                    outputTokenCount = "0",
+                )
+            } else {
+                npuStandardRouteDisplayForMaxOutputTokens(request.maxOutputTokens)
+            }
+        }
+
+        val raw = provider.invokeWithContext(
+            userPrompt = "好きな色を青に訂正します。青の一文字だけ答えてください。",
+            contextText = "ユーザー: 好きな色は赤です。\nアシスタント: 赤",
+            maxOutputTokens = 32,
+            trace = {},
+        )
+
+        assertEquals(2, requests.size)
+        assertTrue(requests.first().contextText.isNotBlank())
+        assertEquals("", requests.last().contextText)
+        assertEquals("こんにちは。", raw.sanitizedOutput)
+        assertEquals(NpuStandardRouteS1Contract.STATUS_SUCCESS, raw.status)
+    }
+
+    @Test
+    fun `empty decode without context is not retried`() {
+        val result = NpuStandardRouteS1RawResult(
+            rawOutput = "",
+            sanitizedOutput = "",
+            runDecodeReached = true,
+        )
+
+        assertFalse(
+            RealNpuStandardRouteS1Provider.shouldRetryContextFreeAfterEmptyDecode(
+                result = result,
+                hadContext = false,
+            ),
+        )
+    }
+
     private fun npuStandardRouteDisplayForMaxOutputTokens(maxOutputTokens: Int): NpuStandardRouteNativeDisplay =
         NpuStandardRouteNativeDisplay(
             text = "test display",

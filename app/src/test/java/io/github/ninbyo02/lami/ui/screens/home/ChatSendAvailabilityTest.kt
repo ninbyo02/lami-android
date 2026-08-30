@@ -81,6 +81,17 @@ class ChatSendAvailabilityTest {
     }
 
     @Test
+    fun `TTS text keeps one-character Japanese answers`() {
+        assertEquals("赤", sanitizeAssistantTextForTts("赤"))
+        assertEquals("青", sanitizeAssistantTextForTts("青"))
+    }
+
+    @Test
+    fun `TTS text still rejects a lone punctuation mark`() {
+        assertEquals("", sanitizeAssistantTextForTts("。"))
+    }
+
+    @Test
     fun `successful NPU delivery has exactly one TTS owner for automatic and explicit routes`() {
         val automaticSuccess = resolveNpuStandardRouteTtsOwnership(
             phaseTtsEligible = true,

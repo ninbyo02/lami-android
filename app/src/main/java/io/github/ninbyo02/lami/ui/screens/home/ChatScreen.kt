@@ -5707,6 +5707,11 @@ fun Home(
                                                                     "npu_standard_route_db_save_block_reason"
                                                                 ] ?: "phase_not_db_save"
                                                         }
+                                                        logStreamTrace(
+                                                            "LAMI_TTS npu_phase_gate phase_owner=${npuStandardRouteTtsOwnership.phaseOwner} " +
+                                                                "tts_enabled=$ttsEnabled local_stop=$localStopRequested " +
+                                                                "tts_text_code_points=${s1Result.ttsText.codePointCount(0, s1Result.ttsText.length)}",
+                                                        )
                                                         if (npuStandardRouteTtsOwnership.phaseOwner && !localStopRequested) {
                                                             val npuStandardRouteSafeTtsText = s1Result.ttsText
                                                                 .ifBlank { s1Result.actualDisplayText }
