@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import com.google.gson.Gson
 import io.github.ninbyo02.lami.BuildConfig
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -14,6 +15,10 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             "qairt244_persistent_custom_jni_probe_result.txt"
         private const val PERSISTENT_PROBE_DIAG_FILE_NAME =
             "qairt244_persistent_custom_jni_probe_diag.txt"
+        private const val CONVERSATION_API_PROBE_RESULT_FILE_NAME =
+            "qairt244_conversation_api_probe_result.txt"
+        private const val CONVERSATION_API_PROBE_DIAG_FILE_NAME =
+            "qairt244_conversation_api_probe_diag.txt"
         private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
         private val allowedTrueEngineCreateCloseFlavors = allowedDebugFlavors + "trueEngineNpuProbe"
 
@@ -227,6 +232,52 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         }
 
         @JvmStatic
+        fun runConversationApiProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            prompts: List<String>,
+            maxOutputTokens: Int,
+            systemInstruction: String = LocalConversationPolicy.SYSTEM_INSTRUCTION,
+        ): Qairt244PersistentProbeResult {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "Conversation API probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(prompts.size in 1..11) { "prompts must contain 1..11 items" }
+            check(prompts.none { it.isBlank() }) { "prompts must not contain blank items" }
+            check(maxOutputTokens in 1..128) { "maxOutputTokens must be 1..128" }
+
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(CONVERSATION_API_PROBE_RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(CONVERSATION_API_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val promptsJson = Gson().toJson(prompts)
+            val nativeResult = runCatching {
+                nativeRunConversationApiProbe(
+                    modelPath = modelPath,
+                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                    cacheDir = appContext.cacheDir.absolutePath,
+                    resultPath = resultFile.absolutePath,
+                    diagPath = diagFile.absolutePath,
+                    systemInstruction = systemInstruction,
+                    promptsJson = promptsJson,
+                    maxOutputTokens = maxOutputTokens,
+                )
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return Qairt244PersistentProbeResult(
+                runId = runId,
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
+        @JvmStatic
         fun runPersistentProbe(
             context: Context,
             modelPath: String,
@@ -426,6 +477,18 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             runCount: Int,
             holderKey: String,
             nativeProbeMode: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunConversationApiProbe(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            systemInstruction: String,
+            promptsJson: String,
+            maxOutputTokens: Int,
         ): String
 
         @JvmStatic

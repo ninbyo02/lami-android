@@ -24,7 +24,24 @@ class Qairt244NativeArtifactReproducibilityContractTest {
         assertTrue(output, output.contains("--preflight-only"))
         assertTrue(output, output.contains("--keep-bazel-output-base"))
         assertTrue(output, output.contains("--require-persistent-probe"))
+        assertTrue(output, output.contains("--conversation-patch"))
         assertTrue(output, output.contains("never reset or cleaned"))
+    }
+
+    @Test
+    fun `conversation probe delegates prompt ownership to model metadata`() {
+        val patch = File(root, "patches/qairt244_litertlm_conversation_api_probe.patch").readText()
+
+        assertTrue(patch.contains("ConversationConfig::Builder()"))
+        assertTrue(patch.contains("Conversation::Create"))
+        assertTrue(patch.contains("conversation_ptr->SendMessage"))
+        assertTrue(patch.contains("conversation_api_used=true"))
+        assertTrue(patch.contains("direct_session_api_used=false"))
+        assertTrue(patch.contains("direct_run_prefill_used=false"))
+        assertTrue(patch.contains("direct_run_decode_used=false"))
+        assertTrue(patch.contains("overwrite_prompt_template_used=false"))
+        assertTrue(patch.contains("model_template_source=model_metadata"))
+        assertFalse(patch.contains("SetPromptTemplate"))
     }
 
     @Test
@@ -47,6 +64,10 @@ class Qairt244NativeArtifactReproducibilityContractTest {
         assertTrue(runner.contains("patchelf --print-soname"))
         assertTrue(runner.contains("nativeRunEditablePrompt"))
         assertTrue(runner.contains("nativeRunPersistentProbe"))
+        assertTrue(runner.contains("nativeRunConversationApiProbe"))
+        assertTrue(runner.contains("qairt244_litertlm_conversation_api_probe.patch"))
+        assertTrue(runner.contains("conversation_api_used=true"))
+        assertTrue(runner.contains("model_template_source=model_metadata"))
         assertTrue(runner.contains("REQUIRE_PERSISTENT_PROBE"))
         assertTrue(runner.contains("staged separated JNI SHA does not match artifact"))
         assertTrue(runner.contains("bazel_output_base_removed"))

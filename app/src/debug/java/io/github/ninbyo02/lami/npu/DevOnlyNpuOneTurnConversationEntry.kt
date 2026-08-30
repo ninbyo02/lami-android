@@ -1,6 +1,8 @@
 package io.github.ninbyo02.lami.npu
 
 import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
@@ -78,10 +80,12 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_CONTEXT_BASE64 = "context_base64"
+    const val EXTRA_CONVERSATION_PROMPTS_BASE64 = "conversation_prompts_base64"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val EXTRA_NATIVE_PROBE_MODE = "native_probe_mode"
     const val EXTRA_NATIVE_PROBE_RUN_COUNT = "native_probe_run_count"
     const val NATIVE_PROBE_MODE_FULL_20 = "full_20"
+    const val NATIVE_PROBE_MODE_CONVERSATION_API = "conversation_api"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
     const val MATRIX_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_matrix_result.txt"
@@ -144,6 +148,21 @@ object DevOnlyNpuOneTurnConversationContract {
         return runCatching {
             String(Base64.getDecoder().decode(encodedContext), Charsets.UTF_8)
         }.getOrElse { plainContext.orEmpty() }
+    }
+
+    fun decodeConversationPrompts(
+        encodedPrompts: String?,
+        fallbackPrompt: String,
+    ): List<String> {
+        val fallback = listOf(fallbackPrompt.ifBlank { DEFAULT_USER_PROMPT })
+        if (encodedPrompts.isNullOrBlank()) return fallback
+        val json = String(Base64.getDecoder().decode(encodedPrompts), Charsets.UTF_8)
+        val promptListType = object : TypeToken<List<String>>() {}.type
+        return Gson().fromJson<List<String>>(json, promptListType)
+            .also { prompts ->
+                require(prompts.size in 1..11)
+                require(prompts.none { it.isBlank() })
+            }
     }
 
     fun sanitizePromptTailVariant(requestedPromptTailVariant: String?): String =
