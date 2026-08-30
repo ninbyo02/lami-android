@@ -7,11 +7,11 @@ index 96e68c71..c8dfa13a 100644
  constexpr char kQairt244PersistentProbeMarker[] =
      "qairt244_persistent_custom_jni_probe_v1";
 +constexpr char kQairt244ConversationApiProbeMarker[] =
-+    "qairt244_conversation_api_probe_v1";
++    "qairt244_conversation_api_probe_v4";
  constexpr char kQairt244EditablePromptValidationMode[] =
      "utf8_internal_intent";
  constexpr char kQairt244NativeDiagPath[] =
-@@ -3514,6 +3516,346 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -3514,6 +3516,451 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, status);
  }
 
@@ -20,6 +20,7 @@ index 96e68c71..c8dfa13a 100644
 +    JNIEnv* env, jclass thiz, jstring model_path,
 +    jstring native_library_dir, jstring cache_dir, jstring result_path,
 +    jstring diag_path, jstring system_instruction, jstring prompts_json,
++    jstring sampler_profile, jstring conversation_state_profile,
 +    jint max_output_tokens) {
 +  const absl::Time probe_start_time = absl::Now();
 +  std::string model_path_str;
@@ -29,6 +30,13 @@ index 96e68c71..c8dfa13a 100644
 +  std::string diag_path_str;
 +  std::string system_instruction_str;
 +  std::string prompts_json_str;
++  std::string sampler_profile_str = "lami_stable_v1";
++  std::string conversation_state_profile_str = "persistent_v1";
++  int conversation_history_turn_limit = -1;
++  int sampler_top_k = 40;
++  float sampler_top_p = 0.9f;
++  float sampler_temperature = 0.3f;
++  int sampler_seed = 42;
 +  std::string status = "running";
 +  std::string failure_stage = "unavailable";
 +  std::string failure_reason = "unavailable";
@@ -42,6 +50,7 @@ index 96e68c71..c8dfa13a 100644
 +  bool engine_closed = false;
 +  int send_attempt_count = 0;
 +  int send_success_count = 0;
++  int conversation_rehydrate_count = 0;
 +  std::vector<std::string> detail_lines;
 +
 +  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
@@ -91,14 +100,22 @@ index 96e68c71..c8dfa13a 100644
 +                    std::to_string(send_attempt_count));
 +    lines.push_back("send_success_count=" +
 +                    std::to_string(send_success_count));
++    lines.push_back("conversation_rehydrate_count=" +
++                    std::to_string(conversation_rehydrate_count));
 +    lines.push_back("requested_max_output_tokens=" +
 +                    std::to_string(max_output_tokens));
-+    lines.push_back("sampler_config_profile=lami_stable_v1");
++    lines.push_back("sampler_config_profile=" + sampler_profile_str);
++    lines.push_back("conversation_state_profile=" +
++                    conversation_state_profile_str);
++    lines.push_back("conversation_history_turn_limit=" +
++                    std::to_string(conversation_history_turn_limit));
 +    lines.push_back("sampler_backend=NPU");
-+    lines.push_back("sampler_top_k=40");
-+    lines.push_back("sampler_top_p=0.9");
-+    lines.push_back("sampler_temperature=0.3");
-+    lines.push_back("sampler_seed=42");
++    lines.push_back("sampler_top_k=" + std::to_string(sampler_top_k));
++    lines.push_back("sampler_top_p=" +
++                    std::string(sampler_top_p == 1.0f ? "1.0" : "0.9"));
++    lines.push_back("sampler_temperature=" +
++                    std::string(sampler_temperature == 1.0f ? "1.0" : "0.3"));
++    lines.push_back("sampler_seed=" + std::to_string(sampler_seed));
 +    lines.push_back("backend_evidence=QNN_HTP_V79_FastRPC_native_diag_conversation_api_candidate");
 +    lines.push_back("probe_elapsed_ms=" +
 +                    std::to_string(absl::ToInt64Milliseconds(
@@ -133,6 +150,13 @@ index 96e68c71..c8dfa13a 100644
 +                          kQairt244ConversationApiProbeMarker) ||
 +      !GetOptionalJString(env, prompts_json, &prompts_json_str,
 +                          diag_path_str.c_str(), "prompts_json",
++                          kQairt244ConversationApiProbeMarker) ||
++      !GetOptionalJString(env, sampler_profile, &sampler_profile_str,
++                          diag_path_str.c_str(), "sampler_profile",
++                          kQairt244ConversationApiProbeMarker) ||
++      !GetOptionalJString(env, conversation_state_profile,
++                          &conversation_state_profile_str,
++                          diag_path_str.c_str(), "conversation_state_profile",
 +                          kQairt244ConversationApiProbeMarker)) {
 +    fail("jni_string", "jni-string-conversion-failed");
 +    ThrowLiteRtLmJniException(
@@ -155,6 +179,28 @@ index 96e68c71..c8dfa13a 100644
 +    fail("argument", "invalid-max-output-tokens");
 +    ThrowLiteRtLmJniException(
 +        env, "Conversation API probe max_output_tokens must be 1..128");
++    return nullptr;
++  }
++  if (conversation_state_profile_str == "rehydrate_last_3_turns_v1") {
++    conversation_history_turn_limit = 3;
++  } else if (conversation_state_profile_str ==
++             "rehydrate_last_4_turns_v1") {
++    conversation_history_turn_limit = 4;
++  } else if (conversation_state_profile_str != "persistent_v1" &&
++             conversation_state_profile_str != "rehydrate_each_turn_v1") {
++    fail("argument", "unsupported-conversation-state-profile");
++    ThrowLiteRtLmJniException(
++        env, "Conversation API probe unsupported conversation state profile");
++    return nullptr;
++  }
++  if (sampler_profile_str == "greedy_top_k_1_v1") {
++    sampler_top_k = 1;
++    sampler_top_p = 1.0f;
++    sampler_temperature = 1.0f;
++  } else if (sampler_profile_str != "lami_stable_v1") {
++    fail("argument", "unsupported-sampler-profile");
++    ThrowLiteRtLmJniException(
++        env, "Conversation API probe unsupported sampler profile");
 +    return nullptr;
 +  }
 +
@@ -230,11 +276,13 @@ index 96e68c71..c8dfa13a 100644
 +  auto session_config = SessionConfig::CreateDefault();
 +  session_config.SetSamplerBackend(Backend::NPU);
 +  auto& sampler_params = session_config.GetMutableSamplerParams();
-+  sampler_params.set_type(SamplerParameters::TOP_P);
-+  sampler_params.set_k(40);
-+  sampler_params.set_p(0.9f);
-+  sampler_params.set_temperature(0.3f);
-+  sampler_params.set_seed(42);
++  sampler_params.set_type(sampler_profile_str == "greedy_top_k_1_v1"
++                              ? SamplerParameters::TOP_K
++                              : SamplerParameters::TOP_P);
++  sampler_params.set_k(sampler_top_k);
++  sampler_params.set_p(sampler_top_p);
++  sampler_params.set_temperature(sampler_temperature);
++  sampler_params.set_seed(sampler_seed);
 +
 +  JsonPreface json_preface;
 +  json_preface.messages = nlohmann::ordered_json::array();
@@ -340,6 +388,63 @@ index 96e68c71..c8dfa13a 100644
 +                           Qairt244FlattenValue(response->dump()));
 +    detail_lines.push_back("send_ms=" + std::to_string(send_ms));
 +    write_result();
++
++    if (conversation_state_profile_str != "persistent_v1" &&
++        turn_index < static_cast<int>(prompts.size())) {
++      json_preface.messages.push_back(user_message);
++      Message model_message = *response;
++      model_message["role"] = "model";
++      json_preface.messages.push_back(model_message);
++      if (conversation_history_turn_limit > 0) {
++        const size_t system_message_count =
++            system_instruction_str.empty() ? 0 : 1;
++        const size_t max_history_messages =
++            static_cast<size_t>(conversation_history_turn_limit) * 2;
++        const size_t history_message_count =
++            json_preface.messages.size() - system_message_count;
++        if (history_message_count > max_history_messages) {
++          const size_t remove_count =
++              history_message_count - max_history_messages;
++          json_preface.messages.erase(
++              json_preface.messages.begin() + system_message_count,
++              json_preface.messages.begin() + system_message_count +
++                  remove_count);
++        }
++      }
++
++      conversation_ptr.reset();
++      append_stage_diag("turn_" + std::to_string(turn_index) +
++                        "_before_rehydrate_config");
++      auto next_conversation_config =
++          ConversationConfig::Builder()
++              .SetSessionConfig(session_config)
++              .SetPreface(json_preface)
++              .Build(*engine_ptr);
++      if (!next_conversation_config.ok()) {
++        const std::string reason =
++            "conversation-rehydrate-config-failed:" +
++            next_conversation_config.status().ToString();
++        fail("conversation_rehydrate_config", reason);
++        break;
++      }
++
++      append_stage_diag("turn_" + std::to_string(turn_index) +
++                        "_before_rehydrate_create");
++      auto next_conversation =
++          Conversation::Create(*engine_ptr, *next_conversation_config);
++      if (!next_conversation.ok()) {
++        const std::string reason =
++            "conversation-rehydrate-create-failed:" +
++            next_conversation.status().ToString();
++        fail("conversation_rehydrate_create", reason);
++        break;
++      }
++      conversation_ptr = std::move(*next_conversation);
++      conversation_rehydrate_count += 1;
++      detail_lines.push_back("rehydrated_after_turn=" +
++                             std::to_string(turn_index));
++      write_result();
++    }
 +  }
 +
 +  conversation_ptr.reset();

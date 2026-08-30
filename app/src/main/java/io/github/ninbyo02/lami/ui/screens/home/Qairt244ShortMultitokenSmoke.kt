@@ -238,6 +238,8 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             runId: String,
             prompts: List<String>,
             maxOutputTokens: Int,
+            samplerProfile: String,
+            conversationStateProfile: String,
             systemInstruction: String = LocalConversationPolicy.SYSTEM_INSTRUCTION,
         ): Qairt244PersistentProbeResult {
             check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
@@ -247,6 +249,19 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             check(prompts.size in 1..11) { "prompts must contain 1..11 items" }
             check(prompts.none { it.isBlank() }) { "prompts must not contain blank items" }
             check(maxOutputTokens in 1..128) { "maxOutputTokens must be 1..128" }
+            check(samplerProfile in setOf("lami_stable_v1", "greedy_top_k_1_v1")) {
+                "unsupported samplerProfile=$samplerProfile"
+            }
+            check(
+                conversationStateProfile in setOf(
+                    "persistent_v1",
+                    "rehydrate_each_turn_v1",
+                    "rehydrate_last_3_turns_v1",
+                    "rehydrate_last_4_turns_v1",
+                ),
+            ) {
+                "unsupported conversationStateProfile=$conversationStateProfile"
+            }
 
             val appContext = context.applicationContext
             val resultFile = appContext.filesDir.resolve(CONVERSATION_API_PROBE_RESULT_FILE_NAME)
@@ -263,6 +278,8 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     diagPath = diagFile.absolutePath,
                     systemInstruction = systemInstruction,
                     promptsJson = promptsJson,
+                    samplerProfile = samplerProfile,
+                    conversationStateProfile = conversationStateProfile,
                     maxOutputTokens = maxOutputTokens,
                 )
             }
@@ -488,6 +505,8 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             diagPath: String,
             systemInstruction: String,
             promptsJson: String,
+            samplerProfile: String,
+            conversationStateProfile: String,
             maxOutputTokens: Int,
         ): String
 

@@ -82,11 +82,20 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_CONTEXT_BASE64 = "context_base64"
     const val EXTRA_CONVERSATION_PROMPTS_BASE64 = "conversation_prompts_base64"
+    const val EXTRA_CONVERSATION_SAMPLER_PROFILE = "conversation_sampler_profile"
+    const val EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64 = "conversation_system_instruction_base64"
+    const val EXTRA_CONVERSATION_STATE_PROFILE = "conversation_state_profile"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val EXTRA_NATIVE_PROBE_MODE = "native_probe_mode"
     const val EXTRA_NATIVE_PROBE_RUN_COUNT = "native_probe_run_count"
     const val NATIVE_PROBE_MODE_FULL_20 = "full_20"
     const val NATIVE_PROBE_MODE_CONVERSATION_API = "conversation_api"
+    const val CONVERSATION_SAMPLER_STABLE = "lami_stable_v1"
+    const val CONVERSATION_SAMPLER_GREEDY = "greedy_top_k_1_v1"
+    const val CONVERSATION_STATE_PERSISTENT = "persistent_v1"
+    const val CONVERSATION_STATE_REHYDRATE = "rehydrate_each_turn_v1"
+    const val CONVERSATION_STATE_REHYDRATE_LAST_3 = "rehydrate_last_3_turns_v1"
+    const val CONVERSATION_STATE_REHYDRATE_LAST_4 = "rehydrate_last_4_turns_v1"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
     const val MATRIX_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_matrix_result.txt"
@@ -143,6 +152,20 @@ object DevOnlyNpuOneTurnConversationContract {
         when (requestedMaxOutputTokens) {
             DEFAULT_MAX_OUTPUT_TOKENS, COMPARE_MAX_OUTPUT_TOKENS -> requestedMaxOutputTokens
             else -> DEFAULT_MAX_OUTPUT_TOKENS
+        }
+
+    fun sanitizeConversationSamplerProfile(requestedProfile: String?): String =
+        when (requestedProfile?.trim()) {
+            CONVERSATION_SAMPLER_GREEDY -> CONVERSATION_SAMPLER_GREEDY
+            else -> CONVERSATION_SAMPLER_STABLE
+        }
+
+    fun sanitizeConversationStateProfile(requestedProfile: String?): String =
+        when (requestedProfile?.trim()) {
+            CONVERSATION_STATE_REHYDRATE -> CONVERSATION_STATE_REHYDRATE
+            CONVERSATION_STATE_REHYDRATE_LAST_3 -> CONVERSATION_STATE_REHYDRATE_LAST_3
+            CONVERSATION_STATE_REHYDRATE_LAST_4 -> CONVERSATION_STATE_REHYDRATE_LAST_4
+            else -> CONVERSATION_STATE_PERSISTENT
         }
 
     fun decodeContextTransport(encodedContext: String?, plainContext: String?): String {

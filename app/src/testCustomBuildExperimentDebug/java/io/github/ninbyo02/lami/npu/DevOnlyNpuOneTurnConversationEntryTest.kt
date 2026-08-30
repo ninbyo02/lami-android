@@ -212,6 +212,56 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `conversation API sampler profile only permits stable and greedy diagnostics`() {
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_STABLE,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile(null),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile(
+                DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY,
+            ),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_STABLE,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile("unsupported"),
+        )
+        assertEquals(
+            "conversation_sampler_profile",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SAMPLER_PROFILE,
+        )
+        assertEquals(
+            "conversation_system_instruction_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64,
+        )
+    }
+
+    @Test
+    fun `conversation state profile permits diagnostic rehydration windows`() {
+        val contract = DevOnlyNpuOneTurnConversationContract
+        assertEquals(
+            contract.CONVERSATION_STATE_PERSISTENT,
+            contract.sanitizeConversationStateProfile(null),
+        )
+        listOf(
+            contract.CONVERSATION_STATE_REHYDRATE,
+            contract.CONVERSATION_STATE_REHYDRATE_LAST_3,
+            contract.CONVERSATION_STATE_REHYDRATE_LAST_4,
+        ).forEach { profile ->
+            assertEquals(profile, contract.sanitizeConversationStateProfile(profile))
+        }
+        assertEquals(
+            contract.CONVERSATION_STATE_PERSISTENT,
+            contract.sanitizeConversationStateProfile("unsupported"),
+        )
+        assertEquals(
+            "conversation_state_profile",
+            contract.EXTRA_CONVERSATION_STATE_PROFILE,
+        )
+    }
+
+    @Test
     fun `activity prompt tail variant option supports legacy and current model metadata variants`() {
         val requestA = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",
