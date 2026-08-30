@@ -406,11 +406,17 @@ fi
 if [[ -n "$CONVERSATION_PATCH" ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe'
   for marker in \
-    'qairt244_conversation_api_probe_v1' \
+    'qairt244_conversation_api_probe_v4' \
     'conversation_api_used=true' \
     'conversation_api_surface=C++' \
     'app_template_used=false' \
-    'model_template_source=model_metadata'; do
+    'model_template_source=model_metadata' \
+    'greedy_top_k_1_v1' \
+    'unsupported-sampler-profile' \
+    'rehydrate_each_turn_v1' \
+    'rehydrate_last_3_turns_v1' \
+    'rehydrate_last_4_turns_v1' \
+    'unsupported-conversation-state-profile'; do
     strings "$NPU_JNI" | grep -F "$marker" >/dev/null ||
       fail "Conversation API probe marker is missing: $marker"
   done

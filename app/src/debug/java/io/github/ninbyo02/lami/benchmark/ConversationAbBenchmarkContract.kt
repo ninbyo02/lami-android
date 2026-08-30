@@ -41,6 +41,7 @@ internal data class ConversationAbRunResult(
     val samplerTopP: Double = LocalConversationPolicy.SAMPLER_TOP_P,
     val samplerTemperature: Double = LocalConversationPolicy.SAMPLER_TEMPERATURE,
     val samplerSeed: Int = LocalConversationPolicy.SAMPLER_SEED,
+    val conversationStateProfile: String = "persistent_v1",
     val requestedMaxOutputTokens: Int?,
     val effectiveMaxOutputTokens: Int?,
     val outputLimitSource: String,

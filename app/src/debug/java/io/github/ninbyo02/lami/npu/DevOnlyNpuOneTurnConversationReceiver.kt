@@ -7,6 +7,7 @@ import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.benchmark.ConversationAbBenchmarkContract
 import io.github.ninbyo02.lami.benchmark.ConversationAbRunResult
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationPolicy
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePersistentProbeRunner
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
@@ -299,6 +300,23 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
             DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
         ).coerceIn(1, 128)
+        val samplerProfile = DevOnlyNpuOneTurnConversationContract
+            .sanitizeConversationSamplerProfile(
+                intent.getStringExtra(
+                    DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SAMPLER_PROFILE,
+                ),
+            )
+        val conversationStateProfile = DevOnlyNpuOneTurnConversationContract
+            .sanitizeConversationStateProfile(
+                intent.getStringExtra(
+                    DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_STATE_PROFILE,
+                ),
+            )
+        val systemInstruction = ConversationAbBenchmarkContract.decodeOptionalBase64(
+            intent.getStringExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64,
+            ),
+        ) ?: LocalConversationPolicy.SYSTEM_INSTRUCTION
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         val modelPath = modelResolution.path.orEmpty()
         if (modelPath.isBlank()) {
@@ -314,6 +332,18 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                     requestedMaxOutputTokens = maxOutputTokens,
                     effectiveMaxOutputTokens = maxOutputTokens,
                     outputLimitSource = "C++ OptionalArgs.max_output_tokens",
+                    samplerProfile = samplerProfile,
+                    samplerTopK = if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1 else 40,
+                    samplerTopP = if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1.0 else 0.9,
+                    samplerTemperature = if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1.0 else 0.3,
+                    samplerSeed = 42,
+                    conversationStateProfile = conversationStateProfile,
                     status = "failure",
                     reason = reason,
                     turns = emptyList(),
@@ -325,6 +355,8 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 reason = reason,
                 promptCount = prompts.size,
                 maxOutputTokens = maxOutputTokens,
+                samplerProfile = samplerProfile,
+                conversationStateProfile = conversationStateProfile,
                 nativeText = "resolved_model_path=\nmodel_resolution_reason=${modelResolution.reasonCode}\n",
             )
         }
@@ -334,6 +366,9 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             runId = "dev_receiver_conversation_api_${SystemClock.elapsedRealtime()}",
             prompts = prompts,
             maxOutputTokens = maxOutputTokens,
+            samplerProfile = samplerProfile,
+            conversationStateProfile = conversationStateProfile,
+            systemInstruction = systemInstruction,
         )
         val nativeValues = parseKeyValueLines(result.resultText)
         val sendSuccessCount = nativeValues["send_success_count"]?.toIntOrNull() ?: 0
@@ -367,6 +402,22 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 requestedMaxOutputTokens = maxOutputTokens,
                 effectiveMaxOutputTokens = maxOutputTokens,
                 outputLimitSource = "C++ OptionalArgs.max_output_tokens",
+                samplerProfile = nativeValues["sampler_config_profile"] ?: samplerProfile,
+                samplerTopK = nativeValues["sampler_top_k"]?.toIntOrNull()
+                    ?: if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1 else 40,
+                samplerTopP = nativeValues["sampler_top_p"]?.toDoubleOrNull()
+                    ?: if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1.0 else 0.9,
+                samplerTemperature = nativeValues["sampler_temperature"]?.toDoubleOrNull()
+                    ?: if (
+                        samplerProfile == DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY
+                    ) 1.0 else 0.3,
+                samplerSeed = nativeValues["sampler_seed"]?.toIntOrNull() ?: 42,
+                conversationStateProfile = nativeValues["conversation_state_profile"]
+                    ?: conversationStateProfile,
                 totalMs = nativeValues["probe_elapsed_ms"]?.toLongOrNull(),
                 status = if (commonSuccess) "success" else "failure",
                 reason = if (commonSuccess) "completed" else reason,
@@ -381,6 +432,8 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             reason = reason,
             promptCount = prompts.size,
             maxOutputTokens = maxOutputTokens,
+            samplerProfile = samplerProfile,
+            conversationStateProfile = conversationStateProfile,
             nativeText = result.resultText,
             diagText = result.diagText,
             throwableClass = result.throwableClass,
@@ -394,6 +447,8 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
         reason: String,
         promptCount: Int,
         maxOutputTokens: Int,
+        samplerProfile: String,
+        conversationStateProfile: String,
         nativeText: String,
         diagText: String = "",
         throwableClass: String = "unavailable",
@@ -417,6 +472,12 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             add("send_success_count=${values["send_success_count"] ?: "0"}")
             add("requested_max_output_tokens=$maxOutputTokens")
             add("effective_max_output_tokens=$maxOutputTokens")
+            add("sampler_config_profile=${values["sampler_config_profile"] ?: samplerProfile}")
+            add("conversation_state_profile=${values["conversation_state_profile"] ?: conversationStateProfile}")
+            add("sampler_top_k=${values["sampler_top_k"] ?: "unavailable"}")
+            add("sampler_top_p=${values["sampler_top_p"] ?: "unavailable"}")
+            add("sampler_temperature=${values["sampler_temperature"] ?: "unavailable"}")
+            add("sampler_seed=${values["sampler_seed"] ?: "unavailable"}")
             add("fallback_used=false")
             add("native_error_class=$throwableClass")
             add("native_error_message=${flattenValue(throwableMessage)}")
