@@ -58,11 +58,27 @@
             android:excludeFromRecents="true"
             android:exported="true" />
 
+        <activity
+            android:name="io.github.ninbyo02.lami.npu.NpuKotlinConversationDurabilityActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <receiver
             android:name="io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.npu.NpuKotlinConversationDurabilityReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.NPU_KOTLIN_CONVERSATION_DURABILITY" />
             </intent-filter>
         </receiver>
 
