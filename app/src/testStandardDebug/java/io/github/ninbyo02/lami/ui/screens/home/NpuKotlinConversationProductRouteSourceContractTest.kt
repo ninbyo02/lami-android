@@ -42,6 +42,30 @@ class NpuKotlinConversationProductRouteSourceContractTest {
     }
 
     @Test
+    fun `resident NPU route is connected to app lifecycle`() {
+        val route = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuKotlinConversationProductRoute.kt",
+        ).readText()
+        val bridge = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/HeldEngineLifecycleBridge.kt",
+        ).readText()
+
+        assertTrue(route.contains(": NpuConversationLifecycle"))
+        assertTrue(route.contains("notifyAppForegrounded"))
+        assertTrue(route.contains("notifyAppBackgrounded"))
+        assertTrue(route.contains("notifyLowMemory"))
+        assertTrue(route.contains("scheduleBackgroundReleaseLocked"))
+        assertTrue(route.contains("background-timeout"))
+        assertTrue(route.contains("idle-timeout"))
+        assertTrue(bridge.contains("NpuKotlinConversationProductRoute"))
+        assertTrue(bridge.contains("npuLifecycle.notifyAppForegrounded"))
+        assertTrue(bridge.contains("npuLifecycle.notifyAppBackgrounded"))
+        assertTrue(bridge.contains("npuLifecycle.notifyLowMemory"))
+    }
+
+    @Test
     fun `Standard NPU packaging requires sampler aligned stock JNI`() {
         val build = File(root, "app/build.gradle.kts").readText()
 
