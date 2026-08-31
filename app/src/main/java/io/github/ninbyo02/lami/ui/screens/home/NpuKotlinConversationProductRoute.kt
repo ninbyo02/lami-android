@@ -10,7 +10,12 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import io.github.ninbyo02.lami.BuildConfig
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -25,12 +30,17 @@ internal data class NpuKotlinConversationProductAttempt(
         get() = result?.successCriteriaMet == true
 }
 
-internal object NpuKotlinConversationProductRoute {
+internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     const val ROUTE_ID = "npu_kotlin_conversation_product_candidate_v1"
     const val NATIVE_PATCH_MARKER = "qairt244_kotlin_npu_conversation_sampler_v1"
     const val NPU_EVIDENCE = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
 
     private val mutex = Mutex()
+    private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var appInForeground = true
+    private var backgroundedAtElapsedMs: Long? = null
+    private var lastUsedAtElapsedMs: Long? = null
+    private var backgroundReleaseJob: Job? = null
     private var engine: Engine? = null
     private var engineModelPath: String? = null
     private var conversation: Conversation? = null
@@ -69,6 +79,7 @@ internal object NpuKotlinConversationProductRoute {
         }
 
         mutex.withLock {
+            maybeReleaseExpiredLocked(SystemClock.elapsedRealtime(), trace)
             var engineReused = false
             var conversationReused = false
             try {
@@ -166,6 +177,8 @@ internal object NpuKotlinConversationProductRoute {
                         conversationReused = conversationReused,
                     )
                 }
+                lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+                if (!appInForeground) scheduleBackgroundReleaseLocked()
                 trace("$ROUTE_ID success=true send_ms=$sendMs response_length=${response.length}")
                 NpuKotlinConversationProductAttempt(
                     result = unified,
@@ -223,12 +236,61 @@ internal object NpuKotlinConversationProductRoute {
         )
     }
 
+    override suspend fun notifyAppForegrounded(nowElapsedMs: Long) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            backgroundReleaseJob?.cancel()
+            backgroundReleaseJob = null
+            maybeReleaseExpiredLocked(nowElapsedMs)
+            appInForeground = true
+            backgroundedAtElapsedMs = null
+        }
+    }
+
+    override suspend fun notifyAppBackgrounded(nowElapsedMs: Long) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            appInForeground = false
+            backgroundedAtElapsedMs = nowElapsedMs
+            scheduleBackgroundReleaseLocked()
+        }
+    }
+
+    override suspend fun notifyLowMemory() = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            closeLocked("low-memory", {})
+        }
+    }
+
     suspend fun reset(
         reason: String,
         trace: (String) -> Unit = {},
     ) = withContext(Dispatchers.IO) {
         mutex.withLock {
             closeLocked(reason, trace)
+        }
+    }
+
+    private fun scheduleBackgroundReleaseLocked() {
+        backgroundReleaseJob?.cancel()
+        backgroundReleaseJob = lifecycleScope.launch {
+            delay(NPU_RESIDENT_BACKGROUND_TIMEOUT_MS)
+            mutex.withLock {
+                maybeReleaseExpiredLocked(SystemClock.elapsedRealtime())
+            }
+        }
+    }
+
+    private fun maybeReleaseExpiredLocked(
+        nowElapsedMs: Long,
+        trace: (String) -> Unit = {},
+    ) {
+        val state = NpuResidentLifecycleState(
+            appInForeground = appInForeground,
+            backgroundedAtElapsedMs = backgroundedAtElapsedMs,
+            lastUsedAtElapsedMs = lastUsedAtElapsedMs,
+        )
+        when {
+            isNpuBackgroundReleaseDue(state, nowElapsedMs) -> closeLocked("background-timeout", trace)
+            isNpuIdleReleaseDue(state, nowElapsedMs) -> closeLocked("idle-timeout", trace)
         }
     }
 
@@ -253,6 +315,9 @@ internal object NpuKotlinConversationProductRoute {
         val activeEngine = engine
         engine = null
         engineModelPath = null
+        lastUsedAtElapsedMs = null
+        backgroundReleaseJob?.cancel()
+        backgroundReleaseJob = null
         if (activeEngine != null) {
             runCatching { activeEngine.close() }
             trace("$ROUTE_ID engine_closed=true reason=$reason")
