@@ -25,6 +25,7 @@ class Qairt244NativeArtifactReproducibilityContractTest {
         assertTrue(output, output.contains("--keep-bazel-output-base"))
         assertTrue(output, output.contains("--require-persistent-probe"))
         assertTrue(output, output.contains("--conversation-patch"))
+        assertTrue(output, output.contains("--kotlin-npu-conversation-patch"))
         assertTrue(output, output.contains("never reset or cleaned"))
     }
 
@@ -66,6 +67,8 @@ class Qairt244NativeArtifactReproducibilityContractTest {
         assertTrue(runner.contains("nativeRunPersistentProbe"))
         assertTrue(runner.contains("nativeRunConversationApiProbe"))
         assertTrue(runner.contains("qairt244_litertlm_conversation_api_probe.patch"))
+        assertTrue(runner.contains("qairt244_litertlm_kotlin_npu_conversation_sampler.patch"))
+        assertTrue(runner.contains("qairt244_kotlin_npu_conversation_sampler_v1"))
         assertTrue(runner.contains("conversation_api_used=true"))
         assertTrue(runner.contains("model_template_source=model_metadata"))
         assertTrue(runner.contains("REQUIRE_PERSISTENT_PROBE"))

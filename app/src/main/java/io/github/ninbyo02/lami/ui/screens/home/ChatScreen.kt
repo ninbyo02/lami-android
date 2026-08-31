@@ -5031,7 +5031,7 @@ fun Home(
                                                                             )
                                                                         }
                                                                     },
-                                                                    runInference = {
+                                                                    runInference = { npuChatId ->
                                                                         npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
                                                                         recordNpuS1MemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
                                                                         npuRealPromptTrace(
@@ -5059,17 +5059,53 @@ fun Home(
                                                                                 prompt = requestPrompt,
                                                                                 selectedModelFile = localBaseModelFilePath,
                                                                             )
-                                                                            withContext(Dispatchers.Default) {
-                                                                                NpuStandardRouteS1Bridge(
-                                                                                    mode = effectiveNpuStandardRouteMode,
-                                                                                    trace = npuRealPromptTrace,
-                                                                                )
-                                                                                    .run(
+                                                                            val prefacePlan = NpuConversationPrefacePlanner.plan(
+                                                                                history = localConversationHistorySnapshot,
+                                                                                currentUserPrompt = requestPrompt,
+                                                                            )
+                                                                            if (NpuKotlinConversationProductRoute.enabled) {
+                                                                                val kotlinConversationAttempt =
+                                                                                    NpuKotlinConversationProductRoute.run(
+                                                                                        context = context.applicationContext,
+                                                                                        chatId = npuChatId,
+                                                                                        userPrompt = prefacePlan.currentUserPrompt,
+                                                                                        initialTurns = prefacePlan.initialTurns,
+                                                                                        selectedModelFile = localBaseModelFilePath,
+                                                                                        requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                        trace = npuRealPromptTrace,
+                                                                                    )
+                                                                                if (kotlinConversationAttempt.succeeded) {
+                                                                                    npuRealPromptTrace(
+                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API engine_reused=${kotlinConversationAttempt.engineReused} conversation_reused=${kotlinConversationAttempt.conversationReused}",
+                                                                                    )
+                                                                                    requireNotNull(kotlinConversationAttempt.result)
+                                                                                } else {
+                                                                                    npuRealPromptTrace(
+                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API_FALLBACK_LOCAL reason=${kotlinConversationAttempt.failureReason}",
+                                                                                    )
+                                                                                    NpuStandardRouteS1Mapper.map(
+                                                                                        NpuStandardRouteS1RawResult(
+                                                                                            status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                                                                                            reason = "adapter_failure:kotlin_conversation_product_route:${kotlinConversationAttempt.failureReason}",
+                                                                                            selectedModelName = npuModelEligibility.selectedModelName,
+                                                                                            selectedModelFile = localBaseModelFilePath.orEmpty(),
+                                                                                            npuModelEligible = npuModelEligibility.npuModelEligible,
+                                                                                            inputPrompt = requestPrompt,
+                                                                                        ),
+                                                                                    )
+                                                                                }
+                                                                            } else {
+                                                                                withContext(Dispatchers.Default) {
+                                                                                    NpuStandardRouteS1Bridge(
+                                                                                        mode = effectiveNpuStandardRouteMode,
+                                                                                        trace = npuRealPromptTrace,
+                                                                                    ).run(
                                                                                         userPrompt = requestPrompt,
                                                                                         contextText = LocalConversationHistoryPolicy.npuContext(localConversationHistorySnapshot),
                                                                                         selectedModelFile = localBaseModelFilePath,
                                                                                         maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                     )
+                                                                                }
                                                                             }
                                                                         }
                                                                     },

@@ -1034,7 +1034,6 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
         fileTree(qairt244StandardDebugNativeSourceDir) {
             include("*.so")
             exclude("liblami_qairt244_smoke.so")
-            exclude("liblitertlm_jni.so")
         },
     )
     outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
@@ -1053,8 +1052,7 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             from(qairt244StandardDebugNativeSourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
-                exclude("liblitertlm_jni.so")
-            }
+                }
             into(outputDir)
         }
         val litertLmJni = File(outputDir, "liblami_qairt244_npu_jni.so")
@@ -1086,6 +1084,22 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
                 "rebuild/stage the patched LiteRT-LM artifact documented in docs/qairt244_native_artifact_reproducibility.md. " +
                 "file=${litertLmJni.absolutePath} readelf_error=${symbolError.toString().take(400)}"
         }
+        val kotlinConversationJni = File(outputDir, "liblitertlm_jni.so")
+        require(kotlinConversationJni.isFile) {
+            "standardDebug NPU Conversation route requires patched stock-name liblitertlm_jni.so: ${kotlinConversationJni.absolutePath}"
+        }
+        val kotlinConversationStrings = ByteArrayOutputStream()
+        val kotlinConversationStringsResult = exec {
+            commandLine("strings", kotlinConversationJni.absolutePath)
+            standardOutput = kotlinConversationStrings
+            isIgnoreExitValue = true
+        }
+        require(
+            kotlinConversationStringsResult.exitValue == 0 &&
+                kotlinConversationStrings.toString().contains("qairt244_kotlin_npu_conversation_sampler_v1"),
+        ) {
+            "standardDebug NPU Conversation route requires the Kotlin NPU sampler-aligned JNI artifact: ${kotlinConversationJni.absolutePath}"
+        }
     }
 }
 
@@ -1096,7 +1110,6 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
         fileTree(qairt244StandardDebugNativeSourceDir) {
             include("*.so")
             exclude("liblami_qairt244_smoke.so")
-            exclude("liblitertlm_jni.so")
         },
     )
     inputs.property("standardNpuRuntimeEnabled", standardNpuRuntimeEnabled)
@@ -1120,8 +1133,7 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
             from(sourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
-                exclude("liblitertlm_jni.so")
-            }
+                }
             into(outputDir)
         }
         val npuJni = File(outputDir, "liblami_qairt244_npu_jni.so")
@@ -1139,6 +1151,22 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
                 qairt244NativeRunEditablePromptSymbolRegex.containsMatchIn(symbolOutput.toString()),
         ) {
             "Enabled Standard Release NPU runtime requires the pinned patched JNI artifact: ${npuJni.absolutePath}"
+        }
+        val kotlinConversationJni = File(outputDir, "liblitertlm_jni.so")
+        require(kotlinConversationJni.isFile) {
+            "Enabled Standard Release NPU Conversation runtime requires patched liblitertlm_jni.so: ${kotlinConversationJni.absolutePath}"
+        }
+        val kotlinConversationStrings = ByteArrayOutputStream()
+        val kotlinConversationStringsResult = exec {
+            commandLine("strings", kotlinConversationJni.absolutePath)
+            standardOutput = kotlinConversationStrings
+            isIgnoreExitValue = true
+        }
+        require(
+            kotlinConversationStringsResult.exitValue == 0 &&
+                kotlinConversationStrings.toString().contains("qairt244_kotlin_npu_conversation_sampler_v1"),
+        ) {
+            "Enabled Standard Release NPU Conversation runtime requires sampler-aligned liblitertlm_jni.so"
         }
     }
 }

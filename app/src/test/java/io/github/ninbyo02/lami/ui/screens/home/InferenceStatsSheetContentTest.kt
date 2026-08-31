@@ -35,6 +35,39 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `safe greeting fallback separates display fallback from rejected NPU metrics`() {
+        val stats = InferenceStats(
+            modelName = InferenceStatsFactory.DETERMINISTIC_SAFE_GREETING_MODEL_LABEL,
+            outputTokens = 26,
+            totalTokens = 26,
+            tokensPerSecond = 32.5,
+            inferenceTimeSec = 0.8,
+            finishReason = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+            localSourceSummary = "route_family=npu_standard effective_backend=NPU fallback_used=false fallback_display_source=deterministic_safe_greeting inference_metrics_source=rejected_npu_attempt",
+        )
+
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.SIMPLE,
+        )
+        val overview = sections.single().items
+
+        assertEquals("NPU失敗判定まで", overview.first().label)
+        assertEquals("0.8 s", overview.first().value)
+        assertEquals("NPU", overview.first { it.label == "試行バックエンド" }.value)
+        assertEquals("固定応答", overview.first { it.label == "表示フォールバック" }.value)
+        assertEquals("固定挨拶へフォールバック", overview.first { it.label == "完了理由" }.value)
+        assertFalse(overview.any { it.label == "生成速度" })
+        assertFalse(overview.any { it.label == "使用トークン" })
+
+        val details = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
+        assertTrue(details.flatMap { it.items }.any { it.value.contains("32.5 token/s") })
+    }
+
+    @Test
     fun `buildInferenceSummarySections keeps raw values even when first token time exceeds inference time`() {
         val stats = InferenceStats(
             timeToFirstTokenMs = 2_000L,

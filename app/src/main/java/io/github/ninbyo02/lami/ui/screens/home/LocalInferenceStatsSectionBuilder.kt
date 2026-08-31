@@ -24,6 +24,9 @@ private enum class InferenceBackendKind {
     OLLAMA,
 }
 
+private fun isDeterministicSafeGreetingFallback(stats: InferenceStats): Boolean =
+    stats.finishReason == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING
+
 private fun isLocalBackendInferenceStats(stats: InferenceStats): Boolean {
     val haystack = listOfNotNull(
         stats.localSourceSummary,
@@ -88,10 +91,11 @@ internal fun buildInferenceSummarySections(
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
+    val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
-            add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
+            add(InferenceStatItemUi(label = if (deterministicSafeGreetingFallback) "NPU失敗判定まで" else "応答時間", value = formatInferenceTime(stats) ?: "—"))
             add(InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"))
         }
     } else {
@@ -103,25 +107,27 @@ internal fun buildInferenceSummarySections(
                 ),
             )
             add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
-            add(
-                InferenceStatItemUi(
-                    label = "生成速度",
-                    value = if (localTraceForDev == null) {
-                        buildBackendTokensPerSecondText(stats)
-                            ?: buildLamiTokensPerSecondText(stats)
-                            ?: "—"
-                    } else {
-                        buildBackendTokensPerSecondText(stats)
-                            ?: formatRegularTokensPerSecondValue(
-                                statValue = localStatsUiModel?.tokensPerSecond,
-                                fallbackValue = buildLamiTokensPerSecondText(stats),
-                            )
-                    },
-                    emphasizeValue = true,
+            if (!deterministicSafeGreetingFallback) {
+                add(
+                    InferenceStatItemUi(
+                        label = "生成速度",
+                        value = if (localTraceForDev == null) {
+                            buildBackendTokensPerSecondText(stats)
+                                ?: buildLamiTokensPerSecondText(stats)
+                                ?: "—"
+                        } else {
+                            buildBackendTokensPerSecondText(stats)
+                                ?: formatRegularTokensPerSecondValue(
+                                    statValue = localStatsUiModel?.tokensPerSecond,
+                                    fallbackValue = buildLamiTokensPerSecondText(stats),
+                                )
+                        },
+                        emphasizeValue = true,
+                    )
                 )
-            )
+            }
             addAll(localBackendSummaryItems)
-            add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "完了理由", value = if (deterministicSafeGreetingFallback) "固定挨拶へフォールバック" else formatFinishReason(stats) ?: "—"))
         }
     }
     val summarySection = InferenceStatsSectionUi(
@@ -1002,17 +1008,22 @@ private fun buildInferenceSimpleSections(
             backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
         )
     }
+    val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     return listOf(
         InferenceStatsSectionUi(
             title = "概要",
             items = buildList {
-                add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
-                add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                add(InferenceStatItemUi(label = if (deterministicSafeGreetingFallback) "NPU失敗判定まで" else "応答時間", value = formatInferenceTime(stats) ?: "—"))
+                if (!deterministicSafeGreetingFallback) {
+                    add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                }
                 addAll(localBackendSummaryItems)
                 addAll(ttftItems)
-                add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
-                add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+                if (!deterministicSafeGreetingFallback) {
+                    add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
+                }
+                add(InferenceStatItemUi(label = "完了理由", value = if (deterministicSafeGreetingFallback) "固定挨拶へフォールバック" else formatFinishReason(stats) ?: "—"))
             },
         ),
     )
@@ -1056,6 +1067,12 @@ private fun buildLocalBackendSummaryItems(stats: InferenceStats): List<Inference
     val values = parseLocalInferenceDiagnosticValues(stats)
     if (values.isEmpty()) return emptyList()
     val backendText = formatLocalExecutionBackendForStats(values) ?: return emptyList()
+    if (isDeterministicSafeGreetingFallback(stats)) {
+        return listOf(
+            InferenceStatItemUi(label = "試行バックエンド", value = backendText),
+            InferenceStatItemUi(label = "表示フォールバック", value = "固定応答"),
+        )
+    }
     return buildList {
         add(InferenceStatItemUi(label = "実行バックエンド", value = backendText))
         formatLocalFallbackStateForStats(values)?.let {

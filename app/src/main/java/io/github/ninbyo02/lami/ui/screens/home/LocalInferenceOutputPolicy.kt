@@ -116,6 +116,7 @@ private fun isNpuStandardRouteS1SafeGreetingFallbackFailure(
     result: NpuStandardRouteS1Result,
 ): Boolean {
     if (result.successCriteriaMet) return false
+    if (result.reason.startsWith("adapter_failure", ignoreCase = true)) return false
     val candidateFailureReasons = result.outputQualityCandidateReason
         .split('+')
         .map(String::trim)

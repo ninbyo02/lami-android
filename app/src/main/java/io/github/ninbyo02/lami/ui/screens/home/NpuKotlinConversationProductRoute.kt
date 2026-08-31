@@ -1,0 +1,273 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import android.content.Context
+import android.os.SystemClock
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import io.github.ninbyo02.lami.BuildConfig
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+internal data class NpuKotlinConversationProductAttempt(
+    val result: NpuStandardRouteS1Result? = null,
+    val failureReason: String = "",
+    val engineReused: Boolean = false,
+    val conversationReused: Boolean = false,
+) {
+    val succeeded: Boolean
+        get() = result?.successCriteriaMet == true
+}
+
+internal object NpuKotlinConversationProductRoute {
+    const val ROUTE_ID = "npu_kotlin_conversation_product_candidate_v1"
+    const val NATIVE_PATCH_MARKER = "qairt244_kotlin_npu_conversation_sampler_v1"
+    const val NPU_EVIDENCE = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+
+    private val mutex = Mutex()
+    private var engine: Engine? = null
+    private var engineModelPath: String? = null
+    private var conversation: Conversation? = null
+    private var conversationChatId: Int? = null
+
+    val enabled: Boolean
+        get() = (BuildConfig.DEBUG || BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) &&
+            (BuildConfig.CURRENT_FLAVOR == "standard" || BuildConfig.CUSTOM_BUILD_EXPERIMENT)
+
+    suspend fun run(
+        context: Context,
+        chatId: Int,
+        userPrompt: String,
+        initialTurns: List<LocalConversationTurn>,
+        selectedModelFile: String?,
+        requestedMaxOutputTokens: Int,
+        trace: (String) -> Unit = {},
+    ): NpuKotlinConversationProductAttempt = withContext(Dispatchers.IO) {
+        if (!enabled) {
+            return@withContext NpuKotlinConversationProductAttempt(
+                failureReason = "kotlin_conversation_product_route_disabled",
+            )
+        }
+        val prompt = userPrompt.trim()
+        if (prompt.isBlank()) {
+            return@withContext NpuKotlinConversationProductAttempt(
+                failureReason = "blank_prompt",
+            )
+        }
+        val modelPath = selectedModelFile?.trim().orEmpty()
+        val modelFile = File(modelPath)
+        if (!modelFile.isFile || modelFile.length() <= 0L) {
+            return@withContext NpuKotlinConversationProductAttempt(
+                failureReason = "npu_model_unavailable",
+            )
+        }
+
+        mutex.withLock {
+            var engineReused = false
+            var conversationReused = false
+            try {
+                if (engineModelPath != null && engineModelPath != modelPath) {
+                    closeLocked("model_changed", trace)
+                }
+                if (engine == null) {
+                    val cacheDir = context.applicationContext.cacheDir
+                        .resolve("litertlm_npu_product_candidate")
+                        .apply { mkdirs() }
+                    val startedAt = SystemClock.elapsedRealtime()
+                    engine = Engine(
+                        EngineConfig(
+                            modelPath = modelPath,
+                            backend = Backend.NPU(context.applicationInfo.nativeLibraryDir),
+                            visionBackend = null,
+                            audioBackend = null,
+                            maxNumTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+                            cacheDir = cacheDir.absolutePath,
+                        ),
+                    ).also { it.initialize() }
+                    engineModelPath = modelPath
+                    trace("$ROUTE_ID engine_created_ms=${SystemClock.elapsedRealtime() - startedAt}")
+                } else {
+                    engineReused = true
+                    trace("$ROUTE_ID engine_reused=true")
+                }
+
+                if (conversation != null && conversationChatId != chatId) {
+                    closeConversationLocked("chat_changed", trace)
+                }
+                if (conversation == null) {
+                    val activeEngine = requireNotNull(engine)
+                    conversation = activeEngine.createConversation(
+                        LocalConversationPolicy.conversationConfig(initialTurns),
+                    )
+                    conversationChatId = chatId
+                    trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${initialTurns.size}")
+                } else {
+                    conversationReused = true
+                    trace("$ROUTE_ID conversation_reused=true chat_id=$chatId")
+                }
+
+                val activeConversation = requireNotNull(conversation)
+                val sendStartedAt = SystemClock.elapsedRealtime()
+                val message = activeConversation.sendMessage(
+                    prompt,
+                    LocalConversationPolicy.generationExtraContext,
+                )
+                val sendMs = SystemClock.elapsedRealtime() - sendStartedAt
+                val response = renderMessage(message).trim()
+                if (response.isBlank()) {
+                    closeLocked("blank_output", trace)
+                    return@withLock NpuKotlinConversationProductAttempt(
+                        failureReason = "kotlin_conversation_blank_output",
+                        engineReused = engineReused,
+                        conversationReused = conversationReused,
+                    )
+                }
+
+                val effectiveMaxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
+                    userPrompt = prompt,
+                    requestedMaxOutputTokens = requestedMaxOutputTokens,
+                )
+                val mapped = NpuStandardRouteS1Mapper.map(
+                    NpuStandardRouteS1RawResult(
+                        status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                        success = true,
+                        reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                        rawOutput = response,
+                        sanitizedOutput = response,
+                        qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                        runDecodeReached = true,
+                        npuBackendEvidence = NPU_EVIDENCE,
+                        fallbackUsed = false,
+                        timeout = false,
+                        freshCrash = false,
+                        requestedMaxOutputTokens = requestedMaxOutputTokens,
+                        effectiveMaxOutputTokens = effectiveMaxOutputTokens,
+                        selectedModelName = modelFile.name,
+                        selectedModelFile = modelPath,
+                        npuModelEligible = true,
+                        npuS1DecodeMs = sendMs,
+                        npuS1OutputTokens = NpuStandardRouteS1Contract.estimateOutputTokensFromText(response),
+                        npuS1TokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+                        inputPrompt = prompt,
+                    ),
+                )
+                val unified = withConversationApiProvenance(mapped)
+                if (!unified.successCriteriaMet) {
+                    closeLocked("quality_gate_failed", trace)
+                    return@withLock NpuKotlinConversationProductAttempt(
+                        failureReason = "kotlin_conversation_quality_gate_failed:${unified.outputQualityCandidateReason}",
+                        engineReused = engineReused,
+                        conversationReused = conversationReused,
+                    )
+                }
+                trace("$ROUTE_ID success=true send_ms=$sendMs response_length=${response.length}")
+                NpuKotlinConversationProductAttempt(
+                    result = unified,
+                    engineReused = engineReused,
+                    conversationReused = conversationReused,
+                )
+            } catch (throwable: Throwable) {
+                val reason = "${throwable.javaClass.simpleName}:${throwable.message.orEmpty()}"
+                trace("$ROUTE_ID failure=$reason")
+                closeLocked("failure", trace)
+                NpuKotlinConversationProductAttempt(
+                    failureReason = "kotlin_conversation_failure:$reason",
+                    engineReused = engineReused,
+                    conversationReused = conversationReused,
+                )
+            }
+        }
+    }
+
+    private fun withConversationApiProvenance(
+        result: NpuStandardRouteS1Result,
+    ): NpuStandardRouteS1Result {
+        val owner = LocalConversationPolicy.PROMPT_TEMPLATE_OWNER
+        val evaluator = LocalConversationPolicy.PROMPT_TEMPLATE_EVALUATOR
+        return result.copy(
+            promptTemplateOwner = owner,
+            promptTemplateEvaluator = evaluator,
+            conversationApiUsed = true,
+            appTemplateUsed = false,
+            templateOwnershipUnified = true,
+            displayText = NpuStandardRouteS1Contract.displayText(
+                selection = result.selection,
+                status = result.status,
+                reason = result.reason,
+                rawOutput = result.rawOutput,
+                sanitizedOutput = result.sanitizedOutput,
+                qualityClassification = result.qualityClassification,
+                runDecodeReached = result.runDecodeReached,
+                npuBackendEvidence = result.npuBackendEvidence,
+                fallbackUsed = result.fallbackUsed,
+                timeout = result.timeout,
+                freshCrash = result.freshCrash,
+                selectedModelName = result.selectedModelName,
+                selectedModelFile = result.selectedModelFile,
+                npuModelEligible = result.npuModelEligible,
+                timing = result.timing,
+                nativeDiagnostics = result.nativeDiagnostics,
+                inputPrompt = result.inputPrompt,
+                promptTemplateOwner = owner,
+                promptTemplateEvaluator = evaluator,
+                conversationApiUsed = true,
+                appTemplateUsed = false,
+                templateOwnershipUnified = true,
+            ),
+        )
+    }
+
+    suspend fun reset(
+        reason: String,
+        trace: (String) -> Unit = {},
+    ) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            closeLocked(reason, trace)
+        }
+    }
+
+    private fun closeConversationLocked(
+        reason: String,
+        trace: (String) -> Unit,
+    ) {
+        val activeConversation = conversation
+        conversation = null
+        conversationChatId = null
+        if (activeConversation != null) {
+            runCatching { activeConversation.close() }
+            trace("$ROUTE_ID conversation_closed=true reason=$reason")
+        }
+    }
+
+    private fun closeLocked(
+        reason: String,
+        trace: (String) -> Unit,
+    ) {
+        closeConversationLocked(reason, trace)
+        val activeEngine = engine
+        engine = null
+        engineModelPath = null
+        if (activeEngine != null) {
+            runCatching { activeEngine.close() }
+            trace("$ROUTE_ID engine_closed=true reason=$reason")
+        }
+    }
+
+    private fun renderMessage(message: Message): String {
+        val text = message.contents.contents.joinToString(separator = "") { content ->
+            when (content) {
+                is Content.Text -> content.text
+                else -> ""
+            }
+        }
+        return text.takeIf { it.isNotBlank() }
+            ?: message.contents.toString().takeIf { it.isNotBlank() }
+            ?: message.toString()
+    }
+}

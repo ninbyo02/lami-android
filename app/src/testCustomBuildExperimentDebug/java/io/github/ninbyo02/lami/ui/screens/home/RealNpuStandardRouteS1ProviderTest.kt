@@ -300,16 +300,13 @@ class RealNpuStandardRouteS1ProviderTest {
 
         val request = requireNotNull(capturedRequest)
         assertEquals("success", raw.status)
-        assertEquals(
-            "重複・説明・句読点なしで一度だけ答えてください。\n$userPrompt",
-            request.userPrompt,
-        )
-        assertEquals("ユーザー: 直前の質問", request.contextText)
+        assertEquals(userPrompt, request.userPrompt)
+        assertEquals("ユーザー: 直前の質問\nアシスタント: 直前の回答", request.contextText)
         assertTrue(request.unsafeDevBypassPromptLengthGate)
         assertEquals(128, request.maxOutputTokens)
         assertEquals(128, raw.requestedMaxOutputTokens)
         assertEquals(128, raw.effectiveMaxOutputTokens)
-        assertEquals("raw_dialog_tail_variant_a", request.promptTailVariant)
+        assertEquals(ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT, request.promptTailVariant)
         assertEquals(60_000L, request.timeoutMs)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT request_prompt_hash=") })
@@ -399,8 +396,9 @@ class RealNpuStandardRouteS1ProviderTest {
         )
 
         assertFalse(request.contextText.contains("好きな色は赤です"))
-        assertTrue(request.contextText.contains("好きな色の最新値は青です"))
-        assertFalse(request.contextText.contains("アシスタント:"))
+        assertTrue(request.contextText.contains("好きな色を青に訂正します"))
+        assertTrue(request.contextText.contains("アシスタント: 青"))
+        assertFalse(request.contextText.contains("好きな色の最新値は青です"))
     }
 
     @Test
@@ -417,7 +415,8 @@ class RealNpuStandardRouteS1ProviderTest {
         )
 
         assertTrue(factRecall.contextText.contains("ユーザー: 私の名前は青葉です。"))
-        assertFalse(factRecall.contextText.contains("アシスタント:"))
+        assertTrue(factRecall.contextText.contains("アシスタント: 青葉。"))
+        assertTrue(answerReference.contextText.contains("ユーザー: 私の名前は青葉です。"))
         assertTrue(answerReference.contextText.contains("アシスタント: 青葉。"))
     }
 
@@ -442,9 +441,12 @@ class RealNpuStandardRouteS1ProviderTest {
         )
 
         val request = requireNotNull(capturedRequest)
-        assertEquals("", request.contextText)
-        assertTrue(request.userPrompt.contains("ユーザーの名前は佐藤です"))
-        assertTrue(request.userPrompt.contains("佐藤だけ答えてください"))
+        assertEquals(
+            "ユーザー: 私の名前は分かりますか。\nアシスタント: 佐藤",
+            request.contextText,
+        )
+        assertEquals("何ですか。", request.userPrompt)
+        assertFalse(request.userPrompt.contains("ユーザーの名前は佐藤です"))
         val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
             contextText = request.contextText,
             userPrompt = request.userPrompt,
@@ -468,7 +470,7 @@ class RealNpuStandardRouteS1ProviderTest {
             trace = traces::add,
         )
 
-        assertTrue(traces.any { it.contains("short_prompt_rewrite_applied=true") })
+        assertTrue(traces.any { it.contains("short_prompt_rewrite_applied=false") })
         assertTrue(traces.any { it.contains("sampler_config_profile=lami_stable_v1") })
         assertTrue(traces.any { it.contains("thinking_enabled=false") })
     }
