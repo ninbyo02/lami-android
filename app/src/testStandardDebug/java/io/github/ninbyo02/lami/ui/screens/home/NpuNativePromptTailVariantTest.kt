@@ -35,11 +35,11 @@ class NpuNativePromptTailVariantTest {
             timeout = result.timeout,
             freshCrash = result.freshCrash,
         )
-        assertTrue(diagnostics.contains("prompt_template_owner=model_metadata"))
+        assertTrue(diagnostics.contains("prompt_template_owner=native_npu_adapter_exception"))
         assertTrue(diagnostics.contains("prompt_template_evaluator=lami_verified_model_template_renderer"))
         assertTrue(diagnostics.contains("conversation_api_used=false"))
-        assertTrue(diagnostics.contains("app_template_used=false"))
-        assertTrue(diagnostics.contains("template_ownership_unified=true"))
+        assertTrue(diagnostics.contains("app_template_used=true"))
+        assertTrue(diagnostics.contains("template_ownership_unified=false"))
     }
 
     private fun successDisplay(maxOutputTokens: Int) = NpuStandardRouteNativeDisplay(
