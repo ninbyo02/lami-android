@@ -406,7 +406,7 @@ fi
 if [[ -n "$CONVERSATION_PATCH" ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe'
   for marker in \
-    'qairt244_conversation_api_probe_v4' \
+    'qairt244_conversation_api_probe_v5' \
     'conversation_api_used=true' \
     'conversation_api_surface=C++' \
     'app_template_used=false' \

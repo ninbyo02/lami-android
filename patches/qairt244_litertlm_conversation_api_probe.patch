@@ -1,5 +1,5 @@
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 96e68c71..c8dfa13a 100644
+index 96e68c71..ce82c0b3 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 @@ -107,6 +107,8 @@ constexpr char kQairt244EditablePromptMarker[] =
@@ -7,11 +7,11 @@ index 96e68c71..c8dfa13a 100644
  constexpr char kQairt244PersistentProbeMarker[] =
      "qairt244_persistent_custom_jni_probe_v1";
 +constexpr char kQairt244ConversationApiProbeMarker[] =
-+    "qairt244_conversation_api_probe_v4";
++    "qairt244_conversation_api_probe_v5";
  constexpr char kQairt244EditablePromptValidationMode[] =
      "utf8_internal_intent";
  constexpr char kQairt244NativeDiagPath[] =
-@@ -3514,6 +3516,451 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -3514,6 +3516,491 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, status);
  }
 
@@ -19,7 +19,8 @@ index 96e68c71..c8dfa13a 100644
 +Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe(
 +    JNIEnv* env, jclass thiz, jstring model_path,
 +    jstring native_library_dir, jstring cache_dir, jstring result_path,
-+    jstring diag_path, jstring system_instruction, jstring prompts_json,
++    jstring diag_path, jstring system_instruction,
++    jstring initial_messages_json, jstring prompts_json,
 +    jstring sampler_profile, jstring conversation_state_profile,
 +    jint max_output_tokens) {
 +  const absl::Time probe_start_time = absl::Now();
@@ -29,6 +30,7 @@ index 96e68c71..c8dfa13a 100644
 +  std::string result_path_str;
 +  std::string diag_path_str;
 +  std::string system_instruction_str;
++  std::string initial_messages_json_str;
 +  std::string prompts_json_str;
 +  std::string sampler_profile_str = "lami_stable_v1";
 +  std::string conversation_state_profile_str = "persistent_v1";
@@ -48,6 +50,7 @@ index 96e68c71..c8dfa13a 100644
 +  bool conversation_created = false;
 +  bool conversation_closed = false;
 +  bool engine_closed = false;
++  int initial_preface_message_count = 0;
 +  int send_attempt_count = 0;
 +  int send_success_count = 0;
 +  int conversation_rehydrate_count = 0;
@@ -96,6 +99,8 @@ index 96e68c71..c8dfa13a 100644
 +                    std::string(conversation_closed ? "true" : "false"));
 +    lines.push_back("engine_closed=" +
 +                    std::string(engine_closed ? "true" : "false"));
++    lines.push_back("initial_preface_message_count=" +
++                    std::to_string(initial_preface_message_count));
 +    lines.push_back("send_attempt_count=" +
 +                    std::to_string(send_attempt_count));
 +    lines.push_back("send_success_count=" +
@@ -147,6 +152,10 @@ index 96e68c71..c8dfa13a 100644
 +                          kQairt244ConversationApiProbeMarker) ||
 +      !GetOptionalJString(env, system_instruction, &system_instruction_str,
 +                          diag_path_str.c_str(), "system_instruction",
++                          kQairt244ConversationApiProbeMarker) ||
++      !GetOptionalJString(env, initial_messages_json,
++                          &initial_messages_json_str,
++                          diag_path_str.c_str(), "initial_messages_json",
 +                          kQairt244ConversationApiProbeMarker) ||
 +      !GetOptionalJString(env, prompts_json, &prompts_json_str,
 +                          diag_path_str.c_str(), "prompts_json",
@@ -203,6 +212,30 @@ index 96e68c71..c8dfa13a 100644
 +        env, "Conversation API probe unsupported sampler profile");
 +    return nullptr;
 +  }
++
++  auto initial_messages =
++      nlohmann::ordered_json::parse(initial_messages_json_str, nullptr, false);
++  if (initial_messages.is_discarded() || !initial_messages.is_array() ||
++      initial_messages.size() > 6 || initial_messages.size() % 2 != 0) {
++    fail("argument", "initial-messages-json-must-contain-up-to-three-pairs");
++    ThrowLiteRtLmJniException(
++        env, "Conversation API probe initial_messages_json must contain up to three pairs");
++    return nullptr;
++  }
++  for (size_t index = 0; index < initial_messages.size(); ++index) {
++    const auto& item = initial_messages[index];
++    const std::string expected_role = index % 2 == 0 ? "user" : "model";
++    if (!item.is_object() || item.value("role", "") != expected_role ||
++        !item.contains("text") || !item["text"].is_string() ||
++        item["text"].get<std::string>().empty()) {
++      fail("argument", "initial-messages-must-be-completed-user-model-pairs");
++      ThrowLiteRtLmJniException(
++          env, "Conversation API probe initial messages must be completed user/model pairs");
++      return nullptr;
++    }
++  }
++  initial_preface_message_count =
++      static_cast<int>(initial_messages.size());
 +
 +  auto prompts =
 +      nlohmann::ordered_json::parse(prompts_json_str, nullptr, false);
@@ -294,6 +327,13 @@ index 96e68c71..c8dfa13a 100644
 +        {{"type", "text"}, {"text", system_instruction_str}});
 +    json_preface.messages.push_back(
 +        {{"role", "system"}, {"content", system_content}});
++  }
++  for (const auto& initial_message : initial_messages) {
++    nlohmann::ordered_json initial_content = nlohmann::ordered_json::array();
++    initial_content.push_back(
++        {{"type", "text"}, {"text", initial_message["text"]}});
++    json_preface.messages.push_back(
++        {{"role", initial_message["role"]}, {"content", initial_content}});
 +  }
 +
 +  append_stage_diag("before_conversation_config_create");

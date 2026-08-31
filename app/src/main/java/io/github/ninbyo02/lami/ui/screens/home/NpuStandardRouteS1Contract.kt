@@ -218,11 +218,11 @@ internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
     const val PROMPT_TAIL_VARIANT = ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT
     const val PROMPT_WRAPPER_USED = PROMPT_TAIL_VARIANT
-    const val PROMPT_TEMPLATE_OWNER = LocalConversationPolicy.PROMPT_TEMPLATE_OWNER
+    const val PROMPT_TEMPLATE_OWNER = "native_npu_adapter_exception"
     const val PROMPT_TEMPLATE_EVALUATOR = ModelOwnedChatTemplate.EVALUATOR
     const val CONVERSATION_API_USED = false
-    const val APP_TEMPLATE_USED = false
-    const val TEMPLATE_OWNERSHIP_UNIFIED = true
+    const val APP_TEMPLATE_USED = true
+    const val TEMPLATE_OWNERSHIP_UNIFIED = false
     const val MAX_OUTPUT_TOKENS = 32
     const val STRICT_COMPACT_ANSWER_INSTRUCTION =
         "重複・説明・句読点なしで一度だけ答えてください。"

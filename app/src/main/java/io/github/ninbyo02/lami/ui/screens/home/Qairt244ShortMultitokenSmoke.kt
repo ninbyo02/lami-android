@@ -241,6 +241,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             samplerProfile: String,
             conversationStateProfile: String,
             systemInstruction: String = LocalConversationPolicy.SYSTEM_INSTRUCTION,
+            initialTurns: List<LocalConversationTurn> = emptyList(),
         ): Qairt244PersistentProbeResult {
             check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "Conversation API probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
@@ -248,6 +249,17 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             check(modelPath.isNotBlank()) { "modelPath is required" }
             check(prompts.size in 1..11) { "prompts must contain 1..11 items" }
             check(prompts.none { it.isBlank() }) { "prompts must not contain blank items" }
+            check(initialTurns.size <= NpuConversationPrefacePlanner.MAX_RECENT_COMPLETED_PAIRS * 2) {
+                "initialTurns must contain at most three completed pairs"
+            }
+            check(initialTurns.none { it.text.isBlank() }) { "initialTurns must not contain blank items" }
+            check(initialTurns.chunked(2).all { pair ->
+                pair.size == 2 &&
+                    pair[0].role == LocalConversationRole.USER &&
+                    pair[1].role == LocalConversationRole.MODEL
+            }) {
+                "initialTurns must contain completed user/model pairs"
+            }
             check(maxOutputTokens in 1..128) { "maxOutputTokens must be 1..128" }
             check(samplerProfile in setOf("lami_stable_v1", "greedy_top_k_1_v1")) {
                 "unsupported samplerProfile=$samplerProfile"
@@ -269,6 +281,14 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             resultFile.delete()
             diagFile.delete()
             val promptsJson = Gson().toJson(prompts)
+            val initialMessagesJson = Gson().toJson(
+                initialTurns.map { turn ->
+                    mapOf(
+                        "role" to if (turn.role == LocalConversationRole.USER) "user" else "model",
+                        "text" to turn.text,
+                    )
+                },
+            )
             val nativeResult = runCatching {
                 nativeRunConversationApiProbe(
                     modelPath = modelPath,
@@ -277,6 +297,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     resultPath = resultFile.absolutePath,
                     diagPath = diagFile.absolutePath,
                     systemInstruction = systemInstruction,
+                    initialMessagesJson = initialMessagesJson,
                     promptsJson = promptsJson,
                     samplerProfile = samplerProfile,
                     conversationStateProfile = conversationStateProfile,
@@ -504,6 +525,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             resultPath: String,
             diagPath: String,
             systemInstruction: String,
+            initialMessagesJson: String,
             promptsJson: String,
             samplerProfile: String,
             conversationStateProfile: String,
