@@ -31,10 +31,24 @@
         <receiver
             android:name="io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver"
             android:exported="false" />
+        <receiver
+            android:name="io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name="io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity"
             android:exported="true"
             android:theme="@style/Theme.Ollama" />
+        <receiver
+            android:name="io.github.ninbyo02.lami.ui.screens.home.KotlinNpuConversationCandidateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.KOTLIN_NPU_CONVERSATION_CANDIDATE" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name="io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity"
             android:excludeFromRecents="true"

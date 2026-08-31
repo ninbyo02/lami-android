@@ -1,0 +1,328 @@
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+index 56218bbd..2473aa5f 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -105,6 +105,38 @@
+     "qairt244_short_multitoken_smoke_v1";
+ constexpr char kQairt244EditablePromptMarker[] =
+     "qairt244_editable_prompt_smoke_v1";
++#if defined(__clang__) || defined(__GNUC__)
++#define QAIRT244_USED __attribute__((used))
++#define QAIRT244_VISIBLE __attribute__((visibility("default")))
++#else
++#define QAIRT244_USED
++#define QAIRT244_VISIBLE
++#endif
++#if defined(__has_attribute)
++#if __has_attribute(retain)
++#define QAIRT244_RETAIN __attribute__((retain))
++#else
++#define QAIRT244_RETAIN
++#endif
++#else
++#define QAIRT244_RETAIN
++#endif
++
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char
++    kQairt244GpuPrefillPreinvokeJniArtifactMarker[] QAIRT244_USED
++    QAIRT244_RETAIN =
++    "qairt244_gpu_prefill_preinvoke_v1 "
++    "jni_artifact_marker=reachable_from_liblitertlm_jni";
++constexpr const char* kQairt244GpuPrefillPreinvokeJniMarker =
++    kQairt244GpuPrefillPreinvokeJniArtifactMarker;
++
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char*
++Qairt244GpuPrefillPreinvokeArtifactMarker() QAIRT244_USED QAIRT244_RETAIN;
++
++extern "C" LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker(
++    JNIEnv* env, jclass) QAIRT244_USED QAIRT244_RETAIN;
++
+ constexpr char kQairt244EditablePromptValidationMode[] =
+     "utf8_internal_intent";
+ constexpr char kQairt244NativeDiagPath[] =
+@@ -118,7 +150,8 @@
+   if (file == nullptr) {
+     return;
+   }
+-  std::fprintf(file, "%s ", kQairt244NativeFileMarker);
++  std::fprintf(file, "%s %s ", kQairt244NativeFileMarker,
++               Qairt244GpuPrefillPreinvokeArtifactMarker());
+   va_list args;
+   va_start(args, format);
+   std::vfprintf(file, format, args);
+@@ -127,6 +160,17 @@
+   std::fflush(file);
+   std::fclose(file);
+ }
++
++extern "C" LITERTLM_JNIEXPORT QAIRT244_VISIBLE const char*
++Qairt244GpuPrefillPreinvokeArtifactMarker() {
++  return kQairt244GpuPrefillPreinvokeJniMarker;
++}
++
++extern "C" LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker(
++    JNIEnv* env, jclass) {
++  return env->NewStringUTF(Qairt244GpuPrefillPreinvokeArtifactMarker());
++}
+
+ void PreloadQairt244QnnRuntimeLibraries(const std::string& native_library_dir,
+                                         const char* diag_path,
+diff --git a/runtime/executor/llm_litert_compiled_model_executor.cc b/runtime/executor/llm_litert_compiled_model_executor.cc
+index b2d630a9..5a90d7e6 100644
+--- a/runtime/executor/llm_litert_compiled_model_executor.cc
++++ b/runtime/executor/llm_litert_compiled_model_executor.cc
+@@ -33,6 +33,7 @@
+ #include "absl/status/statusor.h"  // from @com_google_absl
+ #include "absl/strings/match.h"  // from @com_google_absl
+ #include "absl/strings/str_cat.h"  // from @com_google_absl
++#include "absl/strings/str_join.h"  // from @com_google_absl
+ #include "absl/strings/string_view.h"  // from @com_google_absl
+ #include "absl/types/span.h"  // from @com_google_absl
+ #include "litert/cc/litert_common.h"  // from @litert
+@@ -81,6 +82,51 @@ using ::absl::Span;
+ constexpr absl::string_view kPrefillSignatureRunner = "prefill";
+ constexpr absl::string_view kDecodeSignatureRunner = "decode";
+ constexpr int kDynamicDimValue = -1;
++constexpr absl::string_view kQairt244GpuPrefillPreinvokeLogPrefix =
++    "qairt244_gpu_prefill_preinvoke_v1";
++
++std::string TensorBufferShapeForDiagnostics(const TensorBuffer& buffer) {
++  auto tensor_type = buffer.TensorType();
++  if (!tensor_type) {
++    return absl::StrCat("shape_unavailable:", tensor_type.Error().Message());
++  }
++  const auto& dims = tensor_type->Layout().Dimensions();
++  return absl::StrCat("[", absl::StrJoin(dims, ","), "]");
++}
++
++std::string TensorBufferByteSizeForDiagnostics(const TensorBuffer& buffer) {
++  auto packed_size = buffer.PackedSize();
++  if (!packed_size) {
++    return absl::StrCat("bytes_unavailable:", packed_size.Error().Message());
++  }
++  return absl::StrCat(*packed_size);
++}
++
++std::string TensorBufferElementTypeForDiagnostics(const TensorBuffer& buffer) {
++  auto tensor_type = buffer.TensorType();
++  if (!tensor_type) {
++    return absl::StrCat("type_unavailable:", tensor_type.Error().Message());
++  }
++  return absl::StrCat(tensor_type->ElementType());
++}
++
++std::string TensorBufferMapForDiagnostics(
++    const absl::flat_hash_map<absl::string_view, TensorBuffer>& buffers) {
++  std::vector<std::string> entries;
++  entries.reserve(buffers.size());
++  for (const auto& [name, buffer] : buffers) {
++    entries.push_back(absl::StrCat(
++        name, ":shape=", TensorBufferShapeForDiagnostics(buffer),
++        ":bytes=", TensorBufferByteSizeForDiagnostics(buffer),
++        ":type=", TensorBufferElementTypeForDiagnostics(buffer)));
++  }
++  std::sort(entries.begin(), entries.end());
++  return absl::StrJoin(entries, "|");
++}
++
++std::string DiagnosticIntOrUnavailable(int value) {
++  return value >= 0 ? absl::StrCat(value) : "unavailable";
++}
+
+ absl::Status InitializeEmbeddingLookups(
+     litert::Environment& env, ModelResources& resources,
+@@ -550,6 +596,10 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::PrefillInternal(
+     Span<const int> ids, bool async) {
+   RETURN_IF_ERROR(RollBackProcessedTokens());
+
++  const int prefill_input_token_count = ids.size();
++  int prefill_effective_token_count = -1;
++  int prefill_start_step = -1;
++  int prefill_end_step = -1;
+   {
+     // Fill the input buffers with scoped locks.
+     auto& prefill_input_pos =
+@@ -582,6 +632,7 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::PrefillInternal(
+             .GetNextUnprocessedToken();
+     RET_CHECK_LE(pending_input_token.size(), 1);
+     const int start_step = internal_start_step;
++    prefill_start_step = start_step;
+     const bool has_pending_input_token = !pending_input_token.empty();
+     const bool use_token_as_lookup = !signatures_.input_tokens.empty();
+     const bool use_per_layer_embedding =
+@@ -680,6 +731,14 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::PrefillInternal(
+             prefill_input_buffers[signatures_.input_int32_param.value()],
+             start_step, ids.size()));
+       }
++      prefill_effective_token_count = prefill_length + input_idx;
++      prefill_end_step =
++          prefill_effective_token_count > 0
++              ? start_step + prefill_effective_token_count - 1
++              : start_step;
++    } else {
++      prefill_effective_token_count = 0;
++      prefill_end_step = start_step;
+     }
+
+     // Add the last token of the current input as a pending input token, to be
+@@ -706,14 +765,17 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::PrefillInternal(
+       return absl::OkStatus();
+     }
+   }
+-  return BindTensorsAndRunPrefill(prefill_signature, prefill_input_buffers,
+-                                  async);
++  return BindTensorsAndRunPrefill(
++      prefill_signature, prefill_input_buffers, async, prefill_input_token_count,
++      prefill_effective_token_count, prefill_start_step, prefill_end_step);
+ }
+
+ absl::Status LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunPrefill(
+     absl::string_view prefill_signature,
+     absl::flat_hash_map<absl::string_view, TensorBuffer>& prefill_input_buffers,
+-    bool async) {
++    bool async, int prefill_input_token_count,
++    int prefill_effective_token_count, int prefill_start_step,
++    int prefill_end_step) {
+   absl::flat_hash_map<absl::string_view, TensorBuffer> input_buffers;
+   for (const auto& [input_name, input_buffer] : prefill_input_buffers) {
+     LITERT_ASSIGN_OR_RETURN(auto input_buffer_dup, input_buffer.Duplicate());
+@@ -730,6 +792,45 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunPrefill(
+     output_buffers[output_name] = std::move(output_buffer_dup);
+   }
+
++  ABSL_LOG(WARNING) << kQairt244GpuPrefillPreinvokeLogPrefix
++                    << " event=before_compiled_model_prefill_invoke"
++                    << " executor_backend=LiteRT_Compiled_Model"
++                    << " settings_backend="
++                    << GetBackendString(executor_settings_.GetBackend())
++                    << " sampler_backend="
++                    << GetBackendString(executor_settings_.GetSamplerBackend())
++                    << " signature=" << prefill_signature
++                    << " runner=" << prefill_signature
++                    << " async=" << async
++                    << " prompt_token_length="
++                    << DiagnosticIntOrUnavailable(prefill_input_token_count)
++                    << " prefill_effective_token_length="
++                    << DiagnosticIntOrUnavailable(prefill_effective_token_count)
++                    << " prefill_start_position="
++                    << DiagnosticIntOrUnavailable(prefill_start_step)
++                    << " prefill_end_position="
++                    << DiagnosticIntOrUnavailable(prefill_end_step)
++                    << " current_step="
++                    << llm_context_->runtime_state().current_step
++                    << " prefill_input_tensor_count="
++                    << prefill_input_buffers.size()
++                    << " prefill_input_tensors="
++                    << TensorBufferMapForDiagnostics(prefill_input_buffers)
++                    << " run_input_tensor_count=" << input_buffers.size()
++                    << " run_input_tensors="
++                    << TensorBufferMapForDiagnostics(input_buffers)
++                    << " input_kv_cache_tensor_count="
++                    << input_kv_cache_buffers_->size()
++                    << " input_kv_cache_tensors="
++                    << TensorBufferMapForDiagnostics(*input_kv_cache_buffers_)
++                    << " output_kv_cache_tensor_count="
++                    << output_kv_cache_buffers_->size()
++                    << " output_kv_cache_tensors="
++                    << TensorBufferMapForDiagnostics(*output_kv_cache_buffers_)
++                    << " run_output_tensor_count=" << output_buffers.size()
++                    << " run_output_tensors="
++                    << TensorBufferMapForDiagnostics(output_buffers);
++
+   if (async) {
+     LITERT_RETURN_IF_ERROR(compiled_model_->RunAsync(
+         prefill_signature, input_buffers, output_buffers, async));
+diff --git a/runtime/executor/llm_litert_compiled_model_executor.h b/runtime/executor/llm_litert_compiled_model_executor.h
+index 0c94ee88..d71685bd 100644
+--- a/runtime/executor/llm_litert_compiled_model_executor.h
++++ b/runtime/executor/llm_litert_compiled_model_executor.h
+@@ -218,7 +218,9 @@ class LlmLiteRtCompiledModelExecutorBase : public LlmExecutor {
+       absl::string_view prefill_signature,
+       absl::flat_hash_map<absl::string_view /*input_name*/, TensorBuffer>&
+           prefill_input_buffers,
+-      bool async);
++      bool async, int prefill_input_token_count = -1,
++      int prefill_effective_token_count = -1, int prefill_start_step = -1,
++      int prefill_end_step = -1);
+
+   // Decode internal implementation. Uses the specified 'token' as the input
+   // token and uses the specified 'step' as the current time step.  The
+diff --git a/runtime/executor/llm_litert_npu_compiled_model_executor.cc b/runtime/executor/llm_litert_npu_compiled_model_executor.cc
+index 26b1ab66..247e1031 100644
+--- a/runtime/executor/llm_litert_npu_compiled_model_executor.cc
++++ b/runtime/executor/llm_litert_npu_compiled_model_executor.cc
+@@ -94,6 +94,8 @@ constexpr absl::string_view kv_cache_v_root_name = "kv_cache_v_";
+
+ constexpr absl::string_view kv_cache_slice_k_root_name = "kv_slice_k_";
+ constexpr absl::string_view kv_cache_slice_v_root_name = "kv_slice_v_";
++constexpr absl::string_view kQairt244GpuPrefillPreinvokeLogPrefix =
++    "qairt244_gpu_prefill_preinvoke_v1";
+
+ namespace {
+
+@@ -1759,6 +1761,8 @@ LlmLiteRtNpuCompiledModelExecutor::Decode(
+ absl::Status LlmLiteRtNpuCompiledModelExecutor::PrefillInternal(
+     absl::string_view prefill_signature, absl::Span<const int> ids) {
+   auto start_prepare_inputs = absl::Now();
++  int prefill_start_step = -1;
++  int prefill_effective_token_count = -1;
+   {
+     // Prefill input tokens.
+     LITERT_ASSIGN_OR_RETURN(
+@@ -1812,6 +1816,7 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::PrefillInternal(
+     // always equal to the number of processed tokens plus 1.
+     auto [internal_start_step, pending_input_token] =
+         processed_tokens_.GetNextUnprocessedToken();
++    prefill_start_step = internal_start_step;
+     int input_idx = 0;
+     if (!pending_input_token.empty()) {
+       // We'll write any pending embedding directly into the transformer
+@@ -1847,6 +1852,7 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::PrefillInternal(
+       prefill_input_pos_ptr[input_idx] = current_step_;
+       processed_input_tokens.push_back(ids[i]);
+     }
++    prefill_effective_token_count = input_idx;
+     processed_tokens_.AddProcessedTokens(processed_input_tokens);
+
+     auto end_prepare_inputs = absl::Now();
+@@ -1970,6 +1976,38 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::PrefillInternal(
+   // Invoke LLM signature.
+   {
+     auto start = absl::Now();
++    ABSL_LOG(WARNING) << kQairt244GpuPrefillPreinvokeLogPrefix
++                      << " event=before_compiled_model_prefill_invoke"
++                      << " executor_backend=LiteRT_NPU_Compiled_Model"
++                      << " settings_backend="
++                      << GetBackendString(executor_settings_.GetBackend())
++                      << " sampler_backend="
++                      << GetBackendString(executor_settings_.GetSamplerBackend())
++                      << " signature=" << LlmSignatures::kPrefillLlm
++                      << " runner=" << prefill_signature
++                      << " async=false"
++                      << " prompt_token_length=" << ids.size()
++                      << " prefill_effective_token_length="
++                      << prefill_effective_token_count
++                      << " prefill_start_position=" << prefill_start_step
++                      << " prefill_end_position="
++                      << (prefill_effective_token_count > 0
++                              ? prefill_start_step +
++                                    prefill_effective_token_count - 1
++                              : prefill_start_step)
++                      << " current_step=" << current_step_
++                      << " prefill_input_tensor_count="
++                      << llm_inference_context_.prefill_input_buffers.size()
++                      << " run_input_tensor_count="
++                      << llm_inference_context_.prefill_input_buffers.size()
++                      << " run_output_tensor_count="
++                      << llm_inference_context_.prefill_output_buffers.size()
++                      << " input_kv_cache_tensor_count="
++                      << cache_update_inference_context_
++                             .prefill_input_buffers.size()
++                      << " output_kv_cache_tensor_count="
++                      << cache_update_inference_context_
++                             .prefill_output_buffers.size();
+     auto res =
+         llm_compiled_model_.Run(LlmSignatures::kPrefillLlm,
+                                 llm_inference_context_.prefill_input_buffers,

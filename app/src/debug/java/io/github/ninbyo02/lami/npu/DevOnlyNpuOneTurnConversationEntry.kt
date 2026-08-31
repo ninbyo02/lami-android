@@ -1,12 +1,17 @@
 package io.github.ninbyo02.lami.npu
 
 import android.content.Context
-import android.util.Base64
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationRole
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationTurn
+import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
+import java.util.Base64
 
 data class DevOnlyNpuOneTurnConversationRequest(
     val userPrompt: String,
@@ -63,6 +68,8 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val eosDetected: String = "",
     val outputTokenCount: String = "",
     val promptTokenCount: String = "",
+    val prefillMs: Long? = null,
+    val nativeDecodeMs: Long? = null,
     val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
@@ -75,7 +82,23 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
+    const val EXTRA_CONTEXT_BASE64 = "context_base64"
+    const val EXTRA_CONVERSATION_PROMPTS_BASE64 = "conversation_prompts_base64"
+    const val EXTRA_CONVERSATION_INITIAL_MESSAGES_BASE64 = "conversation_initial_messages_base64"
+    const val EXTRA_CONVERSATION_SAMPLER_PROFILE = "conversation_sampler_profile"
+    const val EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64 = "conversation_system_instruction_base64"
+    const val EXTRA_CONVERSATION_STATE_PROFILE = "conversation_state_profile"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
+    const val EXTRA_NATIVE_PROBE_MODE = "native_probe_mode"
+    const val EXTRA_NATIVE_PROBE_RUN_COUNT = "native_probe_run_count"
+    const val NATIVE_PROBE_MODE_FULL_20 = "full_20"
+    const val NATIVE_PROBE_MODE_CONVERSATION_API = "conversation_api"
+    const val CONVERSATION_SAMPLER_STABLE = "lami_stable_v1"
+    const val CONVERSATION_SAMPLER_GREEDY = "greedy_top_k_1_v1"
+    const val CONVERSATION_STATE_PERSISTENT = "persistent_v1"
+    const val CONVERSATION_STATE_REHYDRATE = "rehydrate_each_turn_v1"
+    const val CONVERSATION_STATE_REHYDRATE_LAST_3 = "rehydrate_last_3_turns_v1"
+    const val CONVERSATION_STATE_REHYDRATE_LAST_4 = "rehydrate_last_4_turns_v1"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
     const val MATRIX_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_matrix_result.txt"
@@ -86,7 +109,8 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
     const val RAW_DIALOG_TAIL_VARIANT_C = "raw_dialog_tail_variant_c"
     const val GEMMA_IT_USER_MODEL_VARIANT = "gemma_it_user_model"
-    const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
+    const val MODEL_METADATA_GEMMA4_TURN_VARIANT = ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT
+    const val DEFAULT_PROMPT_TAIL_VARIANT = MODEL_METADATA_GEMMA4_TURN_VARIANT
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
     const val DEFAULT_MAX_OUTPUT_TOKENS = 16
@@ -128,11 +152,74 @@ object DevOnlyNpuOneTurnConversationContract {
         )
 
     fun sanitizeMaxOutputTokens(requestedMaxOutputTokens: Int): Int =
-        if (requestedMaxOutputTokens == COMPARE_MAX_OUTPUT_TOKENS) {
-            COMPARE_MAX_OUTPUT_TOKENS
-        } else {
-            DEFAULT_MAX_OUTPUT_TOKENS
+        when (requestedMaxOutputTokens) {
+            DEFAULT_MAX_OUTPUT_TOKENS, COMPARE_MAX_OUTPUT_TOKENS -> requestedMaxOutputTokens
+            else -> DEFAULT_MAX_OUTPUT_TOKENS
         }
+
+    fun sanitizeConversationSamplerProfile(requestedProfile: String?): String =
+        when (requestedProfile?.trim()) {
+            CONVERSATION_SAMPLER_GREEDY -> CONVERSATION_SAMPLER_GREEDY
+            else -> CONVERSATION_SAMPLER_STABLE
+        }
+
+    fun sanitizeConversationStateProfile(requestedProfile: String?): String =
+        when (requestedProfile?.trim()) {
+            CONVERSATION_STATE_REHYDRATE -> CONVERSATION_STATE_REHYDRATE
+            CONVERSATION_STATE_REHYDRATE_LAST_3 -> CONVERSATION_STATE_REHYDRATE_LAST_3
+            CONVERSATION_STATE_REHYDRATE_LAST_4 -> CONVERSATION_STATE_REHYDRATE_LAST_4
+            else -> CONVERSATION_STATE_PERSISTENT
+        }
+
+    fun decodeContextTransport(encodedContext: String?, plainContext: String?): String {
+        if (encodedContext.isNullOrBlank()) return plainContext.orEmpty()
+        return runCatching {
+            String(Base64.getDecoder().decode(encodedContext), Charsets.UTF_8)
+        }.getOrElse { plainContext.orEmpty() }
+    }
+
+    fun decodeConversationPrompts(
+        encodedPrompts: String?,
+        fallbackPrompt: String,
+    ): List<String> {
+        val fallback = listOf(fallbackPrompt.ifBlank { DEFAULT_USER_PROMPT })
+        if (encodedPrompts.isNullOrBlank()) return fallback
+        val json = String(Base64.getDecoder().decode(encodedPrompts), Charsets.UTF_8)
+        val promptListType = object : TypeToken<List<String>>() {}.type
+        return Gson().fromJson<List<String>>(json, promptListType)
+            .also { prompts ->
+                require(prompts.size in 1..11)
+                require(prompts.none { it.isBlank() })
+            }
+    }
+
+    internal fun decodeConversationInitialTurns(encodedMessages: String?): List<LocalConversationTurn> {
+        if (encodedMessages.isNullOrBlank()) return emptyList()
+        val json = String(Base64.getDecoder().decode(encodedMessages), Charsets.UTF_8)
+        val messagesType = object : TypeToken<List<Map<String, String>>>() {}.type
+        return Gson().fromJson<List<Map<String, String>>>(json, messagesType)
+            .map { message ->
+                val role = when (message["role"]?.trim()) {
+                    "user" -> LocalConversationRole.USER
+                    "model" -> LocalConversationRole.MODEL
+                    else -> error("unsupported initial message role")
+                }
+                LocalConversationTurn(
+                    role = role,
+                    text = message["text"]?.trim().orEmpty().also {
+                        require(it.isNotBlank()) { "initial message text must not be blank" }
+                    },
+                )
+            }
+            .also { turns ->
+                require(turns.size <= 6)
+                require(turns.chunked(2).all { pair ->
+                    pair.size == 2 &&
+                        pair[0].role == LocalConversationRole.USER &&
+                        pair[1].role == LocalConversationRole.MODEL
+                })
+            }
+    }
 
     fun sanitizePromptTailVariant(requestedPromptTailVariant: String?): String =
         when (requestedPromptTailVariant) {
@@ -140,6 +227,7 @@ object DevOnlyNpuOneTurnConversationContract {
             RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
             RAW_DIALOG_TAIL_VARIANT_C -> RAW_DIALOG_TAIL_VARIANT_C
             GEMMA_IT_USER_MODEL_VARIANT -> GEMMA_IT_USER_MODEL_VARIANT
+            MODEL_METADATA_GEMMA4_TURN_VARIANT -> MODEL_METADATA_GEMMA4_TURN_VARIANT
             else -> DEFAULT_PROMPT_TAIL_VARIANT
         }
 
@@ -150,7 +238,14 @@ object DevOnlyNpuOneTurnConversationContract {
     ): String {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
-        if (sanitizePromptTailVariant(promptTailVariant) == GEMMA_IT_USER_MODEL_VARIANT) {
+        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
+        if (sanitizedPromptTailVariant == MODEL_METADATA_GEMMA4_TURN_VARIANT) {
+            return ModelOwnedChatTemplate.renderForNativeAdapter(
+                contextText = normalizedContext,
+                userPrompt = normalizedUserPrompt,
+            )
+        }
+        if (sanitizedPromptTailVariant == GEMMA_IT_USER_MODEL_VARIANT) {
             return NpuStandardRouteS1Contract.buildPromptWrapperText(normalizedUserPrompt)
         }
         val head = if (normalizedContext.isBlank()) {
@@ -158,7 +253,6 @@ object DevOnlyNpuOneTurnConversationContract {
         } else {
             "$normalizedContext\n\n"
         }
-        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
         val instructionLines = when (sanitizedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_B -> listOf(RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION)
             RAW_DIALOG_TAIL_VARIANT_C -> listOf(
@@ -194,6 +288,11 @@ object DevOnlyNpuOneTurnConversationContract {
         "route_type=$ROUTE_TYPE",
         "template=${safety.template}",
         "app_template_mode=${safety.appTemplateMode}",
+        "prompt_template_owner=${NpuStandardRouteS1Contract.PROMPT_TEMPLATE_OWNER}",
+        "prompt_template_evaluator=${NpuStandardRouteS1Contract.PROMPT_TEMPLATE_EVALUATOR}",
+        "conversation_api_used=${NpuStandardRouteS1Contract.CONVERSATION_API_USED}",
+        "app_template_used=${NpuStandardRouteS1Contract.APP_TEMPLATE_USED}",
+        "template_ownership_unified=${NpuStandardRouteS1Contract.TEMPLATE_OWNERSHIP_UNIFIED}",
         "prompt_tail_mode=$PROMPT_TAIL_MODE",
         "prompt_tail_variant=${safety.promptTailVariant}",
         "prompt_transport=${safety.promptTransport}",
@@ -207,7 +306,9 @@ object DevOnlyNpuOneTurnConversationContract {
         val rawSanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
             result.output.orEmpty()
         }
-        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(rawSanitizedOutput)
+        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(
+            Qairt244NpuOutputSanitizer.decodeEscapedNewlines(rawSanitizedOutput),
+        )
         val rawOutput = values["raw_native_output"].orEmpty().ifBlank {
             values["raw_output"].orEmpty()
         }
@@ -247,6 +348,9 @@ object DevOnlyNpuOneTurnConversationContract {
         val eosDetected = values["eos_detected"].orEmpty()
         val outputTokenCount = values["output_token_count"].orEmpty()
         val promptTokenCount = values["prompt_token_count"].orEmpty()
+        val prefillMs = values["prefill_elapsed_ms"]?.toLongOrNull()
+        val nativeDecodeMs = values["decode_elapsed_ms"]?.toLongOrNull()
+            ?: result.decodeElapsedMs
         val nativeDiagnostics = NpuS1NativeStageDiagnostics(
             nativeRunId = values.devValue("native_run_id"),
             nativeStage = values.devValue("native_stage", default = "unknown"),
@@ -272,6 +376,11 @@ object DevOnlyNpuOneTurnConversationContract {
             nativeErrorMessage = values.devValue("native_error_message"),
             nativeErrorStage = values.devValue("native_error_stage"),
             nativeErrorSource = values.devValue("native_error_source"),
+            nativeLinkFailureDetected = values.devValue("native_link_failure_detected"),
+            nativeLinkFailureLibrary = values.devValue("native_link_failure_library"),
+            nativeLoadOrder = values.devValue("native_load_order"),
+            javaLibraryPath = values.devValue("java_library_path"),
+            supportedAbis = values.devValue("supported_abis"),
         )
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
@@ -320,6 +429,11 @@ object DevOnlyNpuOneTurnConversationContract {
             "native_error_class=${nativeDiagnostics.nativeErrorClass}",
             "native_error_stage=${nativeDiagnostics.nativeErrorStage}",
             "native_error_source=${nativeDiagnostics.nativeErrorSource}",
+            "native_link_failure_detected=${nativeDiagnostics.nativeLinkFailureDetected}",
+            "native_link_failure_library=${nativeDiagnostics.nativeLinkFailureLibrary}",
+            "native_load_order=${nativeDiagnostics.nativeLoadOrder}",
+            "java_library_path=${nativeDiagnostics.javaLibraryPath}",
+            "supported_abis=${nativeDiagnostics.supportedAbis}",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
@@ -353,6 +467,8 @@ object DevOnlyNpuOneTurnConversationContract {
             eosDetected = eosDetected,
             outputTokenCount = outputTokenCount,
             promptTokenCount = promptTokenCount,
+            prefillMs = prefillMs,
+            nativeDecodeMs = nativeDecodeMs,
             nativeDiagnostics = nativeDiagnostics,
         )
     }
@@ -529,8 +645,8 @@ class DevOnlyNpuOneTurnConversationEntry(
     }
 
     private fun transportPromptBase64(prompt: String): String {
-        val encoded = Base64.encodeToString(prompt.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        return String(Base64.decode(encoded, Base64.DEFAULT), Charsets.UTF_8)
+        val encoded = Base64.getEncoder().encodeToString(prompt.toByteArray(Charsets.UTF_8))
+        return String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
     }
 
     private companion object {

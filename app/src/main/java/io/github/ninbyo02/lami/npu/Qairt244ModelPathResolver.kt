@@ -28,15 +28,56 @@ object Qairt244ModelPathResolver {
             path?.let(Qairt244ModelPathResolver::requiredSm8750ModelInfo)
     }
 
-    fun resolve(context: Context): Resolution =
-        resolve(context.applicationContext.filesDir.resolve("local_models"))
+    data class CleanupResult(
+        val selectedPathValid: Boolean,
+        val deletedPaths: List<String>,
+        val failedPaths: List<String>,
+    )
 
-    fun resolve(localModelsDir: File): Resolution {
+    fun resolve(
+        context: Context,
+        preferredModelPath: String? = null,
+    ): Resolution = resolve(
+        localModelsDir = context.applicationContext.filesDir.resolve("local_models"),
+        preferredModelPath = preferredModelPath,
+    )
+
+    fun resolve(
+        localModelsDir: File,
+        preferredModelPath: String? = null,
+    ): Resolution {
         val litertlmFiles = localModelsDir
             .listFiles { file -> file.isFile && file.extension.equals("litertlm", ignoreCase = true) }
             ?.sortedBy { it.name }
             .orEmpty()
         val executionCandidates = litertlmFiles.filter(::isCompatibleSm8750Model)
+        val candidatePaths = executionCandidates.map { it.absolutePath }
+
+        preferredModelPath?.trim()?.takeIf { it.isNotBlank() }?.let { preferredPath ->
+            val modelsDirectory = runCatching { localModelsDir.canonicalFile }.getOrNull()
+            val preferred = runCatching { File(preferredPath).canonicalFile }.getOrNull()
+            val preferredExists = preferred?.exists() ?: false
+            val preferredCanRead = preferred?.canRead() ?: false
+            val preferredLength = preferred?.length() ?: 0L
+            val preferredIsManaged = preferred?.parentFile == modelsDirectory
+            val preferredIsCompatible = preferred?.let(::isCompatibleSm8750Model) == true
+            val preferredValid =
+                preferredIsManaged &&
+                    preferredIsCompatible &&
+                    preferred.isFile &&
+                    preferredExists &&
+                    preferredCanRead &&
+                    preferredLength > 0L
+            return Resolution(
+                path = preferred?.absolutePath.takeIf { preferredValid },
+                reasonCode = if (preferredValid) REASON_OK else REASON_MODEL_FILE_INVALID,
+                candidates = candidatePaths,
+                checkedPath = preferred?.absolutePath ?: preferredPath,
+                checkedExists = preferredExists,
+                checkedCanRead = preferredCanRead,
+                checkedLength = preferredLength,
+            )
+        }
 
         if (executionCandidates.isEmpty()) {
             return Resolution(
@@ -54,7 +95,7 @@ object Qairt244ModelPathResolver {
             return Resolution(
                 path = null,
                 reasonCode = REASON_MODEL_FILE_AMBIGUOUS,
-                candidates = executionCandidates.map { it.absolutePath },
+                candidates = candidatePaths,
                 checkedPath = null,
                 checkedExists = null,
                 checkedCanRead = null,
@@ -62,32 +103,42 @@ object Qairt244ModelPathResolver {
             )
         }
 
-        val selected = executionCandidates.single()
-        val selectedExists = selected.exists()
-        val selectedCanRead = selected.canRead()
-        val selectedLength = selected.length()
+        return resolve(localModelsDir, executionCandidates.single().absolutePath)
+    }
 
-        return if (!selectedExists || !selectedCanRead || selectedLength <= 0L) {
-            Resolution(
-                path = null,
-                reasonCode = REASON_MODEL_FILE_INVALID,
-                candidates = executionCandidates.map { it.absolutePath },
-                checkedPath = selected.absolutePath,
-                checkedExists = selectedExists,
-                checkedCanRead = selectedCanRead,
-                checkedLength = selectedLength,
-            )
-        } else {
-            Resolution(
-                path = selected.absolutePath,
-                reasonCode = REASON_OK,
-                candidates = executionCandidates.map { it.absolutePath },
-                checkedPath = selected.absolutePath,
-                checkedExists = selectedExists,
-                checkedCanRead = selectedCanRead,
-                checkedLength = selectedLength,
+    fun cleanupOrphanedCompatibleCopies(
+        localModelsDir: File,
+        selectedModelPath: String,
+    ): CleanupResult {
+        val selectedResolution = resolve(localModelsDir, selectedModelPath)
+        if (!selectedResolution.resolved) {
+            return CleanupResult(
+                selectedPathValid = false,
+                deletedPaths = emptyList(),
+                failedPaths = emptyList(),
             )
         }
+
+        val selected = File(requireNotNull(selectedResolution.path)).canonicalFile
+        val orphaned = selectedResolution.candidates
+            .map(::File)
+            .filter { candidate ->
+                runCatching { candidate.canonicalFile != selected }.getOrDefault(false)
+            }
+        val deleted = mutableListOf<String>()
+        val failed = mutableListOf<String>()
+        orphaned.forEach { candidate ->
+            if (!candidate.exists() || candidate.delete()) {
+                deleted += candidate.absolutePath
+            } else {
+                failed += candidate.absolutePath
+            }
+        }
+        return CleanupResult(
+            selectedPathValid = true,
+            deletedPaths = deleted,
+            failedPaths = failed,
+        )
     }
 
     private fun isCompatibleSm8750Model(file: File): Boolean {

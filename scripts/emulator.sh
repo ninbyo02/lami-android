@@ -354,7 +354,7 @@ wait_boot() {
 
 is_running() {
   local serial="$1"
-  "$ADB_BIN" devices | awk 'NR>1 && $2=="device"{print $1}' | rg -qx "$serial"
+  "$ADB_BIN" devices | awk 'NR>1 && $2=="device"{print $1}' | grep -Fxq "$serial"
 }
 
 start_emulator() {

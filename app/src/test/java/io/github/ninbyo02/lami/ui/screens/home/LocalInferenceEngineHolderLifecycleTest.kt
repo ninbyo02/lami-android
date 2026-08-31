@@ -112,6 +112,27 @@ class LocalInferenceEngineHolderLifecycleTest {
     }
 
     @Test
+    fun `failed GPU completion after deferred onStop releases held engine exactly once`() = runTest {
+        val holder = LocalInferenceEngineHolder(
+            appContext = RuntimeEnvironment.getApplication(),
+            gpuTransientOnStopProtectionOverrideForTest = true,
+        )
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_000L)
+        holder.notifyAppBackgrounded(nowElapsedMs = 2_000L)
+
+        assertTrue(holder.getDevDiagnosticSnapshot().heldEngineHash != null)
+        assertEquals(0, closeCount)
+
+        holder.recordGpuGenerationFinishedForDiagnostics(success = false, nowElapsedMs = 2_100L)
+        holder.recordGpuGenerationFinishedForDiagnostics(success = false, nowElapsedMs = 2_200L)
+
+        assertNull(holder.getDevDiagnosticSnapshot().heldEngineHash)
+        assertEquals(1, closeCount)
+    }
+
+    @Test
     fun `tts playback releases held engine`() = runTest {
         val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
         var closeCount = 0
@@ -156,6 +177,28 @@ class LocalInferenceEngineHolderLifecycleTest {
     }
 
     @Test
+    fun `ab6 clear closes owned conversation before engine exactly once`() = runTest {
+        val closeEvents = mutableListOf<String>()
+        val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
+        val conversation = CloseRecordingConversation {
+            closeEvents += "conversation-close"
+        }
+        holder.setHeldForTest(
+            createHeldEngineForTest {
+                closeEvents += "engine-close"
+            },
+        )
+        holder.setHeldConversationForTest(chatId = 7, conversation = conversation)
+
+        holder.clear(reason = "gpu-first-token-timeout")
+        holder.clear(reason = "duplicate-cleanup")
+
+        assertEquals(listOf("conversation-close", "engine-close"), closeEvents)
+        assertEquals(1, conversation.closeCount)
+        assertNull(holder.getDevDiagnosticSnapshot().heldEngineHash)
+    }
+
+    @Test
     fun `CPU acquire key does not match existing GPU held engine`() = runTest {
         val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
         holder.setHeldForTest(createHeldEngineForTest {})
@@ -184,6 +227,41 @@ class LocalInferenceEngineHolderLifecycleTest {
         val field = LocalInferenceEngineHolder::class.java.getDeclaredField("held")
         field.isAccessible = true
         field.set(this, engine)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun LocalInferenceEngineHolder.setHeldConversationForTest(
+        chatId: Int,
+        conversation: Any,
+    ) {
+        val heldConversationClass = Class.forName(
+            "io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder\$HeldConversation",
+        )
+        val constructor = heldConversationClass.declaredConstructors.single()
+        constructor.isAccessible = true
+        val heldConversation = constructor.newInstance(
+            chatId,
+            "/models/gemma.litertlm",
+            0L,
+            conversation,
+            null,
+        )
+        val field = LocalInferenceEngineHolder::class.java.getDeclaredField("heldConversationsByChatId")
+        field.isAccessible = true
+        val conversations = field.get(this) as MutableMap<Int, Any>
+        conversations[chatId] = heldConversation
+    }
+
+    private class CloseRecordingConversation(
+        private val onClose: () -> Unit,
+    ) : AutoCloseable {
+        var closeCount: Int = 0
+            private set
+
+        override fun close() {
+            closeCount += 1
+            onClose()
+        }
     }
 
     private fun createHeldEngineForTest(onClose: () -> Unit): HeldLocalEngine {

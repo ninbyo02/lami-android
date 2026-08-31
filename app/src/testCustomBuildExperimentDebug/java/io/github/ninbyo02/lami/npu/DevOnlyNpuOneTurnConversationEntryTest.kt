@@ -1,8 +1,11 @@
 package io.github.ninbyo02.lami.npu
 
+import io.github.ninbyo02.lami.ui.screens.home.LocalConversationRole
+import io.github.ninbyo02.lami.ui.screens.home.ModelOwnedChatTemplate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -63,15 +66,42 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         )
         assertEquals("はい、", DevOnlyNpuOneTurnConversationContract.JAPANESE_ASSISTANT_PREFIX_VARIANT_B)
         assertEquals(
-            "raw_dialog_tail_variant_b",
+            "model_metadata_gemma4_turn_v1",
             DevOnlyNpuOneTurnConversationContract.DEFAULT_PROMPT_TAIL_VARIANT,
         )
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
-                "prompt_tail_variant=raw_dialog_tail_variant_b",
+                "prompt_template_owner=native_npu_adapter_exception",
             ),
         )
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
+                "prompt_template_evaluator=lami_verified_model_template_renderer",
+            ),
+        )
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("conversation_api_used=false"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("app_template_used=true"))
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("template_ownership_unified=false"))
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
+                "prompt_tail_variant=model_metadata_gemma4_turn_v1",
+            ),
+        )
+    }
+
+    @Test
+    fun `default prompt uses the current model-owned native renderer`() {
+        val actual = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = "ユーザー: 好きな色は赤です。",
+            userPrompt = "こんにちは",
+        )
+        val expected = ModelOwnedChatTemplate.renderForNativeAdapter(
+            contextText = "ユーザー: 好きな色は赤です。",
+            userPrompt = "こんにちは",
+        )
+
+        assertEquals(expected, actual)
     }
 
     @Test
@@ -106,7 +136,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals(16, DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS)
         assertEquals(16, request.maxOutputTokens)
         assertEquals(
-            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
             request.promptTailVariant,
         )
         assertTrue(DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains("status=idle"))
@@ -144,7 +174,126 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
-    fun `activity prompt tail variant option allows only raw dialog tail variants`() {
+    fun `conversation context base64 transport preserves embedded newlines`() {
+        val context = listOf("ユーザー: 質問", "アシスタント: 東京").joinToString("\n")
+        val encoded = java.util.Base64.getEncoder().encodeToString(context.toByteArray())
+
+        assertEquals(
+            context,
+            DevOnlyNpuOneTurnConversationContract.decodeContextTransport(encoded, "fallback"),
+        )
+    }
+
+    @Test
+    fun `conversation API prompt transport preserves ordered multi turn input`() {
+        val json = """["好きな色は赤です。","何色ですか。色だけ答えてください。"]"""
+        val encoded = java.util.Base64.getEncoder().encodeToString(json.toByteArray())
+
+        assertEquals(
+            listOf("好きな色は赤です。", "何色ですか。色だけ答えてください。"),
+            DevOnlyNpuOneTurnConversationContract.decodeConversationPrompts(
+                encodedPrompts = encoded,
+                fallbackPrompt = "fallback",
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DevOnlyNpuOneTurnConversationContract.decodeConversationPrompts(
+                encodedPrompts = "not-base64",
+                fallbackPrompt = "fallback",
+            )
+        }
+        assertEquals(
+            "conversation_api",
+            DevOnlyNpuOneTurnConversationContract.NATIVE_PROBE_MODE_CONVERSATION_API,
+        )
+        assertEquals(
+            "conversation_prompts_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_PROMPTS_BASE64,
+        )
+    }
+
+    @Test
+    fun `conversation API initial messages preserve completed preface pairs`() {
+        val json = """
+            [
+              {"role":"user","text":"私の名字は佐藤です。"},
+              {"role":"model","text":"了解しました。"}
+            ]
+        """.trimIndent()
+        val encoded = java.util.Base64.getEncoder().encodeToString(json.toByteArray())
+
+        val turns = DevOnlyNpuOneTurnConversationContract.decodeConversationInitialTurns(encoded)
+
+        assertEquals(2, turns.size)
+        assertEquals(LocalConversationRole.USER, turns[0].role)
+        assertEquals("私の名字は佐藤です。", turns[0].text)
+        assertEquals(LocalConversationRole.MODEL, turns[1].role)
+        assertEquals("了解しました。", turns[1].text)
+        assertEquals(
+            "conversation_initial_messages_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_INITIAL_MESSAGES_BASE64,
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DevOnlyNpuOneTurnConversationContract.decodeConversationInitialTurns(
+                java.util.Base64.getEncoder().encodeToString(
+                    """[{"role":"user","text":"incomplete"}]""".toByteArray(),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `conversation API sampler profile only permits stable and greedy diagnostics`() {
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_STABLE,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile(null),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile(
+                DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_GREEDY,
+            ),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.CONVERSATION_SAMPLER_STABLE,
+            DevOnlyNpuOneTurnConversationContract.sanitizeConversationSamplerProfile("unsupported"),
+        )
+        assertEquals(
+            "conversation_sampler_profile",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SAMPLER_PROFILE,
+        )
+        assertEquals(
+            "conversation_system_instruction_base64",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_CONVERSATION_SYSTEM_INSTRUCTION_BASE64,
+        )
+    }
+
+    @Test
+    fun `conversation state profile permits diagnostic rehydration windows`() {
+        val contract = DevOnlyNpuOneTurnConversationContract
+        assertEquals(
+            contract.CONVERSATION_STATE_PERSISTENT,
+            contract.sanitizeConversationStateProfile(null),
+        )
+        listOf(
+            contract.CONVERSATION_STATE_REHYDRATE,
+            contract.CONVERSATION_STATE_REHYDRATE_LAST_3,
+            contract.CONVERSATION_STATE_REHYDRATE_LAST_4,
+        ).forEach { profile ->
+            assertEquals(profile, contract.sanitizeConversationStateProfile(profile))
+        }
+        assertEquals(
+            contract.CONVERSATION_STATE_PERSISTENT,
+            contract.sanitizeConversationStateProfile("unsupported"),
+        )
+        assertEquals(
+            "conversation_state_profile",
+            contract.EXTRA_CONVERSATION_STATE_PROFILE,
+        )
+    }
+
+    @Test
+    fun `activity prompt tail variant option supports legacy and current model metadata variants`() {
         val requestA = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",
             contextText = "",
@@ -162,6 +311,12 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             contextText = "",
             unsafeDevBypassPromptLengthGate = true,
             requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+        )
+        val requestModelMetadata = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
         )
         val requestInvalid = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",
@@ -190,17 +345,30 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
         )
         assertEquals(
-            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
+                DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
+            ),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
             DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(null),
         )
         assertEquals(
-            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
             DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant("raw_dialog_tail_variant_d"),
         )
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A, requestA.promptTailVariant)
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestB.promptTailVariant)
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C, requestC.promptTailVariant)
-        assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestInvalid.promptTailVariant)
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
+            requestModelMetadata.promptTailVariant,
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.MODEL_METADATA_GEMMA4_TURN_VARIANT,
+            requestInvalid.promptTailVariant,
+        )
     }
 
     @Test
@@ -310,7 +478,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(display.text.contains("streaming=false"))
         assertTrue(display.text.contains("app_template_mode=raw"))
         assertTrue(display.text.contains("template=raw_dialog_tail"))
-        assertTrue(display.text.contains("prompt_tail_variant=raw_dialog_tail_variant_b"))
+        assertTrue(display.text.contains("prompt_tail_variant=model_metadata_gemma4_turn_v1"))
         assertTrue(display.text.contains("prompt_transport=base64"))
     }
 

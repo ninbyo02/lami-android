@@ -40,6 +40,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.screens.settings.effectiveInsertionIntervalMs
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteState
 import io.github.ninbyo02.lami.ui.screens.settings.shouldAttemptInsertion
+import io.github.ninbyo02.lami.util.DebugTraceFile
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiAnimationStatus
 import io.github.ninbyo02.lami.viewmodels.LamiState
@@ -50,7 +51,6 @@ import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import org.json.JSONObject
-import java.io.File
 import kotlin.random.Random
 
 enum class LamiSpriteStatus {
@@ -68,13 +68,7 @@ enum class LamiSpriteStatus {
 private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
 
 private fun appendSpriteTraceToFile(context: Context, line: String) {
-    if (!BuildConfig.DEBUG) return
-    runCatching {
-        val dir = File(context.filesDir, "debug")
-        if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "local_reflection_trace.log")
-        file.appendText("[LAMI_SPRITE_TRACE] " + line + "\n")
-    }
+    DebugTraceFile.append(context, "[LAMI_SPRITE_TRACE] $line")
 }
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は

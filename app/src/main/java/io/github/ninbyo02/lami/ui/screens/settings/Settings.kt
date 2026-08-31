@@ -106,6 +106,7 @@ import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
+import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
@@ -142,6 +143,7 @@ internal data class ServerInput(
 private val ServerValidationIndicatorYOffset = 3.dp
 
 private const val ResetSettingsScrollOnReturnFromAboutKey = "reset_settings_scroll_on_return_from_about"
+private const val LocalModelFocusConsumedKey = "local_model_focus_consumed"
 
 // サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
 private val ServerRowTrailingSlotWidth = 32.dp
@@ -151,7 +153,7 @@ internal const val LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION =
     "旧QAIRT診断経路です。S1〜S5 NPU標準ルートとは別で、通常利用は非推奨です。"
 
 internal const val NPU_EXPERIMENTAL_BACKEND_DESCRIPTION =
-    "NPU Beta: Uses the completed NPU standard route with UI, TTS, DB, Markdown, and pseudo streaming gates."
+    "NPU ローカル: 端末内のSM8750向けNPUモデルを使い、UI・TTS・DB保存・Markdown・擬似Streamingまで有効にします。モデル未読込時は動作しません。"
 
 internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): String =
     when (mode) {
@@ -206,6 +208,12 @@ fun Settings(
     val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
+        .collectAsState(initial = null)
+    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow
+        .collectAsState(initial = null)
+    val localGenericModelDisplayName by settingsPreferences.localGenericModelDisplayNameFlow
+        .collectAsState(initial = null)
+    val localGenericModelFilePath by settingsPreferences.localGenericModelFilePathFlow
         .collectAsState(initial = null)
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(initial = true)
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
@@ -293,6 +301,13 @@ fun Settings(
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
+    val requestedLocalModelFocus = remember(settingsBackStackEntry) {
+        decodeSettingsLocalModelFocus(
+            settingsBackStackEntry?.arguments?.getString("localModelFocus")
+                ?.let { "localModelFocus=$it" },
+        )
+    }
+    var highlightedLocalModelFocus by remember { mutableStateOf<SettingsLocalModelFocus?>(null) }
     val resetScrollOnReturnFromAbout by
         remember(settingsBackStackEntry) {
             settingsBackStackEntry
@@ -317,6 +332,28 @@ fun Settings(
             settingsBackStackEntry
                 ?.savedStateHandle
                 ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
+        }
+    }
+
+    LaunchedEffect(settingsBackStackEntry, requestedLocalModelFocus) {
+        val savedStateHandle = settingsBackStackEntry?.savedStateHandle
+        if (requestedLocalModelFocus == null || savedStateHandle?.get<Boolean>(LocalModelFocusConsumedKey) == true) return@LaunchedEffect
+        val focus = OneShotSettingsLocalModelFocus(requestedLocalModelFocus).consume() ?: return@LaunchedEffect
+        savedStateHandle?.set(LocalModelFocusConsumedKey, true)
+        listState.animateScrollToItem(
+            SettingsLocalModelScrollTarget.itemIndex,
+            with(density) { SettingsLocalModelScrollTarget.scrollOffsetDp.dp.roundToPx() },
+        )
+        try {
+            highlightedLocalModelFocus = null
+            repeat(LocalModelHighlightVisualContract.pulseCount) {
+                delay(LocalModelHighlightVisualContract.offPhaseMillis.toLong())
+                highlightedLocalModelFocus = focus
+                delay(LocalModelHighlightVisualContract.onPhaseMillis.toLong())
+                highlightedLocalModelFocus = null
+            }
+        } finally {
+            highlightedLocalModelFocus = null
         }
     }
 
@@ -550,6 +587,60 @@ fun Settings(
                         }
                     )
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "画面の向き",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "発話中の画面回転で読み上げが途切れる場合は、縦画面固定がおすすめです。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val currentScreenOrientationMode = settingsData.screenOrientationMode
+                        ScreenOrientationMode.entries.forEach { mode ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch {
+                                            settingsPreferences.saveScreenOrientationMode(mode)
+                                        }
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = currentScreenOrientationMode == mode,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsPreferences.saveScreenOrientationMode(mode)
+                                        }
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = mode.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = mode.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
                 Spacer(modifier = Modifier.height(2.dp))
@@ -604,7 +695,7 @@ fun Settings(
                                         text = when (mode) {
                                             InferenceStatsDisplayMode.SIMPLE -> "主要な統計のみを表示"
                                             InferenceStatsDisplayMode.DETAILED -> "通常の詳細統計を表示"
-                                            InferenceStatsDisplayMode.DEVELOPER -> "DEV診断を含む全情報を表示"
+                                            InferenceStatsDisplayMode.DEVELOPER -> "回答下の推論統計カードをタップしてDEV診断を表示"
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -634,6 +725,24 @@ fun Settings(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             val currentBackendSelection = settingsData.inferenceBackendSelection
+                            val residentPolicySummary = localInferenceResidencyPolicyForUserFacingSelection(
+                                currentBackendSelection,
+                            ).toSummary()
+                            Text(
+                                text = "ローカル常駐方針: ${residentPolicySummary.oneLine}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("settingsResidentBackendPolicySummary"),
+                            )
+                            if (settingsData.developerAccessEnabled) {
+                                Text(
+                                    text = residentPolicySummary.diagnosticText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.testTag("settingsResidentBackendPolicyDiagnostics"),
+                                )
+                            }
                             InferenceBackendSelection.userFacingEntries.forEach { selection ->
                                 Row(
                                     modifier = Modifier
@@ -671,7 +780,7 @@ fun Settings(
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                                 Text(
-                                    text = "S1〜S5 は backend ではなく標準ルートの legacy developer phase です。通常の backend list には NPU Beta として1項目だけ表示します。",
+                                    text = "S1〜S5 は backend ではなく標準ルートの legacy developer phase です。通常の backend list には NPU ローカル として1項目だけ表示します。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -720,11 +829,30 @@ fun Settings(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
+                                    text = "チャットDEV診断",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = "通常チャットではDEV診断を表示せず、推論統計カードとタップ詳細を優先します。NPU/GPUの詳細調査はこの開発者向け設定とコピー機能から確認します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Card {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
                                     text = "NPU max output tokens（開発用）",
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
-                                    text = "developer向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
+                                    text = "開発者向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -968,22 +1096,31 @@ fun Settings(
                     }
                 }
             }
-            item {
+            item(key = "local-model-section") {
                 CardSectionHeader(
                     title = "ローカルモデル",
-                    description = "端末内で使用する基本モデルを設定します",
+                    description = "端末内で使用するモデルを設定します",
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
-            item {
-                Card {
-                    SettingsNavRowItem(
-                        headline = "ローカル基本モデル",
-                        supporting = localBaseModelDisplayName?.takeIf { it.isNotBlank() } ?: "未設定",
-                        leadingIcon = null,
-                        onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
-                    )
-                }
+            item(key = "local-model-cards") {
+                LocalModelSlotCard(
+                    LocalModelSlot.NpuPreview,
+                    highlighted = LocalModelSlot.NpuPreview in resolveLocalModelHighlightSlots(
+                        highlightedLocalModelFocus,
+                        isValidSavedLocalModelInfo(localBaseModelDisplayName, localBaseModelFilePath),
+                        isValidSavedLocalModelInfo(localGenericModelDisplayName, localGenericModelFilePath),
+                    ),
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                LocalModelSlotCard(
+                    LocalModelSlot.GenericFallback,
+                    highlighted = LocalModelSlot.GenericFallback in resolveLocalModelHighlightSlots(
+                        highlightedLocalModelFocus,
+                        isValidSavedLocalModelInfo(localBaseModelDisplayName, localBaseModelFilePath),
+                        isValidSavedLocalModelInfo(localGenericModelDisplayName, localGenericModelFilePath),
+                    ),
+                )
             }
             item {
                 CardSectionHeader(
@@ -994,6 +1131,98 @@ fun Settings(
                         bottom = 2.dp
                     )
                 )
+            }
+            item {
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "プロバイダー",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "サーバーAPI形式を選択します。LemonadeはOpenAI互換プリセットとして扱います。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        RemoteProvider.entries.forEach { provider ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = settingsData.remoteProvider == provider,
+                                    onClick = {
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = provider.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = provider.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        if (settingsData.remoteProvider == RemoteProvider.LEMONADE) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Lemonade自動アンロード",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = "応答後に未使用時間が続いたら、Lemonadeのロード済みモデルを解放して省電力化します。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            LemonadeAutoUnloadMode.entries.forEach { mode ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch { settingsPreferences.saveLemonadeAutoUnloadMode(mode) }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = settingsData.lemonadeAutoUnloadMode == mode,
+                                        onClick = {
+                                            scope.launch { settingsPreferences.saveLemonadeAutoUnloadMode(mode) }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = mode.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = mode.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             item {
                 Card {
@@ -1060,7 +1289,9 @@ fun Settings(
                                         isValidatingConnections = true
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
-                                                validateActiveConnections(inputsForValidation, ::isValidURL)
+                                                validateActiveConnections(inputsForValidation) { url ->
+                                                    isValidURL(url, settingsData.remoteProvider)
+                                                }
                                             }
                                         } finally {
                                             isValidatingConnections = false
@@ -1446,7 +1677,10 @@ private fun CardSectionHeader(
     }
 }
 
-internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
+internal suspend fun isValidURL(
+    urlString: String,
+    provider: RemoteProvider = RemoteProvider.OLLAMA,
+): ConnectionValidationResult {
     val formatResult = validateUrlFormat(urlString)
     if (!formatResult.isValid) {
         return ConnectionValidationResult(
@@ -1458,7 +1692,11 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
     }
     return try {
         val baseUrl = formatResult.normalizedUrl.trimEnd('/')
-        val requestUrl = URL("$baseUrl/api/tags")
+        val requestUrl = if (provider.usesOpenAiCompatibleApi()) {
+            URL("${provider.toOpenAiCompatibleConfig(baseUrl).baseUrl}models")
+        } else {
+            URL("$baseUrl/api/tags")
+        }
         // LAN 内利用を想定し、体感ラグを抑えるためにタイムアウトを短めに設定する
         val connectTimeoutSeconds = 2L
         val readTimeoutSeconds = 3L
@@ -1468,7 +1706,11 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
             .followRedirects(false)
             .followSslRedirects(false)
             .build()
-        val request = Request.Builder().url(requestUrl).get().build()
+        val requestBuilder = Request.Builder().url(requestUrl).get()
+        if (provider == RemoteProvider.LEMONADE) {
+            requestBuilder.header("Authorization", "Bearer lemonade")
+        }
+        val request = requestBuilder.build()
 
         client.newCall(request).execute().use { response ->
             val code = response.code

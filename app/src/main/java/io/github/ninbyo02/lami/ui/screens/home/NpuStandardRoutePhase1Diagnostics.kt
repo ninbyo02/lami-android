@@ -65,7 +65,7 @@ internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_ROLLOUT_STATE_NOT_SELECTED
 internal const val NPU_STANDARD_ROUTE_ROLLBACK_REASON_KILL_SWITCH_DISABLED =
     "kill_switch_disabled_before_generation"
 internal const val NPU_STANDARD_ROUTE_USER_FACING_BACKEND_NPU_EXPERIMENTAL =
-    "NPU Experimental"
+    "NPU ローカル"
 internal const val NPU_STANDARD_ROUTE_COMPLETED_ROUTE_FAMILY =
     "npu_standard_route_completed"
 internal const val NPU_STANDARD_ROUTE_INTERNAL_LEGACY_BACKEND_NPU_S5 = "NPU_S5"

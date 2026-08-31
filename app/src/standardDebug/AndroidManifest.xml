@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <application>
-        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
 
         <receiver
             android:name="io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver"
@@ -25,6 +26,15 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.gpu.ConversationAbGpuReceiver"
+            android:exported="true"
+            android:process=":conversation_ab_gpu">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.CONVERSATION_AB_GPU" />
             </intent-filter>
         </receiver>
     </application>

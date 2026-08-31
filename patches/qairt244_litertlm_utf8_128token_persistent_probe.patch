@@ -1,0 +1,1449 @@
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+index 3b67520b..78cf3fbe 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -105,6 +105,8 @@ constexpr char kQairt244ShortMultitokenMarker[] =
+     "qairt244_short_multitoken_smoke_v1";
+ constexpr char kQairt244EditablePromptMarker[] =
+     "qairt244_editable_prompt_smoke_v1";
++constexpr char kQairt244PersistentProbeMarker[] =
++    "qairt244_persistent_custom_jni_probe_v1";
+ constexpr char kQairt244EditablePromptValidationMode[] =
+     "utf8_internal_intent";
+ constexpr char kQairt244NativeDiagPath[] =
+@@ -477,6 +479,347 @@ void Qairt244SentinelLog(const char* format, ...) {
+   va_end(args);
+ }
+
++std::string Qairt244FlattenValue(const std::string& value) {
++  std::string flattened;
++  flattened.reserve(value.size());
++  for (char c : value) {
++    if (c == '\n') {
++      flattened += "\\n";
++    } else if (c == '\r') {
++      flattened += "\\r";
++    } else {
++      flattened.push_back(c);
++    }
++  }
++  return flattened;
++}
++
++std::string Qairt244EngineCreateSignature(
++    const std::string& model_path, const std::string& native_library_dir,
++    const std::string& cache_dir, const std::string& backend,
++    const std::string& prompt_input_limit_mode,
++    int requested_max_output_tokens, int effective_max_output_tokens,
++    int max_token_budget, const std::string& assets_source,
++    const std::string& settings_source) {
++  return Qairt244FlattenValue(
++      "model_path=" + model_path + ";native_library_dir=" +
++      native_library_dir + ";cache_dir=" + cache_dir + ";backend=" + backend +
++      ";prompt_input_limit_mode=" + prompt_input_limit_mode +
++      ";requested_max_output_tokens=" +
++      std::to_string(requested_max_output_tokens) +
++      ";effective_max_output_tokens=" +
++      std::to_string(effective_max_output_tokens) +
++      ";max_token_budget=" + std::to_string(max_token_budget) +
++      ";assets_source=" + assets_source + ";settings_source=" +
++      settings_source);
++}
++
++struct Qairt244DispatchApiVersion {
++  int major;
++  int minor;
++  int patch;
++};
++
++struct Qairt244DispatchApiShape {
++  Qairt244DispatchApiVersion version;
++  void* interface_ptr;
++  void* async_interface_ptr;
++  void* graph_interface_ptr;
++};
++
++struct Qairt244LiteRtAnyShape {
++  int type;
++  union {
++    bool bool_value;
++    int64_t int_value;
++    double real_value;
++    const char* str_value;
++    const void* ptr_value;
++  };
++};
++
++struct Qairt244LiteRtEnvOptionShape {
++  int tag;
++  Qairt244LiteRtAnyShape value;
++};
++
++static_assert(sizeof(Qairt244LiteRtAnyShape) == 16);
++static_assert(sizeof(Qairt244LiteRtEnvOptionShape) == 24);
++
++using Qairt244DispatchInitializeFn = int (*)(const void*, void*, void*);
++using Qairt244DispatchGetStringFn = int (*)(const char**);
++using Qairt244DispatchGetCapabilitiesFn = int (*)(int*);
++using Qairt244DispatchDeviceContextCreateFn =
++    int (*)(const void*, void*, void**);
++using Qairt244DispatchDeviceContextDestroyFn = int (*)(void*);
++
++struct Qairt244DispatchInterfaceShape {
++  Qairt244DispatchInitializeFn initialize;
++  Qairt244DispatchGetStringFn get_vendor_id;
++  Qairt244DispatchGetStringFn get_build_id;
++  Qairt244DispatchGetCapabilitiesFn get_capabilities;
++  Qairt244DispatchDeviceContextCreateFn device_context_create;
++  Qairt244DispatchDeviceContextDestroyFn device_context_destroy;
++};
++
++using Qairt244DispatchGetApiFn = int (*)(Qairt244DispatchApiShape*);
++using Qairt244CreateEnvironmentFn =
++    int (*)(int, const Qairt244LiteRtEnvOptionShape*, void**);
++using Qairt244DestroyEnvironmentFn = void (*)(void*);
++
++bool Qairt244RunDispatchApiPreflight(
++    const std::string& native_library_dir,
++    std::vector<std::string>* diagnostics) {
++  const std::string library_path =
++      native_library_dir + "/libLiteRtDispatch_Qualcomm.so";
++  diagnostics->push_back("dispatch_preflight_library=" + library_path);
++  dlerror();
++  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
++  if (handle == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_preflight_dlopen=failed error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return false;
++  }
++  diagnostics->push_back("dispatch_preflight_dlopen=success");
++  dlerror();
++  void* symbol = dlsym(handle, "LiteRtDispatchGetApi");
++  const char* symbol_error = dlerror();
++  if (symbol == nullptr || symbol_error != nullptr) {
++    diagnostics->push_back(
++        "dispatch_preflight_dlsym=failed error=" +
++        Qairt244FlattenValue(
++            symbol_error == nullptr ? "unavailable" : symbol_error));
++    dlclose(handle);
++    return false;
++  }
++  diagnostics->push_back("dispatch_preflight_dlsym=success");
++  Qairt244DispatchApiShape api{};
++  const int status =
++      reinterpret_cast<Qairt244DispatchGetApiFn>(symbol)(&api);
++  diagnostics->push_back(
++      "dispatch_preflight_get_api_status=" + std::to_string(status));
++  diagnostics->push_back(
++      "dispatch_preflight_api_version=" + std::to_string(api.version.major) +
++      "." + std::to_string(api.version.minor) + "." +
++      std::to_string(api.version.patch));
++  diagnostics->push_back(
++      std::string("dispatch_preflight_interface=") +
++      (api.interface_ptr == nullptr ? "missing" : "present"));
++  const bool version_present = api.version.major > 0 || api.version.minor > 0 ||
++                               api.version.patch > 0;
++  const bool success =
++      status == 0 && version_present && api.interface_ptr != nullptr;
++  diagnostics->push_back(
++      std::string("dispatch_preflight_result=") +
++      (success ? "success" : "failure"));
++  dlclose(handle);
++  return success;
++}
++
++bool Qairt244RunDispatchInitializePreflight(
++    const std::string& native_library_dir,
++    std::vector<std::string>* diagnostics) {
++  const std::string library_path =
++      native_library_dir + "/libLiteRtDispatch_Qualcomm.so";
++  dlerror();
++  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
++  if (handle == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_initialize_dlopen=failed error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return false;
++  }
++  auto close_and_fail = [&]() {
++    dlclose(handle);
++    return false;
++  };
++  auto get_api = reinterpret_cast<Qairt244DispatchGetApiFn>(
++      dlsym(handle, "LiteRtDispatchGetApi"));
++  auto create_environment = reinterpret_cast<Qairt244CreateEnvironmentFn>(
++      dlsym(handle, "LiteRtCreateEnvironment"));
++  auto destroy_environment = reinterpret_cast<Qairt244DestroyEnvironmentFn>(
++      dlsym(handle, "LiteRtDestroyEnvironment"));
++  if (get_api == nullptr || create_environment == nullptr ||
++      destroy_environment == nullptr) {
++    const char* error = dlerror();
++    diagnostics->push_back(
++        "dispatch_initialize_symbols=missing error=" +
++        Qairt244FlattenValue(error == nullptr ? "unavailable" : error));
++    return close_and_fail();
++  }
++  diagnostics->push_back("dispatch_initialize_symbols=present");
++
++  Qairt244DispatchApiShape api{};
++  const int get_api_status = get_api(&api);
++  diagnostics->push_back(
++      "dispatch_initialize_get_api_status=" +
++      std::to_string(get_api_status));
++  if (get_api_status != 0 || api.interface_ptr == nullptr) {
++    return close_and_fail();
++  }
++  auto* interface = reinterpret_cast<Qairt244DispatchInterfaceShape*>(
++      api.interface_ptr);
++  if (interface->initialize == nullptr ||
++      interface->get_vendor_id == nullptr ||
++      interface->get_build_id == nullptr ||
++      interface->get_capabilities == nullptr ||
++      interface->device_context_create == nullptr ||
++      interface->device_context_destroy == nullptr) {
++    diagnostics->push_back("dispatch_initialize_interface_functions=missing");
++    return close_and_fail();
++  }
++  diagnostics->push_back("dispatch_initialize_interface_functions=present");
++
++  Qairt244LiteRtEnvOptionShape option{};
++  option.tag = 1;
++  option.value.type = 8;
++  option.value.str_value = native_library_dir.c_str();
++  void* environment = nullptr;
++  const int environment_status =
++      create_environment(1, &option, &environment);
++  diagnostics->push_back(
++      "dispatch_initialize_environment_status=" +
++      std::to_string(environment_status));
++  if (environment_status != 0 || environment == nullptr) {
++    return close_and_fail();
++  }
++
++  const int initialize_status =
++      interface->initialize(nullptr, environment, nullptr);
++  diagnostics->push_back(
++      "dispatch_initialize_status=" + std::to_string(initialize_status));
++  if (initialize_status != 0) {
++    destroy_environment(environment);
++    return close_and_fail();
++  }
++
++  const char* vendor_id = nullptr;
++  const char* build_id = nullptr;
++  int capabilities = 0;
++  const int vendor_status = interface->get_vendor_id(&vendor_id);
++  const int build_status = interface->get_build_id(&build_id);
++  const int capabilities_status =
++      interface->get_capabilities(&capabilities);
++  diagnostics->push_back(
++      "dispatch_initialize_vendor_status=" +
++      std::to_string(vendor_status) + " vendor=" +
++      Qairt244FlattenValue(vendor_id == nullptr ? "unavailable" : vendor_id));
++  diagnostics->push_back(
++      "dispatch_initialize_build_status=" +
++      std::to_string(build_status) + " build=" +
++      Qairt244FlattenValue(build_id == nullptr ? "unavailable" : build_id));
++  diagnostics->push_back(
++      "dispatch_initialize_capabilities_status=" +
++      std::to_string(capabilities_status) + " capabilities=" +
++      std::to_string(capabilities));
++
++  void* device_context = nullptr;
++  const int device_context_status =
++      interface->device_context_create(nullptr, nullptr, &device_context);
++  diagnostics->push_back(
++      "dispatch_initialize_device_context_status=" +
++      std::to_string(device_context_status));
++  int device_destroy_status = -1;
++  if (device_context_status == 0 && device_context != nullptr) {
++    device_destroy_status =
++        interface->device_context_destroy(device_context);
++  }
++  diagnostics->push_back(
++      "dispatch_initialize_device_destroy_status=" +
++      std::to_string(device_destroy_status));
++  destroy_environment(environment);
++  const bool success =
++      vendor_status == 0 && build_status == 0 &&
++      capabilities_status == 0 && (capabilities & 1) != 0 &&
++      device_context_status == 0 && device_destroy_status == 0;
++  diagnostics->push_back(
++      std::string("dispatch_initialize_result=") +
++      (success ? "success" : "failure"));
++  dlclose(handle);
++  return success;
++}
++
++constexpr char kQairt244DefaultPromptInputLimitMode[] =
++    "hidden_template_experiment";
++constexpr size_t kQairt244DefaultPromptInputCodePointLimit = 128;
++constexpr int kQairt244EditablePromptMaxOutputTokensLimit = 512;
++
++bool Qairt244UsesHiddenTemplatePromptInputLimit(const std::string& mode) {
++  return mode == "hidden_template_experiment" ||
++         mode == "gemma_it_like" || mode == "utf8_internal_intent";
++}
++
++size_t Qairt244PromptInputCodePointLimit(const std::string& mode) {
++  if (mode == "hidden_template_experiment" || mode == "gemma_it_like" ||
++      mode == "utf8_internal_intent") {
++    return kQairt244DefaultPromptInputCodePointLimit;
++  }
++  return kQairt244DefaultPromptInputCodePointLimit;
++}
++
++std::string ValidateQairt244EditablePrompt(
++    const std::string& actual_prompt, const std::string& prompt_input_limit_mode,
++    std::string* normalized_prompt, size_t* prompt_input_code_points,
++    size_t* prompt_input_code_point_limit) {
++  const std::string reason =
++      ValidateQairt244EditablePrompt(actual_prompt, normalized_prompt);
++  if (reason != "ok") {
++    return reason;
++  }
++  if (prompt_input_code_point_limit != nullptr) {
++    *prompt_input_code_point_limit =
++        Qairt244PromptInputCodePointLimit(prompt_input_limit_mode);
++  }
++  if (prompt_input_code_points != nullptr) {
++    size_t count = 0;
++    if (normalized_prompt == nullptr ||
++        !ValidateQairt244Utf8AndCountCodePoints(*normalized_prompt, &count)) {
++      return "invalid_utf8";
++    }
++    *prompt_input_code_points = count;
++    if (prompt_input_code_point_limit != nullptr &&
++        count > *prompt_input_code_point_limit) {
++      return "too_long";
++    }
++  }
++  return "ok";
++}
++
++void WriteQairt244PersistentProbeResult(
++    const std::string& path, const std::vector<std::string>& lines) {
++  if (path.empty()) {
++    return;
++  }
++  FILE* file = std::fopen(path.c_str(), "w");
++  if (file == nullptr) {
++    return;
++  }
++  for (const std::string& line : lines) {
++    std::fprintf(file, "%s\n", line.c_str());
++  }
++  std::fflush(file);
++  std::fclose(file);
++}
++
++struct Qairt244PersistentCustomJniHolder {
++  std::unique_ptr<Engine> engine;
++  std::string holder_key;
++  long generation = 0;
++  long reused_count = 0;
++  bool invalidated = false;
++};
++
++Qairt244PersistentCustomJniHolder g_qairt244_persistent_custom_jni_holder;
++
++void CloseQairt244PersistentCustomJniHolderLocked(bool invalidate) {
++  g_qairt244_persistent_custom_jni_holder.engine.reset();
++  g_qairt244_persistent_custom_jni_holder.holder_key.clear();
++  g_qairt244_persistent_custom_jni_holder.invalidated = invalidate;
++}
++
+ void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
+   jclass exClass =
+       env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
+@@ -2090,6 +2431,1087 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+   return NewStringStandardUTF(env, output);
+ }
+
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditableEngineCreateOnlyMinimal(
++    JNIEnv* env, jclass thiz, jstring model_path,
++    jstring native_library_dir, jstring cache_dir, jstring result_path,
++    jstring diag_path, jstring prompt, jstring prompt_input_limit_mode,
++    jint max_output_tokens) {
++  const absl::Time start_time = absl::Now();
++  std::string model_path_str;
++  std::string native_library_dir_str;
++  std::string cache_dir_str;
++  std::string result_path_str;
++  std::string diag_path_str;
++  std::string actual_prompt;
++  std::string normalized_prompt;
++  std::string prompt_input_limit_mode_str =
++      kQairt244DefaultPromptInputLimitMode;
++  size_t prompt_input_code_points = 0;
++  size_t prompt_input_code_point_limit =
++      kQairt244DefaultPromptInputCodePointLimit;
++  const int requested_max_output_tokens = max_output_tokens;
++  int effective_max_output_tokens = 0;
++
++  std::string status = "running";
++  std::string last_native_stage = "entrypoint";
++  std::string native_entrypoint_reached = "true";
++  std::string model_assets_create_reached = "false";
++  std::string model_assets_create_returned = "false";
++  std::string engine_settings_create_reached = "false";
++  std::string engine_settings_create_returned = "false";
++  std::string engine_create_reached = "false";
++  std::string engine_create_returned = "false";
++  std::string engine_close_reached = "false";
++  std::string engine_close_success = "unavailable";
++  int engine_create_count = 0;
++  int native_diag_flush_count = 0;
++  int native_result_flush_count = 0;
++  std::string failure_stage = "unavailable";
++  std::string failure_reason = "unavailable";
++  std::string hypothesis_result = "running";
++  std::string engine_create_signature = "unavailable";
++
++  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
++                     kQairt244PersistentProbeMarker);
++
++  auto append_stage_diag = [&](const std::string& message) {
++    AppendQairt244Diag(diag_path_str.c_str(), "%s minimal %s",
++                       kQairt244PersistentProbeMarker, message.c_str());
++    native_diag_flush_count += 1;
++  };
++
++  auto write_result = [&]() {
++    const int next_result_flush_count = native_result_flush_count + 1;
++    std::vector<std::string> lines;
++    lines.push_back("marker=" + std::string(kQairt244PersistentProbeMarker));
++    lines.push_back("native_holder_entrypoint_available=true");
++    lines.push_back(
++        "selected_native_probe_mode=editable_engine_create_only_minimal");
++    lines.push_back("last_native_stage=" + last_native_stage);
++    lines.push_back("native_entrypoint_reached=" + native_entrypoint_reached);
++    lines.push_back("model_assets_create_reached=" +
++                    model_assets_create_reached);
++    lines.push_back("model_assets_create_returned=" +
++                    model_assets_create_returned);
++    lines.push_back("engine_settings_create_reached=" +
++                    engine_settings_create_reached);
++    lines.push_back("engine_settings_create_returned=" +
++                    engine_settings_create_returned);
++    lines.push_back("engine_create_reached=" + engine_create_reached);
++    lines.push_back("engine_create_returned=" + engine_create_returned);
++    lines.push_back("session_create_reached=false");
++    lines.push_back("prefill_reached=false");
++    lines.push_back("decode_reached=false");
++    lines.push_back("native_diag_flush_count=" +
++                    std::to_string(native_diag_flush_count));
++    lines.push_back("native_result_flush_count=" +
++                    std::to_string(next_result_flush_count));
++    lines.push_back("engine_create_minimal_path=true");
++    lines.push_back("persistent_holder_used=false");
++    lines.push_back("engine_create_model_path=" +
++                    Qairt244FlattenValue(model_path_str));
++    lines.push_back("engine_create_native_library_dir=" +
++                    Qairt244FlattenValue(native_library_dir_str));
++    lines.push_back("engine_create_cache_dir=" +
++                    Qairt244FlattenValue(cache_dir_str));
++    lines.push_back("engine_create_backend=NPU");
++    lines.push_back("engine_create_prompt_input_limit_mode=" +
++                    prompt_input_limit_mode_str);
++    lines.push_back("engine_create_requested_max_output_tokens=" +
++                    std::to_string(requested_max_output_tokens));
++    lines.push_back("engine_create_effective_max_output_tokens=" +
++                    (effective_max_output_tokens > 0
++                         ? std::to_string(effective_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_max_token_budget=" +
++                    (effective_max_output_tokens > 0
++                         ? std::to_string(effective_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back(
++        "engine_create_settings_source=editable_prompt_minimal:"
++        "EngineSettings::CreateDefault(model_assets,NPU)+SetCacheDir(cache_dir)"
++        "+SetLitertDispatchLibDir(native_library_dir)");
++    lines.push_back(
++        "engine_create_assets_source=editable_prompt_minimal:"
++        "ModelAssets::Create(model_path)");
++    lines.push_back("engine_create_matches_editable_prompt_path=true");
++    lines.push_back("engine_create_matches_editable_prompt_settings=true");
++    lines.push_back("editable_prompt_engine_create_signature=" +
++                    engine_create_signature);
++    lines.push_back("persistent_engine_create_signature=" +
++                    engine_create_signature);
++    lines.push_back("persistent_custom_jni_status=" + status);
++    lines.push_back("run_count_requested=0");
++    lines.push_back("run_count_completed=0");
++    lines.push_back("success_count=" +
++                    std::string(status == "completed" ? "1" : "0"));
++    lines.push_back("failure_count=" +
++                    std::string(status == "stopped" ? "1" : "0"));
++    lines.push_back("engine_create_count=" + std::to_string(engine_create_count));
++    lines.push_back("decode_attempt_count=0");
++    lines.push_back("decode_success_count=0");
++    lines.push_back("engine_close_reached=" + engine_close_reached);
++    lines.push_back("engine_close_success=" + engine_close_success);
++    lines.push_back("holder_key=unavailable");
++    lines.push_back("holder_generation=unavailable");
++    lines.push_back("holder_reused_count=0");
++    lines.push_back("holder_invalidated=false");
++    lines.push_back("holder_key_mismatch_detected=false");
++    lines.push_back("holder_key_mismatch_reason=unavailable");
++    lines.push_back("first_failure_run_index=unavailable");
++    lines.push_back("first_failure_stage=" + failure_stage);
++    lines.push_back("first_failure_reason=" +
++                    Qairt244FlattenValue(failure_reason));
++    lines.push_back("first_failure_exception_class=" +
++                    std::string(status == "stopped" ? "LiteRtLmJniException"
++                                                    : "unavailable"));
++    lines.push_back("first_failure_diag_tail=" +
++                    Qairt244FlattenValue(failure_reason));
++    lines.push_back(
++        "backend_evidence=QNN_HTP_V79_FastRPC_native_diag_minimal_engine_create");
++    lines.push_back("persistent_custom_jni_hypothesis_result=" +
++                    hypothesis_result);
++    lines.push_back("probe_elapsed_ms=" +
++                    std::to_string(absl::ToInt64Milliseconds(
++                        absl::Now() - start_time)));
++    lines.push_back("details_begin=true");
++    WriteQairt244PersistentProbeResult(result_path_str, lines);
++    native_result_flush_count = next_result_flush_count;
++  };
++
++  auto record_failure = [&](const std::string& stage,
++                            const std::string& reason) {
++    status = "stopped";
++    failure_stage = stage;
++    failure_reason = reason;
++    hypothesis_result = stage + "_failed";
++  };
++
++  append_stage_diag("entrypoint reached");
++  write_result();
++
++  if (GetOptionalJString(env, prompt_input_limit_mode,
++                         &prompt_input_limit_mode_str, diag_path_str.c_str(),
++                         "prompt_input_limit_mode",
++                         kQairt244PersistentProbeMarker)) {
++    if (!Qairt244UsesHiddenTemplatePromptInputLimit(
++            prompt_input_limit_mode_str)) {
++      prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
++    }
++  } else {
++    prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
++  }
++  prompt_input_code_point_limit =
++      Qairt244PromptInputCodePointLimit(prompt_input_limit_mode_str);
++
++  if (!GetOptionalJString(env, prompt, &actual_prompt, diag_path_str.c_str(),
++                          "prompt", kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, model_path, &model_path_str,
++                          diag_path_str.c_str(), "model_path",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, native_library_dir, &native_library_dir_str,
++                          diag_path_str.c_str(), "native_library_dir",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, cache_dir, &cache_dir_str,
++                          diag_path_str.c_str(), "cache_dir",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, result_path, &result_path_str,
++                          diag_path_str.c_str(), "result_path",
++                          kQairt244PersistentProbeMarker)) {
++    record_failure("jni_string", "jni-string-conversion-failed");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "QAIRT minimal engine create string conversion failed");
++    return nullptr;
++  }
++
++  const std::string validation_reason =
++      ValidateQairt244EditablePrompt(
++          actual_prompt, prompt_input_limit_mode_str, &normalized_prompt,
++          &prompt_input_code_points, &prompt_input_code_point_limit);
++  if (validation_reason != "ok") {
++    record_failure("prompt_validation", validation_reason);
++    write_result();
++    return NewStringStandardUTF(env, "");
++  }
++
++  if (max_output_tokens < 1 ||
++      max_output_tokens > kQairt244EditablePromptMaxOutputTokensLimit) {
++    record_failure("argument", "invalid_max_output_tokens_limit_512");
++    write_result();
++    return NewStringStandardUTF(env, "");
++  }
++  effective_max_output_tokens = requested_max_output_tokens;
++
++  engine_create_signature =
++      "editable_prompt_minimal_direct_shape_no_precreate_signature";
++
++  if (model_path_str.empty() || native_library_dir_str.empty() ||
++      result_path_str.empty()) {
++    record_failure("argument", "missing-required-path");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "QAIRT minimal engine create missing required path");
++    return nullptr;
++  }
++  if (!FileExists(model_path_str)) {
++    record_failure("model_assets", "model-file-not-found");
++    write_result();
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return nullptr;
++  }
++
++  model_assets_create_reached = "true";
++  last_native_stage = "before_model_assets_create";
++  append_stage_diag("before ModelAssets::Create");
++  write_result();
++  auto model_assets = ModelAssets::Create(model_path_str);
++  if (!model_assets.ok()) {
++    const std::string detail =
++        "model-assets-failed:" + model_assets.status().ToString();
++    record_failure("model_assets", detail);
++    write_result();
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  model_assets_create_returned = "true";
++  last_native_stage = "model_assets_create_returned";
++  append_stage_diag("ModelAssets::Create success");
++  write_result();
++
++  auto backend_enum = litert::lm::GetBackendFromString("NPU");
++  if (!backend_enum.ok()) {
++    const std::string detail =
++        "backend-npu-failed:" + backend_enum.status().ToString();
++    record_failure("backend", detail);
++    write_result();
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  engine_settings_create_reached = "true";
++  last_native_stage = "before_engine_settings_create";
++  append_stage_diag("before EngineSettings::CreateDefault");
++  write_result();
++  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++  if (!settings.ok()) {
++    const std::string detail =
++        "engine-settings-failed:" + settings.status().ToString();
++    record_failure("engine_settings", detail);
++    write_result();
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  engine_settings_create_returned = "true";
++  last_native_stage = "engine_settings_create_returned";
++  append_stage_diag("EngineSettings::CreateDefault success");
++  write_result();
++
++  if (!cache_dir_str.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++  }
++  settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++      native_library_dir_str);
++
++  engine_create_reached = "true";
++  last_native_stage = "before_engine_create";
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineFactory::CreateDefault",
++                     kQairt244EditablePromptMarker);
++  native_diag_flush_count += 1;
++  write_result();
++  auto engine = EngineFactory::CreateDefault(*settings);
++  engine_create_count = 1;
++  if (!engine.ok()) {
++    const std::string detail =
++        "engine-create-failed:" + engine.status().ToString();
++    record_failure("engine_create", detail);
++    write_result();
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  engine_create_returned = "true";
++  last_native_stage = "engine_create_returned";
++  append_stage_diag("EngineFactory::CreateDefault success");
++  std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++  engine_close_reached = "true";
++  engine_ptr.reset();
++  engine_close_success = "true";
++  status = "completed";
++  hypothesis_result = "editable_engine_create_only_minimal_success";
++  write_result();
++  return NewStringStandardUTF(env, status);
++}
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe(
++    JNIEnv* env, jclass thiz, jstring model_path,
++    jstring native_library_dir, jstring cache_dir, jstring result_path,
++    jstring diag_path, jstring prompt, jstring prompt_input_limit_mode,
++    jint max_output_tokens, jint run_count, jstring holder_key,
++    jstring native_probe_mode) {
++  const absl::Time probe_start_time = absl::Now();
++  std::string model_path_str;
++  std::string native_library_dir_str;
++  std::string cache_dir_str;
++  std::string result_path_str;
++  std::string diag_path_str;
++  std::string holder_key_str;
++  std::string native_probe_mode_str = "full_20";
++  std::string actual_prompt;
++  std::string normalized_prompt;
++  std::string prompt_input_limit_mode_str =
++      kQairt244DefaultPromptInputLimitMode;
++  size_t prompt_input_code_points = 0;
++  size_t prompt_input_code_point_limit =
++      kQairt244DefaultPromptInputCodePointLimit;
++
++  std::string status = "running";
++  int requested_count = run_count;
++  int completed_count = 0;
++  int success_count = 0;
++  int failure_count = 0;
++  int engine_create_count = 0;
++  int decode_attempt_count = 0;
++  int decode_success_count = 0;
++  std::string engine_close_reached = "false";
++  std::string engine_close_success = "unavailable";
++  std::string argument_validation_passed = "false";
++  std::string run_count_validation_skipped_for_create_close_only = "false";
++  std::string last_native_stage = "entrypoint";
++  std::string native_entrypoint_reached = "true";
++  std::string model_assets_create_reached = "false";
++  std::string model_assets_create_returned = "false";
++  std::string engine_settings_create_reached = "false";
++  std::string engine_settings_create_returned = "false";
++  std::string engine_create_reached = "false";
++  std::string engine_create_returned = "false";
++  std::string session_create_reached = "false";
++  std::string prefill_reached = "false";
++  std::string decode_reached = "false";
++  int native_diag_flush_count = 0;
++  int native_result_flush_count = 0;
++  std::string engine_create_model_path = "unavailable";
++  std::string engine_create_native_library_dir = "unavailable";
++  std::string engine_create_cache_dir = "unavailable";
++  std::string engine_create_backend = "NPU";
++  std::string engine_create_prompt_input_limit_mode = "unavailable";
++  int engine_create_requested_max_output_tokens = -1;
++  int engine_create_effective_max_output_tokens = -1;
++  int engine_create_max_token_budget = -1;
++  std::string engine_create_settings_source = "unavailable";
++  std::string engine_create_assets_source = "unavailable";
++  std::string engine_create_matches_editable_prompt_path = "unavailable";
++  std::string engine_create_matches_editable_prompt_settings = "unavailable";
++  std::string editable_prompt_engine_create_signature = "unavailable";
++  std::string persistent_engine_create_signature = "unavailable";
++  std::string holder_invalidated = "false";
++  std::string holder_key_mismatch_detected = "false";
++  std::string holder_key_mismatch_reason = "unavailable";
++  int first_failure_run_index = 0;
++  std::string first_failure_stage = "unavailable";
++  std::string first_failure_reason = "unavailable";
++  std::string first_failure_exception_class = "unavailable";
++  std::string first_failure_diag_tail = "unavailable";
++  std::string hypothesis_result = "running";
++  std::vector<std::string> detail_lines;
++
++  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
++                     kQairt244PersistentProbeMarker);
++
++  auto append_stage_diag = [&](const std::string& message) {
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244PersistentProbeMarker, message.c_str());
++    native_diag_flush_count += 1;
++  };
++
++  auto record_failure = [&](int run_index, const std::string& stage,
++                            const std::string& reason,
++                            const std::string& diag_tail) {
++    status = "stopped";
++    failure_count += 1;
++    holder_invalidated = "true";
++    g_qairt244_persistent_custom_jni_holder.invalidated = true;
++    if (first_failure_stage == "unavailable") {
++      first_failure_run_index = run_index;
++      first_failure_stage = stage;
++      first_failure_reason = reason;
++      first_failure_exception_class = "LiteRtLmJniException";
++      first_failure_diag_tail = diag_tail;
++    }
++    hypothesis_result = stage + "_failed";
++  };
++
++  auto write_result = [&]() {
++    const int next_result_flush_count = native_result_flush_count + 1;
++    std::vector<std::string> lines;
++    lines.push_back("marker=" + std::string(kQairt244PersistentProbeMarker));
++    lines.push_back("native_holder_entrypoint_available=true");
++    lines.push_back("selected_native_probe_mode=" + native_probe_mode_str);
++    lines.push_back("last_native_stage=" + last_native_stage);
++    lines.push_back("native_entrypoint_reached=" + native_entrypoint_reached);
++    lines.push_back("model_assets_create_reached=" + model_assets_create_reached);
++    lines.push_back("model_assets_create_returned=" + model_assets_create_returned);
++    lines.push_back("model_assets_create_succeeded=" + model_assets_create_returned);
++    lines.push_back("engine_settings_create_reached=" + engine_settings_create_reached);
++    lines.push_back("engine_settings_create_returned=" + engine_settings_create_returned);
++    lines.push_back("engine_settings_create_succeeded=" + engine_settings_create_returned);
++    lines.push_back("engine_create_reached=" + engine_create_reached);
++    lines.push_back("engine_create_returned=" + engine_create_returned);
++    lines.push_back("engine_create_succeeded=" + engine_create_returned);
++    lines.push_back("session_create_reached=" + session_create_reached);
++    lines.push_back("session_create_count=" +
++                    std::string(session_create_reached == "true" ? "1" : "0"));
++    lines.push_back("prefill_reached=" + prefill_reached);
++    lines.push_back("decode_reached=" + decode_reached);
++    lines.push_back("decode_count=" + std::to_string(decode_attempt_count));
++    lines.push_back("generate_count=" + std::to_string(decode_success_count));
++    lines.push_back("argument_validation_passed=" + argument_validation_passed);
++    lines.push_back("run_count_validation_skipped_for_create_close_only=" +
++                    run_count_validation_skipped_for_create_close_only);
++    lines.push_back("native_diag_flush_count=" +
++                    std::to_string(native_diag_flush_count));
++    lines.push_back("native_result_flush_count=" +
++                    std::to_string(next_result_flush_count));
++    lines.push_back("engine_create_model_path=" +
++                    Qairt244FlattenValue(engine_create_model_path));
++    lines.push_back("engine_create_native_library_dir=" +
++                    Qairt244FlattenValue(engine_create_native_library_dir));
++    lines.push_back("engine_create_cache_dir=" +
++                    Qairt244FlattenValue(engine_create_cache_dir));
++    lines.push_back("engine_create_backend=" + engine_create_backend);
++    lines.push_back("engine_create_prompt_input_limit_mode=" +
++                    engine_create_prompt_input_limit_mode);
++    lines.push_back("prompt_input_code_points=" +
++                    std::to_string(prompt_input_code_points));
++    lines.push_back("prompt_input_code_point_limit=" +
++                    std::to_string(prompt_input_code_point_limit));
++    lines.push_back("engine_create_requested_max_output_tokens=" +
++                    (engine_create_requested_max_output_tokens >= 0
++                         ? std::to_string(engine_create_requested_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_effective_max_output_tokens=" +
++                    (engine_create_effective_max_output_tokens >= 0
++                         ? std::to_string(engine_create_effective_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_max_token_budget=" +
++                    (engine_create_max_token_budget >= 0
++                         ? std::to_string(engine_create_max_token_budget)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_settings_source=" +
++                    Qairt244FlattenValue(engine_create_settings_source));
++    lines.push_back("engine_create_assets_source=" +
++                    Qairt244FlattenValue(engine_create_assets_source));
++    lines.push_back("engine_create_matches_editable_prompt_path=" +
++                    engine_create_matches_editable_prompt_path);
++    lines.push_back("engine_create_matches_editable_prompt_settings=" +
++                    engine_create_matches_editable_prompt_settings);
++    lines.push_back("editable_prompt_engine_create_signature=" +
++                    editable_prompt_engine_create_signature);
++    lines.push_back("persistent_engine_create_signature=" +
++                    persistent_engine_create_signature);
++    lines.push_back("persistent_custom_jni_status=" + status);
++    lines.push_back("run_count_requested=" + std::to_string(requested_count));
++    lines.push_back("run_count_completed=" + std::to_string(completed_count));
++    lines.push_back("success_count=" + std::to_string(success_count));
++    lines.push_back("failure_count=" + std::to_string(failure_count));
++    lines.push_back("engine_create_count=" + std::to_string(engine_create_count));
++    lines.push_back("engine_holder_open_during_decode=" +
++                    std::string(g_qairt244_persistent_custom_jni_holder.engine
++                                    ? "true"
++                                    : "false"));
++    lines.push_back("decode_attempt_count=" + std::to_string(decode_attempt_count));
++    lines.push_back("decode_success_count=" + std::to_string(decode_success_count));
++    lines.push_back("engine_close_reached=" + engine_close_reached);
++    lines.push_back("engine_close_success=" + engine_close_success);
++    lines.push_back("engine_close_count=" +
++                    std::string(engine_close_reached == "true" &&
++                                        engine_close_success == "true"
++                                    ? "1"
++                                    : "0"));
++    lines.push_back("holder_key=" + Qairt244FlattenValue(holder_key_str));
++    lines.push_back("holder_generation=" +
++                    std::to_string(g_qairt244_persistent_custom_jni_holder.generation));
++    lines.push_back("holder_reused_count=" +
++                    std::to_string(g_qairt244_persistent_custom_jni_holder.reused_count));
++    lines.push_back("holder_invalidated=" + holder_invalidated);
++    lines.push_back("holder_key_mismatch_detected=" + holder_key_mismatch_detected);
++    lines.push_back("holder_key_mismatch_reason=" +
++                    Qairt244FlattenValue(holder_key_mismatch_reason));
++    lines.push_back("first_failure_run_index=" +
++                    (first_failure_run_index > 0
++                         ? std::to_string(first_failure_run_index)
++                         : std::string("unavailable")));
++    lines.push_back("first_failure_stage=" + first_failure_stage);
++    lines.push_back("first_failure_reason=" +
++                    Qairt244FlattenValue(first_failure_reason));
++    lines.push_back("first_failure_exception_class=" +
++                    first_failure_exception_class);
++    lines.push_back("first_failure_diag_tail=" +
++                    Qairt244FlattenValue(first_failure_diag_tail));
++    lines.push_back("backend_evidence=QNN_HTP_V79_FastRPC_native_diag_persistent_holder");
++    lines.push_back("persistent_custom_jni_hypothesis_result=" + hypothesis_result);
++    lines.push_back("probe_elapsed_ms=" +
++                    std::to_string(absl::ToInt64Milliseconds(
++                        absl::Now() - probe_start_time)));
++    lines.push_back("details_begin=true");
++    lines.insert(lines.end(), detail_lines.begin(), detail_lines.end());
++    WriteQairt244PersistentProbeResult(result_path_str, lines);
++    native_result_flush_count = next_result_flush_count;
++  };
++
++  if (!GetOptionalJString(env, prompt_input_limit_mode,
++                          &prompt_input_limit_mode_str, diag_path_str.c_str(),
++                          "prompt_input_limit_mode",
++                          kQairt244PersistentProbeMarker)) {
++    prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
++  }
++  if (!Qairt244UsesHiddenTemplatePromptInputLimit(
++          prompt_input_limit_mode_str)) {
++    prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
++  }
++  prompt_input_code_point_limit =
++      Qairt244PromptInputCodePointLimit(prompt_input_limit_mode_str);
++
++  if (!GetOptionalJString(env, model_path, &model_path_str,
++                          diag_path_str.c_str(), "model_path",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, native_library_dir, &native_library_dir_str,
++                          diag_path_str.c_str(), "native_library_dir",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, cache_dir, &cache_dir_str,
++                          diag_path_str.c_str(), "cache_dir",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, result_path, &result_path_str,
++                          diag_path_str.c_str(), "result_path",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, holder_key, &holder_key_str,
++                          diag_path_str.c_str(), "holder_key",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, native_probe_mode, &native_probe_mode_str,
++                          diag_path_str.c_str(), "native_probe_mode",
++                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, prompt, &actual_prompt, diag_path_str.c_str(),
++                          "prompt", kQairt244PersistentProbeMarker)) {
++    record_failure(0, "jni_string", "jni-string-conversion-failed",
++                   "persistent probe JNI string conversion failed");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "QAIRT persistent custom JNI probe string conversion failed");
++    return nullptr;
++  }
++
++  if (native_probe_mode_str.empty()) {
++    native_probe_mode_str = "full_20";
++  }
++  if (native_probe_mode_str != "entrypoint_only" &&
++      native_probe_mode_str != "dispatch_api_preflight" &&
++      native_probe_mode_str != "dispatch_initialize_preflight" &&
++      native_probe_mode_str != "model_assets_only" &&
++      native_probe_mode_str != "engine_settings_only" &&
++      native_probe_mode_str != "before_engine_create" &&
++      native_probe_mode_str != "engine_create_only" &&
++      native_probe_mode_str != "editable_engine_create_only" &&
++      native_probe_mode_str != "true_engine_create_close_only" &&
++      native_probe_mode_str != "held_engine_run_once" &&
++      native_probe_mode_str != "standard_route_reuse_once" &&
++      native_probe_mode_str != "full_20") {
++    record_failure(0, "argument", "invalid_native_probe_mode",
++                   "native_probe_mode must be entrypoint_only, "
++                   "dispatch_api_preflight, "
++                   "dispatch_initialize_preflight, model_assets_only, "
++                   "engine_settings_only, "
++                   "before_engine_create, engine_create_only, "
++                   "editable_engine_create_only, "
++                   "true_engine_create_close_only, held_engine_run_once, "
++                   "standard_route_reuse_once, or full_20");
++    write_result();
++    ThrowLiteRtLmJniException(env,
++                              "invalid persistent probe native_probe_mode");
++    return nullptr;
++  }
++
++  append_stage_diag("entrypoint reached mode=" + native_probe_mode_str);
++  last_native_stage = "entrypoint";
++  write_result();
++
++  if (native_probe_mode_str == "entrypoint_only") {
++    status = "completed";
++    hypothesis_result = "entrypoint_only_success";
++    write_result();
++    append_stage_diag("entrypoint_only completed");
++    return NewStringStandardUTF(env, status);
++  }
++
++  if (native_probe_mode_str == "dispatch_api_preflight") {
++    last_native_stage = "dispatch_api_preflight";
++    std::vector<std::string> diagnostics;
++    const bool preflight_success =
++        Qairt244RunDispatchApiPreflight(native_library_dir_str, &diagnostics);
++    for (const std::string& diagnostic : diagnostics) {
++      append_stage_diag(diagnostic);
++    }
++    if (!preflight_success) {
++      record_failure(0, "dispatch_api_preflight",
++                     "dispatch_api_preflight_failed",
++                     "Dispatch API dlopen/GetApi preflight failed");
++      write_result();
++      return NewStringStandardUTF(env, "");
++    }
++    status = "completed";
++    hypothesis_result = "dispatch_api_preflight_success";
++    write_result();
++    append_stage_diag("dispatch_api_preflight completed");
++    return NewStringStandardUTF(env, status);
++  }
++
++  if (native_probe_mode_str == "dispatch_initialize_preflight") {
++    last_native_stage = "dispatch_initialize_preflight";
++    std::vector<std::string> diagnostics;
++    const bool preflight_success =
++        Qairt244RunDispatchInitializePreflight(
++            native_library_dir_str, &diagnostics);
++    for (const std::string& diagnostic : diagnostics) {
++      append_stage_diag(diagnostic);
++    }
++    if (!preflight_success) {
++      record_failure(0, "dispatch_initialize_preflight",
++                     "dispatch_initialize_preflight_failed",
++                     "Dispatch initialize/device-context preflight failed");
++      write_result();
++      return NewStringStandardUTF(env, "");
++    }
++    status = "completed";
++    hypothesis_result = "dispatch_initialize_preflight_success";
++    write_result();
++    append_stage_diag("dispatch_initialize_preflight completed");
++    return NewStringStandardUTF(env, status);
++  }
++
++  const bool is_create_close_only_mode =
++      native_probe_mode_str == "true_engine_create_close_only";
++  const bool is_held_engine_run_once_mode =
++      native_probe_mode_str == "held_engine_run_once";
++  const bool is_standard_route_reuse_once_mode =
++      native_probe_mode_str == "standard_route_reuse_once";
++  if (is_create_close_only_mode) {
++    if (requested_count != 0) {
++      record_failure(0, "argument", "invalid_create_close_only_run_count",
++                     "true_engine_create_close_only run_count must be 0");
++      write_result();
++      ThrowLiteRtLmJniException(
++          env, "invalid persistent probe create/close only run_count");
++      return nullptr;
++    }
++    run_count_validation_skipped_for_create_close_only = "true";
++  } else if (is_held_engine_run_once_mode && requested_count != 1) {
++    record_failure(0, "argument", "invalid_held_engine_run_once_run_count",
++                   "held_engine_run_once run_count must be 1");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "invalid persistent probe held_engine_run_once run_count");
++    return nullptr;
++  } else if (is_standard_route_reuse_once_mode && requested_count != 1) {
++    record_failure(0, "argument", "invalid_standard_route_reuse_once_run_count",
++                   "standard_route_reuse_once run_count must be 1");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "invalid persistent probe standard_route_reuse_once run_count");
++    return nullptr;
++  } else if (requested_count < 1 || requested_count > 100) {
++    record_failure(0, "argument", "invalid_run_count",
++                   "run_count must be 1..100");
++    write_result();
++    ThrowLiteRtLmJniException(env, "invalid persistent probe run_count");
++    return nullptr;
++  }
++  if (max_output_tokens < 1 ||
++      max_output_tokens > kQairt244EditablePromptMaxOutputTokensLimit) {
++    record_failure(0, "argument", "invalid_max_output_tokens",
++                   "max_output_tokens must be 1..512");
++    write_result();
++    ThrowLiteRtLmJniException(env, "invalid persistent probe max_output_tokens");
++    return nullptr;
++  }
++  argument_validation_passed = "true";
++  write_result();
++
++  const std::string validation_reason =
++      ValidateQairt244EditablePrompt(
++          actual_prompt, prompt_input_limit_mode_str, &normalized_prompt,
++          &prompt_input_code_points, &prompt_input_code_point_limit);
++  if (validation_reason != "ok") {
++    record_failure(0, "prompt_validation", validation_reason,
++                   "persistent probe prompt validation failed");
++    write_result();
++    return NewStringStandardUTF(env, "");
++  }
++
++  append_stage_diag(
++      "ENTRY run_count=" + std::to_string(requested_count) +
++      " max_output_tokens=" + std::to_string(max_output_tokens) +
++      " holder_key=" + holder_key_str);
++
++  engine_create_model_path = model_path_str;
++  engine_create_native_library_dir = native_library_dir_str;
++  engine_create_cache_dir = cache_dir_str;
++  engine_create_backend = "NPU";
++  engine_create_prompt_input_limit_mode = prompt_input_limit_mode_str;
++  engine_create_requested_max_output_tokens = max_output_tokens;
++  engine_create_effective_max_output_tokens = max_output_tokens;
++  engine_create_max_token_budget = max_output_tokens;
++  engine_create_assets_source = "ModelAssets::Create(model_path)";
++  engine_create_settings_source =
++      "EngineSettings::CreateDefault(model_assets,NPU)"
++      "+SetCacheDir(cache_dir)+SetLitertDispatchLibDir(native_library_dir)";
++  editable_prompt_engine_create_signature = Qairt244EngineCreateSignature(
++      model_path_str, native_library_dir_str, cache_dir_str, "NPU",
++      prompt_input_limit_mode_str, max_output_tokens, max_output_tokens,
++      max_output_tokens, engine_create_assets_source,
++      engine_create_settings_source);
++  persistent_engine_create_signature = Qairt244EngineCreateSignature(
++      model_path_str, native_library_dir_str, cache_dir_str, "NPU",
++      prompt_input_limit_mode_str, max_output_tokens, max_output_tokens,
++      max_output_tokens, engine_create_assets_source,
++      engine_create_settings_source);
++  engine_create_matches_editable_prompt_path =
++      model_path_str.empty() ? "false" : "true";
++  engine_create_matches_editable_prompt_settings =
++      editable_prompt_engine_create_signature ==
++              persistent_engine_create_signature
++          ? "true"
++          : "false";
++  append_stage_diag("engine_create_signature=" +
++                    persistent_engine_create_signature);
++  write_result();
++
++  if (g_qairt244_persistent_custom_jni_holder.engine &&
++      g_qairt244_persistent_custom_jni_holder.holder_key != holder_key_str) {
++    holder_key_mismatch_detected = "true";
++    holder_key_mismatch_reason = "holder_key_changed";
++    AppendQairt244Diag(diag_path_str.c_str(),
++                       "%s holder key mismatch close existing holder",
++                       kQairt244PersistentProbeMarker);
++    CloseQairt244PersistentCustomJniHolderLocked(false);
++  }
++  if (g_qairt244_persistent_custom_jni_holder.invalidated) {
++    CloseQairt244PersistentCustomJniHolderLocked(false);
++  }
++  if (native_probe_mode_str != "full_20" &&
++      native_probe_mode_str != "standard_route_reuse_once" &&
++      g_qairt244_persistent_custom_jni_holder.engine) {
++    append_stage_diag("stage mode close existing holder before probe");
++    CloseQairt244PersistentCustomJniHolderLocked(false);
++  }
++
++  if (!g_qairt244_persistent_custom_jni_holder.engine) {
++    if (model_path_str.empty() || native_library_dir_str.empty() ||
++        result_path_str.empty() || holder_key_str.empty()) {
++      record_failure(0, "argument", "missing-required-path-or-holder-key",
++                     "persistent probe missing required path or holder key");
++      write_result();
++      ThrowLiteRtLmJniException(
++          env, "QAIRT persistent probe missing required path or holder key");
++      return nullptr;
++    }
++    if (!FileExists(model_path_str)) {
++      record_failure(0, "model_assets", "model-file-not-found",
++                     "persistent probe model file not found");
++      write_result();
++      ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++      return nullptr;
++    }
++
++    model_assets_create_reached = "true";
++    last_native_stage = "before_model_assets_create";
++    append_stage_diag("before ModelAssets::Create");
++    write_result();
++    auto model_assets = ModelAssets::Create(model_path_str);
++    if (!model_assets.ok()) {
++      const std::string detail =
++          "model-assets-failed:" + model_assets.status().ToString();
++      record_failure(0, "model_assets", detail, detail);
++      write_result();
++      ThrowLiteRtLmJniException(env, detail);
++      return nullptr;
++    }
++    model_assets_create_returned = "true";
++    last_native_stage = "model_assets_create_returned";
++    append_stage_diag("ModelAssets::Create success");
++    write_result();
++    if (native_probe_mode_str == "model_assets_only") {
++      status = "completed";
++      hypothesis_result = "model_assets_only_success";
++      write_result();
++      append_stage_diag("model_assets_only completed");
++      return NewStringStandardUTF(env, status);
++    }
++
++    auto backend_enum = litert::lm::GetBackendFromString("NPU");
++    if (!backend_enum.ok()) {
++      const std::string detail =
++          "backend-npu-failed:" + backend_enum.status().ToString();
++      record_failure(0, "backend", detail, detail);
++      write_result();
++      ThrowLiteRtLmJniException(env, detail);
++      return nullptr;
++    }
++
++    engine_settings_create_reached = "true";
++    last_native_stage = "before_engine_settings_create";
++    append_stage_diag("before EngineSettings::CreateDefault");
++    write_result();
++    auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++    if (!settings.ok()) {
++      const std::string detail =
++          "engine-settings-failed:" + settings.status().ToString();
++      record_failure(0, "engine_settings", detail, detail);
++      write_result();
++      ThrowLiteRtLmJniException(env, detail);
++      return nullptr;
++    }
++    engine_settings_create_returned = "true";
++    last_native_stage = "engine_settings_create_returned";
++    append_stage_diag("EngineSettings::CreateDefault success");
++    write_result();
++    if (native_probe_mode_str == "engine_settings_only") {
++      status = "completed";
++      hypothesis_result = "engine_settings_only_success";
++      write_result();
++      append_stage_diag("engine_settings_only completed");
++      return NewStringStandardUTF(env, status);
++    }
++    if (!cache_dir_str.empty()) {
++      settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++    }
++    settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++        native_library_dir_str);
++
++    last_native_stage = "before_engine_create";
++    append_stage_diag("before EngineFactory::CreateDefault mode=" +
++                      native_probe_mode_str + " signature=" +
++                      persistent_engine_create_signature);
++    if (native_probe_mode_str == "before_engine_create") {
++      status = "completed";
++      hypothesis_result = "before_engine_create_success";
++      write_result();
++      append_stage_diag("before_engine_create completed");
++      return NewStringStandardUTF(env, status);
++    }
++    engine_create_reached = "true";
++    write_result();
++    auto engine = EngineFactory::CreateDefault(*settings);
++    engine_create_count += 1;
++    if (!engine.ok()) {
++      const std::string detail =
++          "engine-create-failed:" + engine.status().ToString();
++      record_failure(0, "engine_create", detail, detail);
++      write_result();
++      ThrowLiteRtLmJniException(env, detail);
++      return nullptr;
++    }
++    engine_create_returned = "true";
++    last_native_stage = "engine_create_returned";
++    append_stage_diag("EngineFactory::CreateDefault success");
++    write_result();
++    if (native_probe_mode_str == "engine_create_only" ||
++        native_probe_mode_str == "editable_engine_create_only" ||
++        native_probe_mode_str == "true_engine_create_close_only") {
++      std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++      engine_close_reached = "true";
++      engine_ptr.reset();
++      engine_close_success = "true";
++      status = "completed";
++      hypothesis_result = native_probe_mode_str + "_success";
++      write_result();
++      append_stage_diag(native_probe_mode_str + " completed");
++      return NewStringStandardUTF(env, status);
++    }
++    g_qairt244_persistent_custom_jni_holder.engine = std::move(*engine);
++    g_qairt244_persistent_custom_jni_holder.holder_key = holder_key_str;
++    g_qairt244_persistent_custom_jni_holder.generation += 1;
++    g_qairt244_persistent_custom_jni_holder.reused_count = 0;
++    g_qairt244_persistent_custom_jni_holder.invalidated = false;
++    append_stage_diag(
++        "EngineFactory::CreateDefault success generation=" +
++        std::to_string(g_qairt244_persistent_custom_jni_holder.generation));
++  } else {
++    g_qairt244_persistent_custom_jni_holder.reused_count += 1;
++  }
++
++  Engine* engine_ptr = g_qairt244_persistent_custom_jni_holder.engine.get();
++  for (int run_index = 1; run_index <= requested_count; ++run_index) {
++    const absl::Time run_start = absl::Now();
++    std::string run_status = "success";
++    std::string run_reason = "completed";
++    std::string session_created = "false";
++    std::string session_closed = "false";
++    std::string prefill_started = "false";
++    std::string prefill_finished = "false";
++    std::string decode_started = "false";
++    std::string decode_finished = "false";
++    std::string output;
++    std::string native_diag_tail = "run_completed";
++    long prefill_ms = -1;
++    long decode_ms = -1;
++    long cleanup_ms = -1;
++
++    session_create_reached = "true";
++    last_native_stage = "before_session_create";
++    append_stage_diag("run=" + std::to_string(run_index) +
++                      " before CreateSession");
++    write_result();
++    auto session_config = SessionConfig::CreateDefault();
++    session_config.SetSamplerBackend(Backend::NPU);
++    auto& sampler_params = session_config.GetMutableSamplerParams();
++    sampler_params.set_type(SamplerParameters::TOP_P);
++    sampler_params.set_k(40);
++    sampler_params.set_p(0.9f);
++    sampler_params.set_temperature(0.3f);
++    sampler_params.set_seed(42);
++    append_stage_diag(
++        "run=" + std::to_string(run_index) +
++        " sampler_config_profile=lami_stable_v1 sampler_backend=NPU"
++        " top_k=40 top_p=0.9 temperature=0.3 seed=42"
++        " thinking_control=raw_prompt_answer_only");
++    auto session = engine_ptr->CreateSession(session_config);
++    if (!session.ok()) {
++      run_status = "failure";
++      run_reason = "session-create-failed:" + session.status().ToString();
++      native_diag_tail = run_reason;
++      record_failure(run_index, "session_create", run_reason, native_diag_tail);
++    } else {
++      session_created = "true";
++      std::unique_ptr<Engine::Session> session_ptr = std::move(*session);
++      std::vector<InputData> inputs;
++      inputs.emplace_back(InputText(normalized_prompt.c_str()));
++      prefill_started = "true";
++      prefill_reached = "true";
++      last_native_stage = "before_prefill";
++      const absl::Time prefill_start = absl::Now();
++      append_stage_diag("run=" + std::to_string(run_index) +
++                        " before RunPrefill");
++      write_result();
++      auto prefill_status = session_ptr->RunPrefill(inputs);
++      prefill_ms = absl::ToInt64Milliseconds(absl::Now() - prefill_start);
++      if (!prefill_status.ok()) {
++        run_status = "failure";
++        run_reason = "prefill-failed:" + prefill_status.ToString();
++        native_diag_tail = run_reason;
++        record_failure(run_index, "prefill", run_reason, native_diag_tail);
++      } else {
++        prefill_finished = "true";
++        DecodeConfig decode_config = DecodeConfig::CreateDefault();
++        decode_config.SetMaxOutputTokens(max_output_tokens);
++        decode_started = "true";
++        decode_reached = "true";
++        last_native_stage = "before_decode";
++        decode_attempt_count += 1;
++        const absl::Time decode_start = absl::Now();
++        append_stage_diag("run=" + std::to_string(run_index) +
++                          " before RunDecode SetMaxOutputTokens(" +
++                          std::to_string(max_output_tokens) + ")");
++        write_result();
++        auto responses = session_ptr->RunDecode(decode_config);
++        decode_ms = absl::ToInt64Milliseconds(absl::Now() - decode_start);
++        if (!responses.ok()) {
++          run_status = "failure";
++          run_reason = "decode-failed:" + responses.status().ToString();
++          native_diag_tail = run_reason;
++          record_failure(run_index, "decode", run_reason, native_diag_tail);
++        } else {
++          decode_finished = "true";
++          decode_success_count += 1;
++          if (!responses->GetTexts().empty()) {
++            output = responses->GetTexts()[0];
++          }
++        }
++      }
++      const absl::Time cleanup_start = absl::Now();
++      session_ptr.reset();
++      session_closed = "true";
++      cleanup_ms = absl::ToInt64Milliseconds(absl::Now() - cleanup_start);
++    }
++
++    completed_count += 1;
++    if (run_status == "success") {
++      success_count += 1;
++      g_qairt244_persistent_custom_jni_holder.reused_count += 1;
++    }
++    const long total_ms =
++        absl::ToInt64Milliseconds(absl::Now() - run_start);
++    detail_lines.push_back("run_index=" + std::to_string(run_index));
++    detail_lines.push_back("status=" + run_status);
++    detail_lines.push_back("reason=" + Qairt244FlattenValue(run_reason));
++    detail_lines.push_back("session_created=" + session_created);
++    detail_lines.push_back("session_closed=" + session_closed);
++    detail_lines.push_back("prefill_started=" + prefill_started);
++    detail_lines.push_back("prefill_finished=" + prefill_finished);
++    detail_lines.push_back("decode_started=" + decode_started);
++    detail_lines.push_back("decode_finished=" + decode_finished);
++    detail_lines.push_back("sampler_config_profile=lami_stable_v1");
++    detail_lines.push_back("sampler_backend=NPU");
++    detail_lines.push_back("sampler_top_k=40");
++    detail_lines.push_back("sampler_top_p=0.9");
++    detail_lines.push_back("sampler_temperature=0.3");
++    detail_lines.push_back("sampler_seed=42");
++    detail_lines.push_back("thinking_control=raw_prompt_answer_only");
++    detail_lines.push_back("raw_output=" + Qairt244FlattenValue(output));
++    detail_lines.push_back("sanitized_output=");
++    detail_lines.push_back("quality_classification=unavailable");
++    detail_lines.push_back("total_ms=" + std::to_string(total_ms));
++    detail_lines.push_back("prefill_ms=" + std::to_string(prefill_ms));
++    detail_lines.push_back("decode_ms=" + std::to_string(decode_ms));
++    detail_lines.push_back("cleanup_ms=" + std::to_string(cleanup_ms));
++    detail_lines.push_back("failure_stage=" +
++                           (run_status == "success" ? std::string("unavailable")
++                                                    : first_failure_stage));
++    detail_lines.push_back("failure_exception_class=" +
++                           (run_status == "success"
++                                ? std::string("unavailable")
++                                : std::string("LiteRtLmJniException")));
++    detail_lines.push_back("failure_exception_message=" +
++                           (run_status == "success"
++                                ? std::string("unavailable")
++                                : Qairt244FlattenValue(run_reason)));
++    detail_lines.push_back("native_diag_tail=" +
++                           Qairt244FlattenValue(native_diag_tail));
++    if (run_status != "success") {
++      break;
++    }
++  }
++
++  if (!is_standard_route_reuse_once_mode || failure_count != 0) {
++    engine_close_reached = "true";
++    CloseQairt244PersistentCustomJniHolderLocked(
++        g_qairt244_persistent_custom_jni_holder.invalidated || failure_count != 0);
++    engine_close_success = "true";
++  }
++  if (failure_count == 0) {
++    status = "completed";
++    holder_invalidated = "false";
++    hypothesis_result = is_held_engine_run_once_mode
++                            ? std::string("held_engine_run_once_success")
++                            : (is_standard_route_reuse_once_mode
++                                   ? std::string("standard_route_reuse_once_success")
++                                   : std::string("engine_create_once_20_runs_success"));
++  } else {
++    holder_invalidated = "true";
++  }
++  write_result();
++  append_stage_diag("END status=" + status +
++                    " completed=" + std::to_string(completed_count) +
++                    " success=" + std::to_string(success_count) +
++                    " failure=" + std::to_string(failure_count) +
++                    " engine_create_count=" +
++                    std::to_string(engine_create_count) +
++                    " decode_success_count=" +
++                    std::to_string(decode_success_count));
++  write_result();
++  return NewStringStandardUTF(env, status);
++}
++
+ LITERTLM_JNIEXPORT jstring JNICALL JNI_METHOD(nativeGenerateContent)(
+     JNIEnv* env, jclass thiz, jlong session_pointer, jobjectArray input_data) {
+   Engine::Session* session =

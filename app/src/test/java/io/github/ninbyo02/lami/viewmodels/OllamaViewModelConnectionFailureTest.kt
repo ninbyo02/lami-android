@@ -66,7 +66,7 @@ class OllamaViewModelConnectionFailureTest {
             "saved-server-model",
             MutableStateFlow("http://localhost:13511"),
             false,
-        ) {
+        ) { _, _ ->
             throw IOException("server disconnected")
         }
 
@@ -97,6 +97,34 @@ private class FakeMessageDao : MessageDao {
     override fun getAllMessages(chatId: Int) = flowOf(emptyList<Message>())
     override suspend fun getMessageById(messageId: Int): Message? = null
     override suspend fun updateMessage(message: Message) = Unit
+    override suspend fun transitionAssistantMessageStatus(
+        messageId: Int,
+        expectedStatuses: List<String>,
+        newStatus: String,
+        errorCode: String?,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+    override suspend fun updateAssistantMessageContentIfStatus(
+        messageId: Int,
+        expectedStatus: String,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+    override suspend fun completeInFlightAssistantMessage(
+        messageId: Int,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+    override suspend fun failInFlightAssistantMessage(
+        messageId: Int,
+        message: String?,
+        errorCode: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+    override suspend fun interruptInFlightAssistantMessagesAfterRestart(
+        processStartedAtEpochMs: Long,
+        updatedAtEpochMs: Long,
+    ): Int = 0
     override suspend fun countMessages(chatId: Int): Int = 0
     override suspend fun getFirstUserMessage(chatId: Int): Message? = null
     override suspend fun getFirstNonEmptyMessage(chatId: Int): Message? = null

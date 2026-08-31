@@ -1,5 +1,87 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-08-23 Pinned Isolated StandardDebug Rebuild
+
+Use the repository-owned runner for the standardDebug native stack:
+
+```bash
+scripts/rebuild_qairt244_standard_debug_native_stack.sh
+```
+
+The runner resolves LiteRT-LM `v0.11.0` and requires the exact commit
+`c87189528a758db32ead241f4fc9c64836398ee7`. It creates a detached temporary
+Git worktree, applies the 128-token base patch and persistent-probe patch only
+inside that worktree, builds the limited Bazel targets, assigns the independent
+`liblami_qairt244_npu_jni.so` SONAME, verifies required GLOBAL JNI exports
+(including persistent-probe exports when required), and
+then stages only outputs whose SHA-256 and SONAME match the verified artifact.
+
+The existing source/mirror checkout is intentionally allowed to be dirty. The
+runner records its HEAD, status hash, and a content fingerprint covering the
+tracked binary diff plus all untracked file contents before and after the build
+in `source_checkout_integrity.txt`; it fails if the HEAD, status hash, or content
+fingerprint changes. It never runs
+`git reset --hard` or `git clean -fdx` against that checkout. The clean Bazel
+output base is temporary and removed after the verified libraries have been
+copied; pass `--keep-bazel-output-base` only when compiler-state inspection is
+needed.
+
+A source-and-patch-only check is available without running Bazel:
+
+```bash
+scripts/rebuild_qairt244_standard_debug_native_stack.sh --preflight-only
+```
+
+After a successful full rebuild and stage, verify a clean Android build with:
+
+```bash
+./gradlew :app:clean :app:assembleStandardDebug
+```
+
+The runner honors `ANDROID_HOME` or `ANDROID_SDK_ROOT`, and `ANDROID_NDK_HOME`
+or `ANDROID_NDK_ROOT`. Without those variables it uses the X870E defaults under
+`$HOME/Android/Sdk`.
+
+Each artifact directory records:
+
+- `reproducibility_inputs.tsv`: selected ref/commit, patch SHA-256 values,
+  QAIRT/NDK paths, provider SHA-256, and patchelf version;
+- `reproducibility_outputs.tsv`: output size, SHA-256, Build ID, and SONAME;
+- `source_checkout_integrity.txt`: before/after source checkout proof;
+- `reproducibility_stage.txt`: staged file and SHA-256 verification;
+- `reproducible_build.log`: the complete isolated build log.
+
+## 2026-07-02 GPU Prefill Preinvoke Diagnostic Artifact
+
+The Build PC `build-qairt244-custom-jni` path now rebuilds from fetchable
+LiteRT-LM `v0.11.0` (`c87189528a758db32ead241f4fc9c64836398ee7`), not the
+local-only `1d535d5038c6a951b7f9f7adbed69efca1f62566` SHA. The rebuild applies
+the refreshed fetchable-tag base patch first, then the GPU prefill preinvoke
+diagnostic patch:
+
+```text
+patches/qairt244_litertlm_utf8_128token.patch
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+The diagnostic artifact label is
+`qairt244_128token_gpu_prefill_preinvoke_diag`. A successful artifact must
+prove `qairt244_gpu_prefill_preinvoke_v1` and the exported marker symbols in
+the final `built_libs/liblitertlm_jni.so`:
+
+```bash
+strings <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+readelf -p .rodata <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+readelf -Ws <artifact>/built_libs/liblitertlm_jni.so | grep -E 'Qairt244GpuPrefillPreinvokeArtifactMarker|Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker'
+grep -F qairt244_gpu_prefill_preinvoke_v1 <artifact>/static_summary.md
+```
+
+For local source-level preflight without changing the external checkout:
+
+```bash
+scripts/check_qairt244_native_patch.sh --selected-ref-check
+```
+
 ## 2026-05-24 128 Output / 128 Input Hidden Template Artifact
 
 The standard hidden qairt244 prompt-template comparison uses a new bounded
@@ -459,6 +541,24 @@ max_output_tokens_range=1..64
 ```
 
 This artifact is local evidence only. Do not stage `.so` files; pass the artifact explicitly to DEV-only runners or staging scripts when native validation of internal UTF-8 prompts is required.
+
+## Clean Checkout And Hosted CI
+
+`standardDebug` remains strict by default: an NPU-capable build must stage a verified
+`liblami_qairt244_npu_jni.so` and pass the exported-symbol check.
+
+GitHub-hosted runners do not have the pinned external LiteRT-LM checkout, QAIRT 2.44 SDK,
+or local Bazel output needed to reproduce that JNI. The Android CI workflow therefore uses
+`-Plami.allowMissingQairt244Jni=true` only while linting and assembling an explicitly named
+**non-NPU smoke APK** from a clean checkout.
+
+That opt-out is intentionally narrow:
+
+- It is false by default.
+- It only bypasses a missing separated JNI file.
+- A present but invalid JNI still fails the symbol verification.
+- The resulting hosted-runner APK must never be used as NPU promotion evidence.
+- Local/device NPU validation must omit the property and stage the pinned native stack.
 
 ## Git Safety
 

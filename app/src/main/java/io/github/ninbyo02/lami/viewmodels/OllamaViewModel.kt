@@ -21,24 +21,34 @@ import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
+import io.github.ninbyo02.lami.ui.screens.settings.PendingLemonadeAutoUnload
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.util.RuntimeFlags
+import io.github.ninbyo02.lami.util.validateUrlFormat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import okhttp3.ResponseBody
+import org.json.JSONArray
 import org.json.JSONObject
 import retrofit2.Call
 import kotlin.math.min
@@ -46,10 +56,19 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 data class ModelInfo(val name: String)
 
-internal fun fetchAvailableModelsFromServer(baseUrl: String): List<ModelInfo> {
+private const val DEFAULT_LEMONADE_UNLOAD_EVENT_URL = ""
+
+internal fun fetchAvailableModelsFromServer(
+    baseUrl: String,
+    provider: RemoteProvider = RemoteProvider.OLLAMA,
+): List<ModelInfo> {
+    if (provider.usesOpenAiCompatibleApi()) {
+        return fetchOpenAiCompatibleModelsFromServer(baseUrl, provider)
+    }
     val url = URL("${baseUrl.trimEnd('/')}/api/tags")
     val connection = url.openConnection() as HttpURLConnection
     try {
@@ -80,6 +99,174 @@ internal fun fetchAvailableModelsFromServer(baseUrl: String): List<ModelInfo> {
     }
 }
 
+internal fun fetchOpenAiCompatibleModelsFromServer(baseUrl: String, provider: RemoteProvider): List<ModelInfo> {
+    val config = provider.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}models")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
+        val apiKey = config.defaultApiKey
+        if (!apiKey.isNullOrBlank()) {
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            ?: throw IOException("Failed to read response stream (HTTP $responseCode)")
+        val response = responseStream.bufferedReader().use { it.readText() }
+        if (responseCode !in 200..299) {
+            throw IOException("Failed to load OpenAI compatible models (HTTP $responseCode): $response")
+        }
+        return parseOpenAiCompatibleModels(response)
+    } finally {
+        connection.disconnect()
+    }
+}
+
+internal fun buildLemonadeUnloadEventJson(modelName: String, source: String = "lami-android"): String =
+    JSONObject()
+        .put("model_name", modelName)
+        .put("source", source)
+        .toString()
+
+internal fun notifyLemonadeUnloadEvent(
+    modelName: String,
+    eventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
+    if (modelName.isBlank() || eventUrl.isBlank()) return false
+    val validation = validateUrlFormat(eventUrl)
+    if (!validation.isValid) {
+        Log.w("LemonadeUnload", "Ignored invalid unload event URL")
+        return false
+    }
+    val connection = runCatching {
+        (URL(validation.normalizedUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 2000
+            readTimeout = 3000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+        }
+    }.getOrElse { error ->
+        Log.w("LemonadeUnload", "Failed to open unload event connection: ${error.message}")
+        return false
+    }
+    return try {
+        val requestBody = buildLemonadeUnloadEventJson(modelName)
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        responseStream?.bufferedReader()?.use { it.readText() }
+        if (responseCode in 200..299) {
+            Log.i("LemonadeUnload", "Sent unload event to bridge for model=${sanitizeLemonadeLogValue(modelName)}")
+            true
+        } else {
+            Log.w("LemonadeUnload", "Unload event bridge returned HTTP $responseCode")
+            false
+        }
+    } catch (error: Exception) {
+        Log.w("LemonadeUnload", "Failed to notify unload event bridge: ${error.message}")
+        false
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun sanitizeLemonadeLogValue(value: String): String =
+    URLEncoder.encode(value.take(120), Charsets.UTF_8.name())
+
+internal fun resolveLoadedLemonadeModelName(
+    baseUrl: String,
+): String? {
+    val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}health")
+    val connection = url.openConnection() as HttpURLConnection
+    return try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 3000
+        connection.readTimeout = 5000
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (responseCode !in 200..299 || response.isBlank()) {
+            Log.w("LemonadeUnload", "Failed to resolve loaded Lemonade model: HTTP $responseCode")
+            return null
+        }
+        val json = JSONObject(response)
+        json.optString("model_loaded").takeIf { it.isNotBlank() && it != "null" }
+            ?: json.optJSONArray("all_models_loaded")
+                ?.optJSONObject(0)
+                ?.optString("model_name")
+                ?.takeIf { it.isNotBlank() }
+    } catch (error: Exception) {
+        Log.w("LemonadeUnload", "Failed to resolve loaded Lemonade model: ${error.message}")
+        null
+    } finally {
+        connection.disconnect()
+    }
+}
+
+internal fun unloadLoadedLemonadeModelFromServer(
+    baseUrl: String,
+    fallbackModelName: String,
+    unloadEventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
+    val loadedModelName = resolveLoadedLemonadeModelName(baseUrl)
+    val targetModelName = loadedModelName?.takeIf { it.isNotBlank() } ?: fallbackModelName
+    Log.i(
+        "LemonadeUnload",
+        "unload target resolved loaded=${loadedModelName?.let(::sanitizeLemonadeLogValue) ?: "none"} " +
+            "fallback=${sanitizeLemonadeLogValue(fallbackModelName)} target=${sanitizeLemonadeLogValue(targetModelName)}"
+    )
+    return unloadLemonadeModelFromServer(
+        baseUrl = baseUrl,
+        modelName = targetModelName,
+        unloadEventUrl = unloadEventUrl,
+    )
+}
+
+internal fun unloadLemonadeModelFromServer(
+    baseUrl: String,
+    modelName: String,
+    unloadEventUrl: String = DEFAULT_LEMONADE_UNLOAD_EVENT_URL,
+): Boolean {
+    if (modelName.isBlank()) return false
+    val config = RemoteProvider.LEMONADE.toOpenAiCompatibleConfig(baseUrl)
+    val url = URL("${config.baseUrl}unload")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "POST"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 15000
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        val apiKey = config.defaultApiKey
+        if (!apiKey.isNullOrBlank()) {
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        val requestBody = JSONObject()
+            .put("model_name", modelName)
+            .toString()
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (responseCode !in 200..299) {
+            throw IOException(response.ifEmpty { "Lemonade unload failed (HTTP $responseCode)" })
+        }
+        notifyLemonadeUnloadEvent(modelName = modelName, eventUrl = unloadEventUrl)
+        return true
+    } finally {
+        connection.disconnect()
+    }
+}
+
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -87,8 +274,8 @@ class OllamaViewModel(
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
-    private val availableModelsFetcher: suspend (String) -> List<ModelInfo> = { baseUrl ->
-        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl) }
+    private val availableModelsFetcher: suspend (String, RemoteProvider) -> List<ModelInfo> = { baseUrl, provider ->
+        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl, provider) }
     },
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
@@ -114,7 +301,16 @@ class OllamaViewModel(
     @Volatile
     private var activeRemoteCall: Call<ResponseBody>? = null
     @Volatile
+    private var activeOpenAiCompatibleConnection: HttpURLConnection? = null
+    @Volatile
+    private var remoteRequestGeneration: Long = 0L
+    @Volatile
     private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
+    @Volatile
+    private var remoteProvider: RemoteProvider = RemoteProvider.OLLAMA
+    @Volatile
+    private var lemonadeAutoUnloadMode: LemonadeAutoUnloadMode = LemonadeAutoUnloadMode.OFF
+    private var scheduledLemonadeUnloadJob: Job? = null
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
     private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
@@ -128,6 +324,39 @@ class OllamaViewModel(
     private val _isLoadingModels = MutableStateFlow(false)
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
+    // These model/runtime selections belong to the activity-scoped runtime, not to a
+    // conversation route. Eager StateFlows retain the latest DataStore values while
+    // Home is recreated for /chat/{id}, avoiding transient null/default availability.
+    val localBaseModelFilePath = settingsPreferences.localBaseModelFilePathFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localBaseModelDisplayName = settingsPreferences.localBaseModelDisplayNameFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localGenericModelFilePath = settingsPreferences.localGenericModelFilePathFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val localGenericModelDisplayName = settingsPreferences.localGenericModelDisplayNameFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    val preferredBackendDryRunSetting = settingsPreferences.preferredBackendDryRunSettingFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = PreferredBackendDryRunSetting.DEFAULT,
+    )
+    val inferenceTarget = settingsPreferences.inferenceTargetFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = InferenceTarget.LOCAL,
+    )
 
     init {
         applyInitialSelectedModel(initialSelectedModel)
@@ -170,19 +399,51 @@ class OllamaViewModel(
             chatRepository.cleanupEmptyTempPlaceholderChats()
         }
         viewModelScope.launch {
+            chatRepository.interruptInFlightAssistantMessagesAfterRestart(
+                processStartedAtEpochMs = PROCESS_STARTED_AT_EPOCH_MS,
+            )
+        }
+        viewModelScope.launch {
             settingsPreferences.markdownStreamingModeFlow
                 .distinctUntilChanged()
                 .collect { mode ->
                     markdownStreamingMode = mode
                 }
         }
+        viewModelScope.launch {
+            settingsPreferences.remoteProviderFlow
+                .distinctUntilChanged()
+                .collect { provider ->
+                    remoteProvider = provider
+                    if (provider != RemoteProvider.LEMONADE) {
+                        cancelScheduledLemonadeUnload()
+                        settingsPreferences.clearPendingLemonadeAutoUnload()
+                    } else {
+                        restorePendingLemonadeAutoUnloadIfNeeded()
+                    }
+                }
+        }
+        viewModelScope.launch {
+            settingsPreferences.lemonadeAutoUnloadModeFlow
+                .distinctUntilChanged()
+                .collect { mode ->
+                    lemonadeAutoUnloadMode = mode
+                    if (mode == LemonadeAutoUnloadMode.OFF) {
+                        cancelScheduledLemonadeUnload()
+                        settingsPreferences.clearPendingLemonadeAutoUnload()
+                    } else {
+                        restorePendingLemonadeAutoUnloadIfNeeded()
+                    }
+                }
+        }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
-                combine(baseUrl, settingsPreferences.inferenceTargetFlow) { url, target ->
-                    url to target
+                combine(baseUrl, settingsPreferences.inferenceTargetFlow, settingsPreferences.remoteProviderFlow) { url, target, provider ->
+                    Triple(url, target, provider)
                 }
                     .distinctUntilChanged()
-                    .collectLatest { (url, target) ->
+                    .collectLatest { (url, target, provider) ->
+                        remoteProvider = provider
                         if (target == InferenceTarget.SERVER && url.isNotBlank()) {
                             loadAvailableModels()
                         } else {
@@ -230,6 +491,25 @@ class OllamaViewModel(
     suspend fun getMessageById(messageId: Int): Message? {
         return chatRepository.getMessageById(messageId)
     }
+
+    suspend fun insertMessage(message: Message) {
+        chatRepository.insert(message)
+    }
+
+    suspend fun markAssistantMessageGenerating(messageId: Int): Boolean =
+        chatRepository.markAssistantMessageGenerating(messageId)
+
+    suspend fun updateGeneratingAssistantMessageContent(messageId: Int, message: String): Boolean =
+        chatRepository.updateGeneratingAssistantMessageContent(messageId, message)
+
+    suspend fun completeAssistantMessage(messageId: Int, message: String): Boolean =
+        chatRepository.completeAssistantMessage(messageId, message)
+
+    suspend fun cancelAssistantMessage(messageId: Int): Boolean =
+        chatRepository.cancelAssistantMessage(messageId)
+
+    suspend fun failAssistantMessage(messageId: Int, message: String? = null): Boolean =
+        chatRepository.failAssistantMessage(messageId = messageId, message = message)
 
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
@@ -314,6 +594,7 @@ class OllamaViewModel(
         attachmentUris: List<Uri> = emptyList(),
         context: Context? = null,
         onAttachmentPrepared: ((List<String>?) -> Unit)? = null,
+        onRequestPrepared: (suspend (List<String>?) -> Unit)? = null,
     ) {
         viewModelScope.launch {
             var encodedImages: List<String> = emptyList()
@@ -328,8 +609,20 @@ class OllamaViewModel(
                 encodedImages = encodedAttachments.base64Images
                 savedAttachmentUriStrings = encodedAttachments.savedUriStrings
             }
-            onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
+            val preparedAttachmentUris = savedAttachmentUriStrings.takeIf { it.isNotEmpty() }
+            onAttachmentPrepared?.invoke(preparedAttachmentUris)
+            try {
+                onRequestPrepared?.invoke(preparedAttachmentUris)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("OllamaError", "Failed to prepare durable request lifecycle: ${error.message}")
+                updateErrorState(error.message ?: "Failed to prepare request")
+                return@launch
+            }
             onPromptSubmitted()
+            cancelScheduledLemonadeUnload()
+            val requestGeneration = beginRemoteRequestGeneration()
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
             val generationStartedAtMs = SystemClock.elapsedRealtime()
@@ -351,9 +644,23 @@ class OllamaViewModel(
 
             if (model != null) {
                 try {
+                    val activeRemoteProvider = remoteProvider
+                    val activeBaseUrl = RetrofitClient.currentBaseUrl()
                     val streamingResult = withContext(Dispatchers.IO) {
-                        collectStreamingResponse(request, generationStartedAtMs)
+                        if (activeRemoteProvider.usesOpenAiCompatibleApi()) {
+                            collectOpenAiCompatibleStreamingResponse(
+                                baseUrl = activeBaseUrl,
+                                provider = activeRemoteProvider,
+                                model = model,
+                                prompt = effectivePrompt,
+                                requestStartedAtMs = generationStartedAtMs,
+                                requestGeneration = requestGeneration,
+                            )
+                        } else {
+                            collectStreamingResponse(request, generationStartedAtMs, requestGeneration)
+                        }
                     }
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val finalText = streamingResult.text
                     if (finalText.isBlank()) {
                         onResponseReceived(0)
@@ -378,6 +685,7 @@ class OllamaViewModel(
                             ?.div(1_000_000_000.0)
                             ?: (generationTimeMs / 1000.0)
 
+                        ensureRemoteRequestGenerationActive(requestGeneration)
                         _latestInferenceStats.value = InferenceStats(
                             modelName = finalChunk?.model ?: model,
                             inputTokens = inputTokens,
@@ -408,9 +716,27 @@ class OllamaViewModel(
                             completionTokens = outputTokens,
                             assistantUpdateCount = streamingResult.assistantUpdateCount,
                         )
+                        ensureRemoteRequestGenerationActive(requestGeneration)
                         _uiState.value = UiState.Success(finalText)
+                        if (activeRemoteProvider != RemoteProvider.LEMONADE || lemonadeAutoUnloadMode.delayMs != 0L) {
+                            scheduleLemonadeAutoUnloadIfNeeded(
+                                provider = activeRemoteProvider,
+                                baseUrl = activeBaseUrl,
+                                modelName = finalChunk?.model ?: model,
+                                requestGeneration = requestGeneration,
+                            )
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    Log.i("OllamaCancel", "Remote request cancelled: ${e.message}")
+                    if (isRemoteRequestGenerationActive(requestGeneration)) {
+                        _latestInferenceStats.value = null
                     }
                 } catch (e: Exception) {
+                    if (!isRemoteRequestGenerationActive(requestGeneration)) {
+                        Log.i("OllamaCancel", "Ignoring stale remote failure after stop: ${e.message}")
+                        return@launch
+                    }
                     Log.e("OllamaError", "Request failed: ${e.message}")
                     onResponseReceived(e.message?.length ?: 0)
                     _latestInferenceStats.value = null
@@ -425,16 +751,42 @@ class OllamaViewModel(
     }
 
     fun cancelRemoteRequest() {
+        remoteRequestGeneration += 1
         val call = activeRemoteCall
+        val connection = activeOpenAiCompatibleConnection
         activeRemoteCall = null
+        activeOpenAiCompatibleConnection = null
         call?.cancel()
+        connection?.disconnect()
+        _latestInferenceStats.value = null
     }
 
-    private fun collectStreamingResponse(request: OllamaRequest, requestStartedAtMs: Long): StreamingResult {
+    private fun beginRemoteRequestGeneration(): Long {
+        remoteRequestGeneration += 1
+        return remoteRequestGeneration
+    }
+
+    private fun isRemoteRequestGenerationActive(requestGeneration: Long): Boolean {
+        return remoteRequestGeneration == requestGeneration
+    }
+
+    private fun ensureRemoteRequestGenerationActive(requestGeneration: Long) {
+        if (!isRemoteRequestGenerationActive(requestGeneration)) {
+            throw CancellationException("remote request stopped")
+        }
+    }
+
+    private fun collectStreamingResponse(
+        request: OllamaRequest,
+        requestStartedAtMs: Long,
+        requestGeneration: Long,
+    ): StreamingResult {
         val call = RetrofitClient.instance.generateTextStream(request)
         activeRemoteCall = call
         try {
+            ensureRemoteRequestGenerationActive(requestGeneration)
             val response = call.execute()
+            ensureRemoteRequestGenerationActive(requestGeneration)
             if (!response.isSuccessful) {
                 val error = response.errorBody()?.string().orEmpty()
                 throw IOException(error.ifEmpty { "Failed to generate response" })
@@ -458,7 +810,9 @@ class OllamaViewModel(
 
             body.charStream().buffered().use { reader ->
                 while (true) {
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val rawLine = reader.readLine() ?: break
+                    ensureRemoteRequestGenerationActive(requestGeneration)
                     val line = rawLine.trim()
                     if (line.isEmpty()) {
                         continue
@@ -492,6 +846,7 @@ class OllamaViewModel(
                             chunkText.lastOrNull() in priorityFlushChars ||
                                 currentText.lastOrNull() in priorityFlushChars
                         if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
+                            ensureRemoteRequestGenerationActive(requestGeneration)
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
@@ -528,6 +883,7 @@ class OllamaViewModel(
                 throw IOException("Empty response")
             }
             if (latestFlushedText != finalizedTextForPersist) {
+                ensureRemoteRequestGenerationActive(requestGeneration)
                 onResponseReceived(finalizedTextForPersist.length)
                 _uiState.value = UiState.Streaming(finalizedTextForPersist)
                 assistantUpdateCount += 1
@@ -543,6 +899,254 @@ class OllamaViewModel(
                 activeRemoteCall = null
             }
         }
+    }
+
+    private fun collectOpenAiCompatibleStreamingResponse(
+        baseUrl: String,
+        provider: RemoteProvider,
+        model: String,
+        prompt: String,
+        requestStartedAtMs: Long,
+        requestGeneration: Long,
+    ): StreamingResult {
+        val config = provider.toOpenAiCompatibleConfig(baseUrl)
+        val url = URL("${config.baseUrl}chat/completions")
+        val connection = url.openConnection() as HttpURLConnection
+        activeOpenAiCompatibleConnection = connection
+        try {
+            ensureRemoteRequestGenerationActive(requestGeneration)
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 120_000
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            val apiKey = config.defaultApiKey
+            if (!apiKey.isNullOrBlank()) {
+                connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            }
+            val requestBody = JSONObject()
+                .put("model", model)
+                .put(
+                    "messages",
+                    JSONArray()
+                        .put(JSONObject().put("role", "user").put("content", prompt)),
+                )
+                .put("stream", true)
+                .toString()
+            connection.outputStream.use { output ->
+                output.write(requestBody.toByteArray(Charsets.UTF_8))
+            }
+
+            ensureRemoteRequestGenerationActive(requestGeneration)
+            val responseCode = connection.responseCode
+            ensureRemoteRequestGenerationActive(requestGeneration)
+            val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                ?: throw IOException("Empty OpenAI compatible response (HTTP $responseCode)")
+            if (responseCode !in 200..299) {
+                val error = responseStream.bufferedReader().use { it.readText() }
+                throw IOException(error.ifEmpty { "OpenAI compatible request failed (HTTP $responseCode)" })
+            }
+
+            val textBuilder = StringBuilder()
+            var doneReceived = false
+            var finishReason: String? = null
+            var responseModel: String? = null
+            var timeToFirstTokenMs: Long? = null
+            var assistantUpdateCount = 0
+            var latestFlushedText: String? = null
+            var lastUiUpdateAtMs = 0L
+            val streamingUiUpdateIntervalMs = 80L
+            val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
+
+            responseStream.bufferedReader().use { reader ->
+                while (true) {
+                    ensureRemoteRequestGenerationActive(requestGeneration)
+                    val rawLine = reader.readLine() ?: break
+                    ensureRemoteRequestGenerationActive(requestGeneration)
+                    val chunk = parseOpenAiCompatibleStreamingLine(rawLine) ?: continue
+                    if (chunk.done && chunk.text == null) {
+                        doneReceived = true
+                        finishReason = finishReason ?: chunk.finishReason ?: "stop"
+                        responseModel = responseModel ?: chunk.model
+                        break
+                    }
+                    responseModel = responseModel ?: chunk.model
+                    finishReason = finishReason ?: chunk.finishReason
+                    val chunkText = chunk.text
+                    if (!chunkText.isNullOrEmpty()) {
+                        if (timeToFirstTokenMs == null) {
+                            timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
+                        }
+                        textBuilder.append(processEdgeGalleryCompatibleMarkdown(chunkText))
+                        val currentText = textBuilder.toString()
+                        val nowMs = System.currentTimeMillis()
+                        val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
+                        val endsWithPriorityChar =
+                            chunkText.lastOrNull() in priorityFlushChars || currentText.lastOrNull() in priorityFlushChars
+                        if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
+                            ensureRemoteRequestGenerationActive(requestGeneration)
+                            onResponseReceived(currentText.length)
+                            _uiState.value = UiState.Streaming(currentText)
+                            assistantUpdateCount += 1
+                            latestFlushedText = currentText
+                            lastUiUpdateAtMs = nowMs
+                        }
+                    }
+                    if (chunk.finishReason != null) {
+                        doneReceived = true
+                        break
+                    }
+                }
+            }
+            if (!doneReceived) {
+                throw IOException("OpenAI compatible streaming response ended before done")
+            }
+            val finalText = textBuilder.toString().trim()
+            if (finalText.isEmpty()) {
+                throw IOException("Empty OpenAI compatible response")
+            }
+            if (latestFlushedText != finalText) {
+                ensureRemoteRequestGenerationActive(requestGeneration)
+                onResponseReceived(finalText.length)
+                _uiState.value = UiState.Streaming(finalText)
+                assistantUpdateCount += 1
+            }
+            if (provider == RemoteProvider.LEMONADE && lemonadeAutoUnloadMode.delayMs == 0L) {
+                Log.i("LemonadeUnload", "inline immediate auto-unload after Lemonade stream for model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
+                runCatching {
+                    unloadLoadedLemonadeModelFromServer(baseUrl = baseUrl, fallbackModelName = responseModel ?: model)
+                }.onSuccess { unloaded ->
+                    Log.i("LemonadeUnload", "Inline immediate Lemonade unload result=$unloaded model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
+                }.onFailure { error ->
+                    Log.w("LemonadeUnload", "Inline immediate Lemonade unload failed: ${error.message}")
+                }
+            }
+            return StreamingResult(
+                text = finalText,
+                finalChunk = StreamChunk(
+                    text = null,
+                    done = true,
+                    model = responseModel ?: model,
+                    doneReason = finishReason ?: "stop",
+                ),
+                timeToFirstTokenMs = timeToFirstTokenMs,
+                assistantUpdateCount = assistantUpdateCount,
+            )
+        } finally {
+            if (activeOpenAiCompatibleConnection === connection) {
+                activeOpenAiCompatibleConnection = null
+            }
+            connection.disconnect()
+        }
+    }
+
+    private fun cancelScheduledLemonadeUnload() {
+        scheduledLemonadeUnloadJob?.cancel()
+        scheduledLemonadeUnloadJob = null
+    }
+
+    private fun restorePendingLemonadeAutoUnloadIfNeeded() {
+        viewModelScope.launch {
+            val pending = settingsPreferences.getPendingLemonadeAutoUnloadOrNull() ?: return@launch
+            if (remoteProvider != RemoteProvider.LEMONADE || lemonadeAutoUnloadMode == LemonadeAutoUnloadMode.OFF) {
+                settingsPreferences.clearPendingLemonadeAutoUnload()
+                return@launch
+            }
+            schedulePendingLemonadeAutoUnload(pending, requestGeneration = remoteRequestGeneration)
+        }
+    }
+
+    private fun schedulePendingLemonadeAutoUnload(
+        pending: PendingLemonadeAutoUnload,
+        requestGeneration: Long,
+    ) {
+        cancelScheduledLemonadeUnload()
+        val remainingMs = pending.deadlineEpochMs - System.currentTimeMillis()
+        scheduledLemonadeUnloadJob = viewModelScope.launch {
+            if (remainingMs > 0L) {
+                Log.i("LemonadeUnload", "restored auto-unload in ${remainingMs}ms for model=${sanitizeLemonadeLogValue(pending.targetModel)}")
+                delay(remainingMs)
+            } else {
+                Log.i("LemonadeUnload", "running overdue auto-unload for model=${sanitizeLemonadeLogValue(pending.targetModel)}")
+            }
+            if (!isRemoteRequestGenerationActive(requestGeneration)) {
+                Log.i("LemonadeUnload", "skip restored auto-unload: stale generation=$requestGeneration current=$remoteRequestGeneration")
+                return@launch
+            }
+            runLemonadeAutoUnload(baseUrl = pending.baseUrl, targetModel = pending.targetModel, mode = pending.mode)
+        }
+    }
+
+    private fun scheduleLemonadeAutoUnloadIfNeeded(
+        provider: RemoteProvider,
+        baseUrl: String,
+        modelName: String?,
+        requestGeneration: Long,
+    ) {
+        val mode = lemonadeAutoUnloadMode
+        val delayMs = mode.delayMs
+        val targetModel = modelName?.takeIf { it.isNotBlank() }
+        Log.i(
+            "LemonadeUnload",
+            "schedule check provider=$provider mode=${mode.storageValue} delayMs=$delayMs " +
+                "model=${targetModel ?: "blank"} baseUrl=$baseUrl generation=$requestGeneration"
+        )
+        if (delayMs == null) {
+            Log.i("LemonadeUnload", "skip auto-unload: mode=${mode.storageValue}")
+            viewModelScope.launch { settingsPreferences.clearPendingLemonadeAutoUnload() }
+            return
+        }
+        if (targetModel == null) {
+            Log.w("LemonadeUnload", "skip auto-unload: model is blank")
+            return
+        }
+        if (provider != RemoteProvider.LEMONADE) {
+            Log.i("LemonadeUnload", "skip auto-unload: provider=$provider")
+            return
+        }
+        cancelScheduledLemonadeUnload()
+        val pending = PendingLemonadeAutoUnload(
+            baseUrl = baseUrl,
+            targetModel = targetModel,
+            mode = mode,
+            deadlineEpochMs = System.currentTimeMillis() + delayMs,
+        )
+        viewModelScope.launch { settingsPreferences.savePendingLemonadeAutoUnload(pending) }
+        if (delayMs == 0L) {
+            Log.i("LemonadeUnload", "immediate auto-unload for model=$targetModel")
+            scheduledLemonadeUnloadJob = viewModelScope.launch(Dispatchers.IO + NonCancellable) {
+                runLemonadeAutoUnload(baseUrl = baseUrl, targetModel = targetModel, mode = mode)
+            }
+            return
+        }
+        schedulePendingLemonadeAutoUnload(pending, requestGeneration = requestGeneration)
+    }
+
+    private suspend fun runLemonadeAutoUnload(
+        baseUrl: String,
+        targetModel: String,
+        mode: LemonadeAutoUnloadMode,
+    ) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                unloadLoadedLemonadeModelFromServer(baseUrl = baseUrl, fallbackModelName = targetModel)
+            }
+        }.onSuccess { unloaded ->
+                if (unloaded) {
+                    settingsPreferences.clearPendingLemonadeAutoUnload()
+                    Log.i("LemonadeUnload", "Auto-unloaded Lemonade model: $targetModel mode=${mode.storageValue}")
+                } else {
+                    Log.w("LemonadeUnload", "Auto-unload returned false: $targetModel mode=${mode.storageValue}")
+                }
+        }.onFailure { error ->
+            Log.w("LemonadeUnload", "Failed to auto-unload Lemonade model: ${error.message}")
+        }
+    }
+
+    override fun onCleared() {
+        cancelScheduledLemonadeUnload()
+        cancelRemoteRequest()
+        super.onCleared()
     }
 
     private class SafeMarkdownStreamAssembler(
@@ -1089,7 +1693,7 @@ class OllamaViewModel(
                 return@launch
             }
             try {
-                val models = availableModelsFetcher(baseUrl)
+                val models = availableModelsFetcher(baseUrl, remoteProvider)
                 _availableModels.value = models
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
@@ -1353,6 +1957,7 @@ class OllamaViewModel(
     )
 
     companion object {
+        private val PROCESS_STARTED_AT_EPOCH_MS = System.currentTimeMillis()
         private const val AUTO_DELETE_DELAY_MS = 10 * 60 * 1000L
         private const val MAX_COMPOSER_ATTACHMENTS = 10
     }

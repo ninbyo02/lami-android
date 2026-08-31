@@ -1,9 +1,97 @@
 # QAIRT244 Native Patch Management
 
+## 2026-07-02 GPU Prefill Preinvoke Diagnostic Patch
+
+The prepared auxiliary native patch for the LiteRT-LM GPU Status 13 prefill
+invoke investigation is:
+
+```text
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+This patch targets:
+
+```text
+kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+runtime/executor/llm_litert_compiled_model_executor.cc
+runtime/executor/llm_litert_compiled_model_executor.h
+```
+
+It adds a JNI-owned artifact marker in `litertlm.cc` and logs one
+`ABSL_LOG(INFO)` line immediately before
+`compiled_model_->RunAsync(...)` / `compiled_model_->Run(...)` in
+`BindTensorsAndRunPrefill`. The marker is:
+
+```text
+qairt244_gpu_prefill_preinvoke_v1
+```
+
+The line includes selected signature/runner, executor/settings/sampler backend
+identifiers, async mode, prompt/prefill token counts, prefill start/end
+positions, current step, prefill/run input tensor counts and tensor
+name/shape/byte/type summaries, and input/output KV-cache tensor counts and
+shape summaries.
+
+`build-qairt244-custom-jni` now applies this patch automatically after the
+fetchable-tag 128-token base patch:
+
+```text
+patches/qairt244_litertlm_utf8_128token.patch
+patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
+```
+
+The forced command writes the diagnostic artifact with a label containing
+`gpu_prefill_preinvoke_diag` and rejects the build if
+`qairt244_gpu_prefill_preinvoke_v1` is missing from
+`built_libs/liblitertlm_jni.so`, or if the final binary does not export
+`Qairt244GpuPrefillPreinvokeArtifactMarker` and
+`Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker`.
+
+For manual rebuilds, start from the fetchable LiteRT-LM tag `v0.11.0`
+(`c87189528a758db32ead241f4fc9c64836398ee7`), apply the base patch first,
+apply this patch second, then use the diagnostic label:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_128token_gpu_prefill_preinvoke_diag
+```
+
+The generated `static_summary.md` reports the diagnostic label and a
+`Diagnostic markers` table with both strings and readelf evidence. The same
+marker is also included in `strings/liblitertlm_jni.so.filtered.txt` and
+`readelf/liblitertlm_jni.so.rodata.txt`. Verify exported marker symbols with:
+
+```bash
+readelf -Ws <artifact>/built_libs/liblitertlm_jni.so | grep -E 'Qairt244GpuPrefillPreinvokeArtifactMarker|Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker'
+```
+
+For diagnostic labels containing `gpu_prefill_preinvoke_diag`,
+`scripts/build_litert_custom_artifacts.sh` requires the explicit
+`bazel-bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so`
+output to contain the marker by both `strings` and `readelf -p .rodata` before
+copying it into `built_libs/`. Non-marker scanned `liblitertlm_jni.so`
+candidates are skipped, and the copy manifest records marker booleans plus the
+copy action so an overwrite cannot hide the marker-bearing library.
+
+`scripts/check_qairt244_native_patch.sh` reports this patch as an auxiliary
+`gpu_prefill_preinvoke_patch_status` without changing the active UTF-8 prompt
+patch gate. Use `scripts/check_qairt244_native_patch.sh --selected-ref-check`
+to create a temporary shared clone at `v0.11.0`, verify the selected base patch
+applies, apply it, then verify the GPU prefill preinvoke patch applies after it.
+
+Compatibility note: `patches/qairt244_litertlm_utf8_128token_128input.patch`
+is not a clean-`v0.11.0` base patch. Its `litertlm.cc` old blob is the
+local-only `1d535d5038c6a951b7f9f7adbed69efca1f62566` state, so it must not be
+used as the default base patch for a Build PC flow that resets LiteRT-LM to the
+fetchable `v0.11.0` tag. The previous fetchable-tag Build PC base was
+`patches/qairt244_litertlm_utf8_128token.patch`.
+
 ## 2026-05-24 128 Output / 128 Input Hidden Template Phase
 
-The current active native patch for the standard hidden qairt244 template
-comparison is:
+The 128 output / 128 input native patch for the standard hidden qairt244
+template comparison is:
 
 ```text
 patches/qairt244_litertlm_utf8_128token_128input.patch
@@ -110,8 +198,8 @@ not as a checked-in binary artifact.
 ## Current State
 
 - External checkout: `/home/sato/project/litert-custom-build/LiteRT-LM`
-- Upstream HEAD used for this patch:
-  `c87189528a758db32ead241f4fc9c64836398ee7`
+- Upstream HEAD used for the current reproducible qairt244 patch base:
+  `v0.11.0` / `c87189528a758db32ead241f4fc9c64836398ee7`
 - Native source:
   `kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`
 - Active patch:
@@ -170,20 +258,32 @@ The patch records and guards:
 From the lami-android checkout:
 
 ```bash
-scripts/check_qairt244_native_patch.sh
+scripts/check_qairt244_native_patch.sh --selected-ref-check
 ```
 
-Expected output for the current external checkout is `status=applied`.
+Expected selected-ref output for the fetchable Build PC path is
+`selected_ref_base_patch_check=ok`,
+`selected_ref_gpu_prefill_preinvoke_patch_check_after_base=ok`, and
+`selected_ref_check_status=ok`.
 
 Manual checks:
 
 ```bash
-git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
-
-git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --reverse --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+tmp=/tmp/litertlm-qairt244-check
+rm -rf "$tmp"
+GIT_LFS_SKIP_SMUDGE=1 git clone --shared --no-checkout \
+  /home/sato/project/litert-custom-build/LiteRT-LM "$tmp"
+git -C "$tmp" checkout --detach v0.11.0
+git -C "$tmp" apply --check \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+git -C "$tmp" apply \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+git -C "$tmp" apply --check \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch
 ```
+
+Historical 128-input patch checks should pass only when the checkout is already
+at the local-only `1d535d5038c6a951b7f9f7adbed69efca1f62566` native-file base.
 
 Interpretation:
 
@@ -196,25 +296,29 @@ To apply in a clean checkout:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
 ```
 
 ## Build And Record
 
-Rebuild the active 128 output / 128 input native artifact from lami-android:
+Rebuild the active fetchable-tag 128-token GPU prefill diagnostic artifact from
+lami-android:
 
 ```bash
 scripts/build_litert_custom_artifacts.sh \
   /home/sato/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
-  --label qairt244_128token_128input_utf8prompt
+  --label qairt244_128token_gpu_prefill_preinvoke_diag
 ```
 
 Record the produced artifact directory, native build log path, and JNI library
 hash:
 
 ```bash
-sha256sum <artifact>/jni/arm64-v8a/liblitertlm_jni.so
+sha256sum <artifact>/built_libs/liblitertlm_jni.so
+strings <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+readelf -p .rodata <artifact>/built_libs/liblitertlm_jni.so | grep -F qairt244_gpu_prefill_preinvoke_v1
+grep -F qairt244_gpu_prefill_preinvoke_v1 <artifact>/static_summary.md
 ```
 
 Never add `.so`, `.apk`, `.aar`, `.zip`, `.tar`, `.gz`, or `.litertlm` files to

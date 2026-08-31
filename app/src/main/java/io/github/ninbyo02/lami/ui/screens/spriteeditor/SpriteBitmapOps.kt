@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import java.util.Collections
+import java.util.LinkedHashMap
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -19,9 +21,129 @@ private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
+const val SPRITE_BITMAP_OPS_MAX_PIXELS = 4_194_304
 // Fill Connectedで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
 const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 const val FILL_CONNECTED_RGB_TOLERANCE = 24
+
+internal val LEGACY_FIXED_SPRITE_PALETTE_V1: List<Int> = buildLegacyFixedSpritePaletteV1()
+internal val FIXED_SPRITE_PALETTE_V2: List<Int> = buildFixedSpritePaletteV2()
+val FIXED_SPRITE_PALETTE: List<Int> = buildFixedSpritePaletteV3()
+private val FIXED_SPRITE_PALETTE_CANONICAL_INDICES: Map<Int, Int> = Collections.unmodifiableMap(
+    FIXED_SPRITE_PALETTE.withIndex().associate { (index, color) -> color to index },
+)
+
+internal fun fixedSpritePaletteCanonicalIndex(color: Int): Int? = FIXED_SPRITE_PALETTE_CANONICAL_INDICES[color]
+
+data class PaletteBitmapResult(
+    val bitmap: Bitmap,
+    val changed: Boolean,
+    val rejectionReason: PaletteBitmapRejectionReason = PaletteBitmapRejectionReason.NONE,
+    val cancelled: Boolean = false,
+    val rgbAnchors: List<Int> = emptyList(),
+) {
+    val rejected: Boolean
+        get() = rejectionReason != PaletteBitmapRejectionReason.NONE
+}
+
+enum class UniformSelectionColorStatus {
+    UNIFORM,
+    MIXED,
+    TRANSPARENT,
+    CANCELLED,
+    TOO_LARGE,
+    RECYCLED,
+    UNSUPPORTED_CONFIG,
+    READ_FAILED,
+}
+
+data class UniformSelectionColorResult(
+    val status: UniformSelectionColorStatus,
+    val color: Int? = null,
+)
+
+fun findUniformSelectionColor(
+    bitmap: Bitmap,
+    selection: RectPx,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): UniformSelectionColorResult {
+    if (bitmap.isRecycled) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.RECYCLED)
+    }
+    if (bitmap.config == Bitmap.Config.HARDWARE) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.UNSUPPORTED_CONFIG)
+    }
+    if (bitmap.width < 1 || bitmap.height < 1) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, bitmap.width, bitmap.height)
+    val selectionPixels = safeSelection.w.toLong() * safeSelection.h.toLong()
+    if (selectionPixels > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.TOO_LARGE)
+    }
+
+    val rowPixels = try {
+        rowBufferAllocator(safeSelection.w)
+    } catch (_: OutOfMemoryError) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
+    if (rowPixels.size != safeSelection.w) {
+        return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    }
+    var firstColor: Int? = null
+    var allTransparent = true
+    for (row in 0 until safeSelection.h) {
+        if (shouldCancel(row)) {
+            return UniformSelectionColorResult(UniformSelectionColorStatus.CANCELLED)
+        }
+        try {
+            bitmap.getPixels(
+                rowPixels,
+                0,
+                safeSelection.w,
+                safeSelection.x,
+                safeSelection.y + row,
+                safeSelection.w,
+                1,
+            )
+        } catch (_: RuntimeException) {
+            return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+        }
+        for (pixel in rowPixels) {
+            if (Color.alpha(pixel) != 0) {
+                allTransparent = false
+            }
+            val expected = firstColor
+            if (expected == null) {
+                firstColor = pixel
+            } else if (pixel != expected) {
+                if (!allTransparent) {
+                    return UniformSelectionColorResult(UniformSelectionColorStatus.MIXED)
+                }
+            }
+        }
+    }
+
+    val color = firstColor ?: return UniformSelectionColorResult(UniformSelectionColorStatus.READ_FAILED)
+    return if (allTransparent) {
+        UniformSelectionColorResult(UniformSelectionColorStatus.TRANSPARENT)
+    } else {
+        UniformSelectionColorResult(UniformSelectionColorStatus.UNIFORM, color)
+    }
+}
+
+enum class PaletteBitmapRejectionReason {
+    NONE,
+    TOO_LARGE,
+    RECYCLED,
+    UNSUPPORTED_CONFIG,
+    COPY_FAILED,
+    READ_FAILED,
+    WRITE_FAILED,
+    CANCELLED,
+}
 
 enum class Mode { Alpha, Rgb }
 
@@ -55,6 +177,706 @@ data class ResizeSelectionResult(
     val applied: Boolean,
     val debugText: String,
 )
+
+private data class OklabColor(
+    val l: Double,
+    val a: Double,
+    val b: Double,
+)
+
+private data class PaletteOklabEntry(
+    val index: Int,
+    val color: Int,
+    val oklab: OklabColor,
+)
+
+private data class PaletteKdNode(
+    val entry: PaletteOklabEntry,
+    val axis: Int,
+    val left: PaletteKdNode?,
+    val right: PaletteKdNode?,
+)
+
+private const val NEAREST_PALETTE_CACHE_MAX_SIZE = 4096
+
+private class SpritePaletteIndex(
+    val colors: List<Int>,
+) {
+    val entries: List<PaletteOklabEntry> = colors.mapIndexed { index, color ->
+        PaletteOklabEntry(index = index, color = color, oklab = colorToOklab(color))
+    }
+    val rgbSet: Set<Int> = colors.mapTo(HashSet(colors.size)) { it and 0x00FFFFFF }
+    val physicalPremultipliedKeysByAlpha: Array<Set<Int>> = Array(256) { alpha ->
+        colors.mapTo(HashSet(colors.size)) { color -> physicalPremultipliedKey(alpha, color) }
+    }
+    val kdTree: PaletteKdNode? = buildPaletteKdTree(entries, depth = 0)
+    val cache = object : LinkedHashMap<Int, Int>(
+        NEAREST_PALETTE_CACHE_MAX_SIZE,
+        0.75f,
+        true,
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Int>?): Boolean {
+            return size > NEAREST_PALETTE_CACHE_MAX_SIZE
+        }
+    }
+
+    fun nearest(color: Int): Int {
+        val opaqueRgb = color and 0x00FFFFFF
+        if (opaqueRgb in rgbSet) {
+            return 0xFF000000.toInt() or opaqueRgb
+        }
+        synchronized(cache) {
+            cache[opaqueRgb]?.let { return it }
+        }
+        val target = colorToOklab(0xFF000000.toInt() or opaqueRgb)
+        val nearest = nearestPaletteEntry(target, entries, kdTree).color
+        synchronized(cache) {
+            cache[opaqueRgb] = nearest
+        }
+        return nearest
+    }
+
+    fun isNoOp(pixel: Int, isPremultiplied: Boolean): Boolean {
+        val alpha = (pixel ushr 24) and 0xFF
+        return if (isPremultiplied) {
+            physicalPremultipliedKey(alpha, pixel) in physicalPremultipliedKeysByAlpha[alpha]
+        } else {
+            (pixel and 0x00FFFFFF) in rgbSet
+        }
+    }
+}
+
+private val FIXED_SPRITE_PALETTE_V3_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(FIXED_SPRITE_PALETTE)
+}
+private val FIXED_SPRITE_PALETTE_V2_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(FIXED_SPRITE_PALETTE_V2)
+}
+private val LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX: SpritePaletteIndex by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    SpritePaletteIndex(LEGACY_FIXED_SPRITE_PALETTE_V1)
+}
+
+fun fixedSpritePalette(): List<Int> = FIXED_SPRITE_PALETTE
+
+internal data class SpritePaletteDisplaySection(
+    val label: String,
+    val colors: List<Int>,
+    val anchorColor: Int? = null,
+    val chromaGroups: List<SpritePaletteDisplayGroup> = emptyList(),
+)
+
+internal data class SpritePaletteDisplayGroup(
+    val label: String,
+    val colors: List<Int>,
+)
+
+private val FIXED_SPRITE_PALETTE_DISPLAY_SECTIONS: List<SpritePaletteDisplaySection> =
+    buildFixedSpritePaletteDisplaySections()
+
+internal fun fixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
+    return FIXED_SPRITE_PALETTE_DISPLAY_SECTIONS
+}
+
+private fun buildFixedSpritePaletteDisplaySections(): List<SpritePaletteDisplaySection> {
+    val labels = listOf("Grayscale", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Magenta")
+    val sectionSizes = intArrayOf(8, 31, 31, 31, 31, 31, 31, 31, 31)
+    val chromaLabels = listOf("Muted", "Normal", "Vivid")
+    val verticalPairOrder = intArrayOf(0, 2, 4, 6, 8, 1, 3, 5, 7, 9)
+    val sections = ArrayList<SpritePaletteDisplaySection>(labels.size)
+    var start = 0
+    labels.forEachIndexed { index, label ->
+        val end = start + sectionSizes[index]
+        val canonicalColors = FIXED_SPRITE_PALETTE.subList(start, end)
+        val anchorColor: Int?
+        val chromaGroups: List<SpritePaletteDisplayGroup>
+        val displayColors: List<Int>
+        if (index == 0) {
+            anchorColor = null
+            chromaGroups = emptyList()
+            displayColors = canonicalColors.toList()
+        } else {
+            anchorColor = canonicalColors.first()
+            chromaGroups = Collections.unmodifiableList(
+                chromaLabels.mapIndexed { chromaIndex, chromaLabel ->
+                    val groupColors = verticalPairOrder.map { lightnessIndex ->
+                        canonicalColors[1 + lightnessIndex * 3 + chromaIndex]
+                    }
+                    SpritePaletteDisplayGroup(
+                        label = chromaLabel,
+                        colors = Collections.unmodifiableList(groupColors),
+                    )
+                },
+            )
+            displayColors = listOf(anchorColor) + chromaGroups.flatMap { it.colors }
+        }
+        sections.add(
+            SpritePaletteDisplaySection(
+                label = label,
+                colors = Collections.unmodifiableList(displayColors),
+                anchorColor = anchorColor,
+                chromaGroups = chromaGroups,
+            ),
+        )
+        start = end
+    }
+    check(start == FIXED_SPRITE_PALETTE.size)
+    return Collections.unmodifiableList(sections)
+}
+
+private fun buildLegacyFixedSpritePaletteV1(): List<Int> {
+    val levels = intArrayOf(0, 51, 102, 153, 204, 255)
+    val colors = ArrayList<Int>(256)
+    for (red in levels) {
+        for (green in levels) {
+            for (blue in levels) {
+                colors.add(Color.rgb(red, green, blue))
+            }
+        }
+    }
+
+    val cubeGrayLevels = levels.toSet()
+    for (step in 1 until 45) {
+        val gray = (step * 255.0 / 45.0).roundToInt()
+        if (gray !in cubeGrayLevels) {
+            colors.add(Color.rgb(gray, gray, gray))
+        }
+    }
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    return Collections.unmodifiableList(colors.toList())
+}
+
+private fun buildFixedSpritePaletteV2(): List<Int> {
+    val colors = ArrayList<Int>(256)
+    val grayCodes = intArrayOf(
+        0x00, 0x01, 0x03, 0x07, 0x0D, 0x14, 0x1B, 0x22,
+        0x2A, 0x32, 0x3A, 0x42, 0x4A, 0x52, 0x5B, 0x64,
+        0x6D, 0x76, 0x7F, 0x88, 0x91, 0x9B, 0xA4, 0xAE,
+        0xB8, 0xC2, 0xCC, 0xD6, 0xE0, 0xEA, 0xF5, 0xFF,
+    )
+    grayCodes.forEach { gray ->
+        colors.add(Color.rgb(gray, gray, gray))
+    }
+
+    val lightnessRows = doubleArrayOf(0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88)
+    val chromaFractions = doubleArrayOf(0.25, 0.45, 0.70, 0.95)
+    val hueCenters = doubleArrayOf(29.0, 65.0, 105.0, 142.0, 195.0, 264.0, 295.0, 330.0)
+    val anchors = intArrayOf(
+        Color.rgb(255, 0, 0),
+        Color.rgb(255, 128, 0),
+        Color.rgb(255, 255, 0),
+        Color.rgb(0, 255, 0),
+        Color.rgb(0, 255, 255),
+        Color.rgb(0, 0, 255),
+        Color.rgb(128, 0, 255),
+        Color.rgb(255, 0, 255),
+    )
+
+    hueCenters.forEachIndexed { hueIndex, hue ->
+        val anchorRow = nearestLightnessRowIndex(lightnessRows, colorToOklab(anchors[hueIndex]).l)
+        lightnessRows.forEachIndexed { rowIndex, lightness ->
+            val maxChroma = maxDisplayableOklchChroma(lightness, hue)
+            chromaFractions.forEachIndexed { chromaIndex, fraction ->
+                val color = if (rowIndex == anchorRow && chromaIndex == chromaFractions.lastIndex) {
+                    anchors[hueIndex]
+                } else {
+                    oklchToSrgbColor(lightness, maxChroma * fraction, hue)
+                }
+                colors.add(color)
+            }
+        }
+    }
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    check(colors.all { Color.alpha(it) == 255 })
+    return Collections.unmodifiableList(colors.toList())
+}
+
+private fun buildFixedSpritePaletteV3(): List<Int> {
+    val colors = ArrayList<Int>(256)
+    val grayCodes = intArrayOf(
+        0x00, 0x0A, 0x2A, 0x4F, 0x78, 0xA3, 0xD0, 0xFF,
+    )
+    grayCodes.forEach { gray ->
+        colors.add(Color.rgb(gray, gray, gray))
+    }
+
+    val lightnessRows = doubleArrayOf(0.16, 0.24, 0.32, 0.40, 0.48, 0.56, 0.64, 0.72, 0.81, 0.90)
+    val chromaFractions = doubleArrayOf(0.35, 0.65, 0.95)
+    val hueCenters = doubleArrayOf(29.0, 65.0, 105.0, 142.0, 195.0, 264.0, 295.0, 330.0)
+    val anchors = intArrayOf(
+        Color.rgb(255, 0, 0),
+        Color.rgb(255, 128, 0),
+        Color.rgb(255, 255, 0),
+        Color.rgb(0, 255, 0),
+        Color.rgb(0, 255, 255),
+        Color.rgb(0, 0, 255),
+        Color.rgb(128, 0, 255),
+        Color.rgb(255, 0, 255),
+    )
+
+    hueCenters.forEachIndexed { hueIndex, hue ->
+        colors.add(anchors[hueIndex])
+        lightnessRows.forEach { lightness ->
+            val maxChroma = maxDisplayableOklchChroma(lightness, hue)
+            chromaFractions.forEach { fraction ->
+                colors.add(oklchToSrgbColor(lightness, maxChroma * fraction, hue))
+            }
+        }
+    }
+
+    check(colors.size == 256)
+    check(colors.toSet().size == 256)
+    check(colors.all { Color.alpha(it) == 255 })
+    return Collections.unmodifiableList(colors.toList())
+}
+
+private fun nearestLightnessRowIndex(lightnessRows: DoubleArray, anchorLightness: Double): Int {
+    var bestIndex = 0
+    var bestDistance = StrictMath.abs(lightnessRows[0] - anchorLightness)
+    for (index in 1 until lightnessRows.size) {
+        val distance = StrictMath.abs(lightnessRows[index] - anchorLightness)
+        if (distance < bestDistance) {
+            bestIndex = index
+            bestDistance = distance
+        }
+    }
+    return bestIndex
+}
+
+private fun maxDisplayableOklchChroma(lightness: Double, hueDegrees: Double): Double {
+    var low = 0.0
+    var high = 0.6
+    repeat(32) {
+        val mid = (low + high) * 0.5
+        if (oklchLinearSrgbInGamut(lightness, mid, hueDegrees)) {
+            low = mid
+        } else {
+            high = mid
+        }
+    }
+    return low
+}
+
+private fun oklchToSrgbColor(lightness: Double, chroma: Double, hueDegrees: Double): Int {
+    val rgb = oklchToLinearSrgb(lightness, chroma, hueDegrees)
+    return Color.rgb(
+        linearSrgbToByte(rgb[0]),
+        linearSrgbToByte(rgb[1]),
+        linearSrgbToByte(rgb[2]),
+    )
+}
+
+private fun oklchLinearSrgbInGamut(lightness: Double, chroma: Double, hueDegrees: Double): Boolean {
+    val rgb = oklchToLinearSrgb(lightness, chroma, hueDegrees)
+    return rgb[0] in 0.0..1.0 && rgb[1] in 0.0..1.0 && rgb[2] in 0.0..1.0
+}
+
+private fun oklchToLinearSrgb(lightness: Double, chroma: Double, hueDegrees: Double): DoubleArray {
+    val hueRadians = StrictMath.toRadians(hueDegrees)
+    val a = chroma * StrictMath.cos(hueRadians)
+    val b = chroma * StrictMath.sin(hueRadians)
+
+    val lPrime = lightness + 0.3963377774 * a + 0.2158037573 * b
+    val mPrime = lightness - 0.1055613458 * a - 0.0638541728 * b
+    val sPrime = lightness - 0.0894841775 * a - 1.2914855480 * b
+
+    val l = lPrime * lPrime * lPrime
+    val m = mPrime * mPrime * mPrime
+    val s = sPrime * sPrime * sPrime
+
+    return doubleArrayOf(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+    )
+}
+
+private fun linearSrgbToByte(channel: Double): Int {
+    val clamped = channel.coerceIn(0.0, 1.0)
+    val encoded = if (clamped <= 0.0031308) {
+        12.92 * clamped
+    } else {
+        1.055 * StrictMath.pow(clamped, 1.0 / 2.4) - 0.055
+    }
+    return StrictMath.floor(encoded * 255.0 + 0.5).toInt().coerceIn(0, 255)
+}
+
+fun nearestFixedPaletteColor(color: Int): Int = FIXED_SPRITE_PALETTE_V3_INDEX.nearest(color)
+
+internal fun nearestFixedPaletteV2Color(color: Int): Int = FIXED_SPRITE_PALETTE_V2_INDEX.nearest(color)
+
+internal fun nearestLegacyFixedPaletteColor(color: Int): Int = LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX.nearest(color)
+
+private fun buildPaletteKdTree(entries: List<PaletteOklabEntry>, depth: Int): PaletteKdNode? {
+    if (entries.isEmpty()) return null
+    val axis = depth % 3
+    val sorted = entries.sortedWith(compareBy<PaletteOklabEntry> { it.oklab.component(axis) }.thenBy { it.index })
+    val median = sorted.size / 2
+    return PaletteKdNode(
+        entry = sorted[median],
+        axis = axis,
+        left = buildPaletteKdTree(sorted.subList(0, median), depth + 1),
+        right = buildPaletteKdTree(sorted.subList(median + 1, sorted.size), depth + 1),
+    )
+}
+
+private fun nearestPaletteEntry(
+    target: OklabColor,
+    entries: List<PaletteOklabEntry>,
+    kdTree: PaletteKdNode?,
+): PaletteOklabEntry {
+    var best = entries.first()
+    var bestDistance = oklabDistanceSquared(target, best.oklab)
+
+    fun visit(node: PaletteKdNode?) {
+        if (node == null) return
+        val candidateDistance = oklabDistanceSquared(target, node.entry.oklab)
+        if (
+            candidateDistance < bestDistance ||
+            (candidateDistance == bestDistance && node.entry.index < best.index)
+        ) {
+            best = node.entry
+            bestDistance = candidateDistance
+        }
+
+        val delta = target.component(node.axis) - node.entry.oklab.component(node.axis)
+        val near = if (delta <= 0.0) node.left else node.right
+        val far = if (delta <= 0.0) node.right else node.left
+        visit(near)
+        if (delta * delta <= bestDistance) {
+            visit(far)
+        }
+    }
+
+    visit(kdTree)
+    return best
+}
+
+private fun OklabColor.component(axis: Int): Double {
+    return when (axis) {
+        0 -> l
+        1 -> a
+        else -> b
+    }
+}
+
+private fun oklabDistanceSquared(left: OklabColor, right: OklabColor): Double {
+    val dl = left.l - right.l
+    val da = left.a - right.a
+    val db = left.b - right.b
+    return dl * dl + da * da + db * db
+}
+
+fun reduceToFixedPalette(
+    src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    FIXED_SPRITE_PALETTE_V3_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
+
+internal fun reduceToFixedPaletteV2(
+    src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    FIXED_SPRITE_PALETTE_V2_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
+
+internal fun reduceToLegacyFixedPalette(
+    src: Bitmap,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult = reduceToSpritePalette(
+    src,
+    LEGACY_FIXED_SPRITE_PALETTE_V1_INDEX,
+    rowBufferAllocator,
+    shouldCancel,
+)
+
+private fun reduceToSpritePalette(
+    src: Bitmap,
+    paletteIndex: SpritePaletteIndex,
+    rowBufferAllocator: (size: Int) -> IntArray,
+    shouldCancel: (row: Int) -> Boolean,
+): PaletteBitmapResult {
+    if (src.isRecycled) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.RECYCLED,
+        )
+    }
+    val width = src.width
+    val height = src.height
+    if (width <= 0 || height <= 0) {
+        return PaletteBitmapResult(src, changed = false)
+    }
+    if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+        )
+    }
+
+    val readable = readableArgb8888Bitmap(src) ?: return PaletteBitmapResult(
+        src,
+        changed = false,
+        rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+    )
+    val safeSrc = readable.bitmap
+    val isPremultiplied = safeSrc.isPremultiplied
+    val rowPixels = try {
+        rowBufferAllocator(width)
+    } catch (_: OutOfMemoryError) {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    if (rowPixels.size != width) {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    val output = runCatching {
+        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            it.setPremultiplied(isPremultiplied)
+        }
+    }.getOrElse {
+        readable.recycleIfNew()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    var changed = false
+    for (y in 0 until height) {
+        if (shouldCancel(y)) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.CANCELLED,
+                cancelled = true,
+            )
+        }
+        if (!runCatching { safeSrc.getPixels(rowPixels, 0, width, 0, y, width, 1) }.isSuccess) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.READ_FAILED,
+            )
+        }
+        for (x in 0 until width) {
+            val pixel = rowPixels[x]
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha == 0) {
+                continue
+            }
+            if (paletteIndex.isNoOp(pixel, isPremultiplied)) {
+                continue
+            }
+            val nearest = paletteIndex.nearest(pixel)
+            val mapped = (alpha shl 24) or (nearest and 0x00FFFFFF)
+            if (pixel != mapped) {
+                rowPixels[x] = mapped
+                changed = true
+            }
+        }
+        if (!runCatching { output.setPixels(rowPixels, 0, width, 0, y, width, 1) }.isSuccess) {
+            output.recycle()
+            readable.recycleIfNew()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.WRITE_FAILED,
+            )
+        }
+    }
+
+    readable.recycleIfNew()
+    if (!changed) {
+        output.recycle()
+        return PaletteBitmapResult(src, changed = false)
+    }
+    return PaletteBitmapResult(output, changed = true)
+}
+
+fun fillSelectionWithColor(
+    src: Bitmap,
+    selection: RectPx,
+    color: Int,
+    rowBufferAllocator: (size: Int) -> IntArray = { size -> IntArray(size) },
+    shouldCancel: (row: Int) -> Boolean = { false },
+): PaletteBitmapResult {
+    if (src.isRecycled) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.RECYCLED,
+        )
+    }
+    val width = src.width
+    val height = src.height
+    if (width <= 0 || height <= 0) {
+        return PaletteBitmapResult(src, changed = false)
+    }
+    if (width.toLong() * height.toLong() > SPRITE_BITMAP_OPS_MAX_PIXELS) {
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.TOO_LARGE,
+        )
+    }
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val fillColor = color
+    val output = runCatching { src.copy(Bitmap.Config.ARGB_8888, true) }.getOrNull()
+        ?: return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    val rowPixels = try {
+        rowBufferAllocator(safeSelection.w)
+    } catch (_: OutOfMemoryError) {
+        output.recycle()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    if (rowPixels.size != safeSelection.w) {
+        output.recycle()
+        return PaletteBitmapResult(
+            src,
+            changed = false,
+            rejectionReason = PaletteBitmapRejectionReason.COPY_FAILED,
+        )
+    }
+    var changed = false
+    for (y in safeSelection.y until safeSelection.y + safeSelection.h) {
+        if (shouldCancel(y)) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.CANCELLED,
+                cancelled = true,
+            )
+        }
+        if (!runCatching {
+            output.getPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        }.isSuccess) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.READ_FAILED,
+            )
+        }
+        for (x in rowPixels.indices) {
+            if (rowPixels[x] != fillColor) {
+                rowPixels[x] = fillColor
+                changed = true
+            }
+        }
+        if (!runCatching {
+            output.setPixels(rowPixels, 0, safeSelection.w, safeSelection.x, y, safeSelection.w, 1)
+        }.isSuccess) {
+            output.recycle()
+            return PaletteBitmapResult(
+                src,
+                changed = false,
+                rejectionReason = PaletteBitmapRejectionReason.WRITE_FAILED,
+            )
+        }
+    }
+
+    if (!changed) {
+        output.recycle()
+        return PaletteBitmapResult(src, changed = false)
+    }
+    return PaletteBitmapResult(output, changed = true)
+}
+
+private data class ReadableBitmap(
+    val bitmap: Bitmap,
+    val isNew: Boolean,
+) {
+    fun recycleIfNew() {
+        if (isNew && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
+    }
+}
+
+private fun readableArgb8888Bitmap(src: Bitmap): ReadableBitmap? {
+    if (src.config == Bitmap.Config.ARGB_8888) {
+        return ReadableBitmap(src, isNew = false)
+    }
+    val copy = runCatching { src.copy(Bitmap.Config.ARGB_8888, true) }.getOrNull() ?: return null
+    return ReadableBitmap(copy, isNew = true)
+}
+
+private fun physicalPremultipliedKey(alpha: Int, color: Int): Int {
+    return (alpha shl 24) or
+        (premultipliedChannel((color ushr 16) and 0xFF, alpha) shl 16) or
+        (premultipliedChannel((color ushr 8) and 0xFF, alpha) shl 8) or
+        premultipliedChannel(color and 0xFF, alpha)
+}
+
+private fun premultipliedChannel(channel: Int, alpha: Int): Int {
+    return (channel * alpha + 127) / 255
+}
+
+private fun colorToOklab(color: Int): OklabColor {
+    val red = srgbToLinear(((color ushr 16) and 0xFF) / 255.0)
+    val green = srgbToLinear(((color ushr 8) and 0xFF) / 255.0)
+    val blue = srgbToLinear((color and 0xFF) / 255.0)
+
+    val l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue
+    val m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue
+    val s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue
+
+    val lRoot = StrictMath.cbrt(l)
+    val mRoot = StrictMath.cbrt(m)
+    val sRoot = StrictMath.cbrt(s)
+
+    return OklabColor(
+        l = 0.2104542553 * lRoot + 0.7936177850 * mRoot - 0.0040720468 * sRoot,
+        a = 1.9779984951 * lRoot - 2.4285922050 * mRoot + 0.4505937099 * sRoot,
+        b = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.8086757660 * sRoot,
+    )
+}
+
+private fun srgbToLinear(channel: Double): Double {
+    return if (channel <= 0.04045) {
+        channel / 12.92
+    } else {
+        StrictMath.pow((channel + 0.055) / 1.055, 2.4)
+    }
+}
 
 enum class ResizeDownscaleMode {
     DefaultMultiStep,
@@ -798,11 +1620,53 @@ private fun copySelectionPixels(src: Bitmap, rect: RectPx): IntArray {
     return selectionPixels
 }
 
-// 選択矩形内を最大サイズに合わせて縮小する
+fun resizeSelectionToMax64(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 64, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+// 96px APIと挙動を互換維持し、共通実装へ委譲する
 fun resizeSelectionToMax96(
     src: Bitmap,
     selection: RectPx,
     maxSize: Int = 96,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, maxSize, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+fun resizeSelectionToMax128(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 128, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+fun resizeSelectionToMax288(
+    src: Bitmap,
+    selection: RectPx,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
+): ResizeSelectionResult = resizeSelectionToMax(src, selection, 288, anchor, stepFactor, minAlphaCutoff, downscaleMode, pixelArtMethod)
+
+private fun resizeSelectionToMax(
+
+    src: Bitmap,
+    selection: RectPx,
+    targetMaxPx: Int,
     anchor: ResizeAnchor = ResizeAnchor.TopLeft,
     stepFactor: Float = 0.5f,
     minAlphaCutoff: Int = 4,
@@ -817,10 +1681,11 @@ fun resizeSelectionToMax96(
     }
     val safeSelection = rectNormalizeClamp(selection, width, height)
     val maxDim = maxOf(safeSelection.w, safeSelection.h)
-    if (maxDim <= maxSize) {
+    val safeTargetMaxPx = targetMaxPx.coerceAtLeast(1)
+    if (maxDim <= safeTargetMaxPx) {
         return ResizeSelectionResult(safeSrc, safeSelection, false, "already <= max")
     }
-    val scale = maxSize.toFloat() / maxDim.toFloat()
+    val scale = safeTargetMaxPx.toFloat() / maxDim.toFloat()
     val dstW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
     val dstH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
     val pasteX = when (anchor) {

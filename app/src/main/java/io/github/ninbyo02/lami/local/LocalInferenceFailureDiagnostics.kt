@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.local
 
 import android.content.Context
+import io.github.ninbyo02.lami.BuildConfig
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -8,6 +9,9 @@ import java.lang.reflect.InvocationTargetException
 import java.util.Locale
 
 data class LocalInferenceFailureDiagnostics(
+    val applicationId: String,
+    val currentFlavor: String,
+    val litertLmAndroidVersion: String,
     val selectedModelFilename: String?,
     val isQualcommModelLikely: Boolean,
     val isSm8750ModelLikely: Boolean,
@@ -22,11 +26,16 @@ data class LocalInferenceFailureDiagnostics(
     val unsatisfiedLinkErrorDetected: Boolean,
     val dlopenFailedDetected: Boolean,
     val noUsableDispatchRuntimeDetected: Boolean,
+    val unsupportedModelSignatureDetected: Boolean,
     val missingLibraryNames: List<String>,
     val dispatchApiMissingLikely: Boolean,
     val nativeLibraryDir: String?,
     val nativeLibraryDirExists: Boolean,
     val nativeLibraryFilesSummary: String,
+    val loadedDispatchRuntimePresent: Boolean,
+    val loadedCompilerPluginQualcommPresent: Boolean,
+    val loadedGemmaModelConstraintProviderPresent: Boolean,
+    val loadedQnnRuntimePresent: Boolean,
     val dispatchApiCandidatesFound: List<String>,
     val qnnRuntimeCandidatesFound: List<String>,
     val htpSkelStubCandidatesFound: List<String>,
@@ -88,6 +97,9 @@ fun buildLocalInferenceFailureDiagnostics(
     val causeChain = causeChain(throwable)
     val root = causeChain.lastOrNull() ?: throwable
     return LocalInferenceFailureDiagnostics(
+        applicationId = BuildConfig.APPLICATION_ID,
+        currentFlavor = BuildConfig.CURRENT_FLAVOR,
+        litertLmAndroidVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
         selectedModelFilename = selectedModelFilename,
         isQualcommModelLikely = normalizedModel.contains("qualcomm"),
         isSm8750ModelLikely = normalizedModel.contains("sm8750"),
@@ -106,11 +118,22 @@ fun buildLocalInferenceFailureDiagnostics(
             lowerThrowableText.contains("unsatisfiedlinkerror"),
         dlopenFailedDetected = lowerThrowableText.contains("dlopen failed"),
         noUsableDispatchRuntimeDetected = lowerThrowableText.contains("no usable dispatch runtime found"),
+        unsupportedModelSignatureDetected = lowerThrowableText.contains("unsupported model signature"),
         missingLibraryNames = missingLibraryNames,
         dispatchApiMissingLikely = dispatchApiMissingLikely,
         nativeLibraryDir = nativeLibraryDir,
         nativeLibraryDirExists = nativeLibraryDir?.let { runCatching { File(it).isDirectory }.getOrDefault(false) } == true,
         nativeLibraryFilesSummary = summarizeNativeLibraryFiles(nativeLibraryFiles),
+        loadedDispatchRuntimePresent = nativeLibraryFiles.any { name ->
+            dispatchLibraryNames.any { it.equals(name, ignoreCase = true) }
+        },
+        loadedCompilerPluginQualcommPresent = nativeLibraryFiles.any {
+            compilerPluginLibraryNames.any { compilerName -> compilerName.equals(it, ignoreCase = true) }
+        },
+        loadedGemmaModelConstraintProviderPresent = nativeLibraryFiles.any {
+            it.equals("libGemmaModelConstraintProvider.so", ignoreCase = true)
+        },
+        loadedQnnRuntimePresent = qnnRuntimeCandidates.isNotEmpty() || htpSkelStubCandidates.isNotEmpty(),
         dispatchApiCandidatesFound = dispatchApiCandidates,
         qnnRuntimeCandidatesFound = qnnRuntimeCandidates,
         htpSkelStubCandidatesFound = htpSkelStubCandidates,
@@ -126,6 +149,9 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     diagnostics: LocalInferenceFailureDiagnostics,
 ): String = buildString {
     appendLine("[Qualcomm Model Failure]")
+    appendLine("applicationId=${diagnostics.applicationId}")
+    appendLine("current flavor=${diagnostics.currentFlavor}")
+    appendLine("litertlm android version=${diagnostics.litertLmAndroidVersion}")
     appendLine("selected model filename=${diagnostics.selectedModelFilename ?: "unknown"}")
     appendLine("isQualcommModelLikely=${diagnostics.isQualcommModelLikely}")
     appendLine("isSm8750ModelLikely=${diagnostics.isSm8750ModelLikely}")
@@ -139,10 +165,15 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     appendLine("UnsatisfiedLinkError detected=${diagnostics.unsatisfiedLinkErrorDetected}")
     appendLine("dlopen failed detected=${diagnostics.dlopenFailedDetected}")
     appendLine("No usable Dispatch runtime found=${diagnostics.noUsableDispatchRuntimeDetected}")
+    appendLine("unsupported_model_signature_detected=${diagnostics.unsupportedModelSignatureDetected}")
     appendLine("missing library names=${diagnostics.missingLibraryNames.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("nativeLibraryDir=${diagnostics.nativeLibraryDir ?: "unknown"}")
     appendLine("nativeLibraryDir exists=${diagnostics.nativeLibraryDirExists}")
     appendLine("nativeLibraryDir files summary=${diagnostics.nativeLibraryFilesSummary}")
+    appendLine("loaded_dispatch_runtime_present=${diagnostics.loadedDispatchRuntimePresent}")
+    appendLine("loaded_compiler_plugin_qualcomm_present=${diagnostics.loadedCompilerPluginQualcommPresent}")
+    appendLine("loaded_gemma_model_constraint_provider_present=${diagnostics.loadedGemmaModelConstraintProviderPresent}")
+    appendLine("loaded_qnn_runtime_present=${diagnostics.loadedQnnRuntimePresent}")
     appendLine("dispatch api candidate files found=${diagnostics.dispatchApiCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("dispatch api missing likely=${diagnostics.dispatchApiMissingLikely}")
     appendLine("qnn runtime files found=${diagnostics.qnnRuntimeCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
@@ -330,6 +361,10 @@ private val qnnRuntimeLibraryNames = setOf(
     "libQnnDsp.so",
 )
 
+private val compilerPluginLibraryNames = setOf(
+    "libLiteRtCompilerPlugin_Qualcomm.so",
+)
+
 private val htpSkelStubLibraryNames = setOf(
     "libQnnHtpV79Skel.so",
     "libQnnHtpV79Stub.so",
@@ -345,4 +380,5 @@ private val htpSkelStubLibraryNames = setOf(
     "libQnnDspV66Stub.so",
 )
 
-private val knownDiagnosticLibraryNames = dispatchLibraryNames + qnnRuntimeLibraryNames + htpSkelStubLibraryNames
+private val knownDiagnosticLibraryNames =
+    dispatchLibraryNames + compilerPluginLibraryNames + qnnRuntimeLibraryNames + htpSkelStubLibraryNames

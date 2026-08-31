@@ -162,6 +162,39 @@ private class FakeMessageDao(seed: List<Message>) : MessageDao {
 
     override suspend fun updateMessage(message: Message) = Unit
 
+    override suspend fun transitionAssistantMessageStatus(
+        messageId: Int,
+        expectedStatuses: List<String>,
+        newStatus: String,
+        errorCode: String?,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+
+    override suspend fun updateAssistantMessageContentIfStatus(
+        messageId: Int,
+        expectedStatus: String,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+
+    override suspend fun completeInFlightAssistantMessage(
+        messageId: Int,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+
+    override suspend fun failInFlightAssistantMessage(
+        messageId: Int,
+        message: String?,
+        errorCode: String,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+
+    override suspend fun interruptInFlightAssistantMessagesAfterRestart(
+        processStartedAtEpochMs: Long,
+        updatedAtEpochMs: Long,
+    ): Int = 0
+
     override suspend fun getFirstUserMessage(chatId: Int): Message? {
         return messages.firstOrNull { it.chatId == chatId && it.isSendbyMe && it.message.trim().isNotEmpty() }
     }

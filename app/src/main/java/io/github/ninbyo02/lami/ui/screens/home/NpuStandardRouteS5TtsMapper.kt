@@ -11,7 +11,11 @@ internal object NpuStandardRouteS5TtsMapper {
     ): NpuStandardRouteS5TtsMapping {
         val normalizedFinalText = finalAssistantText.trim()
         if (
-            hasNpuStandardRouteRawRoleContamination(s1Result.rawOutput) ||
+            hasUnsafeNpuStandardRouteRawRoleContamination(
+                rawOutput = s1Result.rawOutput,
+                sanitizedOutput = s1Result.sanitizedOutput,
+                inputPrompt = s1Result.inputPrompt,
+            ) ||
             s1Result.qualityClassification == NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION ||
             s1Result.reason == NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION
         ) {

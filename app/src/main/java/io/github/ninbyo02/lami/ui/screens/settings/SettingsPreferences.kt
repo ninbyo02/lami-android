@@ -21,6 +21,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
+import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -31,6 +32,11 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+
+internal const val LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY = "local_base_model_display_name"
+internal const val LOCAL_BASE_MODEL_FILE_PATH_DATASTORE_KEY = "local_base_model_file_path"
+internal const val LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY = "local_generic_model_display_name"
+internal const val LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY = "local_generic_model_file_path"
 private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX = "ollama_settings_android_test_run_"
 const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP = 64
 const val MIN_CHAT_LAMI_AVATAR_SIZE_DP = 48
@@ -374,12 +380,21 @@ class SettingsPreferences(private val context: Context) {
     private val ttsEnabledKey = booleanPreferencesKey("tts_enabled")
     private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
-    private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
-    private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
+    private val localBaseModelDisplayNameKey = stringPreferencesKey(LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY)
+    private val localBaseModelFilePathKey = stringPreferencesKey(LOCAL_BASE_MODEL_FILE_PATH_DATASTORE_KEY)
+    private val localGenericModelDisplayNameKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY)
+    private val localGenericModelFilePathKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY)
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
+    private val remoteProviderKey = stringPreferencesKey("remote_provider")
+    private val lemonadeAutoUnloadModeKey = stringPreferencesKey("lemonade_auto_unload_mode")
+    private val pendingLemonadeAutoUnloadBaseUrlKey = stringPreferencesKey("pending_lemonade_auto_unload_base_url")
+    private val pendingLemonadeAutoUnloadModelKey = stringPreferencesKey("pending_lemonade_auto_unload_model")
+    private val pendingLemonadeAutoUnloadModeKey = stringPreferencesKey("pending_lemonade_auto_unload_mode")
+    private val pendingLemonadeAutoUnloadDeadlineEpochMsKey = longPreferencesKey("pending_lemonade_auto_unload_deadline_epoch_ms")
+    private val screenOrientationModeKey = stringPreferencesKey("screen_orientation_mode")
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
@@ -447,6 +462,9 @@ class SettingsPreferences(private val context: Context) {
                 storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
                 isDebugBuild = BuildConfig.DEBUG,
             ),
+            remoteProvider = RemoteProvider.fromStorage(preferences[remoteProviderKey]),
+            lemonadeAutoUnloadMode = LemonadeAutoUnloadMode.fromStorage(preferences[lemonadeAutoUnloadModeKey]),
+            screenOrientationMode = ScreenOrientationMode.fromStorage(preferences[screenOrientationModeKey]),
             developerAccessEnabled =
                 BuildConfig.DEBUG &&
                     (preferences[developerAccessEnabledKey] ?: false),
@@ -553,6 +571,14 @@ class SettingsPreferences(private val context: Context) {
         preferences[localBaseModelFilePathKey]
     }
 
+    val localGenericModelDisplayNameFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localGenericModelDisplayNameKey]
+    }
+
+    val localGenericModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localGenericModelFilePathKey]
+    }
+
     val inferenceTargetFlow: Flow<InferenceTarget> = context.dataStore.data.map { preferences ->
         val stored = preferences[inferenceTargetKey]
         runCatching {
@@ -578,6 +604,14 @@ class SettingsPreferences(private val context: Context) {
             storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
             isDebugBuild = BuildConfig.DEBUG,
         )
+    }
+
+    val remoteProviderFlow: Flow<RemoteProvider> = context.dataStore.data.map { preferences ->
+        RemoteProvider.fromStorage(preferences[remoteProviderKey])
+    }
+
+    val lemonadeAutoUnloadModeFlow: Flow<LemonadeAutoUnloadMode> = context.dataStore.data.map { preferences ->
+        LemonadeAutoUnloadMode.fromStorage(preferences[lemonadeAutoUnloadModeKey])
     }
 
     val developerAccessEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -817,6 +851,28 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveLocalGenericModelInfo(displayName: String, filePath: String) {
+        context.dataStore.edit { preferences ->
+            preferences[localGenericModelDisplayNameKey] = displayName
+            preferences[localGenericModelFilePathKey] = filePath
+        }
+    }
+
+    suspend fun getValidLocalGenericModelPathOrNull(): String? {
+        val preferences = context.dataStore.data.first()
+        return resolveValidLocalBaseModelPathOrNull(
+            displayName = preferences[localGenericModelDisplayNameKey],
+            filePath = preferences[localGenericModelFilePathKey],
+        )
+    }
+
+    suspend fun clearLocalGenericModelInfo() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(localGenericModelDisplayNameKey)
+            preferences.remove(localGenericModelFilePathKey)
+        }
+    }
+
     suspend fun saveInferenceTarget(target: InferenceTarget) {
         context.dataStore.edit { preferences ->
             preferences[inferenceTargetKey] = target.name
@@ -848,6 +904,47 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
         context.dataStore.edit { preferences ->
             preferences[markdownStreamingModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun saveRemoteProvider(provider: RemoteProvider) {
+        context.dataStore.edit { preferences ->
+            preferences[remoteProviderKey] = provider.storageValue
+        }
+    }
+
+    suspend fun saveLemonadeAutoUnloadMode(mode: LemonadeAutoUnloadMode) {
+        context.dataStore.edit { preferences ->
+            preferences[lemonadeAutoUnloadModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun savePendingLemonadeAutoUnload(pending: PendingLemonadeAutoUnload) {
+        context.dataStore.edit { preferences ->
+            preferences[pendingLemonadeAutoUnloadBaseUrlKey] = pending.baseUrl
+            preferences[pendingLemonadeAutoUnloadModelKey] = pending.targetModel
+            preferences[pendingLemonadeAutoUnloadModeKey] = pending.mode.storageValue
+            preferences[pendingLemonadeAutoUnloadDeadlineEpochMsKey] = pending.deadlineEpochMs
+        }
+    }
+
+    suspend fun getPendingLemonadeAutoUnloadOrNull(): PendingLemonadeAutoUnload? {
+        val preferences = context.dataStore.data.first()
+        val pending = PendingLemonadeAutoUnload(
+            baseUrl = preferences[pendingLemonadeAutoUnloadBaseUrlKey].orEmpty(),
+            targetModel = preferences[pendingLemonadeAutoUnloadModelKey].orEmpty(),
+            mode = LemonadeAutoUnloadMode.fromStorage(preferences[pendingLemonadeAutoUnloadModeKey]),
+            deadlineEpochMs = preferences[pendingLemonadeAutoUnloadDeadlineEpochMsKey] ?: 0L,
+        )
+        return pending.takeIf { it.isValid() }
+    }
+
+    suspend fun clearPendingLemonadeAutoUnload() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(pendingLemonadeAutoUnloadBaseUrlKey)
+            preferences.remove(pendingLemonadeAutoUnloadModelKey)
+            preferences.remove(pendingLemonadeAutoUnloadModeKey)
+            preferences.remove(pendingLemonadeAutoUnloadDeadlineEpochMsKey)
         }
     }
 
@@ -1427,6 +1524,12 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[chatLamiAvatarSizeDpKey] = value
                 .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
+        }
+    }
+
+    suspend fun saveScreenOrientationMode(mode: ScreenOrientationMode) {
+        context.dataStore.edit { preferences ->
+            preferences[screenOrientationModeKey] = mode.storageValue
         }
     }
 

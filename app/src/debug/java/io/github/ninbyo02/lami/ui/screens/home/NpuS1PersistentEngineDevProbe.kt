@@ -18,6 +18,7 @@ import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -41,6 +42,7 @@ internal class NpuS1PersistentEngineDevProbe(
         var state = NpuS1PersistentEngineProbeState(
             persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
             runCountRequested = requestedRunCount,
+            waitMs = NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS,
             startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
             modelPathOrName = modelPath ?: modelResolution.reasonCode,
             cacheDir = cacheDir,
@@ -52,13 +54,21 @@ internal class NpuS1PersistentEngineDevProbe(
             officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
             tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
             persistentEngineApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_AUTO,
-            attemptedApiModes = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
-            selectedApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
-            apiModeSelectionReason = "session_api_available_prefers_generate_content",
+            attemptedApiModes = "${NPU_S1_PERSISTENT_ENGINE_API_MODE_STANDARD_ROUTE_ADAPTER}," +
+                NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+            selectedApiMode = "unavailable",
+            apiModeSelectionReason = "awaiting_safe_npu_api_mode_selection",
             sessionApiAvailable = "true",
-            sessionApiUsed = "true",
+            sessionApiUsed = "false",
+            sessionApiBlockedForNpu = "false",
+            sessionApiBlockReason = "none",
             conversationApiUsed = "false",
             streamingApiUsed = "false",
+            standardRouteAdapterAvailable = "unavailable",
+            standardRouteAdapterUsed = "false",
+            standardRouteAdapterReason = "unavailable",
+            persistentStandardRouteAvailable = "unavailable",
+            persistentStandardRouteReason = "unavailable",
         )
         fun update(next: NpuS1PersistentEngineProbeState) {
             state = next
@@ -73,6 +83,12 @@ internal class NpuS1PersistentEngineDevProbe(
                 reason = modelResolution.reasonCode,
                 throwable = null,
                 hypothesisResult = "engine_initialize_once_failed",
+            ).also(::update)
+        }
+
+        if (shouldBlockNpuSessionApiForPersistentProbe()) {
+            return@withContext blockUnsupportedNpuSessionApi(
+                state = state,
             ).also(::update)
         }
 
@@ -217,6 +233,9 @@ internal class NpuS1PersistentEngineDevProbe(
                     ),
                 )
                 if (failed) return@withContext state
+                if (runIndex < requestedRunCount && NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS > 0L) {
+                    delay(NPU_S1_PERSISTENT_ENGINE_DEFAULT_WAIT_MS)
+                }
             }
             state.copy(
                 persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED,
@@ -226,7 +245,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 conversationCloseCount = conversationCloseCount,
                 sessionCreateCount = sessionCreateCount.toString(),
                 sessionCloseCount = sessionCloseCount.toString(),
-                persistentEngineHypothesisResult = "engine_initialize_once_20_runs_success",
+                persistentEngineHypothesisResult = "engine_initialize_once_10_runs_success",
             ).also(::update)
         } catch (throwable: Throwable) {
             if (throwable is CancellationException && throwable !is TimeoutCancellationException) {
@@ -340,6 +359,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 runIndex = runIndex,
                 status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 reason = "success",
+                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
                 conversationCreated = conversationCreated,
                 conversationClosed = conversationClosed,
                 sessionCreated = "unavailable",
@@ -353,6 +373,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 } else {
                     NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
                 },
+                fallbackUsed = "false",
+                timeout = "false",
+                freshCrash = "unavailable",
                 totalMs = decodeFinishedAt - runStartedAt,
                 decodeMs = decodeFinishedAt - decodeStartedAt,
                 failureStage = "unavailable",
@@ -454,6 +477,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 runIndex = runIndex,
                 status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
                 reason = "success",
+                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
                 conversationCreated = "false",
                 conversationClosed = "unavailable",
                 sessionCreated = sessionCreated,
@@ -467,6 +491,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 } else {
                     NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
                 },
+                fallbackUsed = "false",
+                timeout = "false",
+                freshCrash = "unavailable",
                 totalMs = decodeFinishedAt - runStartedAt,
                 decodeMs = decodeFinishedAt - decodeStartedAt,
                 failureStage = "unavailable",
@@ -547,6 +574,43 @@ internal class NpuS1PersistentEngineDevProbe(
             persistentEngineHypothesisResult = hypothesisResult,
         )
 
+    private fun blockUnsupportedNpuSessionApi(
+        state: NpuS1PersistentEngineProbeState,
+    ): NpuS1PersistentEngineProbeState =
+        state.copy(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_BLOCKED,
+            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            backendEvidence = "official_litertlm_backend_npu_session_api_blocked",
+            firstFailureStage = "api_mode_selection",
+            firstFailureReason = NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON,
+            firstFailureExceptionClass = "unavailable",
+            firstFailureExceptionMessage = "unavailable",
+            blockedReason = NPU_S1_PERSISTENT_ENGINE_SESSION_API_NPU_BLOCK_REASON,
+            persistentEngineHypothesisResult = "blocked_session_api_logits_output_not_supported_on_npu_backend",
+            persistentEngineApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_STANDARD_ROUTE_ADAPTER,
+            attemptedApiModes = "${NPU_S1_PERSISTENT_ENGINE_API_MODE_STANDARD_ROUTE_ADAPTER}," +
+                NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+            selectedApiMode = "unavailable",
+            apiModeSelectionReason = "session_api_blocked_for_npu_standard_route_adapter_not_exposed",
+            logitsOutputRequired = "true",
+            logitsOutputBackendSupported = "false",
+            logitsFailureDetected = "false",
+            logitsFailureMessage = "unavailable",
+            sessionApiAvailable = "true",
+            sessionApiUsed = "false",
+            sessionApiBlockedForNpu = "true",
+            sessionApiBlockReason = "logits_output_not_supported_on_npu_backend",
+            conversationApiUsed = "false",
+            streamingApiUsed = "false",
+            standardRouteAdapterAvailable = "false",
+            standardRouteAdapterUsed = "false",
+            standardRouteAdapterReason = "needs_native_adapter_work",
+            persistentStandardRouteAvailable = "false",
+            persistentStandardRouteReason = "needs_native_adapter_work",
+        )
+
+    private fun shouldBlockNpuSessionApiForPersistentProbe(): Boolean = true
+
     private fun failureRecord(
         runIndex: Int,
         stage: String,
@@ -572,12 +636,16 @@ internal class NpuS1PersistentEngineDevProbe(
             runIndex = runIndex,
             status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
             reason = reason,
+            prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
             conversationCreated = conversationCreated,
             conversationClosed = conversationClosed,
             sessionCreated = sessionCreated,
             sessionClosed = sessionClosed,
             decodeStarted = decodeStarted,
             decodeFinished = decodeFinished,
+            fallbackUsed = "false",
+            timeout = (throwable is TimeoutCancellationException).toString(),
+            freshCrash = "unavailable",
             totalMs = totalMs,
             failureStage = stage,
             failureExceptionClass = throwable?.javaClass?.simpleName ?: inferPersistentFailureExceptionClass(reason),

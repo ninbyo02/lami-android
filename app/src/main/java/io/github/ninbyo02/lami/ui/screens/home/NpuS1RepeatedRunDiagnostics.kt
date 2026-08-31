@@ -12,14 +12,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 internal const val NPU_S1_LOGCAT_TAG = "LamiNpuS1"
+internal const val NPU_BETA_STABILITY_TEST_NAME = "NPU Beta Stability Test"
+internal const val NPU_BETA_STABILITY_TEST_MODE_SAFE_RECREATE = "safe_recreate"
 internal const val NPU_S1_REPEATED_RUN_STATUS_IDLE = "idle"
 internal const val NPU_S1_REPEATED_RUN_STATUS_RUNNING = "running"
 internal const val NPU_S1_REPEATED_RUN_STATUS_COMPLETED = "completed"
 internal const val NPU_S1_REPEATED_RUN_STATUS_CANCELLED = "cancelled"
 internal const val NPU_S1_REPEATED_RUN_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_PROMPT = "こんにちは"
-internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 20
-internal const val NPU_S1_REPEATED_RUN_SAFE_COUNT = 20
+internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 10
+internal const val NPU_S1_REPEATED_RUN_SAFE_COUNT = 10
 internal const val NPU_S1_REPEATED_RUN_SAFE_WAIT_MS = 500L
 internal val NPU_S1_REPEATED_RUN_SAFE_MODE = NpuS1RepeatedRunMode.RECREATE
 internal val NPU_S1_REPEATED_RUN_PROMPT_OPTIONS = listOf(
@@ -28,11 +30,14 @@ internal val NPU_S1_REPEATED_RUN_PROMPT_OPTIONS = listOf(
     "こんにちは",
     "あなたは誰ですか？",
 )
-internal val NPU_S1_REPEATED_RUN_COUNT_OPTIONS = listOf(20, 50, 100)
+internal val NPU_S1_REPEATED_RUN_COUNT_OPTIONS = listOf(10, 50, 100)
 internal val NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS = listOf(0L, 500L, 2_000L)
 internal val NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_COUNT)
 internal val NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS, 2_000L)
-internal val NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_MODE)
+internal val NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS = listOf(
+    NpuS1RepeatedRunMode.REUSE,
+    NPU_S1_REPEATED_RUN_SAFE_MODE,
+)
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
 internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
     "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
@@ -122,6 +127,11 @@ data class NpuS1NativeStageDiagnostics(
     val nativeErrorMessage: String = "unavailable",
     val nativeErrorStage: String = "unavailable",
     val nativeErrorSource: String = "unavailable",
+    val nativeLinkFailureDetected: String = "unavailable",
+    val nativeLinkFailureLibrary: String = "unavailable",
+    val nativeLoadOrder: String = "unavailable",
+    val javaLibraryPath: String = "unavailable",
+    val supportedAbis: String = "unavailable",
 )
 
 internal enum class NpuS1RepeatedRunMode(
@@ -309,10 +319,8 @@ internal fun npuS1RepeatedRunStartGate(
     runCount: Int,
     waitMs: Long,
 ): NpuS1RepeatedRunStartGate = when {
-    npuS1BackendFromPreferredSetting(preferredBackendSetting, npuStandardRouteMode) != NPU_S1_BACKEND_NPU_S1 ->
+    !isNpuS1RepeatedRunBackendAllowed(npuS1BackendFromPreferredSetting(preferredBackendSetting, npuStandardRouteMode)) ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU)
-    mode == NpuS1RepeatedRunMode.REUSE ->
-        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED)
     mode !in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_MODE)
     runCount !in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS ->
@@ -321,6 +329,14 @@ internal fun npuS1RepeatedRunStartGate(
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_WAIT_MS)
     else -> NpuS1RepeatedRunStartGate(true)
 }
+
+internal fun isNpuS1RepeatedRunBackendAllowed(selectedBackend: String): Boolean =
+    selectedBackend == NPU_S1_BACKEND_NPU ||
+        selectedBackend == NPU_S1_BACKEND_NPU_S1 ||
+        selectedBackend == NPU_S1_BACKEND_NPU_S2 ||
+        selectedBackend == NPU_S1_BACKEND_NPU_S3 ||
+        selectedBackend == NPU_S1_BACKEND_NPU_S4 ||
+        selectedBackend == NPU_S1_BACKEND_NPU_S5
 
 internal data class NpuS1ShortOutputTelemetry(
     val finishReason: String = "unavailable",
@@ -1021,15 +1037,64 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
     state: NpuS1RepeatedRunState,
 ): String {
     val summary = buildNpuS1RepeatedRunSummary(state)
+    val runDecodeReachedCount = state.records.count { it.runDecodeReached }
+    val backendEvidenceSummary = summarizeNpuS1RepeatedRunValues(
+        state.records.map { it.backendEvidence },
+        fallback = summary.backendEvidence,
+    )
+    val qualityClassificationSummary = summarizeNpuS1RepeatedRunValues(
+        state.records.map { it.qualityClassification },
+        fallback = "unavailable",
+    )
+    val gateAllowed = summary.blockedReason == "none"
+    val maxOutputTokensResolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(summary.maxOutputTokens)
+    val summaryRequestedMaxOutputTokens = state.records.firstOrNull()?.requestedMaxOutputTokens
+        ?: maxOutputTokensResolution.requestedMaxOutputTokens
+    val summaryEffectiveMaxOutputTokens = state.records.firstOrNull()?.effectiveMaxOutputTokens
+        ?: maxOutputTokensResolution.effectiveMaxOutputTokens
+    val reuseRequested = summary.repeatedRunMode == NpuS1RepeatedRunMode.REUSE
+    val reuseGateReason = if (reuseRequested) summary.blockedReason else "not_reuse_mode"
     return buildString {
         appendLine("[DEV診断: NPU S1 repeated run summary]")
+        appendLine("test_name=$NPU_BETA_STABILITY_TEST_NAME")
+        appendLine("stability_test_gate_allowed=$gateAllowed")
+        appendLine("stability_test_gate_reason=${summary.blockedReason}")
+        appendLine("reuse_enabled=$reuseRequested")
+        appendLine("reuse_gate_allowed=${reuseRequested && gateAllowed}")
+        appendLine("reuse_gate_reason=$reuseGateReason")
+        appendLine("engine_reuse_requested=$reuseRequested")
+        appendLine("engine_reused=unavailable")
+        appendLine("mode=${npuBetaStabilityMode(summary.repeatedRunMode)}")
+        appendLine("requested_runs=${summary.runCountRequested}")
+        appendLine("completed_runs=${summary.runCountCompleted}")
+        appendLine("failed_count=${summary.failureCount}")
+        appendLine("success_rate=${formatRate(summary.successCount, summary.runCountCompleted)}")
+        appendLine("fallback_used_count=${summary.fallbackCount}")
+        appendLine("fallback_rate=${formatRate(summary.fallbackCount, summary.runCountCompleted)}")
+        appendLine("timeout_rate=${formatRate(summary.timeoutCount, summary.runCountCompleted)}")
+        appendLine("fresh_crash_rate=${formatRate(summary.freshCrashCount, summary.runCountCompleted)}")
+        appendLine("run_decode_reached_count=$runDecodeReachedCount")
+        appendLine("run_decode_reached_rate=${formatRate(runDecodeReachedCount, summary.runCountCompleted)}")
+        appendLine("average_total_ms=${formatNullableLong(summary.avgTotalMs)}")
+        appendLine("average_decode_ms=${formatNullableLong(summary.avgDecodeMs)}")
+        appendLine("average_tokens_per_second=${formatNullableDouble(summary.avgTokensPerSecond)}")
+        appendLine("backend_evidence_summary=$backendEvidenceSummary")
+        appendLine("quality_classification_summary=$qualityClassificationSummary")
         appendLine("repeated_run_status=${summary.status}")
         appendLine("run_count_requested=${summary.runCountRequested}")
         appendLine("run_count_completed=${summary.runCountCompleted}")
         appendLine("prompt=${summary.prompt}")
         appendLine("max_output_tokens=${summary.maxOutputTokens}")
+        appendLine("requested_max_output_tokens=$summaryRequestedMaxOutputTokens")
+        appendLine("effective_max_output_tokens=$summaryEffectiveMaxOutputTokens")
+        appendLine("max_output_tokens_clamped=${summaryRequestedMaxOutputTokens != summaryEffectiveMaxOutputTokens}")
+        appendLine("max_output_tokens_clamp_limit=${NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT}")
+        appendLine("max_output_tokens_clamp_reason=${if (summaryRequestedMaxOutputTokens != summaryEffectiveMaxOutputTokens) NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT else NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE}")
         appendLine("repeated_run_mode=${summary.repeatedRunMode.wireValue}")
         appendLine("repeated_run_wait_ms=${summary.repeatedRunWaitMs}")
+        appendLine("run_mode=${summary.repeatedRunMode.wireValue}")
+        appendLine("run_count=${summary.runCountRequested}")
+        appendLine("wait_ms=${summary.repeatedRunWaitMs}")
         appendLine("total_wait_time_ms=${summary.totalWaitTimeMs}")
         appendLine("recreate_api_note=$NPU_S1_REPEATED_RUN_RECREATE_NOTE")
         appendLine("stopped=${summary.stopped}")
@@ -1040,6 +1105,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("effective_backend=${summary.effectiveBackend}")
         appendLine("backend_evidence=${summary.backendEvidence}")
         appendLine("route_family=${summary.routeFamily}")
+        appendLine("npu_standard_route_connected=${summary.requestedBackend == NPU_S1_BACKEND_NPU && summary.routeFamily.startsWith("npu_")}")
         appendLine("success_count=${summary.successCount}")
         appendLine("failure_count=${summary.failureCount}")
         appendLine("engine_create_failed_count=${summary.engineCreateFailedCount}")
@@ -1092,6 +1158,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("engine_request_count=${summary.counterSnapshot.engineRequestCount}")
         appendLine("engine_request_success_count=${summary.counterSnapshot.engineRequestSuccessCount}")
         appendLine("engine_request_failure_count=${summary.counterSnapshot.engineRequestFailureCount}")
+        appendLine("engine_create_count=${summary.counterSnapshot.engineCreateAttemptCount}")
         appendLine("engine_create_attempt_count=${summary.counterSnapshot.engineCreateAttemptCount}")
         appendLine("engine_create_success_count=${summary.counterSnapshot.engineCreateSuccessCount}")
         appendLine("engine_create_failure_count=${summary.counterSnapshot.engineCreateFailureCount}")
@@ -1280,6 +1347,16 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
 
 internal fun buildNpuS1RepeatedRunSummaryCopyText(
     state: NpuS1RepeatedRunState,
+): String = buildNpuBetaStabilitySummaryCopyText(state)
+
+internal fun buildNpuBetaStabilitySummaryCopyText(
+    state: NpuS1RepeatedRunState,
+): String = formatNpuS1RepeatedRunDiagnosticsForDev(state)
+    .substringBefore("\n[DEV診断: NPU S1 repeated run details]")
+    .trimEnd()
+
+internal fun buildNpuBetaStabilityFullDumpCopyText(
+    state: NpuS1RepeatedRunState,
 ): String = formatNpuS1RepeatedRunDiagnosticsForDev(state)
 
 internal fun appendNpuS1RepeatedRunDiagnosticsForDev(
@@ -1403,6 +1480,42 @@ private fun formatNullableLong(value: Long?): String = value?.toString() ?: "una
 
 private fun formatNullableDouble(value: Double?): String =
     value?.let { String.format(Locale.US, "%.2f", it) } ?: "unavailable"
+
+private fun npuBetaStabilityMode(mode: NpuS1RepeatedRunMode): String =
+    if (mode == NPU_S1_REPEATED_RUN_SAFE_MODE) {
+        NPU_BETA_STABILITY_TEST_MODE_SAFE_RECREATE
+    } else {
+        mode.wireValue
+    }
+
+private fun formatRate(count: Int, total: Int): String =
+    if (total > 0) {
+        String.format(Locale.US, "%.2f", count.toDouble() / total.toDouble())
+    } else {
+        "unavailable"
+    }
+
+private fun summarizeNpuS1RepeatedRunValues(
+    values: List<String>,
+    fallback: String,
+): String {
+    val normalized = values
+        .map { it.trim() }
+        .filter { it.isNotBlank() && it != "unavailable" }
+    val source = normalized.ifEmpty {
+        listOf(fallback.trim()).filter { it.isNotBlank() && it != "unavailable" }
+    }
+    if (source.isEmpty()) return "unavailable"
+    return source
+        .groupingBy { it }
+        .eachCount()
+        .entries
+        .sortedWith(
+            compareByDescending<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key },
+        )
+        .joinToString(",") { "${it.key}:${it.value}" }
+}
 
 private const val NPU_S1_FINAL_INPUT_TAIL_CHARS = 80
 private const val NPU_S1_MEMORY_GROWTH_SUSPECTED_MB = 32L

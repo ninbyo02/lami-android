@@ -31,7 +31,7 @@ Modes:
   edge_gallery_executor_probe
 
 Examples:
-  scripts/run_gpu_output_quality_matrix.sh --mode baseline --max-tokens 4000
+  scripts/run_gpu_output_quality_matrix.sh --mode baseline --max-tokens 4096
   scripts/run_gpu_output_quality_matrix.sh --mode collect_only --max-tokens 512 --prompt "カレーの材料をお願いします。"
   scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_parity_minimal --max-tokens 512 --prompt "カレーの材料をお願いします。"
   scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_final_response_probe --max-tokens 512 --prompt "カレーの材料をお願いします。"
@@ -88,10 +88,10 @@ case "$MODE" in
 esac
 
 case "$MAX_TOKENS" in
-  0|128|256|512|1024|4000)
+  0|128|256|512|1024|4096)
     ;;
   *)
-    echo "Unsupported max tokens: $MAX_TOKENS (use 0,128,256,512,1024,4000)" >&2
+    echo "Unsupported max tokens: $MAX_TOKENS (use 0,128,256,512,1024,4096)" >&2
     exit 2
     ;;
 esac

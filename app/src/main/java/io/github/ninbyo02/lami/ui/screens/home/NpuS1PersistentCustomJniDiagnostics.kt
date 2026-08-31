@@ -557,8 +557,15 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
     val promptIgnoredSuspect = prompt.isNotBlank() &&
         prompt.length <= 16 &&
         containsPlaceholder
+    val unsupportedJapaneseResponseScript =
+        NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(output)
+    val greetingResponseMismatch =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(prompt) &&
+            !NpuStandardRouteS1Contract.isAcceptableGreetingResponse(prompt, output)
     val classification = when {
         outputEmpty || outputOnlyNewline -> NPU_S1_OUTPUT_QUALITY_UNKNOWN
+        unsupportedJapaneseResponseScript || greetingResponseMismatch ->
+            NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE
         outputEqualsAcrossRuns && (containsPlaceholder || containsBusinessPhrase) ->
             NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT
         promptIgnoredSuspect -> NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT
@@ -574,6 +581,8 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         if (containsBusinessPhrase) add("business_template_phrase")
         if (containsPlaceholder) add("placeholder_leak")
         if (promptIgnoredSuspect) add("prompt_ignored_suspect")
+        if (unsupportedJapaneseResponseScript) add("unsupported_japanese_response_script")
+        if (greetingResponseMismatch) add("greeting_response_mismatch")
         if (outputEqualsAcrossRuns) add("repeated_template_output")
         if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
         if (outputOnlyNewline) add("newline_only")
@@ -596,17 +605,116 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     sanitizedOutput: String,
     inputPrompt: String = "",
 ): NpuS1PersistentCustomJniQualityCandidateResult {
-    val source = sanitizedOutput.ifBlank { rawOutput }
+    val initial = evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+        rawOutput = rawOutput,
+        sanitizedOutput = sanitizedOutput,
+        inputPrompt = inputPrompt,
+    )
+    if (initial.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) return initial
+
+    val repair = extractNpuS1RepairableTurnBody(rawOutput) ?: return initial
+    if (repair.requiresSanitizedMatch && sanitizedOutput.trim() != repair.text.trim()) {
+        return initial
+    }
+    val repaired = evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+        rawOutput = repair.text,
+        sanitizedOutput = repair.text,
+        inputPrompt = inputPrompt,
+    )
+    if (repaired.status != NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS || repaired.preparedOutput.isBlank()) {
+        return initial
+    }
+    return repaired.copy(reason = repair.successReason)
+}
+
+private data class NpuS1RepairableTurnBody(
+    val text: String,
+    val successReason: String,
+    val requiresSanitizedMatch: Boolean = false,
+)
+
+private val npuS1CompleteTurnMarker = Regex(
+    """<\s*/?\s*(?:start_of_turn|end_of_turn)\s*>""",
+    RegexOption.IGNORE_CASE,
+)
+
+private val npuS1ModelTurnMarker = Regex(
+    """<\s*start_of_turn\s*>\s*model\s*>?""",
+    RegexOption.IGNORE_CASE,
+)
+
+private val npuS1UserTurnMarker = Regex(
+    """<\s*start_of_turn\s*>\s*user\s*>?""",
+    RegexOption.IGNORE_CASE,
+)
+
+private val npuS1PlainUserTurnMarker = Regex(
+    """(?im)(?:^|\n)\s*(?:ユーザー|User)\s*[:：]""",
+)
+
+private fun extractNpuS1RepairableTurnBody(rawOutput: String): NpuS1RepairableTurnBody? {
+    val modelMarker = npuS1ModelTurnMarker.find(rawOutput)
+    if (modelMarker != null) {
+        val bodyStart = modelMarker.range.last + 1
+        val nextMarker = npuS1CompleteTurnMarker.find(rawOutput, bodyStart)
+        val bodyEnd = nextMarker?.range?.first ?: rawOutput.length
+        val body = rawOutput.substring(bodyStart, bodyEnd).trim()
+        if (body.isNotBlank()) {
+            return NpuS1RepairableTurnBody(
+                text = body,
+                successReason = "natural_japanese_after_model_turn_extraction_and_revalidation",
+            )
+        }
+    }
+
+    val userMarker = npuS1UserTurnMarker.find(rawOutput)
+    if (userMarker != null) {
+        val prefix = rawOutput.substring(0, userMarker.range.first).trim()
+        if (prefix.isNotBlank()) {
+            return NpuS1RepairableTurnBody(
+                text = prefix,
+                successReason = "natural_japanese_after_tail_turn_leak_prefix_revalidation",
+            )
+        }
+    }
+
+    val plainUserMarker = npuS1PlainUserTurnMarker.find(rawOutput) ?: return null
+    val prefix = rawOutput.substring(0, plainUserMarker.range.first).trim()
+    if (prefix.isBlank()) return null
+    return NpuS1RepairableTurnBody(
+        text = prefix,
+        successReason = "natural_japanese_after_plain_role_tail_cleanup_and_revalidation",
+        requiresSanitizedMatch = true,
+    )
+}
+
+private fun evaluateNpuS1PersistentCustomJniQualityCandidateCore(
+    rawOutput: String,
+    sanitizedOutput: String,
+    inputPrompt: String = "",
+): NpuS1PersistentCustomJniQualityCandidateResult {
+    val rawRecoveryAllowed = sanitizedOutput.isBlank() &&
+        hasSafeNpuS1EndOfTurnVariant(rawOutput) &&
+        !NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(rawOutput)
+    val source = when {
+        sanitizedOutput.isNotBlank() -> sanitizedOutput
+        rawRecoveryAllowed -> rawOutput
+        else -> ""
+    }
     val cleanupSource = removeSafeNpuS1EndOfTurnVariants(source)
     val cleanupRaw = removeSafeNpuS1EndOfTurnVariants(rawOutput)
     val cleanupSanitized = removeSafeNpuS1EndOfTurnVariants(sanitizedOutput)
     val arithmeticPrompt = isNpuS1ArithmeticPrompt(inputPrompt)
     val trimmedStart = cleanupSource.trimStart()
     val preparedBase = trimmedStart.removePrefix(">").trimStart().trimEnd()
+    val preparedWithoutPromptEcho = removeNpuS1LeadingPromptEcho(
+        text = preparedBase,
+        inputPrompt = inputPrompt,
+    )
     val prepared = if (arithmeticPrompt) {
-        extractNpuS1ArithmeticPreparedAnswer(preparedBase)
+        extractNpuS1ArithmeticPreparedAnswer(preparedWithoutPromptEcho)
     } else {
-        preparedBase
+        preparedWithoutPromptEcho
     }
     val leadingGreaterThanRemoved = cleanupRaw.trimStart().startsWith(">") || trimmedStart.startsWith(">")
     val endOfTurnRemoved = hasSafeNpuS1EndOfTurnVariant(rawOutput) ||
@@ -624,11 +732,6 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val assistantRepetition = Regex("""(?i)(Assistant\s*:.*){2,}""").containsMatchIn(qualityCheckText) ||
         qualityCheckText.contains("Assistant: Assistant:", ignoreCase = true)
     val qaContinuation = listOf("質問:", "回答:", "Q:", "A:").any(qualityCheckText::contains)
-    val selfIntroTemplateLeak = listOf(
-        "〇〇",
-        "---",
-        "**自己紹介",
-    ).any(qualityCheckText::contains)
     val specialTokenLeak = containsNpuS1SpecialTurnMarker(visibleOutputCheckText)
     val rawUnclosedSpecialToken = containsNpuS1UnclosedSpecialTurnMarker(unsafeRawCheckText)
     val rawUnexpectedStartTurn = unsafeRawCheckText.contains("<start_of_turn", ignoreCase = true) ||
@@ -643,15 +746,52 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
             prepared = prepared,
         )
     val arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakDetected
-    val promptRepetitionOnly = isNpuS1PromptRepetitionOnly(
-        prompt = inputPrompt,
-        output = prepared,
-    )
+    val acceptableGreetingResponse =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(inputPrompt) &&
+            NpuStandardRouteS1Contract.isAcceptableGreetingResponse(inputPrompt, prepared)
+    val promptRepetitionOnly = !acceptableGreetingResponse &&
+        isNpuS1PromptRepetitionOnly(
+            prompt = inputPrompt,
+            output = prepared,
+        )
     val arithmeticAnswerMissing = arithmeticPrompt && !containsNpuS1ArithmeticAnswerTwo(prepared)
+    val bulletListRequired = inputPrompt.contains("箇条書き")
+    val normalizedBulletPrompt = inputPrompt.map { char ->
+        if (char in '０'..'９') ('0'.code + (char.code - '０'.code)).toChar() else char
+    }.joinToString("")
+    val explicitRequiredBulletCountToken = Regex("""(?<!\d)(\d+)\s*(?:つ|個|項目)""")
+        .find(normalizedBulletPrompt)
+        ?.groupValues
+        ?.getOrNull(1)
+    val explicitRequiredBulletCount = explicitRequiredBulletCountToken?.toIntOrNull()
+    val explicitRequiredBulletCountInvalid = explicitRequiredBulletCountToken != null &&
+        (explicitRequiredBulletCount == null || explicitRequiredBulletCount !in 1..100)
+    val minimumBulletCount = 2
+    val structuredTaskListRequested = bulletListRequired ||
+        (explicitRequiredBulletCountToken != null && NPU_S1_TASK_LIST_INTENT_MARKERS.any(inputPrompt::contains))
+    val selfIntroTemplateLeak = qualityCheckText.contains("**自己紹介") ||
+        qualityCheckText.contains("---") ||
+        (qualityCheckText.contains("〇〇") && !structuredTaskListRequested)
+    val bulletItemLines = prepared.lines().filter(NPU_S1_BULLET_ITEM_LINE_PATTERN::matches)
+    val bulletItemCount = bulletItemLines.size
+    val repetitivePlaceholderOutput =
+        NPU_S1_REPETITIVE_CIRCLE_PATTERN.containsMatchIn(prepared) ||
+            bulletItemLines.any(::containsNpuS1UnresolvedCirclePlaceholder)
+    val bulletListRequirementNotMet = when {
+        !bulletListRequired -> false
+        explicitRequiredBulletCountInvalid -> true
+        explicitRequiredBulletCount != null -> bulletItemCount != explicitRequiredBulletCount
+        else -> bulletItemCount < minimumBulletCount
+    }
     val outputEmpty = prepared.isEmpty()
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
     val preparedBlank = prepared.isBlank()
     val preparedLiteralNewlineOnly = prepared == "\\n"
+    val unsupportedJapaneseResponseScript =
+        NpuStandardRouteS1Contract.containsUnsupportedJapaneseResponseScript(prepared)
+    val greetingResponseMismatch =
+        NpuStandardRouteS1Contract.isSimpleGreetingPrompt(inputPrompt) &&
+            !NpuStandardRouteS1Contract.isAcceptableGreetingResponse(inputPrompt, prepared)
     val failedReasons = buildList {
         if (rawOutput.isBlank()) add("raw_output_empty")
         if (sanitizedOutput.isBlank() && prepared.isBlank()) add("sanitized_output_empty")
@@ -664,12 +804,16 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         if (assistantRepetition) add("assistant_repetition")
         if (qaContinuation) add("qa_continuation")
         if (selfIntroTemplateLeak) add("self_intro_template_leak")
+        if (repetitivePlaceholderOutput) add("repetitive_placeholder_output")
         if (specialTokenLeak && !arithmeticTailLeakIgnoredForDisplay) add("special_token_leak")
         if (rawUnclosedSpecialToken) add("raw_unclosed_special_token")
         if (rawUnexpectedStartTurn && !arithmeticTailLeakIgnoredForDisplay) add("raw_unexpected_start_turn")
         if (userTurnLeak && !arithmeticTailLeakIgnoredForDisplay) add("user_turn_leak")
         if (promptRepetitionOnly) add("prompt_repetition_only")
+        if (unsupportedJapaneseResponseScript) add("unsupported_japanese_response_script")
+        if (greetingResponseMismatch) add("greeting_response_mismatch")
         if (arithmeticAnswerMissing) add("arithmetic_answer_missing")
+        if (bulletListRequirementNotMet) add("bullet_list_requirement_not_met")
     }
     return NpuS1PersistentCustomJniQualityCandidateResult(
         status = if (failedReasons.isEmpty()) {
@@ -720,6 +864,29 @@ private val NPU_S1_SAFE_END_OF_TURN_LINE_PATTERN =
 private val NPU_S1_SAFE_END_OF_TURN_TRAILING_PATTERN =
     Regex("""(?:\s*</?\s*end_of_turn\s*>?\s*)+$""", RegexOption.IGNORE_CASE)
 
+private val NPU_S1_BULLET_ITEM_LINE_PATTERN =
+    Regex("""^\s*(?:[-*+]\s+|\d+[.)]\s+|・\s*)\S.*$""")
+
+private val NPU_S1_TASK_LIST_INTENT_MARKERS =
+    listOf("やること", "予定", "タスク", "TODO", "todo")
+
+private fun containsNpuS1UnresolvedCirclePlaceholder(text: String): Boolean =
+    NPU_S1_SHORT_CIRCLE_PLACEHOLDER_PATTERN.findAll(text).any { match ->
+        val suffix = text.substring(match.range.last + 1)
+        NPU_S1_MEANINGFUL_CIRCLE_NAME_SUFFIXES.none(suffix::startsWith)
+    }
+
+private val NPU_S1_SHORT_CIRCLE_PLACEHOLDER_PATTERN = Regex("〇{2,}")
+
+private val NPU_S1_MEANINGFUL_CIRCLE_NAME_SUFFIXES = listOf(
+    "株式会社",
+    "有限会社",
+    "合同会社",
+)
+
+private val NPU_S1_REPETITIVE_CIRCLE_PATTERN =
+    Regex("〇{8,}")
+
 private fun containsNpuS1SpecialTurnMarker(text: String): Boolean =
     Regex("""</?\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
@@ -740,6 +907,25 @@ private fun isNpuS1PromptRepetitionOnly(
     return normalizedPrompt.isNotBlank() &&
         normalizedOutput.isNotBlank() &&
         normalizedOutput == normalizedPrompt
+}
+
+private fun removeNpuS1LeadingPromptEcho(
+    text: String,
+    inputPrompt: String,
+): String {
+    val normalizedPrompt = normalizeNpuS1QualityComparisonText(inputPrompt)
+    if (normalizedPrompt.isBlank() || text.isBlank()) return text
+    val lines = text.lines()
+    val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
+    if (firstMeaningfulIndex < 0) return text
+    val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
+    if (normalizeNpuS1QualityComparisonText(firstMeaningfulLine) != normalizedPrompt) return text
+    val remainingLines = lines.drop(firstMeaningfulIndex + 1)
+    if (remainingLines.none { it.trim().isNotEmpty() }) return text
+    return remainingLines
+        .dropWhile { it.trim().isEmpty() }
+        .joinToString("\n")
+        .trim()
 }
 
 private fun isNpuS1ArithmeticPrompt(prompt: String): Boolean =

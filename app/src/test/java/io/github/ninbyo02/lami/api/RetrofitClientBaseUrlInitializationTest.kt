@@ -25,12 +25,12 @@ class RetrofitClientBaseUrlInitializationTest {
 
     @Test
     fun `existing active server is preserved`() = runTest {
-        val existing = BaseUrl(id = 7, url = "http://example.com:11434/", isActive = true)
+        val existing = BaseUrl(id = 7, url = "http://server.local:11434/", isActive = true)
         val provider = FakeBaseUrlProvider(listOf(existing))
 
         val state = RetrofitClient.initialize(provider)
 
-        assertEquals("http://example.com:11434/", state.baseUrl)
+        assertEquals("http://server.local:11434/", state.baseUrl)
         assertFalse(state.usedFallback)
         assertEquals(listOf(existing), provider.baseUrls)
         assertNull(provider.lastReplaceAll)

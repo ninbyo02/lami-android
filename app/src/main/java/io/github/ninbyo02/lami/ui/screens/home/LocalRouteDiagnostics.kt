@@ -11,6 +11,9 @@ internal data class LocalRouteDiagnosticContext(
     val selectedModelName: String,
     val selectedModelFile: String,
     val selectedModelPath: String = selectedModelFile,
+    val selectedModelSlot: String = "unknown",
+    val npuPreviewModelConfigured: Boolean = false,
+    val genericFallbackModelConfigured: Boolean = false,
     val preferredBackend: String,
     val npuStandardRouteMode: String,
     val effectiveNpuStandardRouteMode: String,
@@ -461,6 +464,8 @@ internal data class GpuRouteConfigDiagnostics(
     val visionBackend: String = "unavailable",
     val audioBackend: String = "unavailable",
     val maxTokens: String = "unavailable",
+    val normalChatEngineConfigStyle: String = "unavailable",
+    val recommendedNextConfigVariant: String = "unavailable",
     val samplerConfigEnabled: String = "unavailable",
     val samplerTopK: String = "unavailable",
     val samplerTopP: String = "unavailable",
@@ -468,6 +473,8 @@ internal data class GpuRouteConfigDiagnostics(
     val samplerAccelerationPolicy: String = "unavailable",
     val conversationConfigProfile: String = "unavailable",
     val conversationConfigSamplerPresent: String = "unavailable",
+    val edgeGalleryAllowlistMaxTokens: String = "unavailable",
+    val maxTokensAlignment: String = "unavailable",
     val gpuOptionsConfigured: String = "unavailable",
     val gpuOptionsSource: String = "unavailable",
     val thinkingEnabled: String = "false",
@@ -584,6 +591,9 @@ internal fun buildLocalRouteDiagnosticContext(
     selectedModelName: String?,
     selectedModelFile: String?,
     selectedModelPath: String? = selectedModelFile,
+    selectedModelSlot: String = "unknown",
+    npuPreviewModelConfigured: Boolean = false,
+    genericFallbackModelConfigured: Boolean = false,
     preferredBackend: String,
     npuStandardRouteMode: String,
     effectiveNpuStandardRouteMode: String = npuStandardRouteMode,
@@ -611,6 +621,9 @@ internal fun buildLocalRouteDiagnosticContext(
         selectedModelName = modelName,
         selectedModelFile = modelFile,
         selectedModelPath = modelPath,
+        selectedModelSlot = selectedModelSlot.ifBlank { "unknown" },
+        npuPreviewModelConfigured = npuPreviewModelConfigured,
+        genericFallbackModelConfigured = genericFallbackModelConfigured,
         preferredBackend = preferredBackend,
         npuStandardRouteMode = npuStandardRouteMode,
         effectiveNpuStandardRouteMode = effectiveNpuStandardRouteMode,
@@ -718,13 +731,8 @@ private fun resolveStandardGpuMinimalRuntimeCandidateInterpretation(
         !eligibility.enabled -> "candidate_gate_disabled"
         !eligibility.eligible -> "blocked:${eligibility.blockReason}"
         result == "success" -> "minimal_runtime_core_pair_candidate_success"
-        result == "failure" &&
-            (
-                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
-                    flags.liteRtLmErrorStatusCode == "13" ||
-                    flags.gpuGenerateExceptionErrorLine == "735" ||
-                    flags.liteRtLmErrorPrimaryLine == "735"
-                ) -> "minimal_runtime_core_pair_candidate_failed_cc735"
+        result == "failure" && isCompiledModelInvokeFailureSignal(failureStage, flags) ->
+            "minimal_runtime_core_pair_candidate_failed_compiled_model_invoke"
         result == "failure" -> "minimal_runtime_core_pair_candidate_failed"
         else -> "minimal_runtime_core_pair_candidate_pending"
     }
@@ -897,17 +905,21 @@ private fun resolveStandardGpuRuntimeStackMismatchSummary(
     flags: LocalRouteDiagnosticFlags,
 ): String =
     when {
-        candidateResult == "failure" &&
-            (
-                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
-                    flags.liteRtLmErrorStatusCode == "13" ||
-                    flags.gpuGenerateExceptionErrorLine == "735" ||
-                    flags.liteRtLmErrorPrimaryLine == "735"
-                ) -> "runtime_stack_mismatch_suspected"
+        candidateResult == "failure" && isCompiledModelInvokeFailureSignal(failureStage, flags) ->
+            "runtime_stack_mismatch_suspected"
         candidateResult == "failure" -> "standard_gpu_candidate_failed_runtime_stack_review_required"
         candidateResult == "success" -> "runtime_stack_candidate_success"
         else -> "unavailable"
     }
+
+private fun isCompiledModelInvokeFailureSignal(
+    failureStage: String,
+    flags: LocalRouteDiagnosticFlags,
+): Boolean =
+    failureStage == "gpu_generate_compiled_model_invoke_failed" ||
+        flags.liteRtLmErrorStatusCode == "13" ||
+        flags.gpuGenerateExceptionErrorLine in LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES ||
+        flags.liteRtLmErrorPrimaryLine in LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES
 
 private fun resolveStandardGpuRuntimeStackPromotionBlockedReason(
     candidateEnabled: Boolean,
@@ -1963,6 +1975,9 @@ internal fun buildLocalRouteDiagnosticTrace(
         "selected_model_name=${context.selectedModelName}",
         "selected_model_file=${context.selectedModelFile}",
         "selected_model_path=${context.selectedModelPath}",
+        "selected_model_slot=${context.selectedModelSlot}",
+        "generic_fallback_model_configured=${context.genericFallbackModelConfigured}",
+        "npu_preview_model_configured=${context.npuPreviewModelConfigured}",
         "model_kind=${context.modelKind}",
         "preferred_backend=${context.preferredBackend}",
         "baseline_role=${context.baselineRole}",
@@ -2050,6 +2065,8 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_experiment_mode=${gpuConfig.experimentMode}",
         "experiment_mode=${gpuConfig.experimentMode}",
         "gpu_experiment_modes_available=${gpuConfig.availableExperimentModes}",
+        "gpu_normal_chat_engine_config_style=${gpuConfig.normalChatEngineConfigStyle}",
+        "gpu_recommended_next_config_variant=${gpuConfig.recommendedNextConfigVariant}",
         "gpu_cache_dir_mode=${resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode)}",
         "gpu_engine_config_model_path=${gpuConfig.modelPath}",
         "gpu_engine_config_model_path_tail=${gpuConfig.modelPathTail}",
@@ -2076,6 +2093,8 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_sampler_acceleration_policy=${gpuConfig.samplerAccelerationPolicy}",
         "gpu_conversation_config_profile=${gpuConfig.conversationConfigProfile}",
         "gpu_conversation_config_sampler_present=${gpuConfig.conversationConfigSamplerPresent}",
+        "edge_gallery_e2b_allowlist_max_tokens=${gpuConfig.edgeGalleryAllowlistMaxTokens}",
+        "gpu_max_tokens_alignment=${gpuConfig.maxTokensAlignment}",
         "gpu_options_configured=${gpuConfig.gpuOptionsConfigured}",
         "gpu_options_source=${gpuConfig.gpuOptionsSource}",
         "gpu_thinking_enabled=${gpuConfig.thinkingEnabled}",
@@ -2561,6 +2580,39 @@ private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
         "runtime_stack_loaded_gemma_constraint_provider_sha256=${diagnostics.gemmaConstraintProviderSha256}",
         "runtime_stack_loaded_full_stack_candidate_unit=${diagnostics.fullStackCandidateUnit.toDiagnosticValue()}",
         "runtime_stack_alignment_interpretation=${diagnostics.alignmentInterpretation}",
+        "gpu_native_prefill_preinvoke_marker_expected=$GPU_NATIVE_PREFILL_PREINVOKE_MARKER",
+        "gpu_native_prefill_preinvoke_artifact_marker_present=${diagnostics.libLiteRtLmJniPrefillPreinvokeMarkerPresent}",
+        "gpu_native_prefill_preinvoke_artifact_marker_source=${diagnostics.libLiteRtLmJniPrefillPreinvokeMarkerSource.toDiagnosticValue()}",
+        "gpu_native_prefill_preinvoke_native_hook_present=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookPresent}",
+        "gpu_native_prefill_preinvoke_native_hook_result=${diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookResult.toDiagnosticValue()}",
+    ) + buildQairt244GpuPrefillPreinvokeNativeMarkerRouteDiagnosticLines(
+        nativeHookResult = diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookResult,
+        nativeHookPresent = diagnostics.libLiteRtLmJniPrefillPreinvokeNativeHookPresent,
+    )
+}
+
+private fun buildQairt244GpuPrefillPreinvokeNativeMarkerRouteDiagnosticLines(
+    nativeHookResult: String,
+    nativeHookPresent: String,
+): List<String> {
+    val bridgeCallSucceeded = !nativeHookResult.startsWith("unavailable:")
+    val exceptionClass = if (bridgeCallSucceeded) {
+        "none"
+    } else {
+        nativeHookResult
+            .removePrefix("unavailable:")
+            .substringBefore(':')
+            .ifBlank { "unavailable" }
+    }
+    val exceptionMessage = if (bridgeCallSucceeded) "none" else nativeHookResult
+    return listOf(
+        "qairt244_gpu_prefill_preinvoke_marker_expected=$GPU_NATIVE_PREFILL_PREINVOKE_MARKER",
+        "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result=${if (bridgeCallSucceeded) "success" else "failure"}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_string=${if (bridgeCallSucceeded) nativeHookResult.toDiagnosticValue() else "unavailable"}",
+        "qairt244_gpu_prefill_preinvoke_jni_symbol_available=${bridgeCallSucceeded.toString()}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_available=$nativeHookPresent",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_class=${exceptionClass.toDiagnosticValue()}",
+        "qairt244_gpu_prefill_preinvoke_native_marker_exception_message=${exceptionMessage.toDiagnosticValue()}",
     )
 }
 
@@ -3149,6 +3201,7 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
             ?.lineSequence()
             ?.forEach { line ->
                 val trimmed = line.trim()
+                putGpuNativePrefillPreinvokeTokens(trimmed)
                 if (trimmed.startsWith("LOCAL_ROUTE_DIAG ")) {
                     trimmed.split(' ')
                         .asSequence()
@@ -3168,6 +3221,67 @@ internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
                 }
             }
     }
+
+internal const val GPU_NATIVE_PREFILL_PREINVOKE_MARKER = "qairt244_gpu_prefill_preinvoke_v1"
+
+internal val GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS = listOf(
+    "qairt244_gpu_prefill_preinvoke_marker_expected",
+    "qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result",
+    "qairt244_gpu_prefill_preinvoke_native_marker_string",
+    "qairt244_gpu_prefill_preinvoke_jni_symbol_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_available",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_class",
+    "qairt244_gpu_prefill_preinvoke_native_marker_exception_message",
+    "gpu_native_prefill_preinvoke_marker",
+    "gpu_native_prefill_preinvoke_marker_expected",
+    "gpu_native_prefill_preinvoke_artifact_marker_present",
+    "gpu_native_prefill_preinvoke_artifact_marker_source",
+    "gpu_native_prefill_preinvoke_native_hook_present",
+    "gpu_native_prefill_preinvoke_native_hook_result",
+    "gpu_native_prefill_preinvoke_event",
+    "gpu_native_prefill_preinvoke_executor_backend",
+    "gpu_native_prefill_preinvoke_settings_backend",
+    "gpu_native_prefill_preinvoke_sampler_backend",
+    "gpu_native_prefill_preinvoke_signature",
+    "gpu_native_prefill_preinvoke_runner",
+    "gpu_native_prefill_preinvoke_async",
+    "gpu_native_prefill_preinvoke_prompt_token_length",
+    "gpu_native_prefill_preinvoke_prefill_effective_token_length",
+    "gpu_native_prefill_preinvoke_prefill_start_position",
+    "gpu_native_prefill_preinvoke_prefill_end_position",
+    "gpu_native_prefill_preinvoke_current_step",
+    "gpu_native_prefill_preinvoke_prefill_input_tensor_count",
+    "gpu_native_prefill_preinvoke_prefill_input_tensors",
+    "gpu_native_prefill_preinvoke_run_input_tensor_count",
+    "gpu_native_prefill_preinvoke_run_input_tensors",
+    "gpu_native_prefill_preinvoke_input_kv_cache_tensor_count",
+    "gpu_native_prefill_preinvoke_input_kv_cache_tensors",
+    "gpu_native_prefill_preinvoke_output_kv_cache_tensor_count",
+    "gpu_native_prefill_preinvoke_output_kv_cache_tensors",
+    "gpu_native_prefill_preinvoke_run_output_tensor_count",
+    "gpu_native_prefill_preinvoke_run_output_tensors",
+)
+
+private fun MutableMap<String, String>.putGpuNativePrefillPreinvokeTokens(line: String) {
+    if (!line.contains(GPU_NATIVE_PREFILL_PREINVOKE_MARKER)) return
+    put("gpu_native_prefill_preinvoke_marker", GPU_NATIVE_PREFILL_PREINVOKE_MARKER)
+    line.substringAfter(GPU_NATIVE_PREFILL_PREINVOKE_MARKER)
+        .trim()
+        .split(' ')
+        .asSequence()
+        .filter { it.isNotBlank() }
+        .forEach { token ->
+            val separatorIndex = token.indexOf('=')
+            if (separatorIndex > 0) {
+                val key = token.substring(0, separatorIndex).trim()
+                val value = token.substring(separatorIndex + 1).trim()
+                put("gpu_native_prefill_preinvoke_$key", value)
+            }
+        }
+}
+
+internal fun extractGpuNativePrefillPreinvokeDiagnostics(text: String?): Map<String, String> =
+    parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_NATIVE_PREFILL_PREINVOKE_DIAGNOSTIC_KEYS }
 
 internal fun extractGpuPrefillProbeDiagnostics(text: String?): Map<String, String> =
     parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS }
@@ -3301,7 +3415,6 @@ internal fun classifyLiteRtCompiledModelExecutorFailureCategory(
 ): String =
     when {
         error.primaryFile.endsWith("llm_litert_compiled_model_executor.cc") &&
-            error.primaryLine == "735" &&
             error.kind == "compiled_model_invoke_failed" -> "compiled_model_invoke"
         error.kind == "compiled_model_creation_failed" -> "compiled_model_load"
         error.kind == "max_tokens_too_small" -> "compiled_model_invoke_input_budget"
@@ -3631,6 +3744,12 @@ internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
 internal const val GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION = "switch_to_cpu_or_npu"
 internal const val GPU_COMPATIBILITY_MODE_EDGE_GALLERY_LIKE = "edge_gallery_like"
 internal const val GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "edge_gallery_like_text_only"
+internal const val GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES =
+    "normal_chat_text_gpu_null_modalities"
+internal const val GPU_RECOMMENDED_NEXT_CONFIG_TEXT_ONLY_NULL_MODALITIES =
+    "try_gpu_text_only_null_modalities"
+internal const val GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY =
+    "none_current_config_already_text_gpu_null_modalities"
 internal const val GPU_CACHE_DIR_MODE_EDGE_GALLERY_LIKE = "gallery_like_null_for_app_model_path"
 internal const val GPU_MODEL_PATH_MODE_SELECTED_FILE = "selected_litertlm_file"
 internal const val GPU_SAMPLER_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "gallery_defaults_64_0.95_1.0"
@@ -3646,10 +3765,17 @@ internal const val GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE = "gpu
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL = "gpu_cache_dir_null"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES = "gpu_cache_dir_app_files"
 internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_32 = "gpu_max_tokens_32"
+internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_4096 = "gpu_max_tokens_4096"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER = "gpu_cache_dir_app_files_no_sampler"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_dir_null_no_sampler"
+internal const val GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES = "gpu_text_only_null_modalities"
 internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
     "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
+private val LITERT_COMPILED_MODEL_INVOKE_ERROR_LINES = setOf("735", "836")
+internal val GPU_EXPERIMENT_MODE_PROPERTY_KEYS = listOf(
+    "debug.lami.gpu_experiment_mode",
+    "lami.gpu_experiment_mode",
+)
 internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE,
     GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL,
@@ -3658,8 +3784,10 @@ internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
     GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+    GPU_EXPERIMENT_MODE_MAX_TOKENS_4096,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
+    GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES,
 )
 
 internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: String): Boolean =
@@ -3668,34 +3796,33 @@ internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: St
 internal fun resolveGpuDiagnosticExperimentModeForBackend(
     preferredBackend: String,
     overrideValue: String? = null,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    debugSelectorAllowed: Boolean = BuildConfig.DEBUG,
 ): String {
     if (!shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) return "unavailable"
     val requested = overrideValue?.trim()?.takeIf { it.isNotBlank() }
-        ?: readGpuDiagnosticExperimentModeFromDebugProperty()
+        ?: readGpuDiagnosticExperimentModeFromDebugProperty(
+            propertyReader = propertyReader,
+            debugSelectorAllowed = debugSelectorAllowed,
+        )
     return requested
         ?.takeIf { mode -> GPU_DIAGNOSTIC_EXPERIMENT_MODES.any { it.equals(mode, ignoreCase = true) } }
         ?.let { mode -> GPU_DIAGNOSTIC_EXPERIMENT_MODES.first { it.equals(mode, ignoreCase = true) } }
         ?: GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE
 }
 
-private fun readGpuDiagnosticExperimentModeFromDebugProperty(): String? {
-    if (!BuildConfig.DEBUG) return null
-    val systemProperty = runCatching {
-        System.getProperty("lami.gpu_experiment_mode")?.trim()?.takeIf { it.isNotBlank() }
-    }.getOrNull()
-    if (systemProperty != null) return systemProperty
+private fun readGpuDiagnosticExperimentModeFromDebugProperty(
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    debugSelectorAllowed: Boolean = BuildConfig.DEBUG,
+): String? {
+    if (!debugSelectorAllowed) return null
+    GPU_EXPERIMENT_MODE_PROPERTY_KEYS.firstNotNullOfOrNull { key ->
+        propertyReader(key)?.trim()?.takeIf { it.isNotBlank() }
+    }?.let { return it }
     val env = runCatching {
         System.getenv("LAMI_GPU_EXPERIMENT_MODE")?.trim()?.takeIf { it.isNotBlank() }
     }.getOrNull()
-    if (env != null) return env
-    return runCatching {
-        val clazz = Class.forName("android.os.SystemProperties")
-        val method = clazz.getMethod("get", String::class.java, String::class.java)
-        listOf("debug.lami.gpu_experiment_mode", "lami.gpu_experiment_mode")
-            .firstNotNullOfOrNull { key ->
-                (method.invoke(null, key, "") as? String)?.trim()?.takeIf { it.isNotBlank() }
-            }
-    }.getOrNull()
+    return env
 }
 
 internal fun resolveGpuCompatibilityModeForBackend(preferredBackend: String): String =
@@ -3710,6 +3837,37 @@ internal fun resolveGpuEngineConfigProfileForBackend(preferredBackend: String): 
         GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE
     } else {
         "unavailable"
+    }
+
+internal fun resolveNormalChatGpuEngineConfigStyle(
+    preferredBackend: String,
+    experimentMode: String,
+): String =
+    if (!shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        "unavailable"
+    } else if (experimentMode == GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES) {
+        GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES
+    } else {
+        GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE
+    }
+
+internal fun shouldUseNormalChatGpuTextOnlyNullModalities(
+    preferredBackend: PreferredBackendDryRunSetting,
+    experimentMode: String,
+): Boolean =
+    preferredBackend == PreferredBackendDryRunSetting.GPU &&
+        experimentMode == GPU_EXPERIMENT_MODE_TEXT_ONLY_NULL_MODALITIES
+
+internal fun recommendedNextGpuConfigVariant(
+    preferredBackend: PreferredBackendDryRunSetting,
+    configStyle: String,
+): String =
+    when {
+        preferredBackend != PreferredBackendDryRunSetting.GPU -> "none"
+        configStyle == GPU_ENGINE_CONFIG_PROFILE_TEXT_ONLY_NULL_MODALITIES ||
+            configStyle == GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE ->
+            GPU_RECOMMENDED_NEXT_CONFIG_NONE_ALREADY_TEXT_ONLY
+        else -> GPU_RECOMMENDED_NEXT_CONFIG_TEXT_ONLY_NULL_MODALITIES
     }
 
 internal fun resolveGpuCacheDirModeForBackend(
@@ -3796,6 +3954,10 @@ internal fun buildGpuRouteConfigDiagnostics(
     val matrixMode = resolveGpuOutputQualityMatrixModeForDebug(preferredBackend)
     val shortMaxTokensProbeEnabled = isGpuOutputQualityProbeShortMaxTokensEnabledForDebug(preferredBackend)
     val numericMaxTokensOverride = resolveGpuOutputQualityMaxTokensOverrideForDebug(preferredBackend)
+    val configStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackend,
+        experimentMode = experimentMode,
+    )
     val resolvedMaxTokens = when {
         numericMaxTokensOverride != null -> numericMaxTokensOverride.toString()
         shortMaxTokensProbeEnabled -> GPU_OUTPUT_QUALITY_PROBE_SHORT_MAX_TOKENS.toString()
@@ -3822,6 +3984,11 @@ internal fun buildGpuRouteConfigDiagnostics(
         visionBackend = "null",
         audioBackend = "null",
         maxTokens = resolvedMaxTokens,
+        normalChatEngineConfigStyle = configStyle,
+        recommendedNextConfigVariant = recommendedNextGpuConfigVariant(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            configStyle = configStyle,
+        ),
         samplerConfigEnabled = samplerEnabled.toString(),
         samplerTopK = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_K.toString() else "unavailable",
         samplerTopP = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_P else "unavailable",
@@ -3836,6 +4003,8 @@ internal fun buildGpuRouteConfigDiagnostics(
             else -> GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE
         },
         conversationConfigSamplerPresent = samplerEnabled.toString(),
+        edgeGalleryAllowlistMaxTokens = GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString(),
+        maxTokensAlignment = resolveGpuMaxTokensAlignment(resolvedMaxTokens),
         gpuOptionsConfigured = "false",
         gpuOptionsSource = "EngineConfig_backend_only_no_explicit_GpuOptions",
         thinkingEnabled = "false",
@@ -3883,7 +4052,7 @@ internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_FINAL_RESPONSE_PR
     "edge_gallery_final_response_probe"
 internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_EXECUTOR_PROBE =
     "edge_gallery_executor_probe"
-private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4000)
+private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4096)
 internal val EDGE_GALLERY_PARITY_MATRIX_MODES = setOf(
     GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
     GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
@@ -4181,10 +4350,17 @@ private fun readLocalRouteDebugProperty(key: String): String? {
 }
 
 internal fun resolveGpuMaxTokensForExperiment(experimentMode: String): String =
-    if (experimentMode == GPU_EXPERIMENT_MODE_MAX_TOKENS_32) {
-        "32"
-    } else {
-        GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
+    when (experimentMode) {
+        GPU_EXPERIMENT_MODE_MAX_TOKENS_32 -> "32"
+        GPU_EXPERIMENT_MODE_MAX_TOKENS_4096 -> GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString()
+        else -> GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
+    }
+
+internal fun resolveGpuMaxTokensAlignment(maxTokens: String): String =
+    when (maxTokens.toIntOrNull()) {
+        GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS -> "matches_edge_gallery_e2b_allowlist"
+        null -> "unavailable"
+        else -> "differs_from_edge_gallery_e2b_allowlist"
     }
 
 internal fun shouldUseGpuDiagnosticSamplerConfig(experimentMode: String): Boolean =
@@ -4205,6 +4381,40 @@ internal fun resolveGpuExperimentCacheDirForDiagnostics(
         GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER -> cacheDirPath
         else -> if (modelPath.startsWith("/data/local/tmp")) cacheDirPath else null
     }
+
+internal data class GpuExperimentalTimeoutPolicy(
+    val useFirstTokenWatchdog: Boolean,
+    val useDetachedOperationTimeout: Boolean,
+)
+
+internal fun resolveGpuExperimentalTimeoutPolicy(
+    context: LocalRouteDiagnosticContext,
+    preferredBackend: PreferredBackendDryRunSetting,
+    gpuGenerateProbeMode: String,
+    currentFlavor: String,
+): GpuExperimentalTimeoutPolicy {
+    val experimentalTimeoutEligible = shouldApplyGpuExperimentalStageTimeout(context)
+    val standardNormalHeldBlocking =
+        currentFlavor == "standard" &&
+            preferredBackend == PreferredBackendDryRunSetting.GPU &&
+            gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
+    val enabled = experimentalTimeoutEligible && !standardNormalHeldBlocking
+    return GpuExperimentalTimeoutPolicy(
+        useFirstTokenWatchdog = enabled,
+        useDetachedOperationTimeout = enabled,
+    )
+}
+
+@Suppress("UNUSED_PARAMETER")
+internal fun shouldUseHeldOfficialBlockingFastPath(
+    currentFlavor: String,
+    preferredBackend: PreferredBackendDryRunSetting,
+    gpuGenerateProbeMode: String,
+    callbackStreamingDebugPropertyEnabled: Boolean,
+): Boolean =
+    currentFlavor == "standard" &&
+        preferredBackend == PreferredBackendDryRunSetting.GPU &&
+        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
 
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,

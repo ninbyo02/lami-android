@@ -9,7 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class Qairt244ModelPathResolverTest {
+class Qairt244ModelPathResolverCustomBuildTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 

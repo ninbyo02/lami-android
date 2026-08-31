@@ -2,17 +2,11 @@ name: Android CI
 
 on:
   pull_request:
-    branches:
-      - main
-      - stable
-      - 'feature/**'
-      - 'feat/**'
-      - 'fix/**'
-      - 'codex/**'
-      - 'ci/**'
+    branches: [main, future, stable]
   push:
     branches:
       - main
+      - future
       - stable
       - 'feature/**'
       - 'feat/**'
@@ -21,10 +15,18 @@ on:
       - 'ci/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   standard-debug:
-    name: Standard debug build and unit tests
+    name: Standard debug verification
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -42,39 +44,140 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install SDK components
+      - name: Install Android 16 SDK
         run: |
-          yes | sdkmanager --licenses
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --install \
             "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;28.1.13356709"
-          yes | sdkmanager --licenses
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Make Gradle executable
         run: chmod +x gradlew
 
+      - name: Reject tracked native binaries
+        run: bash scripts/tests/test_no_tracked_native_binaries.sh
+
+      - name: Verify NPU conversation policy artifact wiring
+        run: |
+          bash scripts/tests/test_npu_conversation_policy_artifact_verification.sh
+          bash scripts/tests/test_npu_conversation_policy_device_validation.sh
+          bash scripts/tests/test_npu_conversation_policy_device_summary.sh
+          bash scripts/tests/test_standard_release_automated_conversation_suite.sh
+          bash scripts/tests/test_conversation_api_ab_harness.sh
+
       - name: Run standard debug unit tests
-        run: ./gradlew --no-daemon :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
 
-      - name: Build standard debug APK
-        run: ./gradlew --no-daemon :app:assembleStandardDebug --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
+      - name: Run standard debug lint (non-NPU clean checkout)
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:lintStandardDebug --stacktrace
 
-      - name: Upload standard debug APK
+      - name: Assemble standard debug non-NPU smoke APK
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:assembleStandardDebug --stacktrace
+
+      - name: Document standard debug native coverage
+        run: |
+          echo "The hosted-runner standardDebug APK is a non-NPU smoke artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "QAIRT 2.44 JNI promotion remains covered by the pinned local native-build and device-evidence workflow." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Room schema history
+        run: |
+          test -f app/schemas/io.github.ninbyo02.lami.db.ChatDatabase/13.json
+          test -f app/schemas/io.github.ninbyo02.lami.db.ChatDatabase/14.json
+          git diff --exit-code -- app/schemas
+          test -z "$(git status --porcelain --untracked-files=all -- app/schemas)"
+
+      - name: Upload debug reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: lami-standard-debug-apk
-          path: app/build/outputs/apk/standard/debug/*.apk
-          if-no-files-found: warn
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lami-standard-debug-test-reports
+          name: lami-standard-debug-non-npu
           path: |
-            app/build/reports/tests/
-            app/build/test-results/
+            app/build/outputs/apk/standard/debug/*.apk
+            app/build/reports/tests/testStandardDebugUnitTest/
+            app/build/test-results/testStandardDebugUnitTest/
+            app/build/reports/lint-results-standardDebug.*
+            app/schemas/
           if-no-files-found: warn
+          retention-days: 14
+
+  standard-release:
+    name: Standard release verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android 16 SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Run standard release unit tests
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:testStandardReleaseUnitTest --stacktrace
+
+      - name: Run standard release lint
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:lintStandardRelease --stacktrace
+
+      - name: Build standard release APK and AAB
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:assembleStandardRelease :app:bundleStandardRelease --stacktrace
+
+      - name: Verify and inventory release artifacts
+        run: |
+          set -euo pipefail
+          report_dir=app/build/reports/release-artifacts
+          mkdir -p "$report_dir"
+          find app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > "$report_dir/sha256sums.txt"
+          apk=$(find app/build/outputs/apk/standard/release -type f -name '*.apk' -print -quit)
+          test -n "$apk"
+          scripts/tests/test_standard_release_npu_packaging.sh "$apk" disabled
+          while IFS= read -r -d "" artifact; do
+            scripts/tests/test_standard_release_npu_packaging.sh "$artifact" disabled
+          done < <(find app/build/outputs/bundle/standardRelease -type f -name "*.aab" -print0)
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk" > "$report_dir/zipalign-16k.txt"
+          stat -c '%s bytes %n' "$apk" > "$report_dir/artifact-sizes.txt"
+          while IFS= read -r -d '' artifact; do
+            stat -c '%s bytes %n' "$artifact" >> "$report_dir/artifact-sizes.txt"
+          done < <(find app/build/outputs/bundle/standardRelease -type f -name '*.aab' -print0)
+          unzip -l "$apk" \
+            | awk '$4 ~ /^lib\// && $4 ~ /\.so$/ {split($4,a,"/"); bytes[a[2]]+=$1; files[a[2]]++} END {for (abi in bytes) printf "%s files=%d uncompressed_bytes=%d\n", abi, files[abi], bytes[abi]}' \
+            | sort > "$report_dir/native-library-inventory.txt"
+          cat "$report_dir/sha256sums.txt"
+          cat "$report_dir/native-library-inventory.txt"
+
+      - name: Upload release reports and bundle
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lami-standard-release
+          path: |
+            app/build/outputs/apk/standard/release/*.apk
+            app/build/outputs/bundle/standardRelease/*.aab
+            app/build/reports/tests/testStandardReleaseUnitTest/
+            app/build/test-results/testStandardReleaseUnitTest/
+            app/build/reports/lint-results-standardRelease.*
+            app/build/reports/release-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Local validation only: the build flag extracts the staged SM8750 runtime
+             and this manifest requests the vendor FastRPC namespace. -->
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.ui.screens.home.StandardNpuReleasePreflightReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:process=":npu_preflight">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.STANDARD_NPU_RELEASE_PREFLIGHT" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

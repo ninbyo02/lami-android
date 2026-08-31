@@ -1,7 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application android:extractNativeLibs="true">
+        <service
+            android:name="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="true">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_litert_lm_benchmark" />
+        </service>
+        <activity
+            android:name="io.github.ninbyo02.lami.gpu.DebugTokenBenchmarkActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Ollama" />
         <activity
             android:name="io.github.ninbyo02.lami.debug.LiteRtModelInspectorActivity"
             android:excludeFromRecents="true"

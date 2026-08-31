@@ -11,13 +11,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MessageDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMessage(message: Message)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMessageAndReturnId(message: Message): Long
 
-    @Query("SELECT * FROM chat_table WHERE chatId = :chatId ")
+    @Query("SELECT * FROM chat_table WHERE chatId = :chatId ORDER BY messageID ASC")
     fun getAllMessages(chatId: Int): Flow<List<Message>>
 
     @Query("SELECT * FROM chat_table WHERE messageID = :messageId LIMIT 1")
@@ -25,6 +25,95 @@ interface MessageDao {
 
     @Update
     suspend fun updateMessage(message: Message)
+
+    @Query(
+        """
+        UPDATE chat_table
+        SET status = :newStatus,
+            errorCode = :errorCode,
+            updatedAtEpochMs = :updatedAtEpochMs
+        WHERE messageID = :messageId
+          AND isSendbyMe = 0
+          AND status IN (:expectedStatuses)
+        """
+    )
+    suspend fun transitionAssistantMessageStatus(
+        messageId: Int,
+        expectedStatuses: List<String>,
+        newStatus: String,
+        errorCode: String?,
+        updatedAtEpochMs: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE chat_table
+        SET message = :message,
+            updatedAtEpochMs = :updatedAtEpochMs
+        WHERE messageID = :messageId
+          AND isSendbyMe = 0
+          AND status = :expectedStatus
+        """
+    )
+    suspend fun updateAssistantMessageContentIfStatus(
+        messageId: Int,
+        expectedStatus: String,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE chat_table
+        SET message = :message,
+            status = 'COMPLETED',
+            errorCode = NULL,
+            updatedAtEpochMs = :updatedAtEpochMs
+        WHERE messageID = :messageId
+          AND isSendbyMe = 0
+          AND status IN ('PENDING', 'GENERATING')
+        """
+    )
+    suspend fun completeInFlightAssistantMessage(
+        messageId: Int,
+        message: String,
+        updatedAtEpochMs: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE chat_table
+        SET message = COALESCE(:message, message),
+            status = 'FAILED',
+            errorCode = :errorCode,
+            updatedAtEpochMs = :updatedAtEpochMs
+        WHERE messageID = :messageId
+          AND isSendbyMe = 0
+          AND status IN ('PENDING', 'GENERATING')
+        """
+    )
+    suspend fun failInFlightAssistantMessage(
+        messageId: Int,
+        message: String?,
+        errorCode: String,
+        updatedAtEpochMs: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE chat_table
+        SET status = 'INTERRUPTED',
+            errorCode = 'PROCESS_INTERRUPTED',
+            updatedAtEpochMs = :updatedAtEpochMs
+        WHERE isSendbyMe = 0
+          AND status IN ('PENDING', 'GENERATING')
+          AND updatedAtEpochMs < :processStartedAtEpochMs
+        """
+    )
+    suspend fun interruptInFlightAssistantMessagesAfterRestart(
+        processStartedAtEpochMs: Long,
+        updatedAtEpochMs: Long,
+    ): Int
 
 
     @Query("SELECT COUNT(*) FROM chat_table WHERE chatId = :chatId")

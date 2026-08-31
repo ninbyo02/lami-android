@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
@@ -79,6 +80,7 @@ internal interface LocalStreamingRunner<T> {
         resolvedModelPath: String? = null,
         cacheDirPath: String? = null,
         mediaPipeProbeContext: Context? = null,
+        initialTurns: List<LocalConversationTurn> = emptyList(),
         onPartial: (String) -> Unit = {},
     ): T?
 }
@@ -92,6 +94,7 @@ internal class DefaultLocalStreamingRunner<T>(
         resolvedModelPath: String?,
         cacheDirPath: String?,
         mediaPipeProbeContext: Context?,
+        initialTurns: List<LocalConversationTurn>,
         onPartial: (String) -> Unit,
     ) -> T,
 ) : LocalStreamingRunner<T> {
@@ -102,6 +105,7 @@ internal class DefaultLocalStreamingRunner<T>(
         resolvedModelPath: String?,
         cacheDirPath: String?,
         mediaPipeProbeContext: Context?,
+        initialTurns: List<LocalConversationTurn>,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeoutMs) {
@@ -112,6 +116,7 @@ internal class DefaultLocalStreamingRunner<T>(
                 resolvedModelPath,
                 cacheDirPath,
                 mediaPipeProbeContext,
+                initialTurns,
                 onPartial,
             )
         }
@@ -330,8 +335,10 @@ internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
         ?: propertyReader("lami.gpu_normal_route_use_callback_streaming")
-        ?: return false
-    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    if (enabled != null) {
+        return enabled.equals("true", ignoreCase = true) || enabled == "1"
+    }
+    return BuildConfig.CURRENT_FLAVOR == "standard"
 }
 
 internal fun isGpuCallbackRawPassthroughEnabledForDebug(
@@ -2414,6 +2421,17 @@ internal fun isCpuRouteProbeEnabledForDebug(
     return value.equals("true", ignoreCase = true) || value == "1"
 }
 
+internal fun isCpuNormalRouteBlockingFastPathEnabledForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG || preferredBackend != PreferredBackendDryRunSetting.CPU) return false
+    val value = propertyReader("debug.lami.cpu_normal_route_blocking_fast_path")
+        ?: propertyReader("lami.cpu_normal_route_blocking_fast_path")
+        ?: return false
+    return value.equals("true", ignoreCase = true) || value == "1"
+}
+
 private fun buildCpuRouteBaseDiagnostics(
     heldEngine: HeldLocalEngine,
     localModelDisplayName: String?,
@@ -2422,6 +2440,7 @@ private fun buildCpuRouteBaseDiagnostics(
     heldEngineAcquireResult: String?,
     holderSnapshotAtRunStart: HeldEngineDevDiagnosticSnapshot,
     cpuRouteProbeEnabled: Boolean,
+    cpuBlockingFastPathEnabled: Boolean,
 ): Map<String, String> {
     if (heldEngine.preferredBackendDryRunSetting != PreferredBackendDryRunSetting.CPU) return emptyMap()
     val modelFile = File(heldEngine.modelPath)
@@ -2444,6 +2463,8 @@ private fun buildCpuRouteBaseDiagnostics(
             holderSnapshot = holderSnapshotAtRunStart,
         ),
         "cpu_route_probe_enabled" to cpuRouteProbeEnabled.toString(),
+        "cpu_normal_route_blocking_fast_path_enabled" to cpuBlockingFastPathEnabled.toString(),
+        "cpu_route_mode" to if (cpuBlockingFastPathEnabled) "blocking_fast_path" else "flow_streaming",
         "cpu_route_probe_result" to if (cpuRouteProbeEnabled) "not_started" else "disabled",
         "cpu_route_probe_failure_stage" to "none",
         "cpu_route_probe_callback_count" to "0",
@@ -2952,6 +2973,7 @@ internal suspend fun runWithHeldEngine(
     mediaPipeProbeModelPath: String? = null,
     mediaPipeProbeContext: Context? = null,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
@@ -3050,9 +3072,13 @@ internal suspend fun runWithHeldEngine(
     )
     val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
         preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
-        overrideValue = resolveGpuOutputQualityExperimentOverrideForDebug(
-            preferredBackend = heldEngine.preferredBackendDryRunSetting,
-        ) ?: resolveGpuExperimentOverrideForGenerateProbeMode(generateProbeMode),
+        overrideValue = if (callbackStreamingPathSelected && generateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL) {
+            GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE
+        } else {
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = heldEngine.preferredBackendDryRunSetting,
+            ) ?: resolveGpuExperimentOverrideForGenerateProbeMode(generateProbeMode)
+        },
     )
     val gpuConfigDiagnosticsForRun = overrideGpuConfigForGenerateProbeMode(
         diagnostics = buildGpuRouteConfigDiagnostics(
@@ -3069,6 +3095,9 @@ internal suspend fun runWithHeldEngine(
     val cpuRouteProbeEnabled = isCpuRouteProbeEnabledForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
     )
+    val cpuBlockingFastPathEnabled = isCpuNormalRouteBlockingFastPathEnabledForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
     val cpuGpuCallbackCompareMaxTokens = gpuConfigDiagnosticsForRun.outputQualityEffectiveMaxTokens.toIntOrNull()
         ?: gpuConfigDiagnosticsForRun.maxTokens.toIntOrNull()
     val cpuGpuCallbackCompareSamplerHint = gpuConfigDiagnosticsForRun.samplerAccelerationPolicy
@@ -3080,6 +3109,7 @@ internal suspend fun runWithHeldEngine(
         heldEngineAcquireResult = heldEngineAcquireResult,
         holderSnapshotAtRunStart = holderSnapshotAtRunStart,
         cpuRouteProbeEnabled = cpuRouteProbeEnabled,
+        cpuBlockingFastPathEnabled = cpuBlockingFastPathEnabled,
     )
 
     fun recordMemorySnapshot(stage: String) {
@@ -3272,6 +3302,7 @@ internal suspend fun runWithHeldEngine(
             engine = heldEngine.engineInstance,
             namespace = namespace,
             preferredBackendDryRunSetting = heldEngine.preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
             routeDiagnosticContext = routeDiagnosticContext,
             routeRunStartedAtMs = routeRunStartedAtMs,
@@ -3283,7 +3314,72 @@ internal suspend fun runWithHeldEngine(
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
             var generateImmediateFailure = false
+            var blockingFastPathResponseUsed = false
+            var blockingFastPathStartedAtMs: Long? = null
             val flowResponse = runCatching {
+                if (cpuBlockingFastPathEnabled || shouldUseHeldOfficialBlockingFastPath(
+                        currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+                        gpuGenerateProbeMode = generateProbeMode,
+                        callbackStreamingDebugPropertyEnabled = normalRouteUseCallbackStreamingRequested,
+                    )
+                ) {
+                    if (namespace != "com.google.ai.edge.litertlm") return@runCatching null
+                    val sendMessageMethod = conversation.javaClass.methods.firstOrNull { method ->
+                        method.name == "sendMessage" &&
+                            method.parameterTypes.size == 2 &&
+                            method.parameterTypes[0] == String::class.java &&
+                            Map::class.java.isAssignableFrom(method.parameterTypes[1])
+                    } ?: return@runCatching null
+                    appendGenerateStarted()
+                    callbackTracker.markGenerateCallEntered()
+                    appendRouteStage(
+                        stage = "generate_blocking_call_entered",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    blockingFastPathStartedAtMs = SystemClock.elapsedRealtime()
+                    val responseValue = runCatching {
+                        sendMessageMethod.invoke(conversation, effectivePrompt, emptyMap<String, Any>())
+                    }.getOrNull() ?: return@runCatching null
+                    callbackTracker.markGenerateCallReturned()
+                    appendRouteStage(
+                        stage = "generate_blocking_call_returned",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    val extractedText = extractOfficialMessageTextWithTrace(
+                        path = "held-engine-blocking",
+                        value = responseValue,
+                        appendTrace = appendTrace,
+                    )
+                    callbackTracker.recordCallback(
+                        message = responseValue,
+                        extractedText = extractedText,
+                    )
+                    val responseText = extractedText.orEmpty().trim()
+                    if (responseText.isBlank()) return@runCatching null
+                    heldFlowPartialCount += 1
+                    heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    heldFlowLastChunkElapsedRealtimeMs = heldFlowFirstPartialElapsedRealtimeMs
+                    appendFirstTokenReceived()
+                    callbackTracker.markPromotedText(responseText)
+                    callbackTracker.markUiAppendStarted(responseText)
+                    appendRouteStage(
+                        stage = "generate_blocking_ui_append_started",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    onPartial(responseText)
+                    callbackTracker.markUiAppendFinished(responseText)
+                    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                        engineHolder.recordGpuUiAppendFinishedForDiagnostics()
+                    }
+                    callbackTracker.markStreamingCompleted(responseText)
+                    appendRouteStage(
+                        stage = "generate_blocking_completed",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    blockingFastPathResponseUsed = true
+                    return@runCatching responseText
+                }
                 val sendMessageAsyncMethod = findSendMessageAsyncMethod(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
@@ -3519,10 +3615,11 @@ internal suspend fun runWithHeldEngine(
                     closeSummaryPath = "held-official-flow-generate-failure"
                     return@runWithConversation flowResponse
                 }
-                officialFlowUsed = true
-                closeSummaryPath = "held-official-flow"
+                officialFlowUsed = !blockingFastPathResponseUsed
+                closeSummaryPath = if (blockingFastPathResponseUsed) "held-official-blocking" else "held-official-flow"
+                val measuredPath = if (blockingFastPathResponseUsed) "held-official-blocking" else "held-official-flow"
                 val measuredCollector = MeasuredTokenTimingCollector(
-                    path = "held-official-flow",
+                    path = measuredPath,
                     appendTrace = appendTrace,
                 )
                 measuredCollector.observe(
@@ -3545,8 +3642,8 @@ internal suspend fun runWithHeldEngine(
                     promptText = effectivePrompt,
                     fullResponseText = flowResponse,
                     timing = LocalLiteRtTimingSnapshot(
-                        startedAtMs = startElapsedRealtimeMs,
-                        firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
+                        startedAtMs = if (blockingFastPathResponseUsed) blockingFastPathStartedAtMs ?: startElapsedRealtimeMs else startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = if (blockingFastPathResponseUsed) blockingFastPathStartedAtMs ?: heldFlowFirstPartialElapsedRealtimeMs else heldFlowFirstPartialElapsedRealtimeMs,
                         lastChunkAtMs = heldFlowLastChunkElapsedRealtimeMs,
                         endedAtMs = SystemClock.elapsedRealtime(),
                     ),
@@ -3743,6 +3840,14 @@ internal suspend fun runWithHeldEngine(
             blockingResponse
         }
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) {
+            if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                withContext(NonCancellable) {
+                    engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+                }
+            }
+            throw throwable
+        }
         failureDiagnosticsText = mediaPipeProbeContext?.let {
             buildLocalInferenceFailureDiagnosticsText(
                 context = it,
@@ -3760,7 +3865,9 @@ internal suspend fun runWithHeldEngine(
     }
     if (response == null) {
         if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
-            engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+            withContext(NonCancellable) {
+                engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+            }
         }
         recordMemorySnapshot(MEMORY_STAGE_GENERATION_FAILED)
         recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
@@ -3769,6 +3876,11 @@ internal suspend fun runWithHeldEngine(
             runCatching { onFailureDiagnostics?.invoke(text) }
         }
         return null
+    }
+    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+        withContext(NonCancellable) {
+            engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)
+        }
     }
 
     val closeSummary = RunCloseLifecycleSummary(
@@ -3805,9 +3917,6 @@ internal suspend fun runWithHeldEngine(
     )
     recordMemorySnapshot(MEMORY_STAGE_GENERATION_FINISHED)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
-    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
-        engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)
-    }
     return HeldEngineRunResult(
         responseText = response,
         startElapsedRealtimeMs = startElapsedRealtimeMs,
@@ -4131,7 +4240,10 @@ private fun mergeTokenizerRecountSnapshot(
             mediaPipeOutputTokens = tokenizerSnapshot.mediaPipeOutputTokens ?: base.mediaPipeOutputTokens,
             mediaPipeTotalTokens = tokenizerSnapshot.mediaPipeTotalTokens ?: base.mediaPipeTotalTokens,
             tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
-            notes = tokenizerSnapshot.notes ?: base.notes,
+            notes = if (tokenizerSnapshot.inputTokens != null ||
+                tokenizerSnapshot.outputTokens != null ||
+                tokenizerSnapshot.totalTokens != null
+            ) tokenizerSnapshot.notes else tokenizerSnapshot.notes ?: base.notes,
             tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
             charsPerSecond = tokenizerSnapshot.charsPerSecond ?: base.charsPerSecond,
             ttftMs = tokenizerSnapshot.ttftMs ?: base.ttftMs,
@@ -4157,7 +4269,6 @@ private fun readTokenizerRecountSnapshotFromConversation(
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
 ): LocalInferenceMeasuredTokenSnapshot? {
-    if (conversation !is Conversation) return null
     return runCatching {
         if (BuildConfig.DEBUG && promptText.isBlank()) {
             safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped-empty-prompt")
@@ -4177,13 +4288,17 @@ private fun readTokenizerRecountSnapshotFromConversation(
         }?.takeIf { it.isFinite() }
 
         val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
-        val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
-            conversation = conversation,
-            tokenizerSessionSource = tokenizerSessionSource,
-            promptText = promptText,
-            fullResponseText = fullResponseText,
-            appendTrace = appendTrace,
-        )
+        val tokenizerRecountOutcome = if (conversation is Conversation) {
+            tryReadTokenizerRecountViaReflection(
+                conversation = conversation,
+                tokenizerSessionSource = tokenizerSessionSource,
+                promptText = promptText,
+                fullResponseText = fullResponseText,
+                appendTrace = appendTrace,
+            )
+        } else {
+            TokenizerRecountOutcome(status = "conversation-unavailable-post-completion")
+        }
         val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
             tokenizerSessionSource = tokenizerSessionSource,
             preferredModelPath = mediaPipeProbeModelPath,
@@ -4255,6 +4370,42 @@ private fun readTokenizerRecountSnapshotFromConversation(
             "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
     }.getOrNull()
+}
+
+internal suspend fun recountLocalInferenceTokensAfterCompletion(
+    context: Context,
+    modelPath: String?,
+    prompt: String,
+    response: String,
+    trace: LocalInferenceTrace,
+): LocalInferenceTrace = withContext(Dispatchers.IO) {
+    val startedAtMs = trace.localTraceStartElapsedRealtimeMs
+        ?: return@withContext trace
+    val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
+        ?: return@withContext trace
+    val existingSnapshot = trace.measuredTokenSnapshot
+    val recountedSnapshot = mergeTokenizerRecountSnapshot(
+        base = existingSnapshot,
+        conversation = null,
+        tokenizerSessionSource = null,
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        mediaPipeProbeContext = context.applicationContext,
+        promptText = prompt,
+        fullResponseText = response,
+        timing = LocalLiteRtTimingSnapshot(
+            startedAtMs = startedAtMs,
+            firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
+            lastChunkAtMs = endedAtMs,
+            endedAtMs = endedAtMs,
+        ),
+        appendTrace = { message ->
+            if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
+        },
+    ) ?: return@withContext trace
+    trace.copy(
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        measuredTokenSnapshot = recountedSnapshot,
+    )
 }
 
 private data class TokenizerRecountResult(
@@ -5947,6 +6098,16 @@ private fun tryResolveExistingSessionForTokenizer(
     return null
 }
 
+private val SAFE_TOKENIZER_TRAVERSAL_METHODS = setOf(
+    "tokenizer",
+    "getTokenizer",
+    "getInputTokenizer",
+    "getOutputTokenizer",
+)
+
+internal fun isSafeTokenizerTraversalMethod(methodName: String): Boolean =
+    methodName in SAFE_TOKENIZER_TRAVERSAL_METHODS
+
 private fun tryResolveTokenizerFromConversation(
     conversation: Any,
     appendTrace: (String) -> Unit,
@@ -5970,7 +6131,10 @@ private fun tryResolveTokenizerFromConversation(
             )
         }
         clazz.methods
-            .filter { it.parameterTypes.isEmpty() }
+            .filter { method ->
+                method.parameterTypes.isEmpty() &&
+                    isSafeTokenizerTraversalMethod(method.name)
+            }
             .forEach { method ->
                 runCatching {
                     val result = method.invoke(obj) ?: return@forEach
@@ -5978,14 +6142,6 @@ private fun tryResolveTokenizerFromConversation(
                     queue.add("$path.${method.name}()" to result)
                 }
             }
-        clazz.declaredFields.forEach { field ->
-            runCatching {
-                field.isAccessible = true
-                val value = field.get(obj) ?: return@forEach
-                if (value.javaClass.name.startsWith("java")) return@forEach
-                queue.add("$path.${field.name}" to value)
-            }
-        }
     }
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer not found from conversation")
     return null
@@ -6240,6 +6396,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     mediaPipeProbeContext: Context? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
@@ -6277,12 +6434,14 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 startElapsedMs = startElapsedMs,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                 markdownStreamingMode = markdownStreamingMode,
+                initialTurns = initialTurns,
                 onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
                 onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
+            if (throwable is CancellationException) throw throwable
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
             fallbackReasonReported = true
             runCatching { onFallbackReason(reasonCode) }
@@ -6366,6 +6525,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
+            if (throwable is CancellationException) throw throwable
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_blocking_exception"
             runCatching { onFallbackReason(reasonCode) }
             mediaPipeProbeContext?.let { context ->
@@ -6461,13 +6621,22 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
-        val failureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+        val localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
             context = context,
             stage = "engine-create",
             throwable = throwable,
             selectedModelName = engineKey.modelPath,
             selectedFallbackPath = "gpu",
         )
+        val routeDiagnosticsText = buildNormalChatEngineCreateFailureDiagnosticsText(
+            engineKey = engineKey,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            preferredBackendApplyResult = preferredBackendApplyResult,
+            throwable = throwable,
+            nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
+        )
+        val failureDiagnosticsText = listOf(routeDiagnosticsText, localFailureDiagnosticsText)
+            .joinToString("\n")
         safeAppendTrace(safeTrace, "UPSTREAM held-create failure-diagnostics\n$failureDiagnosticsText")
         return ReusableLocalEngineCreateDiagnostic(
             engine = null,
@@ -6489,9 +6658,15 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             initializeMethod.invoke(officialEngine)
             true
         }.onFailure { throwable ->
+            val exceptionExpansion = buildLocalFailureExceptionExpansion(
+                throwable = throwable,
+                parsed = emptyMap(),
+                failureExceptionClass = throwable.javaClass.name,
+                failureExceptionMessage = throwable.message ?: "unavailable",
+            )
             safeAppendTrace(
                 safeTrace,
-                "UPSTREAM held-create engine-initialize-fail class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                "UPSTREAM held-create engine-initialize-fail class=${throwable.javaClass.simpleName} message=${throwable.message} causeChain=${exceptionExpansion.exceptionChain}",
             )
         }.getOrDefault(false)
         if (initializeSucceeded) {
@@ -6560,10 +6735,87 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     )
 }
 
+private fun buildNormalChatEngineCreateFailureDiagnosticsText(
+    engineKey: HeldEngineKey,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    preferredBackendApplyResult: PreferredBackendApplyResult?,
+    throwable: Throwable,
+    nativeLibraryDir: String? = null,
+): String {
+    val selectedSlot = localModelSlotForBackend(preferredBackendDryRunSetting)
+    val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(preferredBackendDryRunSetting.name)
+    val configStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackendDryRunSetting.name,
+        experimentMode = gpuExperimentMode,
+    )
+    val exceptionExpansion = buildLocalFailureExceptionExpansion(
+        throwable = throwable,
+        parsed = emptyMap(),
+        failureExceptionClass = throwable.javaClass.name,
+        failureExceptionMessage = throwable.message ?: "unavailable",
+    )
+    val routeContext = buildLocalRouteDiagnosticContext(
+        selectedModelName = engineKey.modelPath.substringAfterLast('/'),
+        selectedModelFile = engineKey.modelPath,
+        selectedModelPath = engineKey.modelPath,
+        selectedModelSlot = selectedSlot.diagnosticName,
+        npuPreviewModelConfigured = selectedSlot == LocalInferenceModelSlot.NPU_PREVIEW,
+        genericFallbackModelConfigured = selectedSlot == LocalInferenceModelSlot.GENERIC_FALLBACK,
+        preferredBackend = preferredBackendDryRunSetting.name,
+        npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+        shouldEnterNpuS1 = false,
+        localRouteEntered = true,
+        nativeLibraryDir = nativeLibraryDir,
+    )
+    val baseRouteDiagnostics = buildLocalRouteDiagnosticTrace(
+        stage = "engine_create_exception",
+        context = routeContext,
+        flags = LocalRouteDiagnosticFlags(
+            heldEngineExists = false,
+            heldEngineReused = false,
+            engineConfigBuildStarted = true,
+            engineConfigBuildFinished = preferredBackendApplyResult != null,
+            engineCreateStarted = true,
+            engineCreateFinished = false,
+            engineInitializeStarted = false,
+            engineInitializeFinished = false,
+            failureStage = "engine-create",
+            fallbackUsed = false,
+            gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+                modelPath = engineKey.modelPath,
+                cacheDirPath = engineKey.cacheDirPath,
+                preferredBackend = preferredBackendDryRunSetting.name,
+                experimentMode = gpuExperimentMode,
+            ),
+        ),
+        elapsedMs = 0L,
+    )
+    return buildString {
+        append(baseRouteDiagnostics).append('\n')
+        append("normal_chat_engine_create_stage=engine-create").append('\n')
+        append("normal_chat_held_engine_reused=false").append('\n')
+        append("normal_chat_selected_model_slot=").append(selectedSlot.diagnosticName).append('\n')
+        append("normal_chat_model_path=").append(engineKey.modelPath).append('\n')
+        append("normal_chat_model_path_tail=").append(engineKey.modelPath.substringAfterLast('/')).append('\n')
+        append("normal_chat_requested_preferred_backend=").append(preferredBackendDryRunSetting.name).append('\n')
+        append("normal_chat_applied_preferred_backend=")
+            .append(preferredBackendApplyResult?.appliedPreferredBackend ?: "unavailable").append('\n')
+        append("normal_chat_preferred_backend_apply_result=")
+            .append(preferredBackendApplyResult?.preferredBackendApplyResult ?: "unavailable").append('\n')
+        append("normal_chat_engine_config_style=").append(configStyle).append('\n')
+        append("normal_chat_recommended_next_gpu_config_variant=")
+            .append(recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, configStyle)).append('\n')
+        append("normal_chat_exception_class=").append(throwable.javaClass.name).append('\n')
+        append("normal_chat_exception_message=").append(throwable.message ?: "unavailable").append('\n')
+        append("normal_chat_exception_cause_chain=").append(exceptionExpansion.exceptionChain)
+    }
+}
+
 private suspend fun <T> runWithConversation(
     engine: Any,
     namespace: String?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
     closeSummaryPath: String? = null,
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
@@ -6599,6 +6851,7 @@ private suspend fun <T> runWithConversation(
             engine = engine,
             namespace = namespace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
         )
         onConversationCreateElapsedMs((SystemClock.elapsedRealtime() - conversationCreateStartedAtMs).coerceAtLeast(0L))
@@ -6666,6 +6919,7 @@ private fun createConversationForHeldEngine(
     engine: Any,
     namespace: String?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
 ): Any? {
     safeAppendTrace(
@@ -6677,6 +6931,7 @@ private fun createConversationForHeldEngine(
             engine = engine,
             engineClass = engine.javaClass,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            initialTurns = initialTurns,
             appendTrace = appendTrace,
         )
     } else {
@@ -6790,6 +7045,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
     markdownStreamingMode: MarkdownStreamingMode,
+    initialTurns: List<LocalConversationTurn>,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -6804,6 +7060,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             markdownStreamingMode = markdownStreamingMode,
+            initialTurns = initialTurns,
             onPreferredBackendApplied = onPreferredBackendApplied,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
@@ -7239,6 +7496,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -7246,6 +7504,10 @@ private suspend fun runOfficialLiteRtLmDirect(
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -7286,7 +7548,7 @@ private suspend fun runOfficialLiteRtLmDirect(
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
             failureStage = "conversation-create"
-            conversation = engine.createConversation()
+            conversation = engine.createConversation(LocalConversationPolicy.conversationConfig(initialTurns))
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
@@ -7298,7 +7560,10 @@ private suspend fun runOfficialLiteRtLmDirect(
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
-            conversation.sendMessageAsync(prompt).collect { message ->
+            conversation.sendMessageAsync(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            ).collect { message ->
                 val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
                 val normalizedContents = rawContents.trim()
@@ -7432,6 +7697,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) throw throwable
         val npuPreferredBackendApplyResult = preferredBackendApplyResult
             ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
         if (npuPreferredBackendApplyResult != null) {
@@ -7452,6 +7718,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
                 markdownStreamingMode = markdownStreamingMode,
+                initialTurns = initialTurns,
                 onPreferredBackendApplied = {},
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
@@ -7484,11 +7751,16 @@ private fun runOfficialLiteRtLmBlocking(
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
     onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
@@ -7530,13 +7802,16 @@ private fun runOfficialLiteRtLmBlocking(
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
             failureStage = "conversation-create"
-            conversation = engine.createConversation()
+            conversation = engine.createConversation(LocalConversationPolicy.conversationConfig(initialTurns))
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
             failureStage = "generate-response"
             val startedAtMs = SystemClock.elapsedRealtime()
-            val message = conversation.sendMessage(prompt)
+            val message = conversation.sendMessage(
+                prompt,
+                LocalConversationPolicy.generationExtraContext,
+            )
             val rawContents = message.contents.toString()
             val normalizedContents = rawContents.trim()
             val rawMessage = message.toString()
@@ -7635,6 +7910,7 @@ private fun runOfficialLiteRtLmBlocking(
             closeLifecycleSummary = closeSummary,
         )
     }.getOrElse { throwable ->
+        if (throwable is CancellationException) throw throwable
         val npuPreferredBackendApplyResult = preferredBackendApplyResult
             ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
         if (npuPreferredBackendApplyResult != null) {
@@ -7706,7 +7982,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
-    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend-requested=${preferredBackendDryRunSetting.name} vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend-requested=${preferredBackendDryRunSetting.name}")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
@@ -7764,7 +8040,6 @@ internal fun buildLiteRtEngineConfig(
 ): EngineConfig {
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
     val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
-    val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
     val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
         preferredBackend = preferredBackendDryRunSetting,
@@ -7773,6 +8048,15 @@ internal fun buildLiteRtEngineConfig(
         preferredBackend = preferredBackendDryRunSetting.name,
         overrideValue = outputQualityExperimentOverride
             ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
+    )
+    val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
+    val textOnlyNullModalities = shouldUseNormalChatGpuTextOnlyNullModalities(
+        preferredBackend = preferredBackendDryRunSetting,
+        experimentMode = gpuExperimentMode,
+    )
+    val engineConfigStyle = resolveNormalChatGpuEngineConfigStyle(
+        preferredBackend = preferredBackendDryRunSetting.name,
+        experimentMode = gpuExperimentMode,
     )
     val baseGpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
         modelPath = modelPath,
@@ -7787,7 +8071,7 @@ internal fun buildLiteRtEngineConfig(
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
-        PreferredBackendDryRunSetting.DEFAULT -> Backend.CPU()
+        PreferredBackendDryRunSetting.DEFAULT -> Backend.GPU()
         PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback().backend
         PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback().backend
     }
@@ -7811,7 +8095,7 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
+        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} gpu_experiment_mode=${gpuConfigDiagnostics.experimentMode} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} normalChatConfigStyle=$engineConfigStyle recommendedNextGpuConfig=${recommendedNextGpuConfigVariant(preferredBackendDryRunSetting, engineConfigStyle)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
     )
     safeAppendTrace(
         appendTrace,
@@ -7826,8 +8110,8 @@ internal fun buildLiteRtEngineConfig(
     return EngineConfig(
         modelPath = modelPath,
         backend = backend,
-        visionBackend = if (edgeGalleryLike) null else Backend.GPU(),
-        audioBackend = if (edgeGalleryLike) null else Backend.CPU(),
+        visionBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU(),
+        audioBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.CPU(),
         maxNumTokens = if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null,
         cacheDir = resolveLiteRtEngineConfigCacheDir(
             modelPath = modelPath,
@@ -7867,7 +8151,7 @@ internal fun resolveLiteRtTextBackendSelection(
     when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> LiteRtTextBackendSelection("CPU", "applied-engine-config")
         PreferredBackendDryRunSetting.GPU -> LiteRtTextBackendSelection("GPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.DEFAULT -> LiteRtTextBackendSelection("CPU", "cpu-priority-default-engine-config")
+        PreferredBackendDryRunSetting.DEFAULT -> LiteRtTextBackendSelection("GPU", "automatic-gpu-before-cpu-engine-config")
         PreferredBackendDryRunSetting.NPU,
         PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> LiteRtTextBackendSelection(
             appliedPreferredBackend = "GPU",
@@ -8150,13 +8434,18 @@ private fun createOfficialLiteRtLmConversation(
     engine: Any,
     engineClass: Class<*>,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
     appendTrace: (String) -> Unit,
 ): Any? {
     val configClassName = "com.google.ai.edge.litertlm.ConversationConfig"
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
+    )
     safeAppendTrace(appendTrace, "UPSTREAM official-conversation configClass=$configClassName")
     return runCatching {
         val configClass = Class.forName(configClassName)
-        val config = buildOfficialLiteRtLmConversationConfig(preferredBackendDryRunSetting)
+        val config = buildOfficialLiteRtLmConversationConfig(preferredBackendDryRunSetting, initialTurns)
         safeAppendTrace(appendTrace, "UPSTREAM official-conversation configCreated class=${config.javaClass.name}")
         val createConversationMethod = engineClass.methods.first { method ->
             method.name == "createConversation" &&
@@ -8174,6 +8463,7 @@ private fun createOfficialLiteRtLmConversation(
 
 private fun buildOfficialLiteRtLmConversationConfig(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
 ): ConversationConfig {
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
     val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
@@ -8184,20 +8474,22 @@ private fun buildOfficialLiteRtLmConversationConfig(
         overrideValue = outputQualityExperimentOverride
             ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
     )
-    return if (
+    val samplerOverride = if (
         shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name) &&
         shouldUseGpuDiagnosticSamplerConfig(gpuExperimentMode)
     ) {
-        ConversationConfig(
-            samplerConfig = SamplerConfig(
-                topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
-                topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
-                temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
-            ),
+        SamplerConfig(
+            topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
+            topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
+            temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
         )
     } else {
-        ConversationConfig()
+        null
     }
+    return LocalConversationPolicy.conversationConfig(
+        initialTurns = initialTurns,
+        samplerOverride = samplerOverride,
+    )
 }
 
 private fun createOfficialConversation(

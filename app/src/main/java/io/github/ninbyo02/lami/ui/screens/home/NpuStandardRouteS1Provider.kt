@@ -1,7 +1,13 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunDecision
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
+import io.github.ninbyo02.lami.ui.screens.settings.dryRunRoutingDecision
+import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
 import java.security.MessageDigest
 
 internal fun interface NpuStandardRouteS1Provider {
@@ -10,6 +16,14 @@ internal fun interface NpuStandardRouteS1Provider {
         maxOutputTokens: Int,
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult
+
+    fun invokeWithContext(
+        userPrompt: String,
+        contextText: String,
+        selectedModelFile: String? = null,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult = invoke(userPrompt, maxOutputTokens, trace)
 }
 
 internal fun buildNpuRealPromptHandoffTrace(
@@ -144,6 +158,15 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         addAll(
             listOf(
                 "max_output_tokens=$maxOutputTokens",
+                "route_type=${result.selection.routeType}",
+                "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+                "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+                "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+                "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
+                "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+                "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+                "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+                "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
                 "input_hash=${npuRealPromptHash(input)}",
                 "input_prompt=${npuStandardRouteS1DevPreview(input)}",
                 "input_preview=${npuStandardRouteS1DevPreview(input)}",
@@ -182,10 +205,25 @@ internal fun buildNpuStandardRouteS1DevTraceText(
                 "failure_stage=${npuStandardRouteS1FailureStage(result)}",
                 "native_stage=${result.nativeDiagnostics.nativeStage}",
                 "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+                "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+                "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+                "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
                 "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
                 "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
                 "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
                 "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+                "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+                "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
+                "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+                "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+                "native_result_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeResultTail)}",
+                "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+                "native_diag_tail=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.nativeDiagTail)}",
+                "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+                "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+                "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+                "java_library_path=${npuStandardRouteS1DevPreview(result.nativeDiagnostics.javaLibraryPath)}",
+                "supported_abis=${result.nativeDiagnostics.supportedAbis}",
                 "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
                 "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
                 "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
@@ -236,6 +274,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         input = input,
         result = result,
         transientFallback = transientFallback,
+        preferredBackendSetting = preferredBackendSetting,
     )?.let { sections += it }
     return sections.joinToString("\n\n")
 }
@@ -246,6 +285,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     appHistoryText: String,
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -256,6 +296,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
             input = input,
             result = result,
             appHistoryText = appHistoryText,
+            residentRuntimeEvidence = residentRuntimeEvidence,
             preferredBackendSetting = preferredBackendSetting,
             npuStandardRouteMode = npuStandardRouteMode,
             npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
@@ -266,6 +307,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         result = result,
         transientFallback = transientFallback,
         appHistoryText = appHistoryText,
+        preferredBackendSetting = preferredBackendSetting,
     )?.let { sections += it }
     return sections.joinToString("\n\n")
 }
@@ -276,6 +318,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     appHistoryText: String = "",
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -286,6 +329,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     maxOutputTokens = maxOutputTokens,
     transientFallback = transientFallback,
     appHistoryText = appHistoryText,
+    residentRuntimeEvidence = residentRuntimeEvidence,
     preferredBackendSetting = preferredBackendSetting,
     npuStandardRouteMode = npuStandardRouteMode,
     npuStandardRouteSelectionSource = npuStandardRouteSelectionSource,
@@ -314,6 +358,7 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
     appHistoryText: String = "",
+    residentRuntimeEvidence: LocalBackendRuntimeEvidence = LocalBackendRuntimeEvidence(),
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     npuStandardRouteSelectionSource: NpuStandardRouteSelectionSource =
@@ -332,6 +377,15 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         selectionSource = npuStandardRouteSelectionSource,
         propertyReader = npuStandardRouteDevGatePropertyReader,
     )
+    val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        InferenceBackendSelection.NPU,
+        runtimeEvidence = residentRuntimeEvidence,
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = estimateResidentRouterPromptTokens(input),
+            requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+        ),
+    )
     val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
         result = result,
         backendDiagnostics = backendDiagnostics,
@@ -343,9 +397,21 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
             listOf(
         "[DEV診断: NPU S1 compact]",
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+        "route_type=${result.selection.routeType}",
         "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
         "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
         "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
+        "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+        "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+        "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
+        "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+        "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+        "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+        "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
+        "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
+        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
         "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
         "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
         "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
@@ -365,6 +431,15 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "effective_backend=${backendDiagnostics.effectiveBackend}",
         "backend_evidence=${backendDiagnostics.backendEvidence}",
         "route_family=${backendDiagnostics.routeFamily}",
+        "resident_runtime_npu_supported=${residentRuntimeEvidence.npuSupported}",
+        "resident_runtime_npu_healthy=${residentRuntimeEvidence.npuHealthy}",
+        "resident_history_success_criteria_met=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "last_npu_s1_success_criteria_met")}",
+        "resident_history_model_path=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "last_npu_s1_model_path")}",
+        "resident_dry_run_backend=${residentRoutingDryRunDecision.selectedBackend.name}",
+        "resident_dry_run_reason=${residentRoutingDryRunDecision.reason}",
+        "resident_dry_run_tokens=${residentRoutingDryRunDecision.estimatedTotalTokens ?: "unknown"}",
+        "resident_dry_run_long_context_threshold=${residentRoutingDryRunDecision.longContextThreshold}",
+        "resident_dry_run_fallback_backends=${residentRoutingDryRunDecision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
             ),
         )
         addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
@@ -390,31 +465,94 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "failure_exception_message=${npuStandardRouteS1EscapeCopyValue(npuStandardRouteS1FailureExceptionMessage(result))}",
         "native_stage=${result.nativeDiagnostics.nativeStage}",
         "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+        "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+        "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+        "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
         "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
         "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
         "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
         "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+        "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+        "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
         "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+        "native_session_destroy_started=${result.nativeDiagnostics.nativeSessionDestroyStarted}",
+        "native_session_destroy_finished=${result.nativeDiagnostics.nativeSessionDestroyFinished}",
+        "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+        "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+        "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
+        "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+        "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
+        "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+        "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+        "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+        "java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}",
+        "supported_abis=${result.nativeDiagnostics.supportedAbis}",
             ),
         )
     }.joinToString("\n")
 }
+
+private fun npuS1InferenceBackendSelectionForResidentPolicy(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): InferenceBackendSelection =
+    when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> InferenceBackendSelection.CPU
+        PreferredBackendDryRunSetting.GPU -> InferenceBackendSelection.GPU
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> InferenceBackendSelection.NPU
+        PreferredBackendDryRunSetting.DEFAULT -> InferenceBackendSelection.AUTOMATIC
+    }
 
 internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
     transientFallback: String? = null,
     appHistoryText: String = "",
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): String? {
     if (!shouldShowNpuStandardRouteS1FailureDetails(result, transientFallback)) return null
+    val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = estimateResidentRouterPromptTokens(input),
+            requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+        ),
+    )
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     return buildList {
         add("[DEV診断: NPU S1 failure details]")
         add("failure_stage=${npuStandardRouteS1FailureStage(result)}")
+        addAll(npuS1ResidentDryRunDiagnosticLines(residentRoutingDryRunDecision))
         add("native_error_class=${result.nativeDiagnostics.nativeErrorClass}")
         add("native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}")
         add("native_error_stage=${result.nativeDiagnostics.nativeErrorStage}")
         add("native_error_source=${result.nativeDiagnostics.nativeErrorSource}")
+        add("native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}")
+        add("native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}")
+        add("native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}")
+        add("native_call_reached=${result.nativeDiagnostics.nativeCallReached}")
+        add("native_call_returned=${result.nativeDiagnostics.nativeCallReturned}")
+        add("native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}")
+        add("native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}")
+        add("native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}")
+        add("native_result_available=${result.nativeDiagnostics.nativeResultAvailable}")
+        add("native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}")
+        add("native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}")
+        add("native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}")
+        add("native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}")
+        add("native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}")
+        add("native_load_order=${result.nativeDiagnostics.nativeLoadOrder}")
+        add("java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}")
+        add("supported_abis=${result.nativeDiagnostics.supportedAbis}")
+        add("requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
+        add("effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
+        add("max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}")
+        add("max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}")
+        add("max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}")
+        add("app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}")
+        add("native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
+        add("native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}")
         add("npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}")
         add("npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}")
         add("npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}")
@@ -453,6 +591,14 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             selectionSource = npuStandardRouteSelectionSource,
             propertyReader = npuStandardRouteDevGatePropertyReader,
         )
+        val residentRoutingDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+            npuS1InferenceBackendSelectionForResidentPolicy(preferredBackendSetting),
+        ).dryRunRoutingDecision(
+            LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = estimateResidentRouterPromptTokens(input),
+                requestedOutputTokens = result.selection.requestedMaxOutputTokens,
+            ),
+        )
         val phase1Diagnostics = buildNpuStandardRoutePhase1DiagnosticsForNpuS1Result(
             result = result,
             backendDiagnostics = backendDiagnostics,
@@ -464,6 +610,7 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
                 listOf(
             "[DEV診断: NPU S1 full dump]",
             "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+            "route_type=${result.selection.routeType}",
             "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
             "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
             "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
@@ -473,6 +620,14 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}",
             "rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}",
             "max_output_tokens=$maxOutputTokens",
+            "requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+            "effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+            "max_output_tokens_clamped=${npuStandardRouteMaxOutputTokensClamped(result)}",
+            "max_output_tokens_clamp_limit=${npuStandardRouteMaxOutputTokensClampLimit(result)}",
+            "max_output_tokens_clamp_reason=${npuStandardRouteMaxOutputTokensClampReason(result)}",
+            "app_requested_max_output_tokens=${result.selection.requestedMaxOutputTokens}",
+            "native_requested_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
+            "native_effective_max_output_tokens=${result.selection.effectiveMaxOutputTokens}",
             "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
             "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
             "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
@@ -486,6 +641,11 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "effective_backend=${backendDiagnostics.effectiveBackend}",
             "backend_evidence=${backendDiagnostics.backendEvidence}",
             "route_family=${backendDiagnostics.routeFamily}",
+            "resident_dry_run_backend=${residentRoutingDryRunDecision.selectedBackend.name}",
+            "resident_dry_run_reason=${residentRoutingDryRunDecision.reason}",
+            "resident_dry_run_tokens=${residentRoutingDryRunDecision.estimatedTotalTokens ?: "unknown"}",
+            "resident_dry_run_long_context_threshold=${residentRoutingDryRunDecision.longContextThreshold}",
+            "resident_dry_run_fallback_backends=${residentRoutingDryRunDecision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
                 ),
             )
             addAll(buildNpuStandardRoutePhase1DiagnosticLines(phase1Diagnostics))
@@ -509,12 +669,28 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "failure_stage=${npuStandardRouteS1FailureStage(result)}",
             "native_stage=${result.nativeDiagnostics.nativeStage}",
             "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+            "native_call_started_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}",
+            "native_call_finished_at_elapsed_realtime_ms=${result.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}",
+            "native_call_duration_ms=${result.nativeDiagnostics.nativeCallDurationMs}",
             "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
             "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
             "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
             "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+            "native_cleanup_started=${result.nativeDiagnostics.nativeCleanupStarted}",
+            "native_cleanup_finished=${result.nativeDiagnostics.nativeCleanupFinished}",
             "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+            "native_session_destroy_started=${result.nativeDiagnostics.nativeSessionDestroyStarted}",
+            "native_session_destroy_finished=${result.nativeDiagnostics.nativeSessionDestroyFinished}",
             "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+            "native_result_available=${result.nativeDiagnostics.nativeResultAvailable}",
+            "native_result_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeResultTail)}",
+            "native_diag_available=${result.nativeDiagnostics.nativeDiagAvailable}",
+            "native_diag_tail=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeDiagTail)}",
+            "native_link_failure_detected=${result.nativeDiagnostics.nativeLinkFailureDetected}",
+            "native_link_failure_library=${result.nativeDiagnostics.nativeLinkFailureLibrary}",
+            "native_load_order=${result.nativeDiagnostics.nativeLoadOrder}",
+            "java_library_path=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.javaLibraryPath)}",
+            "supported_abis=${result.nativeDiagnostics.supportedAbis}",
             "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
             "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
             "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",
@@ -551,6 +727,16 @@ internal fun shouldShowNpuStandardRouteS1FailureDetails(
         transientFallback != null ||
         result.nativeDiagnostics.nativeErrorClass.isAvailableDevValue() ||
         result.nativeDiagnostics.nativeErrorMessage.isAvailableDevValue()
+
+private fun npuS1ResidentDryRunDiagnosticLines(
+    decision: LocalInferenceRoutingDryRunDecision,
+): List<String> = listOf(
+    "resident_dry_run_backend=${decision.selectedBackend.name}",
+    "resident_dry_run_reason=${decision.reason}",
+    "resident_dry_run_tokens=${decision.estimatedTotalTokens ?: "unknown"}",
+    "resident_dry_run_long_context_threshold=${decision.longContextThreshold}",
+    "resident_dry_run_fallback_backends=${decision.fallbackBackends.joinToString(",") { it.name }.ifBlank { "none" }}",
+)
 
 private fun extractNpuStandardRouteS1FailureHistoryLines(appHistoryText: String): List<String> {
     if (appHistoryText.isBlank()) return emptyList()
@@ -603,6 +789,13 @@ private fun extractNpuStandardRouteS1HistoryValue(
 private fun String.isAvailableDevValue(): Boolean =
     isNotBlank() && this != "unavailable" && this != "unknown" && this != "none"
 
+internal fun estimateResidentRouterPromptTokens(input: String): Int? {
+    if (input.isBlank()) return null
+    // Conservative, tokenizer-free estimate for routing only. Japanese text is often
+    // close to one token per code point; ASCII-heavy prompts are commonly lower.
+    return input.codePointCount(0, input.length).coerceAtLeast(1)
+}
+
 internal fun npuRealPromptHash(text: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
     return digest.joinToString(separator = "") { byte ->
@@ -632,6 +825,19 @@ internal fun npuStandardRouteS1DevPreview(text: String): String {
 internal fun npuStandardRouteS1EscapeCopyValue(text: String): String =
     text.replace("\\", "\\\\").replace("\n", "\\n")
 
+internal fun npuStandardRouteMaxOutputTokensClamped(result: NpuStandardRouteS1Result): Boolean =
+    result.selection.requestedMaxOutputTokens != result.selection.effectiveMaxOutputTokens
+
+internal fun npuStandardRouteMaxOutputTokensClampLimit(result: NpuStandardRouteS1Result): Int =
+    NpuStandardRouteS1Contract.maxOutputTokensClampLimitForPrompt(result.inputPrompt)
+
+internal fun npuStandardRouteMaxOutputTokensClampReason(result: NpuStandardRouteS1Result): String =
+    NpuStandardRouteS1Contract.maxOutputTokensClampReasonForPrompt(
+        userPrompt = result.inputPrompt,
+        requestedMaxOutputTokens = result.selection.requestedMaxOutputTokens,
+        effectiveMaxOutputTokens = result.selection.effectiveMaxOutputTokens,
+    )
+
 internal fun npuStandardRouteS1FailureExceptionClass(result: NpuStandardRouteS1Result): String =
     result.nativeDiagnostics.nativeErrorClass.takeUnless { it == "unavailable" || it.isBlank() }
         ?: inferNpuS1FailureExceptionClass(result.reason)
@@ -650,24 +856,24 @@ internal fun npuStandardRouteS1FailureStage(result: NpuStandardRouteS1Result): S
         )
 
 internal fun npuStandardRouteS1FailureKind(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "invalid_max_output_tokens"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1FailureLayer(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        "litert_npu_compiled_model_executor"
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "native_input_validation"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> "litert_npu_compiled_model_executor"
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1FailureRecoveryHint(result: NpuStandardRouteS1Result): String =
-    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
-        "recreate_app_or_wait_before_retry"
-    } else {
-        "unavailable"
+    when {
+        isNpuStandardRouteS1InvalidMaxOutputTokens(result) -> "clamp_max_output_tokens_to_512"
+        isNpuStandardRouteS1EngineCreateFailed(result) -> "recreate_app_or_wait_before_retry"
+        else -> "unavailable"
     }
 
 internal fun npuStandardRouteS1NativeCrashRiskHint(result: NpuStandardRouteS1Result): String =
@@ -690,6 +896,16 @@ internal fun isNpuStandardRouteS1EngineCreateFailed(result: NpuStandardRouteS1Re
         message.contains("engine-create-failed", ignoreCase = true)
     }
 }
+
+internal fun isNpuStandardRouteS1InvalidMaxOutputTokens(result: NpuStandardRouteS1Result): Boolean =
+    listOf(
+        result.reason,
+        result.nativeDiagnostics.nativeResultTail,
+        result.nativeDiagnostics.nativeDiagTail,
+        result.nativeDiagnostics.nativeErrorMessage,
+    ).any { message ->
+        message.contains("invalid_max_output_tokens", ignoreCase = true)
+    }
 
 internal const val NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED = "engine_create_failed"
 

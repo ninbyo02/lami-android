@@ -94,7 +94,7 @@ index 421c3036..7f3f2a2e 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,950 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2275,6 +2346,1001 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -445,6 +445,8 @@ index 421c3036..7f3f2a2e 100644
 +  int decode_success_count = 0;
 +  std::string engine_close_reached = "false";
 +  std::string engine_close_success = "unavailable";
++  std::string argument_validation_passed = "false";
++  std::string run_count_validation_skipped_for_create_close_only = "false";
 +  std::string last_native_stage = "entrypoint";
 +  std::string native_entrypoint_reached = "true";
 +  std::string model_assets_create_reached = "false";
@@ -519,13 +521,23 @@ index 421c3036..7f3f2a2e 100644
 +    lines.push_back("native_entrypoint_reached=" + native_entrypoint_reached);
 +    lines.push_back("model_assets_create_reached=" + model_assets_create_reached);
 +    lines.push_back("model_assets_create_returned=" + model_assets_create_returned);
++    lines.push_back("model_assets_create_succeeded=" + model_assets_create_returned);
 +    lines.push_back("engine_settings_create_reached=" + engine_settings_create_reached);
 +    lines.push_back("engine_settings_create_returned=" + engine_settings_create_returned);
++    lines.push_back("engine_settings_create_succeeded=" + engine_settings_create_returned);
 +    lines.push_back("engine_create_reached=" + engine_create_reached);
 +    lines.push_back("engine_create_returned=" + engine_create_returned);
++    lines.push_back("engine_create_succeeded=" + engine_create_returned);
 +    lines.push_back("session_create_reached=" + session_create_reached);
++    lines.push_back("session_create_count=" +
++                    std::string(session_create_reached == "true" ? "1" : "0"));
 +    lines.push_back("prefill_reached=" + prefill_reached);
 +    lines.push_back("decode_reached=" + decode_reached);
++    lines.push_back("decode_count=" + std::to_string(decode_attempt_count));
++    lines.push_back("generate_count=" + std::to_string(decode_success_count));
++    lines.push_back("argument_validation_passed=" + argument_validation_passed);
++    lines.push_back("run_count_validation_skipped_for_create_close_only=" +
++                    run_count_validation_skipped_for_create_close_only);
 +    lines.push_back("native_diag_flush_count=" +
 +                    std::to_string(native_diag_flush_count));
 +    lines.push_back("native_result_flush_count=" +
@@ -569,10 +581,19 @@ index 421c3036..7f3f2a2e 100644
 +    lines.push_back("success_count=" + std::to_string(success_count));
 +    lines.push_back("failure_count=" + std::to_string(failure_count));
 +    lines.push_back("engine_create_count=" + std::to_string(engine_create_count));
++    lines.push_back("engine_holder_open_during_decode=" +
++                    std::string(g_qairt244_persistent_custom_jni_holder.engine
++                                    ? "true"
++                                    : "false"));
 +    lines.push_back("decode_attempt_count=" + std::to_string(decode_attempt_count));
 +    lines.push_back("decode_success_count=" + std::to_string(decode_success_count));
 +    lines.push_back("engine_close_reached=" + engine_close_reached);
 +    lines.push_back("engine_close_success=" + engine_close_success);
++    lines.push_back("engine_close_count=" +
++                    std::string(engine_close_reached == "true" &&
++                                        engine_close_success == "true"
++                                    ? "1"
++                                    : "0"));
 +    lines.push_back("holder_key=" + Qairt244FlattenValue(holder_key_str));
 +    lines.push_back("holder_generation=" +
 +                    std::to_string(g_qairt244_persistent_custom_jni_holder.generation));
@@ -654,12 +675,16 @@ index 421c3036..7f3f2a2e 100644
 +      native_probe_mode_str != "before_engine_create" &&
 +      native_probe_mode_str != "engine_create_only" &&
 +      native_probe_mode_str != "editable_engine_create_only" &&
++      native_probe_mode_str != "true_engine_create_close_only" &&
++      native_probe_mode_str != "held_engine_run_once" &&
 +      native_probe_mode_str != "full_20") {
 +    record_failure(0, "argument", "invalid_native_probe_mode",
 +                   "native_probe_mode must be entrypoint_only, "
 +                   "model_assets_only, engine_settings_only, "
 +                   "before_engine_create, engine_create_only, "
-+                   "editable_engine_create_only, or full_20");
++                   "editable_engine_create_only, "
++                   "true_engine_create_close_only, held_engine_run_once, "
++                   "or full_20");
 +    write_result();
 +    ThrowLiteRtLmJniException(env,
 +                              "invalid persistent probe native_probe_mode");
@@ -678,7 +703,28 @@ index 421c3036..7f3f2a2e 100644
 +    return NewStringStandardUTF(env, status);
 +  }
 +
-+  if (requested_count < 1 || requested_count > 100) {
++  const bool is_create_close_only_mode =
++      native_probe_mode_str == "true_engine_create_close_only";
++  const bool is_held_engine_run_once_mode =
++      native_probe_mode_str == "held_engine_run_once";
++  if (is_create_close_only_mode) {
++    if (requested_count != 0) {
++      record_failure(0, "argument", "invalid_create_close_only_run_count",
++                     "true_engine_create_close_only run_count must be 0");
++      write_result();
++      ThrowLiteRtLmJniException(
++          env, "invalid persistent probe create/close only run_count");
++      return nullptr;
++    }
++    run_count_validation_skipped_for_create_close_only = "true";
++  } else if (is_held_engine_run_once_mode && requested_count != 1) {
++    record_failure(0, "argument", "invalid_held_engine_run_once_run_count",
++                   "held_engine_run_once run_count must be 1");
++    write_result();
++    ThrowLiteRtLmJniException(
++        env, "invalid persistent probe held_engine_run_once run_count");
++    return nullptr;
++  } else if (requested_count < 1 || requested_count > 100) {
 +    record_failure(0, "argument", "invalid_run_count",
 +                   "run_count must be 1..100");
 +    write_result();
@@ -693,6 +739,8 @@ index 421c3036..7f3f2a2e 100644
 +    ThrowLiteRtLmJniException(env, "invalid persistent probe max_output_tokens");
 +    return nullptr;
 +  }
++  argument_validation_passed = "true";
++  write_result();
 +
 +  const std::string validation_reason =
 +      ValidateQairt244EditablePrompt(
@@ -872,7 +920,8 @@ index 421c3036..7f3f2a2e 100644
 +    append_stage_diag("EngineFactory::CreateDefault success");
 +    write_result();
 +    if (native_probe_mode_str == "engine_create_only" ||
-+        native_probe_mode_str == "editable_engine_create_only") {
++        native_probe_mode_str == "editable_engine_create_only" ||
++        native_probe_mode_str == "true_engine_create_close_only") {
 +      std::unique_ptr<Engine> engine_ptr = std::move(*engine);
 +      engine_close_reached = "true";
 +      engine_ptr.reset();
@@ -1025,7 +1074,9 @@ index 421c3036..7f3f2a2e 100644
 +  if (failure_count == 0) {
 +    status = "completed";
 +    holder_invalidated = "false";
-+    hypothesis_result = "engine_create_once_20_runs_success";
++    hypothesis_result = is_held_engine_run_once_mode
++                            ? std::string("held_engine_run_once_success")
++                            : std::string("engine_create_once_20_runs_success");
 +  } else {
 +    holder_invalidated = "true";
 +  }

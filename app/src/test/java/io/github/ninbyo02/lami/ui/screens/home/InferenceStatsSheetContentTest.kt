@@ -35,6 +35,39 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `safe greeting fallback separates display fallback from rejected NPU metrics`() {
+        val stats = InferenceStats(
+            modelName = InferenceStatsFactory.DETERMINISTIC_SAFE_GREETING_MODEL_LABEL,
+            outputTokens = 26,
+            totalTokens = 26,
+            tokensPerSecond = 32.5,
+            inferenceTimeSec = 0.8,
+            finishReason = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+            localSourceSummary = "route_family=npu_standard effective_backend=NPU fallback_used=false fallback_display_source=deterministic_safe_greeting inference_metrics_source=rejected_npu_attempt",
+        )
+
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.SIMPLE,
+        )
+        val overview = sections.single().items
+
+        assertEquals("NPU失敗判定まで", overview.first().label)
+        assertEquals("0.8 s", overview.first().value)
+        assertEquals("NPU", overview.first { it.label == "試行バックエンド" }.value)
+        assertEquals("固定応答", overview.first { it.label == "表示フォールバック" }.value)
+        assertEquals("固定挨拶へフォールバック", overview.first { it.label == "完了理由" }.value)
+        assertFalse(overview.any { it.label == "生成速度" })
+        assertFalse(overview.any { it.label == "使用トークン" })
+
+        val details = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
+        assertTrue(details.flatMap { it.items }.any { it.value.contains("32.5 token/s") })
+    }
+
+    @Test
     fun `buildInferenceSummarySections keeps raw values even when first token time exceeds inference time`() {
         val stats = InferenceStats(
             timeToFirstTokenMs = 2_000L,
@@ -551,6 +584,346 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes holder create close dump in developer copy`() {
+        val diagnostics = npuPersistentHolderNativeStubDiagnostics(
+            nativeCreateCalled = true,
+            nativeCloseCalled = true,
+            nativeDiagnosticsCalled = true,
+            holderCreateRequested = true,
+            holderCreateSucceeded = true,
+            holderId = "native-holder-1",
+            holderOpen = false,
+            holderCloseRequested = true,
+            holderCloseSucceeded = true,
+            holderDoubleCloseSafe = true,
+            status = "closed",
+            reason = "holder_closed_without_decode",
+        )
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderCreateCloseState = NpuPersistentHolderCreateCloseProbeState(
+                status = "completed",
+                reason = "holder_closed_without_decode",
+                createResult = NpuPersistentHolderApiResult(
+                    status = "created",
+                    reason = "app_jni_holder_lifecycle_created_without_engine_create",
+                    holderId = "native-holder-1",
+                    diagnostics = diagnostics,
+                    nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(diagnostics),
+                ),
+                diagnosticsAfterCreate = diagnostics,
+                closeResult = NpuPersistentHolderApiResult(
+                    status = "closed",
+                    reason = "holder_closed_without_decode",
+                    holderId = "native-holder-1",
+                    diagnostics = diagnostics,
+                    nativeSummary = formatNpuPersistentHolderNativeStubProbeSummary(diagnostics),
+                ),
+                diagnosticsAfterClose = diagnostics,
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder create close full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Create Close Probe"))
+        assertTrue(text.contains("holder_create_called=true"))
+        assertTrue(text.contains("holder_close_called=true"))
+        assertTrue(text.contains("native_run_called=false"))
+        assertTrue(text.contains("npu_decode_called=false"))
+        assertTrue(text.contains("generate_called=false"))
+        assertTrue(text.contains("qnn_decode_called=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes true engine holder create close dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuTrueEngineHolderCreateCloseState = NpuTrueEngineHolderCreateCloseProbeState(
+                status = "completed",
+                reason = "engine_create_once_zero_runs_success",
+                holderId = "true-engine-holder-create-close-dev",
+                nativeResult = NpuTrueEngineHolderNativeResult(
+                    nativeReturn = "persistent_custom_jni_status=completed",
+                    resultText = """
+                        selected_native_probe_mode=true_engine_create_close_only
+                        true_engine_create_close_probe_startup_safe=true
+                        native_call_deferred_until_button_click=true
+                        startup_native_call_blocked=true
+                        probe_execution_available=true
+                        probe_execution_block_reason=unavailable
+                        argument_validation_passed=true
+                        run_count_validation_skipped_for_create_close_only=true
+                        persistent_custom_jni_status=completed
+                        model_assets_create_reached=true
+                        model_assets_create_returned=true
+                        engine_settings_create_reached=true
+                        engine_settings_create_returned=true
+                        engine_create_reached=true
+                        engine_create_returned=true
+                        engine_create_count=1
+                        engine_close_reached=true
+                        engine_close_success=true
+                        session_create_reached=false
+                        decode_reached=false
+                        decode_attempt_count=0
+                    """.trimIndent(),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU true engine holder create close full dump]"))
+        assertTrue(text.contains("test_name=NPU True Engine Holder Create Close Probe"))
+        assertTrue(text.contains("selected_native_probe_mode=true_engine_create_close_only"))
+        assertTrue(text.contains("true_engine_create_close_probe_startup_safe=true"))
+        assertTrue(text.contains("native_call_deferred_until_button_click=true"))
+        assertTrue(text.contains("startup_native_call_blocked=true"))
+        assertTrue(text.contains("probe_execution_available=true"))
+        assertTrue(text.contains("run_count_validation_skipped_for_create_close_only=true"))
+        assertTrue(text.contains("model_assets_create_succeeded=true"))
+        assertTrue(text.contains("engine_settings_create_succeeded=true"))
+        assertTrue(text.contains("engine_create_succeeded=true"))
+        assertTrue(text.contains("engine_close_succeeded=true"))
+        assertTrue(text.contains("session_create_count=0"))
+        assertTrue(text.contains("decode_count=0"))
+        assertTrue(text.contains("generate_count=0"))
+        assertTrue(text.contains("true_engine_persistent_reuse=false"))
+        assertTrue(text.contains("engine_reuse_observed=unavailable"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes holder run once dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderRunOnceState = NpuPersistentHolderRunOnceProbeState(
+                status = "completed",
+                reason = "success",
+                runResult = NpuPersistentHolderApiResult(
+                    status = "run_ready",
+                    reason = "holder_open_existing_one_shot_decode_may_run_once",
+                    holderId = "native-holder-1",
+                    diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                        nativeRunCalled = true,
+                        holderId = "native-holder-1",
+                        holderOpenBeforeRun = true,
+                        runOnceRequested = true,
+                        runOnceSupported = true,
+                        status = "run_ready",
+                        reason = "holder_open_existing_one_shot_decode_may_run_once",
+                    ),
+                ),
+                decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                    status = "success",
+                    reason = "success",
+                    runDecodeReached = "true",
+                    rawOutput = "raw",
+                    sanitizedOutput = "sanitized",
+                    qualityClassification = "natural_japanese",
+                    backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                    fallbackUsed = "false",
+                    timeout = "false",
+                    freshCrash = "false",
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder run once full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Run Once Probe"))
+        assertTrue(text.contains("run_once_requested=true"))
+        assertTrue(text.contains("run_once_called=true"))
+        assertTrue(text.contains("run_once_supported=true"))
+        assertTrue(text.contains("run_once_succeeded=true"))
+        assertTrue(text.contains("run_decode_reached=true"))
+        assertTrue(text.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes holder two turn dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderTwoTurnState = NpuPersistentHolderTwoTurnProbeState(
+                status = "completed",
+                reason = "success",
+                turns = listOf(
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = 1,
+                        prompt = "こんにちは",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    ),
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = 2,
+                        prompt = "あなたは誰ですか",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder two turn full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Two Turn Probe"))
+        assertTrue(text.contains("run_count_requested=2"))
+        assertTrue(text.contains("turn1_run_decode_reached=true"))
+        assertTrue(text.contains("turn2_run_decode_reached=true"))
+        assertTrue(text.contains("run_decode_reached_count=2"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes holder five turn dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderFiveTurnState = NpuPersistentHolderFiveTurnProbeState(
+                status = "completed",
+                reason = "success",
+                turns = (1..5).map { index ->
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = index,
+                        prompt = "prompt$index",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    )
+                },
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder five turn full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Five Turn Probe"))
+        assertTrue(text.contains("run_count_requested=5"))
+        assertTrue(text.contains("turn1_run_decode_reached=true"))
+        assertTrue(text.contains("turn5_run_decode_reached=true"))
+        assertTrue(text.contains("run_decode_reached_count=5"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:5"))
+        assertTrue(text.contains("fallback_used_count=0"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes holder ten turn dump in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            npuPersistentHolderTenTurnState = NpuPersistentHolderTenTurnProbeState(
+                status = "completed",
+                reason = "success",
+                turns = (1..10).map { index ->
+                    NpuPersistentHolderTwoTurnRecord(
+                        turnIndex = index,
+                        prompt = "prompt$index",
+                        runResult = NpuPersistentHolderApiResult(
+                            status = "run_ready",
+                            reason = "holder_open_existing_one_shot_decode_may_run_once",
+                            holderId = "native-holder-1",
+                            diagnostics = npuPersistentHolderNativeStubDiagnostics(
+                                nativeRunCalled = true,
+                                runOnceRequested = true,
+                                runOnceSupported = true,
+                            ),
+                        ),
+                        decodeResult = NpuPersistentHolderRunOnceDecodeResult(
+                            status = "success",
+                            reason = "success",
+                            runDecodeReached = "true",
+                            qualityClassification = "natural_japanese",
+                            backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                            fallbackUsed = "false",
+                            timeout = "false",
+                            freshCrash = "false",
+                        ),
+                    )
+                },
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: NPU persistent holder ten turn full dump]"))
+        assertTrue(text.contains("test_name=NPU Persistent Holder Ten Turn Probe"))
+        assertTrue(text.contains("run_count_requested=10"))
+        assertTrue(text.contains("turn1_run_decode_reached=true"))
+        assertTrue(text.contains("turn10_run_decode_reached=true"))
+        assertTrue(text.contains("run_decode_reached_count=10"))
+        assertTrue(text.contains("success_count=10"))
+        assertTrue(text.contains("success_rate=1.00"))
+        assertTrue(text.contains("backend_evidence_summary=QNN_HTP_V79_FastRPC_native_diag:10"))
+        assertTrue(text.contains("fallback_rate=0.00"))
+        assertTrue(text.contains("true_engine_persistent_reuse=false"))
+        assertTrue(text.contains("persistent_multi_turn_possible=false"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),
@@ -565,7 +938,7 @@ class InferenceStatsSheetContentTest {
     @Test
     fun `buildGpuDiagnosticKeysCopyText includes executor internal surface and quality keys`() {
         val traceText = """
-            LOCAL_ROUTE_DIAG preferred_backend=GPU selected_model_name=gemma selected_model_file=gemma.litertlm gpu_output_quality_matrix_mode=edge_gallery_executor_probe edge_gallery_executor_probe_result=same_sampler_different_executor edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected edge_gallery_generate_api_candidate=generateResponse executor_selection_fingerprint=exec runtime_backend_fingerprint=backend runtime_executor_fingerprint=runtime runtime_dispatch_fingerprint=dispatch runtime_compiled_model_fingerprint=compiled engine_config_fingerprint=engine conversation_config_fingerprint=conversation sampler_config_fingerprint=sampler gpu_internal_surface_probe_enabled=true gpu_internal_surface_probe_result=completed gpu_internal_surface_probe_disabled_reason=none gpu_output_quality_candidate_result=quality_candidate_fail gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_output_quality_summary=runtime_callback_source_corruption_suspected gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_source_corruption_stage=raw_callback callback_corruption_earliest_stage=raw_callback callback_quality_classification=severe_fragmentation gpu_fragmentation_score=0.816 gpu_output_suspicious_fragment_detected=true gpu_output_suspicious_fragment_reason=many_tiny_fragments gpu_callback_invoked_count=323 gpu_callback_empty_text_count=13 gpu_callback_non_empty_text_count=310 gpu_output_callback_chunk_count=323 gpu_output_raw_callback_text_head=head gpu_output_raw_callback_text_tail=tail gpu_output_final_assistant_text_head=final_head gpu_output_final_assistant_text_tail=final_tail gpu_perf_engine_acquire_elapsed_ms=10 gpu_perf_engine_create_or_reuse=reuse gpu_perf_generate_to_first_token_ms=300 gpu_perf_callback_total_elapsed_ms=1200 gpu_perf_slow_path_detected=false gpu_perf_slow_path_reason=none
+            LOCAL_ROUTE_DIAG preferred_backend=GPU selected_model_name=gemma selected_model_file=gemma.litertlm gpu_output_quality_matrix_mode=edge_gallery_executor_probe edge_gallery_executor_probe_result=same_sampler_different_executor edge_gallery_executor_difference_summary=same_sampler_lami_runtime_decode_fragmentation_executor_selection_suspected edge_gallery_generate_api_candidate=generateResponse executor_selection_fingerprint=exec runtime_backend_fingerprint=backend runtime_executor_fingerprint=runtime runtime_dispatch_fingerprint=dispatch runtime_compiled_model_fingerprint=compiled engine_config_fingerprint=engine conversation_config_fingerprint=conversation sampler_config_fingerprint=sampler gpu_internal_surface_probe_enabled=true gpu_internal_surface_probe_result=completed gpu_internal_surface_probe_disabled_reason=none gpu_output_quality_candidate_result=quality_candidate_fail gpu_output_quality_gate_status=fail gpu_output_quality_promotion_blocker=true gpu_output_quality_summary=runtime_callback_source_corruption_suspected gpu_sampler_root_cause_candidate=runtime_decode_fragmentation gpu_output_source_corruption_stage=raw_callback callback_corruption_earliest_stage=raw_callback callback_quality_classification=severe_fragmentation gpu_fragmentation_score=0.816 gpu_output_suspicious_fragment_detected=true gpu_output_suspicious_fragment_reason=many_tiny_fragments gpu_callback_invoked_count=323 gpu_callback_empty_text_count=13 gpu_callback_non_empty_text_count=310 gpu_output_callback_chunk_count=323 gpu_output_raw_callback_text_head=head gpu_output_raw_callback_text_tail=tail gpu_output_final_assistant_text_head=final_head gpu_output_final_assistant_text_tail=final_tail gpu_perf_engine_acquire_elapsed_ms=10 gpu_perf_engine_create_or_reuse=reuse gpu_perf_generate_to_first_token_ms=300 gpu_perf_callback_total_elapsed_ms=1200 gpu_perf_slow_path_detected=false gpu_perf_slow_path_reason=none qairt244_gpu_prefill_preinvoke_v1 event=before_compiled_model_prefill_invoke executor_backend=LiteRT_Compiled_Model settings_backend=GPU sampler_backend=UNSPECIFIED signature=prefill_128 runner=prefill_128 prompt_token_length=7 prefill_effective_token_length=6 prefill_start_position=0 prefill_end_position=5 input_kv_cache_tensor_count=32 output_kv_cache_tensor_count=32
         """.trimIndent()
         val text = buildGpuDiagnosticKeysCopyText(
             stats = InferenceStats(localSourceSummary = "source_summary=$traceText"),
@@ -583,6 +956,10 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("gpu_output_quality_promotion_blocker=true"))
         assertTrue(text.contains("gpu_sampler_root_cause_candidate=runtime_decode_fragmentation"))
         assertTrue(text.contains("gpu_output_raw_callback_text_tail=tail"))
+        assertTrue(text.contains("gpu_native_prefill_preinvoke_marker=qairt244_gpu_prefill_preinvoke_v1"))
+        assertTrue(text.contains("gpu_native_prefill_preinvoke_settings_backend=GPU"))
+        assertTrue(text.contains("gpu_native_prefill_preinvoke_prompt_token_length=7"))
+        assertTrue(text.contains("gpu_native_prefill_preinvoke_input_kv_cache_tensor_count=32"))
     }
 
     @Test

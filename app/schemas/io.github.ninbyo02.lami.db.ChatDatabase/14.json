@@ -1,0 +1,214 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 14,
+    "identityHash": "55afd330e41b61f81ed87b0b917c83f4",
+    "entities": [
+      {
+        "tableName": "user_table",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`chatId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `titleSource` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "chatId",
+            "columnName": "chatId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "titleSource",
+            "columnName": "titleSource",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "chatId"
+          ]
+        }
+      },
+      {
+        "tableName": "chat_table",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`messageID` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `chatId` INTEGER NOT NULL, `message` TEXT NOT NULL, `isSendbyMe` INTEGER NOT NULL, `attachmentUriString` TEXT, `attachmentUriStringsJson` TEXT, `completionTokens` INTEGER, `generationTimeMs` INTEGER, `generationDurationNs` INTEGER, `evalDurationNs` INTEGER, `loadDurationNs` INTEGER, `promptEvalDurationNs` INTEGER, `modelName` TEXT, `inputTokens` INTEGER, `totalTokens` INTEGER, `tokensPerSecond` REAL, `charsPerSecond` REAL, `tokenCountMode` TEXT, `inferenceNotes` TEXT, `inferenceTimeSec` REAL, `decodeDurationMs` INTEGER, `totalDurationMs` INTEGER, `finishReason` TEXT, `localSourceSummary` TEXT, `timeToFirstTokenMs` INTEGER, `imageInputCount` INTEGER, `createdAtEpochMs` INTEGER NOT NULL, `status` TEXT NOT NULL DEFAULT 'COMPLETED', `errorCode` TEXT, `updatedAtEpochMs` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "messageID",
+            "columnName": "messageID",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chatId",
+            "columnName": "chatId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSendbyMe",
+            "columnName": "isSendbyMe",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attachmentUriString",
+            "columnName": "attachmentUriString",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attachmentUriStringsJson",
+            "columnName": "attachmentUriStringsJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completionTokens",
+            "columnName": "completionTokens",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "generationTimeMs",
+            "columnName": "generationTimeMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "generationDurationNs",
+            "columnName": "generationDurationNs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "evalDurationNs",
+            "columnName": "evalDurationNs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "loadDurationNs",
+            "columnName": "loadDurationNs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "promptEvalDurationNs",
+            "columnName": "promptEvalDurationNs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "modelName",
+            "columnName": "modelName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "inputTokens",
+            "columnName": "inputTokens",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "totalTokens",
+            "columnName": "totalTokens",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tokensPerSecond",
+            "columnName": "tokensPerSecond",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "charsPerSecond",
+            "columnName": "charsPerSecond",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tokenCountMode",
+            "columnName": "tokenCountMode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "inferenceNotes",
+            "columnName": "inferenceNotes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "inferenceTimeSec",
+            "columnName": "inferenceTimeSec",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "decodeDurationMs",
+            "columnName": "decodeDurationMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "totalDurationMs",
+            "columnName": "totalDurationMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishReason",
+            "columnName": "finishReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localSourceSummary",
+            "columnName": "localSourceSummary",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "timeToFirstTokenMs",
+            "columnName": "timeToFirstTokenMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "imageInputCount",
+            "columnName": "imageInputCount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'COMPLETED'"
+          },
+          {
+            "fieldPath": "errorCode",
+            "columnName": "errorCode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAtEpochMs",
+            "columnName": "updatedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "messageID"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '55afd330e41b61f81ed87b0b917c83f4')"
+    ]
+  }
+}

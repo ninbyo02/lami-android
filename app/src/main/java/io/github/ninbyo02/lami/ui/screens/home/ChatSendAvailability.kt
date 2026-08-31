@@ -16,6 +16,54 @@ internal enum class ChatSendBlockedReason {
     SERVER_MODEL_MISSING,
 }
 
+internal data class EmptyChatUiState(
+    val title: String,
+    val supportingText: String,
+    val actionLabel: String?,
+    val useOfflineLoop: Boolean,
+) {
+    val message: String get() = "$title\n$supportingText"
+}
+
+internal fun resolveEmptyChatUiState(
+    selectedInferenceTarget: InferenceTarget,
+    selectedServerModel: String?,
+    selectedLocalModelPath: String?,
+    serverUrl: String?,
+): EmptyChatUiState {
+    val routeAvailable = when (selectedInferenceTarget) {
+        InferenceTarget.LOCAL -> !selectedLocalModelPath.isNullOrBlank()
+        InferenceTarget.SERVER -> {
+            val normalizedUrl = serverUrl.orEmpty().trim()
+            normalizedUrl.isNotBlank() &&
+                validateUrlFormat(normalizedUrl).isValid &&
+                !selectedServerModel.isNullOrBlank()
+        }
+    }
+    if (routeAvailable) {
+        return EmptyChatUiState(
+            title = "ラミィがお手伝いします",
+            supportingText = "今日は何をしましょうか？",
+            actionLabel = null,
+            useOfflineLoop = false,
+        )
+    }
+    return when (selectedInferenceTarget) {
+        InferenceTarget.LOCAL -> EmptyChatUiState(
+            title = "モデルの準備が必要です",
+            supportingText = "設定から使用するモデルを選んでください",
+            actionLabel = "モデルを選択",
+            useOfflineLoop = true,
+        )
+        InferenceTarget.SERVER -> EmptyChatUiState(
+            title = "接続先の設定が必要です",
+            supportingText = "使用するAIサーバーを設定してください",
+            actionLabel = "接続先を設定",
+            useOfflineLoop = true,
+        )
+    }
+}
+
 internal fun resolveChatSendAvailability(
     selectedInferenceTarget: InferenceTarget,
     selectedServerModel: String?,
@@ -78,4 +126,108 @@ internal fun chatSendBlockedSnackbarMessage(reason: ChatSendBlockedReason?): Str
     ChatSendBlockedReason.SERVER_MODEL_MISSING -> "モデルを選択してください"
     ChatSendBlockedReason.EMPTY_INPUT,
     null -> "メッセージを入力してください"
+}
+
+internal fun shouldShowTransientAssistantRow(
+    currentChatId: Int?,
+    isInferenceRunning: Boolean,
+    streamingAssistantMessageId: Int?,
+    streamingResponseText: String?,
+    lastPersistedStreamingAssistantText: String?,
+): Boolean {
+    if (currentChatId == null) return false
+    if (!isInferenceRunning) return false
+    if (streamingAssistantMessageId != null) return false
+    val normalizedStreamingText = streamingResponseText?.trim().orEmpty()
+    if (normalizedStreamingText.isBlank()) return false
+    return normalizedStreamingText != lastPersistedStreamingAssistantText
+}
+
+internal fun shouldShowPendingLocalUserMessage(
+    currentChatId: Int?,
+    pendingLocalUserMessageText: String?,
+    latestPersistedUserMessageText: String?,
+): Boolean {
+    if (currentChatId == null) return false
+    val normalizedPendingText = pendingLocalUserMessageText?.trim().orEmpty()
+    if (normalizedPendingText.isBlank()) return false
+    return normalizedPendingText != latestPersistedUserMessageText?.trim()
+}
+
+internal fun stableChatMessageKey(
+    messages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    index: Int,
+): String {
+    val message = messages[index]
+    if (!message.isSendbyMe) {
+        return message.messageID.takeIf { it != 0 }?.let { "message-$it" }
+            ?: "assistant-${message.chatId}-$index-${message.message.hashCode()}"
+    }
+
+    val normalizedText = message.message.trim()
+    val sameTextOccurrence = messages
+        .take(index + 1)
+        .count { candidate ->
+            candidate.isSendbyMe && candidate.message.trim() == normalizedText
+        }
+    // User rows deliberately do not depend on messageID. The pending row has ID 0,
+    // then Room replaces it with an auto-generated ID; keeping this key stable avoids
+    // Compose disposing/recreating the bubble at a visibly different position.
+    return "user-${message.chatId}-${normalizedText.hashCode()}-$sameTextOccurrence"
+}
+
+internal sealed interface ChatScrollDecision {
+    data object None : ChatScrollDecision
+    data class Item(val index: Int) : ChatScrollDecision
+}
+
+internal fun resolveChatAppendScrollDecision(
+    previousMessages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    currentMessages: List<io.github.ninbyo02.lami.db.entity.Message>,
+    isNearBottom: Boolean,
+    autoFollowEnabled: Boolean,
+): ChatScrollDecision {
+    if (currentMessages.isEmpty()) return ChatScrollDecision.None
+
+    val previousUserCount = previousMessages.count { it.isSendbyMe }
+    val currentUserCount = currentMessages.count { it.isSendbyMe }
+    if (currentUserCount > previousUserCount) {
+        val latestUserIndex = currentMessages.indexOfLast { it.isSendbyMe }
+        return if (latestUserIndex >= 0) {
+            ChatScrollDecision.Item(latestUserIndex)
+        } else {
+            ChatScrollDecision.None
+        }
+    }
+
+    val previousKeys = previousMessages.indices.map {
+        stableChatMessageKey(previousMessages, it)
+    }
+    val currentKeys = currentMessages.indices.map {
+        stableChatMessageKey(currentMessages, it)
+    }
+    if (previousKeys == currentKeys) return ChatScrollDecision.None
+
+    return if (
+        currentMessages.size > previousMessages.size &&
+        isNearBottom &&
+        autoFollowEnabled
+    ) {
+        ChatScrollDecision.Item(currentMessages.lastIndex)
+    } else {
+        ChatScrollDecision.None
+    }
+}
+
+internal fun shouldShowLocalRespondingPlaceholder(
+    isLocalRunning: Boolean,
+    localStopRequested: Boolean,
+    streamingAssistantMessageId: Int?,
+    localStreamingResponseText: String?,
+    showDelayedPlaceholder: Boolean,
+): Boolean {
+    // Keep local/NPU chat visually aligned with the server route: do not add a
+    // separate "応答中..." bubble while waiting. The assistant row appears when
+    // real text is available via the transient/streaming path.
+    return false
 }

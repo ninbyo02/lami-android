@@ -4,6 +4,8 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami"
+ASSEMBLE_TASK=":app:assembleStandardDebug"
+APK_PATH="app/build/outputs/apk/standard/debug/app-standard-debug.apk"
 ACTION="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
 RECEIVER="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
 STATE_APP_FILE="files/litert_lm_gpu_benchmark_state.txt"
@@ -21,12 +23,25 @@ MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
 BACKEND_VARIANT="gpu"
 CLOSE_POLICY="normal"
 PHASE="send-message"
+MODEL_PATH_SOURCE="auto"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
 BROADCAST_EXIT_CODE="not-run"
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --app-id)
+      APP_ID="${2:-}"
+      shift 2
+      ;;
+    --assemble-task)
+      ASSEMBLE_TASK="${2:-}"
+      shift 2
+      ;;
+    --apk)
+      APK_PATH="${2:-}"
+      shift 2
+      ;;
     --device)
       DEVICE_SERIAL="${2:-}"
       shift 2
@@ -63,6 +78,10 @@ while [ $# -gt 0 ]; do
       PHASE="${2:-send-message}"
       shift 2
       ;;
+    --model-path-source)
+      MODEL_PATH_SOURCE="${2:-auto}"
+      shift 2
+      ;;
     --skip-build-install)
       BUILD_AND_INSTALL=false
       shift
@@ -70,7 +89,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--max-output-tokens-list <csv>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--app-id <id>] [--assemble-task <gradle-task>] [--apk <path>] [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--model-path-source <auto|generic_fallback>] [--max-output-tokens-list <csv>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -82,11 +101,13 @@ Defaults:
   backend: gpu
   close_policy: normal
   phase: send-message
+  model_path_source: auto
 
 Backend variants:
+  automatic
+  default (alias for automatic)
   gpu
   cpu
-  default
   gpu-null-modalities
   gpu-cpu-modalities
   gpu-cache-dir
@@ -104,7 +125,12 @@ Phases:
   conversation-only  create and initialize Engine, then create Conversation
   send-message       full benchmark path, including sendMessage
 
+Model path sources:
+  auto              existing benchmark behavior: explicit --model-path, base model setting, then local_models
+  generic_fallback  SettingsPreferences.getValidLocalGenericModelPathOrNull only; missing fails with reason=generic_fallback_model_missing
+
 Transport:
+  app_id defaults to io.github.ninbyo02.lami. Use --app-id/--assemble-task/--apk for diagnostic flavors.
   prompts, model_path, and max_output_tokens are sent as base64 extras so
   spaces, Japanese text, symbols, and pipe characters are not interpreted by
   the Android shell. --prompts accepts newline-separated prompts; legacy |||
@@ -135,10 +161,13 @@ if ! [[ "$CASE_TIMEOUT_MS" =~ ^[0-9]+$ ]] || [ "$CASE_TIMEOUT_MS" -le 0 ]; then
   exit 2
 fi
 case "$BACKEND_VARIANT" in
-  gpu|cpu|default|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity)
+  automatic|default)
+    BACKEND_VARIANT="automatic"
+    ;;
+  gpu|cpu|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity)
     ;;
   *)
-    printf 'ERROR: --backend must be one of: gpu, cpu, default, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all, gallery-chat-parity\n' >&2
+    printf 'ERROR: --backend must be one of: automatic, default, gpu, cpu, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all, gallery-chat-parity\n' >&2
     exit 2
     ;;
 esac
@@ -158,9 +187,31 @@ case "$PHASE" in
     exit 2
     ;;
 esac
+case "$MODEL_PATH_SOURCE" in
+  auto|generic_fallback)
+    ;;
+  *)
+    printf 'ERROR: --model-path-source must be one of: auto, generic_fallback\n' >&2
+    exit 2
+    ;;
+esac
+if [ -z "$APP_ID" ]; then
+  printf 'ERROR: --app-id must not be empty\n' >&2
+  exit 2
+fi
+if [ -z "$ASSEMBLE_TASK" ]; then
+  printf 'ERROR: --assemble-task must not be empty\n' >&2
+  exit 2
+fi
+if [ -z "$APK_PATH" ]; then
+  printf 'ERROR: --apk must not be empty\n' >&2
+  exit 2
+fi
 BACKEND_LABEL="GPU"
 if [ "$BACKEND_VARIANT" = "cpu" ]; then
   BACKEND_LABEL="CPU"
+elif [ "$BACKEND_VARIANT" = "automatic" ]; then
+  BACKEND_LABEL="Automatic"
 fi
 INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC=false
 if [ "$CLOSE_POLICY" != "normal" ]; then
@@ -222,6 +273,37 @@ pull_marker() {
 marker_value() {
   local key="$1"
   state_value "$key" "$OUT_DIR/marker.txt" 2>/dev/null || true
+}
+
+dry_run_command_if_requested() {
+  if [ "${LAMI_BENCHMARK_DRY_RUN_COMMAND:-false}" != "true" ]; then
+    return 0
+  fi
+  local prompts_payload prompts_count max_output_tokens_count requested_run_count model_path_arg_present
+  prompts_payload="$(normalize_prompts)"
+  prompts_count="$(printf '%s\n' "$prompts_payload" | awk 'NF { count++ } END { print count + 0 }')"
+  max_output_tokens_count="$(printf '%s' "$MAX_OUTPUT_TOKENS_LIST" | awk -F, '{ count = 0; for (i = 1; i <= NF; i++) if ($i ~ /^[[:space:]]*[0-9]+[[:space:]]*$/) count++; print count }')"
+  requested_run_count=$((prompts_count * max_output_tokens_count))
+  if [ -n "$MODEL_PATH" ]; then
+    model_path_arg_present=true
+  else
+    model_path_arg_present=false
+  fi
+  printf 'dry_run=true\n'
+  printf 'app_id=%s\n' "$APP_ID"
+  printf 'assemble_task=%s\n' "$ASSEMBLE_TASK"
+  printf 'apk=%s\n' "$APK_PATH"
+  printf 'backend=%s\n' "$BACKEND_LABEL"
+  printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+  printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
+  printf 'model_path_arg_present=%s\n' "$model_path_arg_present"
+  printf 'prompts_count=%s\n' "$prompts_count"
+  printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
+  printf 'requested_run_count=%s\n' "$requested_run_count"
+  printf 'receiver_extra=--es backend_variant %s\n' "$BACKEND_VARIANT"
+  exit 0
 }
 
 first_matching_line() {
@@ -432,6 +514,12 @@ append_host_timeout_state() {
     printf 'host_wait_status=timeout\n'
     printf 'host_reason=host_timeout_waiting_for_receiver\n'
     printf 'host_timeout=true\n'
+    printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
+    printf 'completed_run_count=0\n'
+    printf 'success_count=0\n'
+    printf 'failure_count=0\n'
+    printf 'timeout_count=1\n'
+    printf 'fallback_count=0\n'
     printf 'host_fresh_crash=%s\n' "$fresh_crash"
     printf 'host_process_alive=%s\n' "$process_alive"
     printf 'host_latest_stage=%s\n' "${latest_stage:-unknown}"
@@ -439,6 +527,7 @@ append_host_timeout_state() {
     printf 'host_am_broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
     printf 'close_policy=%s\n' "$CLOSE_POLICY"
     printf 'phase=%s\n' "$PHASE"
+    printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
     printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf 'native_crash_suspected=%s\n' "$(crash_field_value native_crash_suspected)"
     printf 'crash_process=%s\n' "$(crash_field_value crash_process)"
@@ -465,10 +554,17 @@ write_timeout_artifacts() {
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
     printf -- '- phase: `%s`\n' "$PHASE"
+    printf -- '- model_path_source: `%s`\n' "$MODEL_PATH_SOURCE"
     printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
     printf -- '- timeout: `true`\n'
+    printf -- '- requested_run_count: `%s`\n' "$REQUESTED_RUN_COUNT"
+    printf -- '- completed_run_count: `0`\n'
+    printf -- '- success_count: `0`\n'
+    printf -- '- failure_count: `0`\n'
+    printf -- '- timeout_count: `1`\n'
+    printf -- '- fallback_count: `0`\n'
     printf -- '- fresh_crash: `%s`\n' "$fresh_crash"
     printf -- '- process_alive: `%s`\n' "$process_alive"
     printf -- '- latest_stage: `%s`\n' "${latest_stage:-unknown}"
@@ -515,6 +611,8 @@ write_timeout_artifacts() {
 
 trap stop_probe_logcat EXIT
 
+dry_run_command_if_requested
+
 if ! command -v adb >/dev/null 2>&1; then
   log "adb not found"
   exit 1
@@ -531,13 +629,13 @@ fi
 printf '%s\n' "$DEVICE_SERIAL" >"$OUT_DIR/selected_device.txt"
 
 if [ "$BUILD_AND_INSTALL" = true ]; then
-  log "building standardDebug"
-  ./gradlew :app:assembleStandardDebug >"$OUT_DIR/gradle_assemble_standard_debug.log" 2>&1 || {
-    log "standardDebug build failed"
+  log "building $ASSEMBLE_TASK"
+  ./gradlew "$ASSEMBLE_TASK" >"$OUT_DIR/gradle_assemble.log" 2>&1 || {
+    log "$ASSEMBLE_TASK build failed"
     exit 1
   }
-  log "installing standardDebug"
-  adb_cmd install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk >"$OUT_DIR/adb_install.txt" 2>&1 || {
+  log "installing $APK_PATH"
+  adb_cmd install -r "$APK_PATH" >"$OUT_DIR/adb_install.txt" 2>&1 || {
     log "install failed"
     exit 1
   }
@@ -556,6 +654,9 @@ adb_cmd logcat -c >"$OUT_DIR/logcat_clear.txt" 2>&1 || true
 start_probe_logcat
 
 PROMPTS_PAYLOAD="$(normalize_prompts)"
+PROMPTS_COUNT="$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+MAX_OUTPUT_TOKENS_COUNT="$(printf '%s' "$MAX_OUTPUT_TOKENS_LIST" | awk -F, '{ count = 0; for (i = 1; i <= NF; i++) if ($i ~ /^[[:space:]]*[0-9]+[[:space:]]*$/) count++; print count }')"
+REQUESTED_RUN_COUNT=$((PROMPTS_COUNT * MAX_OUTPUT_TOKENS_COUNT))
 PROMPTS_BASE64="$(base64_no_wrap "$PROMPTS_PAYLOAD")"
 MAX_OUTPUT_TOKENS_LIST_BASE64="$(base64_no_wrap "$MAX_OUTPUT_TOKENS_LIST")"
 MODEL_PATH_BASE64=""
@@ -563,7 +664,7 @@ if [ -n "$MODEL_PATH" ]; then
   MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
 fi
 
-log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY phase=$PHASE"
+log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY phase=$PHASE model_path_source=$MODEL_PATH_SOURCE"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
@@ -575,6 +676,7 @@ if [ -n "$MODEL_PATH" ]; then
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
     --es phase "$PHASE" \
+    --es model_path_source "$MODEL_PATH_SOURCE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -588,6 +690,7 @@ else
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
     --es phase "$PHASE" \
+    --es model_path_source "$MODEL_PATH_SOURCE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -601,10 +704,12 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
-  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+  printf 'prompts_count=%s\n' "$PROMPTS_COUNT"
+  printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
   printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
@@ -621,9 +726,11 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
-  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+  printf 'prompts_count=%s\n' "$PROMPTS_COUNT"
+  printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
   printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
@@ -663,11 +770,18 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
       printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
       printf 'close_policy=%s\n' "$CLOSE_POLICY"
       printf 'phase=%s\n' "$PHASE"
+      printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
       printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
       printf 'status=failure\n'
       printf 'reason=host_timeout_waiting_for_receiver\n'
       printf 'app_state_present=false\n'
       printf 'timeout=true\n'
+      printf 'requested_run_count=%s\n' "$REQUESTED_RUN_COUNT"
+      printf 'completed_run_count=0\n'
+      printf 'success_count=0\n'
+      printf 'failure_count=0\n'
+      printf 'timeout_count=1\n'
+      printf 'fallback_count=0\n'
       printf 'fresh_crash=%s\n' "$fresh_crash"
       printf 'process_alive=%s\n' "$process_alive"
       printf 'latest_stage=%s\n' "${latest_stage:-unknown}"
@@ -694,6 +808,7 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'model_path_source=%s\n' "$MODEL_PATH_SOURCE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'wait_status=%s\n' "$wait_status"
   printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"

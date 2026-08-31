@@ -1,0 +1,582 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import android.content.Context
+import com.google.gson.Gson
+import io.github.ninbyo02.lami.BuildConfig
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+
+internal class Qairt244ShortMultitokenSmoke private constructor() {
+    companion object {
+        private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
+        private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
+        private const val PERSISTENT_PROBE_RESULT_FILE_NAME =
+            "qairt244_persistent_custom_jni_probe_result.txt"
+        private const val PERSISTENT_PROBE_DIAG_FILE_NAME =
+            "qairt244_persistent_custom_jni_probe_diag.txt"
+        private const val CONVERSATION_API_PROBE_RESULT_FILE_NAME =
+            "qairt244_conversation_api_probe_result.txt"
+        private const val CONVERSATION_API_PROBE_DIAG_FILE_NAME =
+            "qairt244_conversation_api_probe_diag.txt"
+        private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
+        private val allowedTrueEngineCreateCloseFlavors = allowedDebugFlavors + "trueEngineNpuProbe"
+
+        private fun standardRouteRuntimeAllowed(): Boolean =
+            (BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) ||
+                (!BuildConfig.DEBUG &&
+                    BuildConfig.CURRENT_FLAVOR == "standard" &&
+                    BuildConfig.STANDARD_NPU_RUNTIME_ENABLED)
+
+        init {
+            System.loadLibrary("lami_qairt244_npu_jni")
+            if (BuildConfig.DEBUG) {
+                System.loadLibrary("lami_npu_persistent_holder_stub")
+            }
+        }
+
+        @JvmStatic
+        fun supportsEditablePromptExecution(): Boolean = true
+
+        @JvmStatic
+        fun supportsPersistentCustomJniProbeExecution(): Boolean = true
+
+        @JvmStatic
+        fun supportsPersistentHolderNativeStubExecution(): Boolean = true
+
+        @JvmStatic
+        fun createStandardRouteAdapterHolder(
+            request: NpuPersistentHolderCreateRequest,
+        ): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeCreateStandardRouteAdapterHolder(
+                modelPath = request.modelPath,
+                nativeLibraryDir = request.nativeLibraryDir,
+                cacheDir = request.cacheDir,
+                maxTokens = request.maxTokens,
+            )
+        }
+
+        @JvmStatic
+        fun runStandardRouteAdapterHolderOnce(
+            request: NpuPersistentHolderRunRequest,
+        ): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeRunStandardRouteAdapterHolderOnce(
+                holderId = request.holderId,
+                prompt = request.prompt,
+                maxOutputTokens = request.maxOutputTokens,
+            )
+        }
+
+        @JvmStatic
+        fun closeStandardRouteAdapterHolder(
+            request: NpuPersistentHolderCloseRequest,
+        ): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeCloseStandardRouteAdapterHolder(
+                holderId = request.holderId,
+                reason = request.reason,
+            )
+        }
+
+        @JvmStatic
+        fun getStandardRouteAdapterHolderDiagnostics(holderId: String): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent holder native stub is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            return nativeGetStandardRouteAdapterHolderDiagnostics(holderId = holderId)
+        }
+
+        @JvmStatic
+        fun runTrueEngineHolderCreateCloseProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            maxOutputTokens: Int,
+            holderKey: String,
+        ): NpuTrueEngineHolderNativeResult {
+            check(BuildConfig.CURRENT_FLAVOR in allowedTrueEngineCreateCloseFlavors) {
+                "true engine holder create/close probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(holderKey.isNotBlank()) { "holderKey is required" }
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val nativeResult = runCatching {
+                nativeRunPersistentProbe(
+                    modelPath = modelPath,
+                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                    cacheDir = appContext.cacheDir.absolutePath,
+                    resultPath = resultFile.absolutePath,
+                    diagPath = diagFile.absolutePath,
+                    prompt = "こんにちは",
+                    promptInputLimitMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+                    maxOutputTokens = maxOutputTokens,
+                    runCount = 0,
+                    holderKey = holderKey,
+                    nativeProbeMode = NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_NATIVE_PROBE_MODE,
+                )
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return NpuTrueEngineHolderNativeResult(
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
+        @JvmStatic
+        fun run(
+            context: Context,
+            modelPath: String,
+            runId: String,
+        ): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "short multi-token smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val resultPath = resultFile.absolutePath
+            val diagPath = diagFile.absolutePath
+            val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
+            val cacheDir = appContext.cacheDir.absolutePath
+
+            val output = nativeRun(
+                modelPath = modelPath,
+                nativeLibraryDir = nativeLibraryDir,
+                cacheDir = cacheDir,
+                resultPath = resultPath,
+                diagPath = diagPath,
+            )
+            return "qairt244_short_multitoken_smoke_v1 runId=$runId result=success output=$output"
+        }
+
+        @JvmStatic
+        fun runEditablePrompt(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            prompt: String,
+            maxOutputTokens: Int,
+            promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
+            unsafeDevBypassPromptLengthGate: Boolean = false,
+        ): String {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "editable prompt smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            val rawValidation = when (promptValidationMode) {
+                NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+                else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
+            }
+            val validation = promptLengthGateBypassedValidation(
+                validation = rawValidation,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+            )
+            val nativePromptInputLimitMode = if (
+                unsafeDevBypassPromptLengthGate &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            ) {
+                UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            } else {
+                validation.promptInputLimitMode
+            }
+            check(validation.isValid) {
+                "editable prompt rejected before native execution: reasonCode=${validation.reasonCode}"
+            }
+
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val resultPath = resultFile.absolutePath
+            val diagPath = diagFile.absolutePath
+            val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
+            val cacheDir = appContext.cacheDir.absolutePath
+
+            val normalizedPrompt = validation.normalizedPrompt
+            val output = nativeRunEditablePrompt(
+                modelPath = modelPath,
+                nativeLibraryDir = nativeLibraryDir,
+                cacheDir = cacheDir,
+                resultPath = resultPath,
+                diagPath = diagPath,
+                prompt = normalizedPrompt,
+                promptInputLimitMode = nativePromptInputLimitMode,
+                maxOutputTokens = maxOutputTokens,
+            )
+            return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
+        }
+
+        @JvmStatic
+        fun runConversationApiProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            prompts: List<String>,
+            maxOutputTokens: Int,
+            samplerProfile: String,
+            conversationStateProfile: String,
+            systemInstruction: String = LocalConversationPolicy.SYSTEM_INSTRUCTION,
+            initialTurns: List<LocalConversationTurn> = emptyList(),
+        ): Qairt244PersistentProbeResult {
+            check(BuildConfig.DEBUG && BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "Conversation API probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(prompts.size in 1..11) { "prompts must contain 1..11 items" }
+            check(prompts.none { it.isBlank() }) { "prompts must not contain blank items" }
+            check(initialTurns.size <= NpuConversationPrefacePlanner.MAX_RECENT_COMPLETED_PAIRS * 2) {
+                "initialTurns must contain at most three completed pairs"
+            }
+            check(initialTurns.none { it.text.isBlank() }) { "initialTurns must not contain blank items" }
+            check(initialTurns.chunked(2).all { pair ->
+                pair.size == 2 &&
+                    pair[0].role == LocalConversationRole.USER &&
+                    pair[1].role == LocalConversationRole.MODEL
+            }) {
+                "initialTurns must contain completed user/model pairs"
+            }
+            check(maxOutputTokens in 1..128) { "maxOutputTokens must be 1..128" }
+            check(samplerProfile in setOf("lami_stable_v1", "greedy_top_k_1_v1")) {
+                "unsupported samplerProfile=$samplerProfile"
+            }
+            check(
+                conversationStateProfile in setOf(
+                    "persistent_v1",
+                    "rehydrate_each_turn_v1",
+                    "rehydrate_last_3_turns_v1",
+                    "rehydrate_last_4_turns_v1",
+                ),
+            ) {
+                "unsupported conversationStateProfile=$conversationStateProfile"
+            }
+
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(CONVERSATION_API_PROBE_RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(CONVERSATION_API_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val promptsJson = Gson().toJson(prompts)
+            val initialMessagesJson = Gson().toJson(
+                initialTurns.map { turn ->
+                    mapOf(
+                        "role" to if (turn.role == LocalConversationRole.USER) "user" else "model",
+                        "text" to turn.text,
+                    )
+                },
+            )
+            val nativeResult = runCatching {
+                nativeRunConversationApiProbe(
+                    modelPath = modelPath,
+                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                    cacheDir = appContext.cacheDir.absolutePath,
+                    resultPath = resultFile.absolutePath,
+                    diagPath = diagFile.absolutePath,
+                    systemInstruction = systemInstruction,
+                    initialMessagesJson = initialMessagesJson,
+                    promptsJson = promptsJson,
+                    samplerProfile = samplerProfile,
+                    conversationStateProfile = conversationStateProfile,
+                    maxOutputTokens = maxOutputTokens,
+                )
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return Qairt244PersistentProbeResult(
+                runId = runId,
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
+        @JvmStatic
+        fun runPersistentProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            prompt: String,
+            maxOutputTokens: Int,
+            runCount: Int,
+            holderKey: String,
+            nativeProbeMode: String,
+            promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
+            unsafeDevBypassPromptLengthGate: Boolean = false,
+        ): Qairt244PersistentProbeResult {
+            check(
+                standardRouteRuntimeAllowed() ||
+                    (
+                        (BuildConfig.CURRENT_FLAVOR == "trueEngineNpuProbe" ||
+                            BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") &&
+                            ((BuildConfig.TRUE_ENGINE_NPU_PROBE_ENTRYPOINT_ONLY_ENABLED &&
+                                nativeProbeMode == NPU_TRUE_ENGINE_ENTRYPOINT_NATIVE_PROBE_MODE) ||
+                                (BuildConfig.TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED &&
+                                    nativeProbeMode == NPU_TRUE_ENGINE_MODEL_ASSETS_NATIVE_PROBE_MODE) ||
+                                (BuildConfig.TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED &&
+                                    (nativeProbeMode == NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE ||
+                                        nativeProbeMode == "standard_route_reuse_once" ||
+                                        nativeProbeMode == "full_20")))
+                    ),
+            ) {
+                "persistent custom JNI probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(holderKey.isNotBlank()) { "holderKey is required" }
+            check(nativeProbeMode.isNotBlank()) { "nativeProbeMode is required" }
+            check(runCount in 1..100) { "runCount must be 1..100" }
+            check(nativeProbeMode != NPU_TRUE_ENGINE_HELD_RUN_ONCE_NATIVE_PROBE_MODE || runCount == 1) {
+                "held_engine_run_once requires runCount=1"
+            }
+            val rawValidation = when (promptValidationMode) {
+                NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+                else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
+            }
+            val validation = promptLengthGateBypassedValidation(
+                validation = rawValidation,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+            )
+            val nativePromptInputLimitMode = if (
+                unsafeDevBypassPromptLengthGate &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            ) {
+                UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            } else {
+                validation.promptInputLimitMode
+            }
+            check(validation.isValid) {
+                "persistent custom JNI probe rejected before native execution: reasonCode=${validation.reasonCode}"
+            }
+
+            val appContext = context.applicationContext
+            val diagnosticsDir = if (!BuildConfig.DEBUG && BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) {
+                appContext.getExternalFilesDir(null) ?: appContext.filesDir
+            } else {
+                appContext.filesDir
+            }
+            val resultFile = diagnosticsDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = diagnosticsDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val nativeResult = runPersistentNativeCallWithOptionalTimeout(
+                nativeProbeMode = nativeProbeMode,
+            ) {
+                if (nativeProbeMode == "editable_engine_create_only_minimal") {
+                    nativeRunEditableEngineCreateOnlyMinimal(
+                        modelPath = modelPath,
+                        nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                        cacheDir = appContext.cacheDir.absolutePath,
+                        resultPath = resultFile.absolutePath,
+                        diagPath = diagFile.absolutePath,
+                        prompt = validation.normalizedPrompt,
+                        promptInputLimitMode = nativePromptInputLimitMode,
+                        maxOutputTokens = maxOutputTokens,
+                    )
+                } else {
+                    nativeRunPersistentProbe(
+                        modelPath = modelPath,
+                        nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                        cacheDir = appContext.cacheDir.absolutePath,
+                        resultPath = resultFile.absolutePath,
+                        diagPath = diagFile.absolutePath,
+                        prompt = validation.normalizedPrompt,
+                        promptInputLimitMode = nativePromptInputLimitMode,
+                        maxOutputTokens = maxOutputTokens,
+                        runCount = runCount,
+                        holderKey = holderKey,
+                        nativeProbeMode = nativeProbeMode,
+                    )
+                }
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return Qairt244PersistentProbeResult(
+                runId = runId,
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
+        private fun runPersistentNativeCallWithOptionalTimeout(
+            nativeProbeMode: String,
+            block: () -> String,
+        ): Result<String> {
+            if (nativeProbeMode != "full_20") return runCatching { block() }
+
+            val completed = CountDownLatch(1)
+            val resultRef = AtomicReference<Result<String>>()
+            val startedAtMs = System.currentTimeMillis()
+            Thread({
+                try {
+                    resultRef.set(runCatching { block() })
+                } finally {
+                    completed.countDown()
+                }
+            }, "Qairt244PersistentProbeNativeWorker").apply {
+                isDaemon = true
+                start()
+            }
+
+            val finished = completed.await(PERSISTENT_FULL20_NATIVE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            if (finished) {
+                return resultRef.get() ?: Result.failure(
+                    IllegalStateException("native_persistent_probe_finished_without_result"),
+                )
+            }
+
+            val elapsedMs = System.currentTimeMillis() - startedAtMs
+            return Result.failure(
+                IllegalStateException(
+                    "native_persistent_probe_timeout_after_" + elapsedMs + "ms; " +
+                        "timeout_ms=" + PERSISTENT_FULL20_NATIVE_TIMEOUT_MS,
+                ),
+            )
+        }
+
+        private fun promptLengthGateBypassedValidation(
+            validation: NpuDiagnosticPromptValidator.Result,
+            unsafeDevBypassPromptLengthGate: Boolean,
+        ): NpuDiagnosticPromptValidator.Result {
+            if (!unsafeDevBypassPromptLengthGate || !isHiddenPromptLengthGateBlock(validation)) return validation
+            return validation.copy(isValid = true)
+        }
+
+        private fun isHiddenPromptLengthGateBlock(validation: NpuDiagnosticPromptValidator.Result): Boolean =
+            validation.reasonCode == "too_long" &&
+                validation.promptInputCodePointLimit == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+
+        private const val UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE =
+            "unsafe_dev_bypass_hidden_template_experiment"
+        private const val PERSISTENT_FULL20_NATIVE_TIMEOUT_MS = 90_000L
+
+        @JvmStatic
+        private external fun nativeRun(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunEditablePrompt(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            prompt: String,
+            promptInputLimitMode: String,
+            maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunPersistentProbe(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            prompt: String,
+            promptInputLimitMode: String,
+            maxOutputTokens: Int,
+            runCount: Int,
+            holderKey: String,
+            nativeProbeMode: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunConversationApiProbe(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            systemInstruction: String,
+            initialMessagesJson: String,
+            promptsJson: String,
+            samplerProfile: String,
+            conversationStateProfile: String,
+            maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunEditableEngineCreateOnlyMinimal(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            prompt: String,
+            promptInputLimitMode: String,
+            maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeCreateStandardRouteAdapterHolder(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            maxTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunStandardRouteAdapterHolderOnce(
+            holderId: String,
+            prompt: String,
+            maxOutputTokens: Int,
+        ): String
+
+        @JvmStatic
+        private external fun nativeCloseStandardRouteAdapterHolder(
+            holderId: String,
+            reason: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeGetStandardRouteAdapterHolderDiagnostics(
+            holderId: String,
+        ): String
+    }
+}
+
+internal data class Qairt244PersistentProbeResult(
+    val runId: String,
+    val nativeReturn: String,
+    val resultText: String,
+    val diagText: String,
+    val throwableClass: String,
+    val throwableMessage: String,
+)

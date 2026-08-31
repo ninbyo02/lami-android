@@ -77,6 +77,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
 import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
@@ -86,6 +87,9 @@ import io.github.ninbyo02.lami.ui.text.Segment
 import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -105,6 +109,7 @@ fun ChatBubble(
     isSentByMe: Boolean,
     attachmentUriString: String? = null,
     attachmentUriStringsJson: String? = null,
+    createdAtEpochMs: Long = 0L,
 ) {
     val resolvedAttachmentUriStrings = remember(attachmentUriString, attachmentUriStringsJson) {
         decodeAttachmentUriStrings(attachmentUriStringsJson).ifEmpty { listOfNotNull(attachmentUriString) }
@@ -113,6 +118,7 @@ fun ChatBubble(
         message = message,
         isSentByMe = isSentByMe,
         attachmentUriStrings = resolvedAttachmentUriStrings,
+        createdAtEpochMs = createdAtEpochMs,
     )
 }
 
@@ -122,11 +128,13 @@ fun ChatBubble(
     message: String,
     isSentByMe: Boolean,
     attachmentUriStrings: List<String>,
+    createdAtEpochMs: Long = 0L,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
     val attachmentUris = remember(attachmentUriStrings) { attachmentUriStrings.map(Uri::parse) }
     var selectedAttachmentIndex by remember { mutableStateOf<Int?>(null) }
+    val timestampText = remember(createdAtEpochMs) { formatMessageTimestamp(createdAtEpochMs) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,42 +142,64 @@ fun ChatBubble(
             .padding(start = 10.dp, top = 0.dp, end = 10.dp, bottom = 10.dp),
         horizontalArrangement = if (isSentByMe) Arrangement.End else Arrangement.Start
     ) {
-        Box(
-            modifier = Modifier
-                // 左右それぞれ +4dp 拡張（合計 +8dp）
-                .widthIn(max = 288.dp)
-                .testTag("userChatBubble")
-                .background(
-                    color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .padding(12.dp)
+        Column(
+            horizontalAlignment = if (isSentByMe) Alignment.End else Alignment.Start,
         ) {
-            Column(
-                modifier = Modifier.combinedClickable(
-                    enabled = true,
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
-            ) {
-                AttachmentGallery(
-                    attachmentUris = attachmentUris,
-                    onAttachmentClick = { index -> selectedAttachmentIndex = index },
-                )
-
-                selectedAttachmentIndex?.let { initialIndex ->
-                    AttachmentFullscreenViewer(
-                        attachmentUris = attachmentUris,
-                        initialIndex = initialIndex,
-                        onDismiss = { selectedAttachmentIndex = null },
+            Box(
+                modifier = Modifier
+                    // 左右それぞれ +4dp 拡張（合計 +8dp）
+                    .widthIn(max = 288.dp)
+                    .testTag("userChatBubble")
+                    .background(
+                        color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(16.dp)
                     )
-                }
+                    .padding(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.combinedClickable(
+                        enabled = true,
+                        onClick = {},
+                        onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
+                ) {
+                    AttachmentGallery(
+                        attachmentUris = attachmentUris,
+                        onAttachmentClick = { index -> selectedAttachmentIndex = index },
+                    )
 
-                if (message.isNotBlank()) {
-                    MessageSegments(segments = segments)
+                    selectedAttachmentIndex?.let { initialIndex ->
+                        AttachmentFullscreenViewer(
+                            attachmentUris = attachmentUris,
+                            initialIndex = initialIndex,
+                            onDismiss = { selectedAttachmentIndex = null },
+                        )
+                    }
+
+                    if (message.isNotBlank()) {
+                        MessageSegments(segments = segments)
+                    }
                 }
+            }
+            if (timestampText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = timestampText,
+                    modifier = Modifier.padding(
+                        end = if (isSentByMe) 4.dp else 0.dp,
+                        start = if (isSentByMe) 0.dp else 4.dp,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.60f),
+                    fontSize = 11.sp,
+                )
             }
         }
     }
+}
+
+private fun formatMessageTimestamp(epochMs: Long): String? {
+    if (epochMs <= 0L) return null
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
 }
 
 @Composable
@@ -630,6 +660,8 @@ fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     isStreaming: Boolean = false,
+    lifecycleStatus: String = MessageStatus.COMPLETED,
+    createdAtEpochMs: Long = 0L,
     showMessageActions: Boolean = false,
     isReplaying: Boolean = false,
     onReplayClick: (() -> Unit)? = null,
@@ -659,6 +691,8 @@ fun PlainAssistantMessage(
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
     }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
+    val lifecycleLabel = remember(lifecycleStatus) { assistantLifecycleLabel(lifecycleStatus) }
+    val timestampText = remember(createdAtEpochMs) { formatMessageTimestamp(createdAtEpochMs) }
     val pythonSyntaxWarnings = remember(message, isStreaming) {
         if (isStreaming) {
             emptyList()
@@ -700,6 +734,23 @@ fun PlainAssistantMessage(
         if (pythonSyntaxWarnings.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             PythonSyntaxWarningSummary(warnings = pythonSyntaxWarnings)
+        }
+        if (lifecycleLabel != null && !isStreaming) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = lifecycleLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            )
+        }
+        if (timestampText != null && !isStreaming) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = timestampText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                fontSize = 11.sp,
+            )
         }
         if (showMessageActions) {
             Row(
@@ -757,6 +808,13 @@ fun PlainAssistantMessage(
             }
         }
     }
+}
+
+internal fun assistantLifecycleLabel(status: String): String? = when (status) {
+    MessageStatus.FAILED -> "Generation failed"
+    MessageStatus.CANCELLED -> "Generation cancelled"
+    MessageStatus.INTERRUPTED -> "Generation interrupted"
+    else -> null
 }
 
 @Composable

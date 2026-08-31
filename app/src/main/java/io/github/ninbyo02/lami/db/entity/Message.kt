@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.db.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "chat_table")
@@ -31,4 +32,10 @@ data class Message(
     val localSourceSummary: String? = null,
     val timeToFirstTokenMs: Long? = null,
     val imageInputCount: Int? = null,
+    val createdAtEpochMs: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "'COMPLETED'")
+    val status: String = MessageStatus.COMPLETED,
+    val errorCode: String? = null,
+    @ColumnInfo(defaultValue = "0")
+    val updatedAtEpochMs: Long = createdAtEpochMs,
 )

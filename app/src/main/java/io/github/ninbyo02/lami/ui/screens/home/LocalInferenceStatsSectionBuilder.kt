@@ -2,7 +2,13 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
+import io.github.ninbyo02.lami.ui.screens.settings.LocalInferenceRoutingDryRunInput
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.dryRunRoutingDecision
+import io.github.ninbyo02.lami.ui.screens.settings.localInferenceResidencyPolicyForUserFacingSelection
+import io.github.ninbyo02.lami.ui.screens.settings.toSummary
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -18,13 +24,48 @@ private enum class InferenceBackendKind {
     OLLAMA,
 }
 
+private fun isDeterministicSafeGreetingFallback(stats: InferenceStats): Boolean =
+    stats.finishReason == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING
+
+private fun isLocalBackendInferenceStats(stats: InferenceStats): Boolean {
+    val haystack = listOfNotNull(
+        stats.localSourceSummary,
+        stats.notes,
+        stats.modelName,
+        stats.model,
+        stats.modelLabel,
+    ).joinToString(separator = "\\n")
+    return listOf(
+        "route_family=npu",
+        "route_family=local_",
+        "backend_evidence=gpu_route",
+        "QNN_HTP",
+        "NPU_S",
+        "NPU プレビュー",
+        "NPU Experimental",
+        "qairt244",
+        "litert",
+        "local_gpu",
+        "local_cpu",
+    ).any { marker -> haystack.contains(marker, ignoreCase = true) }
+}
+
+private fun hasNpuExecutionEvidence(stats: InferenceStats): Boolean {
+    val evidence = listOfNotNull(stats.notes, stats.localSourceSummary)
+        .joinToString(separator = "\n")
+    return evidence.contains("backend=NPU", ignoreCase = true) ||
+        evidence.contains("QNN_HTP", ignoreCase = true)
+}
+
+private fun displayOnlyResidentPolicySelection(stats: InferenceStats): InferenceBackendSelection? =
+    InferenceBackendSelection.NPU.takeIf { hasNpuExecutionEvidence(stats) }
+
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
     displayMode: InferenceStatsDisplayMode,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
-    enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
@@ -48,33 +89,45 @@ internal fun buildInferenceSummarySections(
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val heldOfficialBlocking = localSourceSummaryText
+        ?.contains("held-official-blocking", ignoreCase = true) == true
+    val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
-            add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
+            add(InferenceStatItemUi(label = if (deterministicSafeGreetingFallback) "NPU失敗判定まで" else "応答時間", value = formatInferenceTime(stats) ?: "—"))
             add(InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"))
         }
     } else {
         buildList {
-            add(InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"))
-            add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
             add(
                 InferenceStatItemUi(
-                    label = "生成速度",
-                    value = if (localTraceForDev == null) {
-                        buildBackendTokensPerSecondText(stats)
-                            ?: buildLamiTokensPerSecondText(stats)
-                            ?: "—"
-                    } else {
-                        buildBackendTokensPerSecondText(stats)
-                            ?: formatRegularTokensPerSecondValue(
-                                statValue = localStatsUiModel?.tokensPerSecond,
-                                fallbackValue = buildLamiTokensPerSecondText(stats),
-                            )
-                    },
-                    emphasizeValue = true,
-                )
+                    label = "初回受信まで（端末基準）",
+                    value = if (heldOfficialBlocking) "—" else formatTimeToFirstToken(stats) ?: "—",
+                ),
             )
-            add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
+            if (!deterministicSafeGreetingFallback) {
+                add(
+                    InferenceStatItemUi(
+                        label = "生成速度",
+                        value = if (localTraceForDev == null) {
+                            buildBackendTokensPerSecondText(stats)
+                                ?: buildLamiTokensPerSecondText(stats)
+                                ?: "—"
+                        } else {
+                            buildBackendTokensPerSecondText(stats)
+                                ?: formatRegularTokensPerSecondValue(
+                                    statValue = localStatsUiModel?.tokensPerSecond,
+                                    fallbackValue = buildLamiTokensPerSecondText(stats),
+                                )
+                        },
+                        emphasizeValue = true,
+                    )
+                )
+            }
+            addAll(localBackendSummaryItems)
+            add(InferenceStatItemUi(label = "完了理由", value = if (deterministicSafeGreetingFallback) "固定挨拶へフォールバック" else formatFinishReason(stats) ?: "—"))
         }
     }
     val summarySection = InferenceStatsSectionUi(
@@ -86,7 +139,6 @@ internal fun buildInferenceSummarySections(
             isLocalMinimal = isLocalMinimal,
             trace = localTraceForDev,
             stats = stats,
-            enableDevLlmSessionAsyncPoc = enableDevLlmSessionAsyncPoc,
         )
     } else {
         null
@@ -104,7 +156,6 @@ internal fun buildInferenceDetailSections(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     measuredTokenSnapshotSummary: String? = null,
-    enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
@@ -120,18 +171,54 @@ internal fun buildInferenceDetailSections(
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
-    val displayTokensPerSecondText = if (localTraceForDev == null) {
-        buildLamiTokensPerSecondText(stats)
+    val isLocalBackendStats = localTraceForDev != null || isLocalBackendInferenceStats(stats)
+    val displayTokensPerSecondText = if (isLocalBackendStats) {
+        if (localTraceForDev == null) {
+            backendTokensPerSecondText ?: buildLamiTokensPerSecondText(stats)
+        } else {
+            formatRegularTokensPerSecondValue(
+                statValue = localStatsUiModel?.tokensPerSecond,
+                fallbackValue = buildLamiTokensPerSecondText(stats),
+            )
+        }
     } else {
-        formatRegularTokensPerSecondValue(
-            statValue = localStatsUiModel?.tokensPerSecond,
-            fallbackValue = buildLamiTokensPerSecondText(stats),
-        )
+        buildLamiTokensPerSecondText(stats)
     }
-    val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
+    val showOllamaPerceivedTokensPerSecond = !isLocalBackendStats
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val heldOfficialBlocking = localSourceSummaryText
+        ?.contains("held-official-blocking", ignoreCase = true) == true
+    val heldOfficialBlockingInferenceDurationNs = if (heldOfficialBlocking) {
+        val totalDurationNs = stats.totalDurationMs
+            ?.takeIf { it >= 0L }
+            ?.let { it * 1_000_000L }
+        stats.evalDurationNs
+            ?.takeIf { durationNs ->
+                durationNs > 0L && (totalDurationNs == null || durationNs <= totalDurationNs)
+            }
+            ?: totalDurationNs
+    } else null
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
+    val npuDisplaySelection = displayOnlyResidentPolicySelection(stats)
+    val residentPolicy = if (npuDisplaySelection != null) {
+        localInferenceResidencyPolicyForUserFacingSelection(
+            npuDisplaySelection,
+            LocalBackendRuntimeEvidence(npuSupported = true, npuHealthy = true)
+        )
+    } else {
+        localInferenceResidencyPolicyForUserFacingSelection(
+            inferenceBackendSelectionForResidentPolicy(preferredBackendDryRunSetting),
+        )
+    }
+    val residentPolicySummary = residentPolicy.toSummary()
+    val residentRoutingDryRunDecision = residentPolicy.dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = stats.inputTokens,
+            requestedOutputTokens = stats.outputTokens ?: stats.completionTokens,
+        ),
+    )
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"
     } else {
@@ -380,6 +467,7 @@ internal fun buildInferenceDetailSections(
     }
     val detailedItems = buildList {
         if (localTraceForDev != null) {
+            addAll(localBackendSummaryItems)
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
@@ -412,6 +500,27 @@ internal fun buildInferenceDetailSections(
                 add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
             }
         }
+        if (isLocalBackendStats && localTraceForDev == null) {
+            addAll(localBackendSummaryItems)
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = resolveBackendSpeedSourceLabel(
+                        stats = stats,
+                        hasPerceived = false,
+                        backendKind = InferenceBackendKind.LITERT,
+                    ),
+                ),
+            )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
+                    backendTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
+                ),
+            )
+        }
         if (showOllamaPerceivedTokensPerSecond) {
             add(
                 InferenceStatItemUi(
@@ -438,6 +547,15 @@ internal fun buildInferenceDetailSections(
         localSourceSummaryText?.let {
             add(InferenceStatItemUi(label = "採用元", value = it))
         }
+        if (isLocalBackendStats) {
+            add(InferenceStatItemUi(label = "ローカル常駐方針", value = residentPolicySummary.oneLine))
+            add(
+                InferenceStatItemUi(
+                    label = "Resident Router dry-run",
+                    value = "選択予定: ${residentRoutingDryRunDecision.selectedBackend.name} / ${residentRoutingDryRunDecision.reason}",
+                ),
+            )
+        }
         add(
             InferenceStatItemUi(
                 label = "モデルロード時間",
@@ -452,9 +570,11 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "入力評価時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
-                    state = localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
-                        ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
+                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -462,10 +582,12 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "生成時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.generationTime?.valueText
-                        ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
-                    state = localStatsUiModel?.generationTime?.source?.toUiStateLabel()
-                        ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.generationTime?.valueText
+                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.generationTime?.source?.toUiStateLabel()
+                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -473,9 +595,14 @@ internal fun buildInferenceDetailSections(
             InferenceStatItemUi(
                 label = "推論時間",
                 value = withProbeStateLabel(
-                    value = localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs),
+                    value = if (heldOfficialBlocking) {
+                        formatProbeDurationForUi(heldOfficialBlockingInferenceDurationNs)
+                    } else {
+                        localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs)
+                    },
                     state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
-                        ?: if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                        ?: if ((heldOfficialBlocking && heldOfficialBlockingInferenceDurationNs != null) ||
+                            (!heldOfficialBlocking && stats.evalDurationNs != null)) "取得済み" else "未取得",
                 ),
             ),
         )
@@ -717,7 +844,25 @@ internal fun buildInferenceDetailSections(
                         ),
                     )
                 }
+                if (isLocalBackendStats) {
+                    add(InferenceStatItemUi(label = "Resident Router summary", value = residentPolicySummary.oneLine))
+                    add(InferenceStatItemUi(label = "Resident Router diagnostics", value = residentPolicySummary.diagnosticText))
+                    add(InferenceStatItemUi(label = "Resident Router dry-run", value = residentRoutingDryRunDecision.diagnosticText))
+                }
                 localTraceForDev?.let { trace ->
+                    add(InferenceStatItemUi(label = "selected_model_slot", value = trace.selectedLocalModelSlot ?: "—"))
+                    add(
+                        InferenceStatItemUi(
+                            label = "generic_fallback_model_configured",
+                            value = trace.genericFallbackModelConfigured?.toString() ?: "—",
+                        ),
+                    )
+                    add(
+                        InferenceStatItemUi(
+                            label = "npu_preview_model_configured",
+                            value = trace.npuPreviewModelConfigured?.toString() ?: "—",
+                        ),
+                    )
                     add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
                     add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
                     add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
@@ -738,7 +883,7 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
                 }
-                if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
+                if (localTraceForDev != null) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
                     add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
@@ -841,11 +986,12 @@ private fun buildInferenceSimpleSections(
             promptText = promptText,
         )
     }
+    val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val generationSpeedText = if (localTraceForDev == null) {
-        buildBackendTokensPerSecondText(stats)
+        backendTokensPerSecondText
             ?: buildLamiTokensPerSecondText(stats)
     } else {
-        buildBackendTokensPerSecondText(stats)
+        backendTokensPerSecondText
             ?: formatRegularTokensPerSecondValue(
                 statValue = localStatsUiModel?.tokensPerSecond,
                 fallbackValue = buildLamiTokensPerSecondText(stats),
@@ -862,15 +1008,22 @@ private fun buildInferenceSimpleSections(
             backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
         )
     }
+    val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
+    val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     return listOf(
         InferenceStatsSectionUi(
             title = "概要",
             items = buildList {
-                add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
-                add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                add(InferenceStatItemUi(label = if (deterministicSafeGreetingFallback) "NPU失敗判定まで" else "応答時間", value = formatInferenceTime(stats) ?: "—"))
+                if (!deterministicSafeGreetingFallback) {
+                    add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                }
+                addAll(localBackendSummaryItems)
                 addAll(ttftItems)
-                add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
-                add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+                if (!deterministicSafeGreetingFallback) {
+                    add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
+                }
+                add(InferenceStatItemUi(label = "完了理由", value = if (deterministicSafeGreetingFallback) "固定挨拶へフォールバック" else formatFinishReason(stats) ?: "—"))
             },
         ),
     )
@@ -891,6 +1044,115 @@ private fun buildUnifiedTtftItems(
     )
 }
 
+
+private fun inferenceBackendSelectionForResidentPolicy(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): InferenceBackendSelection =
+    when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> InferenceBackendSelection.CPU
+        PreferredBackendDryRunSetting.GPU -> InferenceBackendSelection.GPU
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> InferenceBackendSelection.NPU
+        PreferredBackendDryRunSetting.DEFAULT -> InferenceBackendSelection.AUTOMATIC
+    }
+
+private fun preferredBackendDryRunSettingFromTrace(
+    requestedPreferredBackend: String?,
+): PreferredBackendDryRunSetting =
+    PreferredBackendDryRunSetting.entries.firstOrNull {
+        it.name.equals(requestedPreferredBackend?.trim(), ignoreCase = true)
+    } ?: PreferredBackendDryRunSetting.DEFAULT
+
+private fun buildLocalBackendSummaryItems(stats: InferenceStats): List<InferenceStatItemUi> {
+    val values = parseLocalInferenceDiagnosticValues(stats)
+    if (values.isEmpty()) return emptyList()
+    val backendText = formatLocalExecutionBackendForStats(values) ?: return emptyList()
+    if (isDeterministicSafeGreetingFallback(stats)) {
+        return listOf(
+            InferenceStatItemUi(label = "試行バックエンド", value = backendText),
+            InferenceStatItemUi(label = "表示フォールバック", value = "固定応答"),
+        )
+    }
+    return buildList {
+        add(InferenceStatItemUi(label = "実行バックエンド", value = backendText))
+        formatLocalFallbackStateForStats(values)?.let {
+            add(InferenceStatItemUi(label = "フォールバック", value = it))
+        }
+    }
+}
+
+private fun parseLocalInferenceDiagnosticValues(stats: InferenceStats): Map<String, String> = buildMap {
+    appendLocalInferenceKeyValues(stats.localSourceSummary)
+    appendLocalInferenceKeyValues(stats.notes)
+}
+
+private fun MutableMap<String, String>.appendLocalInferenceKeyValues(text: String?) {
+    text.orEmpty()
+        .split(Regex("[\\s;]+"))
+        .map { it.trim() }
+        .filter { it.contains('=') }
+        .forEach { entry ->
+            val separatorIndex = entry.indexOf('=')
+            val key = entry.substring(0, separatorIndex).trim()
+            val value = entry.substring(separatorIndex + 1).trim()
+            if (key.isNotEmpty() && value.isNotEmpty()) putIfAbsent(key, value)
+        }
+}
+
+private fun formatLocalExecutionBackendForStats(values: Map<String, String>): String? {
+    val effectiveBackend = values["effective_backend"]
+    val backend = effectiveBackend
+        ?: values["selected_backend"]
+        ?: values["requested_backend"]
+        ?: values["preferred_backend"]
+        ?: values["npu_backend_evidence"]
+        ?: values["backend_evidence"]
+    val normalized = backend?.uppercase(Locale.ROOT).orEmpty()
+    val routeFamily = values["route_family"]?.uppercase(Locale.ROOT).orEmpty()
+    return when {
+        normalized.contains("NPU") || normalized.contains("QNN") -> "NPU"
+        normalized.contains("GPU") -> "GPU"
+        normalized.contains("CPU") -> "CPU"
+        normalized.contains("CLOUD") || routeFamily.contains("SERVER") -> "クラウド"
+        effectiveBackend == null && routeFamily.contains("NPU") -> "NPU"
+        effectiveBackend == null && routeFamily.contains("GPU") -> "GPU"
+        effectiveBackend == null && routeFamily.contains("CPU") -> "CPU"
+        backend.isNullOrBlank() -> null
+        else -> backend
+    }
+}
+
+private fun formatLocalFallbackStateForStats(values: Map<String, String>): String? {
+    values["fallback_path"]
+        ?.split(',')
+        ?.map { it.trim().uppercase(Locale.ROOT) }
+        ?.filter { it.isNotBlank() }
+        ?.takeIf { it.size > 1 }
+        ?.let { return it.joinToString(" → ") }
+    val fallbackUsed = values["npu_standard_route_fallback_used"]
+        ?: values["fallback_used"]
+        ?: values["gpu_fallback_used"]
+    val normalized = fallbackUsed?.trim()?.lowercase(Locale.ROOT)
+    return when (normalized) {
+        "true", "yes", "1" -> {
+            val backend = values["npu_standard_route_fallback_backend"]
+                ?: values["fallback_backend"]
+                ?: values["effective_backend"]
+                ?: "unknown"
+            val reason = values["npu_standard_route_fallback_reason"]
+                ?: values["fallback_reason"]
+                ?: values["reason"]
+            if (reason.isNullOrBlank() || reason == "success") {
+                "あり（$backend）"
+            } else {
+                "あり（$backend / $reason）"
+            }
+        }
+        "false", "no", "0" -> "なし"
+        else -> null
+    }
+}
+
 private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
     return stats.generationTimeMs != null &&
         stats.evalDurationNs == null &&
@@ -905,6 +1167,16 @@ internal fun buildLocalSourceSummaryText(
 ): String? {
     val sourceByLabel = resolveLocalSourceItemsForDev(trace = trace, stats = stats)
         .associate { it.label to shortenLocalSourceLabelForSummary(it.value) }
+    val residentDryRunDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        inferenceBackendSelectionForResidentPolicy(
+            preferredBackendDryRunSettingFromTrace(trace.requestedPreferredBackend),
+        ),
+    ).dryRunRoutingDecision(
+        LocalInferenceRoutingDryRunInput(
+            promptTokenEstimate = stats.inputTokens,
+            requestedOutputTokens = stats.outputTokens ?: stats.completionTokens,
+        ),
+    )
 
     val summaryParts = listOfNotNull(
         sourceByLabel["modelNameSource"]?.let { "model:$it" },
@@ -912,6 +1184,9 @@ internal fun buildLocalSourceSummaryText(
         sourceByLabel["outputTokenSource"]?.let { "out:$it" },
         sourceByLabel["evalDurationSource"]?.let { "total:$it" },
         sourceByLabel["tokensPerSecondSource"]?.let { "tps:$it" },
+        "resident_dry_run_backend=${residentDryRunDecision.selectedBackend.name}",
+        "resident_dry_run_reason=${residentDryRunDecision.reason}",
+        "resident_dry_run_tokens=${residentDryRunDecision.estimatedTotalTokens ?: "unknown"}",
     )
 
     return summaryParts.takeIf { it.isNotEmpty() }?.joinToString(separator = " / ")
@@ -1019,7 +1294,6 @@ private fun buildLocalInventorySectionForDev(
     isLocalMinimal: Boolean,
     trace: LocalInferenceTrace?,
     stats: InferenceStats,
-    enableDevLlmSessionAsyncPoc: Boolean,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
     val statsUiModel = createLocalInferenceStatsUiModel(trace = trace, stats = stats)
@@ -1073,25 +1347,6 @@ private fun buildLocalInventorySectionForDev(
         trace = trace,
         stats = stats,
     )
-    val sessionAsyncPocDetailItems = if (enableDevLlmSessionAsyncPoc) {
-        listOf(
-            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
-            InferenceStatItemUi(
-                label = "sessionAsyncPocResponseLength",
-                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
-            ),
-            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
-        )
-    } else {
-        emptyList()
-    }
     return InferenceStatsSectionUi(
         title = "LOCAL棚卸し（開発用）",
         items = listOf(
@@ -1204,12 +1459,10 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocEnabled", value = enableDevLlmSessionAsyncPoc.toString()),
-        ) + sessionAsyncPocDetailItems + listOf(
+        ) + listOf(
             InferenceStatItemUi(label = "assistantResponseSource", value = trace.selectedAssistantResponseSource ?: "—"),
             InferenceStatItemUi(label = "selectedAssistantResponseHead", value = trace.selectedAssistantResponseHead ?: "—"),
             InferenceStatItemUi(label = "oneShotResponseHead", value = trace.oneShotResponseHead ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocCandidateHead", value = trace.sessionAsyncPocSelectedCandidateHead ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),

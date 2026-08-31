@@ -2,6 +2,9 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.ui.screens.settings.LocalBackendRuntimeEvidence
+import io.github.ninbyo02.lami.ui.screens.settings.LocalNpuRuntimeHistorySnapshot
+import io.github.ninbyo02.lami.ui.screens.settings.toLocalBackendRuntimeEvidence
 
 internal object NpuStandardRouteS1AppHistory {
     private const val PREFS_NAME = "npu_s1_normal_chat_history"
@@ -69,7 +72,11 @@ internal object NpuStandardRouteS1AppHistory {
             .putString("last_npu_s1_native_call_returned", result.nativeDiagnostics.nativeCallReturned)
             .putString("last_npu_s1_native_decode_started", result.nativeDiagnostics.nativeDecodeStarted)
             .putString("last_npu_s1_native_decode_finished", result.nativeDiagnostics.nativeDecodeFinished)
+            .putString("last_npu_s1_success_criteria_met", result.successCriteriaMet.toString())
             .putInt(KEY_SUCCESSFUL_REQUEST_COUNT, nextSuccessCount)
+        if (result.selectedModelFile.isNotBlank()) {
+            editor.putString("last_npu_s1_model_path", result.selectedModelFile)
+        }
         if (result.successCriteriaMet) {
             editor.putString("last_successful_npu_s1_prompt", result.inputPrompt)
                 .putLong(KEY_LAST_SUCCESS_FINISHED_AT, finishedAt)
@@ -149,6 +156,25 @@ internal object NpuStandardRouteS1AppHistory {
         editor.apply()
     }
 
+    fun runtimeEvidence(
+        context: Context,
+        currentNpuModelPath: String?,
+    ): LocalBackendRuntimeEvidence {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return LocalNpuRuntimeHistorySnapshot(
+            latestModelPath = prefs.getString("last_npu_s1_model_path", "unavailable").orEmpty(),
+            latestStatus = prefs.getString("last_npu_s1_status", "unavailable").orEmpty(),
+            latestReason = prefs.getString("last_npu_s1_reason", "unavailable").orEmpty(),
+            latestStage = prefs.getString("last_npu_s1_stage", "unavailable").orEmpty(),
+            latestBackendEvidence = prefs.getString("last_npu_s1_backend_evidence", "unavailable").orEmpty(),
+            latestRunDecodeReached = prefs.getString("last_npu_s1_run_decode_reached", "unavailable").orEmpty(),
+            latestNativeCallReturned = prefs.getString("last_npu_s1_native_call_returned", "unavailable").orEmpty(),
+            latestNativeDecodeFinished = prefs.getString("last_npu_s1_native_decode_finished", "unavailable").orEmpty(),
+            latestSuccessCriteriaMet = prefs.getString("last_npu_s1_success_criteria_met", "unavailable").orEmpty(),
+            successfulRequestCount = prefs.getInt(KEY_SUCCESSFUL_REQUEST_COUNT, 0),
+        ).toLocalBackendRuntimeEvidence(currentNpuModelPath)
+    }
+
     fun formatForDev(context: Context): String {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return listOf(
@@ -175,6 +201,7 @@ internal object NpuStandardRouteS1AppHistory {
             "last_npu_s1_native_call_returned=${prefs.getString("last_npu_s1_native_call_returned", "unavailable")}",
             "last_npu_s1_native_decode_started=${prefs.getString("last_npu_s1_native_decode_started", "unavailable")}",
             "last_npu_s1_native_decode_finished=${prefs.getString("last_npu_s1_native_decode_finished", "unavailable")}",
+            "last_npu_s1_success_criteria_met=${prefs.getString("last_npu_s1_success_criteria_met", "unavailable")}",
             "last_successful_npu_s1_prompt=${prefs.copyValue("last_successful_npu_s1_prompt")}",
             "last_failed_npu_s1_prompt=${prefs.copyValue("last_failed_npu_s1_prompt")}",
             "last_npu_s1_previous_successful_request_count=${prefs.getInt("last_npu_s1_previous_successful_request_count", 0)}",

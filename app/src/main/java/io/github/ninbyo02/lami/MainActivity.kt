@@ -1,9 +1,11 @@
 package io.github.ninbyo02.lami
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -23,6 +25,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,16 +49,19 @@ import io.github.ninbyo02.lami.ui.screens.chats.Chats
 import io.github.ninbyo02.lami.ui.screens.home.Home
 import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.settings.About
+import io.github.ninbyo02.lami.ui.screens.settings.ScreenOrientationMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsData
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.screens.settings.Settings
 import io.github.ninbyo02.lami.ui.screens.settings.NoticeScreen
 import io.github.ninbyo02.lami.ui.screens.settings.LocalBaseModelScreen
+import io.github.ninbyo02.lami.ui.screens.settings.LocalGenericFallbackModelScreen
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
 import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
+import io.github.ninbyo02.lami.ui.startup.StartupBackendSplash
 import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
@@ -72,8 +79,6 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        invokeStandardDebugLogcatProbeIfPresent()
-
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
         val repository =
@@ -112,10 +117,21 @@ class MainActivity : ComponentActivity() {
         val shouldRestoreLastRoute = savedInstanceState == null
 
         setContent {
+            var showStartupSplash by remember { mutableStateOf(savedInstanceState == null) }
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+            LaunchedEffect(settingsData.screenOrientationMode) {
+                requestedOrientation = when (settingsData.screenOrientationMode) {
+                    ScreenOrientationMode.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    ScreenOrientationMode.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    ScreenOrientationMode.AUTO -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
             // Initialise navigation
             val navController = rememberNavController()
-            LaunchedEffect(Unit) {
+            LaunchedEffect(showStartupSplash) {
+                // The splash branch does not compose NavHost yet. Navigating before the
+                // graph is installed crashes NavController during cold start.
+                if (showStartupSplash) return@LaunchedEffect
                 // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
                 if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
                 // 回転などでActivity再生成時にlastRouteがSettingsだと意図せずSettingsへ遷移するため、
@@ -131,12 +147,16 @@ class MainActivity : ComponentActivity() {
                     Routes.ABOUT,
                     Routes.NOTICE,
                     SettingsRoute.LocalBaseModel.route,
+                    SettingsRoute.LocalGenericFallbackModel.route,
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
                 val targetRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
-                // NavHost生成後に必要な場合のみ遷移して復元する
+                // NavHost生成後に必要な場合のみ遷移して復元する。
+                // showStartupSplash=false と NavHost の graph install は同一 frame 内で競合し得るため、
+                // 初期 back stack が生成されるまで待ってから navigate する。
                 if (targetRoute != Routes.CHAT_ROOT) {
+                    navController.currentBackStackEntryFlow.first()
                     navController.navigate(targetRoute) {
                         launchSingleTop = true
                         // ベースを固定して復元時のBackStack重複を防ぐ
@@ -144,7 +164,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
+            Crossfade(targetState = showStartupSplash, label = "startup-to-app") { showSplash ->
+                if (showSplash) {
+                    OllamaTheme(dynamicColor = false) {
+                        StartupBackendSplash(
+                            context = applicationContext,
+                            settingsPreferences = settingsPreferences,
+                            onFinished = { showStartupSplash = false },
+                        )
+                    }
+                } else OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val view = LocalView.current
                 val colorScheme = MaterialTheme.colorScheme
                 SideEffect {
@@ -183,7 +212,14 @@ class MainActivity : ComponentActivity() {
                                             val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG_ROUTE)
                                             Home(navController, viewModel, chatId)
                                         }
-                                        composable(Routes.SETTINGS) { settingsBackStackEntry ->
+                                        composable(
+                                            route = "${Routes.SETTINGS}?localModelFocus={localModelFocus}",
+                                            arguments = listOf(navArgument("localModelFocus") {
+                                                type = NavType.StringType
+                                                nullable = true
+                                                defaultValue = null
+                                            }),
+                                        ) { settingsBackStackEntry ->
                                             Settings(
                                                 navgationController = navController,
                                                 settingsBackStackEntry = settingsBackStackEntry,
@@ -197,6 +233,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                         composable(SettingsRoute.LocalBaseModel.route) {
                                             LocalBaseModelScreen(navController)
+                                        }
+                                        composable(SettingsRoute.LocalGenericFallbackModel.route) {
+                                            LocalGenericFallbackModelScreen(navController)
                                         }
                                         composable(SettingsRoute.SpriteSettings.route) {
                                             SpriteSettingsScreen(navController)
@@ -231,6 +270,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -256,43 +296,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private const val STANDARD_DEBUG_PROBE_LOGCAT_TAG = "LamiNpuEngine"
-private const val STANDARD_DEBUG_PROBE_CLASS_NAME = "io.github.ninbyo02.lami.StandardDebugLogcatProbe"
-private const val STANDARD_DEBUG_PROBE_METHOD_NAME = "logStarted"
-
-private fun invokeStandardDebugLogcatProbeIfPresent() {
-    if (BuildConfig.CURRENT_FLAVOR != "standard" || BuildConfig.BUILD_TYPE != "debug") return
-
-    Log.i(
-        STANDARD_DEBUG_PROBE_LOGCAT_TAG,
-        "event=standard_debug_probe_reflection_start " +
-            "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
-            "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME " +
-            "build_type=${BuildConfig.BUILD_TYPE} " +
-            "current_flavor=${BuildConfig.CURRENT_FLAVOR}"
-    )
-    try {
-        Class.forName(STANDARD_DEBUG_PROBE_CLASS_NAME)
-            .getDeclaredMethod(STANDARD_DEBUG_PROBE_METHOD_NAME)
-            .invoke(null)
-        Log.i(
-            STANDARD_DEBUG_PROBE_LOGCAT_TAG,
-            "event=standard_debug_probe_reflection_success " +
-                "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
-                "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME"
-        )
-    } catch (throwable: Throwable) {
-        Log.e(
-            STANDARD_DEBUG_PROBE_LOGCAT_TAG,
-            "event=standard_debug_probe_reflection_failure " +
-                "class_name=$STANDARD_DEBUG_PROBE_CLASS_NAME " +
-                "method_name=$STANDARD_DEBUG_PROBE_METHOD_NAME " +
-                "build_type=${BuildConfig.BUILD_TYPE} " +
-                "current_flavor=${BuildConfig.CURRENT_FLAVOR}",
-            throwable
-        )
-    }
-}
 
 
 private fun androidx.compose.ui.graphics.Color.isDark(): Boolean {

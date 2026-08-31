@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="true_engine_npu_probe_flavor_marker">trueEngineNpuProbeDebug native execution temporarily disabled after startup crash</string>
+</resources>

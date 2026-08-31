@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -64,6 +66,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +75,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -101,6 +105,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
@@ -121,17 +129,22 @@ import io.github.ninbyo02.lami.sprite.resolveCurrentSpriteSheetOverrideFile
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 private const val GRID_ON_SCALE = 8f
@@ -150,6 +163,8 @@ private enum class SheetType {
     None,
     More,
     Tools,
+    ReduceTo256Colors,
+    ColorPalette,
 }
 
 private enum class ApplySource(val label: String) {
@@ -164,15 +179,243 @@ private enum class ApplyDialogCommentKind {
     Error,
 }
 
+internal data class SpriteEditorSheetItem(
+    val label: String,
+    val testTag: String,
+    val opensApplyDialog: Boolean = false,
+)
+
+internal fun spriteEditorToolsSheetItems(): List<SpriteEditorSheetItem> {
+    return listOf(
+        SpriteEditorSheetItem(label = "Color Palette", testTag = "spriteEditorSheetItemColorPalette"),
+        SpriteEditorSheetItem(label = "Eyedropper", testTag = "spriteEditorSheetItemEyedropper"),
+        SpriteEditorSheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
+        SpriteEditorSheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
+        SpriteEditorSheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
+        SpriteEditorSheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
+        SpriteEditorSheetItem(label = "Reduce to 256 Colors", testTag = "spriteEditorSheetItemReduceTo256Colors"),
+        SpriteEditorSheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
+        SpriteEditorSheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
+        SpriteEditorSheetItem(label = "Fill Selection", testTag = "spriteEditorSheetItemFillSelection"),
+        SpriteEditorSheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
+        SpriteEditorSheetItem(
+            label = "Center Content in Box",
+            testTag = "spriteEditorSheetItemCenterContentInBox",
+        ),
+    )
+}
+
+internal fun spriteEditorReduceSheetItems(): List<SpriteEditorSheetItem> {
+    return SPRITE_REDUCE_CHOICES.map { choice ->
+        SpriteEditorSheetItem(
+            label = choice.label,
+            testTag = when (choice) {
+                SpriteReduceChoice.ImageAdaptive -> "spriteEditorReduceImageAdaptive"
+                SpriteReduceChoice.FixedPalette -> "spriteEditorReduceFixedPalette"
+                SpriteReduceChoice.Cancel -> "spriteEditorReduceCancel"
+            },
+        )
+    }
+}
+
+internal data class SpriteEditorColorHistory(
+    val currentColor: Int,
+    val recentColors: List<Int>,
+) {
+    fun select(color: Int): SpriteEditorColorHistory {
+        if (color == currentColor) {
+            return this
+        }
+        return SpriteEditorColorHistory(
+            currentColor = color,
+            recentColors = (listOf(currentColor) + recentColors)
+                .filter { it != color }
+                .distinct()
+                .take(8),
+        )
+    }
+}
+
+internal const val DISMISS_COLOR_PALETTE_AFTER_SELECTION = false
+
+internal fun spriteEditorPaletteSelectionRingWidthDp(selected: Boolean): Int? = if (selected) 3 else null
+
+internal fun eyedropperPaletteColorForSample(sampled: Int): Int? {
+    return sampled.takeIf { android.graphics.Color.alpha(it) != 0 }
+}
+
+internal data class EyedropperSelectionDecision(
+    val selectedColor: Int?,
+    val activateTapFallback: Boolean,
+    val message: String,
+)
+
+internal fun decideEyedropperSelectionResult(
+    result: UniformSelectionColorResult,
+): EyedropperSelectionDecision {
+    return when (result.status) {
+        UniformSelectionColorStatus.UNIFORM -> {
+            val color = result.color
+            if (color == null || android.graphics.Color.alpha(color) == 0) {
+                EyedropperSelectionDecision(null, false, "Cannot read selection color")
+            } else {
+                EyedropperSelectionDecision(
+                    selectedColor = color,
+                    activateTapFallback = false,
+                    message = "Color selected from box",
+                )
+            }
+        }
+        UniformSelectionColorStatus.TRANSPARENT ->
+            EyedropperSelectionDecision(null, false, "Selection is transparent")
+        UniformSelectionColorStatus.MIXED ->
+            EyedropperSelectionDecision(null, true, "Selection contains multiple colors. Tap a pixel.")
+        UniformSelectionColorStatus.CANCELLED ->
+            EyedropperSelectionDecision(null, false, "Color scan cancelled")
+        UniformSelectionColorStatus.TOO_LARGE ->
+            EyedropperSelectionDecision(null, false, "Selection too large")
+        UniformSelectionColorStatus.RECYCLED,
+        UniformSelectionColorStatus.UNSUPPORTED_CONFIG,
+        UniformSelectionColorStatus.READ_FAILED ->
+            EyedropperSelectionDecision(null, false, "Cannot read selection color")
+    }
+}
+
+internal data class SpriteEditorPaletteSwatchSemantics(
+    val contentDescription: String,
+    val testTag: String,
+    val selected: Boolean,
+)
+
+internal fun spriteEditorPaletteSwatchSemantics(
+    label: String,
+    color: Int,
+    currentColor: Int,
+    testTag: String,
+): SpriteEditorPaletteSwatchSemantics {
+    return SpriteEditorPaletteSwatchSemantics(
+        contentDescription = spriteEditorPaletteSwatchContentDescription(label, color),
+        testTag = testTag,
+        selected = color == currentColor,
+    )
+}
+
+internal fun shouldPushHistoryForPaletteBitmapResult(result: PaletteBitmapResult): Boolean {
+    return result.changed && !result.rejected
+}
+
+internal data class PaletteBitmapApplicationDecision(
+    val adopted: Boolean,
+    val message: String,
+)
+
+internal fun decidePaletteBitmapApplication(
+    currentUnchanged: Boolean,
+    result: PaletteBitmapResult,
+    unchangedMessage: String = "No pixels changed",
+    appliedMessage: String,
+): PaletteBitmapApplicationDecision {
+    return when {
+        !currentUnchanged -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = "Sprite changed; operation skipped",
+        )
+
+        result.rejected -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = paletteBitmapResultMessage(result),
+        )
+
+        !shouldPushHistoryForPaletteBitmapResult(result) -> PaletteBitmapApplicationDecision(
+            adopted = false,
+            message = unchangedMessage,
+        )
+
+        else -> PaletteBitmapApplicationDecision(
+            adopted = true,
+            message = appliedMessage,
+        )
+    }
+}
+
+internal fun spriteEditorPaletteSwatchContentDescription(label: String, color: Int): String {
+    return "$label ${spriteEditorPaletteHexColor(color)}"
+}
+
+internal fun spriteEditorPaletteHexColor(color: Int): String {
+    return if (android.graphics.Color.alpha(color) == 255) {
+        "#%06X".format(color and 0x00FFFFFF)
+    } else {
+        "#%08X".format(color.toLong() and 0xFFFFFFFFL)
+    }
+}
+
+internal class PaletteBitmapResultOwner(
+    private val source: Bitmap,
+) : AutoCloseable {
+    private val owned = AtomicReference<PaletteBitmapResult?>(null)
+
+    fun publish(result: PaletteBitmapResult): PaletteBitmapResult {
+        val previous = owned.getAndSet(result)
+        recycleIfNew(previous)
+        return result
+    }
+
+    fun current(): PaletteBitmapResult? = owned.get()
+
+    fun take(): PaletteBitmapResult? = owned.getAndSet(null)
+
+    override fun close() {
+        recycleIfNew(owned.getAndSet(null))
+    }
+
+    private fun recycleIfNew(result: PaletteBitmapResult?) {
+        val bitmap = result?.bitmap ?: return
+        if (bitmap !== source && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
+    }
+}
+
+private fun paletteBitmapResultMessage(result: PaletteBitmapResult): String {
+    return when (result.rejectionReason) {
+        PaletteBitmapRejectionReason.NONE -> "No pixels changed"
+        PaletteBitmapRejectionReason.TOO_LARGE -> "Image too large for sprite operation (max 4,194,304 pixels)"
+        PaletteBitmapRejectionReason.CANCELLED -> "Operation cancelled"
+        PaletteBitmapRejectionReason.RECYCLED,
+        PaletteBitmapRejectionReason.UNSUPPORTED_CONFIG,
+        PaletteBitmapRejectionReason.COPY_FAILED,
+        PaletteBitmapRejectionReason.READ_FAILED,
+        PaletteBitmapRejectionReason.WRITE_FAILED -> "Sprite operation rejected"
+    }
+}
+
 private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
     data object Binarize : LastToolOp()
+    class ReduceTo256Colors private constructor(
+        val repeat: SpriteReduceRepeat,
+    ) : LastToolOp() {
+        companion object {
+            fun create(
+                mode: SpriteReduceMode,
+                rgbAnchors: List<Int> = emptyList(),
+            ): ReduceTo256Colors {
+                return ReduceTo256Colors(SpriteReduceRepeat.create(mode, rgbAnchors))
+            }
+
+            fun create(repeat: SpriteReduceRepeat): ReduceTo256Colors {
+                return create(repeat.mode, repeat.rgbAnchors)
+            }
+        }
+    }
     data object ClearBackground : LastToolOp()
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
     data object CenterContentInBox : LastToolOp()
-    data class ResizeToMax96(
+    data class ResizeSelection(
+        val targetMaxPx: Int,
         val anchor: ResizeAnchor,
         val stepFactor: Float,
         val downscaleMode: ResizeDownscaleMode,
@@ -187,12 +430,14 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.Grayscale -> listOf("Grayscale")
             LastToolOp.Outline -> listOf("Outline")
             LastToolOp.Binarize -> listOf("Binarize")
+            is LastToolOp.ReduceTo256Colors -> saveSpriteReduceRepeat(op.repeat)
             LastToolOp.ClearBackground -> listOf("ClearBackground")
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
             LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
-            is LastToolOp.ResizeToMax96 -> listOf(
-                "ResizeToMax96",
+            is LastToolOp.ResizeSelection -> listOf(
+                "ResizeSelection",
+                op.targetMaxPx.toString(),
                 op.anchor.name,
                 op.stepFactor.toString(),
                 op.downscaleMode.name,
@@ -207,31 +452,24 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             "Grayscale" -> LastToolOp.Grayscale
             "Outline" -> LastToolOp.Outline
             "Binarize" -> LastToolOp.Binarize
+            "ReduceTo256Colors",
+            "ReduceTo256ColorsV2" -> restoreSpriteReduceRepeat(data)?.let {
+                LastToolOp.ReduceTo256Colors.create(it)
+            }
             "ClearBackground" -> LastToolOp.ClearBackground
             "ClearRegion" -> LastToolOp.ClearRegion
             "FillConnected" -> LastToolOp.FillConnected
             "CenterContentInBox" -> LastToolOp.CenterContentInBox
-            "ResizeToMax96" -> {
-                val anchorName = data.getOrNull(1) ?: ResizeAnchor.TopLeft.name
-                val anchor = try {
-                    ResizeAnchor.valueOf(anchorName)
-                } catch (_: IllegalArgumentException) {
-                    ResizeAnchor.TopLeft
-                }
-                val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
-                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.PixelArtStable.name
-                val downscaleMode = try {
-                    ResizeDownscaleMode.valueOf(modeName)
-                } catch (_: IllegalArgumentException) {
-                    ResizeDownscaleMode.PixelArtStable
-                }
-                val methodName = data.getOrNull(4) ?: PixelArtStableMethod.CenterSample.name
-                val pixelArtMethod = try {
-                    PixelArtStableMethod.valueOf(methodName)
-                } catch (_: IllegalArgumentException) {
-                    PixelArtStableMethod.CenterSample
-                }
-                LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
+            "ResizeSelection" -> {
+                val targetMaxPx = data.getOrNull(1)?.toIntOrNull() ?: 96
+                val anchorName = data.getOrNull(2) ?: ResizeAnchor.TopLeft.name
+                val anchor = try { ResizeAnchor.valueOf(anchorName) } catch (_: IllegalArgumentException) { ResizeAnchor.TopLeft }
+                val stepFactor = data.getOrNull(3)?.toFloatOrNull() ?: 0.5f
+                val modeName = data.getOrNull(4) ?: ResizeDownscaleMode.PixelArtStable.name
+                val downscaleMode = try { ResizeDownscaleMode.valueOf(modeName) } catch (_: IllegalArgumentException) { ResizeDownscaleMode.PixelArtStable }
+                val methodName = data.getOrNull(5) ?: PixelArtStableMethod.CenterSample.name
+                val pixelArtMethod = try { PixelArtStableMethod.valueOf(methodName) } catch (_: IllegalArgumentException) { PixelArtStableMethod.CenterSample }
+                LastToolOp.ResizeSelection(targetMaxPx, anchor, stepFactor, downscaleMode, pixelArtMethod)
             }
 
             else -> null
@@ -270,6 +508,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
     var isGridEnabled by remember { mutableStateOf(false) }
+    var isMinecraftSkinOverlayEnabled by rememberSaveable { mutableStateOf(false) }
     var isDirty by rememberSaveable { mutableStateOf(false) }
     var showExitConfirmDialog by rememberSaveable { mutableStateOf(false) }
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
@@ -283,6 +522,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyDialogComment by rememberSaveable { mutableStateOf("") }
     var applyDialogCommentKind by rememberSaveable { mutableStateOf(ApplyDialogCommentKind.None) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var resizeTargetMaxPx by rememberSaveable { mutableStateOf(96) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
     var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
     var resizePixelArtMethod by rememberSaveable { mutableStateOf(PixelArtStableMethod.CenterSample) }
@@ -300,6 +540,21 @@ fun SpriteEditorScreen(navController: NavController) {
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
     var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
     var lastFillConnectedSeedType by remember { mutableStateOf<FillConnectedSeedType?>(null) }
+    var currentColor by rememberSaveable { mutableStateOf(0xFF000000.toInt()) }
+    var recentColors by rememberSaveable { mutableStateOf<List<Int>>(emptyList()) }
+    var isEyedropperActive by remember { mutableStateOf(false) }
+    var paletteOperationJob by remember { mutableStateOf<Job?>(null) }
+    val isPaletteOperationRunning = paletteOperationJob?.isActive == true
+    val latestEditorState by rememberUpdatedState(editorState)
+    val latestPreviewSize by rememberUpdatedState(previewSize)
+    val latestDisplayScale by rememberUpdatedState(displayScale)
+    val latestPanOffset by rememberUpdatedState(panOffset)
+
+    fun selectCurrentColor(color: Int) {
+        val updated = SpriteEditorColorHistory(currentColor, recentColors).select(color)
+        currentColor = updated.currentColor
+        recentColors = updated.recentColors
+    }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -326,31 +581,151 @@ fun SpriteEditorScreen(navController: NavController) {
         )
     }
 
+    fun launchPaletteOperation(block: suspend CoroutineScope.() -> Unit) {
+        if (paletteOperationJob?.isActive == true) {
+            scope.launch { showSnackbarMessage("Sprite operation already running") }
+            return
+        }
+        var jobRef: Job? = null
+        val job = scope.launch {
+            try {
+                block()
+            } finally {
+                if (paletteOperationJob === jobRef) {
+                    paletteOperationJob = null
+                }
+            }
+        }
+        jobRef = job
+        paletteOperationJob = job
+    }
+
+    suspend fun runPaletteBitmapOperation(
+        sourceBitmap: Bitmap,
+        operation: ((row: Int) -> Boolean) -> PaletteBitmapResult,
+        onResult: (PaletteBitmapResult, PaletteBitmapResultOwner) -> PaletteBitmapApplicationDecision,
+    ) {
+        val owner = PaletteBitmapResultOwner(sourceBitmap)
+        val message = try {
+            withContext(Dispatchers.Default) {
+                owner.publish(operation { !isActive })
+            }
+            val result = owner.current() ?: return
+            onResult(result, owner).message
+        } finally {
+            owner.close()
+        }
+        showSnackbarMessage(message)
+    }
+
+    fun applyPaletteBitmapResult(
+        current: SpriteEditorState,
+        result: PaletteBitmapResult,
+        owner: PaletteBitmapResultOwner,
+        unchangedMessage: String = "No pixels changed",
+        appliedMessage: String,
+        applied: () -> Unit = {},
+    ): PaletteBitmapApplicationDecision {
+        val decision = decidePaletteBitmapApplication(
+            currentUnchanged = editorState === current,
+            result = result,
+            unchangedMessage = unchangedMessage,
+            appliedMessage = appliedMessage,
+        )
+        if (decision.adopted) {
+            pushUndoSnapshot(current, undoStack, redoStack)
+            val nextEditorState = current.withBitmap(result.bitmap)
+            editorState = nextEditorState
+            owner.take()
+            isDirty = true
+            applied()
+        }
+        return decision
+    }
+
+    fun runSpriteReduce(repeat: SpriteReduceRepeat, repeated: Boolean) {
+        val current = editorState
+        if (current == null) {
+            scope.launch { showSnackbarMessage("No sprite loaded") }
+            return
+        }
+        val normalizedRepeat = SpriteReduceRepeat.create(repeat.mode, repeat.rgbAnchors)
+        val modeName = when (normalizedRepeat.mode) {
+            SpriteReduceMode.ImageAdaptive -> "Image Adaptive"
+            SpriteReduceMode.FixedPaletteV3 -> "Fixed Palette"
+            SpriteReduceMode.FixedPaletteV2 -> "Fixed Palette"
+            SpriteReduceMode.LegacyFixedPaletteV1 -> "Legacy Fixed Palette"
+        }
+        launchPaletteOperation {
+            val sourceBitmap = current.bitmap
+            runPaletteBitmapOperation(
+                sourceBitmap = sourceBitmap,
+                operation = { shouldCancel ->
+                    when (normalizedRepeat.mode) {
+                        SpriteReduceMode.ImageAdaptive -> reduceToAdaptivePalette(
+                            src = sourceBitmap,
+                            reuseRgbAnchors = normalizedRepeat.rgbAnchors.takeIf { it.isNotEmpty() },
+                            shouldCancel = shouldCancel,
+                        )
+                        SpriteReduceMode.FixedPaletteV3 -> reduceToFixedPalette(
+                            sourceBitmap,
+                            shouldCancel = shouldCancel,
+                        )
+                        SpriteReduceMode.FixedPaletteV2 -> reduceToFixedPaletteV2(
+                            src = sourceBitmap,
+                            shouldCancel = shouldCancel,
+                        )
+                        SpriteReduceMode.LegacyFixedPaletteV1 -> reduceToLegacyFixedPalette(
+                            sourceBitmap,
+                            shouldCancel = shouldCancel,
+                        )
+                    }
+                },
+            ) { result, owner ->
+                applyPaletteBitmapResult(
+                    current = current,
+                    result = result,
+                    owner = owner,
+                    unchangedMessage = if (repeated) {
+                        "Repeated: $modeName unchanged"
+                    } else {
+                        "$modeName unchanged"
+                    },
+                    appliedMessage = if (repeated) "Repeated: $modeName" else "$modeName applied",
+                ) {
+                    lastToolOp = LastToolOp.ReduceTo256Colors.create(
+                        normalizedRepeat.mode,
+                        result.rgbAnchors,
+                    )
+                }
+            }
+        }
+    }
+
     fun runResizeSelection(
         current: SpriteEditorState,
+        targetMaxPx: Int,
         anchor: ResizeAnchor,
         stepFactor: Float,
         downscaleMode: ResizeDownscaleMode,
         pixelArtMethod: PixelArtStableMethod,
         repeated: Boolean,
     ) {
-        val resizeResult = resizeSelectionToMax96(
-            current.bitmap,
-            current.selection,
-            anchor = anchor,
-            stepFactor = stepFactor,
-            downscaleMode = downscaleMode,
-            pixelArtMethod = pixelArtMethod,
-        )
+        val resizeResult = when (targetMaxPx) {
+            64 -> resizeSelectionToMax64(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            128 -> resizeSelectionToMax128(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            288 -> resizeSelectionToMax288(current.bitmap, current.selection, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+            else -> resizeSelectionToMax96(current.bitmap, current.selection, targetMaxPx, anchor, stepFactor, 4, downscaleMode, pixelArtMethod)
+        }
         if (!resizeResult.applied) {
-            scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
+            scope.launch { showSnackbarMessage("Resize skipped (already <= ${targetMaxPx}px)") }
             return
         }
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
         isDirty = true
-        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
-        val message = if (repeated) "Repeated: Resize" else "Resize applied"
+        lastToolOp = LastToolOp.ResizeSelection(targetMaxPx, anchor, stepFactor, downscaleMode, pixelArtMethod)
+        val message = if (repeated) "Repeated: Resize max ${targetMaxPx}px" else "Resize max ${targetMaxPx}px applied"
         scope.launch { showSnackbarMessage(message) }
     }
 
@@ -669,6 +1044,24 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     val previewContent: @Composable () -> Unit = {
+                        val minecraftSkinPartLabel = remember(
+                            isMinecraftSkinOverlayEnabled,
+                            state?.bitmap?.width,
+                            state?.bitmap?.height,
+                            state?.selection,
+                        ) {
+                            val current = state
+                            if (!isMinecraftSkinOverlayEnabled || current == null) {
+                                null
+                            } else {
+                                minecraftSkinPartLabelAt(
+                                    width = current.bitmap.width,
+                                    height = current.bitmap.height,
+                                    x = current.selection.x,
+                                    y = current.selection.y,
+                                ) ?: "-"
+                            }
+                        }
                         val gridRenderScale = remember(state, previewSize, displayScale) {
                             if (state == null) {
                                 0f
@@ -745,6 +1138,38 @@ fun SpriteEditorScreen(navController: NavController) {
                                     previewSize = size
                                     panOffset = clampPanOffset(panOffset, displayScale)
                                 }
+                                .pointerInput(
+                                    isEyedropperActive,
+                                ) {
+                                    if (!isEyedropperActive) return@pointerInput
+                                    awaitEachGesture {
+                                        awaitFirstDown(requireUnconsumed = true)
+                                        val up = waitForUpOrCancellation()
+                                        if (up == null || up.isConsumed) {
+                                            return@awaitEachGesture
+                                        }
+                                        val current = latestEditorState ?: return@awaitEachGesture
+                                        val pixelOffset = previewOffsetToBitmapPixel(
+                                            position = up.position,
+                                            viewSize = latestPreviewSize,
+                                            bitmapWidth = current.bitmap.width,
+                                            bitmapHeight = current.bitmap.height,
+                                            displayScale = latestDisplayScale,
+                                            panOffset = latestPanOffset,
+                                        ) ?: return@awaitEachGesture
+                                        val sampled = current.bitmap.getPixel(pixelOffset.x, pixelOffset.y)
+                                        val selectedColor = eyedropperPaletteColorForSample(sampled)
+                                        if (selectedColor == null) {
+                                            isEyedropperActive = false
+                                            scope.launch {
+                                                showSnackbarMessage("Selected pixel is transparent")
+                                            }
+                                            return@awaitEachGesture
+                                        }
+                                        selectCurrentColor(selectedColor)
+                                        isEyedropperActive = false
+                                    }
+                                }
                                 .transformable(state = transformableState)
                                 .testTag("spriteEditorPreview"),
                             contentAlignment = Alignment.TopCenter
@@ -792,12 +1217,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val renderScale = fitScale * displayScale
                                         val destinationWidth = state.bitmap.width * renderScale
                                         val destinationHeight = state.bitmap.height * renderScale
-                                        val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
-                                        val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
-                                        val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
-                                        val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
-                                        val renderLeft = renderOffsetXPx.toFloat()
-                                        val renderTop = renderOffsetYPx.toFloat()
+                                        val renderLeft = (size.width - destinationWidth) / 2f + panOffset.x
+                                        val renderTop = (size.height - destinationHeight) / 2f + panOffset.y
                                         val renderRight = renderLeft + destinationWidth
                                         val renderBottom = renderTop + destinationHeight
                                         clipRect(renderLeft, renderTop, renderRight, renderBottom) {
@@ -830,12 +1251,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val renderScale = fitScale * displayScale
                                         val destinationWidth = state.bitmap.width * renderScale
                                         val destinationHeight = state.bitmap.height * renderScale
-                                        val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
-                                        val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
-                                        val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
-                                        val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
-                                        val renderLeft = renderOffsetXPx.toFloat()
-                                        val renderTop = renderOffsetYPx.toFloat()
+                                        val renderLeft = (size.width - destinationWidth) / 2f + panOffset.x
+                                        val renderTop = (size.height - destinationHeight) / 2f + panOffset.y
                                         val renderRight = renderLeft + destinationWidth
                                         val renderBottom = renderTop + destinationHeight
                                         if (isGridEnabled) {
@@ -945,6 +1362,44 @@ fun SpriteEditorScreen(navController: NavController) {
                                             ),
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f),
                                         )
+                                        if (isMinecraftSkinOverlayEnabled) {
+                                            val skinRegions = minecraftSkinRegions(
+                                                width = state.bitmap.width,
+                                                height = state.bitmap.height,
+                                            )
+                                            if (skinRegions.isNotEmpty()) {
+                                                val shadowColor = Color.Black.copy(alpha = 0.52f)
+                                                val lineColor = Color(0xFF40E0D0).copy(alpha = 0.86f)
+                                                val strokeWidth = minecraftSkinOverlayStrokeWidth(
+                                                    bitmapWidth = state.bitmap.width,
+                                                    renderScale = renderScale,
+                                                )
+                                                skinRegions.forEach { region ->
+                                                    val left = renderLeft + region.x * renderScale
+                                                    val top = renderTop + region.y * renderScale
+                                                    val regionSize = Size(
+                                                        width = region.w * renderScale,
+                                                        height = region.h * renderScale,
+                                                    )
+                                                    drawRect(
+                                                        color = shadowColor,
+                                                        topLeft = Offset(left, top),
+                                                        size = regionSize,
+                                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                            width = strokeWidth + 1f,
+                                                        ),
+                                                    )
+                                                    drawRect(
+                                                        color = lineColor,
+                                                        topLeft = Offset(left, top),
+                                                        size = regionSize,
+                                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                            width = strokeWidth,
+                                                        ),
+                                                    )
+                                                }
+                                            }
+                                        }
                                         val copied = copiedSelection
                                         if (copied != null) {
                                             val copiedXPx = (copied.x * renderScale).roundToInt()
@@ -956,8 +1411,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             drawRect(
                                                 color = copiedColor.copy(alpha = 0.35f),
                                                 topLeft = Offset(
-                                                    x = (renderOffsetXPx + copiedXPx).toFloat(),
-                                                    y = (renderOffsetYPx + copiedYPx).toFloat(),
+                                                    x = renderLeft + copiedXPx,
+                                                    y = renderTop + copiedYPx,
                                                 ),
                                                 size = Size(
                                                     width = copiedWPx.toFloat(),
@@ -967,8 +1422,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             drawRect(
                                                 color = copiedColor,
                                                 topLeft = Offset(
-                                                    x = (renderOffsetXPx + copiedXPx).toFloat(),
-                                                    y = (renderOffsetYPx + copiedYPx).toFloat(),
+                                                    x = renderLeft + copiedXPx,
+                                                    y = renderTop + copiedYPx,
                                                 ),
                                                 size = Size(
                                                     width = copiedWPx.toFloat(),
@@ -988,8 +1443,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 srcOffset = IntOffset(0, 0),
                                                 srcSize = IntSize(clipboardImage.width, clipboardImage.height),
                                                 dstOffset = IntOffset(
-                                                    x = renderOffsetXPx + selectionXPx,
-                                                    y = renderOffsetYPx + selectionYPx,
+                                                    x = floor(renderLeft + selectionXPx).toInt(),
+                                                    y = floor(renderTop + selectionYPx).toInt(),
                                                 ),
                                                 dstSize = IntSize(
                                                     width = selectionWPx,
@@ -1006,8 +1461,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         drawRect(
                                             color = Color.Red,
                                             topLeft = Offset(
-                                                x = (renderOffsetXPx + selectionXPx).toFloat(),
-                                                y = (renderOffsetYPx + selectionYPx).toFloat(),
+                                                x = renderLeft + selectionXPx,
+                                                y = renderTop + selectionYPx,
                                             ),
                                             size = Size(
                                                 width = selectionWPx.toFloat(),
@@ -1016,6 +1471,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokePx.toFloat()),
                                         )
                                     }
+                                }
+                                if (minecraftSkinPartLabel != null) {
+                                    Text(
+                                        text = "MC: $minecraftSkinPartLabel",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(8.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                                                shape = RoundedCornerShape(4.dp),
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .testTag("spriteEditorMinecraftSkinPart"),
+                                    )
                                 }
                             }
                         }
@@ -1473,6 +1946,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 .fillMaxWidth()
                                                 .testTag("spriteEditorRepeat"),
                                             label = "Repeat",
+                                            enabled = !isPaletteOperationRunning,
                                             onClick = {
                                                 val current = editorState
                                                 if (current == null) {
@@ -1505,6 +1979,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 editorState = current.withBitmap(binarizedBitmap)
                                                                 isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Binarize") }
+                                                            }
+
+                                                            is LastToolOp.ReduceTo256Colors -> {
+                                                                runSpriteReduce(op.repeat, repeated = true)
                                                             }
 
                                                             LastToolOp.ClearBackground -> {
@@ -1574,9 +2052,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 }
                                                             }
 
-                                                            is LastToolOp.ResizeToMax96 -> {
+                                                            is LastToolOp.ResizeSelection -> {
                                                                 runResizeSelection(
                                                                     current,
+                                                                    targetMaxPx = op.targetMaxPx,
                                                                     anchor = op.anchor,
                                                                     stepFactor = op.stepFactor,
                                                                     downscaleMode = op.downscaleMode,
@@ -1700,46 +2179,51 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     if (activeSheet != SheetType.None) {
-        val sheetTitle = if (activeSheet == SheetType.More) "More" else "Tools"
-        data class SheetItem(
-            val label: String,
-            val testTag: String,
-            val opensApplyDialog: Boolean = false,
-        )
-        val sheetItems = if (activeSheet == SheetType.More) {
-            listOf(
-                SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
-                SheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
-                SheetItem(
+        val sheetTitle = when (activeSheet) {
+            SheetType.More -> "More"
+            SheetType.Tools -> "Tools"
+            SheetType.ReduceTo256Colors -> "Reduce to 256 Colors"
+            SheetType.ColorPalette -> "Color Palette"
+            SheetType.None -> ""
+        }
+        val sheetItems = when (activeSheet) {
+            SheetType.More -> listOf(
+                SpriteEditorSheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
+                SpriteEditorSheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
+                SpriteEditorSheetItem(
+                    label = if (isMinecraftSkinOverlayEnabled) {
+                        "Minecraft Skin Overlay: ON"
+                    } else {
+                        "Minecraft Skin Overlay: OFF"
+                    },
+                    testTag = "spriteEditorSheetItemMinecraftSkinOverlay",
+                ),
+                SpriteEditorSheetItem(
                     label = "Apply to Sprite...",
                     testTag = "spriteEditorSheetItemApply",
                     opensApplyDialog = true,
                 ),
             )
-        } else {
-            listOf(
-                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
-                SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
-                SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
-                SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
-                SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
-                SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
-                SheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
-                SheetItem(
-                    label = "Center Content in Box",
-                    testTag = "spriteEditorSheetItemCenterContentInBox",
-                ),
-            )
+            SheetType.Tools -> spriteEditorToolsSheetItems()
+            SheetType.ReduceTo256Colors -> spriteEditorReduceSheetItems()
+            SheetType.ColorPalette,
+            SheetType.None -> emptyList()
         }
         ModalBottomSheet(
             onDismissRequest = { activeSheet = SheetType.None },
             sheetState = sheetState,
         ) {
-            Column(
-                modifier = Modifier
-                    // [dp] 全体: ボトムシート内容の最小余白(余白)に関係
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
+            val contentModifier = Modifier
+                // [dp] 全体: ボトムシート内容の最小余白(余白)に関係
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .then(
+                    if (activeSheet == SheetType.Tools) {
+                        Modifier.verticalScroll(rememberScrollState())
+                    } else {
+                        Modifier
+                    },
+                )
+            Column(modifier = contentModifier) {
                 Text(
                     text = sheetTitle,
                     style = MaterialTheme.typography.titleMedium,
@@ -1749,7 +2233,24 @@ fun SpriteEditorScreen(navController: NavController) {
                         // [dp] 上下: タイトルと項目の間隔(間隔)に関係
                         .height(8.dp)
                 )
-                sheetItems.forEach { item ->
+                when (activeSheet) {
+                    SheetType.ColorPalette -> {
+                        SpriteEditorColorPaletteSheet(
+                            currentColor = currentColor,
+                            recentColors = recentColors,
+                            onColorSelected = { color ->
+                                selectCurrentColor(color)
+                                if (DISMISS_COLOR_PALETTE_AFTER_SELECTION) {
+                                    activeSheet = SheetType.None
+                                }
+                            },
+                        )
+                    }
+
+                    SheetType.More,
+                    SheetType.Tools,
+                    SheetType.ReduceTo256Colors -> {
+                    sheetItems.forEach { item ->
                     Button(
                         onClick = {
                             if (item.opensApplyDialog) {
@@ -1757,6 +2258,48 @@ fun SpriteEditorScreen(navController: NavController) {
                                 applyDialogComment = ""
                                 applyDialogCommentKind = ApplyDialogCommentKind.None
                                 showApplyDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemColorPalette") {
+                                activeSheet = SheetType.ColorPalette
+                            } else if (item.testTag == "spriteEditorReduceImageAdaptive") {
+                                activeSheet = SheetType.None
+                                runSpriteReduce(
+                                    SpriteReduceRepeat.create(SpriteReduceMode.ImageAdaptive),
+                                    repeated = false,
+                                )
+                            } else if (item.testTag == "spriteEditorReduceFixedPalette") {
+                                activeSheet = SheetType.None
+                                runSpriteReduce(
+                                    SpriteReduceRepeat.create(SpriteReduceMode.FixedPaletteV3),
+                                    repeated = false,
+                                )
+                            } else if (item.testTag == "spriteEditorReduceCancel") {
+                                activeSheet = SheetType.None
+                            } else if (item.testTag == "spriteEditorSheetItemEyedropper") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    isEyedropperActive = false
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    activeSheet = SheetType.None
+                                    launchPaletteOperation {
+                                        val sourceBitmap = current.bitmap
+                                        val sourceSelection = current.selection
+                                        val result = withContext(Dispatchers.Default) {
+                                            findUniformSelectionColor(
+                                                sourceBitmap,
+                                                sourceSelection,
+                                            ) { !isActive }
+                                        }
+                                        if (editorState !== current) {
+                                            return@launchPaletteOperation
+                                        }
+                                        val decision = decideEyedropperSelectionResult(result)
+                                        decision.selectedColor?.let(::selectCurrentColor)
+                                        isEyedropperActive = decision.activateTapFallback
+                                        showSnackbarMessage(decision.message)
+                                    }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
                                 val current = editorState
                                 if (current == null) {
@@ -1821,6 +2364,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Binarize applied") }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemReduceTo256Colors") {
+                                activeSheet = SheetType.ReduceTo256Colors
                             } else if (item.testTag == "spriteEditorSheetItemClearBackground") {
                                 val current = editorState
                                 if (current == null) {
@@ -1885,6 +2430,36 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemFillSelection") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val fillColor = currentColor
+                                    activeSheet = SheetType.None
+                                    launchPaletteOperation {
+                                        val sourceBitmap = current.bitmap
+                                        runPaletteBitmapOperation(
+                                            sourceBitmap = sourceBitmap,
+                                            operation = { shouldCancel ->
+                                                fillSelectionWithColor(
+                                                    sourceBitmap,
+                                                    current.selection,
+                                                    fillColor,
+                                                    shouldCancel = shouldCancel,
+                                                )
+                                            },
+                                        ) { result, owner ->
+                                            applyPaletteBitmapResult(
+                                                current = current,
+                                                result = result,
+                                                owner = owner,
+                                                appliedMessage = "Selection filled",
+                                            )
+                                        }
+                                    }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemCenterContentInBox") {
                                 val current = editorState
                                 if (current == null) {
@@ -1920,6 +2495,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     showCanvasSizeDialog = true
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemMinecraftSkinOverlay") {
+                                isMinecraftSkinOverlayEnabled = !isMinecraftSkinOverlayEnabled
+                                activeSheet = SheetType.None
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
@@ -1931,6 +2509,12 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag(item.testTag),
+                        enabled = when (item.testTag) {
+                            "spriteEditorSheetItemFillSelection" -> !isPaletteOperationRunning && editorState != null
+                            "spriteEditorReduceImageAdaptive",
+                            "spriteEditorReduceFixedPalette" -> !isPaletteOperationRunning
+                            else -> true
+                        },
                         // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         shape = RoundedCornerShape(999.dp),
@@ -1942,6 +2526,10 @@ fun SpriteEditorScreen(navController: NavController) {
                             // [dp] 上下: 項目間の間隔(間隔)に関係
                             .height(6.dp)
                     )
+                    }
+                    }
+
+                    SheetType.None -> Unit
                 }
             }
         }
@@ -2472,7 +3060,31 @@ fun SpriteEditorScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Shrink selection to max 96px (keeps aspect ratio).")
+                    Text("選択範囲を指定サイズ内に縮小（縦横比を維持）")
+                    Column(
+                        modifier = Modifier.fillMaxWidth().selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf(64, 96, 128, 288).chunked(2).forEach { targets ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                targets.forEach { target ->
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .selectable(selected = resizeTargetMaxPx == target, onClick = { resizeTargetMaxPx = target }, role = Role.RadioButton)
+                                            .testTag("spriteEditorResizeMax$target"),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(selected = resizeTargetMaxPx == target, onClick = null)
+                                        Text("最大 $target×$target")
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2671,6 +3283,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 } else {
                                     runResizeSelection(
                                         current,
+                                        targetMaxPx = resizeTargetMaxPx,
                                         anchor = resizeAnchor,
                                         stepFactor = resizeStepFactor,
                                         downscaleMode = resizeDownscaleMode,
@@ -3087,11 +3700,13 @@ private fun SpriteEditorStandardButton(
     modifier: Modifier = Modifier,
     label: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
             .height(SpriteEditorButtonHeight)
@@ -3258,6 +3873,215 @@ private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEdi
         widthInput = normalized.w.toString(),
         heightInput = normalized.h.toString(),
     )
+}
+
+@Composable
+private fun SpriteEditorColorPaletteSheet(
+    currentColor: Int,
+    recentColors: List<Int>,
+    onColorSelected: (Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Current Color", style = MaterialTheme.typography.labelMedium)
+        SpriteEditorPaletteSwatch(
+            color = currentColor,
+            label = "Current Color",
+            currentColor = currentColor,
+            testTag = "spriteEditorCurrentColor",
+            onClick = { onColorSelected(currentColor) },
+        )
+        if (recentColors.isNotEmpty()) {
+            Text("Recent Colors", style = MaterialTheme.typography.labelMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                recentColors.take(8).forEachIndexed { index, color ->
+                    SpriteEditorPaletteSwatch(
+                        color = color,
+                        label = "Recent Color ${index + 1}",
+                        currentColor = currentColor,
+                        testTag = "spriteEditorRecentColor$index",
+                        onClick = { onColorSelected(color) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(5),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .testTag("spriteEditorFixedPalette"),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            fixedSpritePaletteDisplaySections().forEachIndexed { sectionIndex, section ->
+                item(
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
+                    Text(
+                        text = section.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier
+                            .padding(top = if (sectionIndex == 0) 0.dp else 8.dp)
+                            .semantics { heading() }
+                            .testTag("spriteEditorPaletteSection${section.label}"),
+                    )
+                }
+                if (section.anchorColor == null) {
+                    items(section.colors.size) { sectionColorIndex ->
+                        val color = section.colors[sectionColorIndex]
+                        val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(color))
+                        SpriteEditorPaletteSwatch(
+                            color = color,
+                            label = "Palette Color $canonicalIndex",
+                            currentColor = currentColor,
+                            testTag = "spriteEditorPaletteColor$canonicalIndex",
+                            onClick = { onColorSelected(color) },
+                        )
+                    }
+                } else {
+                    val anchorColor = section.anchorColor
+                    item(
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        Text(
+                            text = "Base Color",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .semantics { heading() }
+                                .testTag("spriteEditorPalette${section.label}BaseColor"),
+                        )
+                    }
+                    item {
+                        val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(anchorColor))
+                        SpriteEditorPaletteSwatch(
+                            color = anchorColor,
+                            label = "${section.label} Base Color",
+                            currentColor = currentColor,
+                            testTag = "spriteEditorPaletteColor$canonicalIndex",
+                            onClick = { onColorSelected(anchorColor) },
+                        )
+                    }
+                    section.chromaGroups.forEach { group ->
+                        item(
+                            span = { GridItemSpan(maxLineSpan) },
+                        ) {
+                            Text(
+                                text = group.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .semantics { heading() }
+                                    .testTag("spriteEditorPalette${section.label}${group.label}"),
+                            )
+                        }
+                        items(group.colors.size) { groupColorIndex ->
+                            val color = group.colors[groupColorIndex]
+                            val canonicalIndex = checkNotNull(fixedSpritePaletteCanonicalIndex(color))
+                            SpriteEditorPaletteSwatch(
+                                color = color,
+                                label = "Palette Color $canonicalIndex",
+                                currentColor = currentColor,
+                                testTag = "spriteEditorPaletteColor$canonicalIndex",
+                                onClick = { onColorSelected(color) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SpriteEditorPaletteSwatch(
+    color: Int,
+    label: String,
+    currentColor: Int,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val semantics = spriteEditorPaletteSwatchSemantics(label, color, currentColor, testTag)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .minimumInteractiveComponentSize()
+            .semantics {
+                this.contentDescription = semantics.contentDescription
+                this.selected = semantics.selected
+            }
+            .clickable(
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .testTag(semantics.testTag),
+        contentAlignment = Alignment.Center,
+    ) {
+        val ringWidth = spriteEditorPaletteSelectionRingWidthDp(semantics.selected)?.dp
+        val ringModifier = if (ringWidth == null) {
+            Modifier.size(38.dp)
+        } else {
+            Modifier
+                .size(38.dp)
+                .border(ringWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                .padding(ringWidth)
+        }
+        Box(
+            modifier = ringModifier,
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(color))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)),
+            )
+        }
+    }
+}
+
+internal fun previewOffsetToBitmapPixel(
+    position: Offset,
+    viewSize: IntSize,
+    bitmapWidth: Int,
+    bitmapHeight: Int,
+    displayScale: Float,
+    panOffset: Offset,
+): IntOffset? {
+    if (viewSize.width <= 0 || viewSize.height <= 0 || bitmapWidth <= 0 || bitmapHeight <= 0) {
+        return null
+    }
+    val scaleX = viewSize.width.toFloat() / bitmapWidth
+    val scaleY = viewSize.height.toFloat() / bitmapHeight
+    val fitScale = min(scaleX, scaleY)
+    val renderScale = fitScale * displayScale
+    if (renderScale <= 0f) {
+        return null
+    }
+    val destinationWidth = bitmapWidth * renderScale
+    val destinationHeight = bitmapHeight * renderScale
+    val renderLeft = (viewSize.width - destinationWidth) / 2f + panOffset.x
+    val renderTop = (viewSize.height - destinationHeight) / 2f + panOffset.y
+    val bitmapXFloat = (position.x - renderLeft) / renderScale
+    val bitmapYFloat = (position.y - renderTop) / renderScale
+    if (bitmapXFloat < 0f || bitmapYFloat < 0f) {
+        return null
+    }
+    if (bitmapXFloat >= bitmapWidth.toFloat() || bitmapYFloat >= bitmapHeight.toFloat()) {
+        return null
+    }
+    return IntOffset(floor(bitmapXFloat).toInt(), floor(bitmapYFloat).toInt())
 }
 
 private fun internalAutosaveFile(context: android.content.Context): File {

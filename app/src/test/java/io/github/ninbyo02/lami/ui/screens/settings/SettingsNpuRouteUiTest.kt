@@ -4,6 +4,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.home.NPU_STANDARD_ROUTE_MAX_OUTPUT_TOKENS_DATASTORE_KEY
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,7 +55,7 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `user facing backend list exposes NPU as one option`() {
+    fun `user facing backend list exposes promoted local NPU as one option`() {
         assertEquals(
             listOf(
                 InferenceBackendSelection.AUTOMATIC,
@@ -64,7 +65,8 @@ class SettingsNpuRouteUiTest {
             ),
             InferenceBackendSelection.userFacingEntries,
         )
-        assertTrue(InferenceBackendSelection.NPU.displayLabel.contains("NPU Beta"))
+        assertEquals("NPU ローカル", InferenceBackendSelection.NPU.displayLabel)
+        assertFalse(InferenceBackendSelection.NPU.displayLabel.contains("Beta"))
         assertTrue(InferenceBackendSelection.userFacingEntries.none { isDeveloperNpuPhaseSelection(it) })
     }
 
@@ -229,6 +231,20 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
+    fun `NPU native max output tokens experiment allows up to 4096`() {
+        val resolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(4096)
+
+        assertEquals(4096, resolution.requestedMaxOutputTokens)
+        assertEquals(4096, resolution.effectiveMaxOutputTokens)
+        assertEquals(4096, resolution.clampLimit)
+        assertFalse(resolution.clamped)
+        assertEquals(
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE,
+            resolution.clampReason,
+        )
+    }
+
+    @Test
     fun `legacy QAIRT route label is diagnostic and separate from standard route`() {
         assertEquals("Legacy QAIRT244診断", LEGACY_QAIRT244_DIAGNOSTIC_TITLE)
         assertTrue(LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION.contains("旧QAIRT診断経路"))
@@ -237,9 +253,11 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
-    fun `NPU beta backend description explains consolidated standard route`() {
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU Beta"))
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("UI, TTS, DB, Markdown"))
-        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("pseudo streaming"))
+    fun `NPU local backend description explains promoted standard route and model requirement`() {
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("NPU ローカル"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("UI・TTS・DB保存・Markdown"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("擬似Streaming"))
+        assertTrue(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("モデル未読込時"))
+        assertFalse(NPU_EXPERIMENTAL_BACKEND_DESCRIPTION.contains("Beta"))
     }
 }

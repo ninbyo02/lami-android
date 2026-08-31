@@ -1,0 +1,452 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import android.content.Context
+import android.os.Build
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeContract
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeDisplay
+import io.github.ninbyo02.lami.npu.NpuStandardRouteNativeRequest
+import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
+
+internal class RealNpuStandardRouteS1Provider(
+    private val requestRunner: (NpuStandardRouteNativeRequest) -> NpuStandardRouteNativeDisplay = { request ->
+        val appContext = resolveApplicationContext()
+            ?: error(REASON_NATIVE_ENTRY_UNAVAILABLE)
+        NpuStandardRoutePersistentProbeRunner.run(
+            context = appContext,
+            request = request,
+        )
+    },
+) : NpuStandardRouteS1Provider {
+    override fun invoke(
+        userPrompt: String,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult = invokeWithContext(
+        userPrompt = userPrompt,
+        contextText = "",
+        maxOutputTokens = maxOutputTokens,
+        trace = trace,
+    )
+
+    override fun invokeWithContext(
+        userPrompt: String,
+        contextText: String,
+        selectedModelFile: String?,
+        maxOutputTokens: Int,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult {
+        val maxOutputTokensResolution = NpuStandardRoutePreferences.resolveNativeMaxOutputTokens(maxOutputTokens)
+        val effectiveMaxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
+            userPrompt = userPrompt,
+            requestedMaxOutputTokens = maxOutputTokensResolution.effectiveMaxOutputTokens,
+        )
+        val maxOutputTokensClamped =
+            maxOutputTokensResolution.clamped ||
+                effectiveMaxOutputTokens != maxOutputTokensResolution.requestedMaxOutputTokens
+        NpuEngineLogcatDiagnostics.i(
+            event = "s1_engine_request_start",
+            route = "RealNpuStandardRouteS1Provider.invoke",
+            probeName = "npu_s1_provider",
+            backendRequested = "NPU",
+            maxOutputTokens = effectiveMaxOutputTokens,
+            memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                captureLocalMemorySnapshot(appContext, "s1_engine_request_start")
+            },
+            detail = "prompt_length=${userPrompt.length} " +
+                "requested_max_output_tokens=${maxOutputTokensResolution.requestedMaxOutputTokens} " +
+                "effective_max_output_tokens=${effectiveMaxOutputTokens} " +
+                "max_output_tokens_clamped=${maxOutputTokensClamped}",
+        )
+        return runCatching {
+            trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
+            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                userPrompt = userPrompt,
+                contextText = contextText,
+            )
+            val nativeRequest = request(
+                userPrompt = promptRewrite.rewrittenPromptText,
+                contextText = if (promptRewrite.contextualFactEmbedded) "" else contextText,
+                selectedModelFile = selectedModelFile,
+                maxOutputTokens = effectiveMaxOutputTokens,
+            )
+            trace(
+                buildNpuRealPromptRequestTrace(
+                    request = nativeRequest,
+                    promptRewrite = promptRewrite,
+                ),
+            )
+            val initialMappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+                display = requestRunner(nativeRequest),
+                userPrompt = userPrompt,
+            )
+            val mappedRawResult = if (
+                shouldRetryContextFreeAfterEmptyDecode(
+                    result = initialMappedRawResult,
+                    hadContext = nativeRequest.contextText.isNotBlank(),
+                )
+            ) {
+                val retryPromptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(
+                    userPrompt = userPrompt,
+                    contextText = "",
+                )
+                val retryRequest = request(
+                    userPrompt = retryPromptRewrite.rewrittenPromptText,
+                    contextText = "",
+                    selectedModelFile = selectedModelFile,
+                    maxOutputTokens = effectiveMaxOutputTokens,
+                )
+                trace("NPU_EMPTY_OUTPUT_RETRY attempted=true strategy=context_free_same_user_prompt")
+                trace(
+                    buildNpuRealPromptRequestTrace(
+                        request = retryRequest,
+                        promptRewrite = retryPromptRewrite,
+                    ),
+                )
+                val retryResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+                    display = requestRunner(retryRequest),
+                    userPrompt = userPrompt,
+                )
+                retryResult.takeIf {
+                    it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+                        it.sanitizedOutput.isNotBlank()
+                } ?: initialMappedRawResult
+            } else {
+                initialMappedRawResult
+            }
+            val providerStage = if (mappedRawResult.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+                NPU_S1_NATIVE_STAGE_PROVIDER_SUCCESS
+            } else {
+                NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE
+            }
+            val resolvedModel = resolveApplicationContext()
+                ?.let { appContext ->
+                    Qairt244ModelPathResolver.resolve(
+                        context = appContext,
+                        preferredModelPath = selectedModelFile,
+                    )
+                }
+                ?.takeIf { it.resolved }
+            val resolvedModelInfo = resolvedModel?.modelInfo
+            val rawResult = mappedRawResult.copy(
+                requestedMaxOutputTokens = maxOutputTokensResolution.requestedMaxOutputTokens,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
+                selectedModelName = resolvedModelInfo?.canonicalModelBasename.orEmpty(),
+                selectedModelFile = resolvedModel?.path.orEmpty(),
+                npuModelEligible = resolvedModelInfo?.required,
+                nativeDiagnostics = mappedRawResult.nativeDiagnostics.copy(
+                    nativeStageHistory = listOf(
+                        NPU_S1_NATIVE_STAGE_PROVIDER_START,
+                        mappedRawResult.nativeDiagnostics.nativeStageHistory,
+                        providerStage,
+                    ).filter { it.isNotBlank() && it != "unavailable" }.joinToString(">"),
+                ),
+            )
+            trace(
+                buildNpuRealPromptResultTrace(
+                    status = rawResult.status,
+                    reason = rawResult.reason,
+                    maxOutputTokens = rawResult.effectiveMaxOutputTokens,
+                    rawOutput = rawResult.rawOutput,
+                    sanitizedOutput = rawResult.sanitizedOutput,
+                    qualityClassification = rawResult.qualityClassification,
+                    runDecodeReached = rawResult.runDecodeReached,
+                    fallbackUsed = rawResult.fallbackUsed,
+                    timeout = rawResult.timeout,
+                    freshCrash = rawResult.freshCrash,
+                ),
+            )
+            NpuEngineLogcatDiagnostics.i(
+                event = if (rawResult.reason.startsWith("adapter_failure")) "s1_adapter_failure" else "s1_decode_success",
+                route = "RealNpuStandardRouteS1Provider.invoke",
+                probeName = "npu_s1_provider",
+                backendRequested = "NPU",
+                maxOutputTokens = rawResult.effectiveMaxOutputTokens,
+                detail = "status=${rawResult.status} reason=${rawResult.reason} " +
+                    "requested_max_output_tokens=${rawResult.requestedMaxOutputTokens} " +
+                    "effective_max_output_tokens=${rawResult.effectiveMaxOutputTokens} " +
+                    "max_output_tokens_clamped=${maxOutputTokensClamped} " +
+                    "run_decode_reached=${rawResult.runDecodeReached} fallback_used=${rawResult.fallbackUsed} " +
+                    "timeout=${rawResult.timeout} fresh_crash=${rawResult.freshCrash}",
+            )
+            rawResult
+        }.getOrElse { throwable ->
+            val nativeLinkDiagnostics = buildNpuNativeLinkFailureDiagnostics(
+                throwable = throwable,
+                javaLibraryPath = System.getProperty("java.library.path"),
+                supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
+            )
+            val reason = if (nativeLinkDiagnostics.detected) {
+                NPU_STANDARD_ROUTE_NATIVE_LINK_FAILURE_REASON
+            } else {
+                throwable.message
+                    ?.takeIf { it.isNotBlank() }
+                    ?: REASON_NATIVE_REQUEST_FAILED
+            }
+            NpuS1LogcatDiagnostics.logAdapterFailure(
+                reason = reason,
+                throwable = throwable,
+                memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                    captureLocalMemorySnapshot(
+                        context = appContext,
+                        stage = "npu_s1_provider_failure",
+                    )
+                },
+                promptLength = userPrompt.length,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
+            )
+            NpuEngineLogcatDiagnostics.e(
+                event = "s1_adapter_failure",
+                route = "RealNpuStandardRouteS1Provider.invoke",
+                throwable = throwable,
+                probeName = "npu_s1_provider",
+                backendRequested = "NPU",
+                maxOutputTokens = effectiveMaxOutputTokens,
+                memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                    captureLocalMemorySnapshot(appContext, "s1_provider_failure")
+                },
+                detail = "prompt_length=${userPrompt.length} reason=$reason " +
+                    "requested_max_output_tokens=${maxOutputTokensResolution.requestedMaxOutputTokens} " +
+                    "effective_max_output_tokens=${effectiveMaxOutputTokens} " +
+                    "max_output_tokens_clamped=${maxOutputTokensClamped} " +
+                    npuNativeLinkFailureDiagnosticsLines(nativeLinkDiagnostics).joinToString(" "),
+            )
+            RealNpuStandardRouteS1ResultMapper.failure(
+                reason = reason,
+                maxOutputTokens = effectiveMaxOutputTokens,
+            ).copy(
+                requestedMaxOutputTokens = maxOutputTokensResolution.requestedMaxOutputTokens,
+                effectiveMaxOutputTokens = effectiveMaxOutputTokens,
+                inputPrompt = userPrompt,
+                nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                    nativeStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
+                    nativeStageHistory = "$NPU_S1_NATIVE_STAGE_PROVIDER_START>$NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE",
+                    nativeErrorClass = throwable.javaClass.simpleName,
+                    nativeErrorMessage = throwable.message ?: reason,
+                    nativeErrorStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
+                    nativeErrorSource = "throwable",
+                    nativeLinkFailureDetected = nativeLinkDiagnostics.detected.toString(),
+                    nativeLinkFailureLibrary = nativeLinkDiagnostics.failedLibraryName,
+                    nativeLoadOrder = nativeLinkDiagnostics.loadOrder,
+                    javaLibraryPath = nativeLinkDiagnostics.javaLibraryPath,
+                    supportedAbis = nativeLinkDiagnostics.supportedAbis,
+                ),
+            )
+        }
+    }
+
+    companion object {
+        const val REASON_NATIVE_ENTRY_UNAVAILABLE = "native_entry_unavailable"
+        const val REASON_NATIVE_REQUEST_FAILED = "native_request_failed"
+        const val REASON_NATIVE_INPUT_TOO_LONG = "native_input_too_long"
+        const val PROMPT_SOURCE_STANDARD_ROUTE = "standard_route_persistent_npu"
+
+        const val NATIVE_MAX_INPUT_CODE_POINTS = 128
+        private const val MIN_CONTEXT_TURN_CODE_POINTS = 4
+
+        internal fun shouldRetryContextFreeAfterEmptyDecode(
+            result: NpuStandardRouteS1RawResult,
+            hadContext: Boolean,
+        ): Boolean =
+            hadContext &&
+                result.runDecodeReached &&
+                result.rawOutput.isBlank() &&
+                result.sanitizedOutput.isBlank() &&
+                !result.fallbackUsed &&
+                !result.timeout &&
+                !result.freshCrash
+
+        fun request(
+            userPrompt: String,
+            contextText: String = "",
+            selectedModelFile: String? = null,
+            maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+        ): NpuStandardRouteNativeRequest {
+            val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+            val promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT
+            val boundedContext = boundContextForNativeInput(
+                contextText = contextText,
+                userPrompt = userPrompt,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                contextText = boundedContext,
+                userPrompt = userPrompt,
+                promptTailVariant = promptTailVariant,
+            )
+            val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
+            require(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                "$REASON_NATIVE_INPUT_TOO_LONG:" +
+                    "code_points=$finalInputCodePoints:" +
+                    "limit=$NATIVE_MAX_INPUT_CODE_POINTS"
+            }
+            return NpuStandardRouteNativeRequest(
+                userPrompt = userPrompt,
+                contextText = boundedContext,
+                selectedModelFile = selectedModelFile,
+                maxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
+                    userPrompt = userPrompt,
+                    requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+                ),
+                promptTailVariant = promptTailVariant,
+                timeoutMs = NpuStandardRouteNativeContract.TIMEOUT_MS,
+            )
+        }
+
+        internal fun boundContextForNativeInput(
+            contextText: String,
+            userPrompt: String,
+            promptTailVariant: String = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
+        ): String {
+            val boundedTurns = LocalConversationHistoryPolicy.bounded(
+                ModelOwnedChatTemplate.parseContext(contextText),
+            )
+            val latestUserIndex = boundedTurns.indexOfLast { it.role == LocalConversationRole.USER }
+            if (latestUserIndex < 0) return ""
+            val selectedTurns = mutableListOf<LocalConversationTurn>()
+
+            boundedTurns.drop(latestUserIndex).forEach { turn ->
+                val candidateTurns = selectedTurns + turn
+                val candidate = serializeContextTurns(candidateTurns)
+                val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                    contextText = candidate,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                )
+                if (finalInput.codePointCount(0, finalInput.length) <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                    selectedTurns += turn
+                } else {
+                    fitTrailingTurn(
+                        turn = turn,
+                        selectedTurns = selectedTurns,
+                        userPrompt = userPrompt,
+                        promptTailVariant = promptTailVariant,
+                    )?.let(selectedTurns::add)
+                }
+            }
+
+            return serializeContextTurns(selectedTurns)
+        }
+
+        private fun fitTrailingTurn(
+            turn: LocalConversationTurn,
+            selectedTurns: Collection<LocalConversationTurn>,
+            userPrompt: String,
+            promptTailVariant: String,
+        ): LocalConversationTurn? {
+            var text = turn.text.trim()
+            while (text.codePointCount(0, text.length) >= MIN_CONTEXT_TURN_CODE_POINTS) {
+                val fittedTurn = turn.copy(text = text)
+                val candidate = serializeContextTurns(selectedTurns + fittedTurn)
+                val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                    contextText = candidate,
+                    userPrompt = userPrompt,
+                    promptTailVariant = promptTailVariant,
+                )
+                if (finalInput.codePointCount(0, finalInput.length) <= NATIVE_MAX_INPUT_CODE_POINTS) {
+                    return fittedTurn
+                }
+                val codePoints = text.codePointCount(0, text.length)
+                text = text.substring(0, text.offsetByCodePoints(0, codePoints - 1))
+            }
+            return null
+        }
+
+        private fun serializeContextTurns(turns: Collection<LocalConversationTurn>): String =
+            turns.joinToString("\n") { turn ->
+                when (turn.role) {
+                    LocalConversationRole.USER -> "ユーザー: ${turn.text}"
+                    LocalConversationRole.MODEL -> "アシスタント: ${turn.text}"
+                }
+            }
+
+        fun buildNpuRealPromptRequestTrace(
+            request: NpuStandardRouteNativeRequest,
+            promptRewrite: NpuStandardRouteS1PromptRewrite =
+                NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt),
+        ): String {
+            val finalInput = NpuStandardRouteNativeContract.buildPrompt(
+                contextText = request.contextText,
+                userPrompt = request.userPrompt,
+                promptTailVariant = request.promptTailVariant,
+            )
+            return buildString {
+                append("NPU_REAL_PROMPT request_prompt_hash=")
+                append(npuRealPromptHash(request.userPrompt))
+                append(" request_prompt_length=")
+                append(request.userPrompt.length)
+                append(" request_prompt_code_points=")
+                append(request.userPrompt.codePointCount(0, request.userPrompt.length))
+                append(" request_prompt_preview=")
+                append(npuRealPromptPreview(request.userPrompt))
+                append(" prompt_source=")
+                append(PROMPT_SOURCE_STANDARD_ROUTE)
+                append(" selected_model_file=")
+                append(
+                    request.selectedModelFile
+                        ?.substringAfterLast('/')
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "unavailable",
+                )
+                append(" context_code_points=")
+                append(request.contextText.codePointCount(0, request.contextText.length))
+                append(" final_input_tokens=unavailable")
+                append(" final_input_hash=")
+                append(npuRealPromptHash(finalInput))
+                val finalInputCodePoints = finalInput.codePointCount(0, finalInput.length)
+                append(" final_input_code_points=")
+                append(finalInputCodePoints)
+                append(" native_input_code_point_limit=")
+                append(NATIVE_MAX_INPUT_CODE_POINTS)
+                append(" native_input_within_limit=")
+                append(finalInputCodePoints <= NATIVE_MAX_INPUT_CODE_POINTS)
+                append(" prompt_tail_variant=")
+                append(request.promptTailVariant)
+                append(" prompt_wrapper_used=")
+                append(NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED)
+                append(" sampler_config_profile=")
+                append(LocalConversationPolicy.SAMPLER_PROFILE)
+                append(" sampler_top_k=")
+                append(LocalConversationPolicy.SAMPLER_TOP_K)
+                append(" sampler_top_p=")
+                append(LocalConversationPolicy.SAMPLER_TOP_P)
+                append(" sampler_temperature=")
+                append(LocalConversationPolicy.SAMPLER_TEMPERATURE)
+                append(" sampler_seed=")
+                append(LocalConversationPolicy.SAMPLER_SEED)
+                append(" thinking_enabled=")
+                append(LocalConversationPolicy.THINKING_ENABLED)
+                append(" arithmetic_prompt_detected=")
+                append(promptRewrite.arithmeticPromptDetected)
+                append(" short_prompt_rewrite_applied=")
+                append(promptRewrite.shortPromptRewriteApplied)
+                append(" strict_compact_answer_prompt_detected=")
+                append(promptRewrite.strictCompactAnswerPromptDetected)
+                append(" complete_reading_prompt_detected=")
+                append(promptRewrite.completeReadingPromptDetected)
+                append(" contextual_fact_embedded=")
+                append(promptRewrite.contextualFactEmbedded)
+                append(" npu_history_policy=user_facts_plus_referenced_answer_v2")
+                append(" rewritten_prompt_tail=")
+                append(npuRealPromptPreview(promptRewrite.rewrittenPromptText.takeLast(120)))
+                append(" max_output_tokens=")
+                append(request.maxOutputTokens)
+            }
+        }
+
+        private fun resolveApplicationContext(): Context? {
+            val currentApplication = runCatching {
+                val activityThreadClass = Class.forName("android.app.ActivityThread")
+                val currentApplicationMethod = activityThreadClass.getDeclaredMethod("currentApplication")
+                currentApplicationMethod.invoke(null)
+            }.getOrNull() as? Context
+
+            if (currentApplication != null) return currentApplication.applicationContext
+
+            return runCatching {
+                val appGlobalsClass = Class.forName("android.app.AppGlobals")
+                val initialApplicationMethod = appGlobalsClass.getDeclaredMethod("getInitialApplication")
+                initialApplicationMethod.invoke(null)
+            }.getOrNull() as? Context
+        }
+    }
+}

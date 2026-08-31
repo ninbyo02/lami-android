@@ -1,0 +1,364 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APK="$ROOT_DIR/app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk"
+APP_ID="io.github.ninbyo02.lami.customnpu"
+ACTION="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
+RECEIVER=""
+RESULT_FILE="dev_only_npu_one_turn_conversation_result.txt"
+NATIVE_RESULT_FILE="qairt244_persistent_custom_jni_probe_result.txt"
+NATIVE_DIAG_FILE="qairt244_persistent_custom_jni_probe_diag.txt"
+ENDPOINT=""
+TIMEOUT_SECONDS=90
+INSTALL=true
+VERIFY_ARTIFACT=true
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/run_npu_conversation_policy_device_validation.sh \
+  --endpoint <IPv4:port> [--apk <path>] [--app-id <package>] \
+  [--timeout <seconds>] [--skip-install] [--skip-artifact-verification]
+
+Connects only to the explicit ADB endpoint, installs the selected NPU APK,
+runs two isolated DEV-only NPU conversation turns, and saves machine-readable
+policy, sampler, input-length, fallback, and QNN/HTP/FastRPC evidence.
+USAGE
+}
+
+while (($#)); do
+  case "$1" in
+    --endpoint) ENDPOINT="${2:-}"; shift 2 ;;
+    --apk) APK="${2:-}"; shift 2 ;;
+    --app-id) APP_ID="${2:-}"; shift 2 ;;
+    --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
+    --skip-install) INSTALL=false; shift ;;
+    --skip-artifact-verification) VERIFY_ARTIFACT=false; shift ;;
+    --help|-h) usage; exit 0 ;;
+    *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+RECEIVER="$APP_ID/io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+validate_endpoint() {
+  [[ "$ENDPOINT" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$ ]] ||
+    fail "--endpoint must be an explicit IPv4:port"
+  local host="${ENDPOINT%:*}" port="${ENDPOINT##*:}" octet
+  IFS=. read -r -a octets <<<"$host"
+  for octet in "${octets[@]}"; do
+    ((10#$octet <= 255)) || fail "invalid IPv4 address: $host"
+  done
+  ((10#$port >= 1 && 10#$port <= 65535)) || fail "invalid port: $port"
+}
+validate_timeout() {
+  [[ "$TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] ||
+    fail "--timeout must be a positive integer"
+  ((TIMEOUT_SECONDS >= 1 && TIMEOUT_SECONDS <= 600)) ||
+    fail "--timeout must be between 1 and 600 seconds"
+}
+validate_app_id() {
+  [[ "$APP_ID" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]] ||
+    fail "--app-id must be a valid Android package name"
+}
+
+kv_value() {
+  local key="$1" file="$2"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$file"
+}
+
+require_value() {
+  local file="$1" key="$2" expected="$3" actual
+  actual="$(kv_value "$key" "$file")"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'FAIL file=%s key=%s expected=%s actual=%s\n' \
+      "$file" "$key" "$expected" "${actual:-missing}" >&2
+    return 1
+  fi
+  printf 'PASS key=%s value=%s\n' "$key" "$actual"
+}
+
+pull_app_file() {
+  local remote="$1" target="$2"
+  adb -s "$ENDPOINT" exec-out run-as "$APP_ID" cat "files/$remote" \
+    >"$target" 2>"$target.err" || true
+}
+ensure_app_process_ready() {
+  adb -s "$ENDPOINT" shell monkey -p "$APP_ID" \
+    -c android.intent.category.LAUNCHER 1 >"$OUT_DIR/app_start.txt" 2>&1 ||
+    fail "failed to launch $APP_ID before receiver validation"
+  local waited=0
+  while ((waited < 15)); do
+    if adb -s "$ENDPOINT" shell pidof "$APP_ID" >"$OUT_DIR/app_pid.txt" 2>/dev/null &&
+      [[ -s "$OUT_DIR/app_pid.txt" ]]; then
+      return 0
+    fi
+    sleep 1
+    ((waited += 1))
+  done
+  fail "$APP_ID process did not become ready after launch"
+}
+
+wait_for_result() {
+  local target="$1" waited=0 status
+  while ((waited < TIMEOUT_SECONDS)); do
+    pull_app_file "$RESULT_FILE" "$target"
+    status="$(kv_value status "$target")"
+    [[ "$status" == success || "$status" == failure ]] && return 0
+    sleep 1
+    ((waited += 1))
+  done
+  return 124
+}
+
+assert_npu_evidence() {
+  local result="$1" native_result="$2" native_diag="$3" logcat="$4" evidence marker
+  evidence="$(kv_value npu_backend_evidence "$result")"
+  [[ "$evidence" == "QNN_HTP_V79_FastRPC_native_diag" ]] ||
+    { printf 'FAIL unexpected npu_backend_evidence=%s\n' "${evidence:-missing}" >&2; return 1; }
+  for marker in QNN HTP FastRPC; do
+    grep -Eqi "$marker" "$result" "$native_result" "$native_diag" "$logcat" ||
+      { printf 'FAIL missing %s runtime evidence\n' "$marker" >&2; return 1; }
+  done
+  printf 'PASS npu_runtime_evidence=%s\n' "$evidence"
+}
+
+assert_sampler() {
+  local native_result="$1" native_diag="$2"
+  local merged="$native_result.merged"
+  cat "$native_result" "$native_diag" >"$merged"
+  grep -q 'sampler_top_k=40' "$merged" || return 1
+  grep -q 'sampler_top_p=0.9' "$merged" || return 1
+  grep -q 'sampler_temperature=0.3' "$merged" || return 1
+  grep -q 'sampler_seed=42' "$merged" || return 1
+  printf 'PASS sampler=top_k_40_top_p_0.9_temperature_0.3_seed_42\n'
+}
+
+assert_input_bound() {
+  local native_result="$1" native_diag="$2" value
+  value="$(cat "$native_result" "$native_diag" |
+    sed -n 's/.*prompt_input_code_points=\([0-9][0-9]*\).*/\1/p' |
+    tail -1)"
+  [[ "$value" =~ ^[0-9]+$ ]] ||
+    { printf 'FAIL prompt_input_code_points missing\n' >&2; return 1; }
+  ((value <= 128)) ||
+    { printf 'FAIL prompt_input_code_points=%s exceeds 128\n' "$value" >&2; return 1; }
+  printf 'PASS prompt_input_code_points=%s limit=128\n' "$value"
+}
+
+assert_output_policy() {
+  local result="$1" expected="$2" output
+  output="$(kv_value sanitized_output "$result")"
+  [[ -n "$output" ]] ||
+    { printf 'FAIL sanitized_output is empty\n' >&2; return 1; }
+  if printf '%s\n' "$output" | grep -Eq 'ユーザー:|アシスタント:'; then
+    printf 'FAIL output contains a role label: %s\n' "$output" >&2
+    return 1
+  fi
+  [[ "$output" == "$expected" ]] ||
+    { printf 'FAIL expected_output=%s actual=%s\n' "$expected" "$output" >&2; return 1; }
+  printf 'PASS final_answer_only=true expected_output=%s output=%s\n' "$expected" "$output"
+}
+
+assert_common_policy() {
+  local result="$1" expected_output="$2" check=0
+  require_value "$result" status success || check=1
+  require_value "$result" run_decode_reached true || check=1
+  require_value "$result" fallback_used false || check=1
+  require_value "$result" timeout false || check=1
+  require_value "$result" fresh_crash false || check=1
+  require_value "$result" backend_npu_persisted true || check=1
+  require_value "$result" db false || check=1
+  require_value "$result" tts false || check=1
+  require_value "$result" markdown false || check=1
+  require_value "$result" streaming false || check=1
+  require_value "$result" selected_path_npu_saved false || check=1
+  require_value "$result" app_template_mode raw || check=1
+  require_value "$result" prompt_template_owner native_npu_adapter_exception || check=1
+  require_value "$result" prompt_template_evaluator native_adapter_serialization || check=1
+  require_value "$result" conversation_api_used false || check=1
+  require_value "$result" app_template_used true || check=1
+  require_value "$result" template_ownership_unified false || check=1
+  require_value "$result" prompt_transport base64 || check=1
+  assert_output_policy "$result" "$expected_output" || check=1
+  ((check == 0))
+}
+
+markdown_value() {
+  local value="$1"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/<br>}"
+  value="${value//|/\\|}"
+  printf '%s' "$value" | sed 's/`/\\`/g'
+}
+
+safe_kv_value() {
+  local key="$1" file="$2"
+  [[ -f "$file" ]] || return 0
+  kv_value "$key" "$file" || true
+}
+
+native_code_points() {
+  local run_dir="$1"
+  local -a files=()
+  [[ -f "$run_dir/native_result.txt" ]] && files+=("$run_dir/native_result.txt")
+  [[ -f "$run_dir/native_diag.txt" ]] && files+=("$run_dir/native_diag.txt")
+  (("${#files[@]}" > 0)) || return 0
+  cat "${files[@]}" |
+    sed -n 's/.*prompt_input_code_points=\([0-9][0-9]*\).*/\1/p' |
+    tail -1 || true
+}
+
+write_markdown_summary() {
+  local failure="$1" overall=PASS label run_dir output evidence code_points
+  [[ "$failure" -eq 0 ]] || overall=FAIL
+  {
+    printf '# NPU Conversation Policy Device Validation\n\n'
+    printf -- '- Result: **%s**\n' "$overall"
+    printf -- '- Generated: `%s`\n' "$(date -Is)"
+    printf -- '- Commit: `%s`\n' "$(git rev-parse HEAD)"
+    printf -- '- Package: `%s`\n' "$APP_ID"
+    printf -- '- Device: `%s %s`\n' \
+      "$(tr -d '\r\n' <"$OUT_DIR/manufacturer.txt")" \
+      "$(tr -d '\r\n' <"$OUT_DIR/model.txt")"
+    printf -- '- SoC: `%s`\n' "$(tr -d '\r\n' <"$OUT_DIR/soc_model.txt")"
+    printf -- '- APK SHA-256: `%s`\n\n' "$(awk '{print $1}' "$OUT_DIR/apk_sha256.txt")"
+    printf '| Turn | Status | Decode | Fallback | NPU evidence | Input code points | Output |\n'
+    printf '|---|---|---|---|---|---:|---|\n'
+    for label in turn1 turn2; do
+      run_dir="$OUT_DIR/$label"
+      output="$(markdown_value "$(safe_kv_value sanitized_output "$run_dir/result.txt")")"
+      evidence="$(markdown_value "$(safe_kv_value npu_backend_evidence "$run_dir/result.txt")")"
+      code_points="$(native_code_points "$run_dir")"
+      printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
+        "$label" "$(safe_kv_value status "$run_dir/result.txt")" \
+        "$(safe_kv_value run_decode_reached "$run_dir/result.txt")" \
+        "$(safe_kv_value fallback_used "$run_dir/result.txt")" \
+        "${evidence:-unavailable}" "${code_points:-unavailable}" "${output:-unavailable}"
+    done
+    printf '\n## Expected policy\n\n'
+    printf -- '- Sampler: `top-k=40, top-p=0.9, temperature=0.3, seed=42`\n'
+    printf -- '- Prompt mode: `raw + base64 transport + final answer only`\n'
+    printf -- '- Native input limit: `128 code points`\n'
+    printf -- '- Side effects: `DB/TTS/Markdown/streaming/selected-path=false`\n'
+    printf '\n## Evidence files\n\n'
+    printf -- '- `turn1/assertions.txt` and `turn2/assertions.txt`\n'
+    printf -- '- Each turn contains `result.txt`, `native_result.txt`, '
+    printf '`native_diag.txt`, and `logcat.txt`.\n'
+    printf -- '- Local artifact directory: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
+  } >"$OUT_DIR/summary.md"
+}
+
+run_turn() {
+  local label="$1" prompt="$2" context="$3" expected_output="$4"
+  local run_dir="$OUT_DIR/$label"
+  mkdir -p "$run_dir"
+  adb -s "$ENDPOINT" logcat -c >/dev/null 2>&1 || true
+  adb -s "$ENDPOINT" shell run-as "$APP_ID" rm -f \
+    "files/$RESULT_FILE" "files/$NATIVE_RESULT_FILE" "files/$NATIVE_DIAG_FILE" \
+    >"$run_dir/cleanup.txt" 2>&1 || true
+
+  local -a args=(
+    -a "$ACTION" -p "$APP_ID" -n "$RECEIVER"
+    --es user_prompt "$prompt"
+    --es prompt_tail_variant raw_dialog_tail_variant_a
+    --ei max_output_tokens 32
+  )
+  if [[ -n "$context" ]]; then
+    args+=(--es context_base64 "$(printf '%s' "$context" | base64 | tr -d '\n')")
+  fi
+  adb -s "$ENDPOINT" shell am broadcast "${args[@]}" \
+    >"$run_dir/broadcast.txt" 2>&1 ||
+    { printf 'FAIL broadcast failed for %s\n' "$label" >&2; return 1; }
+
+  wait_for_result "$run_dir/result.txt" ||
+    { printf 'FAIL timed out waiting for %s\n' "$label" >&2; return 1; }
+  pull_app_file "$NATIVE_RESULT_FILE" "$run_dir/native_result.txt"
+  pull_app_file "$NATIVE_DIAG_FILE" "$run_dir/native_diag.txt"
+  adb -s "$ENDPOINT" logcat -d -t 1200 >"$run_dir/logcat.txt" 2>&1 || true
+
+  {
+    local check=0
+    printf 'turn=%s\n' "$label"
+    assert_common_policy "$run_dir/result.txt" "$expected_output" || check=1
+    assert_npu_evidence "$run_dir/result.txt" "$run_dir/native_result.txt" \
+      "$run_dir/native_diag.txt" "$run_dir/logcat.txt" || check=1
+    assert_sampler "$run_dir/native_result.txt" "$run_dir/native_diag.txt" || check=1
+    assert_input_bound "$run_dir/native_result.txt" "$run_dir/native_diag.txt" || check=1
+    ((check == 0))
+  } | tee "$run_dir/assertions.txt"
+  return "${PIPESTATUS[0]}"
+}
+
+main() {
+  validate_endpoint
+  validate_timeout
+  validate_app_id
+  cd "$ROOT_DIR"
+
+  local timestamp
+  timestamp="$(date +%Y%m%d_%H%M%S_%N)"
+  OUT_DIR="$ROOT_DIR/artifacts/npu_conversation_policy_device_validation/$timestamp"
+  mkdir -p "$OUT_DIR"
+  printf '%s\n' "$ENDPOINT" >"$OUT_DIR/endpoint.txt"
+
+  adb connect "$ENDPOINT" >"$OUT_DIR/adb_connect.txt" 2>&1 || true
+  adb devices -l >"$OUT_DIR/adb_devices.txt"
+  awk -v serial="$ENDPOINT" '$1 == serial && $2 == "device" { found=1 }
+    END { exit found ? 0 : 1 }' "$OUT_DIR/adb_devices.txt" ||
+    fail "explicit ADB endpoint is not online: $ENDPOINT"
+
+  if [[ "$VERIFY_ARTIFACT" == true ]]; then
+    scripts/verify_npu_conversation_policy_artifacts.sh --skip-preflight \
+      >"$OUT_DIR/artifact_verification.txt" 2>&1
+  fi
+  [[ -f "$APK" ]] || fail "APK not found: $APK"
+  sha256sum "$APK" >"$OUT_DIR/apk_sha256.txt"
+  if [[ "$INSTALL" == true ]]; then
+    adb -s "$ENDPOINT" install -r "$APK" >"$OUT_DIR/install.txt" 2>&1
+  fi
+
+  adb -s "$ENDPOINT" shell dumpsys package "$APP_ID" \
+    >"$OUT_DIR/package_dump.txt" 2>&1
+  grep -E 'versionCode=|versionName=|lastUpdateTime=|DevOnlyNpuOneTurnConversationReceiver' \
+    "$OUT_DIR/package_dump.txt" >"$OUT_DIR/package_summary.txt" || true
+  grep -q 'DevOnlyNpuOneTurnConversationReceiver' "$OUT_DIR/package_dump.txt" ||
+    fail "DEV-only receiver missing from installed package"
+
+  adb -s "$ENDPOINT" shell pm path "$APP_ID" >"$OUT_DIR/package_path.txt"
+  adb -s "$ENDPOINT" shell getprop ro.product.manufacturer >"$OUT_DIR/manufacturer.txt"
+  adb -s "$ENDPOINT" shell getprop ro.product.model >"$OUT_DIR/model.txt"
+  adb -s "$ENDPOINT" shell getprop ro.soc.model >"$OUT_DIR/soc_model.txt"
+  ensure_app_process_ready
+
+  local failure=0 turn1_output turn2_context
+  run_turn turn1 "日本の首都を句読点なしの一語で答えてください。" "" "東京" || failure=1
+  turn1_output="$(safe_kv_value sanitized_output "$OUT_DIR/turn1/result.txt")"
+  turn2_context=""
+  if [[ -n "$turn1_output" ]]; then
+    turn2_context=$'ユーザー: 日本の首都を句読点なしの一語で答えてください。\nアシスタント: '"$turn1_output"
+  fi
+  run_turn turn2 "前の回答を踏まえ、国名を句読点なしの一語で答えてください。" \
+    "$turn2_context" "日本" || failure=1
+
+  {
+    printf 'endpoint=%s\n' "$ENDPOINT"
+    printf 'apk=%s\n' "$APK"
+    printf 'package=%s\n' "$APP_ID"
+    printf 'turn_count=2\n'
+    printf 'result=%s\n' "$([[ "$failure" -eq 0 ]] && printf PASS || printf FAIL)"
+    printf 'artifact_dir=%s\n' "${OUT_DIR#$ROOT_DIR/}"
+  } | tee "$OUT_DIR/summary.txt"
+  write_markdown_summary "$failure"
+  printf 'markdown_summary=%s\n' "$OUT_DIR/summary.md"
+
+  [[ "$failure" -eq 0 ]] || exit 1
+  printf 'npu_conversation_policy_device_validation=ok\n'
+}
+
+main "$@"

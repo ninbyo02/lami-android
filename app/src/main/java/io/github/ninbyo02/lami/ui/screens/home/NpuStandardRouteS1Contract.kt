@@ -5,6 +5,8 @@ import java.util.Locale
 internal data class NpuStandardRouteS1Timing(
     val totalMs: Long? = null,
     val decodeMs: Long? = null,
+    val prefillMs: Long? = null,
+    val nativeDecodeMs: Long? = null,
     val ttftMs: Long? = null,
     val outputTokens: Int? = null,
     val tokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
@@ -13,6 +15,8 @@ internal data class NpuStandardRouteS1Timing(
     val hasAnyValue: Boolean
         get() = totalMs != null ||
             decodeMs != null ||
+            prefillMs != null ||
+            nativeDecodeMs != null ||
             ttftMs != null ||
             outputTokens != null ||
             tokensPerSecond != null ||
@@ -44,6 +48,9 @@ internal data class NpuStandardRouteS1PromptRewrite(
     val rewrittenPromptText: String,
     val promptWrapperUsed: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
     val selectedPromptProfile: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
+    val strictCompactAnswerPromptDetected: Boolean = false,
+    val completeReadingPromptDetected: Boolean = false,
+    val contextualFactEmbedded: Boolean = false,
 )
 
 internal data class NpuStandardRouteS1Selection(
@@ -83,6 +90,11 @@ internal data class NpuStandardRouteS1Result(
     val s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
     val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
     val inputPrompt: String = "",
+    val promptTemplateOwner: String = NpuStandardRouteS1Contract.PROMPT_TEMPLATE_OWNER,
+    val promptTemplateEvaluator: String = NpuStandardRouteS1Contract.PROMPT_TEMPLATE_EVALUATOR,
+    val conversationApiUsed: Boolean = NpuStandardRouteS1Contract.CONVERSATION_API_USED,
+    val appTemplateUsed: Boolean = NpuStandardRouteS1Contract.APP_TEMPLATE_USED,
+    val templateOwnershipUnified: Boolean = NpuStandardRouteS1Contract.TEMPLATE_OWNERSHIP_UNIFIED,
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -101,14 +113,21 @@ internal data class NpuStandardRouteS1Result(
         timing = timing,
         s2DbReason = s2DbReason,
         s5TtsDiagnostics = s5TtsDiagnostics,
+        nativeDiagnostics = nativeDiagnostics,
         inputPrompt = inputPrompt,
+        promptTemplateOwner = promptTemplateOwner,
+        promptTemplateEvaluator = promptTemplateEvaluator,
+        conversationApiUsed = conversationApiUsed,
+        appTemplateUsed = appTemplateUsed,
+        templateOwnershipUnified = templateOwnershipUnified,
     ),
 ) {
     val outputQualityCandidate: NpuS1PersistentCustomJniQualityCandidateResult
-        get() = evaluateNpuS1PersistentCustomJniQualityCandidate(
+        get() = evaluateNpuStandardRouteQualityCandidate(
             rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
             inputPrompt = inputPrompt,
+            conversationApiUsed = conversationApiUsed,
         )
 
     val outputQualityCandidateStatus: String
@@ -118,21 +137,44 @@ internal data class NpuStandardRouteS1Result(
         get() = outputQualityCandidate.reason
 
     val preparedOutput: String
-        get() = outputQualityCandidate.preparedOutput
+        get() = stripLeadingPromptEchoForDisplay(outputQualityCandidate.preparedOutput)
 
     val usableDisplayOutput: String
-        get() = preparedOutput
-            .ifBlank { sanitizedOutput }
-            .ifBlank { rawOutput.trim() }
+        get() = if (outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+            preparedOutput.ifBlank { stripLeadingPromptEchoForDisplay(sanitizedOutput) }
+        } else {
+            ""
+        }
 
     val actualDisplayText: String
-        get() = usableDisplayOutput
+        get() = stripLeadingPromptEchoForDisplay(usableDisplayOutput)
 
     val ttsText: String
         get() = NpuStandardRouteS1Contract.ttsTextForOutput(
             userPrompt = inputPrompt,
             actualDisplayText = actualDisplayText,
         )
+
+    private fun stripLeadingPromptEchoForDisplay(text: String): String {
+        val prompt = inputPrompt.trim()
+        if (prompt.isBlank() || text.isBlank()) return text
+        val normalizedText = text
+            .replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+        val lines = normalizedText.lines()
+        val firstMeaningfulIndex = lines.indexOfFirst { it.trim().isNotEmpty() }
+        if (firstMeaningfulIndex < 0) return normalizedText
+        val firstMeaningfulLine = lines[firstMeaningfulIndex].trim().trimStart('>').trim()
+        if (firstMeaningfulLine != prompt) return normalizedText
+        val remainingLines = lines.drop(firstMeaningfulIndex + 1)
+        if (remainingLines.none { it.trim().isNotEmpty() }) return normalizedText
+        return remainingLines
+            .dropWhile { it.trim().isEmpty() }
+            .joinToString("\n")
+            .trim()
+    }
 
     val successCriteriaMet: Boolean
         get() {
@@ -175,18 +217,71 @@ internal data class NpuStandardRouteS1Result(
                 timing = timing,
                 s2DbReason = s2DbReason,
                 s5TtsDiagnostics = s5TtsDiagnostics,
+                nativeDiagnostics = nativeDiagnostics,
                 inputPrompt = inputPrompt,
+                promptTemplateOwner = promptTemplateOwner,
+                promptTemplateEvaluator = promptTemplateEvaluator,
+                conversationApiUsed = conversationApiUsed,
+                appTemplateUsed = appTemplateUsed,
+                templateOwnershipUnified = templateOwnershipUnified,
             ),
         )
+}
+
+
+internal fun evaluateNpuStandardRouteQualityCandidate(
+    rawOutput: String,
+    sanitizedOutput: String,
+    inputPrompt: String,
+    conversationApiUsed: Boolean,
+): NpuS1PersistentCustomJniQualityCandidateResult {
+    val candidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+        rawOutput = rawOutput,
+        sanitizedOutput = sanitizedOutput,
+        inputPrompt = inputPrompt,
+    )
+    if (!conversationApiUsed || candidate.status != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) {
+        return candidate
+    }
+    val reasons = candidate.reason
+        .split('+')
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .toSet()
+    val prepared = candidate.preparedOutput.ifBlank { sanitizedOutput.trim() }
+    val greetingOnlyMismatch = reasons == setOf("greeting_response_mismatch")
+    return if (
+        greetingOnlyMismatch &&
+        prepared.isNotBlank() &&
+        NpuStandardRouteS1Contract.isAcceptableConversationApiGreetingResponse(
+            userPrompt = inputPrompt,
+            response = prepared,
+        )
+    ) {
+        candidate.copy(
+            status = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            reason = "conversation_api_natural_greeting",
+            preparedOutput = prepared,
+        )
+    } else {
+        candidate
+    }
 }
 
 internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE = "standard_chat_screen_s1_npu_display_only"
     const val ROUTE_TYPE_S2_DB_SAVE = "standard_chat_screen_s2_npu_db_save"
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
-    const val PROMPT_TAIL_VARIANT = "gemma_it_user_model"
-    const val PROMPT_WRAPPER_USED = "gemma_it_user_model"
+    const val PROMPT_TAIL_VARIANT = ModelOwnedChatTemplate.PROMPT_TAIL_VARIANT
+    const val PROMPT_WRAPPER_USED = PROMPT_TAIL_VARIANT
+    const val PROMPT_TEMPLATE_OWNER = "native_npu_adapter_exception"
+    const val PROMPT_TEMPLATE_EVALUATOR = ModelOwnedChatTemplate.EVALUATOR
+    const val CONVERSATION_API_USED = false
+    const val APP_TEMPLATE_USED = true
+    const val TEMPLATE_OWNERSHIP_UNIFIED = false
     const val MAX_OUTPUT_TOKENS = 32
+    const val STRICT_COMPACT_ANSWER_INSTRUCTION =
+        "重複・説明・句読点なしで一度だけ答えてください。"
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
     const val QUALITY_MIXED_LANGUAGE = "mixed_language"
@@ -213,22 +308,23 @@ internal object NpuStandardRouteS1Contract {
     const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
         "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
-    fun rewritePromptForNative(userPrompt: String): NpuStandardRouteS1PromptRewrite {
+    fun rewritePromptForNative(
+        userPrompt: String,
+        contextText: String = "",
+    ): NpuStandardRouteS1PromptRewrite {
         val normalizedPrompt = userPrompt.trim()
-        val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
-        val rewrittenPrompt = if (arithmeticPromptDetected) {
-            "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
-                "問題: $normalizedPrompt\n" +
-                "答え:"
-        } else {
-            normalizedPrompt
-        }
         return NpuStandardRouteS1PromptRewrite(
             originalPrompt = normalizedPrompt,
-            finalPromptText = "<start_of_turn>user\n$rewrittenPrompt<end_of_turn>\n<start_of_turn>model",
-            arithmeticPromptDetected = arithmeticPromptDetected,
-            shortPromptRewriteApplied = arithmeticPromptDetected,
-            rewrittenPromptText = rewrittenPrompt,
+            finalPromptText = ModelOwnedChatTemplate.renderForNativeAdapter(
+                contextText = contextText,
+                userPrompt = normalizedPrompt,
+            ),
+            arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt),
+            shortPromptRewriteApplied = false,
+            rewrittenPromptText = normalizedPrompt,
+            strictCompactAnswerPromptDetected = isStrictCompactAnswerPrompt(normalizedPrompt),
+            completeReadingPromptDetected = normalizedPrompt.contains("ひらがな"),
+            contextualFactEmbedded = false,
         )
     }
 
@@ -253,12 +349,187 @@ internal object NpuStandardRouteS1Contract {
         }
     }
 
+    private fun isIncompleteSelfNamePrompt(prompt: String): Boolean =
+        prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS } == "私の名前は"
+
+    private fun latestDeclaredSelfName(contextText: String): String? =
+        contextText.lineSequence()
+            .map(String::trim)
+            .filter { it.startsWith("ユーザー:") }
+            .map { it.removePrefix("ユーザー:").trim() }
+            .mapNotNull(::extractDeclaredSelfName)
+            .lastOrNull()
+
+    private fun extractDeclaredSelfName(prompt: String): String? {
+        val normalized = prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS }
+        if (!normalized.startsWith("私の名前は")) return null
+        val candidate = normalized.removePrefix("私の名前は").trim()
+        if (
+            candidate.isBlank() ||
+            candidate.endsWith("ですか") ||
+            candidate.contains("分か") ||
+            candidate.contains("覚えて") ||
+            candidate in setOf("何", "なん", "何ですか", "なんですか")
+        ) {
+            return null
+        }
+        val name = candidate
+            .removeSuffix("といいます")
+            .removeSuffix("です")
+            .trim()
+        val codePoints = name.codePointCount(0, name.length)
+        return name.takeIf { codePoints in 1..SELF_NAME_MAX_CODE_POINTS }
+    }
+
+    private fun isSelfNameRecallPrompt(prompt: String): Boolean =
+        prompt.contains("私の名前") &&
+            listOf("分か", "覚え", "何", "なん").any(prompt::contains)
+
+    private fun isSelfNameRecallFollowUp(
+        prompt: String,
+        contextText: String,
+    ): Boolean {
+        val normalized = prompt.trim().trimEnd { it in SELF_NAME_TERMINATORS }
+        if (normalized !in setOf("何", "なん", "何ですか", "なんですか")) return false
+        val previousUserPrompt = contextText.lineSequence()
+            .map(String::trim)
+            .filter { it.startsWith("ユーザー:") }
+            .map { it.removePrefix("ユーザー:").trim() }
+            .lastOrNull()
+            ?: return false
+        return isSelfNameRecallPrompt(previousUserPrompt)
+    }
+
+    private fun isStrictCompactAnswerPrompt(prompt: String): Boolean =
+        listOf(
+            "だけ答えて",
+            "だけで答えて",
+            "一文字だけ",
+            "一語で答えて",
+            "一度だけ答えて",
+        ).any(prompt::contains)
+
     private fun isShortArithmeticPrompt(prompt: String): Boolean =
         normalizeArithmeticPrompt(prompt) in setOf(
             "1+1",
             "1+1は",
             "1+1は?",
         )
+
+    fun safeGreetingResponseForPrompt(userPrompt: String): String? =
+        when (normalizeSimpleGreetingText(userPrompt)) {
+            "こんにちは" -> "こんにちは。"
+            "おはよう" -> "おはようございます。"
+            "こんばんは" -> "こんばんは。"
+            "ハロー", "hello", "hi" -> "こんにちは。"
+            else -> null
+        }
+
+    fun isSimpleGreetingPrompt(prompt: String): Boolean =
+        safeGreetingResponseForPrompt(prompt) != null
+
+    fun isAcceptableGreetingResponse(
+        userPrompt: String,
+        response: String,
+    ): Boolean {
+        val normalizedPrompt = normalizeSimpleGreetingText(userPrompt)
+        if (safeGreetingResponseForPrompt(normalizedPrompt) == null) return true
+        if (containsUnsupportedJapaneseResponseScript(response)) return false
+        val normalizedResponse = normalizeSimpleGreetingText(response)
+        if (normalizedResponse.isBlank()) return false
+        val acceptedResponses = when (normalizedPrompt) {
+            "おはよう" -> setOf("おはようございます", "おはよう")
+            "ハロー", "hello", "hi" -> setOf("こんにちは", "ハロー")
+            "こんにちは" -> setOf("こんにちは")
+            "こんばんは" -> setOf("こんばんは")
+            else -> return false
+        }
+        return normalizedResponse in acceptedResponses
+    }
+
+    fun isAcceptableConversationApiGreetingResponse(
+        userPrompt: String,
+        response: String,
+    ): Boolean {
+        val normalizedPrompt = normalizeSimpleGreetingText(userPrompt)
+        if (safeGreetingResponseForPrompt(normalizedPrompt) == null) return true
+        if (containsUnsupportedJapaneseResponseScript(response)) return false
+        val normalizedResponse = normalizeSimpleGreetingText(response)
+        if (normalizedResponse.isBlank()) return false
+        val acceptedPrefixes = when (normalizedPrompt) {
+            "おはよう" -> listOf("おはようございます", "おはよう")
+            "ハロー", "hello", "hi" -> listOf("こんにちは", "ハロー")
+            "こんにちは" -> listOf("こんにちは")
+            "こんばんは" -> listOf("こんばんは")
+            else -> return false
+        }
+        return acceptedPrefixes.any(normalizedResponse::startsWith)
+    }
+
+    fun containsUnsupportedJapaneseResponseScript(text: String): Boolean =
+        text.codePoints().anyMatch { codePoint ->
+            if (!Character.isLetter(codePoint)) return@anyMatch false
+            Character.UnicodeScript.of(codePoint) !in ALLOWED_JAPANESE_RESPONSE_SCRIPTS
+        }
+
+    private fun normalizeSimpleGreetingText(text: String): String =
+        text.trim()
+            .lowercase(Locale.ROOT)
+            .trimEnd { character -> character in SIMPLE_GREETING_TERMINATORS }
+            .trim()
+
+    private fun isAmbiguousShortPrompt(prompt: String): Boolean =
+        prompt.isNotEmpty() && prompt.codePointCount(0, prompt.length) <= AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS
+
+    fun maxOutputTokensForPrompt(userPrompt: String, requestedMaxOutputTokens: Int): Int =
+        if (usesShortPromptTokenLimit(userPrompt.trim())) {
+            requestedMaxOutputTokens.coerceAtMost(SHORT_PROMPT_MAX_OUTPUT_TOKENS)
+        } else {
+            requestedMaxOutputTokens
+        }
+
+    fun maxOutputTokensClampLimitForPrompt(userPrompt: String): Int =
+        if (usesShortPromptTokenLimit(userPrompt.trim())) {
+            SHORT_PROMPT_MAX_OUTPUT_TOKENS
+        } else {
+            NpuStandardRoutePreferences.NATIVE_MAX_OUTPUT_TOKENS_LIMIT
+        }
+
+    fun maxOutputTokensClampReasonForPrompt(
+        userPrompt: String,
+        requestedMaxOutputTokens: Int,
+        effectiveMaxOutputTokens: Int,
+    ): String = when {
+        requestedMaxOutputTokens == effectiveMaxOutputTokens ->
+            NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NONE
+        usesShortPromptTokenLimit(userPrompt.trim()) ->
+            MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT
+        else -> NpuStandardRoutePreferences.MAX_OUTPUT_TOKENS_CLAMP_REASON_NATIVE_LIMIT
+    }
+
+    private fun usesShortPromptTokenLimit(prompt: String): Boolean =
+        isAmbiguousShortPrompt(prompt) || isSimpleGreetingPrompt(prompt)
+
+    const val MAX_OUTPUT_TOKENS_CLAMP_REASON_SHORT_PROMPT_LIMIT = "short_prompt_limit"
+    private const val AMBIGUOUS_SHORT_PROMPT_MAX_CODE_POINTS = 2
+    private const val SHORT_PROMPT_MAX_OUTPUT_TOKENS = 128
+    private const val SELF_NAME_MAX_CODE_POINTS = 16
+    private val SELF_NAME_TERMINATORS = setOf('。', '．', '.', '！', '!', '？', '?')
+    private val ALLOWED_JAPANESE_RESPONSE_SCRIPTS = setOf(
+        Character.UnicodeScript.COMMON,
+        Character.UnicodeScript.INHERITED,
+        Character.UnicodeScript.HIRAGANA,
+        Character.UnicodeScript.KATAKANA,
+        Character.UnicodeScript.HAN,
+        Character.UnicodeScript.LATIN,
+    )
+    private val SIMPLE_GREETING_TERMINATORS = setOf(
+        '。',
+        '！',
+        '!',
+        '？',
+        '?',
+    )
 
     private fun normalizeArithmeticPrompt(prompt: String): String =
         prompt
@@ -285,16 +556,48 @@ internal object NpuStandardRouteS1Contract {
         timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
         s2DbReason: String = "",
         s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
+        nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
         inputPrompt: String = "",
+        promptTemplateOwner: String = PROMPT_TEMPLATE_OWNER,
+        promptTemplateEvaluator: String = PROMPT_TEMPLATE_EVALUATOR,
+        conversationApiUsed: Boolean = CONVERSATION_API_USED,
+        appTemplateUsed: Boolean = APP_TEMPLATE_USED,
+        templateOwnershipUnified: Boolean = TEMPLATE_OWNERSHIP_UNIFIED,
     ): String {
         val sideEffects = selection.sideEffects
-        val promptRewrite = rewritePromptForNative(inputPrompt)
-        val outputQualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+        val promptRewrite = if (conversationApiUsed) {
+            val normalizedPrompt = inputPrompt.trim()
+            NpuStandardRouteS1PromptRewrite(
+                originalPrompt = normalizedPrompt,
+                finalPromptText = normalizedPrompt,
+                arithmeticPromptDetected = false,
+                shortPromptRewriteApplied = false,
+                rewrittenPromptText = normalizedPrompt,
+                promptWrapperUsed = "conversation_api_model_metadata",
+                selectedPromptProfile = "model_metadata",
+                strictCompactAnswerPromptDetected = false,
+                completeReadingPromptDetected = false,
+                contextualFactEmbedded = false,
+            )
+        } else {
+            rewritePromptForNative(inputPrompt)
+        }
+        val outputQualityCandidate = evaluateNpuStandardRouteQualityCandidate(
             rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
             inputPrompt = inputPrompt,
+            conversationApiUsed = conversationApiUsed,
+        )
+        val maxOutputTokensClamped = selection.requestedMaxOutputTokens != selection.effectiveMaxOutputTokens
+        val maxOutputTokensClampLimit = maxOutputTokensClampLimitForPrompt(inputPrompt)
+        val maxOutputTokensClampReason = maxOutputTokensClampReasonForPrompt(
+            userPrompt = inputPrompt,
+            requestedMaxOutputTokens = selection.requestedMaxOutputTokens,
+            effectiveMaxOutputTokens = selection.effectiveMaxOutputTokens,
         )
         return listOfNotNull(
+            "NPU プレビュー診断",
+            "route_id=NPU_STANDARD_ROUTE_S1",
             "NPU STANDARD ROUTE S1",
             "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
             "npu_s1_total_ms=${formatTimingMs(timing.totalMs)}".takeIf { timing.hasAnyValue },
@@ -311,9 +614,23 @@ internal object NpuStandardRouteS1Contract {
             npuModelEligible?.let { "npu_model_eligible=$it" },
             "status=$status",
             "reason=$reason",
+            "native_error_class=${nativeDiagnostics.nativeErrorClass}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_message=${nativeDiagnostics.nativeErrorMessage}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_stage=${nativeDiagnostics.nativeErrorStage}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_error_source=${nativeDiagnostics.nativeErrorSource}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_link_failure_detected=${nativeDiagnostics.nativeLinkFailureDetected}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_link_failure_library=${nativeDiagnostics.nativeLinkFailureLibrary}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "native_load_order=${nativeDiagnostics.nativeLoadOrder}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "java_library_path=${nativeDiagnostics.javaLibraryPath}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
+            "supported_abis=${nativeDiagnostics.supportedAbis}".takeIf { shouldShowNpuS1NativeFailureDiagnostics(status, nativeDiagnostics) },
             "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
+            "prompt_template_owner=$promptTemplateOwner",
+            "prompt_template_evaluator=$promptTemplateEvaluator",
+            "conversation_api_used=$conversationApiUsed",
+            "app_template_used=$appTemplateUsed",
+            "template_ownership_unified=$templateOwnershipUnified",
             "prompt_tail_variant=${selection.promptTailVariant}",
-            "prompt_wrapper_used=$PROMPT_WRAPPER_USED",
+            "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
             "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
             "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
             "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
@@ -322,6 +639,12 @@ internal object NpuStandardRouteS1Contract {
             "requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens=${selection.effectiveMaxOutputTokens}",
+            "max_output_tokens_clamped=$maxOutputTokensClamped",
+            "max_output_tokens_clamp_limit=$maxOutputTokensClampLimit",
+            "max_output_tokens_clamp_reason=$maxOutputTokensClampReason",
+            "app_requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
+            "native_requested_max_output_tokens=${selection.effectiveMaxOutputTokens}",
+            "native_effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "run_decode_reached=$runDecodeReached",
             "npu_backend_evidence=$npuBackendEvidence",
             "fallback_used=$fallbackUsed",
@@ -371,4 +694,14 @@ internal object NpuStandardRouteS1Contract {
         value?.takeIf { it.isFinite() && it >= 0.0 }?.let {
             String.format(Locale.US, "%.1f", it)
         } ?: "n/a"
+
+    private fun shouldShowNpuS1NativeFailureDiagnostics(
+        status: String,
+        nativeDiagnostics: NpuS1NativeStageDiagnostics,
+    ): Boolean = status != STATUS_SUCCESS && (
+        nativeDiagnostics.nativeErrorClass.isNotBlank() ||
+            nativeDiagnostics.nativeErrorMessage.isNotBlank() ||
+            nativeDiagnostics.nativeLinkFailureDetected.isNotBlank() ||
+            nativeDiagnostics.nativeDiagTail.isNotBlank()
+        )
 }

@@ -1,0 +1,16 @@
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -815,6 +815,12 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateConversation)(
+
+   // Create a native SessionConfig
+   auto session_config = SessionConfig::CreateDefault();
++  if (engine->GetEngineSettings().GetMainExecutorSettings().GetBackend() ==
++      Backend::NPU) {
++    session_config.SetSamplerBackend(Backend::NPU);
++    ABSL_LOG(INFO)
++        << "qairt244_kotlin_npu_conversation_sampler_v1 sampler_backend=NPU";
++  }
+   if (sampler_config_obj != nullptr) {
+     session_config.GetMutableSamplerParams() =
+         CreateSamplerParamsFromJni(env, sampler_config_obj);

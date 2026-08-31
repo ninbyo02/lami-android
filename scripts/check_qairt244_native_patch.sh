@@ -3,12 +3,20 @@ set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT_DIR="/home/sato/project/litert-custom-build/LiteRT-LM"
-PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_128input.patch"
+SELECTED_REF="${LITERT_LM_REF:-v0.11.0}"
+PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.patch"
+GPU_PREFILL_PREINVOKE_PATCH_FILE="$ROOT_DIR/patches/qairt244_litertlm_gpu_prefill_preinvoke_diag.patch"
 TARGET_FILE="kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
+GPU_PREFILL_PREINVOKE_TARGET_FILE="runtime/executor/llm_litert_compiled_model_executor.cc"
+GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE="$TARGET_FILE"
 MAX256_MARKER="qairt244_editable_prompt_max256_v1"
 MAX512_MARKER="qairt244_editable_prompt_max512_v1"
+GPU_PREFILL_PREINVOKE_MARKER="qairt244_gpu_prefill_preinvoke_v1"
+GPU_PREFILL_PREINVOKE_JNI_EXPORT="Qairt244GpuPrefillPreinvokeArtifactMarker_nativeMarker"
+GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER="kQairt244GpuPrefillPreinvokeJniArtifactMarker"
 REQUIRE_MAX512=false
 EVIDENCE_ONLY=false
+SELECTED_REF_CHECK=false
 SM8750_EVIDENCE=""
 
 POSITIONAL=()
@@ -22,6 +30,14 @@ while [ $# -gt 0 ]; do
       EVIDENCE_ONLY=true
       shift
       ;;
+    --selected-ref-check)
+      SELECTED_REF_CHECK=true
+      shift
+      ;;
+    --selected-ref)
+      SELECTED_REF="${2:-}"
+      shift 2
+      ;;
     --sm8750-evidence|--model-evidence)
       SM8750_EVIDENCE="${2:-}"
       shift 2
@@ -29,7 +45,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/check_qairt244_native_patch.sh [--require-max512] [--evidence-only] [--sm8750-evidence <file-or-dir>] [checkout-dir] [patch-file]
+  scripts/check_qairt244_native_patch.sh [--require-max512] [--evidence-only] [--selected-ref-check] [--selected-ref <ref>] [--sm8750-evidence <file-or-dir>] [checkout-dir] [patch-file]
 
 --require-max512 stops with status=max512_evidence_missing unless the patch
 contains qairt244_editable_prompt_max512_v1,
@@ -39,6 +55,10 @@ The only formal 512 runtime gate is hidden_per_run_isolated_512; sequential
 and Activity-restart-only 512 remain rollback modes.
 --evidence-only exits after evidence validation and does not run git apply
 checks against the external checkout.
+--selected-ref-check creates a temporary shared clone, checks out the selected
+LiteRT-LM ref (default v0.11.0 or LITERT_LM_REF), verifies the selected base
+patch applies, applies it, then verifies the GPU prefill preinvoke patch
+applies.
 EOF
       exit 0
       ;;
@@ -65,6 +85,97 @@ path_has_evidence() {
   else
     grep -Eq "$pattern" "$source_path"
   fi
+}
+
+patch_apply_status() {
+  local checkout_dir="$1"
+  local patch_file="$2"
+  if [ ! -f "$patch_file" ]; then
+    printf 'missing_patch'
+    return 0
+  fi
+  if git -C "$checkout_dir" apply --check "$patch_file" >/dev/null 2>&1; then
+    printf 'not_applied'
+    return 0
+  fi
+  if git -C "$checkout_dir" apply --reverse --check "$patch_file" >/dev/null 2>&1; then
+    printf 'applied'
+    return 0
+  fi
+  printf 'mismatch'
+}
+
+selected_ref_patch_check() {
+  local checkout_dir="$1"
+  local selected_ref="$2"
+  local patch_file="$3"
+  local extra_patch_file="$4"
+  local tmp_dir
+  tmp_dir="$(mktemp -d /tmp/qairt244-native-patch-check.XXXXXX)" || return 1
+  if ! GIT_LFS_SKIP_SMUDGE=1 git clone --shared --no-checkout "$checkout_dir" "$tmp_dir/LiteRT-LM" >/dev/null 2>&1; then
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=clone_failed\n'
+    return 1
+  fi
+  git -C "$tmp_dir/LiteRT-LM" fetch --tags origin >/dev/null 2>&1 || true
+  if ! git -C "$tmp_dir/LiteRT-LM" checkout --detach "$selected_ref" >/dev/null 2>&1; then
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=checkout_failed\n'
+    return 1
+  fi
+
+  printf 'selected_ref_check_head=%s\n' "$(git -C "$tmp_dir/LiteRT-LM" rev-parse HEAD 2>/dev/null || true)"
+  printf 'selected_ref_check_describe=%s\n' "$(git -C "$tmp_dir/LiteRT-LM" describe --tags --always --dirty 2>/dev/null || true)"
+  if git -C "$tmp_dir/LiteRT-LM" apply --check "$patch_file" >/dev/null 2>&1; then
+    printf 'selected_ref_base_patch_check=ok\n'
+    git -C "$tmp_dir/LiteRT-LM" apply "$patch_file" >/dev/null 2>&1
+  else
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_base_patch_check=failed\n'
+    printf 'selected_ref_check_status=base_patch_failed\n'
+    return 1
+  fi
+
+  if git -C "$tmp_dir/LiteRT-LM" apply --check "$extra_patch_file" >/dev/null 2>&1; then
+    printf 'selected_ref_gpu_prefill_preinvoke_patch_check_after_base=ok\n'
+    git -C "$tmp_dir/LiteRT-LM" apply "$extra_patch_file" >/dev/null 2>&1
+  else
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_gpu_prefill_preinvoke_patch_check_after_base=failed\n'
+    printf 'selected_ref_check_status=extra_patch_failed\n'
+    return 1
+  fi
+
+  if grep -Fq "$GPU_PREFILL_PREINVOKE_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_TARGET_FILE"; then
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_source_present=true\n'
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_executor_source_present=true\n'
+  else
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_source_present=false\n'
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_executor_source_present=false\n'
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=executor_marker_missing\n'
+    return 1
+  fi
+
+  if grep -Fq "$GPU_PREFILL_PREINVOKE_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"; then
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present=true\n'
+  else
+    printf 'selected_ref_gpu_prefill_preinvoke_marker_litertlm_source_present=false\n'
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=litertlm_marker_missing\n'
+    return 1
+  fi
+  if grep -Fq "$GPU_PREFILL_PREINVOKE_JNI_EXPORT" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE" &&
+     grep -Fq "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER" "$tmp_dir/LiteRT-LM/$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"; then
+    printf 'selected_ref_gpu_prefill_preinvoke_reachable_jni_marker_present=true\n'
+  else
+    printf 'selected_ref_gpu_prefill_preinvoke_reachable_jni_marker_present=false\n'
+    rm -rf "$tmp_dir"
+    printf 'selected_ref_check_status=litertlm_reachable_jni_marker_missing\n'
+    return 1
+  fi
+  rm -rf "$tmp_dir"
+  printf 'selected_ref_check_status=ok\n'
 }
 
 if [ ! -d "$CHECKOUT_DIR/.git" ]; then
@@ -102,10 +213,23 @@ fi
 
 printf 'checkout=%s\n' "$CHECKOUT_DIR"
 printf 'head=%s\n' "$HEAD_SHA"
+printf 'selected_ref=%s\n' "$SELECTED_REF"
 printf 'patch=%s\n' "$PATCH_FILE"
 printf 'target=%s\n' "$TARGET_FILE"
+printf 'gpu_prefill_preinvoke_patch=%s\n' "$GPU_PREFILL_PREINVOKE_PATCH_FILE"
+printf 'gpu_prefill_preinvoke_target=%s\n' "$GPU_PREFILL_PREINVOKE_TARGET_FILE"
+printf 'gpu_prefill_preinvoke_jni_target=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_TARGET_FILE"
+printf 'gpu_prefill_preinvoke_marker=%s\n' "$GPU_PREFILL_PREINVOKE_MARKER"
+printf 'gpu_prefill_preinvoke_jni_export=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_EXPORT"
+printf 'gpu_prefill_preinvoke_jni_artifact_marker=%s\n' "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER"
+printf 'gpu_prefill_preinvoke_patch_has_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
+printf 'gpu_prefill_preinvoke_patch_has_reachable_jni_marker=%s\n' "$(path_has_evidence "$GPU_PREFILL_PREINVOKE_JNI_EXPORT" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && path_has_evidence "$GPU_PREFILL_PREINVOKE_JNI_ARTIFACT_MARKER" "$GPU_PREFILL_PREINVOKE_PATCH_FILE" && printf true || printf false)"
+if [ "$EVIDENCE_ONLY" != true ]; then
+  printf 'gpu_prefill_preinvoke_patch_status=%s\n' "$(patch_apply_status "$CHECKOUT_DIR" "$GPU_PREFILL_PREINVOKE_PATCH_FILE")"
+fi
 printf 'require_max512=%s\n' "$REQUIRE_MAX512"
 printf 'evidence_only=%s\n' "$EVIDENCE_ONLY"
+printf 'selected_ref_check=%s\n' "$SELECTED_REF_CHECK"
 printf 'sm8750_evidence=%s\n' "${SM8750_EVIDENCE:-none}"
 printf 'sm8750_evidence_present=%s\n' "$sm8750_sidecar_present"
 printf 'sm8750_evidence_has_selection=%s\n' "$sm8750_sidecar_has_evidence"
@@ -144,6 +268,15 @@ if [ "$REQUIRE_MAX512" = true ]; then
     printf 'next=preflight_only_or_hidden_per_run_isolated_512_gate\n'
     exit 0
   fi
+fi
+
+if [ "$SELECTED_REF_CHECK" = true ] && [ "$EVIDENCE_ONLY" != true ]; then
+  selected_ref_patch_check "$CHECKOUT_DIR" "$SELECTED_REF" "$PATCH_FILE" "$GPU_PREFILL_PREINVOKE_PATCH_FILE"
+  selected_ref_status="$?"
+  if [ "$selected_ref_status" -ne 0 ]; then
+    exit "$selected_ref_status"
+  fi
+  exit 0
 fi
 
 if git -C "$CHECKOUT_DIR" apply --check "$PATCH_FILE" >/dev/null 2>&1; then

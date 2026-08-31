@@ -135,6 +135,7 @@ internal fun formatMemoryDiagnosticsForDev(
     if (distinctSnapshots.isEmpty()) return ""
 
     return buildString {
+        appendLine("メモリ診断（開発者向け）:")
         appendLine("App/System memory diagnostics:")
         appendLine("[DEV診断: App/System memory diagnostics]")
         formatSafetyGuardBlockedDiagnostics(guardBlock)
