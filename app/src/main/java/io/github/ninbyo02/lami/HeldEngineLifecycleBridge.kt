@@ -3,22 +3,25 @@ package io.github.ninbyo02.lami
 import android.content.ComponentCallbacks2
 import android.os.SystemClock
 import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
+import io.github.ninbyo02.lami.ui.screens.home.NpuConversationLifecycle
+import io.github.ninbyo02.lami.ui.screens.home.NpuKotlinConversationProductRoute
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 internal class HeldEngineLifecycleBridge(
     private val holder: LocalInferenceEngineHolder,
+    private val npuLifecycle: NpuConversationLifecycle = NpuKotlinConversationProductRoute,
 ) {
     fun onStart(scope: CoroutineScope) {
-        scope.launch {
-            holder.notifyAppForegrounded(nowElapsedMs = SystemClock.elapsedRealtime())
-        }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        scope.launch { holder.notifyAppForegrounded(nowElapsedMs = nowElapsedMs) }
+        scope.launch { npuLifecycle.notifyAppForegrounded(nowElapsedMs = nowElapsedMs) }
     }
 
     fun onStop(scope: CoroutineScope) {
-        scope.launch {
-            holder.notifyAppBackgrounded(nowElapsedMs = SystemClock.elapsedRealtime())
-        }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        scope.launch { holder.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
+        scope.launch { npuLifecycle.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
     }
 
     fun onTrimMemory(scope: CoroutineScope, level: Int) {
@@ -31,9 +34,8 @@ internal class HeldEngineLifecycleBridge(
     }
 
     private fun notifyLowMemory(scope: CoroutineScope) {
-        scope.launch {
-            holder.notifyLifecycleEvent(reason = LOW_MEMORY_REASON)
-        }
+        scope.launch { holder.notifyLifecycleEvent(reason = LOW_MEMORY_REASON) }
+        scope.launch { npuLifecycle.notifyLowMemory() }
     }
 
     @Suppress("DEPRECATION")
