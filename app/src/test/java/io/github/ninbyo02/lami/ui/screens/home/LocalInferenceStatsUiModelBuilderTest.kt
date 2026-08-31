@@ -50,4 +50,26 @@ class LocalInferenceStatsUiModelBuilderTest {
         assertEquals(66, uiModel.resolvedTotalTokens)
         assertEquals("Tokenizer", uiModel.resolvedTokenSourceLabel)
     }
+
+    @Test
+    fun `estimated code point token speed remains estimated even when decode time is measured`() {
+        val uiModel = createLocalInferenceStatsUiModel(
+            trace = LocalInferenceTrace(),
+            stats = InferenceStats(
+                tokensPerSecond = 63.5,
+                tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+                decodeDurationMs = 315L,
+                generationDurationNs = 315_000_000L,
+                totalDurationMs = 400L,
+            ),
+            assistantText = "こんにちは。何かお手伝いできますか？",
+        )
+
+        assertEquals("推定（出力コードポイント数）", uiModel.resolvedTokenSourceLabel)
+        assertEquals(StatsUiValueSource.ESTIMATED, uiModel.tokensPerSecond.source)
+        assertEquals("推定 / 実測Decode時間 × コードポイント換算", uiModel.resolvedSpeedSourceLabel)
+        assertEquals("推定", uiModel.resolvedPrimarySpeedSourceLabel)
+        assertNull(uiModel.resolvedBackendTokensPerSecond)
+    }
+
 }

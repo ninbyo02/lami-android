@@ -108,10 +108,13 @@ internal fun buildInferenceSummarySections(
             )
             add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
             if (!deterministicSafeGreetingFallback) {
+                val estimatedCodePointSpeed = isEstimatedCodePointTokenCount(stats)
                 add(
                     InferenceStatItemUi(
-                        label = "生成速度",
-                        value = if (localTraceForDev == null) {
+                        label = if (estimatedCodePointSpeed) "推定生成速度" else "生成速度",
+                        value = if (estimatedCodePointSpeed) {
+                            buildEstimatedCodePointTokensPerSecondText(stats) ?: "—（未取得）"
+                        } else if (localTraceForDev == null) {
                             buildBackendTokensPerSecondText(stats)
                                 ?: buildLamiTokensPerSecondText(stats)
                                 ?: "—"
@@ -172,7 +175,9 @@ internal fun buildInferenceDetailSections(
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val isLocalBackendStats = localTraceForDev != null || isLocalBackendInferenceStats(stats)
-    val displayTokensPerSecondText = if (isLocalBackendStats) {
+    val displayTokensPerSecondText = if (isEstimatedCodePointTokenCount(stats)) {
+        buildEstimatedCodePointTokensPerSecondText(stats)
+    } else if (isLocalBackendStats) {
         if (localTraceForDev == null) {
             backendTokensPerSecondText ?: buildLamiTokensPerSecondText(stats)
         } else {
@@ -645,7 +650,7 @@ internal fun buildInferenceDetailSections(
                 add(
                     InferenceStatItemUi(
                         label = "トークン取得元",
-                        value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveOllamaTokenSourceLabel(stats),
+                        value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveTokenSourceLabel(stats),
                     ),
                 )
             },
@@ -986,8 +991,11 @@ private fun buildInferenceSimpleSections(
             promptText = promptText,
         )
     }
+    val estimatedCodePointSpeed = isEstimatedCodePointTokenCount(stats)
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
-    val generationSpeedText = if (localTraceForDev == null) {
+    val generationSpeedText = if (estimatedCodePointSpeed) {
+        buildEstimatedCodePointTokensPerSecondText(stats)
+    } else if (localTraceForDev == null) {
         backendTokensPerSecondText
             ?: buildLamiTokensPerSecondText(stats)
     } else {
@@ -1016,7 +1024,13 @@ private fun buildInferenceSimpleSections(
             items = buildList {
                 add(InferenceStatItemUi(label = if (deterministicSafeGreetingFallback) "NPU失敗判定まで" else "応答時間", value = formatInferenceTime(stats) ?: "—"))
                 if (!deterministicSafeGreetingFallback) {
-                    add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                    add(
+                        InferenceStatItemUi(
+                            label = if (estimatedCodePointSpeed) "推定生成速度" else "生成速度",
+                            value = generationSpeedText ?: if (estimatedCodePointSpeed) "—（未取得）" else "—",
+                            emphasizeValue = true,
+                        ),
+                    )
                 }
                 addAll(localBackendSummaryItems)
                 addAll(ttftItems)
@@ -1501,12 +1515,19 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
         StatsUiValueSource.DERIVED,
         StatsUiValueSource.TOKENIZER_BASED,
         StatsUiValueSource.SEMI_MEASURED,
-        StatsUiValueSource.ESTIMATED,
         -> valueText
+        StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
     }
+}
+
+private fun resolveTokenSourceLabel(stats: InferenceStats): String {
+    if (isEstimatedCodePointTokenCount(stats)) {
+        return "推定（出力コードポイント数）"
+    }
+    return resolveOllamaTokenSourceLabel(stats)
 }
 
 private fun resolveOllamaTokenSourceLabel(stats: InferenceStats): String {
@@ -1524,6 +1545,14 @@ private fun resolveBackendSpeedSourceLabel(
 ): String {
     return when (backendKind) {
         InferenceBackendKind.LITERT -> when {
+            isEstimatedCodePointTokenCount(stats) && stats.decodeDurationMs?.let { it > 0L } == true ->
+                "推定（出力コードポイント数） / 実測Decode時間"
+            isEstimatedCodePointTokenCount(stats) &&
+                (stats.generationDurationNs?.let { it > 0L } == true || stats.generationTimeMs?.let { it > 0L } == true) ->
+                "推定（出力コードポイント数） / generation時間"
+            isEstimatedCodePointTokenCount(stats) && stats.tokensPerSecond != null ->
+                "推定（出力コードポイント数） / Engine時間"
+            isEstimatedCodePointTokenCount(stats) -> "推定（出力コードポイント数）"
             stats.decodeDurationMs?.let { it > 0L } == true -> "Lami基準 / バックエンド基準（Decode時間）"
             stats.generationDurationNs?.let { it > 0L } == true || stats.generationTimeMs?.let { it > 0L } == true ->
                 "Lami基準 / バックエンド基準（generation時間）"
@@ -1557,7 +1586,25 @@ private fun buildLamiPerceivedTokensPerSecondText(stats: InferenceStats): String
     return value.takeIf { it.isFinite() }?.let { String.format(Locale.US, "%.1f token/s", it) }
 }
 
+private fun isEstimatedCodePointTokenCount(stats: InferenceStats): Boolean =
+    stats.tokenCountMode == NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+
+private fun buildEstimatedCodePointTokensPerSecondText(stats: InferenceStats): String? {
+    if (!isEstimatedCodePointTokenCount(stats)) return null
+    val value = stats.tokensPerSecond ?: run {
+        val outputCodePoints = (stats.outputTokens ?: stats.completionTokens)?.takeIf { it > 0 } ?: return null
+        val decodeMs = stats.decodeDurationMs?.takeIf { it > 0L }
+            ?: stats.generationTimeMs?.takeIf { it > 0L }
+            ?: return null
+        outputCodePoints * 1000.0 / decodeMs
+    }
+    return value.takeIf { it.isFinite() && it >= 0.0 }?.let {
+        String.format(Locale.US, "%.1f token/s相当（推定・コードポイント換算）", it)
+    }
+}
+
 private fun buildBackendTokensPerSecondText(stats: InferenceStats): String? {
+    if (isEstimatedCodePointTokenCount(stats)) return null
     val backendValue = stats.tokensPerSecond ?: run {
         val outputTokens = (stats.outputTokens ?: stats.completionTokens)?.takeIf { it >= 0 } ?: return null
         val evalDurationNs = stats.evalDurationNs?.takeIf { it > 0L } ?: return null

@@ -1958,4 +1958,55 @@ class InferenceStatsSheetContentTest {
             nnapiDevices = emptyList(),
             probeSource = "test",
         )
+
+    @Test
+    fun `NPU code point speed is labeled as estimated instead of backend measured`() {
+        val stats = InferenceStats(
+            modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+            outputTokens = 20,
+            totalTokens = 20,
+            tokensPerSecond = 63.5,
+            tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+            decodeDurationMs = 315L,
+            generationTimeMs = 315L,
+            generationDurationNs = 315_000_000L,
+            totalDurationMs = 400L,
+            inferenceTimeSec = 0.4,
+            finishReason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+            localSourceSummary = "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag",
+        )
+
+        val summary = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.SIMPLE,
+        ).single().items
+
+        assertFalse(summary.any { it.label == "生成速度" })
+        assertEquals(
+            "63.5 token/s相当（推定・コードポイント換算）",
+            summary.first { it.label == "推定生成速度" }.value,
+        )
+
+        val details = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
+        val tokenItems = details.first { it.title == "トークン" }.items
+        val detailItems = details.first { it.title == "詳細" }.items
+
+        assertEquals(
+            "推定（出力コードポイント数）",
+            tokenItems.first { it.label == "トークン取得元" }.value,
+        )
+        assertEquals(
+            "推定（出力コードポイント数） / 実測Decode時間",
+            detailItems.first { it.label == "速度取得元" }.value,
+        )
+        assertEquals(
+            "63.5 token/s相当（推定・コードポイント換算）",
+            detailItems.first { it.label == "表示速度" }.value,
+        )
+        assertEquals("—", detailItems.first { it.label == "バックエンド基準速度" }.value)
+    }
+
 }

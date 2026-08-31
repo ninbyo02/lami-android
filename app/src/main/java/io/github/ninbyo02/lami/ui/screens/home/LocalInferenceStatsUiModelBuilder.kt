@@ -149,7 +149,10 @@ internal fun buildLocalInferenceStatsUiModel(
     val lamiTtftMs = stats.timeToFirstTokenMs?.takeIf { it >= 0L }
     val backendTtftMs = measuredSnapshot?.ttftMs?.takeIf { it >= 0L }
     val tokenizerOutputTokensForTps = outputTokens.rawValueInt
-        ?.takeIf { outputTokens.source == StatsUiValueSource.MEASURED || outputTokens.source == StatsUiValueSource.DERIVED }
+        ?.takeIf {
+            outputTokens.source == StatsUiValueSource.MEASURED ||
+                outputTokens.source == StatsUiValueSource.TOKENIZER_BASED
+        }
     val tokenizerTokensPerSecond = stats.decodeDurationMs
         ?.takeIf { it > 0L }
         ?.let { decodeDurationMs ->
@@ -185,12 +188,36 @@ internal fun buildLocalInferenceStatsUiModel(
     val lamiPerceivedTokensPerSecond = totalDurationMsForLami?.let {
         buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
     }
-    val backendTokensPerSecond = tokenizerTokensPerSecond ?: stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
-    val tokensPerSecondValue = lamiTokensPerSecond ?: lamiPerceivedTokensPerSecond ?: backendTokensPerSecond
+    val tokenCountIsEstimatedCodePoints =
+        stats.tokenCountMode == NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+    val backendTokensPerSecond = when {
+        tokenCountIsEstimatedCodePoints -> null
+        tokenizerTokensPerSecond != null -> tokenizerTokensPerSecond
+        stats.tokensPerSecond != null -> stats.tokensPerSecond
+        assistantUpdateBasedTokensPerSecond != null -> assistantUpdateBasedTokensPerSecond
+        else -> fallbackTokensPerSecond
+    }
+    val estimatedCodePointTokensPerSecond = if (tokenCountIsEstimatedCodePoints) {
+        stats.tokensPerSecond ?: stats.decodeDurationMs
+            ?.takeIf { it > 0L }
+            ?.let { decodeDurationMs ->
+                buildLocalTokensPerSecondOrNull(
+                    outputTokens = outputTokens.rawValueInt,
+                    generationTimeMs = decodeDurationMs,
+                )
+            }
+    } else {
+        null
+    }
+    val tokensPerSecondValue = estimatedCodePointTokensPerSecond
+        ?: lamiTokensPerSecond
+        ?: lamiPerceivedTokensPerSecond
+        ?: backendTokensPerSecond
     val usedAssistantUpdateBasedTps = assistantUpdateBasedTokensPerSecond != null
     val usedTokenizerBasedTps = tokenizerTokensPerSecond != null
     val tokensPerSecondSource = when {
         tokensPerSecondValue == null -> StatsUiValueSource.UNAVAILABLE
+        tokenCountIsEstimatedCodePoints -> StatsUiValueSource.ESTIMATED
         lamiTokensPerSecond != null || lamiPerceivedTokensPerSecond != null -> StatsUiValueSource.MEASURED
         usedTokenizerBasedTps -> StatsUiValueSource.TOKENIZER_BASED
         usedAssistantUpdateBasedTps -> StatsUiValueSource.SEMI_MEASURED
@@ -202,6 +229,7 @@ internal fun buildLocalInferenceStatsUiModel(
         source = tokensPerSecondSource,
     )
     val resolvedTokenSourceLabel = when {
+        tokenCountIsEstimatedCodePoints -> "推定（出力コードポイント数）"
         listOf(inputTokens, outputTokens, totalTokens).any { it.source == StatsUiValueSource.MEASURED || it.source == StatsUiValueSource.TOKENIZER_BASED } -> "Tokenizer"
         listOf(inputTokens, outputTokens, totalTokens).any { it.source == StatsUiValueSource.ESTIMATED || it.source == StatsUiValueSource.DERIVED } -> "推定"
         else -> "未取得"
@@ -218,6 +246,7 @@ internal fun buildLocalInferenceStatsUiModel(
         -> "未取得"
     }
     val backendSpeedSourceLabel = when {
+        tokenCountIsEstimatedCodePoints -> "実測Decode時間 × コードポイント換算"
         usedTokenizerBasedTps -> "バックエンド基準（Decode時間）"
         stats.tokensPerSecond != null -> "バックエンド基準（Engine時間）"
         usedAssistantUpdateBasedTps -> "バックエンド基準（generation時間）"
@@ -268,7 +297,13 @@ internal fun buildLocalInferenceStatsUiModel(
         resolvedLamiPerceivedTokensPerSecond = lamiPerceivedTokensPerSecond,
         resolvedBackendTokensPerSecond = backendTokensPerSecond,
         resolvedPrimarySpeedValue = tokensPerSecondValue,
-        resolvedPrimarySpeedSourceLabel = "Lami基準",
+        resolvedPrimarySpeedSourceLabel = when (tokensPerSecondSource) {
+            StatsUiValueSource.ESTIMATED -> "推定"
+            StatsUiValueSource.TOKENIZER_BASED -> "Tokenizer"
+            StatsUiValueSource.SEMI_MEASURED -> "準実測"
+            StatsUiValueSource.MEASURED -> "Lami基準"
+            else -> "未取得"
+        },
     )
 }
 
