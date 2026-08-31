@@ -24,5 +24,6 @@ class NpuKotlinConversationDurabilitySourceContractTest {
         assertTrue(source.contains("background_timeout_recreate_pass"))
         assertTrue(source.contains("chat_switch_engine_reuse_pass"))
         assertTrue(manifest.contains("NPU_KOTLIN_CONVERSATION_DURABILITY"))
+        assertTrue(manifest.contains("NpuKotlinConversationDurabilityActivity"))
     }
 }
