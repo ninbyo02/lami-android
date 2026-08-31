@@ -66,6 +66,14 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name="io.github.ninbyo02.lami.npu.NpuKotlinConversationDurabilityReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.NPU_KOTLIN_CONVERSATION_DURABILITY" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeService"
             android:exported="true"
