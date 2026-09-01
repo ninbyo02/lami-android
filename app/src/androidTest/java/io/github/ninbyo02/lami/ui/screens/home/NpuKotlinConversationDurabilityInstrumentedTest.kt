@@ -47,6 +47,7 @@ class NpuKotlinConversationDurabilityInstrumentedTest {
                 }
 
                 val chatId = if (turn == 11) 9202 else 9201
+                val partials = mutableListOf<String>()
                 val attempt = NpuKotlinConversationProductRoute.run(
                     context = context,
                     chatId = chatId,
@@ -54,9 +55,34 @@ class NpuKotlinConversationDurabilityInstrumentedTest {
                     initialTurns = emptyList(),
                     selectedModelFile = modelPath,
                     requestedMaxOutputTokens = 64,
+                    onPartial = { partial -> partials += partial },
                 )
                 if (!attempt.succeeded) {
                     failures += "turn=$turn reason=${attempt.failureReason}"
+                }
+                if (!attempt.nativeStreamingUsed) {
+                    failures += "turn=$turn native_streaming_used=false"
+                }
+                if (attempt.nativeStreamingChunkCount <= 0) {
+                    failures += "turn=$turn no_native_streaming_chunks"
+                }
+                if (attempt.streamingChunkCount <= 0 || partials.isEmpty()) {
+                    failures += "turn=$turn no_visible_streaming_updates"
+                }
+                if (attempt.timeToFirstNativeChunkMs == null) {
+                    failures += "turn=$turn backend_ttft_unavailable"
+                }
+                if (attempt.timeToFirstChunkMs == null) {
+                    failures += "turn=$turn lami_ttft_unavailable"
+                }
+                if (attempt.timeToFirstNativeChunkMs != null && attempt.timeToFirstChunkMs != null &&
+                    attempt.timeToFirstNativeChunkMs > attempt.timeToFirstChunkMs
+                ) {
+                    failures += "turn=$turn backend_ttft_after_lami_ttft"
+                }
+                val finalResponse = attempt.result?.actualDisplayText.orEmpty().trim()
+                if (finalResponse.isNotBlank() && partials.lastOrNull()?.trim() != finalResponse) {
+                    failures += "turn=$turn final_partial_mismatch"
                 }
                 when (turn) {
                     7 -> briefBackgroundPass = attempt.engineReused && attempt.conversationReused

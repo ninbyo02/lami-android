@@ -7,6 +7,7 @@ internal data class NpuStandardRouteS1Timing(
     val decodeMs: Long? = null,
     val prefillMs: Long? = null,
     val nativeDecodeMs: Long? = null,
+    val nativeTtftMs: Long? = null,
     val ttftMs: Long? = null,
     val outputTokens: Int? = null,
     val tokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
@@ -17,6 +18,7 @@ internal data class NpuStandardRouteS1Timing(
             decodeMs != null ||
             prefillMs != null ||
             nativeDecodeMs != null ||
+            nativeTtftMs != null ||
             ttftMs != null ||
             outputTokens != null ||
             tokensPerSecond != null ||
@@ -602,6 +604,7 @@ internal object NpuStandardRouteS1Contract {
             "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
             "npu_s1_total_ms=${formatTimingMs(timing.totalMs)}".takeIf { timing.hasAnyValue },
             "npu_s1_decode_ms=${formatTimingMs(timing.decodeMs)}".takeIf { timing.hasAnyValue },
+            "npu_s1_native_ttft_ms=${formatTimingMs(timing.nativeTtftMs)}".takeIf { timing.hasAnyValue },
             "npu_s1_ttft_ms=${formatTimingMs(timing.ttftMs)}".takeIf { timing.hasAnyValue },
             "npu_s1_output_tokens=${timing.outputTokens?.toString() ?: "n/a"}".takeIf { timing.hasAnyValue },
             "npu_s1_token_count_mode=${timing.tokenCountMode}".takeIf { timing.hasAnyValue },

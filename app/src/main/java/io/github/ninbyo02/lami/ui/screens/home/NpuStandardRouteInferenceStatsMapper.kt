@@ -41,6 +41,7 @@ internal fun NpuStandardRouteS1Result.toSharedInferenceStats(
             }
         },
         timeToFirstTokenMs = timing.ttftMs,
+        backendTimeToFirstTokenMs = timing.nativeTtftMs,
         completionTokens = outputTokens,
         responseCharCount = normalizedText.length,
     )
