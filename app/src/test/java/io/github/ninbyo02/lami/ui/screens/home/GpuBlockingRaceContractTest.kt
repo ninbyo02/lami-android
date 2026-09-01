@@ -742,9 +742,17 @@ class GpuBlockingRaceContractTest {
                 "Only the policy-approved partial may reach the UI.",
                 fallbackBlock.contains("localStreamingResponseText = safePartial"),
             )
-            assertTrue(
-                "Streaming fallback partials must update the owned assistant placeholder so visible text matches TTS.",
+            assertFalse(
+                "Streaming fallback partials must not write Room on every native update.",
                 fallbackBlock.contains("upsertStreamingAssistantPlaceholderSerialized("),
+            )
+            assertTrue(
+                "Fallback display must continue to publish approved text through the in-memory stream source.",
+                fallbackBlock.contains("localStreamingResponseText = safePartial"),
+            )
+            assertFalse(
+                "Native fallback callbacks must not bypass render throttling.",
+                fallbackBlock.contains("streamingResponseTextForRender = safePartial"),
             )
         }
     }
