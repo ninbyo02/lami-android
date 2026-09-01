@@ -4966,6 +4966,8 @@ fun Home(
                                                         localInferenceJob = coroutineScope.launch {
                                                             var resolvedNpuChatId: Int? = null
                                                             var npuS1DecodeStartedAtMs: Long? = null
+                                                            var npuProductNativeStreamingUsed = false
+                                                            var npuProductStreamingChunkCount = 0
                                                             val npuS1MemorySnapshots = mutableListOf<MemorySnapshot>()
                                                             fun recordNpuS1MemorySnapshot(stage: String) {
                                                                 npuS1MemorySnapshots += captureLocalMemorySnapshot(
@@ -5064,7 +5066,8 @@ fun Home(
                                                                                 currentUserPrompt = requestPrompt,
                                                                             )
                                                                             if (NpuKotlinConversationProductRoute.enabled) {
-                                                                                val kotlinConversationAttempt =
+                                                                                npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                                val kotlinConversationAttempt = try {
                                                                                     NpuKotlinConversationProductRoute.run(
                                                                                         context = context.applicationContext,
                                                                                         chatId = npuChatId,
@@ -5072,11 +5075,24 @@ fun Home(
                                                                                         initialTurns = prefacePlan.initialTurns,
                                                                                         selectedModelFile = localBaseModelFilePath,
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                                        onPartial = { partial ->
+                                                                                            if (!localStopRequested && effectiveChatId == npuChatId) {
+                                                                                                localStreamingResponseText = partial
+                                                                                                streamingResponseTextForRender = partial
+                                                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                                            }
+                                                                                        },
                                                                                         trace = npuRealPromptTrace,
                                                                                     )
+                                                                                } finally {
+                                                                                    npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                                }
+                                                                                npuProductNativeStreamingUsed = kotlinConversationAttempt.nativeStreamingUsed
+                                                                                npuProductStreamingChunkCount = kotlinConversationAttempt.nativeStreamingChunkCount
                                                                                 if (kotlinConversationAttempt.succeeded) {
                                                                                     npuRealPromptTrace(
-                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API engine_reused=${kotlinConversationAttempt.engineReused} conversation_reused=${kotlinConversationAttempt.conversationReused}",
+                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API engine_reused=${kotlinConversationAttempt.engineReused} conversation_reused=${kotlinConversationAttempt.conversationReused} native_streaming_used=${kotlinConversationAttempt.nativeStreamingUsed} native_streaming_chunk_count=${kotlinConversationAttempt.nativeStreamingChunkCount} visible_streaming_update_count=${kotlinConversationAttempt.streamingChunkCount} backend_ttft_ms=${kotlinConversationAttempt.timeToFirstNativeChunkMs ?: -1} lami_ttft_ms=${kotlinConversationAttempt.timeToFirstChunkMs ?: -1}",
                                                                                     )
                                                                                     requireNotNull(kotlinConversationAttempt.result)
                                                                                 } else {
@@ -5475,16 +5491,23 @@ fun Home(
                                                             npuStandardRoutePhaseDiagnostics[
                                                                 "npu_standard_route_markdown_block_reason"
                                                             ] ?: "none"
-                                                        var npuStandardRouteStreamingExecuted = false
-                                                        var npuStandardRouteStreamingMode = "none"
-                                                        var npuStandardRouteStreamingSource = "none"
-                                                        var npuStandardRouteStreamingChunkCount = 0
-                                                        var npuStandardRouteStreamingFinalTextLength = 0
+                                                        var npuStandardRouteStreamingExecuted = npuProductNativeStreamingUsed
+                                                        var npuStandardRouteStreamingMode =
+                                                            if (npuProductNativeStreamingUsed) "native_flow" else "none"
+                                                        var npuStandardRouteStreamingSource =
+                                                            if (npuProductNativeStreamingUsed) "conversation_send_message_async" else "none"
+                                                        var npuStandardRouteStreamingChunkCount = npuProductStreamingChunkCount
+                                                        var npuStandardRouteStreamingFinalTextLength =
+                                                            if (npuProductNativeStreamingUsed) s1Result.sanitizedOutput.length else 0
                                                         var npuStandardRouteStreamingBlockReason =
-                                                            npuStandardRoutePhaseDiagnostics[
-                                                                "npu_standard_route_streaming_block_reason"
-                                                            ] ?: "none"
-                                                        val npuStandardRouteNativeStreamingUsed = false
+                                                            if (npuProductNativeStreamingUsed) {
+                                                                "none"
+                                                            } else {
+                                                                npuStandardRoutePhaseDiagnostics[
+                                                                    "npu_standard_route_streaming_block_reason"
+                                                                ] ?: "none"
+                                                            }
+                                                        val npuStandardRouteNativeStreamingUsed = npuProductNativeStreamingUsed
                                                         var npuStandardRouteStreamingTextMatchesDb = false
                                                         var npuStandardRouteStreamingTextMatchesMarkdown = false
                                                         var npuStandardRouteDeliveryPath = when {
@@ -5585,7 +5608,19 @@ fun Home(
                                                                     "npu_standard_route_markdown_block_reason"
                                                                 ] ?: "phase_not_markdown"
                                                         }
-                                                        if (
+                                                        if (npuStandardRouteNativeStreamingUsed) {
+                                                            localStreamingResponseText = npuStandardRouteAssistantTextForPersist
+                                                            streamingResponseTextForRender = npuStandardRouteAssistantTextForPersist
+                                                            npuStandardRouteStreamingExecuted = true
+                                                            npuStandardRouteStreamingMode = "native_flow"
+                                                            npuStandardRouteStreamingSource = "conversation_send_message_async"
+                                                            npuStandardRouteStreamingFinalTextLength =
+                                                                npuStandardRouteAssistantTextForPersist.length
+                                                            npuStandardRouteStreamingBlockReason = "none"
+                                                            npuStandardRouteStreamingTextMatchesDb = true
+                                                            npuStandardRouteStreamingTextMatchesMarkdown = true
+                                                            npuStandardRouteDeliveryPath = "phase8_native_streaming_pending_db"
+                                                        } else if (
                                                             npuStandardRoutePhaseGateActive &&
                                                             npuStandardRouteStreamingAllowed &&
                                                             npuStandardRouteMarkdownAllowed &&
@@ -5669,6 +5704,7 @@ fun Home(
                                                                         ?: "pseudo_streaming_candidate_unavailable"
                                                             }
                                                         } else if (
+                                                            !npuStandardRouteNativeStreamingUsed &&
                                                             npuStandardRoutePhaseGateActive &&
                                                             npuStandardRouteStreamingBlockReason == "none"
                                                         ) {
@@ -5717,7 +5753,9 @@ fun Home(
                                                                     npuStandardRouteDbMessageReplacedTransient = true
                                                                     npuStandardRouteDbSaveBlockReason = "none"
                                                                     npuStandardRouteDeliveryPath =
-                                                                        if (npuStandardRouteStreamingExecuted) {
+                                                                        if (npuStandardRouteNativeStreamingUsed) {
+                                                                            "phase8_native_streaming_db_backed_ui_append_db_markdown"
+                                                                        } else if (npuStandardRouteStreamingExecuted) {
                                                                             "phase8_pseudo_streaming_db_backed_ui_append_db_markdown"
                                                                         } else if (npuStandardRouteMarkdownExecuted) {
                                                                             "phase7_db_backed_ui_append_db_markdown"
@@ -5782,7 +5820,9 @@ fun Home(
                                                                     npuStandardRouteTtsStarted = true
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
-                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                            if (npuStandardRouteNativeStreamingUsed) {
+                                                                                "phase8_native_streaming_ui_append_tts_db_markdown"
+                                                                            } else if (npuStandardRouteStreamingExecuted) {
                                                                                 "phase8_pseudo_streaming_ui_append_tts_db_markdown"
                                                                             } else if (npuStandardRouteMarkdownExecuted) {
                                                                                 "phase7_db_backed_ui_append_tts_db_markdown"
@@ -5804,7 +5844,9 @@ fun Home(
                                                                         NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
-                                                                            if (npuStandardRouteStreamingExecuted) {
+                                                                            if (npuStandardRouteNativeStreamingUsed) {
+                                                                                "phase8_native_streaming_ui_append_db_markdown_tts_exception"
+                                                                            } else if (npuStandardRouteStreamingExecuted) {
                                                                                 "phase8_pseudo_streaming_ui_append_db_markdown_tts_exception"
                                                                             } else if (npuStandardRouteMarkdownExecuted) {
                                                                                 "phase7_db_backed_ui_append_db_markdown_tts_exception"
@@ -17050,7 +17092,8 @@ internal fun buildNpuStandardRouteS1UiTiming(
         decodeMs = generationMs,
         prefillMs = result.timing.prefillMs,
         nativeDecodeMs = result.timing.nativeDecodeMs,
-        ttftMs = null,
+        nativeTtftMs = result.timing.nativeTtftMs,
+        ttftMs = result.timing.ttftMs,
         outputTokens = outputTokens,
         tokenCountMode = tokenCountMode,
         tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(

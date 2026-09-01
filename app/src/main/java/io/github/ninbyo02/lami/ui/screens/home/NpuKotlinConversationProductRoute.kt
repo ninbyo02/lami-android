@@ -9,7 +9,9 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,6 +27,11 @@ internal data class NpuKotlinConversationProductAttempt(
     val failureReason: String = "",
     val engineReused: Boolean = false,
     val conversationReused: Boolean = false,
+    val nativeStreamingUsed: Boolean = false,
+    val nativeStreamingChunkCount: Int = 0,
+    val streamingChunkCount: Int = 0,
+    val timeToFirstNativeChunkMs: Long? = null,
+    val timeToFirstChunkMs: Long? = null,
 ) {
     val succeeded: Boolean
         get() = result?.successCriteriaMet == true
@@ -57,6 +64,8 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         initialTurns: List<LocalConversationTurn>,
         selectedModelFile: String?,
         requestedMaxOutputTokens: Int,
+        markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+        onPartial: ((String) -> Unit)? = null,
         trace: (String) -> Unit = {},
     ): NpuKotlinConversationProductAttempt = withContext(Dispatchers.IO) {
         if (!enabled) {
@@ -125,12 +134,76 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
 
                 val activeConversation = requireNotNull(conversation)
                 val sendStartedAt = SystemClock.elapsedRealtime()
-                val message = activeConversation.sendMessage(
-                    prompt,
-                    LocalConversationPolicy.generationExtraContext,
-                )
-                val sendMs = SystemClock.elapsedRealtime() - sendStartedAt
-                val response = renderMessage(message).trim()
+                val streamingResult = if (onPartial != null) {
+                    val builder = StringBuilder()
+                    val appendContext = StreamingAppendContext()
+                    var nativeChunkCount = 0
+                    var visibleChunkCount = 0
+                    var firstNativeChunkMs: Long? = null
+                    var firstVisibleChunkMs: Long? = null
+                    activeConversation.sendMessageAsync(
+                        prompt,
+                        LocalConversationPolicy.generationExtraContext,
+                    ).collect { message ->
+                        val chunk = renderStreamingMessageChunk(message)
+                        if (!chunk.isNullOrEmpty() && isViableStreamingChunk(chunk)) {
+                            nativeChunkCount += 1
+                            if (firstNativeChunkMs == null) {
+                                firstNativeChunkMs = (SystemClock.elapsedRealtime() - sendStartedAt)
+                                    .coerceAtLeast(0L)
+                            }
+                            appendMarkdownStreamingChunk(
+                                builder = builder,
+                                extractedRaw = chunk,
+                                context = appendContext,
+                                markdownStreamingMode = markdownStreamingMode,
+                                appendTrace = trace,
+                            )
+                            if (builder.isNotEmpty()) {
+                                val accumulated = builder.toString()
+                                val provisionalQuality = evaluateNpuStandardRouteQualityCandidate(
+                                    rawOutput = accumulated,
+                                    sanitizedOutput = accumulated.trim(),
+                                    inputPrompt = prompt,
+                                    conversationApiUsed = true,
+                                )
+                                val safePartial = provisionalQuality.preparedOutput
+                                    .takeIf {
+                                        provisionalQuality.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS &&
+                                            it.isNotBlank()
+                                    }
+                                if (safePartial != null) {
+                                    if (firstVisibleChunkMs == null) {
+                                        firstVisibleChunkMs = (SystemClock.elapsedRealtime() - sendStartedAt)
+                                            .coerceAtLeast(0L)
+                                    }
+                                    visibleChunkCount += 1
+                                    onPartial(safePartial)
+                                }
+                            }
+                        }
+                    }
+                    NpuConversationGenerationResult(
+                        response = builder.toString().trim(),
+                        durationMs = (SystemClock.elapsedRealtime() - sendStartedAt).coerceAtLeast(0L),
+                        nativeStreamingUsed = true,
+                        nativeStreamingChunkCount = nativeChunkCount,
+                        streamingChunkCount = visibleChunkCount,
+                        timeToFirstNativeChunkMs = firstNativeChunkMs,
+                        timeToFirstChunkMs = firstVisibleChunkMs,
+                    )
+                } else {
+                    val message = activeConversation.sendMessage(
+                        prompt,
+                        LocalConversationPolicy.generationExtraContext,
+                    )
+                    NpuConversationGenerationResult(
+                        response = renderMessage(message).trim(),
+                        durationMs = (SystemClock.elapsedRealtime() - sendStartedAt).coerceAtLeast(0L),
+                    )
+                }
+                val sendMs = streamingResult.durationMs
+                val response = streamingResult.response
                 if (response.isBlank()) {
                     closeLocked("blank_output", trace)
                     return@withLock NpuKotlinConversationProductAttempt(
@@ -163,6 +236,8 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                         selectedModelFile = modelPath,
                         npuModelEligible = true,
                         npuS1DecodeMs = sendMs,
+                        npuS1NativeTtftMs = streamingResult.timeToFirstNativeChunkMs,
+                        npuS1TtftMs = streamingResult.timeToFirstChunkMs,
                         npuS1OutputTokens = NpuStandardRouteS1Contract.estimateOutputTokensFromText(response),
                         npuS1TokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
                         inputPrompt = prompt,
@@ -179,12 +254,21 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 }
                 lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
                 if (!appInForeground) scheduleBackgroundReleaseLocked()
-                trace("$ROUTE_ID success=true send_ms=$sendMs response_length=${response.length}")
+                trace("$ROUTE_ID success=true send_ms=$sendMs response_length=${response.length} native_streaming_used=${streamingResult.nativeStreamingUsed} native_streaming_chunk_count=${streamingResult.nativeStreamingChunkCount} visible_streaming_chunk_count=${streamingResult.streamingChunkCount} backend_ttft_ms=${streamingResult.timeToFirstNativeChunkMs ?: -1} lami_ttft_ms=${streamingResult.timeToFirstChunkMs ?: -1}")
                 NpuKotlinConversationProductAttempt(
                     result = unified,
                     engineReused = engineReused,
                     conversationReused = conversationReused,
+                    nativeStreamingUsed = streamingResult.nativeStreamingUsed,
+                    nativeStreamingChunkCount = streamingResult.nativeStreamingChunkCount,
+                    streamingChunkCount = streamingResult.streamingChunkCount,
+                    timeToFirstNativeChunkMs = streamingResult.timeToFirstNativeChunkMs,
+                    timeToFirstChunkMs = streamingResult.timeToFirstChunkMs,
                 )
+            } catch (cancelled: CancellationException) {
+                trace("$ROUTE_ID cancelled=true")
+                closeLocked("cancelled", trace)
+                throw cancelled
             } catch (throwable: Throwable) {
                 val reason = "${throwable.javaClass.simpleName}:${throwable.message.orEmpty()}"
                 trace("$ROUTE_ID failure=$reason")
@@ -197,6 +281,17 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
             }
         }
     }
+
+
+    private data class NpuConversationGenerationResult(
+        val response: String,
+        val durationMs: Long,
+        val nativeStreamingUsed: Boolean = false,
+        val nativeStreamingChunkCount: Int = 0,
+        val streamingChunkCount: Int = 0,
+        val timeToFirstNativeChunkMs: Long? = null,
+        val timeToFirstChunkMs: Long? = null,
+    )
 
     private fun withConversationApiProvenance(
         result: NpuStandardRouteS1Result,
@@ -323,6 +418,14 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
             trace("$ROUTE_ID engine_closed=true reason=$reason")
         }
     }
+
+    private fun renderStreamingMessageChunk(message: Message): String? =
+        message.contents.contents.joinToString(separator = "") { content ->
+            when (content) {
+                is Content.Text -> content.text
+                else -> ""
+            }
+        }.takeIf { it.isNotEmpty() }
 
     private fun renderMessage(message: Message): String {
         val text = message.contents.contents.joinToString(separator = "") { content ->

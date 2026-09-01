@@ -1960,6 +1960,24 @@ class InferenceStatsSheetContentTest {
         )
 
     @Test
+    fun `NPU native streaming separates backend TTFT from visible Lami TTFT`() {
+        val stats = InferenceStats(
+            timeToFirstTokenMs = 85L,
+            backendTimeToFirstTokenMs = 55L,
+            localSourceSummary = "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag",
+        )
+
+        val details = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
+        val detailItems = details.first { it.title == "詳細" }.items
+
+        assertEquals("85 ms", detailItems.first { it.label == "Lami基準TTFT" }.value)
+        assertEquals("55 ms", detailItems.first { it.label == "バックエンド基準TTFT" }.value)
+    }
+
+    @Test
     fun `NPU code point speed is labeled as estimated instead of backend measured`() {
         val stats = InferenceStats(
             modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",

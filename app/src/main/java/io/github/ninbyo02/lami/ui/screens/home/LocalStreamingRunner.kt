@@ -8696,7 +8696,7 @@ internal fun shouldInsertMinimalJoinBetween(
     return true
 }
 
-private fun appendMarkdownStreamingChunk(
+internal fun appendMarkdownStreamingChunk(
     builder: StringBuilder,
     extractedRaw: String,
     context: StreamingAppendContext? = null,

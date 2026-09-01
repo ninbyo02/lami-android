@@ -36,8 +36,10 @@ data class InferenceStats(
     // finalChunk の doneReason / finishReason を保存して表示する。
     val finishReason: String? = null,
     val localSourceSummary: String? = null,
-    // canonical: first token / first visible token までの TTFT。
+    // canonical: Lami が最初に表示可能な token/chunk までの TTFT。
     val timeToFirstTokenMs: Long? = null,
+    // backend から最初の token/chunk が到着するまで。安全判定などの UI 遅延とは分離する。
+    val backendTimeToFirstTokenMs: Long? = null,
     // 添付画像の枚数。入力トークンとは別指標として扱う。
     val imageInputCount: Int? = null,
     val contextTokensUsed: Int? = null,

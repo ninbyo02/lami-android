@@ -11,6 +11,7 @@ class NpuStandardRouteInferenceStatsMapperTest {
             timing = NpuStandardRouteS1Timing(
                 totalMs = 2_680,
                 decodeMs = 2_627,
+                nativeTtftMs = 55,
                 ttftMs = 85,
                 outputTokens = 24,
                 tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
@@ -29,6 +30,7 @@ class NpuStandardRouteInferenceStatsMapperTest {
         assertEquals(2_627L, stats.decodeDurationMs)
         assertEquals(2_680L, stats.totalDurationMs)
         assertEquals(85L, stats.timeToFirstTokenMs)
+        assertEquals(55L, stats.backendTimeToFirstTokenMs)
         assertEquals(6, stats.responseCharCount)
         assertEquals("success", stats.finishReason)
         assertEquals(true, stats.notes?.contains("backend=NPU"))

@@ -148,6 +148,7 @@ internal fun buildLocalInferenceStatsUiModel(
     val totalDurationMsForLami = stats.totalDurationMs?.takeIf { it > 0L } ?: stats.generationTimeMs?.takeIf { it > 0L }
     val lamiTtftMs = stats.timeToFirstTokenMs?.takeIf { it >= 0L }
     val backendTtftMs = measuredSnapshot?.ttftMs?.takeIf { it >= 0L }
+        ?: stats.backendTimeToFirstTokenMs?.takeIf { it >= 0L }
     val tokenizerOutputTokensForTps = outputTokens.rawValueInt
         ?.takeIf {
             outputTokens.source == StatsUiValueSource.MEASURED ||

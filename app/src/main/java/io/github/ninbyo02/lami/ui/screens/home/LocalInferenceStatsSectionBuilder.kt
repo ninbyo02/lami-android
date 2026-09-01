@@ -522,7 +522,9 @@ internal fun buildInferenceDetailSections(
             addAll(
                 buildUnifiedTtftItems(
                     lamiTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
-                    backendTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
+                    backendTtftMs = if (heldOfficialBlocking) null else (
+                        stats.backendTimeToFirstTokenMs ?: stats.timeToFirstTokenMs
+                    ),
                 ),
             )
         }
@@ -1008,7 +1010,7 @@ private fun buildInferenceSimpleSections(
     val ttftItems = if (localTraceForDev == null) {
         buildUnifiedTtftItems(
             lamiTtftMs = stats.timeToFirstTokenMs,
-            backendTtftMs = stats.timeToFirstTokenMs,
+            backendTtftMs = stats.backendTimeToFirstTokenMs ?: stats.timeToFirstTokenMs,
         )
     } else {
         buildUnifiedTtftItems(
