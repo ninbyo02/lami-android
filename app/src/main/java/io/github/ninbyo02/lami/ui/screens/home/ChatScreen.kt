@@ -268,6 +268,7 @@ private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
+private const val LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS = 1_500L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
     "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
@@ -3575,6 +3576,27 @@ fun Home(
             upsertStreamingAssistantPlaceholder(chatId = chatId, response = response)
         }
 
+    LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingAssistantMessageId) {
+        if (!isLocalInferenceRunning) return@LaunchedEffect
+        val checkpointChatId = effectiveChatId ?: return@LaunchedEffect
+        if (streamingAssistantMessageId == null) return@LaunchedEffect
+        var lastCheckpointText = lastPersistedStreamingAssistantText.orEmpty()
+        while (true) {
+            delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
+            if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
+            val checkpointText = localStreamingResponseText?.trim().orEmpty()
+            if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
+            upsertStreamingAssistantPlaceholderSerialized(
+                chatId = checkpointChatId,
+                response = checkpointText,
+            )
+            lastCheckpointText = checkpointText
+            logStreamTrace(
+                "STREAM room checkpoint id=$streamingAssistantMessageId len=${checkpointText.length}",
+            )
+        }
+    }
+
     suspend fun finalizeStreamingAssistantMessage(
         chatId: Int,
         response: String,
@@ -3788,7 +3810,7 @@ fun Home(
         streamingResponseText,
     ) {
         if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
-        val fullText = streamingResponseText ?: streamingResponseTextForRender ?: return@LaunchedEffect
+        val fullText = streamingResponseTextForRender ?: streamingResponseText ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
@@ -5084,13 +5106,8 @@ fun Home(
                                                                                                     didReceiveRealLocalPartial = true
                                                                                                     realLocalPartialChunkCount += 1
                                                                                                     localStreamingResponseText = partial
-                                                                                                    streamingResponseTextForRender = partial
                                                                                                     showDelayedLocalRespondingPlaceholder = false
                                                                                                     suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                                    upsertStreamingAssistantPlaceholderSerialized(
-                                                                                                        chatId = npuChatId,
-                                                                                                        response = partial,
-                                                                                                    )
                                                                                                 }
                                                                                             }
                                                                                         },
@@ -5384,13 +5401,8 @@ fun Home(
                                                                             didReceiveRealLocalPartial = true
                                                                             realLocalPartialChunkCount += 1
                                                                             localStreamingResponseText = safePartial
-                                                                            streamingResponseTextForRender = safePartial
                                                                             showDelayedLocalRespondingPlaceholder = false
                                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                            upsertStreamingAssistantPlaceholderSerialized(
-                                                                                chatId = currentChatId,
-                                                                                response = safePartial,
-                                                                            )
                                                                         }
                                                                     }
                                                                 },
@@ -6368,13 +6380,8 @@ fun Home(
                                                                                 didReceiveRealLocalPartial = true
                                                                                 realLocalPartialChunkCount += 1
                                                                                 localStreamingResponseText = safePartial
-                                                                                streamingResponseTextForRender = safePartial
                                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                upsertStreamingAssistantPlaceholderSerialized(
-                                                                                    chatId = fallbackChatId,
-                                                                                    response = safePartial,
-                                                                                )
                                                                             }
                                                                         }
                                                                     },
@@ -7551,10 +7558,6 @@ fun Home(
                                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                 localStreamingResponseText = normalizedPartial
-                                                                                upsertStreamingAssistantPlaceholderSerialized(
-                                                                                    chatId = currentChatId,
-                                                                                    response = normalizedPartial,
-                                                                                )
                                                                             }
                                                                         },
                                                                         appendTrace = { message ->
@@ -7758,10 +7761,6 @@ fun Home(
                                                                                         showDelayedLocalRespondingPlaceholder = false
                                                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                         localStreamingResponseText = normalizedPartial
-                                                                                        upsertStreamingAssistantPlaceholderSerialized(
-                                                                                            chatId = currentChatId,
-                                                                                            response = normalizedPartial,
-                                                                                        )
                                                                                     }
                                                                                 },
                                                                             )
@@ -7863,10 +7862,6 @@ fun Home(
                                                                                 )
                                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = normalizedPartial
-                                                                                upsertStreamingAssistantPlaceholderSerialized(
-                                                                                    chatId = currentChatId,
-                                                                                    response = normalizedPartial,
-                                                                                )
                                                                             }
                                                                         },
                                                                     )
@@ -8094,10 +8089,6 @@ fun Home(
                                                                                 coroutineScope.launch {
                                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                     if (localStopRequested) return@launch
-                                                                                    upsertStreamingAssistantPlaceholderSerialized(
-                                                                                        chatId = currentChatId,
-                                                                                        response = normalizedChunk,
-                                                                                    )
                                                                                 }
                                                                             },
                                                                         )
@@ -8699,8 +8690,19 @@ fun Home(
                 val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
                     val transientChatId = checkNotNull(currentChatId)
                     val transientText = checkNotNull(streamingResponseTextForRenderValue)
-                    logStreamTrace("STREAM ui transient row enabled")
-                    messagesForListWithPendingUser + Message(
+                    val ownedPlaceholderId = streamingAssistantMessageId
+                    val renderBase = if (ownedPlaceholderId != null) {
+                        messagesForListWithPendingUser.filterNot { message ->
+                            !message.isSendbyMe && message.messageID == ownedPlaceholderId
+                        }
+                    } else {
+                        messagesForListWithPendingUser
+                    }
+                    logStreamTrace(
+                        "STREAM ui transient row enabled source=in-memory placeholderId=${ownedPlaceholderId ?: -1}",
+                    )
+                    renderBase + Message(
+                        messageID = ownedPlaceholderId ?: (Int.MIN_VALUE / 2 + transientChatId),
                         chatId = transientChatId,
                         message = transientText,
                         isSendbyMe = false,

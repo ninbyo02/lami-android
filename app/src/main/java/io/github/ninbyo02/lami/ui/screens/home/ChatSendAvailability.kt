@@ -131,16 +131,13 @@ internal fun chatSendBlockedSnackbarMessage(reason: ChatSendBlockedReason?): Str
 internal fun shouldShowTransientAssistantRow(
     currentChatId: Int?,
     isInferenceRunning: Boolean,
-    streamingAssistantMessageId: Int?,
+    @Suppress("UNUSED_PARAMETER") streamingAssistantMessageId: Int?,
     streamingResponseText: String?,
-    lastPersistedStreamingAssistantText: String?,
+    @Suppress("UNUSED_PARAMETER") lastPersistedStreamingAssistantText: String?,
 ): Boolean {
     if (currentChatId == null) return false
     if (!isInferenceRunning) return false
-    if (streamingAssistantMessageId != null) return false
-    val normalizedStreamingText = streamingResponseText?.trim().orEmpty()
-    if (normalizedStreamingText.isBlank()) return false
-    return normalizedStreamingText != lastPersistedStreamingAssistantText
+    return !streamingResponseText?.trim().isNullOrBlank()
 }
 
 internal fun shouldShowPendingLocalUserMessage(

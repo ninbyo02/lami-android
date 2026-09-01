@@ -49,7 +49,10 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertFalse(chat.contains("KOTLIN_CONVERSATION_API_FALLBACK_NATIVE"))
         assertTrue(chat.contains("adapter_failure:kotlin_conversation_product_route:"))
         assertTrue(chat.contains("onPartial = { partial ->"))
-        assertTrue(chat.contains("upsertStreamingAssistantPlaceholderSerialized("))
+        assertTrue(chat.contains("STREAM room checkpoint"))
+        assertTrue(chat.contains("source=in-memory"))
+        assertTrue(chat.contains("LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS"))
+        assertTrue(chat.contains("val fullText = streamingResponseTextForRender ?: streamingResponseText"))
         assertTrue(chat.contains("npuStandardRouteNativeStreamingUsed"))
         assertTrue(chat.contains("phase8_native_streaming_pending_db"))
     }

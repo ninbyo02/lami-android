@@ -147,8 +147,8 @@ class ChatSendAvailabilityTest {
     }
 
     @Test
-    fun `transient assistant row is hidden when streaming placeholder already exists`() {
-        assertFalse(
+    fun `transient assistant row remains visible from memory when streaming placeholder exists`() {
+        assertTrue(
             shouldShowTransientAssistantRow(
                 currentChatId = 1,
                 isInferenceRunning = true,
