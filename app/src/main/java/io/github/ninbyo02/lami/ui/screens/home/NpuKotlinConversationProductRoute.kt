@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -145,6 +147,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                         prompt,
                         LocalConversationPolicy.generationExtraContext,
                     ).collect { message ->
+                        currentCoroutineContext().ensureActive()
                         val chunk = renderStreamingMessageChunk(message)
                         if (!chunk.isNullOrEmpty() && isViableStreamingChunk(chunk)) {
                             nativeChunkCount += 1
@@ -267,6 +270,13 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 )
             } catch (cancelled: CancellationException) {
                 trace("$ROUTE_ID cancelled=true")
+                conversation?.let { activeConversation ->
+                    runCatching { activeConversation.cancelProcess() }
+                        .onSuccess { trace("$ROUTE_ID cancel_process=true") }
+                        .onFailure { throwable ->
+                            trace("$ROUTE_ID cancel_process=false error=${throwable.javaClass.simpleName}:${throwable.message.orEmpty()}")
+                        }
+                }
                 closeLocked("cancelled", trace)
                 throw cancelled
             } catch (throwable: Throwable) {

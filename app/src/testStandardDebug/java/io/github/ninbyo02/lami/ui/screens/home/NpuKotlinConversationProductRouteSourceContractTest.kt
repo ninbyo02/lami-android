@@ -25,6 +25,8 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertTrue(source.contains("nativeStreamingChunkCount"))
         assertTrue(source.contains("timeToFirstNativeChunkMs"))
         assertTrue(source.contains("timeToFirstChunkMs"))
+        assertTrue(source.contains("currentCoroutineContext().ensureActive()"))
+        assertTrue(source.contains("activeConversation.cancelProcess()"))
         assertTrue(source.contains("catch (cancelled: CancellationException)"))
         assertTrue(source.contains("LocalConversationPolicy.conversationConfig(initialTurns)"))
         assertTrue(source.contains("conversationApiUsed = true"))
@@ -47,6 +49,7 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertFalse(chat.contains("KOTLIN_CONVERSATION_API_FALLBACK_NATIVE"))
         assertTrue(chat.contains("adapter_failure:kotlin_conversation_product_route:"))
         assertTrue(chat.contains("onPartial = { partial ->"))
+        assertTrue(chat.contains("upsertStreamingAssistantPlaceholderSerialized("))
         assertTrue(chat.contains("npuStandardRouteNativeStreamingUsed"))
         assertTrue(chat.contains("phase8_native_streaming_pending_db"))
     }
