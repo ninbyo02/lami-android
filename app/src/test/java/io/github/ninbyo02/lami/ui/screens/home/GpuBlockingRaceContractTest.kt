@@ -730,7 +730,37 @@ class GpuBlockingRaceContractTest {
                 "Unvalidated fallback partials must never reach the render buffer.",
                 fallbackBlock.contains("streamingResponseTextForRender = partial"),
             )
+            assertTrue(
+                "Product fallback must stay on Conversation API paths instead of backend-unknown legacy one-shot.",
+                fallbackBlock.contains("allowLegacyReflectionFallback = false"),
+            )
+            assertTrue(
+                "Streaming fallback partials must pass the unified output policy before UI display.",
+                fallbackBlock.contains("provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate("),
+            )
+            assertTrue(
+                "Only the policy-approved partial may reach the UI.",
+                fallbackBlock.contains("localStreamingResponseText = safePartial"),
+            )
+            assertTrue(
+                "Streaming fallback partials must update the owned assistant placeholder so visible text matches TTS.",
+                fallbackBlock.contains("upsertStreamingAssistantPlaceholderSerialized("),
+            )
         }
+    }
+
+    @Test
+    fun `product local inference stops before blocking or legacy fallback after flow failure`() {
+        val source = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt",
+        ).readText()
+        val strictBlock = source
+            .substringAfter("if (!allowLegacyReflectionFallback)")
+            .substringBefore("UPSTREAM official-blocking attempt")
+
+        assertTrue(strictBlock.contains("strict-conversation-path stop-after-flow-failure"))
+        assertTrue(strictBlock.contains("state = LocalInferenceEngineState.ERROR"))
+        assertFalse(strictBlock.contains("generateLiteRtResponseViaReflection("))
     }
 
     @Test

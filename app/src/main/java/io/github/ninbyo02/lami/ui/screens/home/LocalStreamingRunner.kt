@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -781,7 +782,7 @@ private suspend fun runGpuPrefillProbeGenerate(
         val flow = flowValue as? Flow<*> ?: return
         try {
             flow.collect { message ->
-                if (!currentCoroutineContext().isActive) return@collect
+                currentCoroutineContext().ensureActive()
                 val text = extractOfficialMessageTextWithTrace(
                     path = "gpu-prefill-probe",
                     value = message,
@@ -7564,6 +7565,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 prompt,
                 LocalConversationPolicy.generationExtraContext,
             ).collect { message ->
+                currentCoroutineContext().ensureActive()
                 val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
                 val normalizedContents = rawContents.trim()
@@ -7651,6 +7653,20 @@ private suspend fun runOfficialLiteRtLmDirect(
                 measuredTokenSnapshot = measuredTokenSnapshot,
             )
         } finally {
+            if (!successReached) {
+                (conversation as? Conversation)?.let { activeConversation ->
+                    runCatching { activeConversation.cancelProcess() }
+                        .onSuccess {
+                            safeAppendTrace(appendTrace, "UPSTREAM official-direct cancelProcess success")
+                        }
+                        .onFailure { throwable ->
+                            safeAppendTrace(
+                                appendTrace,
+                                "UPSTREAM official-direct cancelProcess failed ${throwable.javaClass.simpleName}:${throwable.message}",
+                            )
+                        }
+                }
+            }
             if (BuildConfig.DEBUG) {
                 measuredCollector.observe(
                     timing = "before-close",

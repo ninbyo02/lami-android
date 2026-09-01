@@ -2491,4 +2491,20 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals(StreamingLane.PROSE, context.lane)
         assertFalse(builder.toString().contains("World!\")このコード"))
     }
+    @Test
+    fun `flow cancellation checks coroutine activity before processing native chunks`() {
+        val root = generateSequence(File(requireNotNull(System.getProperty("user.dir")))) { it.parentFile }
+            .first { File(it, "app/src").isDirectory }
+        val source = File(
+            root,
+            "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt",
+        ).readText()
+
+        assertTrue(source.contains("currentCoroutineContext().ensureActive()"))
+        assertTrue(source.contains("conversation.sendMessageAsync("))
+        assertTrue(source.contains("activeConversation.cancelProcess()"))
+        assertTrue(source.contains("finally"))
+        assertTrue(source.contains("tryCloseWithOutcome("))
+    }
+
 }

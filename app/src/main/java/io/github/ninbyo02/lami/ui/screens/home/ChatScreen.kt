@@ -1035,6 +1035,7 @@ fun Home(
                     prompt = runPrompt,
                     initialTurns = runInitialTurns,
                     onPartial = onPartial,
+                    allowLegacyReflectionFallback = false,
                 )
             if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
                 runWithBackend(preferredBackendDryRunSetting)
@@ -5078,9 +5079,19 @@ fun Home(
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
                                                                                             if (!localStopRequested && effectiveChatId == npuChatId) {
-                                                                                                localStreamingResponseText = partial
-                                                                                                streamingResponseTextForRender = partial
-                                                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                                                coroutineScope.launch {
+                                                                                                    if (localStopRequested || effectiveChatId != npuChatId) return@launch
+                                                                                                    didReceiveRealLocalPartial = true
+                                                                                                    realLocalPartialChunkCount += 1
+                                                                                                    localStreamingResponseText = partial
+                                                                                                    streamingResponseTextForRender = partial
+                                                                                                    showDelayedLocalRespondingPlaceholder = false
+                                                                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
+                                                                                                    upsertStreamingAssistantPlaceholderSerialized(
+                                                                                                        chatId = npuChatId,
+                                                                                                        response = partial,
+                                                                                                    )
+                                                                                                }
                                                                                             }
                                                                                         },
                                                                                         trace = npuRealPromptTrace,
@@ -5353,7 +5364,37 @@ fun Home(
                                                                 preferredBackendDryRunSetting = backend,
                                                                 markdownStreamingMode = markdownStreamingMode,
                                                                 prompt = requestPrompt,
-                                                                onPartial = { _ -> Unit },
+                                                                onPartial = { partial ->
+                                                                    val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                        userPrompt = requestPrompt,
+                                                                        response = partial,
+                                                                    )
+                                                                    val safePartial = provisionalDecision.acceptedText
+                                                                        .takeIf {
+                                                                            provisionalDecision.disposition == LocalInferenceOutputDisposition.ACCEPT &&
+                                                                                it.isNotBlank()
+                                                                        }
+                                                                    if (
+                                                                        safePartial != null &&
+                                                                        !localStopRequested &&
+                                                                        effectiveChatId == currentChatId
+                                                                    ) {
+                                                                        coroutineScope.launch {
+                                                                            if (localStopRequested || effectiveChatId != currentChatId) return@launch
+                                                                            didReceiveRealLocalPartial = true
+                                                                            realLocalPartialChunkCount += 1
+                                                                            localStreamingResponseText = safePartial
+                                                                            streamingResponseTextForRender = safePartial
+                                                                            showDelayedLocalRespondingPlaceholder = false
+                                                                            suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
+                                                                            upsertStreamingAssistantPlaceholderSerialized(
+                                                                                chatId = currentChatId,
+                                                                                response = safePartial,
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                },
+                                                                allowLegacyReflectionFallback = false,
                                                             )
                                                             effectiveLocalModelDisplayNameForHeader =
                                                                 localGenericModelDisplayName
@@ -6306,7 +6347,38 @@ fun Home(
                                                                     preferredBackendDryRunSetting = backend,
                                                                     markdownStreamingMode = markdownStreamingMode,
                                                                     prompt = requestPrompt,
-                                                                    onPartial = { _ -> Unit },
+                                                                    onPartial = { partial ->
+                                                                        val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                            userPrompt = requestPrompt,
+                                                                            response = partial,
+                                                                        )
+                                                                        val safePartial = provisionalDecision.acceptedText
+                                                                            .takeIf {
+                                                                                provisionalDecision.disposition == LocalInferenceOutputDisposition.ACCEPT &&
+                                                                                    it.isNotBlank()
+                                                                            }
+                                                                        if (
+                                                                            safePartial != null &&
+                                                                            !localStopRequested &&
+                                                                            effectiveChatId == resolvedNpuChatId
+                                                                        ) {
+                                                                            coroutineScope.launch {
+                                                                                val fallbackChatId = resolvedNpuChatId ?: return@launch
+                                                                                if (localStopRequested || effectiveChatId != fallbackChatId) return@launch
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = safePartial
+                                                                                streamingResponseTextForRender = safePartial
+                                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
+                                                                                upsertStreamingAssistantPlaceholderSerialized(
+                                                                                    chatId = fallbackChatId,
+                                                                                    response = safePartial,
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    allowLegacyReflectionFallback = false,
                                                                 )
                                                                 effectiveLocalModelDisplayNameForHeader =
                                                                     localGenericModelDisplayName
@@ -10934,6 +11006,7 @@ private suspend fun runLocalInferenceOnceEntry(
     prompt: String,
     initialTurns: List<LocalConversationTurn> = emptyList(),
     onPartial: (String) -> Unit = {},
+    allowLegacyReflectionFallback: Boolean = true,
 ): LocalInferenceRunResult {
     val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
     appendLocalReflectionTrace(
@@ -11092,7 +11165,7 @@ private suspend fun runLocalInferenceOnceEntry(
         } else if (officialFlowFallbackReason == null) {
             officialFlowFallbackReason = "empty_official_response"
         }
-        if (!officialSucceeded && officialFlowObservedPartialCount == 0) {
+        if (!officialSucceeded && officialFlowObservedPartialCount == 0 && allowLegacyReflectionFallback) {
             appendLocalReflectionTrace(
                 context = context,
                 message = "UPSTREAM fallback reason=no_partial_emitted",
@@ -11199,6 +11272,40 @@ private suspend fun runLocalInferenceOnceEntry(
             context = context,
             message = "UPSTREAM official-flow-streaming fallback reason=${officialFlowFallbackReason ?: "empty_official_response"}",
         )
+        if (!allowLegacyReflectionFallback) {
+            appendLocalReflectionTrace(
+                context = context,
+                message = "UPSTREAM strict-conversation-path stop-after-flow-failure backend=${effectivePreferredBackendDryRunSetting.name}",
+            )
+            return finishWithMemorySnapshots(
+                result = LocalInferenceRunResult(
+                    state = LocalInferenceEngineState.ERROR,
+                    response = null,
+                    trace = LocalInferenceTrace(
+                        localModelDisplayName = modelResolution.displayName,
+                        localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                        localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        officialFlowAttempted = officialFlowAttempted,
+                        officialFlowUsed = false,
+                        officialFlowFallbackReason = officialFlowFallbackReason,
+                        officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                        officialFlowChunkCount = officialFlowChunkCount,
+                        preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                        preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                        requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                        appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                        preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                        preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                        preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                        preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                        preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                        preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
+                        localFailureDiagnosticsText = localFailureDiagnosticsText,
+                    ),
+                ),
+                terminalStage = MEMORY_STAGE_GENERATION_FAILED,
+            )
+        }
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM official-blocking attempt",

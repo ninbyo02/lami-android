@@ -142,7 +142,11 @@ class LocalInferenceOutputPolicyTest {
         ).readText()
 
         assertTrue(source.contains("LocalInferenceOutputPolicy.evaluateNpu("))
-        assertEquals(2, "LocalInferenceOutputPolicy.evaluateLocalCandidate(".countIn(source))
+        assertEquals(
+            "GPU/CPU fallback must validate both provisional streaming partials and final candidates.",
+            4,
+            "LocalInferenceOutputPolicy.evaluateLocalCandidate(".countIn(source),
+        )
         assertTrue(source.contains("npuOutputDecision.acceptedText.trim()"))
         assertFalse(source.contains("localInferenceResponseRejectionReason(requestPrompt, result.response)"))
     }
