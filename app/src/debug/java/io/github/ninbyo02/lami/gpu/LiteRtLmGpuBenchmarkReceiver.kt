@@ -37,6 +37,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -673,6 +674,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         }
         closeTimedOut.set(false)
         closeFailureReason.set(null)
+        activeCallbackCheckpoint.set(null)
         val executor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "LiteRtLmGpuBenchmark-$maxOutputTokens")
         }
@@ -735,6 +737,10 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 freshCrash = false,
                 modelPathSource = modelPathSource.wireValue,
                 genericFallbackModelConfigured = genericFallbackModelConfigured,
+            ).withCallbackCheckpoint(
+                checkpoint = activeCallbackCheckpoint.get()?.takeIf { it.timestamp == timestamp },
+                sendApiMode = sendApiMode,
+                backendVariant = backendVariant,
             )
         } catch (interrupted: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -1054,7 +1060,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         conversation = conversation,
                         prompt = prompt,
                         decodeStartMs = decodeStartMs,
-                        callbackTimeoutMs = caseTimeoutMs,
+                        callbackTimeoutMs =
+                            (
+                                remainingRunBudgetMs(deadlineElapsedRealtime) -
+                                    TERMINAL_PUBLISH_RESERVE_MS -
+                                    REPORT_PUBLISH_RESERVE_MS
+                            ).coerceAtLeast(1_000L),
                     ) { first ->
                         firstTokenMs = first
                     }
@@ -1328,6 +1339,28 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
         val doneLatch = CountDownLatch(1)
         val accumulator = CallbackObservationAccumulator()
+        val lastCheckpointElapsedMs = AtomicLong(-CALLBACK_CHECKPOINT_INTERVAL_MS)
+        fun persistCheckpoint(terminalKind: CallbackTerminalKind, elapsedMs: Long) {
+            val observation = accumulator.snapshot()
+            activeCallbackCheckpoint.set(
+                CallbackCheckpoint(
+                    timestamp = timestamp,
+                    terminalKind = terminalKind,
+                    elapsedMs = elapsedMs,
+                    observation = observation,
+                ),
+            )
+            writeCallbackCheckpoint(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                maxOutputTokensList = maxOutputTokensList,
+                sendApiVariant = actualVariant,
+                terminalKind = terminalKind,
+                elapsedMs = elapsedMs,
+                observation = observation,
+            )
+        }
         val callback = object : MessageCallback {
             override fun onMessage(message: Message) {
                 val chunk = renderGalleryParityMessageChunk(message)
@@ -1335,7 +1368,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     .joinToString(separator = "+") { it.javaClass.simpleName }
                     .ifBlank { message.javaClass.simpleName }
                 val elapsedMs = SystemClock.elapsedRealtime() - decodeStartMs
-                if (accumulator.onMessage(chunkType, chunk, elapsedMs)) {
+                val firstNonempty = accumulator.onMessage(chunkType, chunk, elapsedMs)
+                val previousCheckpointMs = lastCheckpointElapsedMs.get()
+                if (
+                    accumulator.terminalKind() == CallbackTerminalKind.ACTIVE &&
+                    elapsedMs - previousCheckpointMs >= CALLBACK_CHECKPOINT_INTERVAL_MS &&
+                    lastCheckpointElapsedMs.compareAndSet(previousCheckpointMs, elapsedMs)
+                ) {
+                    persistCheckpoint(CallbackTerminalKind.ACTIVE, elapsedMs)
+                }
+                if (firstNonempty) {
                     onFirstToken(elapsedMs)
                     writeMarker(
                         appContext = appContext,
@@ -1352,6 +1394,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
             override fun onDone() {
                 if (!accumulator.onDone()) return
+                persistCheckpoint(CallbackTerminalKind.DONE, SystemClock.elapsedRealtime() - decodeStartMs)
                 val snapshot = accumulator.snapshot()
                 writeMarker(
                     appContext = appContext,
@@ -1368,6 +1411,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
             override fun onError(throwable: Throwable) {
                 if (!accumulator.onError(throwable)) return
+                persistCheckpoint(CallbackTerminalKind.ERROR, SystemClock.elapsedRealtime() - decodeStartMs)
                 val snapshot = accumulator.snapshot()
                 writeMarker(
                     appContext = appContext,
@@ -1429,6 +1473,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 }
             }
             val timeout = TimeoutException("${actualVariant}_timeout_${callbackTimeoutMs}ms")
+            persistCheckpoint(CallbackTerminalKind.TIMEOUT, SystemClock.elapsedRealtime() - decodeStartMs)
             val snapshot = accumulator.snapshot()
             writeMarker(
                 appContext = appContext,
@@ -1961,6 +2006,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         private const val REPORT_PUBLISH_RESERVE_MS = 2_000L
         private const val PROCESS_CLEANUP_DELAY_MS = 500L
         private const val CANCEL_PROCESS_CLEANUP_DELAY_MS = 5_000L
+        private const val CALLBACK_CHECKPOINT_INTERVAL_MS = 1_000L
+        const val CHECKPOINT_FILE_NAME = "litert_lm_gpu_benchmark_checkpoint.txt"
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
         private const val GALLERY_CHAT_PARITY_MAX_NUM_TOKENS = 4096
         private const val GALLERY_CHAT_PARITY_TOP_K = 64
@@ -1992,6 +2039,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         }
         private val closeTimedOut = AtomicBoolean(false)
         private val closeFailureReason = AtomicReference<String?>(null)
+        private val activeCallbackCheckpoint = AtomicReference<CallbackCheckpoint?>(null)
         private val closeTimeoutRequiresProcessCleanup = AtomicBoolean(false)
         private val cancelRelayDispatcher = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "LiteRtLmGpuBenchmarkCancelRelay")
@@ -2061,6 +2109,46 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
 
 internal enum class CallbackTerminalKind { ACTIVE, DONE, ERROR, TIMEOUT }
 
+internal data class CallbackCheckpoint(
+    val timestamp: String,
+    val terminalKind: CallbackTerminalKind,
+    val elapsedMs: Long,
+    val observation: SendObservation,
+)
+
+private fun LiteRtLmGpuBenchmarkRow.withCallbackCheckpoint(
+    checkpoint: CallbackCheckpoint?,
+    sendApiMode: BenchmarkSendApiMode,
+    backendVariant: BenchmarkBackendVariant,
+): LiteRtLmGpuBenchmarkRow {
+    val value = checkpoint ?: return this
+    val observation = value.observation
+    val sanitized = sanitizeOutput(observation.rawOutput)
+    return copy(
+        rawOutput = observation.rawOutput,
+        sanitizedOutput = sanitized,
+        decodeMs = value.elapsedMs,
+        firstTokenMs = observation.firstNonemptyMs,
+        ttftMs = observation.firstNonemptyMs,
+        emitCount = observation.emitCount,
+        nonemptyEmitCount = observation.nonemptyEmitCount,
+        rawLength = observation.rawOutput.length,
+        sanitizedLength = sanitized.length,
+        firstNonemptyMs = observation.firstNonemptyMs,
+        callbackOnMessageCount = observation.callbackOnMessageCount,
+        callbackOnDoneCount = observation.callbackOnDoneCount,
+        callbackOnErrorCount = observation.callbackOnErrorCount,
+        chunkTypeLengthSummary = observation.chunkTypeLengthSummary,
+        flowExceptionType = if (value.terminalKind == CallbackTerminalKind.TIMEOUT) "TimeoutException" else flowExceptionType,
+        sendApiVariant = if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+            "gallery_contents_callback"
+        } else {
+            sendApiMode.wireValue
+        },
+        contentsApiUsed = true,
+    )
+}
+
 internal class CallbackObservationAccumulator {
     private val lock = Any()
     private val output = StringBuilder()
@@ -2070,7 +2158,6 @@ internal class CallbackObservationAccumulator {
     private var firstNonemptyMs: Long? = null
     private var callbackOnDoneCount = 0
     private var callbackOnErrorCount = 0
-    private var lastChunk: String? = null
     private var terminalKind = CallbackTerminalKind.ACTIVE
     private var terminalError: Throwable? = null
 
@@ -2082,10 +2169,7 @@ internal class CallbackObservationAccumulator {
         nonemptyEmitCount += 1
         val isFirst = firstNonemptyMs == null
         if (isFirst) firstNonemptyMs = elapsedMs
-        if (chunk != lastChunk) {
-            lastChunk = chunk
-            output.append(chunk)
-        }
+        output.append(chunk)
         isFirst
     }
 
@@ -2733,6 +2817,43 @@ internal fun writeUtf8Atomically(target: File, content: String) {
         }
     } finally {
         temporary.delete()
+    }
+}
+
+private fun writeCallbackCheckpoint(
+    appContext: Context,
+    timestamp: String,
+    backendVariant: BenchmarkBackendVariant,
+    maxOutputTokensList: String,
+    sendApiVariant: String,
+    terminalKind: CallbackTerminalKind,
+    elapsedMs: Long,
+    observation: SendObservation,
+) {
+    runCatching {
+        val encodedOutput = Base64.encodeToString(
+            observation.rawOutput.toByteArray(Charsets.UTF_8),
+            Base64.NO_WRAP,
+        )
+        val content = listOf(
+            "timestamp=$timestamp",
+            "route_type=litert_lm_gpu_benchmark",
+            "backend=${backendVariant.backendLabel}",
+            "backend_variant=${backendVariant.wireValue}",
+            "max_output_tokens_list=$maxOutputTokensList",
+            "send_api_variant=$sendApiVariant",
+            "terminal_kind=${terminalKind.name.lowercase(Locale.US)}",
+            "elapsed_ms=$elapsedMs",
+            "emit_count=${observation.emitCount}",
+            "nonempty_emit_count=${observation.nonemptyEmitCount}",
+            "raw_output_length=${observation.rawOutput.length}",
+            "first_nonempty_ms=${observation.firstNonemptyMs ?: "unavailable"}",
+            "raw_output_base64=$encodedOutput",
+        ).joinToString("\n") + "\n"
+        writeUtf8Atomically(
+            File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.CHECKPOINT_FILE_NAME),
+            content,
+        )
     }
 }
 

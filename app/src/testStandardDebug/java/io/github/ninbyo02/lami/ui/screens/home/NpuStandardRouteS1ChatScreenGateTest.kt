@@ -2791,7 +2791,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("gpu_conversation_config_profile=gallery_like_sampler_config_non_npu"))
         assertTrue(trace.contains("gpu_thinking_enabled=false"))
         assertTrue(trace.contains("gpu_speculative_decoding_enabled=false"))
-        assertTrue(trace.contains("gpu_max_tokens=1024"))
+        assertTrue(trace.contains("gpu_max_tokens=512"))
         assertTrue(trace.contains("gpu_top_k=64"))
         assertTrue(trace.contains("gpu_top_p=0.95"))
         assertTrue(trace.contains("gpu_temperature=1.0"))

@@ -7483,6 +7483,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
                                                                     )
+                                                                    val latestHeldPartialText = AtomicReference<String?>(null)
                                                                     suspend fun runHeldEngineForRun(): HeldEngineRunResult? {
                                                                         lastRouteDiagnosticStage.set("conversation_create_started")
                                                                         return runWithHeldEngine(
@@ -7544,6 +7545,7 @@ fun Home(
                                                                                 normalized = normalizedPartial,
                                                                             )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
+                                                                            latestHeldPartialText.set(normalizedPartial)
                                                                             coroutineScope.launch {
                                                                                 if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
@@ -7620,6 +7622,7 @@ fun Home(
                                                                                     failureStage = failureStage,
                                                                                     staleCallbackIgnored = false,
                                                                                 ),
+                                                                                partialResponse = latestHeldPartialText.get(),
                                                                             )
                                                                         }
                                                                         runOperation.value
@@ -11772,7 +11775,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
     failureStage: String,
     elapsedMs: Long,
     progressFlags: LocalRouteDiagnosticFlags? = null,
+    partialResponse: String? = null,
 ): LocalInferenceRunResult {
+    val preservedPartialResponse = partialResponse?.takeIf { it.isNotBlank() }
     val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
         context = context,
         failureStage = failureStage,
@@ -11780,8 +11785,12 @@ private fun buildGpuExperimentalTimeoutRunResult(
         progressFlags = progressFlags,
     )
     return LocalInferenceRunResult(
-        state = LocalInferenceEngineState.ERROR,
-        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        state = if (preservedPartialResponse != null) {
+            LocalInferenceEngineState.READY
+        } else {
+            LocalInferenceEngineState.ERROR
+        },
+        response = preservedPartialResponse ?: GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
         trace = LocalInferenceTrace(
             localModelDisplayName = modelResolution.displayName,
             mediaPipeProbeModelPath = modelResolution.modelPath,
@@ -11790,9 +11799,17 @@ private fun buildGpuExperimentalTimeoutRunResult(
             genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
             requestedPreferredBackend = "GPU",
             appliedPreferredBackend = "GPU",
-            preferredBackendApplyResult = "timeout",
+            preferredBackendApplyResult = if (preservedPartialResponse != null) {
+                "timeout-partial-output-preserved"
+            } else {
+                "timeout"
+            },
             preferredBackendHookReached = false,
-            preferredBackendHookSource = "gpu-experimental-timeout",
+            preferredBackendHookSource = if (preservedPartialResponse != null) {
+                "gpu-experimental-timeout-partial"
+            } else {
+                "gpu-experimental-timeout"
+            },
             localFailureDiagnosticsText = diagnosticsText,
         ),
     )

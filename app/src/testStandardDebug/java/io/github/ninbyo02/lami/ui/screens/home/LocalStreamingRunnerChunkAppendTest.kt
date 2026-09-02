@@ -75,7 +75,7 @@ class LocalStreamingRunnerChunkAppendTest {
         )
 
         assertEquals(GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE, defaultConfig.experimentMode)
-        assertEquals("1024", defaultConfig.maxTokens)
+        assertEquals("512", defaultConfig.maxTokens)
         assertEquals("4096", defaultConfig.edgeGalleryAllowlistMaxTokens)
         assertEquals("differs_from_edge_gallery_e2b_allowlist", defaultConfig.maxTokensAlignment)
         assertEquals("true", defaultConfig.samplerConfigEnabled)
@@ -132,7 +132,7 @@ class LocalStreamingRunnerChunkAppendTest {
             ),
             ExpectedConfig(
                 mode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
-                maxTokens = "1024",
+                maxTokens = "512",
                 samplerEnabled = "false",
                 samplerPolicy = "conversation_config_without_sampler",
                 cacheDir = "null",
@@ -141,7 +141,7 @@ class LocalStreamingRunnerChunkAppendTest {
             ),
             ExpectedConfig(
                 mode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
-                maxTokens = "1024",
+                maxTokens = "512",
                 samplerEnabled = "true",
                 samplerPolicy = "gallery_sampler_config",
                 cacheDir = cacheDirPath,
@@ -150,7 +150,7 @@ class LocalStreamingRunnerChunkAppendTest {
             ),
             ExpectedConfig(
                 mode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
-                maxTokens = "1024",
+                maxTokens = "512",
                 samplerEnabled = "false",
                 samplerPolicy = "cache_dir_probe_without_sampler",
                 cacheDir = cacheDirPath,
@@ -159,7 +159,7 @@ class LocalStreamingRunnerChunkAppendTest {
             ),
             ExpectedConfig(
                 mode = GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
-                maxTokens = "1024",
+                maxTokens = "512",
                 samplerEnabled = "false",
                 samplerPolicy = "cache_dir_probe_without_sampler",
                 cacheDir = "null",

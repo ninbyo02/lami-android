@@ -377,6 +377,20 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
     }
 
     @Test
+    fun `callback accumulator preserves consecutive identical chunks`() {
+        val accumulator = CallbackObservationAccumulator()
+
+        accumulator.onMessage("Text", "alpha ", 1L)
+        accumulator.onMessage("Text", "alpha ", 2L)
+        accumulator.onDone()
+
+        val snapshot = accumulator.snapshot()
+        assertEquals("alpha alpha ", snapshot.rawOutput)
+        assertEquals(2, snapshot.emitCount)
+        assertEquals(2, snapshot.nonemptyEmitCount)
+    }
+
+    @Test
     fun `callback accumulator freezes the first terminal snapshot and ignores late callbacks`() {
         val accumulator = CallbackObservationAccumulator()
         accumulator.onMessage("Text", "before", 7L)

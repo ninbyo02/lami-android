@@ -258,7 +258,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_engine_config_backend=GPU"))
         assertTrue(text.contains("gpu_engine_config_vision_backend=null"))
         assertTrue(text.contains("gpu_engine_config_audio_backend=null"))
-        assertTrue(text.contains("gpu_engine_config_max_tokens=1024"))
+        assertTrue(text.contains("gpu_engine_config_max_tokens=512"))
         assertTrue(text.contains("gpu_engine_initialize_call_state=not_reached_engine_constructor_pending"))
         assertTrue(text.contains("gpu_timeout_checkpoint=engine_constructor"))
         assertTrue(text.contains("generate_call_started_at_elapsed_ms=unavailable"))
