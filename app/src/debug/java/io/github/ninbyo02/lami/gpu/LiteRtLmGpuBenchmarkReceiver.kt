@@ -51,6 +51,8 @@ internal enum class BenchmarkBackendVariant(
 ) {
     GPU("gpu", "GPU", "explicit_gpu"),
     CPU("cpu", "CPU", "explicit_cpu"),
+    CPU_NULL_MODALITIES("cpu-null-modalities", "CPU", "explicit_cpu_null_modalities"),
+    CPU_GALLERY_PARITY("cpu-gallery-parity", "CPU", "cpu_gallery_parity"),
     AUTOMATIC("automatic", "Automatic", "automatic"),
     GPU_NULL_MODALITIES("gpu-null-modalities", "GPU", "explicit_gpu_null_modalities"),
     GPU_CPU_MODALITIES("gpu-cpu-modalities", "GPU", "explicit_gpu_cpu_modalities"),
@@ -1671,12 +1673,14 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val cacheDir = when (backendVariant) {
             BenchmarkBackendVariant.GPU,
             BenchmarkBackendVariant.CPU,
+            BenchmarkBackendVariant.CPU_NULL_MODALITIES,
             BenchmarkBackendVariant.GPU_NULL_MODALITIES,
             BenchmarkBackendVariant.GPU_CPU_MODALITIES,
             BenchmarkBackendVariant.GPU_CACHE_DIR,
             BenchmarkBackendVariant.GPU_NULL_MAX,
             BenchmarkBackendVariant.GPU_ALL -> cacheDirPath
             BenchmarkBackendVariant.AUTOMATIC,
+            BenchmarkBackendVariant.CPU_GALLERY_PARITY,
             BenchmarkBackendVariant.GALLERY_CHAT_PARITY -> null
         }
         return when (backendVariant) {
@@ -1701,6 +1705,28 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 audioBackendLabel = "CPU",
                 maxNumTokens = maxOutputTokens,
                 cacheDir = cacheDir,
+            )
+
+            BenchmarkBackendVariant.CPU_NULL_MODALITIES -> EngineConfigParts(
+                backend = Backend.CPU(),
+                engineBackendLabel = "CPU",
+                visionBackend = null,
+                visionBackendLabel = "null",
+                audioBackend = null,
+                audioBackendLabel = "null",
+                maxNumTokens = maxOutputTokens,
+                cacheDir = cacheDir,
+            )
+
+            BenchmarkBackendVariant.CPU_GALLERY_PARITY -> EngineConfigParts(
+                backend = Backend.CPU(),
+                engineBackendLabel = "CPU",
+                visionBackend = null,
+                visionBackendLabel = "null",
+                audioBackend = null,
+                audioBackendLabel = "null",
+                maxNumTokens = maxOutputTokens,
+                cacheDir = null,
             )
 
             BenchmarkBackendVariant.GPU_NULL_MODALITIES -> EngineConfigParts(

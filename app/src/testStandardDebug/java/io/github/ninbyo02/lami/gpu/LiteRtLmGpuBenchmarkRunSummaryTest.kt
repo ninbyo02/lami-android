@@ -89,6 +89,38 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
     }
 
     @Test
+    fun `CPU null modalities variant isolates text backend`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_NULL_MODALITIES,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertNull(configParts.visionBackend)
+        assertNull(configParts.audioBackend)
+        assertEquals("null", configParts.visionBackendLabel)
+        assertEquals("null", configParts.audioBackendLabel)
+        assertEquals(32, configParts.maxNumTokens)
+        assertEquals("/cache", configParts.cacheDir)
+    }
+
+    @Test
+    fun `CPU Gallery parity variant also removes cache dir`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_GALLERY_PARITY,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertNull(configParts.visionBackend)
+        assertNull(configParts.audioBackend)
+        assertNull(configParts.cacheDir)
+        assertEquals(32, configParts.maxNumTokens)
+    }
+
+    @Test
     fun `summary counts generic fallback automatic 20 run result`() {
         val rows = List(20) { successRow(backendVariant = BenchmarkBackendVariant.AUTOMATIC) }
 

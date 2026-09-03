@@ -1458,13 +1458,25 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `Hello と World の境界では最小 join を入れる`() {
+    fun `ASCII callback chunksには推測した空白を挿入しない`() {
         val builder = StringBuilder("Hello")
 
         val join = appendStreamingChunk(builder, "World")
 
-        assertEquals(" ", join)
-        assertEquals("Hello World", builder.toString())
+        assertEquals("", join)
+        assertEquals("HelloWorld", builder.toString())
+    }
+
+    @Test
+    fun `英単語のsubword callback chunksを壊さず連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        listOf("RE", "COVER", "ED").forEach { chunk ->
+            appendStreamingChunk(builder, chunk, context)
+        }
+
+        assertEquals("RECOVERED", builder.toString())
     }
 
     @Test
