@@ -8,5 +8,8 @@
                 <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name="io.github.ninbyo02.lami.gpu.GpuProductRouteSetupReceiver"
+            android:exported="true" />
     </application>
 </manifest>
