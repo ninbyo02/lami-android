@@ -53,6 +53,8 @@ internal enum class BenchmarkBackendVariant(
     CPU("cpu", "CPU", "explicit_cpu"),
     CPU_NULL_MODALITIES("cpu-null-modalities", "CPU", "explicit_cpu_null_modalities"),
     CPU_GALLERY_PARITY("cpu-gallery-parity", "CPU", "cpu_gallery_parity"),
+    CPU_PRODUCT_MIXED("cpu-product-mixed", "CPU", "explicit_cpu_product_mixed"),
+    CPU_PRODUCT_DEFAULT("cpu-product-default", "CPU", "explicit_cpu_product_mixed_default_max"),
     AUTOMATIC("automatic", "Automatic", "automatic"),
     GPU_NULL_MODALITIES("gpu-null-modalities", "GPU", "explicit_gpu_null_modalities"),
     GPU_CPU_MODALITIES("gpu-cpu-modalities", "GPU", "explicit_gpu_cpu_modalities"),
@@ -1674,6 +1676,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             BenchmarkBackendVariant.GPU,
             BenchmarkBackendVariant.CPU,
             BenchmarkBackendVariant.CPU_NULL_MODALITIES,
+            BenchmarkBackendVariant.CPU_PRODUCT_MIXED,
+            BenchmarkBackendVariant.CPU_PRODUCT_DEFAULT,
             BenchmarkBackendVariant.GPU_NULL_MODALITIES,
             BenchmarkBackendVariant.GPU_CPU_MODALITIES,
             BenchmarkBackendVariant.GPU_CACHE_DIR,
@@ -1727,6 +1731,28 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 audioBackendLabel = "null",
                 maxNumTokens = maxOutputTokens,
                 cacheDir = null,
+            )
+
+            BenchmarkBackendVariant.CPU_PRODUCT_MIXED -> EngineConfigParts(
+                backend = Backend.CPU(),
+                engineBackendLabel = "CPU",
+                visionBackend = Backend.GPU(),
+                visionBackendLabel = "GPU",
+                audioBackend = Backend.CPU(),
+                audioBackendLabel = "CPU",
+                maxNumTokens = maxOutputTokens,
+                cacheDir = cacheDir,
+            )
+
+            BenchmarkBackendVariant.CPU_PRODUCT_DEFAULT -> EngineConfigParts(
+                backend = Backend.CPU(),
+                engineBackendLabel = "CPU",
+                visionBackend = Backend.GPU(),
+                visionBackendLabel = "GPU",
+                audioBackend = Backend.CPU(),
+                audioBackendLabel = "CPU",
+                maxNumTokens = null,
+                cacheDir = cacheDir,
             )
 
             BenchmarkBackendVariant.GPU_NULL_MODALITIES -> EngineConfigParts(
@@ -2044,7 +2070,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             "カレーの材料を箇条書きで教えて",
         )
         private val DEFAULT_MAX_OUTPUT_TOKENS = listOf(32, 64, 128, 256)
-        private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 22400, 24576, 28800, 30400, 32768, 32769, 65536, 131072, 262144, 524288, 1048576)
+        private val GPU_TOKEN_PROBE_MAX_OUTPUT_TOKENS_ALLOWLIST = setOf(16, 32, 64, 128, 256, 512, 1024, 2048, 4000, 4096, 8192, 16384, 22400, 24576, 28800, 30400, 32768, 32769, 32000, 65536, 131072, 262144, 524288, 1048576)
         private val FINISH_REASON_METHODS = listOf("getFinishReason", "finishReason", "getDoneReason", "doneReason")
         private val STOP_REASON_METHODS = listOf("getStopReason", "stopReason", "getStop", "stop")
         private val running = AtomicBoolean(false)

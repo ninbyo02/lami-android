@@ -121,6 +121,36 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
     }
 
     @Test
+    fun `CPU product mixed variant retains explicit max`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_PRODUCT_MIXED,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertEquals("GPU", configParts.visionBackendLabel)
+        assertEquals("CPU", configParts.audioBackendLabel)
+        assertEquals("/cache", configParts.cacheDir)
+        assertEquals(32, configParts.maxNumTokens)
+    }
+
+    @Test
+    fun `CPU product default variant matches prior successful route`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_PRODUCT_DEFAULT,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertEquals("GPU", configParts.visionBackendLabel)
+        assertEquals("CPU", configParts.audioBackendLabel)
+        assertEquals("/cache", configParts.cacheDir)
+        assertNull(configParts.maxNumTokens)
+    }
+
+    @Test
     fun `summary counts generic fallback automatic 20 run result`() {
         val rows = List(20) { successRow(backendVariant = BenchmarkBackendVariant.AUTOMATIC) }
 
