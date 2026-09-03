@@ -19,7 +19,7 @@ artifact_dir="artifacts/gpu-token-stage-${tokens}-${prompt_mode}"
 summary="${artifact_dir}/summary.tsv"
 
 case "${tokens}" in
-  32|64|128|256|512|1024|2048|4096) ;;
+  32|64|128|256|512|640|768|800|832|864|896|1024|2048|4096) ;;
   *) echo "unsupported token stage: ${tokens}" >&2; exit 2 ;;
 esac
 [[ "${runs}" =~ ^[1-9][0-9]*$ ]] || { echo "invalid runs: ${runs}" >&2; exit 2; }
@@ -68,6 +68,8 @@ for run in $(seq 1 "${runs}"); do
   fi
   if [[ "${status}" != "success" || "${fallback_count:-1}" != "0" || "${timeout_count:-1}" != "0" ]]; then
     failures=$((failures + 1))
+    echo "stopping_after_first_failure run=${run} status=${status}"
+    break
   fi
 done
 
