@@ -60,6 +60,54 @@ import java.net.URLEncoder
 import java.util.Locale
 data class ModelInfo(val name: String)
 
+data class RemoteModelsResult(
+    val models: List<ModelInfo>,
+    val provider: RemoteProvider,
+)
+
+internal fun remoteProviderCandidates(preferredProvider: RemoteProvider): List<RemoteProvider> =
+    listOf(
+        preferredProvider,
+        RemoteProvider.LEMONADE,
+        RemoteProvider.OLLAMA,
+        RemoteProvider.OPENAI_COMPATIBLE,
+    ).distinct()
+
+internal fun discoverRemoteModels(
+    preferredProvider: RemoteProvider,
+    fetchModels: (RemoteProvider) -> List<ModelInfo>,
+): RemoteModelsResult {
+    val failures = mutableListOf<String>()
+    remoteProviderCandidates(preferredProvider).forEach { candidate ->
+        try {
+            return RemoteModelsResult(
+                models = fetchModels(candidate),
+                provider = candidate,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            val detail = Regex("""HTTP \d+""")
+                .find(error.message.orEmpty())
+                ?.value
+                ?: error::class.simpleName
+                ?: "unknown error"
+            failures += "${candidate.displayName}: $detail"
+        }
+    }
+    throw IOException(
+        "モデルAPI形式を自動判定できませんでした (${failures.joinToString()})",
+    )
+}
+
+internal fun discoverAvailableModelsFromServer(
+    baseUrl: String,
+    preferredProvider: RemoteProvider,
+): RemoteModelsResult =
+    discoverRemoteModels(preferredProvider) { candidate ->
+        fetchAvailableModelsFromServer(baseUrl, candidate)
+    }
+
 private const val DEFAULT_LEMONADE_UNLOAD_EVENT_URL = ""
 
 internal fun fetchAvailableModelsFromServer(
@@ -274,8 +322,8 @@ class OllamaViewModel(
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
-    private val availableModelsFetcher: suspend (String, RemoteProvider) -> List<ModelInfo> = { baseUrl, provider ->
-        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl, provider) }
+    private val availableModelsFetcher: suspend (String, RemoteProvider) -> RemoteModelsResult = { baseUrl, provider ->
+        withContext(Dispatchers.IO) { discoverAvailableModelsFromServer(baseUrl, provider) }
     },
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
@@ -1693,9 +1741,18 @@ class OllamaViewModel(
                 return@launch
             }
             try {
-                val models = availableModelsFetcher(baseUrl, remoteProvider)
-                _availableModels.value = models
-                refreshSelectedModel(models)
+                val discovery = availableModelsFetcher(baseUrl, remoteProvider)
+                if (discovery.provider != remoteProvider) {
+                    Log.i(
+                        "RemoteProvider",
+                        "Recovered provider mismatch for ${URL(baseUrl).host}: " +
+                            "${remoteProvider.displayName} -> ${discovery.provider.displayName}",
+                    )
+                    remoteProvider = discovery.provider
+                    settingsPreferences.saveRemoteProvider(discovery.provider)
+                }
+                _availableModels.value = discovery.models
+                refreshSelectedModel(discovery.models)
                 _uiState.value = UiState.Initial
             } catch (e: Exception) {
                 Log.e("OllamaError", "Error loading models: ${e.message}")
