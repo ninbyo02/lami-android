@@ -465,7 +465,15 @@ fun LamiAvatar(
                     if (modelListMessage != null) {
                         item { Text(modelListMessage) }
                     } else if (filteredModels.isEmpty()) {
-                        item { Text("モデルを取得できませんでした") }
+                        item {
+                            Text(
+                                if (availableModels.isEmpty()) {
+                                    "モデルを取得できませんでした"
+                                } else {
+                                    "検索条件に一致するモデルがありません"
+                                }
+                            )
+                        }
                     } else {
                         items(filteredModels, key = { model -> model.name }) { model ->
                             Row(
@@ -580,28 +588,30 @@ internal fun resolveLamiControlUiText(
         )
     }
 
-    val connectionLabel = when (lamiStatus) {
-        LamiStatus.CONNECTING -> "接続中"
-        LamiStatus.READY,
-        LamiStatus.TALKING,
-        LamiStatus.NO_MODELS -> "接続OK"
-        LamiStatus.DEGRADED,
-        LamiStatus.OFFLINE,
-        LamiStatus.ERROR -> "接続失敗"
+    val hasAvailableModels = availableModels.isNotEmpty()
+    val connectionFailed = !hasAvailableModels && (
+        lamiStatus == LamiStatus.DEGRADED ||
+            lamiStatus == LamiStatus.OFFLINE ||
+            lamiStatus == LamiStatus.ERROR
+        )
+    val connectionLabel = when {
+        hasAvailableModels -> "接続OK"
+        lamiStatus == LamiStatus.CONNECTING -> "接続中"
+        lamiStatus == LamiStatus.READY ||
+            lamiStatus == LamiStatus.TALKING ||
+            lamiStatus == LamiStatus.NO_MODELS -> "接続OK"
+        else -> "接続失敗"
     }
-    val connectionFailed = lamiStatus == LamiStatus.DEGRADED ||
-        lamiStatus == LamiStatus.OFFLINE ||
-        lamiStatus == LamiStatus.ERROR
     return LamiControlUiText(
         connectionLabel = connectionLabel,
         destinationLabel = normalizedBaseUrl,
         modelListTitle = "利用可能なモデル",
         modelListMessage = when {
-            connectionFailed -> "モデルを取得できませんでした"
-            availableModels.isEmpty() -> "モデルを取得できませんでした"
-            else -> null
+            hasAvailableModels -> null
+            lamiStatus == LamiStatus.NO_MODELS -> "利用可能なモデルがありません"
+            else -> "モデルを取得できませんでした"
         },
-        showModelSearch = !connectionFailed && availableModels.isNotEmpty(),
+        showModelSearch = hasAvailableModels,
         showSettingsButton = connectionFailed,
     )
 }
