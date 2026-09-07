@@ -31,7 +31,7 @@ class NormalChatGpuDiagnosticsTest {
             },
             diagnostics.maxTokensAlignment,
         )
-        if (diagnostics.maxTokens == "1024") {
+        if (diagnostics.maxTokens == GPU_PRODUCT_SAFE_MAX_TOKENS.toString()) {
             assertEquals("differs_from_edge_gallery_e2b_allowlist", diagnostics.maxTokensAlignment)
         }
         assertEquals(

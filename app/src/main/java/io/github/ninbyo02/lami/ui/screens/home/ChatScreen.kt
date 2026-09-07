@@ -7483,6 +7483,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
                                                                     )
+                                                                    val latestHeldPartialText = AtomicReference<String?>(null)
                                                                     suspend fun runHeldEngineForRun(): HeldEngineRunResult? {
                                                                         lastRouteDiagnosticStage.set("conversation_create_started")
                                                                         return runWithHeldEngine(
@@ -7544,6 +7545,7 @@ fun Home(
                                                                                 normalized = normalizedPartial,
                                                                             )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
+                                                                            latestHeldPartialText.set(normalizedPartial)
                                                                             coroutineScope.launch {
                                                                                 if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
@@ -7620,6 +7622,7 @@ fun Home(
                                                                                     failureStage = failureStage,
                                                                                     staleCallbackIgnored = false,
                                                                                 ),
+                                                                                partialResponse = latestHeldPartialText.get(),
                                                                             )
                                                                         }
                                                                         runOperation.value
@@ -8259,6 +8262,16 @@ fun Home(
                                                                 ?.takeIf { it.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE }
                                                             val timeoutFailureRunResult = runResultWithUiTrace
                                                                 ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
+                                                            val gpuTimeoutPartialPreserved =
+                                                                runResultWithUiTrace?.let { result ->
+                                                                    isGpuTimeoutPartialPreservedFailure(
+                                                                        isErrorState =
+                                                                            result.state == LocalInferenceEngineState.ERROR,
+                                                                        response = result.response,
+                                                                        preferredBackendApplyResult =
+                                                                            result.trace.preferredBackendApplyResult,
+                                                                    )
+                                                                } == true
                                                             val rawCallbackProbeSucceeded = rawCallbackProbeRunResult != null
                                                             val localFailureStatus = if (rawCallbackProbeSucceeded) {
                                                                 "diagnostic_success"
@@ -8267,7 +8280,10 @@ fun Home(
                                                             }
                                                             val localFailureReason = when {
                                                                 rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
-                                                                recheckedTimedOut -> "local_inference_timeout"
+                                                                gpuTimeoutPartialPreserved ->
+                                                                    "local_inference_timeout_partial_preserved"
+                                                                recheckedTimedOut || timeoutFailureRunResult != null ->
+                                                                    "local_inference_timeout"
                                                                 resolvedState == LocalInferenceEngineState.UNINITIALIZED -> "local_model_uninitialized"
                                                                 resolvedState == LocalInferenceEngineState.READY -> "local_response_blank"
                                                                 else -> "local_inference_failure"
@@ -8282,7 +8298,7 @@ fun Home(
                                                                     reason = localFailureReason,
                                                                     failureStage = when {
                                                                         rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
-                                                                        recheckedTimedOut -> "timeout"
+                                                                        recheckedTimedOut || timeoutFailureRunResult != null -> "timeout"
                                                                         else -> null
                                                                     },
                                                                     routeContext = localRouteDiagnosticContext,
@@ -8343,17 +8359,22 @@ fun Home(
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                             }
                                                             snackbarHostState.showSnackbar(
-                                                                message = when (resolvedState) {
-                                                                    null -> "ローカル推論エンジンの確認がタイムアウトしました"
-                                                                    LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
-                                                                    LocalInferenceEngineState.UNINITIALIZED ->
+                                                                message = when {
+                                                                    gpuTimeoutPartialPreserved ->
+                                                                        "GPU推論がタイムアウトしたため、途中までの応答を保存しました"
+                                                                    resolvedState == null ->
+                                                                        "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                    resolvedState == LocalInferenceEngineState.READY ->
+                                                                        "ローカル推論の応答取得に失敗しました"
+                                                                    resolvedState == LocalInferenceEngineState.UNINITIALIZED ->
                                                                         missingLocalModelMessageForBackend(
                                                                             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             displayName = selectedLocalModelDisplayName,
                                                                             filePath = selectedLocalModelFilePath,
                                                                         )
-                                                                    LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
-                                                                    LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
+                                                                    resolvedState == LocalInferenceEngineState.ERROR ->
+                                                                        "ローカル推論の応答取得に失敗しました"
+                                                                    else -> "ローカル推論エンジンを準備中です"
                                                                 },
                                                                 duration = SnackbarDuration.Short,
                                                             )
@@ -11772,7 +11793,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
     failureStage: String,
     elapsedMs: Long,
     progressFlags: LocalRouteDiagnosticFlags? = null,
+    partialResponse: String? = null,
 ): LocalInferenceRunResult {
+    val preservedPartialResponse = partialResponse?.takeIf { it.isNotBlank() }
     val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
         context = context,
         failureStage = failureStage,
@@ -11780,8 +11803,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
         progressFlags = progressFlags,
     )
     return LocalInferenceRunResult(
+        // Preserve useful text, but never classify an incomplete timeout as success.
         state = LocalInferenceEngineState.ERROR,
-        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        response = preservedPartialResponse ?: GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
         trace = LocalInferenceTrace(
             localModelDisplayName = modelResolution.displayName,
             mediaPipeProbeModelPath = modelResolution.modelPath,
@@ -11790,9 +11814,17 @@ private fun buildGpuExperimentalTimeoutRunResult(
             genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
             requestedPreferredBackend = "GPU",
             appliedPreferredBackend = "GPU",
-            preferredBackendApplyResult = "timeout",
+            preferredBackendApplyResult = if (preservedPartialResponse != null) {
+                GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT
+            } else {
+                "timeout"
+            },
             preferredBackendHookReached = false,
-            preferredBackendHookSource = "gpu-experimental-timeout",
+            preferredBackendHookSource = if (preservedPartialResponse != null) {
+                "gpu-experimental-timeout-partial"
+            } else {
+                "gpu-experimental-timeout"
+            },
             localFailureDiagnosticsText = diagnosticsText,
         ),
     )
@@ -12108,6 +12140,18 @@ private fun Map<String, String>.diagnosticInt(key: String): Int? =
 private fun Map<String, String>.diagnosticLong(key: String): Long? =
     diagnosticString(key)?.toLongOrNull()
 
+internal const val GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT =
+    "timeout-partial-output-preserved"
+
+internal fun isGpuTimeoutPartialPreservedFailure(
+    isErrorState: Boolean,
+    response: String?,
+    preferredBackendApplyResult: String?,
+): Boolean =
+    isErrorState &&
+        !response.isNullOrBlank() &&
+        preferredBackendApplyResult == GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT
+
 private fun shouldInsertLocalFailureAssistantMessage(
     runResult: LocalInferenceRunResult?,
 ): Boolean =
@@ -12115,7 +12159,12 @@ private fun shouldInsertLocalFailureAssistantMessage(
         (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
             runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
             runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE ||
-            runResult.response == GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE)
+            runResult.response == GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE ||
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = runResult.response,
+                preferredBackendApplyResult = runResult.trace.preferredBackendApplyResult,
+            ))
 
 private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
     text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||

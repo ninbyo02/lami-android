@@ -258,7 +258,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_engine_config_backend=GPU"))
         assertTrue(text.contains("gpu_engine_config_vision_backend=null"))
         assertTrue(text.contains("gpu_engine_config_audio_backend=null"))
-        assertTrue(text.contains("gpu_engine_config_max_tokens=1024"))
+        assertTrue(text.contains("gpu_engine_config_max_tokens=512"))
         assertTrue(text.contains("gpu_engine_initialize_call_state=not_reached_engine_constructor_pending"))
         assertTrue(text.contains("gpu_timeout_checkpoint=engine_constructor"))
         assertTrue(text.contains("generate_call_started_at_elapsed_ms=unavailable"))
@@ -3392,6 +3392,46 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 processPid = "1234",
             ),
         )
+
+    @Test
+    fun `GPU timeout with partial output remains a failure`() {
+        assertTrue(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = "途中まで生成された応答",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU timeout partial marker cannot turn READY into a failure result`() {
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = false,
+                response = "complete-looking but timed-out response",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU timeout partial failure requires non-blank output and marker`() {
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = " ",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = "partial",
+                preferredBackendApplyResult = "timeout",
+            ),
+        )
+    }
 
     private fun assertQairt244GpuNativeMarkerBridgeFieldsPresent(text: String) {
         assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
