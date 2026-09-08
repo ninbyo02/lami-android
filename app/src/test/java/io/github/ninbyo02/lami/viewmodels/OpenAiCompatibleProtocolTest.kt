@@ -213,6 +213,46 @@ class OpenAiCompatibleProtocolTest {
     }
 
     @Test
+    fun `remote chat estimates conservatively and reserves output context`() {
+        assertEquals(2, estimateRemoteChatContentTokens("abcd"))
+        assertEquals(2, estimateRemoteChatContentTokens("あ"))
+        assertEquals(6_144, remoteChatInputTokenBudget(null))
+        assertEquals(3_072, remoteChatInputTokenBudget(4_096))
+    }
+
+    @Test
+    fun `remote chat token budget keeps newest complete turn`() {
+        val messages = buildRemoteChatMessages(
+            history = listOf(
+                Message(chatId = 10, message = "a".repeat(20), isSendbyMe = true),
+                Message(chatId = 10, message = "b".repeat(20), isSendbyMe = false),
+                Message(chatId = 10, message = "c".repeat(20), isSendbyMe = true),
+                Message(chatId = 10, message = "d".repeat(20), isSendbyMe = false),
+            ),
+            currentContent = "now",
+            contextWindow = 96,
+        )
+
+        assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
+        assertEquals(listOf("c".repeat(20), "d".repeat(20), "now"), messages.map { it.content })
+    }
+
+    @Test
+    fun `remote chat never sends orphan assistant when its user exceeds budget`() {
+        val messages = buildRemoteChatMessages(
+            history = listOf(
+                Message(chatId = 11, message = "u".repeat(40), isSendbyMe = true),
+                Message(chatId = 11, message = "short", isSendbyMe = false),
+            ),
+            currentContent = "now",
+            contextWindow = 48,
+        )
+
+        assertEquals(listOf("user"), messages.map { it.role })
+        assertEquals(listOf("now"), messages.map { it.content })
+    }
+
+    @Test
     fun `OpenAI compatible request sends the same structured history without templates`() {
         val json = JSONObject(
             buildOpenAiCompatibleChatRequestJson(
