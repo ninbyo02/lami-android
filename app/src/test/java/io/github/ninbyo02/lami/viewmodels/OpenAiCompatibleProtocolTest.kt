@@ -1,5 +1,9 @@
 package io.github.ninbyo02.lami.viewmodels
 
+import com.google.gson.Gson
+import io.github.ninbyo02.lami.api.OllamaApiService
+import io.github.ninbyo02.lami.api.OllamaChatMessage
+import io.github.ninbyo02.lami.api.OllamaRequest
 import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
 
 import org.junit.Assert.assertEquals
@@ -11,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import retrofit2.http.POST
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
@@ -100,5 +105,61 @@ class OpenAiCompatibleProtocolTest {
         assertEquals("lami-android", payload.getString("source"))
     }
 
+    @Test
+    fun `Ollama streaming uses chat endpoint`() {
+        val method = OllamaApiService::class.java.getMethod(
+            "generateTextStream",
+            OllamaRequest::class.java,
+        )
 
+        assertEquals("api/chat", method.getAnnotation(POST::class.java)?.value)
+    }
+
+    @Test
+    fun `Ollama request sends structured user message and no app template`() {
+        val request = OllamaRequest(
+            model = "qwen3.8:27b",
+            messages = listOf(
+                OllamaChatMessage(
+                    role = "user",
+                    content = "画像を説明して",
+                    images = listOf("base64-image"),
+                ),
+            ),
+            stream = true,
+        )
+
+        val json = JSONObject(Gson().toJson(request))
+        val message = json.getJSONArray("messages").getJSONObject(0)
+
+        assertEquals("qwen3.8:27b", json.getString("model"))
+        assertTrue(json.getBoolean("stream"))
+        assertEquals("user", message.getString("role"))
+        assertEquals("画像を説明して", message.getString("content"))
+        assertEquals("base64-image", message.getJSONArray("images").getString(0))
+        listOf("prompt", "template", "chat_template", "raw").forEach { forbidden ->
+            assertFalse("Ollama request must not contain app-owned field: $forbidden", json.has(forbidden))
+        }
+    }
+
+    @Test
+    fun `Ollama chat response maps assistant message content`() {
+        val response = Gson().fromJson(
+            """{"message":{"role":"assistant","content":"こんにちは。"}}""",
+            io.github.ninbyo02.lami.api.OllamaResponse::class.java,
+        )
+
+        assertEquals("assistant", response.message.role)
+        assertEquals("こんにちは。", response.message.content)
+        assertNull(response.message.images)
+    }
+
+    @Test
+    fun `Ollama chat stream extracts message content`() {
+        val chunk = JSONObject(
+            """{"model":"qwen3.8:27b","message":{"role":"assistant","content":"了解"},"done":false}""",
+        )
+
+        assertEquals("了解", parseOllamaChatAssistantContent(chunk))
+    }
 }
