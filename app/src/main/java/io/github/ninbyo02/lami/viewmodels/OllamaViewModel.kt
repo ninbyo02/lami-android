@@ -9,6 +9,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.ninbyo02.lami.UiState
+import io.github.ninbyo02.lami.api.OllamaChatMessage
 import io.github.ninbyo02.lami.api.OllamaRequest
 import io.github.ninbyo02.lami.api.RetrofitClient
 import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
@@ -266,6 +267,11 @@ internal fun unloadLemonadeModelFromServer(
         connection.disconnect()
     }
 }
+
+internal fun parseOllamaChatAssistantContent(json: JSONObject): String? =
+    json.optJSONObject("message")
+        ?.optString("content")
+        ?.takeIf { it.isNotEmpty() }
 
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
@@ -634,9 +640,14 @@ class OllamaViewModel(
             }
             val request = OllamaRequest(
                 model = model.toString(),
-                prompt = effectivePrompt,
+                messages = listOf(
+                    OllamaChatMessage(
+                        role = "user",
+                        content = effectivePrompt,
+                        images = encodedImages.ifEmpty { null },
+                    ),
+                ),
                 stream = true,
-                images = encodedImages.ifEmpty { null },
             )
             val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
             val contextWindowFetchState = resolveContextWindowFetchState(model)
@@ -1632,9 +1643,7 @@ class OllamaViewModel(
         val json = runCatching { JSONObject(line) }
             .getOrElse { throw IOException("Failed to parse streaming chunk: $line") }
         val responseText = json.optString("response").takeIf { it.isNotEmpty() }
-        val messageText = json.optJSONObject("message")
-            ?.optString("content")
-            ?.takeIf { it.isNotEmpty() }
+        val messageText = parseOllamaChatAssistantContent(json)
         return StreamChunk(
             text = responseText ?: messageText,
             done = json.optBoolean("done", false),

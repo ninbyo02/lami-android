@@ -8,29 +8,33 @@ import retrofit2.http.GET
 import retrofit2.http.Streaming
 import okhttp3.ResponseBody
 
-// Define the request body model
-data class OllamaRequest(
-    val model: String,
-    val prompt: String,
-    val stream: Boolean = false,
+// Ollama owns chat-template evaluation. The app supplies structured messages only.
+data class OllamaChatMessage(
+    val role: String,
+    val content: String,
     val images: List<String>? = null,
 )
 
-// Define the response model
+data class OllamaRequest(
+    val model: String,
+    val messages: List<OllamaChatMessage>,
+    val stream: Boolean = false,
+)
+
 data class OllamaResponse(
-    val response: String
+    val message: OllamaChatMessage,
 )
 
 // Retrofit API interface
 interface OllamaApiService {
     @Headers("Content-Type: application/json")
-    @POST("api/generate")
+    @POST("api/chat")
     fun generateText(@Body request: OllamaRequest): Call<OllamaResponse>
 
 
     @Streaming
     @Headers("Content-Type: application/json")
-    @POST("api/generate")
+    @POST("api/chat")
     fun generateTextStream(@Body request: OllamaRequest): Call<ResponseBody>
 
     @GET("/api/tags") // Adjust the path as needed
