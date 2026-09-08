@@ -15,6 +15,7 @@ import io.github.ninbyo02.lami.api.RetrofitClient
 import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
 import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.db.repository.ChatRepository
 import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
@@ -315,6 +316,56 @@ internal fun unloadLemonadeModelFromServer(
         connection.disconnect()
     }
 }
+
+private const val REMOTE_CHAT_HISTORY_MESSAGE_LIMIT = 24
+
+internal fun buildRemoteChatMessages(
+    history: List<Message>,
+    currentContent: String,
+    currentImages: List<String> = emptyList(),
+    historyLimit: Int = REMOTE_CHAT_HISTORY_MESSAGE_LIMIT,
+): List<OllamaChatMessage> {
+    require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
+    val boundedHistory = history.asSequence()
+        .filter { message ->
+            message.message.isNotBlank() &&
+                (message.isSendbyMe || message.status == MessageStatus.COMPLETED)
+        }
+        .map { message ->
+            OllamaChatMessage(
+                role = if (message.isSendbyMe) "user" else "assistant",
+                content = message.message,
+            )
+        }
+        .toList()
+        .takeLast(historyLimit.coerceAtLeast(0))
+        .dropWhile { message -> message.role != "user" }
+    return boundedHistory + OllamaChatMessage(
+        role = "user",
+        content = currentContent,
+        images = currentImages.ifEmpty { null },
+    )
+}
+
+internal fun buildOpenAiCompatibleChatRequestJson(
+    model: String,
+    messages: List<OllamaChatMessage>,
+): String = JSONObject()
+    .put("model", model)
+    .put(
+        "messages",
+        JSONArray().apply {
+            messages.forEach { message ->
+                put(
+                    JSONObject()
+                        .put("role", message.role)
+                        .put("content", message.content),
+                )
+            }
+        },
+    )
+    .put("stream", true)
+    .toString()
 
 internal fun parseOllamaChatAssistantContent(json: JSONObject): String? =
     json.optJSONObject("message")
@@ -632,10 +683,11 @@ class OllamaViewModel(
         }
     }
 
-    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null, context: Context? = null, onAttachmentPrepared: ((String?) -> Unit)? = null) {
+    fun sendPrompt(prompt: String, model: String?, chatId: Int? = null, attachmentUri: Uri? = null, context: Context? = null, onAttachmentPrepared: ((String?) -> Unit)? = null) {
         sendPrompt(
             prompt = prompt,
             model = model,
+            chatId = chatId,
             attachmentUris = listOfNotNull(attachmentUri),
             context = context,
             onAttachmentPrepared = { prepared -> onAttachmentPrepared?.invoke(prepared?.firstOrNull()) },
@@ -645,6 +697,7 @@ class OllamaViewModel(
     fun sendPrompt(
         prompt: String,
         model: String?,
+        chatId: Int? = null,
         attachmentUris: List<Uri> = emptyList(),
         context: Context? = null,
         onAttachmentPrepared: ((List<String>?) -> Unit)? = null,
@@ -663,6 +716,24 @@ class OllamaViewModel(
                 encodedImages = encodedAttachments.base64Images
                 savedAttachmentUriStrings = encodedAttachments.savedUriStrings
             }
+            val effectivePrompt = if (prompt.isBlank() && attachmentUris.isNotEmpty()) {
+                "この画像について説明して。"
+            } else {
+                prompt
+            }
+            if (effectivePrompt.isBlank()) {
+                updateErrorState("Prompt is empty")
+                return@launch
+            }
+            val priorMessages = try {
+                chatId?.let { chatRepository.getMessagesSnapshot(it) }.orEmpty()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("OllamaError", "Failed to load conversation history: ${error.message}")
+                updateErrorState(error.message ?: "Failed to load conversation history")
+                return@launch
+            }
             val preparedAttachmentUris = savedAttachmentUriStrings.takeIf { it.isNotEmpty() }
             onAttachmentPrepared?.invoke(preparedAttachmentUris)
             try {
@@ -680,21 +751,14 @@ class OllamaViewModel(
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
             val generationStartedAtMs = SystemClock.elapsedRealtime()
-
-            val effectivePrompt = if (prompt.isBlank() && attachmentUris.isNotEmpty()) {
-                "この画像について説明して。"
-            } else {
-                prompt
-            }
+            val remoteMessages = buildRemoteChatMessages(
+                history = priorMessages,
+                currentContent = effectivePrompt,
+                currentImages = encodedImages,
+            )
             val request = OllamaRequest(
                 model = model.toString(),
-                messages = listOf(
-                    OllamaChatMessage(
-                        role = "user",
-                        content = effectivePrompt,
-                        images = encodedImages.ifEmpty { null },
-                    ),
-                ),
+                messages = remoteMessages,
                 stream = true,
             )
             val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
@@ -711,7 +775,7 @@ class OllamaViewModel(
                                 baseUrl = activeBaseUrl,
                                 provider = activeRemoteProvider,
                                 model = model,
-                                prompt = effectivePrompt,
+                                messages = remoteMessages,
                                 requestStartedAtMs = generationStartedAtMs,
                                 requestGeneration = requestGeneration,
                             )
@@ -964,7 +1028,7 @@ class OllamaViewModel(
         baseUrl: String,
         provider: RemoteProvider,
         model: String,
-        prompt: String,
+        messages: List<OllamaChatMessage>,
         requestStartedAtMs: Long,
         requestGeneration: Long,
     ): StreamingResult {
@@ -983,15 +1047,10 @@ class OllamaViewModel(
             if (!apiKey.isNullOrBlank()) {
                 connection.setRequestProperty("Authorization", "Bearer $apiKey")
             }
-            val requestBody = JSONObject()
-                .put("model", model)
-                .put(
-                    "messages",
-                    JSONArray()
-                        .put(JSONObject().put("role", "user").put("content", prompt)),
-                )
-                .put("stream", true)
-                .toString()
+            val requestBody = buildOpenAiCompatibleChatRequestJson(
+                model = model,
+                messages = messages,
+            )
             connection.outputStream.use { output ->
                 output.write(requestBody.toByteArray(Charsets.UTF_8))
             }

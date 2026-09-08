@@ -4,6 +4,8 @@ import com.google.gson.Gson
 import io.github.ninbyo02.lami.api.OllamaApiService
 import io.github.ninbyo02.lami.api.OllamaChatMessage
 import io.github.ninbyo02.lami.api.OllamaRequest
+import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.ui.screens.settings.LemonadeAutoUnloadMode
 
 import org.junit.Assert.assertEquals
@@ -161,5 +163,78 @@ class OpenAiCompatibleProtocolTest {
         )
 
         assertEquals("了解", parseOllamaChatAssistantContent(chunk))
+    }
+
+    @Test
+    fun `remote chat history keeps users and completed assistants only`() {
+        val messages = buildRemoteChatMessages(
+            history = listOf(
+                Message(chatId = 7, message = "最初の質問", isSendbyMe = true),
+                Message(chatId = 7, message = "最初の回答", isSendbyMe = false),
+                Message(
+                    chatId = 7,
+                    message = "失敗した途中回答",
+                    isSendbyMe = false,
+                    status = MessageStatus.FAILED,
+                ),
+                Message(
+                    chatId = 7,
+                    message = "生成途中",
+                    isSendbyMe = false,
+                    status = MessageStatus.GENERATING,
+                ),
+                Message(chatId = 7, message = "   ", isSendbyMe = true),
+            ),
+            currentContent = "続けて説明して",
+            currentImages = listOf("current-image"),
+        )
+
+        assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
+        assertEquals(listOf("最初の質問", "最初の回答", "続けて説明して"), messages.map { it.content })
+        assertNull(messages[0].images)
+        assertNull(messages[1].images)
+        assertEquals(listOf("current-image"), messages[2].images)
+    }
+
+    @Test
+    fun `remote chat history limit keeps newest history and always appends current user`() {
+        val messages = buildRemoteChatMessages(
+            history = listOf(
+                Message(chatId = 9, message = "古い質問", isSendbyMe = true),
+                Message(chatId = 9, message = "新しい質問", isSendbyMe = true),
+                Message(chatId = 9, message = "新しい回答", isSendbyMe = false),
+            ),
+            currentContent = "現在の質問",
+            historyLimit = 2,
+        )
+
+        assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
+        assertEquals(listOf("新しい質問", "新しい回答", "現在の質問"), messages.map { it.content })
+    }
+
+    @Test
+    fun `OpenAI compatible request sends the same structured history without templates`() {
+        val json = JSONObject(
+            buildOpenAiCompatibleChatRequestJson(
+                model = "Qwen3.8-27B-GGUF",
+                messages = listOf(
+                    OllamaChatMessage(role = "user", content = "質問"),
+                    OllamaChatMessage(role = "assistant", content = "回答"),
+                    OllamaChatMessage(role = "user", content = "続き", images = listOf("ollama-only")),
+                ),
+            ),
+        )
+        val messages = json.getJSONArray("messages")
+
+        assertEquals("Qwen3.8-27B-GGUF", json.getString("model"))
+        assertTrue(json.getBoolean("stream"))
+        assertEquals(3, messages.length())
+        assertEquals("user", messages.getJSONObject(0).getString("role"))
+        assertEquals("assistant", messages.getJSONObject(1).getString("role"))
+        assertEquals("続き", messages.getJSONObject(2).getString("content"))
+        assertFalse(messages.getJSONObject(2).has("images"))
+        listOf("prompt", "template", "chat_template", "raw").forEach { forbidden ->
+            assertFalse(json.has(forbidden))
+        }
     }
 }

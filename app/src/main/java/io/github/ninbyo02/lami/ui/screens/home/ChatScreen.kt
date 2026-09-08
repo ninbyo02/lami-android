@@ -4759,6 +4759,7 @@ fun Home(
                                                                 viewModel.sendPrompt(
                                                                     prompt = requestPrompt,
                                                                     model = selectedModel,
+                                                                    chatId = currentChatId,
                                                                     attachmentUris = requestAttachmentUris,
                                                                     context = context.applicationContext,
                                                                     onRequestPrepared = { savedAttachmentUriStrings ->
