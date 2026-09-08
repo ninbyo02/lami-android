@@ -322,6 +322,7 @@ private const val REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW = 8_192
 private const val REMOTE_CHAT_INPUT_BUDGET_PERCENT = 75
 private const val REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS = 4
 private const val REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS = 16
+private const val REMOTE_CHAT_IMAGE_RESERVE_TOKENS = 1_024
 
 // Ollama and OpenAI-compatible servers do not expose one shared tokenizer API.
 // UTF-8 bytes / 2 deliberately overestimates typical English and Japanese prompts.
@@ -337,8 +338,13 @@ internal fun remoteChatInputTokenBudget(contextWindow: Int?): Int {
         .toInt()
 }
 
-private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int =
-    REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS + estimateRemoteChatContentTokens(message.content)
+private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
+    val imageReserve = (message.images?.size ?: 0).toLong() * REMOTE_CHAT_IMAGE_RESERVE_TOKENS
+    val estimatedTokens = REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS.toLong() +
+        estimateRemoteChatContentTokens(message.content) +
+        imageReserve
+    return estimatedTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+}
 
 internal fun buildRemoteChatMessages(
     history: List<Message>,

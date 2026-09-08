@@ -238,6 +238,23 @@ class OpenAiCompatibleProtocolTest {
     }
 
     @Test
+    fun `remote chat reserves context for current images`() {
+        val messages = buildRemoteChatMessages(
+            history = listOf(
+                Message(chatId = 11, message = "previous", isSendbyMe = true),
+                Message(chatId = 11, message = "answer", isSendbyMe = false),
+            ),
+            currentContent = "now",
+            currentImages = listOf("base64-image"),
+            contextWindow = 1_400,
+        )
+
+        assertEquals(listOf("user"), messages.map { it.role })
+        assertEquals(listOf("now"), messages.map { it.content })
+        assertEquals(listOf("base64-image"), messages.single().images)
+    }
+
+    @Test
     fun `remote chat never sends orphan assistant when its user exceeds budget`() {
         val messages = buildRemoteChatMessages(
             history = listOf(
