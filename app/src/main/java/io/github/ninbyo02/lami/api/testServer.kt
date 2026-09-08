@@ -6,12 +6,15 @@ import retrofit2.Callback
 import retrofit2.Response
 
 fun generateOllamaText(prompt: String) {
-    val request = OllamaRequest(model = "qwen2.5-coder:0.5b", prompt = prompt)
+    val request = OllamaRequest(
+        model = "qwen2.5-coder:0.5b",
+        messages = listOf(OllamaChatMessage(role = "user", content = prompt)),
+    )
 
     RetrofitClient.instance.generateText(request).enqueue(object : Callback<OllamaResponse> {
         override fun onResponse(call: Call<OllamaResponse>, response: Response<OllamaResponse>) {
             if (response.isSuccessful) {
-                println("Generated: ${response.body()?.response}")
+                println("Generated: ${response.body()?.message?.content}")
 
             } else {
                 println("Failed: ${response.errorBody()?.string()}")

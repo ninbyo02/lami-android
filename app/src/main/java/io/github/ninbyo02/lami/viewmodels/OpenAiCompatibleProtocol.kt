@@ -10,7 +10,7 @@ enum class RemoteProvider(
     OLLAMA(
         storageValue = "ollama",
         displayName = "Ollama",
-        description = "Ollama の /api/generate と /api/tags を使います。",
+        description = "Ollama の /api/chat と /api/tags を使います。",
     ),
     OPENAI_COMPATIBLE(
         storageValue = "openai_compatible",
