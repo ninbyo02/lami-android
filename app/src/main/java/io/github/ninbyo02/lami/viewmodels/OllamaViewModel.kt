@@ -318,15 +318,43 @@ internal fun unloadLemonadeModelFromServer(
 }
 
 private const val REMOTE_CHAT_HISTORY_MESSAGE_LIMIT = 24
+private const val REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW = 8_192
+private const val REMOTE_CHAT_INPUT_BUDGET_PERCENT = 75
+private const val REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS = 4
+private const val REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS = 16
+private const val REMOTE_CHAT_IMAGE_RESERVE_TOKENS = 1_024
+
+// Ollama and OpenAI-compatible servers do not expose one shared tokenizer API.
+// UTF-8 bytes / 2 deliberately overestimates typical English and Japanese prompts.
+internal fun estimateRemoteChatContentTokens(content: String): Int =
+    ((content.toByteArray(Charsets.UTF_8).size + 1) / 2).coerceAtLeast(1)
+
+internal fun remoteChatInputTokenBudget(contextWindow: Int?): Int {
+    val effectiveContextWindow = contextWindow
+        ?.takeIf { it > 0 }
+        ?: REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW
+    return (effectiveContextWindow.toLong() * REMOTE_CHAT_INPUT_BUDGET_PERCENT / 100)
+        .coerceAtMost(Int.MAX_VALUE.toLong())
+        .toInt()
+}
+
+private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
+    val imageReserve = (message.images?.size ?: 0).toLong() * REMOTE_CHAT_IMAGE_RESERVE_TOKENS
+    val estimatedTokens = REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS.toLong() +
+        estimateRemoteChatContentTokens(message.content) +
+        imageReserve
+    return estimatedTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+}
 
 internal fun buildRemoteChatMessages(
     history: List<Message>,
     currentContent: String,
     currentImages: List<String> = emptyList(),
     historyLimit: Int = REMOTE_CHAT_HISTORY_MESSAGE_LIMIT,
+    contextWindow: Int? = null,
 ): List<OllamaChatMessage> {
     require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
-    val boundedHistory = history.asSequence()
+    val eligibleHistory = history.asSequence()
         .filter { message ->
             message.message.isNotBlank() &&
                 (message.isSendbyMe || message.status == MessageStatus.COMPLETED)
@@ -339,12 +367,30 @@ internal fun buildRemoteChatMessages(
         }
         .toList()
         .takeLast(historyLimit.coerceAtLeast(0))
-        .dropWhile { message -> message.role != "user" }
-    return boundedHistory + OllamaChatMessage(
+
+    val currentMessage = OllamaChatMessage(
         role = "user",
         content = currentContent,
         images = currentImages.ifEmpty { null },
     )
+    val inputBudget = remoteChatInputTokenBudget(contextWindow)
+    var estimatedTokens =
+        REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS + estimateRemoteChatMessageTokens(currentMessage)
+    var retainedHistoryStart = eligibleHistory.size
+
+    for (index in eligibleHistory.indices.reversed()) {
+        val nextEstimate = estimateRemoteChatMessageTokens(eligibleHistory[index])
+        if (estimatedTokens.toLong() + nextEstimate > inputBudget) {
+            break
+        }
+        estimatedTokens += nextEstimate
+        if (eligibleHistory[index].role == "user") {
+            retainedHistoryStart = index
+        }
+    }
+
+    val retainedHistory = eligibleHistory.subList(retainedHistoryStart, eligibleHistory.size)
+    return retainedHistory + currentMessage
 }
 
 internal fun buildOpenAiCompatibleChatRequestJson(
@@ -751,17 +797,18 @@ class OllamaViewModel(
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
             val generationStartedAtMs = SystemClock.elapsedRealtime()
+            val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
             val remoteMessages = buildRemoteChatMessages(
                 history = priorMessages,
                 currentContent = effectivePrompt,
                 currentImages = encodedImages,
+                contextWindow = effectiveContextWindow,
             )
             val request = OllamaRequest(
                 model = model.toString(),
                 messages = remoteMessages,
                 stream = true,
             )
-            val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
             val contextWindowFetchState = resolveContextWindowFetchState(model)
             prefetchEffectiveContextWindow(model)
 
