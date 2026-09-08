@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.api.OllamaChatMessage
+import io.github.ninbyo02.lami.api.OllamaOptions
 import io.github.ninbyo02.lami.api.OllamaRequest
 import io.github.ninbyo02.lami.api.RetrofitClient
 import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
@@ -319,24 +320,24 @@ internal fun unloadLemonadeModelFromServer(
 
 private const val REMOTE_CHAT_HISTORY_MESSAGE_LIMIT = 24
 private const val REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW = 8_192
-private const val REMOTE_CHAT_INPUT_BUDGET_PERCENT = 75
+internal const val REMOTE_CHAT_DEFAULT_MAX_OUTPUT_TOKENS = 8_192
 private const val REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS = 4
 private const val REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS = 16
+private const val REMOTE_CHAT_CONTEXT_SAFETY_TOKENS = 64
 private const val REMOTE_CHAT_IMAGE_RESERVE_TOKENS = 1_024
+
+internal data class RemoteChatTokenBudget(
+    val contextWindow: Int,
+    val requestedOutputTokens: Int,
+    val effectiveOutputTokens: Int,
+    val inputTokenBudget: Int,
+    val estimatedCurrentInputTokens: Int,
+)
 
 // Ollama and OpenAI-compatible servers do not expose one shared tokenizer API.
 // UTF-8 bytes / 2 deliberately overestimates typical English and Japanese prompts.
 internal fun estimateRemoteChatContentTokens(content: String): Int =
     ((content.toByteArray(Charsets.UTF_8).size + 1) / 2).coerceAtLeast(1)
-
-internal fun remoteChatInputTokenBudget(contextWindow: Int?): Int {
-    val effectiveContextWindow = contextWindow
-        ?.takeIf { it > 0 }
-        ?: REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW
-    return (effectiveContextWindow.toLong() * REMOTE_CHAT_INPUT_BUDGET_PERCENT / 100)
-        .coerceAtMost(Int.MAX_VALUE.toLong())
-        .toInt()
-}
 
 private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
     val imageReserve = (message.images?.size ?: 0).toLong() * REMOTE_CHAT_IMAGE_RESERVE_TOKENS
@@ -346,12 +347,46 @@ private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
     return estimatedTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
 
+internal fun resolveRemoteChatTokenBudget(
+    contextWindow: Int?,
+    currentContent: String,
+    currentImageCount: Int = 0,
+    requestedOutputTokens: Int = REMOTE_CHAT_DEFAULT_MAX_OUTPUT_TOKENS,
+): RemoteChatTokenBudget {
+    require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
+    val effectiveContextWindow = contextWindow
+        ?.takeIf { it > 0 }
+        ?: REMOTE_CHAT_FALLBACK_CONTEXT_WINDOW
+    val requested = requestedOutputTokens.coerceAtLeast(1)
+    val currentMessage = OllamaChatMessage(
+        role = "user",
+        content = currentContent,
+        images = List(currentImageCount.coerceAtLeast(0)) { "reserved-image" }.ifEmpty { null },
+    )
+    val estimatedCurrentInput = REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS +
+        estimateRemoteChatMessageTokens(currentMessage)
+    val availableForOutput = effectiveContextWindow.toLong() -
+        estimatedCurrentInput - REMOTE_CHAT_CONTEXT_SAFETY_TOKENS
+    require(availableForOutput >= 1L) {
+        "Current remote chat input exceeds the available context window"
+    }
+    val effectiveOutput = min(requested.toLong(), availableForOutput).toInt()
+    val inputBudget = effectiveContextWindow - effectiveOutput - REMOTE_CHAT_CONTEXT_SAFETY_TOKENS
+    return RemoteChatTokenBudget(
+        contextWindow = effectiveContextWindow,
+        requestedOutputTokens = requested,
+        effectiveOutputTokens = effectiveOutput,
+        inputTokenBudget = inputBudget,
+        estimatedCurrentInputTokens = estimatedCurrentInput,
+    )
+}
+
 internal fun buildRemoteChatMessages(
     history: List<Message>,
     currentContent: String,
     currentImages: List<String> = emptyList(),
+    inputTokenBudget: Int,
     historyLimit: Int = REMOTE_CHAT_HISTORY_MESSAGE_LIMIT,
-    contextWindow: Int? = null,
 ): List<OllamaChatMessage> {
     require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
     val eligibleHistory = history.asSequence()
@@ -373,7 +408,7 @@ internal fun buildRemoteChatMessages(
         content = currentContent,
         images = currentImages.ifEmpty { null },
     )
-    val inputBudget = remoteChatInputTokenBudget(contextWindow)
+    val inputBudget = inputTokenBudget.coerceAtLeast(1)
     var estimatedTokens =
         REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS + estimateRemoteChatMessageTokens(currentMessage)
     var retainedHistoryStart = eligibleHistory.size
@@ -396,6 +431,7 @@ internal fun buildRemoteChatMessages(
 internal fun buildOpenAiCompatibleChatRequestJson(
     model: String,
     messages: List<OllamaChatMessage>,
+    maxOutputTokens: Int,
 ): String = JSONObject()
     .put("model", model)
     .put(
@@ -410,6 +446,7 @@ internal fun buildOpenAiCompatibleChatRequestJson(
             }
         },
     )
+    .put("max_tokens", maxOutputTokens.coerceAtLeast(1))
     .put("stream", true)
     .toString()
 
@@ -796,25 +833,42 @@ class OllamaViewModel(
             val requestGeneration = beginRemoteRequestGeneration()
             _uiState.value = UiState.Loading
             _latestInferenceStats.value = null
-            val generationStartedAtMs = SystemClock.elapsedRealtime()
-            val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
+            val requestProvider = remoteProvider
+            val effectiveContextWindow = model?.let { selectedModel ->
+                if (requestProvider.supportsOllamaModelDetails()) {
+                    resolveEffectiveContextWindowForRequest(selectedModel)
+                } else {
+                    getCachedEffectiveContextWindow(selectedModel)
+                }
+            }
+            val remoteTokenBudget = try {
+                resolveRemoteChatTokenBudget(
+                    contextWindow = effectiveContextWindow,
+                    currentContent = effectivePrompt,
+                    currentImageCount = encodedImages.size,
+                )
+            } catch (error: IllegalArgumentException) {
+                updateErrorState(error.message ?: "Remote prompt exceeds the context window")
+                return@launch
+            }
             val remoteMessages = buildRemoteChatMessages(
                 history = priorMessages,
                 currentContent = effectivePrompt,
                 currentImages = encodedImages,
-                contextWindow = effectiveContextWindow,
+                inputTokenBudget = remoteTokenBudget.inputTokenBudget,
             )
             val request = OllamaRequest(
                 model = model.toString(),
                 messages = remoteMessages,
                 stream = true,
+                options = OllamaOptions(numPredict = remoteTokenBudget.effectiveOutputTokens),
             )
             val contextWindowFetchState = resolveContextWindowFetchState(model)
-            prefetchEffectiveContextWindow(model)
+            val generationStartedAtMs = SystemClock.elapsedRealtime()
 
             if (model != null) {
                 try {
-                    val activeRemoteProvider = remoteProvider
+                    val activeRemoteProvider = requestProvider
                     val activeBaseUrl = RetrofitClient.currentBaseUrl()
                     val streamingResult = withContext(Dispatchers.IO) {
                         if (activeRemoteProvider.usesOpenAiCompatibleApi()) {
@@ -823,6 +877,7 @@ class OllamaViewModel(
                                 provider = activeRemoteProvider,
                                 model = model,
                                 messages = remoteMessages,
+                                maxOutputTokens = remoteTokenBudget.effectiveOutputTokens,
                                 requestStartedAtMs = generationStartedAtMs,
                                 requestGeneration = requestGeneration,
                             )
@@ -869,6 +924,10 @@ class OllamaViewModel(
                             generationDurationNs = finalChunk?.evalDurationNs,
                             evalDurationNs = finalChunk?.evalDurationNs,
                             finishReason = finalChunk?.doneReason,
+                            notes = "remote_requested_max_output_tokens=${remoteTokenBudget.requestedOutputTokens} " +
+                                "remote_effective_max_output_tokens=${remoteTokenBudget.effectiveOutputTokens} " +
+                                "remote_estimated_current_input_tokens=${remoteTokenBudget.estimatedCurrentInputTokens} " +
+                                "remote_retained_history_messages=${(remoteMessages.size - 1).coerceAtLeast(0)}",
                             // アプリ側計測値。Ollama usage の load_duration とは別指標として扱う。
                             timeToFirstTokenMs = streamingResult.timeToFirstTokenMs,
                             imageInputCount = attachmentUris.size,
@@ -1076,6 +1135,7 @@ class OllamaViewModel(
         provider: RemoteProvider,
         model: String,
         messages: List<OllamaChatMessage>,
+        maxOutputTokens: Int,
         requestStartedAtMs: Long,
         requestGeneration: Long,
     ): StreamingResult {
@@ -1097,6 +1157,7 @@ class OllamaViewModel(
             val requestBody = buildOpenAiCompatibleChatRequestJson(
                 model = model,
                 messages = messages,
+                maxOutputTokens = maxOutputTokens,
             )
             connection.outputStream.use { output ->
                 output.write(requestBody.toByteArray(Charsets.UTF_8))
@@ -2008,6 +2069,7 @@ class OllamaViewModel(
     }
 
     private fun resolveContextWindowFetchState(modelName: String?): ContextWindowFetchState {
+        if (!remoteProvider.supportsOllamaModelDetails()) return ContextWindowFetchState.UNAVAILABLE
         val normalizedModel = modelName?.trim().orEmpty()
         if (normalizedModel.isBlank()) {
             return ContextWindowFetchState.UNAVAILABLE
@@ -2029,7 +2091,38 @@ class OllamaViewModel(
         return effectiveContextWindowCache[buildContextWindowCacheKey(modelName)]
     }
 
+    private suspend fun resolveEffectiveContextWindowForRequest(modelName: String): Int? {
+        val normalizedModel = modelName.trim()
+        if (normalizedModel.isBlank()) return null
+        val cacheKey = buildContextWindowCacheKey(normalizedModel)
+        if (effectiveContextWindowCache.containsKey(cacheKey)) {
+            return effectiveContextWindowCache[cacheKey]
+        }
+        effectiveContextWindowRequestState[cacheKey] = ContextWindowResolutionState.LOADING
+        val resolved = withContext(Dispatchers.IO) {
+            try {
+                fetchEffectiveContextWindow(normalizedModel)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.d(
+                    "OllamaViewModel",
+                    "Failed to resolve effective context window before request for $normalizedModel: ${error.message}",
+                )
+                null
+            }
+        }
+        effectiveContextWindowCache[cacheKey] = resolved
+        effectiveContextWindowRequestState[cacheKey] = if (resolved != null && resolved > 0) {
+            ContextWindowResolutionState.RESOLVED_WITH_VALUE
+        } else {
+            ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE
+        }
+        return resolved
+    }
+
     private fun prefetchEffectiveContextWindow(modelName: String?) {
+        if (!remoteProvider.supportsOllamaModelDetails()) return
         val normalizedModel = modelName?.trim().orEmpty()
         if (normalizedModel.isBlank()) {
             return

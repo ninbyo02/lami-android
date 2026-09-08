@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.viewmodels
 import com.google.gson.Gson
 import io.github.ninbyo02.lami.api.OllamaApiService
 import io.github.ninbyo02.lami.api.OllamaChatMessage
+import io.github.ninbyo02.lami.api.OllamaOptions
 import io.github.ninbyo02.lami.api.OllamaRequest
 import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.MessageStatus
@@ -81,6 +82,13 @@ class OpenAiCompatibleProtocolTest {
     }
 
     @Test
+    fun `only Ollama and Lemonade expose Ollama model details`() {
+        assertTrue(RemoteProvider.OLLAMA.supportsOllamaModelDetails())
+        assertTrue(RemoteProvider.LEMONADE.supportsOllamaModelDetails())
+        assertFalse(RemoteProvider.OPENAI_COMPATIBLE.supportsOllamaModelDetails())
+    }
+
+    @Test
     fun `Lemonade auto unload modes expose Ollama-like idle delays`() {
         assertEquals(LemonadeAutoUnloadMode.OFF, LemonadeAutoUnloadMode.fromStorage(null))
         assertEquals(LemonadeAutoUnloadMode.AFTER_15_MIN, LemonadeAutoUnloadMode.fromStorage("after_15_min"))
@@ -129,6 +137,7 @@ class OpenAiCompatibleProtocolTest {
                 ),
             ),
             stream = true,
+            options = OllamaOptions(numPredict = 8_192),
         )
 
         val json = JSONObject(Gson().toJson(request))
@@ -136,6 +145,7 @@ class OpenAiCompatibleProtocolTest {
 
         assertEquals("qwen3.8:27b", json.getString("model"))
         assertTrue(json.getBoolean("stream"))
+        assertEquals(8_192, json.getJSONObject("options").getInt("num_predict"))
         assertEquals("user", message.getString("role"))
         assertEquals("画像を説明して", message.getString("content"))
         assertEquals("base64-image", message.getJSONArray("images").getString(0))
@@ -187,6 +197,7 @@ class OpenAiCompatibleProtocolTest {
             ),
             currentContent = "続けて説明して",
             currentImages = listOf("current-image"),
+            inputTokenBudget = 6_144,
         )
 
         assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
@@ -205,6 +216,7 @@ class OpenAiCompatibleProtocolTest {
                 Message(chatId = 9, message = "新しい回答", isSendbyMe = false),
             ),
             currentContent = "現在の質問",
+            inputTokenBudget = 6_144,
             historyLimit = 2,
         )
 
@@ -216,8 +228,41 @@ class OpenAiCompatibleProtocolTest {
     fun `remote chat estimates conservatively and reserves output context`() {
         assertEquals(2, estimateRemoteChatContentTokens("abcd"))
         assertEquals(2, estimateRemoteChatContentTokens("あ"))
-        assertEquals(6_144, remoteChatInputTokenBudget(null))
-        assertEquals(3_072, remoteChatInputTokenBudget(4_096))
+    }
+
+    @Test
+    fun `remote output budget keeps requested 8192 when context has room`() {
+        val budget = resolveRemoteChatTokenBudget(
+            contextWindow = 32_768,
+            currentContent = "abcd",
+        )
+
+        assertEquals(32_768, budget.contextWindow)
+        assertEquals(8_192, budget.requestedOutputTokens)
+        assertEquals(8_192, budget.effectiveOutputTokens)
+        assertEquals(24_512, budget.inputTokenBudget)
+        assertEquals(22, budget.estimatedCurrentInputTokens)
+    }
+
+    @Test
+    fun `remote output budget clamps to context after current input and safety reserve`() {
+        val budget = resolveRemoteChatTokenBudget(
+            contextWindow = 4_096,
+            currentContent = "abcd",
+        )
+
+        assertEquals(8_192, budget.requestedOutputTokens)
+        assertEquals(4_010, budget.effectiveOutputTokens)
+        assertEquals(22, budget.inputTokenBudget)
+        assertEquals(4_032, budget.inputTokenBudget + budget.effectiveOutputTokens)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `remote output budget rejects a current input that cannot fit context`() {
+        resolveRemoteChatTokenBudget(
+            contextWindow = 80,
+            currentContent = "x".repeat(100),
+        )
     }
 
     @Test
@@ -230,7 +275,7 @@ class OpenAiCompatibleProtocolTest {
                 Message(chatId = 10, message = "d".repeat(20), isSendbyMe = false),
             ),
             currentContent = "now",
-            contextWindow = 96,
+            inputTokenBudget = 72,
         )
 
         assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
@@ -246,7 +291,7 @@ class OpenAiCompatibleProtocolTest {
             ),
             currentContent = "now",
             currentImages = listOf("base64-image"),
-            contextWindow = 1_400,
+            inputTokenBudget = 1_050,
         )
 
         assertEquals(listOf("user"), messages.map { it.role })
@@ -262,7 +307,7 @@ class OpenAiCompatibleProtocolTest {
                 Message(chatId = 11, message = "short", isSendbyMe = false),
             ),
             currentContent = "now",
-            contextWindow = 48,
+            inputTokenBudget = 48,
         )
 
         assertEquals(listOf("user"), messages.map { it.role })
@@ -279,12 +324,14 @@ class OpenAiCompatibleProtocolTest {
                     OllamaChatMessage(role = "assistant", content = "回答"),
                     OllamaChatMessage(role = "user", content = "続き", images = listOf("ollama-only")),
                 ),
+                maxOutputTokens = 8_192,
             ),
         )
         val messages = json.getJSONArray("messages")
 
         assertEquals("Qwen3.8-27B-GGUF", json.getString("model"))
         assertTrue(json.getBoolean("stream"))
+        assertEquals(8_192, json.getInt("max_tokens"))
         assertEquals(3, messages.length())
         assertEquals("user", messages.getJSONObject(0).getString("role"))
         assertEquals("assistant", messages.getJSONObject(1).getString("role"))
