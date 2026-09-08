@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.api
 
+import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
 import retrofit2.http.Headers
 import retrofit2.http.POST
@@ -15,10 +16,16 @@ data class OllamaChatMessage(
     val images: List<String>? = null,
 )
 
+data class OllamaOptions(
+    @SerializedName("num_predict")
+    val numPredict: Int,
+)
+
 data class OllamaRequest(
     val model: String,
     val messages: List<OllamaChatMessage>,
     val stream: Boolean = false,
+    val options: OllamaOptions? = null,
 )
 
 data class OllamaResponse(

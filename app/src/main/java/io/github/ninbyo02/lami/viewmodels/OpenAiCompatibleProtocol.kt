@@ -25,6 +25,8 @@ enum class RemoteProvider(
 
     internal fun usesOpenAiCompatibleApi(): Boolean = this == OPENAI_COMPATIBLE || this == LEMONADE
 
+    internal fun supportsOllamaModelDetails(): Boolean = this == OLLAMA || this == LEMONADE
+
     internal fun toOpenAiCompatibleConfig(rawBaseUrl: String): OpenAiCompatibleConfig {
         val normalized = normalizeOpenAiCompatibleBaseUrl(rawBaseUrl, this)
         return OpenAiCompatibleConfig(
