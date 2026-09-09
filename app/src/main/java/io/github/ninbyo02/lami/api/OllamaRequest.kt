@@ -14,6 +14,7 @@ data class OllamaChatMessage(
     val role: String,
     val content: String,
     val images: List<String>? = null,
+    val thinking: String? = null,
 )
 
 data class OllamaOptions(

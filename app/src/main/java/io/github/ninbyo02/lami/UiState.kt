@@ -7,6 +7,11 @@ sealed interface UiState {
 
     object Loading : UiState
 
+    data class Thinking(
+        val receivedCharacters: Int,
+        val receivedChunks: Int,
+    ) : UiState
+
     data class Streaming(val partialText: String) : UiState
 
     data class Success(val outputText: String) : UiState

@@ -455,6 +455,30 @@ internal fun parseOllamaChatAssistantContent(json: JSONObject): String? =
         ?.optString("content")
         ?.takeIf { it.isNotEmpty() }
 
+internal fun parseOllamaChatThinkingContent(json: JSONObject): String? =
+    json.optJSONObject("message")
+        ?.optString("thinking")
+        ?.takeIf { it.isNotEmpty() }
+
+internal fun describeThinkingOnlyCompletion(
+    thinkingCharacterCount: Int,
+    doneReason: String?,
+    outputTokens: Int?,
+    effectiveOutputTokens: Int,
+): String {
+    if (thinkingCharacterCount <= 0) return "Empty response"
+    val exhaustedBudget =
+        doneReason.equals("length", ignoreCase = true) ||
+            (outputTokens != null && outputTokens >= effectiveOutputTokens)
+    return if (exhaustedBudget) {
+        "Thinking exhausted the output token budget before assistant content was produced " +
+            "(${outputTokens ?: effectiveOutputTokens} tokens)"
+    } else {
+        "Thinking completed without assistant content" +
+            doneReason?.let { " (reason=$it)" }.orEmpty()
+    }
+}
+
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -887,67 +911,84 @@ class OllamaViewModel(
                     }
                     ensureRemoteRequestGenerationActive(requestGeneration)
                     val finalText = streamingResult.text
-                    if (finalText.isBlank()) {
-                        onResponseReceived(0)
-                        updateErrorState("Empty response")
+                    val generationTimeMs = (SystemClock.elapsedRealtime() - generationStartedAtMs).coerceAtLeast(0L)
+                    val finalChunk = streamingResult.finalChunk
+                    val inputTokens = finalChunk?.promptEvalCount
+                    val outputTokens = finalChunk?.evalCount
+                    val totalTokens = if (inputTokens != null && outputTokens != null) {
+                        inputTokens + outputTokens
                     } else {
-                        val generationTimeMs = (SystemClock.elapsedRealtime() - generationStartedAtMs).coerceAtLeast(0L)
-                        val finalChunk = streamingResult.finalChunk
-                        val inputTokens = finalChunk?.promptEvalCount
-                        val outputTokens = finalChunk?.evalCount
-                        val totalTokens = if (inputTokens != null && outputTokens != null) {
-                            inputTokens + outputTokens
+                        null
+                    }
+                    val tokensPerSecond = finalChunk?.evalDurationNs
+                        ?.takeIf { it > 0L }
+                        ?.let { evalDurationNs ->
+                            outputTokens?.toDouble()?.div(evalDurationNs)?.times(1_000_000_000)
+                        }
+                    val inferenceTimeSec = finalChunk?.totalDurationNs
+                        ?.takeIf { it > 0L }
+                        ?.div(1_000_000_000.0)
+                        ?: (generationTimeMs / 1000.0)
+
+                    ensureRemoteRequestGenerationActive(requestGeneration)
+                    _latestInferenceStats.value = InferenceStats(
+                        modelName = finalChunk?.model ?: model,
+                        inputTokens = inputTokens,
+                        outputTokens = outputTokens,
+                        totalTokens = totalTokens,
+                        tokensPerSecond = tokensPerSecond,
+                        inferenceTimeSec = inferenceTimeSec,
+                        generationTimeMs = generationTimeMs,
+                        modelLoadDurationNs = finalChunk?.loadDurationNs,
+                        promptEvalDurationNs = finalChunk?.promptEvalDurationNs,
+                        generationDurationNs = finalChunk?.evalDurationNs,
+                        evalDurationNs = finalChunk?.evalDurationNs,
+                        finishReason = finalChunk?.doneReason,
+                        notes = "remote_requested_max_output_tokens=${remoteTokenBudget.requestedOutputTokens} " +
+                            "remote_effective_max_output_tokens=${remoteTokenBudget.effectiveOutputTokens} " +
+                            "remote_estimated_current_input_tokens=${remoteTokenBudget.estimatedCurrentInputTokens} " +
+                            "remote_retained_history_messages=${(remoteMessages.size - 1).coerceAtLeast(0)} " +
+                            "remote_thinking_characters=${streamingResult.thinkingCharacterCount} " +
+                            "remote_thinking_chunks=${streamingResult.thinkingChunkCount} " +
+                            "remote_time_to_first_thinking_token_ms=${streamingResult.timeToFirstThinkingTokenMs ?: -1L}",
+                        // アプリ側計測値。Ollama usage の load_duration とは別指標として扱う。
+                        timeToFirstTokenMs = streamingResult.timeToFirstTokenMs,
+                        imageInputCount = attachmentUris.size,
+                        contextTokensUsed = totalTokens,
+                        contextWindow = effectiveContextWindow,
+                        contextWindowFetchState = contextWindowFetchState,
+                        contextUsageRatio = if (
+                            effectiveContextWindow != null &&
+                            effectiveContextWindow > 0 &&
+                            totalTokens != null
+                        ) {
+                            totalTokens.toDouble() / effectiveContextWindow.toDouble()
                         } else {
                             null
-                        }
-                        val tokensPerSecond = finalChunk?.evalDurationNs
-                            ?.takeIf { it > 0L }
-                            ?.let { evalDurationNs ->
-                                outputTokens?.toDouble()?.div(evalDurationNs)?.times(1_000_000_000)
-                            }
-                        val inferenceTimeSec = finalChunk?.totalDurationNs
-                            ?.takeIf { it > 0L }
-                            ?.div(1_000_000_000.0)
-                            ?: (generationTimeMs / 1000.0)
-
-                        ensureRemoteRequestGenerationActive(requestGeneration)
-                        _latestInferenceStats.value = InferenceStats(
-                            modelName = finalChunk?.model ?: model,
-                            inputTokens = inputTokens,
-                            outputTokens = outputTokens,
-                            totalTokens = totalTokens,
-                            tokensPerSecond = tokensPerSecond,
-                            inferenceTimeSec = inferenceTimeSec,
-                            generationTimeMs = generationTimeMs,
-                            modelLoadDurationNs = finalChunk?.loadDurationNs,
-                            promptEvalDurationNs = finalChunk?.promptEvalDurationNs,
-                            generationDurationNs = finalChunk?.evalDurationNs,
-                            evalDurationNs = finalChunk?.evalDurationNs,
-                            finishReason = finalChunk?.doneReason,
-                            notes = "remote_requested_max_output_tokens=${remoteTokenBudget.requestedOutputTokens} " +
-                                "remote_effective_max_output_tokens=${remoteTokenBudget.effectiveOutputTokens} " +
-                                "remote_estimated_current_input_tokens=${remoteTokenBudget.estimatedCurrentInputTokens} " +
-                                "remote_retained_history_messages=${(remoteMessages.size - 1).coerceAtLeast(0)}",
-                            // アプリ側計測値。Ollama usage の load_duration とは別指標として扱う。
-                            timeToFirstTokenMs = streamingResult.timeToFirstTokenMs,
-                            imageInputCount = attachmentUris.size,
-                            contextTokensUsed = totalTokens,
-                            contextWindow = effectiveContextWindow,
-                            contextWindowFetchState = contextWindowFetchState,
-                            contextUsageRatio = if (effectiveContextWindow != null && effectiveContextWindow > 0 && totalTokens != null) {
-                                totalTokens.toDouble() / effectiveContextWindow.toDouble()
-                            } else {
-                                null
-                            },
-                            // 旧命名互換（段階的移行用）。
-                            model = finalChunk?.model ?: model,
-                            modelLabel = finalChunk?.model ?: model,
-                            completionTokens = outputTokens,
-                            assistantUpdateCount = streamingResult.assistantUpdateCount,
+                        },
+                        // 旧命名互換（段階的移行用）。
+                        model = finalChunk?.model ?: model,
+                        modelLabel = finalChunk?.model ?: model,
+                        completionTokens = outputTokens,
+                        assistantUpdateCount = streamingResult.assistantUpdateCount,
+                    )
+                    ensureRemoteRequestGenerationActive(requestGeneration)
+                    if (finalText.isBlank()) {
+                        onResponseReceived(0)
+                        updateErrorState(
+                            describeThinkingOnlyCompletion(
+                                thinkingCharacterCount = streamingResult.thinkingCharacterCount,
+                                doneReason = finalChunk?.doneReason,
+                                outputTokens = outputTokens,
+                                effectiveOutputTokens = remoteTokenBudget.effectiveOutputTokens,
+                            ),
                         )
-                        ensureRemoteRequestGenerationActive(requestGeneration)
+                    } else {
                         _uiState.value = UiState.Success(finalText)
-                        if (activeRemoteProvider != RemoteProvider.LEMONADE || lemonadeAutoUnloadMode.delayMs != 0L) {
+                        if (
+                            activeRemoteProvider != RemoteProvider.LEMONADE ||
+                            lemonadeAutoUnloadMode.delayMs != 0L
+                        ) {
                             scheduleLemonadeAutoUnloadIfNeeded(
                                 provider = activeRemoteProvider,
                                 baseUrl = activeBaseUrl,
@@ -1035,6 +1076,11 @@ class OllamaViewModel(
             var latestFlushedText: String? = null
             var finalChunk: StreamChunk? = null
             var timeToFirstTokenMs: Long? = null
+            var timeToFirstThinkingTokenMs: Long? = null
+            var thinkingCharacterCount = 0
+            var thinkingChunkCount = 0
+            var assistantContentSeen = false
+            var lastThinkingUiUpdateAtMs = 0L
             var assistantUpdateCount = 0
 
             body.charStream().buffered().use { reader ->
@@ -1047,6 +1093,24 @@ class OllamaViewModel(
                         continue
                     }
                     val chunk = parseStreamingChunk(line)
+                    val chunkThinkingText = chunk.thinkingText
+                    if (!chunkThinkingText.isNullOrEmpty()) {
+                        if (timeToFirstThinkingTokenMs == null) {
+                            timeToFirstThinkingTokenMs =
+                                (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
+                        }
+                        thinkingCharacterCount += chunkThinkingText.length
+                        thinkingChunkCount += 1
+                        val nowMs = System.currentTimeMillis()
+                        if (!assistantContentSeen && nowMs - lastThinkingUiUpdateAtMs >= 120L) {
+                            ensureRemoteRequestGenerationActive(requestGeneration)
+                            _uiState.value = UiState.Thinking(
+                                receivedCharacters = thinkingCharacterCount,
+                                receivedChunks = thinkingChunkCount,
+                            )
+                            lastThinkingUiUpdateAtMs = nowMs
+                        }
+                    }
                     if (shouldCaptureFirstAssistantToken(timeToFirstTokenMs, chunk.text)) {
                         // assistant 本文の最初の非空トークン受信時刻をアプリ側で確定する。
                         timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
@@ -1057,6 +1121,7 @@ class OllamaViewModel(
                         MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> !chunkText.isNullOrEmpty()
                     }
                     if (shouldAppendChunk && chunkText != null) {
+                        assistantContentSeen = true
                         val currentText = when (activeMarkdownStreamingMode) {
                             // Streaming Markdown Recovery Engine v1: legacy safe markdown recovery path.
                             MarkdownStreamingMode.LAMI_RECOVERY_V1 -> {
@@ -1108,10 +1173,7 @@ class OllamaViewModel(
                 MarkdownStreamingMode.LAMI_RECOVERY_V1 -> checkNotNull(streamAssembler).finalizeResult()
                 MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> edgeGalleryTextBuilder.toString().trim()
             }
-            if (finalizedTextForPersist.isEmpty()) {
-                throw IOException("Empty response")
-            }
-            if (latestFlushedText != finalizedTextForPersist) {
+            if (finalizedTextForPersist.isNotEmpty() && latestFlushedText != finalizedTextForPersist) {
                 ensureRemoteRequestGenerationActive(requestGeneration)
                 onResponseReceived(finalizedTextForPersist.length)
                 _uiState.value = UiState.Streaming(finalizedTextForPersist)
@@ -1121,6 +1183,9 @@ class OllamaViewModel(
                 text = finalizedTextForPersist,
                 finalChunk = finalChunk,
                 timeToFirstTokenMs = timeToFirstTokenMs,
+                timeToFirstThinkingTokenMs = timeToFirstThinkingTokenMs,
+                thinkingCharacterCount = thinkingCharacterCount,
+                thinkingChunkCount = thinkingChunkCount,
                 assistantUpdateCount = assistantUpdateCount,
             )
         } finally {
@@ -1861,6 +1926,7 @@ class OllamaViewModel(
         val messageText = parseOllamaChatAssistantContent(json)
         return StreamChunk(
             text = responseText ?: messageText,
+            thinkingText = parseOllamaChatThinkingContent(json),
             done = json.optBoolean("done", false),
             model = json.optNullableString("model"),
             evalCount = json.optNullableInt("eval_count"),
@@ -1887,11 +1953,15 @@ class OllamaViewModel(
         val text: String,
         val finalChunk: StreamChunk? = null,
         val timeToFirstTokenMs: Long? = null,
+        val timeToFirstThinkingTokenMs: Long? = null,
+        val thinkingCharacterCount: Int = 0,
+        val thinkingChunkCount: Int = 0,
         val assistantUpdateCount: Int = 0,
     )
 
     private data class StreamChunk(
         val text: String?,
+        val thinkingText: String? = null,
         val done: Boolean,
         val model: String? = null,
         val evalCount: Int? = null,

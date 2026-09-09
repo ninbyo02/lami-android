@@ -149,6 +149,7 @@ class OpenAiCompatibleProtocolTest {
         assertEquals("user", message.getString("role"))
         assertEquals("画像を説明して", message.getString("content"))
         assertEquals("base64-image", message.getJSONArray("images").getString(0))
+        assertFalse(message.has("thinking"))
         listOf("prompt", "template", "chat_template", "raw").forEach { forbidden ->
             assertFalse("Ollama request must not contain app-owned field: $forbidden", json.has(forbidden))
         }
@@ -173,6 +174,55 @@ class OpenAiCompatibleProtocolTest {
         )
 
         assertEquals("了解", parseOllamaChatAssistantContent(chunk))
+    }
+
+    @Test
+    fun `Ollama chat stream extracts thinking separately from assistant content`() {
+        val chunk = JSONObject(
+            """{"model":"qwen3.8:27b","message":{"role":"assistant","thinking":"検討中","content":""},"done":false}""",
+        )
+
+        assertEquals("検討中", parseOllamaChatThinkingContent(chunk))
+        assertNull(parseOllamaChatAssistantContent(chunk))
+    }
+
+    @Test
+    fun `Ollama chat response maps thinking field`() {
+        val response = Gson().fromJson(
+            """{"message":{"role":"assistant","thinking":"検討中","content":"回答"}}""",
+            io.github.ninbyo02.lami.api.OllamaResponse::class.java,
+        )
+
+        assertEquals("検討中", response.message.thinking)
+        assertEquals("回答", response.message.content)
+    }
+
+    @Test
+    fun `thinking-only length completion reports exhausted output budget`() {
+        val message = describeThinkingOnlyCompletion(
+            thinkingCharacterCount = 24_000,
+            doneReason = "length",
+            outputTokens = 8_192,
+            effectiveOutputTokens = 8_192,
+        )
+
+        assertEquals(
+            "Thinking exhausted the output token budget before assistant content was produced (8192 tokens)",
+            message,
+        )
+    }
+
+    @Test
+    fun `empty completion without thinking keeps generic error`() {
+        assertEquals(
+            "Empty response",
+            describeThinkingOnlyCompletion(
+                thinkingCharacterCount = 0,
+                doneReason = "stop",
+                outputTokens = 0,
+                effectiveOutputTokens = 8_192,
+            ),
+        )
     }
 
     @Test
