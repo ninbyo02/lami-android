@@ -1228,6 +1228,7 @@ fun Home(
             (
                 remoteRequestJob?.isActive == true ||
                     uiState is UiState.Loading ||
+                    uiState is UiState.Thinking ||
                     uiState is UiState.Streaming
                 )
     val isServerRunningRaw = isServerRunning
@@ -1242,7 +1243,8 @@ fun Home(
             !isStopRequested
     val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi || keepTtsTalkingInHeader
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
-    val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
+    val isServerLoadingUi =
+        (uiState is UiState.Loading || uiState is UiState.Thinking) && isServerRunningUi
     LaunchedEffect(
         isLocalInferenceRunning,
         localStopRequested,
@@ -1269,6 +1271,7 @@ fun Home(
         }
     }
     val headerStatusTitleOverride = when {
+        uiState is UiState.Thinking && isServerRunningUi -> "Thinking..."
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
@@ -4105,6 +4108,7 @@ fun Home(
                         val assistantId = finalizeStreamingAssistantFailureSerialized(
                             chatId = currentChatId,
                             response = errorText,
+                            latestInferenceStats = latestInferenceStats,
                         )
                         if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                     }

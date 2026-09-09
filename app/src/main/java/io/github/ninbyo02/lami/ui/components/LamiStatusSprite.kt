@@ -1148,6 +1148,7 @@ fun mapToLamiSpriteStatus(
 
     when (uiState) {
         UiState.Loading -> return LamiSpriteStatus.Thinking
+        is UiState.Thinking -> return LamiSpriteStatus.Thinking
         is UiState.Error -> return if (!lastError.isNullOrBlank()) {
             LamiSpriteStatus.ErrorHeavy
         } else {
@@ -1176,7 +1177,9 @@ fun mapToLamiSpriteStatus(
                 3 -> LamiSpriteStatus.TalkCalm
                 else -> LamiSpriteStatus.TalkLong
             }
-        LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
+        LamiStatus.CONNECTING,
+        LamiStatus.THINKING,
+        -> LamiSpriteStatus.Thinking
         LamiStatus.READY -> LamiSpriteStatus.Ready
         LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.ErrorHeavy
@@ -1215,7 +1218,9 @@ private fun LamiStatus.toAnimationStatus(
             3 -> LamiAnimationStatus.TalkCalm
             else -> LamiAnimationStatus.TalkLong
         }
-        LamiStatus.CONNECTING -> LamiAnimationStatus.Thinking
+        LamiStatus.CONNECTING,
+        LamiStatus.THINKING,
+        -> LamiAnimationStatus.Thinking
         LamiStatus.READY -> LamiAnimationStatus.Ready
         LamiStatus.DEGRADED -> LamiAnimationStatus.Thinking
         LamiStatus.NO_MODELS -> LamiAnimationStatus.OfflineLoop

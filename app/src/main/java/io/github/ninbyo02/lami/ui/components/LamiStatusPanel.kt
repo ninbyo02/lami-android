@@ -122,6 +122,7 @@ fun rememberLamiStatusUi(
     val statusLabel = when (status) {
         LamiStatus.TALKING -> "Talking"
         LamiStatus.CONNECTING -> "Connecting"
+        LamiStatus.THINKING -> "Thinking"
         LamiStatus.READY -> "Ready"
         LamiStatus.DEGRADED -> "Degraded"
         LamiStatus.NO_MODELS -> "No models"
@@ -141,6 +142,7 @@ fun rememberLamiStatusUi(
         lamiState is LamiState.Thinking -> colorScheme.tertiary
         status == LamiStatus.TALKING -> colorScheme.primary
         status == LamiStatus.CONNECTING -> colorScheme.tertiary
+        status == LamiStatus.THINKING -> colorScheme.tertiary
         status == LamiStatus.READY -> colorScheme.secondary
         status == LamiStatus.DEGRADED -> colorScheme.tertiary
         status == LamiStatus.NO_MODELS -> colorScheme.error
