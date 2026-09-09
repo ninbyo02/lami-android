@@ -472,7 +472,7 @@ class InferenceStatsSheetContentTest {
     @Test
     fun `inferenceTimingNoteText explains measurement source differences`() {
         assertEquals(
-            "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。",
+            "初回受信（Thinking対応時はThinking開始と回答本文開始を分離）は端末側、全体完了までは推論統計の完了タイミングを示します。",
             inferenceTimingNoteText(),
         )
     }
@@ -2025,6 +2025,77 @@ class InferenceStatsSheetContentTest {
             detailItems.first { it.label == "表示速度" }.value,
         )
         assertEquals("—", detailItems.first { it.label == "バックエンド基準速度" }.value)
+    }
+
+    @Test
+    fun `parseOllamaThinkingStats extracts persisted stream metrics`() {
+        val parsed = parseOllamaThinkingStats(
+            "remote_requested_max_output_tokens=8192 " +
+                "remote_thinking_characters=210 remote_thinking_chunks=88 " +
+                "remote_time_to_first_thinking_token_ms=996",
+        )
+
+        assertEquals(996L, parsed.timeToFirstTokenMs)
+        assertEquals(210, parsed.characterCount)
+        assertEquals(88, parsed.chunkCount)
+        assertEquals("210文字 / 88チャンク", parsed.streamSummary)
+        assertTrue(parsed.hasThinking)
+    }
+
+    @Test
+    fun `Ollama thinking summary separates thinking and answer TTFT`() {
+        val stats = InferenceStats(
+            modelName = "qwen3.8:27b",
+            timeToFirstTokenMs = 13_796L,
+            inferenceTimeSec = 14.2,
+            tokensPerSecond = 9.92,
+            finishReason = "stop",
+            notes = "remote_thinking_characters=210 remote_thinking_chunks=88 " +
+                "remote_time_to_first_thinking_token_ms=996",
+        )
+
+        val items = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        ).single().items
+
+        assertEquals(
+            listOf(
+                "Thinking開始まで（端末基準）",
+                "回答本文開始まで（端末基準）",
+                "全体完了まで（統計基準）",
+                "生成速度",
+                "完了理由",
+            ),
+            items.map { it.label },
+        )
+        assertEquals("996 ms", items.first { it.label == "Thinking開始まで（端末基準）" }.value)
+        assertEquals("13.8 s", items.first { it.label == "回答本文開始まで（端末基準）" }.value)
+    }
+
+    @Test
+    fun `Ollama details prioritize backend speed and show thinking metrics`() {
+        val stats = InferenceStats(
+            outputTokens = 131,
+            tokensPerSecond = 9.92,
+            generationTimeMs = 13_200L,
+            totalDurationMs = 14_200L,
+            timeToFirstTokenMs = 13_796L,
+            assistantUpdateCount = 1,
+            notes = "remote_thinking_characters=210 remote_thinking_chunks=88 " +
+                "remote_time_to_first_thinking_token_ms=996",
+        )
+
+        val items = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        ).first { it.title == "詳細" }.items
+
+        assertEquals("バックエンド基準（サーバー統計）", items.first { it.label == "速度取得元" }.value)
+        assertEquals("9.9 token/s", items.first { it.label == "表示速度" }.value)
+        assertEquals("9.9 token/s", items.first { it.label == "バックエンド基準速度" }.value)
+        assertEquals("996 ms", items.first { it.label == "Thinking基準TTFT" }.value)
+        assertEquals("210文字 / 88チャンク", items.first { it.label == "Thinkingストリーム" }.value)
     }
 
 }
