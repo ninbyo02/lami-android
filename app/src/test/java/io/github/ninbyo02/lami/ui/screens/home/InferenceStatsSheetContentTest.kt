@@ -2043,6 +2043,67 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `zero thinking metrics preserve normal response UI`() {
+        val notes = "remote_thinking_characters=0 remote_thinking_chunks=0 " +
+            "remote_time_to_first_thinking_token_ms=-1"
+        val parsed = parseOllamaThinkingStats(notes)
+        assertFalse(parsed.hasThinking)
+        assertEquals(null, parsed.streamSummary)
+        assertEquals(null, parsed.timeToFirstTokenMs)
+
+        val stats = InferenceStats(timeToFirstTokenMs = 420L, notes = notes)
+        val summary = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        ).single().items
+        assertTrue(summary.any { it.label == "初回受信まで（端末基準）" })
+        assertFalse(summary.any { it.label.contains("Thinking") || it.label.contains("回答本文開始") })
+        val details = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        ).flatMap { it.items }
+        assertFalse(details.any { it.label.contains("Thinking") })
+    }
+
+    @Test
+    fun `missing and negative thinking metrics do not imply thinking`() {
+        for (notes in listOf(
+            null,
+            "",
+            "remote_requested_max_output_tokens=8192",
+            "remote_thinking_characters=-1 remote_thinking_chunks=-1 " +
+                "remote_time_to_first_thinking_token_ms=-1",
+        )) {
+            val parsed = parseOllamaThinkingStats(notes)
+            assertFalse(parsed.hasThinking)
+            assertEquals(null, parsed.streamSummary)
+        }
+    }
+
+    @Test
+    fun `partial thinking metrics retain real evidence without zero counts`() {
+        val timed = parseOllamaThinkingStats(
+            "remote_thinking_characters=0 remote_thinking_chunks=0 " +
+                "remote_time_to_first_thinking_token_ms=0",
+        )
+        assertTrue(timed.hasThinking)
+        assertEquals(0L, timed.timeToFirstTokenMs)
+        assertEquals(null, timed.streamSummary)
+
+        val characters = parseOllamaThinkingStats(
+            "remote_thinking_characters=12 remote_thinking_chunks=0",
+        )
+        assertTrue(characters.hasThinking)
+        assertEquals("12文字", characters.streamSummary)
+
+        val chunks = parseOllamaThinkingStats(
+            "remote_thinking_characters=0 remote_thinking_chunks=2",
+        )
+        assertTrue(chunks.hasThinking)
+        assertEquals("2チャンク", chunks.streamSummary)
+    }
+
+    @Test
     fun `Ollama thinking summary separates thinking and answer TTFT`() {
         val stats = InferenceStats(
             modelName = "qwen3.8:27b",

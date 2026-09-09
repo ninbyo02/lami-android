@@ -1598,12 +1598,14 @@ internal data class OllamaThinkingStats(
     val chunkCount: Int? = null,
 ) {
     val hasThinking: Boolean
-        get() = timeToFirstTokenMs != null || characterCount != null || chunkCount != null
+        get() = timeToFirstTokenMs != null ||
+            (characterCount ?: 0) > 0 ||
+            (chunkCount ?: 0) > 0
 
     val streamSummary: String?
         get() = buildList {
-            characterCount?.let { add("${it}文字") }
-            chunkCount?.let { add("${it}チャンク") }
+            characterCount?.takeIf { it > 0 }?.let { add("${it}文字") }
+            chunkCount?.takeIf { it > 0 }?.let { add("${it}チャンク") }
         }.takeIf { it.isNotEmpty() }?.joinToString(" / ")
 }
 
