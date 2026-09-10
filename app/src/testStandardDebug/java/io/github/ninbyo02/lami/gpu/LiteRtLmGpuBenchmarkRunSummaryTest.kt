@@ -11,6 +11,28 @@ import org.junit.Test
 
 class LiteRtLmGpuBenchmarkRunSummaryTest {
     @Test
+    fun `CSV separates requested context actual configuration and generated tokens`() {
+        val variants = listOf(
+            BenchmarkBackendVariant.GPU to "32",
+            BenchmarkBackendVariant.GPU_NULL_MAX to "model_or_engine_default",
+            BenchmarkBackendVariant.GALLERY_CHAT_PARITY to "4096",
+        )
+        variants.forEach { (variant, expected) ->
+            val row = failureRow(variant, "test")
+            val lines = buildGpuBenchmarkCsv(listOf(row)).trim().lines()
+            fun cells(line: String) = line.split(",").map { it.trim('"') }
+            val headers = cells(lines[0])
+            val values = cells(lines[1])
+            assertEquals(headers.size, values.size)
+            val fields = headers.zip(values).toMap()
+            assertEquals("32", fields["requested_context_tokens"])
+            assertEquals(expected, fields["resolved_engine_max_num_tokens"])
+            assertEquals("input_plus_output_context", fields["token_budget_semantics"])
+            assertEquals("unavailable", fields["output_tokens"])
+        }
+    }
+
+    @Test
     fun `atomic UTF-8 publication replaces complete content and removes temporary files`() {
         val directory = Files.createTempDirectory("gpu-report-atomic").toFile()
         try {
@@ -86,6 +108,68 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
         assertEquals("explicit_cpu", BenchmarkBackendVariant.CPU.configStyle)
         assertEquals("GPU", BenchmarkBackendVariant.GPU.backendLabel)
         assertEquals("CPU", BenchmarkBackendVariant.CPU.backendLabel)
+    }
+
+    @Test
+    fun `CPU null modalities variant isolates text backend`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_NULL_MODALITIES,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertNull(configParts.visionBackend)
+        assertNull(configParts.audioBackend)
+        assertEquals("null", configParts.visionBackendLabel)
+        assertEquals("null", configParts.audioBackendLabel)
+        assertEquals(32, configParts.maxNumTokens)
+        assertEquals("/cache", configParts.cacheDir)
+    }
+
+    @Test
+    fun `CPU Gallery parity variant also removes cache dir`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_GALLERY_PARITY,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertNull(configParts.visionBackend)
+        assertNull(configParts.audioBackend)
+        assertNull(configParts.cacheDir)
+        assertEquals(32, configParts.maxNumTokens)
+    }
+
+    @Test
+    fun `CPU product mixed variant retains explicit max`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_PRODUCT_MIXED,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertEquals("GPU", configParts.visionBackendLabel)
+        assertEquals("CPU", configParts.audioBackendLabel)
+        assertEquals("/cache", configParts.cacheDir)
+        assertEquals(32, configParts.maxNumTokens)
+    }
+
+    @Test
+    fun `CPU product default variant matches prior successful route`() {
+        val configParts = LiteRtLmGpuBenchmarkReceiver().resolveEngineConfigPartsForBenchmark(
+            cacheDirPath = "/cache",
+            backendVariant = BenchmarkBackendVariant.CPU_PRODUCT_DEFAULT,
+            maxOutputTokens = 32,
+        )
+
+        assertEquals("CPU", configParts.engineBackendLabel)
+        assertEquals("GPU", configParts.visionBackendLabel)
+        assertEquals("CPU", configParts.audioBackendLabel)
+        assertEquals("/cache", configParts.cacheDir)
+        assertNull(configParts.maxNumTokens)
     }
 
     @Test
@@ -374,6 +458,20 @@ class LiteRtLmGpuBenchmarkRunSummaryTest {
         assertEquals(1, snapshot.callbackOnErrorCount)
         assertTrue(snapshot.chunkTypeLengthSummary.contains("Text:7"))
         assertTrue(snapshot.rawOutput.isNotBlank())
+    }
+
+    @Test
+    fun `callback accumulator preserves consecutive identical chunks`() {
+        val accumulator = CallbackObservationAccumulator()
+
+        accumulator.onMessage("Text", "alpha ", 1L)
+        accumulator.onMessage("Text", "alpha ", 2L)
+        accumulator.onDone()
+
+        val snapshot = accumulator.snapshot()
+        assertEquals("alpha alpha ", snapshot.rawOutput)
+        assertEquals(2, snapshot.emitCount)
+        assertEquals(2, snapshot.nonemptyEmitCount)
     }
 
     @Test
