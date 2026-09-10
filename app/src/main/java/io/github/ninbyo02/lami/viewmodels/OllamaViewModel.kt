@@ -1238,70 +1238,25 @@ class OllamaViewModel(
                 throw IOException(error.ifEmpty { "OpenAI compatible request failed (HTTP $responseCode)" })
             }
 
-            val textBuilder = StringBuilder()
-            var doneReceived = false
-            var finishReason: String? = null
-            var responseModel: String? = null
-            var timeToFirstTokenMs: Long? = null
-            var assistantUpdateCount = 0
-            var latestFlushedText: String? = null
-            var lastUiUpdateAtMs = 0L
-            val streamingUiUpdateIntervalMs = 80L
-            val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
-
-            responseStream.bufferedReader().use { reader ->
-                while (true) {
-                    ensureRemoteRequestGenerationActive(requestGeneration)
-                    val rawLine = reader.readLine() ?: break
-                    ensureRemoteRequestGenerationActive(requestGeneration)
-                    val chunk = parseOpenAiCompatibleStreamingLine(rawLine) ?: continue
-                    if (chunk.done && chunk.text == null) {
-                        doneReceived = true
-                        finishReason = finishReason ?: chunk.finishReason ?: "stop"
-                        responseModel = responseModel ?: chunk.model
-                        break
-                    }
-                    responseModel = responseModel ?: chunk.model
-                    finishReason = finishReason ?: chunk.finishReason
-                    val chunkText = chunk.text
-                    if (!chunkText.isNullOrEmpty()) {
-                        if (timeToFirstTokenMs == null) {
-                            timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
-                        }
-                        textBuilder.append(processEdgeGalleryCompatibleMarkdown(chunkText))
-                        val currentText = textBuilder.toString()
-                        val nowMs = System.currentTimeMillis()
-                        val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
-                        val endsWithPriorityChar =
-                            chunkText.lastOrNull() in priorityFlushChars || currentText.lastOrNull() in priorityFlushChars
-                        if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
-                            ensureRemoteRequestGenerationActive(requestGeneration)
-                            onResponseReceived(currentText.length)
-                            _uiState.value = UiState.Streaming(currentText)
-                            assistantUpdateCount += 1
-                            latestFlushedText = currentText
-                            lastUiUpdateAtMs = nowMs
-                        }
-                    }
-                    if (chunk.finishReason != null) {
-                        doneReceived = true
-                        break
-                    }
-                }
+            val result = responseStream.bufferedReader().use { reader ->
+                collectOpenAiStream(
+                    lines = reader.lineSequence(),
+                    elapsedMs = { SystemClock.elapsedRealtime() - requestStartedAtMs },
+                    ensureActive = { ensureRemoteRequestGenerationActive(requestGeneration) },
+                    onThinking = { characters, chunks ->
+                        _uiState.value = UiState.Thinking(
+                            receivedCharacters = characters,
+                            receivedChunks = chunks,
+                        )
+                    },
+                    onContent = { currentText ->
+                        onResponseReceived(currentText.length)
+                        _uiState.value = UiState.Streaming(currentText)
+                    },
+                    transformContent = ::processEdgeGalleryCompatibleMarkdown,
+                )
             }
-            if (!doneReceived) {
-                throw IOException("OpenAI compatible streaming response ended before done")
-            }
-            val finalText = textBuilder.toString().trim()
-            if (finalText.isEmpty()) {
-                throw IOException("Empty OpenAI compatible response")
-            }
-            if (latestFlushedText != finalText) {
-                ensureRemoteRequestGenerationActive(requestGeneration)
-                onResponseReceived(finalText.length)
-                _uiState.value = UiState.Streaming(finalText)
-                assistantUpdateCount += 1
-            }
+            val responseModel = result.model
             if (provider == RemoteProvider.LEMONADE && lemonadeAutoUnloadMode.delayMs == 0L) {
                 Log.i("LemonadeUnload", "inline immediate auto-unload after Lemonade stream for model=${sanitizeLemonadeLogValue(responseModel ?: model)}")
                 runCatching {
@@ -1313,15 +1268,18 @@ class OllamaViewModel(
                 }
             }
             return StreamingResult(
-                text = finalText,
+                text = result.text,
                 finalChunk = StreamChunk(
                     text = null,
                     done = true,
                     model = responseModel ?: model,
-                    doneReason = finishReason ?: "stop",
+                    doneReason = result.finishReason,
                 ),
-                timeToFirstTokenMs = timeToFirstTokenMs,
-                assistantUpdateCount = assistantUpdateCount,
+                timeToFirstTokenMs = result.timeToFirstTokenMs,
+                timeToFirstThinkingTokenMs = result.timeToFirstThinkingTokenMs,
+                thinkingCharacterCount = result.thinkingCharacterCount,
+                thinkingChunkCount = result.thinkingChunkCount,
+                assistantUpdateCount = result.assistantUpdateCount,
             )
         } finally {
             if (activeOpenAiCompatibleConnection === connection) {
