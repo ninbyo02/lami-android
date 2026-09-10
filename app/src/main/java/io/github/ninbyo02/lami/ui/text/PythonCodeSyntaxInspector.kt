@@ -121,18 +121,42 @@ object PythonCodeSyntaxInspector {
     }
 
     private fun hasInlineCodeAfterColon(trimmed: String): Boolean {
-        val colonIndex = trimmed.indexOf(':')
-        if (colonIndex < 0 || colonIndex == trimmed.lastIndex) return false
-        if (trimmed.contains("http://") || trimmed.contains("https://")) return false
-        val after = trimmed.substring(colonIndex + 1).trim()
-        if (after.isEmpty()) return false
-        val before = trimmed.substring(0, colonIndex)
-        val isLikelyDictLiteral = !before.contains(' ') && before.endsWith("{")
-        if (isLikelyDictLiteral) return false
-        if (!blockStarterRegex.containsMatchIn(before) && (before.endsWith("[") || before.contains("["))) {
-            return false
+        if (!blockStarterRegex.containsMatchIn(trimmed)) return false
+
+        var quote: Char? = null
+        var escaped = false
+        var roundDepth = 0
+        var squareDepth = 0
+        var curlyDepth = 0
+
+        trimmed.forEachIndexed { index, char ->
+            if (quote != null) {
+                when {
+                    escaped -> escaped = false
+                    char == '\\' -> escaped = true
+                    char == quote -> quote = null
+                }
+                return@forEachIndexed
+            }
+
+            when (char) {
+                '\'', '"' -> quote = char
+                '#' -> return false
+                '(' -> roundDepth++
+                ')' -> roundDepth = (roundDepth - 1).coerceAtLeast(0)
+                '[' -> squareDepth++
+                ']' -> squareDepth = (squareDepth - 1).coerceAtLeast(0)
+                '{' -> curlyDepth++
+                '}' -> curlyDepth = (curlyDepth - 1).coerceAtLeast(0)
+                ':' -> {
+                    if (roundDepth == 0 && squareDepth == 0 && curlyDepth == 0) {
+                        val suffix = trimmed.substring(index + 1).trimStart()
+                        return suffix.isNotEmpty() && !suffix.startsWith("#")
+                    }
+                }
+            }
         }
-        return true
+        return false
     }
 
     private fun stripCommonIndent(lines: List<String>): List<String> {
@@ -168,15 +192,10 @@ object PythonCodeSyntaxInspector {
     }
 
     private fun nextEffectiveLine(lines: List<String>, start: Int): LineInfo? {
-        var sawBlank = false
         for (i in start until lines.size) {
             val info = lineInfo(lines[i], i)
-            if (info.isBlank) {
-                sawBlank = true
-                continue
-            }
-            if (info.isComment) continue
-            return if (sawBlank) info.copy(isBlank = true) else info
+            if (info.isSkippable) continue
+            return info
         }
         return null
     }
