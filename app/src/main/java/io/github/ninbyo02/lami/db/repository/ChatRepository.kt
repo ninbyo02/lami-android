@@ -10,12 +10,16 @@ import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.utils.AutoTitleGenerator
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class ChatRepository(private val messageDao: MessageDao, private val chatDao: ChatDao) {
 
     val allChats: Flow<List<Chat>> = chatDao.getAllChats()
 
     fun getMessages(chatId: Int) = messageDao.getAllMessages(chatId)
+
+    suspend fun getMessagesSnapshot(chatId: Int): List<Message> =
+        messageDao.getAllMessages(chatId).first()
 
     suspend fun getLatestMessagesByChatIds(chatIds: List<Int>): List<ChatLatestMessage> {
         if (chatIds.isEmpty()) {

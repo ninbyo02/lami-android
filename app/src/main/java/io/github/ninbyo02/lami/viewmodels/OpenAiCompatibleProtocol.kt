@@ -10,7 +10,7 @@ enum class RemoteProvider(
     OLLAMA(
         storageValue = "ollama",
         displayName = "Ollama",
-        description = "Ollama の /api/generate と /api/tags を使います。",
+        description = "Ollama の /api/chat と /api/tags を使います。",
     ),
     OPENAI_COMPATIBLE(
         storageValue = "openai_compatible",
@@ -24,6 +24,8 @@ enum class RemoteProvider(
     );
 
     internal fun usesOpenAiCompatibleApi(): Boolean = this == OPENAI_COMPATIBLE || this == LEMONADE
+
+    internal fun supportsOllamaModelDetails(): Boolean = this == OLLAMA || this == LEMONADE
 
     internal fun toOpenAiCompatibleConfig(rawBaseUrl: String): OpenAiCompatibleConfig {
         val normalized = normalizeOpenAiCompatibleBaseUrl(rawBaseUrl, this)
@@ -80,8 +82,8 @@ internal fun parseOpenAiCompatibleStreamingLine(line: String): OpenAiCompatibleS
     val delta = choice?.optJSONObject("delta")
     val finishReason = choice?.optNullableStringCompat("finish_reason")
     return OpenAiCompatibleStreamChunk(
-        text = delta?.optNullableStringCompat("content"),
-        reasoningText = delta?.optNullableStringCompat("reasoning_content"),
+        text = delta?.optNullableStreamText("content"),
+        reasoningText = delta?.optNullableStreamText("reasoning_content"),
         done = finishReason != null,
         finishReason = finishReason,
         model = json.optNullableStringCompat("model"),
@@ -102,6 +104,10 @@ private fun normalizeOpenAiCompatibleBaseUrl(rawBaseUrl: String, provider: Remot
     }
     return "$withVersionPath/"
 }
+
+// Whitespace-only deltas carry word boundaries and code indentation.
+private fun JSONObject.optNullableStreamText(name: String): String? =
+    if (has(name) && !isNull(name)) optString(name).takeIf { it.isNotEmpty() } else null
 
 private fun JSONObject.optNullableStringCompat(name: String): String? =
     if (has(name) && !isNull(name)) optString(name).takeIf { it.isNotBlank() } else null

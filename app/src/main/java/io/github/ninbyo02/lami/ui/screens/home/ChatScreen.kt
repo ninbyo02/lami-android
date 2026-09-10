@@ -908,7 +908,7 @@ fun Home(
         )
     }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
-    var isCreatingChat by rememberSaveable { mutableStateOf(false) }
+    var isCreatingChat by remember { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -1228,6 +1228,7 @@ fun Home(
             (
                 remoteRequestJob?.isActive == true ||
                     uiState is UiState.Loading ||
+                    uiState is UiState.Thinking ||
                     uiState is UiState.Streaming
                 )
     val isServerRunningRaw = isServerRunning
@@ -1242,7 +1243,8 @@ fun Home(
             !isStopRequested
     val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi || keepTtsTalkingInHeader
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
-    val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
+    val isServerLoadingUi =
+        (uiState is UiState.Loading || uiState is UiState.Thinking) && isServerRunningUi
     LaunchedEffect(
         isLocalInferenceRunning,
         localStopRequested,
@@ -1269,6 +1271,7 @@ fun Home(
         }
     }
     val headerStatusTitleOverride = when {
+        uiState is UiState.Thinking && isServerRunningUi -> "Thinking..."
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
@@ -3983,12 +3986,18 @@ fun Home(
             pendingNavigateChatId == null &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
-            isCreatingChat = true
-            val newChatId = viewModel.insertChatAndReturnId(
-                Chat(title = "New chat", titleSource = TitleSource.TEMP)
+            createChatWithProgress(
+                setCreating = { isCreatingChat = it },
+                createChat = {
+                    viewModel.insertChatAndReturnId(
+                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                    )
+                },
+                onCreated = { newChatId ->
+                    effectiveChatId = newChatId
+                    pendingNavigateChatId = newChatId
+                },
             )
-            effectiveChatId = newChatId
-            pendingNavigateChatId = newChatId
         }
 
         if (resolvedChatId != null) {
@@ -4105,6 +4114,7 @@ fun Home(
                         val assistantId = finalizeStreamingAssistantFailureSerialized(
                             chatId = currentChatId,
                             response = errorText,
+                            latestInferenceStats = latestInferenceStats,
                         )
                         if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                     }
@@ -4759,6 +4769,7 @@ fun Home(
                                                                 viewModel.sendPrompt(
                                                                     prompt = requestPrompt,
                                                                     model = selectedModel,
+                                                                    chatId = currentChatId,
                                                                     attachmentUris = requestAttachmentUris,
                                                                     context = context.applicationContext,
                                                                     onRequestPrepared = { savedAttachmentUriStrings ->
@@ -16681,7 +16692,7 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
 }
 
 internal fun inferenceTimingNoteText(): String =
-    "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
+    "初回受信（Thinking対応時はThinking開始と回答本文開始を分離）は端末側、全体完了までは推論統計の完了タイミングを示します。"
 
 internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
     formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
