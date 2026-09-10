@@ -210,6 +210,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -264,12 +265,15 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = false
+private val LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE = MarkdownStreamingMode.EDGE_GALLERY_COMPAT
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS = 1_500L
+private const val LOCAL_STREAMING_UI_FRAME_INTERVAL_MS = 50L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val LOCAL_STREAMING_WHITESPACE_TRACE_ENABLED = false
 private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
     "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
 private const val GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE =
@@ -1032,7 +1036,7 @@ fun Home(
                     resolvedCacheDirPath = runCacheDirPath,
                     mediaPipeProbeContext = runMediaPipeProbeContext,
                     preferredBackendDryRunSetting = backend,
-                    markdownStreamingMode = markdownStreamingMode,
+                    markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                     prompt = runPrompt,
                     initialTurns = runInitialTurns,
                     onPartial = onPartial,
@@ -1220,6 +1224,40 @@ fun Home(
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val safetyGuardBlockedConversations = remember { mutableStateMapOf<Int, SafetyGuardConversationBlock>() }
+    val localStreamingUiLatest = remember(effectiveChatId) { AtomicReference<Pair<Int, String>?>(null) }
+    val localStreamingUiSignal = remember(effectiveChatId) { Channel<Unit>(capacity = Channel.CONFLATED) }
+
+    fun publishLocalStreamingPartialForUi(chatId: Int, text: String) {
+        if (text.isBlank()) return
+        localStreamingUiLatest.set(chatId to text)
+        localStreamingUiSignal.trySend(Unit)
+    }
+
+    LaunchedEffect(effectiveChatId, isLocalInferenceRunning, localStopRequested) {
+        if (!isLocalInferenceRunning || localStopRequested) {
+            localStreamingUiLatest.set(null)
+            while (localStreamingUiSignal.tryReceive().isSuccess) {
+                // Drain stale signals so a subsequent run cannot render an old partial.
+            }
+            return@LaunchedEffect
+        }
+        while (true) {
+            localStreamingUiSignal.receive()
+            val payload = localStreamingUiLatest.getAndSet(null) ?: continue
+            val currentChatId = effectiveChatId ?: continue
+            if (payload.first != currentChatId || localStopRequested) continue
+            didReceiveRealLocalPartial = true
+            realLocalPartialChunkCount += 1
+            localStreamingResponseText = payload.second
+            showDelayedLocalRespondingPlaceholder = false
+            suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
+            // Native callbacks can arrive every ~20 ms. Keep only the newest cumulative text
+            // and render at a bounded cadence instead of enqueueing a Main coroutine per token.
+            // Because each payload is the full accumulated response, conflation loses no text.
+            delay(LOCAL_STREAMING_UI_FRAME_INTERVAL_MS)
+        }
+    }
+
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
@@ -2986,11 +3024,14 @@ fun Home(
         } else {
             latestText
         }
-        val shouldRefreshRenderText = shouldRefreshRender(
-            prev = previousRendered,
-            next = latestText,
-            isStreaming = isInferenceRunningUi,
-        )
+        val shouldRefreshRenderText =
+            isLocalInferenceRunning ||
+                markdownStreamingMode == MarkdownStreamingMode.EDGE_GALLERY_COMPAT ||
+                shouldRefreshRender(
+                    prev = previousRendered,
+                    next = latestText,
+                    isStreaming = isInferenceRunningUi,
+                )
 
         if (shouldRefreshRenderText) {
             if (BuildConfig.DEBUG && isLocalInferenceRunning) {
@@ -3604,10 +3645,11 @@ fun Home(
         localSourceSummary: String? = null,
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
+        markdownStreamingModeOverride: MarkdownStreamingMode? = null,
     ): Int? {
         val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
             response = response,
-            markdownStreamingMode = markdownStreamingMode,
+            markdownStreamingMode = markdownStreamingModeOverride ?: markdownStreamingMode,
             onMarkdownRepair = {
                 if (BuildConfig.DEBUG) {
                     localStreamingUiMetricsForDev.recordMarkdownRepair()
@@ -3673,6 +3715,7 @@ fun Home(
         localSourceSummary: String? = null,
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
+        markdownStreamingModeOverride: MarkdownStreamingMode? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
         val terminalMessageId = finalizeStreamingAssistantMessage(
             chatId = chatId,
@@ -3681,6 +3724,7 @@ fun Home(
             localSourceSummary = localSourceSummary,
             imageInputCount = imageInputCount,
             generationTimeMs = generationTimeMs,
+            markdownStreamingModeOverride = markdownStreamingModeOverride,
         )
         releaseStreamingAssistantLifecycleOwnership(
             terminalMessageId = terminalMessageId,
@@ -3733,13 +3777,6 @@ fun Home(
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
-            isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
-            viewModel.stopTtsPlayback()
-            return
-        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         if (fullText.length < streamingSpeechLastConsumedLength) {
@@ -3771,13 +3808,6 @@ fun Home(
 
     fun speakStreamingTailIfNeeded(fullText: String) {
         if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
-            isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
-            viewModel.stopTtsPlayback()
-            return
-        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
@@ -5098,18 +5128,12 @@ fun Home(
                                                                                         initialTurns = prefacePlan.initialTurns,
                                                                                         selectedModelFile = localBaseModelFilePath,
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
-                                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                                        markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                                         onPartial = { partial ->
-                                                                                            if (!localStopRequested && effectiveChatId == npuChatId) {
-                                                                                                coroutineScope.launch {
-                                                                                                    if (localStopRequested || effectiveChatId != npuChatId) return@launch
-                                                                                                    didReceiveRealLocalPartial = true
-                                                                                                    realLocalPartialChunkCount += 1
-                                                                                                    localStreamingResponseText = partial
-                                                                                                    showDelayedLocalRespondingPlaceholder = false
-                                                                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                                }
-                                                                                            }
+                                                                                            publishLocalStreamingPartialForUi(
+                                                                                                chatId = npuChatId,
+                                                                                                text = partial,
+                                                                                            )
                                                                                         },
                                                                                         trace = npuRealPromptTrace,
                                                                                     )
@@ -5379,31 +5403,26 @@ fun Home(
                                                                 localGenericModelDisplayName = localGenericModelDisplayName,
                                                                 mediaPipeProbeContext = context.applicationContext,
                                                                 preferredBackendDryRunSetting = backend,
-                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                 prompt = requestPrompt,
                                                                 onPartial = { partial ->
-                                                                    val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
-                                                                        userPrompt = requestPrompt,
-                                                                        response = partial,
-                                                                    )
-                                                                    val safePartial = provisionalDecision.acceptedText
-                                                                        .takeIf {
+                                                                    val safePartial = if (LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE == MarkdownStreamingMode.EDGE_GALLERY_COMPAT) {
+                                                                        partial.takeIf { it.isNotBlank() }
+                                                                    } else {
+                                                                        val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                            userPrompt = requestPrompt,
+                                                                            response = partial,
+                                                                        )
+                                                                        provisionalDecision.acceptedText.takeIf {
                                                                             provisionalDecision.disposition == LocalInferenceOutputDisposition.ACCEPT &&
                                                                                 it.isNotBlank()
                                                                         }
-                                                                    if (
-                                                                        safePartial != null &&
-                                                                        !localStopRequested &&
-                                                                        effectiveChatId == currentChatId
-                                                                    ) {
-                                                                        coroutineScope.launch {
-                                                                            if (localStopRequested || effectiveChatId != currentChatId) return@launch
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = safePartial
-                                                                            showDelayedLocalRespondingPlaceholder = false
-                                                                            suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                        }
+                                                                    }
+                                                                    if (safePartial != null) {
+                                                                        publishLocalStreamingPartialForUi(
+                                                                            chatId = currentChatId,
+                                                                            text = safePartial,
+                                                                        )
                                                                     }
                                                                 },
                                                                 allowLegacyReflectionFallback = false,
@@ -5625,7 +5644,7 @@ fun Home(
                                                                     finalizeMarkdown = { text ->
                                                                         buildFinalizedStreamingResponseForPersist(
                                                                             response = text,
-                                                                            markdownStreamingMode = markdownStreamingMode,
+                                                                            markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                         )
                                                                     },
                                                                 )
@@ -5995,7 +6014,7 @@ fun Home(
                                                                             finalizeMarkdown = { text ->
                                                                                 buildFinalizedStreamingResponseForPersist(
                                                                                     response = text,
-                                                                                    markdownStreamingMode = markdownStreamingMode,
+                                                                                    markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                                 )
                                                                             },
                                                                         )
@@ -6357,32 +6376,27 @@ fun Home(
                                                                     localGenericModelDisplayName = localGenericModelDisplayName,
                                                                     mediaPipeProbeContext = context.applicationContext,
                                                                     preferredBackendDryRunSetting = backend,
-                                                                    markdownStreamingMode = markdownStreamingMode,
+                                                                    markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                     prompt = requestPrompt,
                                                                     onPartial = { partial ->
-                                                                        val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
-                                                                            userPrompt = requestPrompt,
-                                                                            response = partial,
-                                                                        )
-                                                                        val safePartial = provisionalDecision.acceptedText
-                                                                            .takeIf {
+                                                                        val safePartial = if (LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE == MarkdownStreamingMode.EDGE_GALLERY_COMPAT) {
+                                                                            partial.takeIf { it.isNotBlank() }
+                                                                        } else {
+                                                                            val provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate(
+                                                                                userPrompt = requestPrompt,
+                                                                                response = partial,
+                                                                            )
+                                                                            provisionalDecision.acceptedText.takeIf {
                                                                                 provisionalDecision.disposition == LocalInferenceOutputDisposition.ACCEPT &&
                                                                                     it.isNotBlank()
                                                                             }
-                                                                        if (
-                                                                            safePartial != null &&
-                                                                            !localStopRequested &&
-                                                                            effectiveChatId == resolvedNpuChatId
-                                                                        ) {
-                                                                            coroutineScope.launch {
-                                                                                val fallbackChatId = resolvedNpuChatId ?: return@launch
-                                                                                if (localStopRequested || effectiveChatId != fallbackChatId) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
-                                                                                localStreamingResponseText = safePartial
-                                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                            }
+                                                                        }
+                                                                        val fallbackChatId = resolvedNpuChatId
+                                                                        if (safePartial != null && fallbackChatId != null) {
+                                                                            publishLocalStreamingPartialForUi(
+                                                                                chatId = fallbackChatId,
+                                                                                text = safePartial,
+                                                                            )
                                                                         }
                                                                     },
                                                                     allowLegacyReflectionFallback = false,
@@ -7493,7 +7507,7 @@ fun Home(
                                                                         localModelDisplayName = modelResolution.displayName,
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
-                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                        markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                         initialTurns = localConversationHistorySnapshot,
                                                                         routeDiagnosticContext = localRouteDiagnosticContext,
                                                                         routeRunStartedAtMs = localRunStartedAtMs,
@@ -7519,46 +7533,17 @@ fun Home(
                                                                             if (localRouteTimedOut.get() || localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
-                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                                markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                             )
-                                                                            val debugText = buildString {
-                                                                                appendLine("=== WS TRACE ===")
-                                                                                appendLine("RAW:")
-                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                appendLine("----")
-                                                                                appendLine("STREAM_NORMALIZED:")
-                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                appendLine("----")
-                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
-                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
-                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
-                                                                            }
-                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                                coroutineScope.launch {
-                                                                                    devWhitespaceTraceText = debugText
-                                                                                }
-                                                                            }
-                                                                            logLocalStreamingWhitespace(
-                                                                                stage = "ChatScreen#held.onPartial",
-                                                                                raw = partial,
-                                                                                normalized = normalizedPartial,
-                                                                            )
+                                                                            // Edge Gallery product streaming keeps hot callbacks allocation-free;
+                                                                            // detailed whitespace diagnostics are intentionally skipped here.
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
-                                                                            coroutineScope.launch {
-                                                                                if (localRouteTimedOut.get()) return@launch
-                                                                                if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                if (localStopRequested) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
-                                                                                logLocalStreamingWhitespace(
-                                                                                    stage = "ChatScreen#held.localStreamingResponseText",
-                                                                                    raw = partial,
-                                                                                    normalized = normalizedPartial,
-                                                                                )
-                                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                                suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                localStreamingResponseText = normalizedPartial
-                                                                            }
+                                                                            if (localRouteTimedOut.get()) return@runWithHeldEngine
+                                                                            if (localRunGuardEpoch != streamingGuardEpoch || localStopRequested) return@runWithHeldEngine
+                                                                            publishLocalStreamingPartialForUi(
+                                                                                chatId = currentChatId,
+                                                                                text = normalizedPartial,
+                                                                            )
                                                                         },
                                                                         appendTrace = { message ->
                                                                             gpuRouteProgressTracker.recordTrace(message)
@@ -7723,45 +7708,16 @@ fun Home(
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                         partial = partial,
-                                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                                        markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                                     )
-                                                                                    val debugText = buildString {
-                                                                                        appendLine("=== WS TRACE ===")
-                                                                                        appendLine("RAW:")
-                                                                                        appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                        appendLine("----")
-                                                                                        appendLine("STREAM_NORMALIZED:")
-                                                                                        appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                        appendLine("----")
-                                                                                        appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
-                                                                                        appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
-                                                                                        appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
-                                                                                    }
-                                                                                    if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                                        coroutineScope.launch {
-                                                                                            devWhitespaceTraceText = debugText
-                                                                                        }
-                                                                                    }
-                                                                                    logLocalStreamingWhitespace(
-                                                                                        stage = "ChatScreen#legacy.onPartial",
-                                                                                        raw = partial,
-                                                                                        normalized = normalizedPartial,
-                                                                                    )
+                                                                                    // Edge Gallery product streaming keeps hot callbacks allocation-free;
+                                                                                    // detailed whitespace diagnostics are intentionally skipped here.
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                                    coroutineScope.launch {
-                                                                                        if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                        if (localStopRequested) return@launch
-                                                                                        didReceiveRealLocalPartial = true
-                                                                                        realLocalPartialChunkCount += 1
-                                                                                        logLocalStreamingWhitespace(
-                                                                                            stage = "ChatScreen#legacy.localStreamingResponseText",
-                                                                                            raw = partial,
-                                                                                            normalized = normalizedPartial,
-                                                                                        )
-                                                                                        showDelayedLocalRespondingPlaceholder = false
-                                                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                        localStreamingResponseText = normalizedPartial
-                                                                                    }
+                                                                                    if (localRunGuardEpoch != streamingGuardEpoch || localStopRequested) return@legacyPartial
+                                                                                    publishLocalStreamingPartialForUi(
+                                                                                        chatId = currentChatId,
+                                                                                        text = normalizedPartial,
+                                                                                    )
                                                                                 },
                                                                             )
                                                                             appendLocalReflectionTrace(
@@ -7825,44 +7781,16 @@ fun Home(
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
-                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                                markdownStreamingMode = LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE,
                                                                             )
-                                                                            val debugText = buildString {
-                                                                                appendLine("=== WS TRACE ===")
-                                                                                appendLine("RAW:")
-                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                appendLine("----")
-                                                                                appendLine("STREAM_NORMALIZED:")
-                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
-                                                                                appendLine("----")
-                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
-                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
-                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
-                                                                            }
-                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                                coroutineScope.launch {
-                                                                                    devWhitespaceTraceText = debugText
-                                                                                }
-                                                                            }
-                                                                            logLocalStreamingWhitespace(
-                                                                                stage = "ChatScreen#legacyDirect.onPartial",
-                                                                                raw = partial,
-                                                                                normalized = normalizedPartial,
-                                                                            )
+                                                                            // Edge Gallery product streaming keeps hot callbacks allocation-free;
+                                                                            // detailed whitespace diagnostics are intentionally skipped here.
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                            coroutineScope.launch {
-                                                                                if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                if (localStopRequested) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
-                                                                                logLocalStreamingWhitespace(
-                                                                                    stage = "ChatScreen#legacyDirect.localStreamingResponseText",
-                                                                                    raw = partial,
-                                                                                    normalized = normalizedPartial,
-                                                                                )
-                                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                                localStreamingResponseText = normalizedPartial
-                                                                            }
+                                                                            if (localRunGuardEpoch != streamingGuardEpoch || localStopRequested) return@legacyPartial
+                                                                            publishLocalStreamingPartialForUi(
+                                                                                chatId = currentChatId,
+                                                                                text = normalizedPartial,
+                                                                            )
                                                                         },
                                                                     )
                                                                     appendLocalReflectionTrace(
@@ -8698,11 +8626,8 @@ fun Home(
                     } else {
                         messagesForListWithPendingUser
                     }
-                    logStreamTrace(
-                        "STREAM ui transient row enabled source=in-memory placeholderId=${ownedPlaceholderId ?: -1}",
-                    )
                     renderBase + Message(
-                        messageID = ownedPlaceholderId ?: (Int.MIN_VALUE / 2 + transientChatId),
+                        messageID = ownedPlaceholderId ?: transientAssistantMessageIdForChat(transientChatId),
                         chatId = transientChatId,
                         message = transientText,
                         isSendbyMe = false,
@@ -13896,7 +13821,7 @@ private fun logLocalStreamingWhitespace(
     raw: String?,
     normalized: String? = null,
 ) {
-    if (!BuildConfig.DEBUG) return
+    if (!BuildConfig.DEBUG || !LOCAL_STREAMING_WHITESPACE_TRACE_ENABLED) return
     val rawSummary = summarizeWhitespaceForDebug(raw)
     val normalizedSummary = summarizeWhitespaceForDebug(normalized)
     if (normalized == null) {

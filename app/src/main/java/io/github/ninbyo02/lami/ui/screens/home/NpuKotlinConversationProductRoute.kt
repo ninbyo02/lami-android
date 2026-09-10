@@ -164,17 +164,24 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                             )
                             if (builder.isNotEmpty()) {
                                 val accumulated = builder.toString()
-                                val provisionalQuality = evaluateNpuStandardRouteQualityCandidate(
-                                    rawOutput = accumulated,
-                                    sanitizedOutput = accumulated.trim(),
-                                    inputPrompt = prompt,
-                                    conversationApiUsed = true,
-                                )
-                                val safePartial = provisionalQuality.preparedOutput
-                                    .takeIf {
+                                // AI Edge Gallery renders the accumulated delta stream directly.
+                                // In compatibility mode, defer semantic quality rejection until the
+                                // completed response so incomplete-but-valid prefixes do not freeze
+                                // and later reappear. LAMI Recovery keeps the stricter provisional gate.
+                                val safePartial = if (markdownStreamingMode == MarkdownStreamingMode.EDGE_GALLERY_COMPAT) {
+                                    accumulated.takeIf { it.isNotBlank() }
+                                } else {
+                                    val provisionalQuality = evaluateNpuStandardRouteQualityCandidate(
+                                        rawOutput = accumulated,
+                                        sanitizedOutput = accumulated.trim(),
+                                        inputPrompt = prompt,
+                                        conversationApiUsed = true,
+                                    )
+                                    provisionalQuality.preparedOutput.takeIf {
                                         provisionalQuality.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS &&
                                             it.isNotBlank()
                                     }
+                                }
                                 if (safePartial != null) {
                                     if (firstVisibleChunkMs == null) {
                                         firstVisibleChunkMs = (SystemClock.elapsedRealtime() - sendStartedAt)

@@ -140,6 +140,9 @@ internal fun shouldShowTransientAssistantRow(
     return !streamingResponseText?.trim().isNullOrBlank()
 }
 
+internal fun transientAssistantMessageIdForChat(chatId: Int): Int =
+    (Int.MIN_VALUE / 2) + chatId
+
 internal fun shouldShowPendingLocalUserMessage(
     currentChatId: Int?,
     pendingLocalUserMessageText: String?,

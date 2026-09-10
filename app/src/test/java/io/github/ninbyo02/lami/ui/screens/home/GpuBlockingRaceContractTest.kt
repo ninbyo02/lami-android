@@ -735,19 +735,27 @@ class GpuBlockingRaceContractTest {
                 fallbackBlock.contains("allowLegacyReflectionFallback = false"),
             )
             assertTrue(
-                "Streaming fallback partials must pass the unified output policy before UI display.",
+                "Edge Gallery compatibility must stream accumulated deltas without provisional semantic rejection.",
+                fallbackBlock.contains("LOCAL_PRODUCT_MARKDOWN_STREAMING_MODE == MarkdownStreamingMode.EDGE_GALLERY_COMPAT"),
+            )
+            assertTrue(
+                "Edge Gallery compatibility must preserve the accumulated partial for display.",
+                fallbackBlock.contains("partial.takeIf { it.isNotBlank() }"),
+            )
+            assertTrue(
+                "Lami Recovery rollback mode keeps the provisional unified output policy.",
                 fallbackBlock.contains("provisionalDecision = LocalInferenceOutputPolicy.evaluateLocalCandidate("),
             )
             assertTrue(
-                "Only the policy-approved partial may reach the UI.",
-                fallbackBlock.contains("localStreamingResponseText = safePartial"),
+                "Only the policy-approved partial may reach the conflated UI publisher.",
+                fallbackBlock.contains("publishLocalStreamingPartialForUi("),
             )
             assertFalse(
                 "Streaming fallback partials must not write Room on every native update.",
                 fallbackBlock.contains("upsertStreamingAssistantPlaceholderSerialized("),
             )
-            assertTrue(
-                "Fallback display must continue to publish approved text through the in-memory stream source.",
+            assertFalse(
+                "Native fallback callbacks must not enqueue direct Compose state writes per token.",
                 fallbackBlock.contains("localStreamingResponseText = safePartial"),
             )
             assertFalse(

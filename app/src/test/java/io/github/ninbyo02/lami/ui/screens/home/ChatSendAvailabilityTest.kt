@@ -160,6 +160,23 @@ class ChatSendAvailabilityTest {
     }
 
     @Test
+    fun `transient assistant synthetic id keeps LazyColumn key stable while text grows`() {
+        val id = transientAssistantMessageIdForChat(7)
+        val first = io.github.ninbyo02.lami.db.entity.Message(
+            messageID = id,
+            chatId = 7,
+            message = "こん",
+            isSendbyMe = false,
+        )
+        val second = first.copy(message = "こんにちは")
+
+        assertEquals(
+            stableChatMessageKey(listOf(first), 0),
+            stableChatMessageKey(listOf(second), 0),
+        )
+    }
+
+    @Test
     fun `pending local user message is hidden once persisted user message matches`() {
         assertFalse(
             shouldShowPendingLocalUserMessage(

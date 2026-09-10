@@ -41,6 +41,7 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val LOCAL_STREAMING_WHITESPACE_TRACE_ENABLED = false
 private const val GPU_PREFILL_PROBE_DEFAULT_TIMEOUT_MS = 15_000L
 private const val GPU_PREFILL_PROBE_DEFAULT_PROMPT = "こんにちは"
 private const val GPU_PREFILL_PROBE_DEFAULT_MAX_TOKENS = 1
@@ -7557,7 +7558,6 @@ private suspend fun runOfficialLiteRtLmDirect(
             val builder = StringBuilder()
             val appendContext = StreamingAppendContext()
             val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
-            var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
@@ -7581,16 +7581,18 @@ private suspend fun runOfficialLiteRtLmDirect(
                     raw = rawMessage,
                     normalized = normalizedMessage,
                 )
-                val extractedText = rawContents
+                // AI Edge Gallery treats Message.toString() as the authoritative delta.
+                // Keep Contents only as a compatibility fallback for runtimes that expose an
+                // empty Message string. Do not deduplicate equal adjacent deltas: repeated
+                // whitespace/newline/characters are valid model output.
+                val extractedText = rawMessage
                     .takeIf { isViableStreamingChunk(it) }
-                    ?: rawMessage.takeIf { isViableStreamingChunk(it) }
+                    ?: rawContents.takeIf { isViableStreamingChunk(it) }
                 officialChunkMetricsCollector.record(
                     chunkText = extractedText ?: rawContents,
                     nowElapsedMs = chunkArrivalElapsedMs,
                 )
                 if (!extractedText.isNullOrEmpty()) {
-                    if (extractedText == lastChunk) return@collect
-                    lastChunk = extractedText
                     appendMarkdownStreamingChunk(
                         builder = builder,
                         extractedRaw = extractedText,
@@ -8646,7 +8648,7 @@ private fun logLocalStreamingWhitespace(
     raw: String?,
     normalized: String? = null,
 ) {
-    if (!BuildConfig.DEBUG) return
+    if (!BuildConfig.DEBUG || !LOCAL_STREAMING_WHITESPACE_TRACE_ENABLED) return
     val rawSummary = summarizeWhitespaceForDebug(raw)
     val normalizedSummary = summarizeWhitespaceForDebug(normalized)
     if (normalized == null) {
@@ -8728,10 +8730,18 @@ internal fun appendMarkdownStreamingChunk(
             appendTrace = appendTrace,
         )
         MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> {
-            builder.append(processEdgeGalleryCompatibleMarkdown(extractedRaw))
-            appendTrace?.let { trace ->
-                safeAppendTrace(trace, "UPSTREAM append-chunk mode=edge-gallery-compatible join=${summarizeWhitespaceForUi("")}")
+            // Match AI Edge Gallery semantics: append the delta first, then normalize the
+            // accumulated response. Applying the newline normalization per chunk loses a
+            // split "\\" + "n" boundary and can make streamed Markdown visibly jump.
+            builder.append(extractedRaw)
+            val normalizedAccumulated = processEdgeGalleryCompatibleMarkdown(builder.toString())
+            if (normalizedAccumulated != builder.toString()) {
+                builder.setLength(0)
+                builder.append(normalizedAccumulated)
             }
+            // Do not emit per-delta file traces here. DebugTraceFile is synchronous and
+            // serialized; logging at native-token cadence can starve the UI thread when it
+            // needs the same trace lock. Aggregate metrics remain available elsewhere.
             ""
         }
     }

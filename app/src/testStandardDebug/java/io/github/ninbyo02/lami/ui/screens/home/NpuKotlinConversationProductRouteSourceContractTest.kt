@@ -50,7 +50,7 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertTrue(chat.contains("adapter_failure:kotlin_conversation_product_route:"))
         assertTrue(chat.contains("onPartial = { partial ->"))
         assertTrue(chat.contains("STREAM room checkpoint"))
-        assertTrue(chat.contains("source=in-memory"))
+        assertTrue(chat.contains("transientAssistantMessageIdForChat("))
         assertTrue(chat.contains("LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS"))
         assertTrue(chat.contains("val fullText = streamingResponseTextForRender ?: streamingResponseText"))
         assertTrue(chat.contains("npuStandardRouteNativeStreamingUsed"))

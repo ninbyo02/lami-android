@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import java.io.File
 import java.io.RandomAccessFile
 import java.lang.reflect.InvocationTargetException
@@ -10,6 +11,55 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalStreamingRunnerChunkAppendTest {
+    @Test
+    fun `Edge Gallery compatibility accumulates identical adjacent deltas without dedupe`() {
+        val builder = StringBuilder()
+
+        appendMarkdownStreamingChunk(
+            builder = builder,
+            extractedRaw = "ha",
+            markdownStreamingMode = MarkdownStreamingMode.EDGE_GALLERY_COMPAT,
+        )
+        appendMarkdownStreamingChunk(
+            builder = builder,
+            extractedRaw = "ha",
+            markdownStreamingMode = MarkdownStreamingMode.EDGE_GALLERY_COMPAT,
+        )
+
+        assertEquals("haha", builder.toString())
+    }
+
+    @Test
+    fun `Edge Gallery compatibility normalizes escaped newline split across deltas`() {
+        val builder = StringBuilder()
+
+        appendMarkdownStreamingChunk(
+            builder = builder,
+            extractedRaw = "line1\\",
+            markdownStreamingMode = MarkdownStreamingMode.EDGE_GALLERY_COMPAT,
+        )
+        appendMarkdownStreamingChunk(
+            builder = builder,
+            extractedRaw = "nline2",
+            markdownStreamingMode = MarkdownStreamingMode.EDGE_GALLERY_COMPAT,
+        )
+
+        assertEquals("line1\nline2", builder.toString())
+    }
+
+    @Test
+    fun `official Conversation flow does not drop equal adjacent delta chunks`() {
+        val source = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt",
+        ).readText()
+        val officialFlow = source
+            .substringAfter("conversation.sendMessageAsync(")
+            .substringBefore("val built = builder.toString()")
+
+        assertFalse(officialFlow.contains("extractedText == lastChunk"))
+        assertFalse(officialFlow.contains("lastChunk = extractedText"))
+    }
+
     @Test
     fun `Automatic backend policy uses GPU before CPU generic fallback`() {
         val applied = resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT)
