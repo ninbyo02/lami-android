@@ -35,6 +35,10 @@ import io.github.ninbyo02.lami.util.validateUrlFormat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -479,6 +483,7 @@ internal fun describeThinkingOnlyCompletion(
     }
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -520,6 +525,8 @@ class OllamaViewModel(
     private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
     @Volatile
     private var remoteProvider: RemoteProvider = RemoteProvider.OLLAMA
+    private var modelDiscoveryJob: Job? = null
+    private var modelDiscoveryGeneration = 0L
     @Volatile
     private var lemonadeAutoUnloadMode: LemonadeAutoUnloadMode = LemonadeAutoUnloadMode.OFF
     private var scheduledLemonadeUnloadJob: Job? = null
@@ -623,7 +630,7 @@ class OllamaViewModel(
                 }
         }
         viewModelScope.launch {
-            settingsPreferences.remoteProviderFlow
+            baseUrl.flatMapLatest { settingsPreferences.remoteProviderForBaseUrlFlow(it) }
                 .distinctUntilChanged()
                 .collect { provider ->
                     remoteProvider = provider
@@ -650,9 +657,12 @@ class OllamaViewModel(
         }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
-                combine(baseUrl, settingsPreferences.inferenceTargetFlow, settingsPreferences.remoteProviderFlow) { url, target, provider ->
-                    Triple(url, target, provider)
-                }
+                combine(
+                    baseUrl.flatMapLatest { url ->
+                        settingsPreferences.remoteProviderForBaseUrlFlow(url).map { url to it }
+                    },
+                    settingsPreferences.inferenceTargetFlow,
+                ) { (url, provider), target -> Triple(url, target, provider) }
                     .distinctUntilChanged()
                     .collectLatest { (url, target, provider) ->
                         remoteProvider = provider
@@ -1934,47 +1944,56 @@ class OllamaViewModel(
     private val _availableModels = MutableStateFlow<List<ModelInfo>>(emptyList())
     val availableModels: StateFlow<List<ModelInfo>> = _availableModels.asStateFlow()
 
-    fun loadAvailableModels() {
-
-        viewModelScope.launch {
+    fun loadAvailableModels(): Job {
+        val generation = ++modelDiscoveryGeneration
+        modelDiscoveryJob?.cancel()
+        modelDiscoveryJob = viewModelScope.launch {
             _isLoadingModels.value = true
-            val baseUrl = this@OllamaViewModel.baseUrl.value.trimEnd('/')
-            if (baseUrl.isBlank()) {
-                _availableModels.value = emptyList()
-                _isLoadingModels.value = false
-                return@launch
-            }
+            val requestedBaseUrl = baseUrl.value.trimEnd('/')
+            fun isCurrent() = generation == modelDiscoveryGeneration &&
+                requestedBaseUrl == baseUrl.value.trimEnd('/')
             try {
-                val discovery = availableModelsFetcher(baseUrl, remoteProvider)
-                if (discovery.provider != remoteProvider) {
-                    Log.i(
-                        "RemoteProvider",
-                        "Recovered provider mismatch for ${URL(baseUrl).host}: " +
-                            "${remoteProvider.displayName} -> ${discovery.provider.displayName}",
-                    )
-                    remoteProvider = discovery.provider
-                    settingsPreferences.saveRemoteProvider(discovery.provider)
+                if (requestedBaseUrl.isBlank()) {
+                    _availableModels.value = emptyList()
+                    return@launch
                 }
+                val preferred = settingsPreferences.remoteProviderForBaseUrlFlow(requestedBaseUrl).first()
+                val discovery = availableModelsFetcher(requestedBaseUrl, preferred)
+                currentCoroutineContext().ensureActive()
+                if (!isCurrent()) return@launch
+                remoteProvider = discovery.provider
+                settingsPreferences.saveRemoteProvider(discovery.provider, requestedBaseUrl)
+                currentCoroutineContext().ensureActive()
+                if (!isCurrent()) return@launch
                 _availableModels.value = discovery.models
-                refreshSelectedModel(discovery.models)
-                _uiState.value = UiState.Initial
+                refreshSelectedModel(discovery.models, requestedBaseUrl)
+                if (isCurrent()) _uiState.value = UiState.Initial
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.e("OllamaError", "Error loading models: ${e.message}")
-                _availableModels.value = emptyList()
-                val message = e.message ?: "Unknown error"
-                updateErrorState("Failed to load models: $message")
+                if (isCurrent()) {
+                    Log.e("OllamaError", "Error loading models: ${e.message}")
+                    _availableModels.value = emptyList()
+                    updateErrorState("Failed to load models: ${e.message ?: "Unknown error"}")
+                }
             } finally {
-                _isLoadingModels.value = false
+                if (isCurrent()) _isLoadingModels.value = false
             }
         }
+        return checkNotNull(modelDiscoveryJob)
     }
 
     @VisibleForTesting
-    internal suspend fun refreshSelectedModel(models: List<ModelInfo>) {
-        val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+    internal suspend fun refreshSelectedModel(
+        models: List<ModelInfo>,
+        requestedBaseUrl: String = baseUrl.value.trimEnd('/'),
+    ) {
+        val baseUrl = requestedBaseUrl
         val savedModel = withContext(Dispatchers.IO) {
             modelPreferenceRepository.getSelectedModel(baseUrl)
         }
+        currentCoroutineContext().ensureActive()
+        if (baseUrl != this.baseUrl.value.trimEnd('/')) return
         val savedModelAvailable = savedModel?.takeIf { modelName -> models.any { it.name == modelName } }
         val currentSelection = _selectedModel.value?.takeIf { modelName -> models.any { it.name == modelName } }
         if (models.size == 1) {

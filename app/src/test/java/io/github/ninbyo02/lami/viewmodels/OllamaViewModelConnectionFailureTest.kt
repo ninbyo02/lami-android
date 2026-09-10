@@ -12,6 +12,10 @@ import io.github.ninbyo02.lami.db.repository.ChatRepository
 import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,7 +74,7 @@ class OllamaViewModelConnectionFailureTest {
             throw IOException("server disconnected")
         }
 
-        viewModel.loadAvailableModels()
+        viewModel.loadAvailableModels().join()
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
@@ -79,6 +83,62 @@ class OllamaViewModelConnectionFailureTest {
         assertEquals("saved-server-model", viewModel.selectedModel.value)
         assertEquals("saved-server-model", modelPreferenceDao.selected["http://localhost:13511"]?.modelName)
     }
+    @Test
+    fun `provider preferences survive switching to a server supporting both APIs`() = runTest(dispatcher) {
+        val preferences = SettingsPreferences(RuntimeEnvironment.getApplication())
+        val lemonadeUrl = "http://localhost:13512"
+        val ollamaUrl = "http://localhost:13513"
+        preferences.saveRemoteProvider(RemoteProvider.LEMONADE, lemonadeUrl + "/")
+        preferences.saveRemoteProvider(RemoteProvider.OLLAMA, ollamaUrl)
+        assertEquals(RemoteProvider.LEMONADE, preferences.remoteProviderForBaseUrlFlow(lemonadeUrl).first())
+        assertEquals(RemoteProvider.OLLAMA, preferences.remoteProviderForBaseUrlFlow(ollamaUrl).first())
+        val dao = FakeModelPreferenceDao()
+        var receivedProvider: RemoteProvider? = null
+        val vm = OllamaViewModel(ChatRepository(FakeMessageDao(), FakeChatDao()),
+            ModelPreferenceRepository(dao), preferences, null, MutableStateFlow(lemonadeUrl), false) { _, provider ->
+            receivedProvider = provider
+            // Both endpoints succeed but expose different identifiers.
+            RemoteModelsResult(listOf(ModelInfo(if (provider == RemoteProvider.LEMONADE) "model" else "model:latest")), provider)
+        }
+        vm.loadAvailableModels().join()
+        assertEquals(RemoteProvider.LEMONADE, receivedProvider)
+        assertEquals("model", vm.selectedModel.value)
+        assertEquals("model", dao.selected[lemonadeUrl]?.modelName)
+        assertEquals(RemoteProvider.OLLAMA, preferences.remoteProviderForBaseUrlFlow(ollamaUrl).first())
+    }
+
+    @Test
+    fun `late discovery cannot overwrite new server models or selection`() = runTest(dispatcher) {
+        val preferences = SettingsPreferences(RuntimeEnvironment.getApplication())
+        val firstUrl = "http://localhost:13514"
+        val secondUrl = "http://localhost:13515"
+        preferences.saveRemoteProvider(RemoteProvider.LEMONADE, firstUrl)
+        preferences.saveRemoteProvider(RemoteProvider.OLLAMA, secondUrl)
+        val urls = MutableStateFlow(firstUrl)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val dao = FakeModelPreferenceDao()
+        val vm = OllamaViewModel(ChatRepository(FakeMessageDao(), FakeChatDao()),
+            ModelPreferenceRepository(dao), preferences, null, urls, false) { url, provider ->
+            if (url == firstUrl) {
+                entered.complete(Unit)
+                withContext(NonCancellable) { release.await() }
+            }
+            RemoteModelsResult(listOf(ModelInfo(if (url == firstUrl) "old-model" else "new-model")), provider)
+        }
+        val first = vm.loadAvailableModels()
+        entered.await()
+        urls.value = secondUrl
+        vm.loadAvailableModels().join()
+        release.complete(Unit)
+        first.join()
+        assertEquals(listOf("new-model"), vm.availableModels.value.map { it.name })
+        assertEquals("new-model", vm.selectedModel.value)
+        assertEquals("new-model", dao.selected[secondUrl]?.modelName)
+        assertEquals(null, dao.selected[firstUrl])
+        assertTrue(vm.uiState.value !is UiState.Error)
+    }
+
 }
 
 private class FakeChatDao : ChatDao {

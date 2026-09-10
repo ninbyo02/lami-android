@@ -208,6 +208,11 @@ fun Settings(
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+    val providerBaseUrl = serverInputs.firstOrNull { it.isActive }?.url
+        ?.let { normalizeUrlForSave(normalizeUrlInput(it)) }.orEmpty()
+    val selectedRemoteProvider by remember(providerBaseUrl, settingsPreferences) {
+        settingsPreferences.remoteProviderForBaseUrlFlow(providerBaseUrl)
+    }.collectAsState(initial = settingsData.remoteProvider)
     val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
@@ -1157,15 +1162,15 @@ fun Settings(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider, providerBaseUrl) }
                                     }
                                     .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RadioButton(
-                                    selected = settingsData.remoteProvider == provider,
+                                    selected = selectedRemoteProvider == provider,
                                     onClick = {
-                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider, providerBaseUrl) }
                                     },
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1182,7 +1187,7 @@ fun Settings(
                                 }
                             }
                         }
-                        if (settingsData.remoteProvider == RemoteProvider.LEMONADE) {
+                        if (selectedRemoteProvider == RemoteProvider.LEMONADE) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Lemonade自動アンロード",
@@ -1293,7 +1298,7 @@ fun Settings(
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
                                                 validateActiveConnections(inputsForValidation) { url ->
-                                                    isValidURL(url, settingsData.remoteProvider)
+                                                    isValidURL(url, selectedRemoteProvider)
                                                 }
                                             }
                                         } finally {
@@ -1305,8 +1310,7 @@ fun Settings(
                                         val activeInput = inputsForValidation.firstOrNull { it.isActive }
                                         val detectedProvider = activeInput
                                             ?.let { validationResults[it.localId]?.detectedProvider }
-                                        val recoveredProvider = detectedProvider
-                                            ?.takeIf { it != settingsData.remoteProvider }
+                                        val recoveredProvider = detectedProvider?.takeIf { it != selectedRemoteProvider }
                                         if (unreachableConnections.isNotEmpty()) {
                                             snackbarHostState.showSnackbar(
                                                 message = "選択中のサーバーに接続できません。入力内容を確認してください",
@@ -1324,8 +1328,8 @@ fun Settings(
                                         connectionStatuses = validationResults.mapValues { entry ->
                                             entry.value.copy(errorMessage = null)
                                         }
-                                        if (recoveredProvider != null) {
-                                            settingsPreferences.saveRemoteProvider(recoveredProvider)
+                                        if (activeInput != null && detectedProvider != null) {
+                                            settingsPreferences.saveRemoteProvider(detectedProvider, activeInput.url)
                                         }
                                         duplicateUrls = emptyMap()
                                         val inputsToSave = inputsForValidation.mapIndexed { _, input ->
