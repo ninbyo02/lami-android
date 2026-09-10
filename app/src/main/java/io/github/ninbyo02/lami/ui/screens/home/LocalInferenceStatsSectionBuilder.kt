@@ -92,6 +92,7 @@ internal fun buildInferenceSummarySections(
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
     val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
+    val ollamaThinkingStats = parseOllamaThinkingStats(stats.notes)
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
@@ -100,9 +101,21 @@ internal fun buildInferenceSummarySections(
         }
     } else {
         buildList {
+            ollamaThinkingStats.timeToFirstTokenMs?.let {
+                add(
+                    InferenceStatItemUi(
+                        label = "Thinking開始まで（端末基準）",
+                        value = formatMillisToCompactText(it),
+                    ),
+                )
+            }
             add(
                 InferenceStatItemUi(
-                    label = "初回受信まで（端末基準）",
+                    label = if (ollamaThinkingStats.hasThinking) {
+                        "回答本文開始まで（端末基準）"
+                    } else {
+                        "初回受信まで（端末基準）"
+                    },
                     value = if (heldOfficialBlocking) "—" else formatTimeToFirstToken(stats) ?: "—",
                 ),
             )
@@ -173,6 +186,7 @@ internal fun buildInferenceDetailSections(
         )
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
+    val ollamaThinkingStats = parseOllamaThinkingStats(stats.notes)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val isLocalBackendStats = localTraceForDev != null || isLocalBackendInferenceStats(stats)
     val displayTokensPerSecondText = if (isEstimatedCodePointTokenCount(stats)) {
@@ -187,7 +201,7 @@ internal fun buildInferenceDetailSections(
             )
         }
     } else {
-        buildLamiTokensPerSecondText(stats)
+        backendTokensPerSecondText ?: buildLamiTokensPerSecondText(stats)
     }
     val showOllamaPerceivedTokensPerSecond = !isLocalBackendStats
     val localSourceSummaryText = stats.localSourceSummary
@@ -543,6 +557,12 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
             perceivedTokensPerSecondText?.let {
                 add(InferenceStatItemUi(label = "体感速度", value = it))
+            }
+            ollamaThinkingStats.timeToFirstTokenMs?.let {
+                add(InferenceStatItemUi(label = "Thinking基準TTFT", value = formatMillisToCompactText(it)))
+            }
+            ollamaThinkingStats.streamSummary?.let {
+                add(InferenceStatItemUi(label = "Thinkingストリーム", value = it))
             }
             addAll(
                 buildUnifiedTtftItems(
@@ -1563,13 +1583,46 @@ private fun resolveBackendSpeedSourceLabel(
             else -> "未取得"
         }
         InferenceBackendKind.OLLAMA -> when {
-            stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（サーバー統計）"
+            stats.tokensPerSecond != null -> "バックエンド基準（サーバー統計）"
             hasPerceived -> "Lami基準 / バックエンド基準（fallback）"
             (stats.outputTokens ?: stats.completionTokens) != null &&
                 (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
             else -> "未取得"
         }
     }
+}
+
+internal data class OllamaThinkingStats(
+    val timeToFirstTokenMs: Long? = null,
+    val characterCount: Int? = null,
+    val chunkCount: Int? = null,
+) {
+    val hasThinking: Boolean
+        get() = timeToFirstTokenMs != null ||
+            (characterCount ?: 0) > 0 ||
+            (chunkCount ?: 0) > 0
+
+    val streamSummary: String?
+        get() = buildList {
+            characterCount?.takeIf { it > 0 }?.let { add("${it}文字") }
+            chunkCount?.takeIf { it > 0 }?.let { add("${it}チャンク") }
+        }.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+}
+
+internal fun parseOllamaThinkingStats(notes: String?): OllamaThinkingStats {
+    fun longValue(key: String): Long? = notes
+        ?.let { Regex("(?:^|\\s)${Regex.escape(key)}=(\\d+)").find(it) }
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toLongOrNull()
+
+    return OllamaThinkingStats(
+        timeToFirstTokenMs = longValue("remote_time_to_first_thinking_token_ms"),
+        characterCount = longValue("remote_thinking_characters")
+            ?.takeIf { it <= Int.MAX_VALUE }?.toInt(),
+        chunkCount = longValue("remote_thinking_chunks")
+            ?.takeIf { it <= Int.MAX_VALUE }?.toInt(),
+    )
 }
 
 private fun buildLamiTokensPerSecondText(stats: InferenceStats): String? {

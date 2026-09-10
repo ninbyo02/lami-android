@@ -16637,7 +16637,7 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
 }
 
 internal fun inferenceTimingNoteText(): String =
-    "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
+    "初回受信（Thinking対応時はThinking開始と回答本文開始を分離）は端末側、全体完了までは推論統計の完了タイミングを示します。"
 
 internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
     formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
