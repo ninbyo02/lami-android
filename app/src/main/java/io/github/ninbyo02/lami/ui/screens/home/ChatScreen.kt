@@ -908,7 +908,7 @@ fun Home(
         )
     }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
-    var isCreatingChat by rememberSaveable { mutableStateOf(false) }
+    var isCreatingChat by remember { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -3986,12 +3986,18 @@ fun Home(
             pendingNavigateChatId == null &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
-            isCreatingChat = true
-            val newChatId = viewModel.insertChatAndReturnId(
-                Chat(title = "New chat", titleSource = TitleSource.TEMP)
+            createChatWithProgress(
+                setCreating = { isCreatingChat = it },
+                createChat = {
+                    viewModel.insertChatAndReturnId(
+                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                    )
+                },
+                onCreated = { newChatId ->
+                    effectiveChatId = newChatId
+                    pendingNavigateChatId = newChatId
+                },
             )
-            effectiveChatId = newChatId
-            pendingNavigateChatId = newChatId
         }
 
         if (resolvedChatId != null) {
