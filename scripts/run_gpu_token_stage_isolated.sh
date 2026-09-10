@@ -15,7 +15,8 @@ case "${prompt_mode}" in
   *) echo "unsupported prompt mode: ${prompt_mode}" >&2; exit 2 ;;
 esac
 
-artifact_dir="artifacts/gpu-token-stage-${tokens}-${prompt_mode}"
+batch_id="$(date -u +%Y%m%dT%H%M%SZ)_$$"
+artifact_dir="artifacts/gpu-token-stage-${tokens}-${prompt_mode}/${batch_id}"
 summary="${artifact_dir}/summary.tsv"
 
 case "${tokens}" in
@@ -27,7 +28,6 @@ esac
 
 mkdir -p "${artifact_dir}"
 printf 'run\ttimestamp\tstatus\treason\tfallback_count\ttimeout_count\n' > "${summary}"
-batch_id="$(date -u +%Y%m%dT%H%M%SZ)_$$"
 failures=0
 for run in $(seq 1 "${runs}"); do
   timestamp="gpu_stage_${tokens}_${prompt_mode}_${batch_id}_isolated_$(printf '%02d' "${run}")"
@@ -45,6 +45,8 @@ for run in $(seq 1 "${runs}"); do
 
   deadline=$((SECONDS + timeout_ms / 1000 + 15))
   status="running"
+  state=""
+  state_timestamp=""
   while (( SECONDS < deadline )); do
     state="$(adb shell run-as "${package_name}" cat files/litert_lm_gpu_benchmark_state.txt 2>/dev/null || true)"
     state_timestamp="$(sed -n 's/^timestamp=//p' <<<"${state}" | head -1 | tr -d '\r')"
@@ -52,10 +54,23 @@ for run in $(seq 1 "${runs}"); do
     [[ "${state_timestamp}" == "${timestamp}" && "${status}" != "running" ]] && break
     sleep 2
   done
+  # A previous run's success is not evidence for this request.
+  matched_state=false
+  [[ "${state_timestamp}" == "${timestamp}" ]] && matched_state=true
   reason="$(sed -n 's/^reason=//p' <<<"${state}" | head -1 | tr -d '\r')"
   fallback_count="$(sed -n 's/^fallback_count=//p' <<<"${state}" | head -1 | tr -d '\r')"
   timeout_count="$(sed -n 's/^timeout_count=//p' <<<"${state}" | head -1 | tr -d '\r')"
   csv_name="$(sed -n 's/^csv_file=//p' <<<"${state}" | head -1 | tr -d '\r')"
+  if [[ "${matched_state}" != true ]]; then
+    status="failure"
+    reason="missing_current_run_state"
+    fallback_count="unknown"
+    timeout_count="unknown"
+    csv_name=""
+  elif [[ "${status}" == "running" || -z "${status}" ]]; then
+    status="failure"
+    reason="host_deadline_exceeded"
+  fi
   printf '%s' "${state}" > "${artifact_dir}/${timestamp}.state.txt"
   adb exec-out run-as "${package_name}" cat files/litert_lm_gpu_benchmark_checkpoint.txt \
     > "${artifact_dir}/${timestamp}.checkpoint.txt" 2>/dev/null || true
