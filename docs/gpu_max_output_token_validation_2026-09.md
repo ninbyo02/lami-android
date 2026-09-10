@@ -57,3 +57,7 @@ The diagnostic stage runner now accepts `640`, `768`, `800`, `832`, `864`, and `
 Instrument the LiteRT-LM callback boundary around emits 790-810 and record thread state, callback executor progress, native completion, and close behavior. If the runtime has completed but `onDone` is missing, add a narrowly scoped completion watchdog that can prove end-of-generation without converting a partial timeout into success. Otherwise, keep the failure classification introduced by `4e229d55` and pursue the runtime/delegate fix.
 
 A cap increase should proceed in two steps: qualify 800 or 832 behind a device/runtime allowlist, then separately pursue reliable 1,024 completion. The current evidence does not justify changing the default from 512 in this PR.
+
+## 2026-09-11 revalidation
+
+A fresh main-integrated candidate passed 512 saturation 3/3 and 832 saturation 10/10 with `onDone=1`, zero fallback, timeout, and fresh crash. The product cap remains 512. See [the new report](reviews/2026-09-11-gpu-stage-review.md) for build identity, per-run evidence, and remaining promotion gates.

@@ -1,0 +1,14 @@
+timestamp	max_output_tokens	status	reason	total_ms	first_nonempty_emit_ms	emit_count	callback_on_done_count	callback_on_error_count	fallback_used	timeout	fresh_crash
+gpu_stage_512_saturation_20260910T205800Z_2252263_isolated_01	512	success	completed	34427	355	481	1	0	false	false	false
+gpu_stage_512_saturation_20260910T205800Z_2252263_isolated_02	512	success	completed	33395	142	481	1	0	false	false	false
+gpu_stage_512_saturation_20260910T205800Z_2252263_isolated_03	512	success	completed	33580	140	481	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_01	832	success	completed	51172	137	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_02	832	success	completed	41020	124	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_03	832	success	completed	41388	129	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_04	832	success	completed	40957	124	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_05	832	success	completed	41139	132	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_06	832	success	completed	41342	117	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_07	832	success	completed	41843	352	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_08	832	success	completed	41223	116	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_09	832	success	completed	42251	134	801	1	0	false	false	false
+gpu_stage_832_saturation_20260910T210019Z_2254447_isolated_10	832	success	completed	40905	135	801	1	0	false	false	false
