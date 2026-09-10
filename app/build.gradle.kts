@@ -425,9 +425,11 @@ androidComponents {
             listOf(
                 "**/libLiteRtDispatch_Qualcomm.so",
                 "**/libLiteRtCompilerPlugin_Qualcomm.so",
-                "**/libGemmaModelConstraintProvider.so",
                 "**/libQnn*.so",
                 "**/libqnn_*.so",
+                // Isolation probe: force the working CLI's LITERT_CL implementation.
+                "**/libLiteRtGpuAccelerator.so",
+                "**/libLiteRtClGlAccelerator.so",
             ).forEach { pattern ->
                 variant.packaging.jniLibs.excludes.add(pattern)
             }
