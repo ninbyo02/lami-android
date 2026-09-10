@@ -66,12 +66,6 @@ internal const val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_RUNTIME_STACK = "sta
 internal const val STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_RUNTIME_STACK =
     "standardDebug_minimal_runtime_dev_gate"
 private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
-private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
-    '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
-)
-private val STREAMING_NO_JOIN_NEXT_CHARS = setOf(
-    ')', ']', '}', '"', '\'', '`', '.', ',', ':', ';', '!', '?', '/', '\\',
-)
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -8700,16 +8694,10 @@ internal fun shouldInsertMinimalJoinBetween(
     previous: String,
     next: String,
 ): Boolean {
-    if (previous.isEmpty() || next.isEmpty()) return false
-    if (next.first().isWhitespace()) return false
-    if (previous.last().isWhitespace()) return false
-    val previousLast = previous.last()
-    val nextFirst = next.first()
-    if (!previousLast.isAsciiWordLike() || !nextFirst.isAsciiWordLike()) return false
-    if (previousLast in STREAMING_NO_JOIN_PREVIOUS_CHARS) return false
-    if (nextFirst in STREAMING_NO_JOIN_NEXT_CHARS) return false
-    if (isLikelyCodeJoinContext(previous, next)) return false
-    return true
+    // LiteRT-LM callback chunks preserve their tokenizer-decoded whitespace.
+    // Guessing a word boundary from adjacent ASCII chunks corrupts subword
+    // sequences such as "RE" + "COVER" + "ED".
+    return false
 }
 
 internal fun appendMarkdownStreamingChunk(
@@ -9887,37 +9875,6 @@ private val STREAMING_STRONG_CODE_SIGNALS = listOf(
     "=",
     "self.",
 )
-
-private fun Char.isAsciiWordLike(): Boolean =
-    (this in 'a'..'z') || (this in 'A'..'Z') || (this in '0'..'9') || this == '_' || this == '-'
-
-private fun isLikelyCodeJoinContext(previous: String, next: String): Boolean {
-    val previousTail = previous.takeLast(48)
-    val nextHead = next.take(48)
-    val lowerPreviousTail = previousTail.lowercase(Locale.ROOT)
-    val lowerNextHead = nextHead.lowercase(Locale.ROOT)
-    val codeHints = listOf(
-        "print(",
-        "def ",
-        "class ",
-        "import ",
-        "from ",
-        "return ",
-        "if ",
-        "for ",
-        "while ",
-        "grid_",
-        "self.",
-        "np.",
-        "```",
-        "=",
-        "):",
-        "->",
-    )
-    return codeHints.any { hint ->
-        lowerPreviousTail.contains(hint) || lowerNextHead.contains(hint)
-    }
-}
 
 private fun buildRunnerWhitespaceTraceBlock(
     stages: List<Pair<String, String?>>,
