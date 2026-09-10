@@ -82,8 +82,8 @@ internal fun parseOpenAiCompatibleStreamingLine(line: String): OpenAiCompatibleS
     val delta = choice?.optJSONObject("delta")
     val finishReason = choice?.optNullableStringCompat("finish_reason")
     return OpenAiCompatibleStreamChunk(
-        text = delta?.optNullableStringCompat("content"),
-        reasoningText = delta?.optNullableStringCompat("reasoning_content"),
+        text = delta?.optNullableStreamText("content"),
+        reasoningText = delta?.optNullableStreamText("reasoning_content"),
         done = finishReason != null,
         finishReason = finishReason,
         model = json.optNullableStringCompat("model"),
@@ -104,6 +104,10 @@ private fun normalizeOpenAiCompatibleBaseUrl(rawBaseUrl: String, provider: Remot
     }
     return "$withVersionPath/"
 }
+
+// Whitespace-only deltas carry word boundaries and code indentation.
+private fun JSONObject.optNullableStreamText(name: String): String? =
+    if (has(name) && !isNull(name)) optString(name).takeIf { it.isNotEmpty() } else null
 
 private fun JSONObject.optNullableStringCompat(name: String): String? =
     if (has(name) && !isNull(name)) optString(name).takeIf { it.isNotBlank() } else null
