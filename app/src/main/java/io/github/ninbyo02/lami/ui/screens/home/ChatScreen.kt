@@ -14909,45 +14909,13 @@ private fun InferenceStatsSheetContent(
                 },
             )
 
-            sections.forEach { section ->
-                InferenceStatsSection(title = section.title) {
-                    section.items.forEach { item ->
-                        InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
-                    }
-                }
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
-                InferenceTimingBreakdownSection(stats)
-                InferenceContextUsageSection(stats)
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE && shouldShowInferenceTimingNote(stats)) {
-                Text(
-                    text = inferenceTimingNoteText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
-                Column(
-                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
-                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                ) {
-            detailSections.forEach { section ->
-                        InferenceStatsSection(title = section.title) {
-                            section.items.forEach { item ->
-                                InferenceStatRow(
-                                    label = item.label,
-                                    value = item.value,
-                                    emphasizeValue = item.emphasizeValue,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            InferenceStatsContent(
+                stats = stats,
+                displayMode = selectedDisplayMode,
+                sections = sections,
+                detailSections = detailSections,
+                sectionSpacing = sectionSpacing,
+            )
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
                 NpuBetaDevPrimaryIntroSection(
                     onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
