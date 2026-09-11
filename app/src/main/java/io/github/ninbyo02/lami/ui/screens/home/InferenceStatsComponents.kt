@@ -28,6 +28,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
+import io.github.ninbyo02.lami.ui.util.formatModelName
 
 @Composable
 internal fun InferenceStatRow(
@@ -239,6 +250,145 @@ internal fun InferenceContextUsageSection(stats: InferenceStats) {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun InferenceModelInfoRow(
+    stats: InferenceStats,
+    inferenceTarget: InferenceTarget,
+    onCopyInferenceStats: () -> Unit,
+    onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
+    onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
+    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
+) {
+    val modelName = formatModelName(stats)
+    InferenceStatsSection(title = "モデル情報") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "使用モデル",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    InferenceTargetIcon(
+                        target = inferenceTarget,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = modelName ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            IconButton(
+                onClick = onCopyInferenceStats,
+                modifier = Modifier.semantics { contentDescription = "推論統計をコピー" },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "推論統計をコピー",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (onCopyGpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyGpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyGpuInternalSurfaceKeys != null) {
+            TextButton(
+                onClick = onCopyGpuInternalSurfaceKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyNpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyNpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CopyableDebugBlock(
+    text: String,
+    title: String? = null,
+    onCopy: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Red,
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Red,
+            )
+        }
+        IconButton(
+            onClick = onCopy,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .semantics { contentDescription = "デバッグテキストをコピー" },
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = "デバッグテキストをコピー",
+                tint = Color.Red,
+            )
         }
     }
 }

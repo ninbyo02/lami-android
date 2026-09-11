@@ -64,7 +64,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
@@ -158,7 +157,6 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
-import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
@@ -188,7 +186,6 @@ import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatGenerationDuration
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
-import io.github.ninbyo02.lami.ui.util.formatModelName
 import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
@@ -15305,145 +15302,6 @@ private fun InferenceStatsSheetContent(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun InferenceModelInfoRow(
-    stats: InferenceStats,
-    inferenceTarget: InferenceTarget,
-    onCopyInferenceStats: () -> Unit,
-    onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
-    onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
-    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
-) {
-    val modelName = formatModelName(stats)
-    InferenceStatsSection(title = "モデル情報") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = "使用モデル",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    InferenceTargetIcon(
-                        target = inferenceTarget,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = modelName ?: "—",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-            IconButton(
-                onClick = onCopyInferenceStats,
-                modifier = Modifier.semantics { contentDescription = "推論統計をコピー" },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "推論統計をコピー",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (onCopyGpuDiagnosticKeys != null) {
-            TextButton(
-                onClick = onCopyGpuDiagnosticKeys,
-                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
-            }
-        }
-        if (onCopyGpuInternalSurfaceKeys != null) {
-            TextButton(
-                onClick = onCopyGpuInternalSurfaceKeys,
-                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
-            }
-        }
-        if (onCopyNpuDiagnosticKeys != null) {
-            TextButton(
-                onClick = onCopyNpuDiagnosticKeys,
-                modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CopyableDebugBlock(
-    text: String,
-    title: String? = null,
-    onCopy: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (!title.isNullOrBlank()) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Red,
-                )
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Red,
-            )
-        }
-        IconButton(
-            onClick = onCopy,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .semantics { contentDescription = "デバッグテキストをコピー" },
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = "デバッグテキストをコピー",
-                tint = Color.Red,
-            )
         }
     }
 }
