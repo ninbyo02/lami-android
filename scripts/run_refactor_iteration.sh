@@ -23,8 +23,9 @@ for command in git python3 gh jq codex flock; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 2; }
 done
 
-mkdir -p "$ROOT/.git/lami-refactor"
-exec 9>"$ROOT/.git/lami-refactor/loop.lock"
+git_common_dir=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
+mkdir -p "$git_common_dir/lami-refactor"
+exec 9>"$git_common_dir/lami-refactor/loop.lock"
 if ! flock -n 9; then
   echo "Another refactor iteration is already running; exiting."
   exit 0
