@@ -145,6 +145,8 @@ import io.github.ninbyo02.lami.ui.components.ReadyPreviewLayoutState
 import io.github.ninbyo02.lami.ui.components.ReadyPreviewSlot
 import io.github.ninbyo02.lami.ui.components.SpriteFrameRegion
 import io.github.ninbyo02.lami.ui.components.DevMenuSectionHost
+import io.github.ninbyo02.lami.ui.components.DevMenuTtsCallbacks
+import io.github.ninbyo02.lami.ui.components.DevMenuTtsUiState
 import io.github.ninbyo02.lami.ui.components.drawFramePlaceholder
 import io.github.ninbyo02.lami.ui.components.drawFrameRegion
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -5451,56 +5453,60 @@ private fun ReadyAnimationTab(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState,
-                    onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
-                    onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
-                    onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
-                    onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
-                    onStopTts = { ttsController.stop() },
-                    onResetTtsDefaults = { resetTtsToDefaults() },
-                    onApplyTtsPresetDefault = {
-                        applyTtsPreset(TtsPresetDefault)
-                    },
-                    onApplyTtsPresetCalm = {
-                        applyTtsPreset(TtsPresetCalm)
-                    },
-                    onApplyTtsPresetBright = {
-                        applyTtsPreset(TtsPresetBright)
-                    },
-                    isTtsPlaying = isDevMenuTtsPlaying,
-                    ttsSpeechRate = devMenuTtsSpeechRate,
-                    ttsPitch = devMenuTtsPitch,
-                    onIncreaseTtsSpeechRate = {
-                        val updatedRate = (devMenuTtsSpeechRate + 0.02f)
-                            .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
-                        devMenuTtsSpeechRate = updatedRate
-                        scope.launch {
-                            settingsPreferences.setTtsSpeechRate(updatedRate)
-                        }
-                    },
-                    onDecreaseTtsSpeechRate = {
-                        val updatedRate = (devMenuTtsSpeechRate - 0.02f)
-                            .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
-                        devMenuTtsSpeechRate = updatedRate
-                        scope.launch {
-                            settingsPreferences.setTtsSpeechRate(updatedRate)
-                        }
-                    },
-                    onIncreaseTtsPitch = {
-                        val updatedPitch = (devMenuTtsPitch + 0.02f)
-                            .coerceAtMost(AndroidTtsController.MAX_PITCH)
-                        devMenuTtsPitch = updatedPitch
-                        scope.launch {
-                            settingsPreferences.setTtsPitch(updatedPitch)
-                        }
-                    },
-                    onDecreaseTtsPitch = {
-                        val updatedPitch = (devMenuTtsPitch - 0.02f)
-                            .coerceAtLeast(AndroidTtsController.MIN_PITCH)
-                        devMenuTtsPitch = updatedPitch
-                        scope.launch {
-                            settingsPreferences.setTtsPitch(updatedPitch)
-                        }
-                    },
+                    ttsUiState = DevMenuTtsUiState(
+                        isPlaying = isDevMenuTtsPlaying,
+                        speechRate = devMenuTtsSpeechRate,
+                        pitch = devMenuTtsPitch,
+                    ),
+                    ttsCallbacks = DevMenuTtsCallbacks(
+                        onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
+                        onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
+                        onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
+                        onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
+                        onStopTts = { ttsController.stop() },
+                        onResetTtsDefaults = { resetTtsToDefaults() },
+                        onApplyTtsPresetDefault = {
+                            applyTtsPreset(TtsPresetDefault)
+                        },
+                        onApplyTtsPresetCalm = {
+                            applyTtsPreset(TtsPresetCalm)
+                        },
+                        onApplyTtsPresetBright = {
+                            applyTtsPreset(TtsPresetBright)
+                        },
+                        onIncreaseTtsSpeechRate = {
+                            val updatedRate = (devMenuTtsSpeechRate + 0.02f)
+                                .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
+                            devMenuTtsSpeechRate = updatedRate
+                            scope.launch {
+                                settingsPreferences.setTtsSpeechRate(updatedRate)
+                            }
+                        },
+                        onDecreaseTtsSpeechRate = {
+                            val updatedRate = (devMenuTtsSpeechRate - 0.02f)
+                                .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
+                            devMenuTtsSpeechRate = updatedRate
+                            scope.launch {
+                                settingsPreferences.setTtsSpeechRate(updatedRate)
+                            }
+                        },
+                        onIncreaseTtsPitch = {
+                            val updatedPitch = (devMenuTtsPitch + 0.02f)
+                                .coerceAtMost(AndroidTtsController.MAX_PITCH)
+                            devMenuTtsPitch = updatedPitch
+                            scope.launch {
+                                settingsPreferences.setTtsPitch(updatedPitch)
+                            }
+                        },
+                        onDecreaseTtsPitch = {
+                            val updatedPitch = (devMenuTtsPitch - 0.02f)
+                                .coerceAtLeast(AndroidTtsController.MIN_PITCH)
+                            devMenuTtsPitch = updatedPitch
+                            scope.launch {
+                                settingsPreferences.setTtsPitch(updatedPitch)
+                            }
+                        },
+                    ),
                     replacementEnabled = replacementEnabled,
                     onReplacementEnabledChange = { enabled -> replacementEnabled = enabled },
                     blinkEffectEnabled = blinkEffectEnabled,
