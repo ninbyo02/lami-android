@@ -15,13 +15,11 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuPersistentHolderCreateCloseDevSection(
-    state: NpuPersistentHolderCreateCloseProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuHolderDiagnosticUi<NpuPersistentHolderCreateCloseProbeState>,
+    actions: NpuHolderDiagnosticActions,
 ) {
+    val (state, running, blockedByGeneration) = ui
+    val (onStart, onCopySummary, onCopyFullDump) = actions
     val diagnostics = state.latestDiagnostics
     val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
         "holder_fatal_latch=true: アプリ再起動推奨"
@@ -83,13 +81,11 @@ internal fun NpuPersistentHolderCreateCloseDevSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuPersistentHolderRunOnceDevSection(
-    state: NpuPersistentHolderRunOnceProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuHolderDiagnosticUi<NpuPersistentHolderRunOnceProbeState>,
+    actions: NpuHolderDiagnosticActions,
 ) {
+    val (state, running, blockedByGeneration) = ui
+    val (onStart, onCopySummary, onCopyFullDump) = actions
     val diagnostics = state.latestDiagnostics
     val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
         "holder_fatal_latch=true: アプリ再起動推奨"
@@ -150,13 +146,11 @@ internal fun NpuPersistentHolderRunOnceDevSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuPersistentHolderTwoTurnDevSection(
-    state: NpuPersistentHolderTwoTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuHolderDiagnosticUi<NpuPersistentHolderTwoTurnProbeState>,
+    actions: NpuHolderDiagnosticActions,
 ) {
+    val (state, running, blockedByGeneration) = ui
+    val (onStart, onCopySummary, onCopyFullDump) = actions
     val diagnostics = state.latestDiagnostics
     val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
         "holder_fatal_latch=true: アプリ再起動推奨"
@@ -217,13 +211,11 @@ internal fun NpuPersistentHolderTwoTurnDevSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuPersistentHolderFiveTurnDevSection(
-    state: NpuPersistentHolderFiveTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuHolderDiagnosticUi<NpuPersistentHolderFiveTurnProbeState>,
+    actions: NpuHolderDiagnosticActions,
 ) {
+    val (state, running, blockedByGeneration) = ui
+    val (onStart, onCopySummary, onCopyFullDump) = actions
     val diagnostics = state.latestDiagnostics
     val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
         "holder_fatal_latch=true: アプリ再起動推奨"
@@ -284,13 +276,11 @@ internal fun NpuPersistentHolderFiveTurnDevSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuPersistentHolderTenTurnDevSection(
-    state: NpuPersistentHolderTenTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuHolderDiagnosticUi<NpuPersistentHolderTenTurnProbeState>,
+    actions: NpuHolderDiagnosticActions,
 ) {
+    val (state, running, blockedByGeneration) = ui
+    val (onStart, onCopySummary, onCopyFullDump) = actions
     val diagnostics = state.latestDiagnostics
     val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
         "holder_fatal_latch=true: アプリ再起動推奨"
