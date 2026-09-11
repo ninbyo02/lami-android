@@ -105,6 +105,35 @@ internal data class DevMenuCallbacks(
     val onBodySpacerChange: (Int) -> Unit,
 )
 
+internal data class DevMenuTtsUiState(
+    val isPlaying: Boolean,
+    val speechRate: Float,
+    val pitch: Float,
+)
+
+internal data class DevMenuTtsCallbacks(
+    val onSpeakReferencePhrase: () -> Unit,
+    val onSpeakReferencePhrase2: () -> Unit,
+    val onSpeakReferencePhrase3: () -> Unit,
+    val onSpeakReferencePhrase4: () -> Unit,
+    val onStopTts: () -> Unit,
+    val onResetTtsDefaults: () -> Unit,
+    val onApplyTtsPresetDefault: () -> Unit,
+    val onApplyTtsPresetCalm: () -> Unit,
+    val onApplyTtsPresetBright: () -> Unit,
+    val onIncreaseTtsSpeechRate: () -> Unit,
+    val onDecreaseTtsSpeechRate: () -> Unit,
+    val onIncreaseTtsPitch: () -> Unit,
+    val onDecreaseTtsPitch: () -> Unit,
+)
+
+internal data class DevMenuToggleControls(
+    val replacementEnabled: Boolean = true,
+    val onReplacementEnabledChange: (Boolean) -> Unit = {},
+    val blinkEffectEnabled: Boolean = true,
+    val onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
+)
+
 @Composable
 internal fun DebugDevMenuSection(
     devUnlocked: Boolean,
@@ -187,26 +216,32 @@ internal fun DevMenuSectionHost(
         layoutState = layoutState,
         previewUiState = previewUiState,
         onCopyDevJson = onCopyDevJson,
-        onSpeakReferencePhrase = onSpeakReferencePhrase,
-        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
-        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
-        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
-        onStopTts = onStopTts,
-        onResetTtsDefaults = onResetTtsDefaults,
-        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
-        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
-        onApplyTtsPresetBright = onApplyTtsPresetBright,
-        isTtsPlaying = isTtsPlaying,
-        ttsSpeechRate = ttsSpeechRate,
-        ttsPitch = ttsPitch,
-        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
-        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
-        onIncreaseTtsPitch = onIncreaseTtsPitch,
-        onDecreaseTtsPitch = onDecreaseTtsPitch,
-        replacementEnabled = replacementEnabled,
-        onReplacementEnabledChange = onReplacementEnabledChange,
-        blinkEffectEnabled = blinkEffectEnabled,
-        onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
+        ttsUiState = DevMenuTtsUiState(
+            isPlaying = isTtsPlaying,
+            speechRate = ttsSpeechRate,
+            pitch = ttsPitch,
+        ),
+        ttsCallbacks = DevMenuTtsCallbacks(
+            onSpeakReferencePhrase = onSpeakReferencePhrase,
+            onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
+            onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
+            onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
+            onStopTts = onStopTts,
+            onResetTtsDefaults = onResetTtsDefaults,
+            onApplyTtsPresetDefault = onApplyTtsPresetDefault,
+            onApplyTtsPresetCalm = onApplyTtsPresetCalm,
+            onApplyTtsPresetBright = onApplyTtsPresetBright,
+            onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
+            onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
+            onIncreaseTtsPitch = onIncreaseTtsPitch,
+            onDecreaseTtsPitch = onDecreaseTtsPitch,
+        ),
+        toggleControls = DevMenuToggleControls(
+            replacementEnabled = replacementEnabled,
+            onReplacementEnabledChange = onReplacementEnabledChange,
+            blinkEffectEnabled = blinkEffectEnabled,
+            onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
+        ),
         modifier = modifier,
     )
 }
@@ -217,26 +252,9 @@ internal fun DevMenuSection(
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
     onCopyDevJson: () -> Unit,
-    onSpeakReferencePhrase: () -> Unit,
-    onSpeakReferencePhrase2: () -> Unit,
-    onSpeakReferencePhrase3: () -> Unit,
-    onSpeakReferencePhrase4: () -> Unit,
-    onStopTts: () -> Unit,
-    onResetTtsDefaults: () -> Unit,
-    onApplyTtsPresetDefault: () -> Unit,
-    onApplyTtsPresetCalm: () -> Unit,
-    onApplyTtsPresetBright: () -> Unit,
-    isTtsPlaying: Boolean,
-    ttsSpeechRate: Float,
-    ttsPitch: Float,
-    onIncreaseTtsSpeechRate: () -> Unit,
-    onDecreaseTtsSpeechRate: () -> Unit,
-    onIncreaseTtsPitch: () -> Unit,
-    onDecreaseTtsPitch: () -> Unit,
-    replacementEnabled: Boolean = true,
-    onReplacementEnabledChange: (Boolean) -> Unit = {},
-    blinkEffectEnabled: Boolean = true,
-    onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
+    ttsUiState: DevMenuTtsUiState,
+    ttsCallbacks: DevMenuTtsCallbacks,
+    toggleControls: DevMenuToggleControls = DevMenuToggleControls(),
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -273,19 +291,19 @@ internal fun DevMenuSection(
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
-        onSpeakReferencePhrase = onSpeakReferencePhrase,
-        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
-        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
-        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
-        onStopTts = onStopTts,
-        onResetTtsDefaults = onResetTtsDefaults,
-        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
-        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
-        onApplyTtsPresetBright = onApplyTtsPresetBright,
-        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
-        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
-        onIncreaseTtsPitch = onIncreaseTtsPitch,
-        onDecreaseTtsPitch = onDecreaseTtsPitch,
+        onSpeakReferencePhrase = ttsCallbacks.onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = ttsCallbacks.onSpeakReferencePhrase2,
+        onSpeakReferencePhrase3 = ttsCallbacks.onSpeakReferencePhrase3,
+        onSpeakReferencePhrase4 = ttsCallbacks.onSpeakReferencePhrase4,
+        onStopTts = ttsCallbacks.onStopTts,
+        onResetTtsDefaults = ttsCallbacks.onResetTtsDefaults,
+        onApplyTtsPresetDefault = ttsCallbacks.onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = ttsCallbacks.onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = ttsCallbacks.onApplyTtsPresetBright,
+        onIncreaseTtsSpeechRate = ttsCallbacks.onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = ttsCallbacks.onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = ttsCallbacks.onIncreaseTtsPitch,
+        onDecreaseTtsPitch = ttsCallbacks.onDecreaseTtsPitch,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -383,20 +401,18 @@ internal fun DevMenuSection(
             Spacer(modifier = Modifier.height(4.dp))
             DevToggleRow(
                 label = "置換",
-                checked = replacementEnabled,
-                onCheckedChange = onReplacementEnabledChange,
+                checked = toggleControls.replacementEnabled,
+                onCheckedChange = toggleControls.onReplacementEnabledChange,
             )
             DevToggleRow(
                 label = "点滅エフェクト",
-                checked = blinkEffectEnabled,
-                onCheckedChange = onBlinkEffectEnabledChange,
+                checked = toggleControls.blinkEffectEnabled,
+                onCheckedChange = toggleControls.onBlinkEffectEnabledChange,
             )
             DevMenuBlock(
                 uiState = devMenuUiState,
                 callbacks = devMenuCallbacks,
-                isTtsPlaying = isTtsPlaying,
-                ttsSpeechRate = ttsSpeechRate,
-                ttsPitch = ttsPitch,
+                ttsUiState = ttsUiState,
             )
         }
     }
@@ -460,9 +476,7 @@ private fun buildDevJson(devSettings: DevPreviewSettings): String {
 private fun DevMenuBlock(
     uiState: DevMenuUiState,
     callbacks: DevMenuCallbacks,
-    isTtsPlaying: Boolean,
-    ttsSpeechRate: Float,
-    ttsPitch: Float,
+    ttsUiState: DevMenuTtsUiState,
 ) {
     Column {
         Surface(
@@ -592,7 +606,7 @@ private fun DevMenuBlock(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "TTS Rate: ${formatTtsValue(ttsSpeechRate)}",
+                                text = "TTS Rate: ${formatTtsValue(ttsUiState.speechRate)}",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(onClick = callbacks.onDecreaseTtsSpeechRate) {
@@ -607,7 +621,7 @@ private fun DevMenuBlock(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "TTS Pitch: ${formatTtsValue(ttsPitch)}",
+                                text = "TTS Pitch: ${formatTtsValue(ttsUiState.pitch)}",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(onClick = callbacks.onDecreaseTtsPitch) {
@@ -618,7 +632,7 @@ private fun DevMenuBlock(
                             }
                         }
                         Text(
-                            text = if (isTtsPlaying) "TTS: 再生中" else "TTS: 停止中",
+                            text = if (ttsUiState.isPlaying) "TTS: 再生中" else "TTS: 停止中",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
