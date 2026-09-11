@@ -183,17 +183,14 @@ import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.resolveResidentRouterHookDecision
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
-import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
-import io.github.ninbyo02.lami.ui.util.formatInferenceTime
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatGenerationDuration
-import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
 import io.github.ninbyo02.lami.ui.util.formatModelName
@@ -15979,136 +15976,6 @@ private fun resolveInferenceTargetForStats(
     return if (localSourceSummary.isNotBlank()) InferenceTarget.LOCAL else InferenceTarget.SERVER
 }
 
-internal fun buildInferenceStatsFullCopyText(
-    stats: InferenceStats,
-    displayMode: InferenceStatsDisplayMode,
-    sections: List<InferenceStatsSectionUi>,
-    detailSections: List<InferenceStatsSectionUi>,
-    memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
-    npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
-    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState? = null,
-    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
-    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
-    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState? = null,
-    npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState? = null,
-    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState? = null,
-    npuPersistentHolderFiveTurnState: NpuPersistentHolderFiveTurnProbeState? = null,
-    npuPersistentHolderTenTurnState: NpuPersistentHolderTenTurnProbeState? = null,
-    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
-): String {
-    return buildString {
-        appendLine("推論統計")
-        appendLine()
-        appendLine("[モデル情報]")
-        appendLine("使用モデル: ${formatModelName(stats) ?: "—"}")
-        appendLine()
-
-        sections.forEachIndexed { index, section ->
-            appendSectionAsPlainText(
-                sectionTitle = section.title,
-                items = section.items,
-            )
-            if (index != sections.lastIndex) appendLine()
-        }
-
-        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
-            appendLine()
-            appendLine("[推論時間内訳]")
-            val breakdown = buildInferenceTimeBreakdown(stats)
-            if (breakdown == null) {
-                appendLine("—")
-            } else {
-                breakdown.segments.forEach { segment ->
-                    appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
-                }
-            }
-            appendLine()
-            appendLine("[コンテキスト使用量]")
-            when (val usage = buildContextUsageUi(stats)) {
-                null -> appendLine("—")
-                is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
-                is ContextUsageUi.Loading -> {
-                    appendLine("使用トークン ${usage.used}")
-                    appendLine("上限取得中…")
-                }
-
-                is ContextUsageUi.WithoutMax -> {
-                    appendLine("使用トークン ${usage.used}")
-                    appendLine("上限未取得")
-                }
-            }
-        }
-
-        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
-            appendLine()
-            appendLine("[追加情報]")
-            if (detailSections.isEmpty()) {
-                appendLine("—")
-            } else {
-                detailSections.forEachIndexed { index, section ->
-                    appendSectionAsPlainText(
-                        sectionTitle = section.title,
-                        items = section.items,
-                    )
-                    if (index != detailSections.lastIndex) appendLine()
-                }
-            }
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && memoryRecoveryCheckState != null) {
-            appendLine()
-            appendLine(formatMemoryRecoveryCheckForDev(memoryRecoveryCheckState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
-            appendLine()
-            appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
-        }
-        if (
-            displayMode == InferenceStatsDisplayMode.DEVELOPER &&
-            npuNonStreamingRepeatedStabilityState != null
-        ) {
-            appendLine()
-            appendLine(
-                buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
-                    npuNonStreamingRepeatedStabilityState,
-                ),
-            )
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
-            appendLine()
-            appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderCreateCloseState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderCreateCloseFullDumpForCopy(npuPersistentHolderCreateCloseState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuTrueEngineHolderCreateCloseState != null) {
-            appendLine()
-            appendLine(formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(npuTrueEngineHolderCreateCloseState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderRunOnceState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderRunOnceFullDumpForCopy(npuPersistentHolderRunOnceState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderTwoTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderTwoTurnFullDumpForCopy(npuPersistentHolderTwoTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderFiveTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderFiveTurnFullDumpForCopy(npuPersistentHolderFiveTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderTenTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderTenTurnFullDumpForCopy(npuPersistentHolderTenTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
-            appendLine()
-            appendLine(formatNpuS1PersistentCustomJniDiagnosticsForDev(npuS1PersistentCustomJniState))
-        }
-
-    }.trimEnd()
-}
-
 @Composable
 private fun InferenceStatsModeSelector(
     selectedMode: InferenceStatsDisplayMode,
@@ -16177,20 +16044,6 @@ private fun InferenceStatsModeIconButton(
                 },
             )
         }
-    }
-}
-
-private fun StringBuilder.appendSectionAsPlainText(
-    sectionTitle: String,
-    items: List<InferenceStatItemUi>,
-) {
-    appendLine("[$sectionTitle]")
-    if (items.isEmpty()) {
-        appendLine("—")
-        return
-    }
-    items.forEach { item ->
-        appendLine("${item.label}: ${item.value}")
     }
 }
 
@@ -16295,105 +16148,6 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
                 }
             }
         }
-    }
-}
-
-internal fun inferenceTimingNoteText(): String =
-    "初回受信（Thinking対応時はThinking開始と回答本文開始を分離）は端末側、全体完了までは推論統計の完了タイミングを示します。"
-
-internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
-    formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
-
-
-internal data class InferenceTimeSegmentUi(
-    val label: String,
-    val ratio: Double,
-    val percent: Int,
-    val durationText: String,
-)
-
-internal data class InferenceTimeBreakdownUi(
-    val segments: List<InferenceTimeSegmentUi>,
-)
-
-internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
-    val heldOfficialBlocking = stats.localSourceSummary
-        ?.contains("held-official-blocking", ignoreCase = true) == true
-    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L }
-    val prompt = stats.promptEvalDurationNs?.takeIf { !heldOfficialBlocking && it >= 0L }
-    val generation = stats.generationDurationNs?.takeIf { !heldOfficialBlocking && it > 0L }
-
-    val knownSegmentSources = buildList {
-        if (load != null) add("ロード" to load)
-        if (prompt != null) add("入力" to prompt)
-        if (generation != null) add("生成" to generation)
-    }
-    val knownTotal = knownSegmentSources.sumOf { it.second }
-    val displayedTotal = if (heldOfficialBlocking) {
-        stats.totalDurationMs?.takeIf { it > 0L }?.let { it * 1_000_000L }
-    } else {
-        stats.evalDurationNs?.takeIf { it > 0L }
-            ?: stats.totalDurationMs?.takeIf { it > 0L }
-            ?.let { it * 1_000_000L }
-    }
-    val denominator = maxOf(displayedTotal ?: 0L, knownTotal)
-    if (denominator <= 0L) return null
-    val unaccounted = (denominator - knownTotal).coerceAtLeast(0L)
-    val segmentSources = buildList {
-        addAll(knownSegmentSources)
-        if (unaccounted > 0L) add("未計上" to unaccounted)
-    }
-
-    fun ratio(value: Long): Double = value.toDouble() / denominator.toDouble()
-    return InferenceTimeBreakdownUi(
-        segments = segmentSources.map { (label, duration) ->
-            val valueRatio = ratio(duration)
-            InferenceTimeSegmentUi(
-                label = label,
-                ratio = valueRatio,
-                percent = (valueRatio * 100).roundToInt(),
-                durationText = formatDurationNsAsSecondsForSheet(duration),
-            )
-        },
-    )
-}
-
-private fun formatDurationNsAsSecondsForSheet(durationNs: Long): String {
-    val seconds = durationNs / 1_000_000_000.0
-    if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
-    return String.format(Locale.US, "%.1f s", seconds)
-}
-
-internal sealed interface ContextUsageUi {
-    data class WithMax(
-        val used: Int,
-        val max: Int,
-        val ratio: Double,
-        val percent: Int,
-    ) : ContextUsageUi
-
-    data class Loading(val used: Int) : ContextUsageUi
-
-    data class WithoutMax(val used: Int) : ContextUsageUi
-}
-
-internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
-    val used = stats.totalTokens?.takeIf { it >= 0 } ?: return null
-    val max = stats.contextWindow?.takeIf { it > 0 }
-    if (max != null) {
-        val ratio = used.toDouble() / max.toDouble()
-        return ContextUsageUi.WithMax(
-            used = used,
-            max = max,
-            ratio = ratio,
-            percent = (ratio * 100).roundToInt(),
-        )
-    }
-    return when (stats.contextWindowFetchState) {
-        ContextWindowFetchState.LOADING -> ContextUsageUi.Loading(used = used)
-        ContextWindowFetchState.AVAILABLE,
-        ContextWindowFetchState.UNAVAILABLE,
-        -> ContextUsageUi.WithoutMax(used = used)
     }
 }
 
