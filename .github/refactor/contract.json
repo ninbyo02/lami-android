@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "source_roots": ["app/src/main/java"],
+  "exclude_globs": ["**/build/**", "**/generated/**"],
+  "thresholds": {
+    "max_kotlin_file_lines": 3000,
+    "max_function_lines": 320,
+    "max_composable_parameters": 12,
+    "max_remember_state_per_file": 32,
+    "max_job_state_per_ui_file": 0
+  },
+  "diff_guard": {
+    "max_changed_files": 8,
+    "max_total_changed_lines": 900
+  },
+  "default_max_risk": 1,
+  "risk3_path_fragments": [
+    "/db/", "Database", "Migration", "LocalStreamingRunner", "LocalInferenceEngine",
+    "EngineHolder", "/tts/", "/network/", "/native/", "/jni/"
+  ],
+  "risk2_path_fragments": ["/viewmodels/", "Coordinator", "Repository", "Service"],
+  "risk1_blocked_globs": [
+    "**/build.gradle.kts", "**/settings.gradle.kts", "**/AndroidManifest.xml",
+    "app/schemas/**", "gradle/**", "**/*.so", "**/*.aar"
+  ]
+}
