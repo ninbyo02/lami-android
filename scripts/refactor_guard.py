@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,31 @@ import refactor_inventory as inventory  # noqa: E402
 
 def git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+def git_lines_allow_empty(*args: str) -> set[str]:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode not in (0, 1):
+        result.check_returncode()
+    return {line for line in result.stdout.splitlines() if line}
+
+
+def risk1_existing_callsite_paths(candidate: dict[str, object], base: str) -> set[str]:
+    if candidate.get("kind") != "composable_parameters":
+        return set()
+    symbol = candidate.get("symbol")
+    if not isinstance(symbol, str) or not symbol or symbol == "—":
+        return set()
+    pattern = rf"{re.escape(symbol)}[[:space:]]*\("
+    return git_lines_allow_empty(
+        "grep", "-l", "-E", pattern, base, "--", "app/src/main/"
+    )
 
 
 def main() -> int:
@@ -52,12 +78,14 @@ def main() -> int:
                 errors.append(f"Risk 1 touched blocked path: {path}")
         if candidate:
             source_parent = str(Path(candidate["path"]).parent)
+            existing_callsites = risk1_existing_callsite_paths(candidate, args.base)
             for path in changed:
-                if path.startswith("app/src/main/") and str(Path(path).parent) != source_parent:
-                    errors.append(f"Risk 1 production edit escaped candidate package: {path}")
+                if path.startswith("app/src/main/"):
+                    same_package = str(Path(path).parent) == source_parent
+                    if not same_package and path not in existing_callsites:
+                        errors.append(f"Risk 1 production edit escaped candidate scope: {path}")
                 elif not (
-                    path.startswith(source_parent + "/")
-                    or path.startswith("app/src/test/")
+                    path.startswith("app/src/test/")
                     or path.startswith("app/src/androidTest/")
                 ):
                     errors.append(f"Risk 1 touched non-source/non-test path: {path}")
