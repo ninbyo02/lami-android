@@ -273,16 +273,20 @@ fun LamiSprite(
     ) {
         LamiStatusSprite(
             status = spriteStatus,
-            sizeDp = spriteSize,
-            maxSizeDp = maxStatusSpriteSizeDp,
             modifier = Modifier.clip(shape),
-            animationsEnabled = animationsEnabled,
-            replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled,
-            // センター表示に揃えるためオフセットを 0.dp に固定する
-            contentOffsetDp = 0.dp,
-            contentOffsetYDp = contentOffsetYDp,
-            debugOverlayEnabled = debugOverlayEnabled,
+            layout = LamiStatusSpriteLayout(
+                sizeDp = spriteSize,
+                maxSizeDp = maxStatusSpriteSizeDp,
+                // センター表示に揃えるためオフセットを 0.dp に固定する
+                contentOffsetDp = 0.dp,
+                contentOffsetYDp = contentOffsetYDp,
+            ),
+            options = LamiStatusSpriteOptions(
+                animationsEnabled = animationsEnabled,
+                replacementEnabled = replacementEnabled,
+                blinkEffectEnabled = blinkEffectEnabled,
+                debugOverlayEnabled = debugOverlayEnabled,
+            ),
             syncEpochMs = syncEpochMs,
         )
     }

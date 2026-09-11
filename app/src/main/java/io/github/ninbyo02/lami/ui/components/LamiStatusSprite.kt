@@ -65,6 +65,36 @@ enum class LamiSpriteStatus {
     Ready,
 }
 
+data class LamiStatusSpriteLayout(
+    val sizeDp: Dp = 48.dp,
+    val maxSizeDp: Dp = 100.dp,
+    val contentOffsetDp: Dp = 2.dp,
+    val contentOffsetYDp: Dp = 0.dp,
+)
+
+data class LamiStatusSpriteOptions(
+    val animationsEnabled: Boolean = true,
+    val replacementEnabled: Boolean = true,
+    val blinkEffectEnabled: Boolean = true,
+    val debugOverlayEnabled: Boolean = true,
+)
+
+data class LamiStatusSpriteFrameOverrides(
+    val frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
+    val frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
+    val frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    val frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    val autoCropTransparentArea: Boolean = false,
+)
+
+data class LamiStatusSpriteTrace(
+    val debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
+    val lamiStatus: LamiStatus? = null,
+    val lamiState: LamiState? = null,
+    val resolvedAnimationStatus: LamiAnimationStatus? = null,
+    val isSpeaking: Boolean = false,
+)
+
 private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
 
 private fun appendSpriteTraceToFile(context: Context, line: String) {
@@ -385,27 +415,31 @@ private fun shouldAttemptInsertionDeterministic(
 fun LamiStatusSprite(
     status: LamiSpriteStatus,
     modifier: Modifier = Modifier,
-    sizeDp: Dp = 48.dp,
-    maxSizeDp: Dp = 100.dp,
-    contentOffsetDp: Dp = 2.dp,
-    contentOffsetYDp: Dp = 0.dp,
-    animationsEnabled: Boolean = true,
-    replacementEnabled: Boolean = true,
-    blinkEffectEnabled: Boolean = true,
-    debugOverlayEnabled: Boolean = true,
-    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
-    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
-    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
-    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
-    autoCropTransparentArea: Boolean = false,
+    layout: LamiStatusSpriteLayout = LamiStatusSpriteLayout(),
+    options: LamiStatusSpriteOptions = LamiStatusSpriteOptions(),
+    frameOverrides: LamiStatusSpriteFrameOverrides = LamiStatusSpriteFrameOverrides(),
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
-    debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
-    traceLamiStatus: LamiStatus? = null,
-    traceLamiState: LamiState? = null,
-    traceResolvedAnimationStatus: LamiAnimationStatus? = null,
-    traceIsSpeaking: Boolean = false,
+    trace: LamiStatusSpriteTrace = LamiStatusSpriteTrace(),
 ) {
+    val sizeDp = layout.sizeDp
+    val maxSizeDp = layout.maxSizeDp
+    val contentOffsetDp = layout.contentOffsetDp
+    val contentOffsetYDp = layout.contentOffsetYDp
+    val animationsEnabled = options.animationsEnabled
+    val replacementEnabled = options.replacementEnabled
+    val blinkEffectEnabled = options.blinkEffectEnabled
+    val debugOverlayEnabled = options.debugOverlayEnabled
+    val frameXOffsetPxMap = frameOverrides.frameXOffsetPxMap
+    val frameYOffsetPxMap = frameOverrides.frameYOffsetPxMap
+    val frameSrcOffsetMap = frameOverrides.frameSrcOffsetMap
+    val frameSrcSizeMap = frameOverrides.frameSrcSizeMap
+    val autoCropTransparentArea = frameOverrides.autoCropTransparentArea
+    val debugOverloadLabel = trace.debugOverloadLabel
+    val traceLamiStatus = trace.lamiStatus
+    val traceLamiState = trace.lamiState
+    val traceResolvedAnimationStatus = trace.resolvedAnimationStatus
+    val traceIsSpeaking = trace.isSpeaking
     val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
     val constrainedSize = remember(sizeDp, maxSizeDp) { sizeDp.coerceIn(32.dp, maxSizeDp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
@@ -988,26 +1022,34 @@ fun LamiStatusSprite(
     LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
-        sizeDp = sizeDp,
-        maxSizeDp = maxSizeDp,
-        contentOffsetDp = contentOffsetDp,
-        contentOffsetYDp = contentOffsetYDp,
-        animationsEnabled = animationsEnabled,
-        replacementEnabled = replacementEnabled,
-        blinkEffectEnabled = blinkEffectEnabled,
-        debugOverlayEnabled = debugOverlayEnabled,
-        frameXOffsetPxMap = frameXOffsetPxMap,
-        frameYOffsetPxMap = frameYOffsetPxMap,
-        frameSrcOffsetMap = frameSrcOffsetMap,
-        frameSrcSizeMap = frameSrcSizeMap,
-        autoCropTransparentArea = autoCropTransparentArea,
+        layout = LamiStatusSpriteLayout(
+            sizeDp = sizeDp,
+            maxSizeDp = maxSizeDp,
+            contentOffsetDp = contentOffsetDp,
+            contentOffsetYDp = contentOffsetYDp,
+        ),
+        options = LamiStatusSpriteOptions(
+            animationsEnabled = animationsEnabled,
+            replacementEnabled = replacementEnabled,
+            blinkEffectEnabled = blinkEffectEnabled,
+            debugOverlayEnabled = debugOverlayEnabled,
+        ),
+        frameOverrides = LamiStatusSpriteFrameOverrides(
+            frameXOffsetPxMap = frameXOffsetPxMap,
+            frameYOffsetPxMap = frameYOffsetPxMap,
+            frameSrcOffsetMap = frameSrcOffsetMap,
+            frameSrcSizeMap = frameSrcSizeMap,
+            autoCropTransparentArea = autoCropTransparentArea,
+        ),
         resolvedErrorKey = resolvedErrorKey,
         syncEpochMs = syncEpochMs,
-        debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
-        traceLamiStatus = status.value,
-        traceLamiState = lamiState,
-        traceResolvedAnimationStatus = resolvedAnimationStatusForTrace,
-        traceIsSpeaking = isSpeakingForTrace,
+        trace = LamiStatusSpriteTrace(
+            debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
+            lamiStatus = status.value,
+            lamiState = lamiState,
+            resolvedAnimationStatus = resolvedAnimationStatusForTrace,
+            isSpeaking = isSpeakingForTrace,
+        ),
     )
 }
 
@@ -1061,22 +1103,30 @@ fun LamiStatusSprite(
     LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
-        sizeDp = sizeDp,
-        maxSizeDp = maxSizeDp,
-        contentOffsetDp = contentOffsetDp,
-        contentOffsetYDp = contentOffsetYDp,
-        animationsEnabled = animationsEnabled,
-        replacementEnabled = replacementEnabled,
-        blinkEffectEnabled = blinkEffectEnabled,
-        debugOverlayEnabled = debugOverlayEnabled,
-        frameXOffsetPxMap = frameXOffsetPxMap,
-        frameYOffsetPxMap = frameYOffsetPxMap,
-        frameSrcOffsetMap = frameSrcOffsetMap,
-        frameSrcSizeMap = frameSrcSizeMap,
-        autoCropTransparentArea = autoCropTransparentArea,
+        layout = LamiStatusSpriteLayout(
+            sizeDp = sizeDp,
+            maxSizeDp = maxSizeDp,
+            contentOffsetDp = contentOffsetDp,
+            contentOffsetYDp = contentOffsetYDp,
+        ),
+        options = LamiStatusSpriteOptions(
+            animationsEnabled = animationsEnabled,
+            replacementEnabled = replacementEnabled,
+            blinkEffectEnabled = blinkEffectEnabled,
+            debugOverlayEnabled = debugOverlayEnabled,
+        ),
+        frameOverrides = LamiStatusSpriteFrameOverrides(
+            frameXOffsetPxMap = frameXOffsetPxMap,
+            frameYOffsetPxMap = frameYOffsetPxMap,
+            frameSrcOffsetMap = frameSrcOffsetMap,
+            frameSrcSizeMap = frameSrcSizeMap,
+            autoCropTransparentArea = autoCropTransparentArea,
+        ),
         resolvedErrorKey = resolvedErrorKey,
         syncEpochMs = syncEpochMs,
-        debugOverloadLabel = "wrapper(status: State<LamiAnimationStatus>)",
+        trace = LamiStatusSpriteTrace(
+            debugOverloadLabel = "wrapper(status: State<LamiAnimationStatus>)",
+        ),
     )
 }
 
