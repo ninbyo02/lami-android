@@ -9,6 +9,12 @@ NO_PUSH=${LAMI_REFACTOR_NO_PUSH:-0}
 JAVA_HOME=${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
+if [[ -z ${ANDROID_HOME:-} && -f "$ROOT/local.properties" ]]; then
+  android_sdk_dir=$(sed -n 's/^sdk.dir=//p' "$ROOT/local.properties" | head -n 1)
+  if [[ -n $android_sdk_dir ]]; then
+    export ANDROID_HOME="$android_sdk_dir"
+  fi
+fi
 
 if (( MAX_RISK >= 2 )) && [[ ${LAMI_REFACTOR_ACK_RISK_2:-} != yes ]]; then
   echo "Risk >=2 requires LAMI_REFACTOR_ACK_RISK_2=yes" >&2
@@ -23,8 +29,9 @@ for command in git python3 gh jq codex flock; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 2; }
 done
 
-mkdir -p "$ROOT/.git/lami-refactor"
-exec 9>"$ROOT/.git/lami-refactor/loop.lock"
+git_common_dir=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
+mkdir -p "$git_common_dir/lami-refactor"
+exec 9>"$git_common_dir/lami-refactor/loop.lock"
 if ! flock -n 9; then
   echo "Another refactor iteration is already running; exiting."
   exit 0
@@ -88,7 +95,7 @@ if [[ -n ${LAMI_REFACTOR_AGENT_CMD:-} ]]; then
   (cd "$workspace" && bash -lc "$LAMI_REFACTOR_AGENT_CMD") \
     < "$artifacts/prompt.txt" | tee "$artifacts/agent.log"
 else
-  codex exec --approve-for-me --sandbox workspace-write --ephemeral -C "$workspace" - \
+  codex exec --approve-for-me --ephemeral -C "$workspace" - \
     < "$artifacts/prompt.txt" | tee "$artifacts/agent.log"
 fi
 
