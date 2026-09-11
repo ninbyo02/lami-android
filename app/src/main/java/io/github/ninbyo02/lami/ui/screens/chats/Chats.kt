@@ -23,7 +23,10 @@ import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
+import io.github.ninbyo02.lami.ui.components.LamiHeaderAvatarPresentation
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusActions
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusState
 import io.github.ninbyo02.lami.ui.components.LamiSprite
 import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
@@ -92,24 +95,28 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                             // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                             Spacer(modifier = Modifier.size(2.dp))
                             LamiHeaderStatus(
-                                baseUrl = baseUrl,
-                                selectedModel = selectedModel,
-                                lastError = lastError,
-                                lamiStatus = lamiStatusState.value,
-                                lamiState = lamiUiState.state,
-                                availableModels = availableModels,
-                                onSelectModel = { modelName ->
-                                    viewModel.onUserInteraction()
-                                    viewModel.updateSelectedModel(modelName)
-                                },
-                                onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                                debugOverlayEnabled = false,
-                                syncEpochMs = animationEpochMs,
-                                showAvatar = false,
-                                onOpenControl = {
-                                    viewModel.onUserInteraction()
-                                    openLamiControlRequestKey += 1
-                                },
+                                state = LamiHeaderStatusState(
+                                    baseUrl = baseUrl,
+                                    selectedModel = selectedModel,
+                                    lastError = lastError,
+                                    lamiStatus = lamiStatusState.value,
+                                    lamiState = lamiUiState.state,
+                                    availableModels = availableModels,
+                                    debugOverlayEnabled = false,
+                                    syncEpochMs = animationEpochMs,
+                                ),
+                                actions = LamiHeaderStatusActions(
+                                    onSelectModel = { modelName ->
+                                        viewModel.onUserInteraction()
+                                        viewModel.updateSelectedModel(modelName)
+                                    },
+                                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                                    onOpenControl = {
+                                        viewModel.onUserInteraction()
+                                        openLamiControlRequestKey += 1
+                                    },
+                                ),
+                                avatarPresentation = LamiHeaderAvatarPresentation(showAvatar = false),
                             )
                         }
                     },
