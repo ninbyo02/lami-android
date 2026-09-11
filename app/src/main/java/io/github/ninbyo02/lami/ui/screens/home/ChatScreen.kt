@@ -156,7 +156,10 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.components.LamiHeaderAvatarPresentation
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusActions
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusState
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
@@ -4176,39 +4179,45 @@ fun Home(
                     }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))
-                        LamiHeaderStatus(
+                    LamiHeaderStatus(
+                        state = LamiHeaderStatusState(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
-                        lamiStatus = effectiveLamiStatusForChatUi,
-                        lamiState = effectiveLamiHeaderStateForChatUi,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                            },
-                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                            lamiStatus = effectiveLamiStatusForChatUi,
+                            lamiState = effectiveLamiHeaderStateForChatUi,
+                            availableModels = availableModels,
                             selectedInferenceTarget = selectedInferenceTarget,
                             localBaseModelDisplayName = activeLocalModelDisplayName,
+                            localInferenceEngineState = localInferenceEngineState,
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                            statusTitleOverride = headerStatusTitleOverride,
+                        ),
+                        actions = LamiHeaderStatusActions(
+                            onSelectModel = { modelName ->
+                                viewModel.onUserInteraction()
+                                viewModel.updateSelectedModel(modelName)
+                            },
+                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                                 coroutineScope.launch {
                                     settingsPreferences.saveInferenceTarget(target)
                                 }
                             },
-                            localInferenceEngineState = localInferenceEngineState,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
+                            onOpenControl = {
+                                viewModel.onUserInteraction()
+                                openLamiControlRequestKey += 1
+                            },
+                        ),
+                        avatarPresentation = LamiHeaderAvatarPresentation(
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
-                        minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                        maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                        // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
-                        showAvatar = false,
-                        onOpenControl = {
-                            viewModel.onUserInteraction()
-                            openLamiControlRequestKey += 1
-                        },
-                        statusTitleOverride = headerStatusTitleOverride,
+                            minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
+                            showAvatar = false,
+                        ),
                     )
                 }
             },
