@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,23 @@ import refactor_inventory as inventory  # noqa: E402
 
 def git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+
+def base_file_references_symbol(base: str, path: str, symbol: str | None) -> bool:
+    """Allow Risk 1 production call-site edits only for existing direct symbol references."""
+    if not symbol:
+        return False
+    try:
+        content = subprocess.check_output(
+            ["git", "show", f"{base}:{path}"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return re.search(rf"\b{re.escape(symbol)}\b", content) is not None
 
 
 def main() -> int:
@@ -53,11 +71,15 @@ def main() -> int:
         if candidate:
             source_parent = str(Path(candidate["path"]).parent)
             for path in changed:
-                if path.startswith("app/src/main/") and str(Path(path).parent) != source_parent:
-                    errors.append(f"Risk 1 production edit escaped candidate package: {path}")
+                if path.startswith("app/src/main/"):
+                    if str(Path(path).parent) != source_parent and not base_file_references_symbol(
+                        args.base, path, candidate.get("symbol")
+                    ):
+                        errors.append(
+                            f"Risk 1 production edit is not a direct candidate call site: {path}"
+                        )
                 elif not (
-                    path.startswith(source_parent + "/")
-                    or path.startswith("app/src/test/")
+                    path.startswith("app/src/test/")
                     or path.startswith("app/src/androidTest/")
                 ):
                     errors.append(f"Risk 1 touched non-source/non-test path: {path}")
