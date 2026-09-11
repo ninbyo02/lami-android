@@ -89,7 +89,7 @@ if [[ -n ${LAMI_REFACTOR_AGENT_CMD:-} ]]; then
   (cd "$workspace" && bash -lc "$LAMI_REFACTOR_AGENT_CMD") \
     < "$artifacts/prompt.txt" | tee "$artifacts/agent.log"
 else
-  codex exec --approve-for-me --sandbox workspace-write --ephemeral -C "$workspace" - \
+  codex exec --approve-for-me --ephemeral -C "$workspace" - \
     < "$artifacts/prompt.txt" | tee "$artifacts/agent.log"
 fi
 
