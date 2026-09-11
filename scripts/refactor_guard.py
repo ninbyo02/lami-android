@@ -39,9 +39,14 @@ def risk1_existing_callsite_paths(candidate: dict[str, object], base: str) -> se
     if not isinstance(symbol, str) or not symbol or symbol == "—":
         return set()
     pattern = rf"{re.escape(symbol)}[[:space:]]*\("
-    return git_lines_allow_empty(
+    matches = git_lines_allow_empty(
         "grep", "-l", "-E", pattern, base, "--", "app/src/main/"
     )
+    ref_prefix = f"{base}:"
+    return {
+        match[len(ref_prefix):] if match.startswith(ref_prefix) else match
+        for match in matches
+    }
 
 
 def main() -> int:

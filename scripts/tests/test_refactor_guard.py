@@ -22,7 +22,8 @@ class RefactorGuardTest(unittest.TestCase):
             "app/src/main/java/example/components/DevMenuSection.kt",
             "app/src/main/java/example/settings/SpriteSettingsScreen.kt",
         }
-        with patch.object(guard, "git_lines_allow_empty", return_value=expected) as git_lines:
+        grep_output = {f"base-sha:{path}" for path in expected}
+        with patch.object(guard, "git_lines_allow_empty", return_value=grep_output) as git_lines:
             self.assertEqual(
                 guard.risk1_existing_callsite_paths(candidate, "base-sha"),
                 expected,
