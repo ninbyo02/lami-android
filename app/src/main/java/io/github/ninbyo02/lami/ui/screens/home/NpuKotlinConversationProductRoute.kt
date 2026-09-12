@@ -90,10 +90,19 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         }
 
         mutex.withLock {
+            currentCoroutineContext().ensureActive()
             maybeReleaseExpiredLocked(SystemClock.elapsedRealtime(), trace)
             var engineReused = false
             var conversationReused = false
             try {
+                val budget = NpuConversationBudgetPolicy.plan(initialTurns, prompt, requestedMaxOutputTokens)
+                trace("$ROUTE_ID budget_source=estimated_code_points total_tokens=$NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT estimated_input_tokens=${budget.estimatedInputTokens} reserved_output_tokens=${budget.reservedOutputTokens} retained_history_messages=${budget.initialTurns.size} requested_output_tokens=$requestedMaxOutputTokens native_output_limit_enforced=false")
+                if (!budget.admitted) {
+                    closeConversationLocked("input_budget_exceeded", trace)
+                    return@withLock NpuKotlinConversationProductAttempt(
+                        failureReason = "kotlin_conversation_input_budget_exceeded",
+                    )
+                }
                 if (engineModelPath != null && engineModelPath != modelPath) {
                     closeLocked("model_changed", trace)
                 }
@@ -119,20 +128,16 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     trace("$ROUTE_ID engine_reused=true")
                 }
 
-                if (conversation != null && conversationChatId != chatId) {
-                    closeConversationLocked("chat_changed", trace)
-                }
-                if (conversation == null) {
-                    val activeEngine = requireNotNull(engine)
-                    conversation = activeEngine.createConversation(
-                        LocalConversationPolicy.conversationConfig(initialTurns),
-                    )
-                    conversationChatId = chatId
-                    trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${initialTurns.size}")
-                } else {
-                    conversationReused = true
-                    trace("$ROUTE_ID conversation_reused=true chat_id=$chatId")
-                }
+                // The native Conversation retains its own generated tokens. Reconstruct from
+                // the authoritative bounded history so long replies cannot exhaust the next turn.
+                closeConversationLocked("turn_budget_rebuild", trace)
+                currentCoroutineContext().ensureActive()
+                val activeEngine = requireNotNull(engine)
+                conversation = activeEngine.createConversation(
+                    LocalConversationPolicy.conversationConfig(budget.initialTurns),
+                )
+                conversationChatId = chatId
+                trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${budget.initialTurns.size} conversation_reused=false")
 
                 val activeConversation = requireNotNull(conversation)
                 val sendStartedAt = SystemClock.elapsedRealtime()
@@ -205,6 +210,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                         durationMs = (SystemClock.elapsedRealtime() - sendStartedAt).coerceAtLeast(0L),
                     )
                 }
+                currentCoroutineContext().ensureActive()
                 val sendMs = streamingResult.durationMs
                 val response = streamingResult.response
                 if (response.isBlank()) {
@@ -216,10 +222,9 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     )
                 }
 
-                val effectiveMaxOutputTokens = NpuStandardRouteS1Contract.maxOutputTokensForPrompt(
-                    userPrompt = prompt,
-                    requestedMaxOutputTokens = requestedMaxOutputTokens,
-                )
+                // Public Conversation API exposes no per-generation output cap. Report the
+                // configured total capacity rather than a post-hoc prompt-dependent cap.
+                val effectiveMaxOutputTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT
                 val mapped = NpuStandardRouteS1Mapper.map(
                     NpuStandardRouteS1RawResult(
                         status = NpuStandardRouteS1Contract.STATUS_SUCCESS,

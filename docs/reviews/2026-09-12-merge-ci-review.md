@@ -1,0 +1,9 @@
+# マージ前CIレビュー
+
+#2596/#2597をマージし、#2599のbaseをmainへ変更して最新mainを取り込んだ。
+
+CIのDebugでOllamaViewModelConnectionFailureTestのserver switching restores saved selection from multiple modelsが1分のUncompletedCoroutinesErrorで失敗した。#2598の文書のみの変更でも同じテストが失敗している。ローカルでは全件成功しており、スタックだけでは待ち箇所を断定できない。
+
+テストの非同期処理を見直し、仮の両サーバーをLEMONADEとして事前保存し、未設定のプロバイダーがOllamaモデル詳細の先読みを起動し得る経路を除いた。全ケースで作成したViewModelのscopeをテスト終了時にcancelしてからMainをリセットする。製品コードの変更やタイムアウトの延長・テストの除外は行っていない。
+
+修正後のローカル全テストはStandard Debug 1771件、Standard Release 1234件が成功。GitHubの成功確認後にマージする。実機で検証したNPUコードに追加変更はない。
