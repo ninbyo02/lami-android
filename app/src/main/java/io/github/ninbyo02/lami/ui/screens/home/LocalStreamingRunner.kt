@@ -4407,52 +4407,39 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
     prompt: String,
     response: String,
     trace: LocalInferenceTrace,
-): LocalInferenceTrace = withContext(Dispatchers.IO) {
-    if (!localTokenRecountSlots.tryAcquire()) return@withContext trace
-    try {
-        localTokenRecountMutex.lock()
-        try {
-            val startedAtMs = trace.localTraceStartElapsedRealtimeMs
-                ?: return@withContext trace
-            val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
-                ?: return@withContext trace
-            val existingSnapshot = trace.measuredTokenSnapshot
-            val recountInput = resolveDeferredTokenizerInput(existingSnapshot, prompt, response)
-            val recountedSnapshot = mergeTokenizerRecountSnapshot(
-                base = existingSnapshot,
-                deferMediaPipeRecount = false,
-                conversation = null,
-                tokenizerSessionSource = null,
-                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-                mediaPipeProbeContext = context.applicationContext,
-                promptText = recountInput.prompt,
-                fullResponseText = recountInput.response,
-                timing = LocalLiteRtTimingSnapshot(
-                    startedAtMs = startedAtMs,
-                    firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
-                    lastChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs?.let { first ->
-                        existingSnapshot?.decodeDurationMs?.let { first + it }
-                    } ?: endedAtMs,
-                    endedAtMs = endedAtMs,
-                ),
-                appendTrace = { message ->
-                    if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
-                },
-            ) ?: return@withContext trace
-            trace.copy(
-                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-                measuredTokenSnapshot = recountedSnapshot,
-            )
-        } finally {
-            localTokenRecountMutex.unlock()
-        }
-    } finally {
-        localTokenRecountSlots.release()
-    }
+): LocalInferenceTrace = localTokenRecountCoordinator.execute(fallback = trace) {
+    val startedAtMs = trace.localTraceStartElapsedRealtimeMs
+        ?: return@execute trace
+    val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
+        ?: return@execute trace
+    val existingSnapshot = trace.measuredTokenSnapshot
+    val recountInput = resolveDeferredTokenizerInput(existingSnapshot, prompt, response)
+    val recountedSnapshot = mergeTokenizerRecountSnapshot(
+        base = existingSnapshot,
+        deferMediaPipeRecount = false,
+        conversation = null,
+        tokenizerSessionSource = null,
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        mediaPipeProbeContext = context.applicationContext,
+        promptText = recountInput.prompt,
+        fullResponseText = recountInput.response,
+        timing = LocalLiteRtTimingSnapshot(
+            startedAtMs = startedAtMs,
+            firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
+            lastChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs?.let { first ->
+                existingSnapshot?.decodeDurationMs?.let { first + it }
+            } ?: endedAtMs,
+            endedAtMs = endedAtMs,
+        ),
+        appendTrace = { message ->
+            if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
+        },
+    ) ?: return@execute trace
+    trace.copy(
+        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+        measuredTokenSnapshot = recountedSnapshot,
+    )
 }
-
-private val localTokenRecountSlots = kotlinx.coroutines.sync.Semaphore(2)
-private val localTokenRecountMutex = kotlinx.coroutines.sync.Mutex()
 
 private data class TokenizerRecountResult(
     val promptTokens: Int,

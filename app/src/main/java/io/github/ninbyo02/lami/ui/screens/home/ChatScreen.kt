@@ -1212,96 +1212,23 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
 
-    fun scheduleLocalTokenizerStatsUpdate(
-        assistantId: Int,
-        chatId: Int,
-        response: String,
-        prompt: String,
-        trace: LocalInferenceTrace,
-        modelPath: String?,
-        generationTimeMs: Long,
-        sourceSummary: String,
+    val postResponseTokenStatsUpdater = remember(
+        coroutineScope, postTerminalAssistantMetadataUpdater, context, immediateInferenceStatsByMessageId,
     ) {
-        if (assistantId <= 0) return
-        if (trace.measuredTokenSnapshot?.inputTokens != null &&
-            trace.measuredTokenSnapshot?.outputTokens != null) return
-        coroutineScope.launch {
-            val recounted = recountLocalInferenceTokensAfterCompletion(
-                context = context.applicationContext,
-                modelPath = modelPath,
-                prompt = prompt,
-                response = response,
-                trace = trace,
-            )
-            val snapshot = recounted.measuredTokenSnapshot ?: return@launch
-            val stats = InferenceStatsFactory.fromLocalTrace(
-                trace = recounted,
-                generationTimeMs = generationTimeMs,
-                responseCharCount = response.length,
-                responseText = response,
-                fallbackTimeToFirstTokenMs = generationTimeMs,
-            ) ?: return@launch
-            val summary = mergePostTerminalTokenCountDiagnostics(sourceSummary, snapshot)
-            val finalStats = stats.copy(localSourceSummary = summary)
-            val update = withContext(Dispatchers.IO) {
-                postTerminalAssistantMetadataUpdater.update(
-                    messageId = assistantId,
-                    expectedChatId = chatId,
-                    expectedMessage = response,
-                    patch = PostTerminalAssistantMetadataPatch.fromInferenceStats(
-                        stats = finalStats,
-                        localSourceSummary = summary,
-                    ),
+        PostResponseTokenStatsUpdater(
+            coroutineScope = coroutineScope,
+            postTerminalAssistantMetadataUpdater = postTerminalAssistantMetadataUpdater,
+            recount = { request ->
+                recountLocalInferenceTokensAfterCompletion(
+                    context = context.applicationContext,
+                    modelPath = request.modelPath,
+                    prompt = request.prompt,
+                    response = request.response,
+                    trace = request.trace,
                 )
-            }
-            if (update.accepted) immediateInferenceStatsByMessageId[assistantId] = finalStats
-        }
-    }
-
-    fun scheduleNpuFallbackTokenizerStatsUpdate(
-        assistantId: Int,
-        chatId: Int,
-        persistedResponse: String,
-        prompt: String,
-        response: String,
-        successfulBackend: String?,
-        trace: LocalInferenceTrace,
-        modelPath: String?,
-    ) {
-        if (assistantId <= 0 || successfulBackend !in setOf("GPU", "CPU")) return
-        coroutineScope.launch {
-            val recountedTrace = recountLocalInferenceTokensAfterCompletion(
-                context = context.applicationContext,
-                modelPath = modelPath,
-                prompt = prompt,
-                response = response,
-                trace = trace,
-            )
-            val updatedPersistence = buildSuccessfulNpuFallbackInferencePersistence(
-                successfulBackend = successfulBackend,
-                response = response,
-                trace = recountedTrace,
-            ) ?: return@launch
-            val updatedStats = updatedPersistence.inferenceStats
-            if (updatedStats.inputTokens == null &&
-                updatedStats.outputTokens == null &&
-                updatedStats.totalTokens == null
-            ) return@launch
-            val metadataUpdate = withContext(Dispatchers.IO) {
-                postTerminalAssistantMetadataUpdater.update(
-                    messageId = assistantId,
-                    expectedChatId = chatId,
-                    expectedMessage = persistedResponse,
-                    patch = PostTerminalAssistantMetadataPatch.fromInferenceStats(
-                        stats = updatedStats,
-                        localSourceSummary = updatedPersistence.localSourceSummary,
-                    ),
-                )
-            }
-            if (metadataUpdate.accepted) {
-                immediateInferenceStatsByMessageId[assistantId] = updatedStats
-            }
-        }
+            },
+            onStatsUpdated = { id, stats -> immediateInferenceStatsByMessageId[id] = stats },
+        )
     }
 
     DisposableEffect(effectiveChatId) {
@@ -5293,7 +5220,7 @@ fun Home(
                                                                     latestInferenceStats = fallbackPersistence.inferenceStats,
                                                                     localSourceSummary = fallbackPersistence.localSourceSummary,
                                                                 ) ?: return@launch
-                                                                scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                postResponseTokenStatsUpdater.scheduleNpuFallbackTokenizerStatsUpdate(
                                                                     assistantId = fallbackAssistantId,
                                                                     chatId = currentChatId,
                                                                     persistedResponse = fallbackAssistantResponse,
@@ -6255,7 +6182,7 @@ fun Home(
                                                                         ) ?: return@launch
                                                                     }
                                                                     if (exceptionFallbackPersistence != null && exceptionFallbackResult != null) {
-                                                                        scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                        postResponseTokenStatsUpdater.scheduleNpuFallbackTokenizerStatsUpdate(
                                                                             assistantId = exceptionFallbackAssistantId,
                                                                             chatId = failureChatId,
                                                                             persistedResponse = assistantResponse,
@@ -8042,7 +7969,7 @@ fun Home(
                                                                         if (metadataUpdate.accepted) {
                                                                             immediateInferenceStatsByMessageId[assistantId] = finalStats
                                                                             resolvedTrace?.let { completedTrace ->
-                                                                                scheduleLocalTokenizerStatsUpdate(
+                                                                                postResponseTokenStatsUpdater.scheduleLocalTokenizerStatsUpdate(
                                                                                     assistantId = assistantId,
                                                                                     chatId = currentChatId,
                                                                                     response = resolvedAssistantResponse,
