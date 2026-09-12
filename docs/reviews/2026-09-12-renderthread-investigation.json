@@ -1,0 +1,1163 @@
+{
+  "intervals": [
+    {
+      "label": "1_old",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 306,
+            "median_ms": 4.883,
+            "p95_ms": 6.195,
+            "max_ms": 11.413
+          },
+          "wall_total_ms": 1447.878,
+          "state_ms": {
+            "D": 10.048,
+            "R": 85.62,
+            "R+": 42.305,
+            "Running": 1307.881,
+            "S": 2.024
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 306,
+            "median_ms": 4.16,
+            "p95_ms": 5.234,
+            "max_ms": 10.75
+          },
+          "wall_total_ms": 1227.982,
+          "state_ms": {
+            "D": 10.048,
+            "R": 71.602,
+            "R+": 31.492,
+            "Running": 1113.261,
+            "S": 1.578
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 306,
+            "median_ms": 1.702,
+            "p95_ms": 2.547,
+            "max_ms": 4.628
+          },
+          "wall_total_ms": 533.449,
+          "state_ms": {
+            "D": 10.048,
+            "R": 30.745,
+            "R+": 10.286,
+            "Running": 482.37
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.968,
+            "p95_ms": 1.538,
+            "max_ms": 2.716
+          },
+          "wall_total_ms": 304.365,
+          "state_ms": {
+            "Running": 274.11,
+            "R": 13.098,
+            "R+": 17.157
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.19,
+            "p95_ms": 0.951,
+            "max_ms": 1.594
+          },
+          "wall_total_ms": 95.852,
+          "state_ms": {
+            "D": 10.048,
+            "R": 11.694,
+            "R+": 7.603,
+            "Running": 66.506
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.25,
+            "p95_ms": 0.526,
+            "max_ms": 0.919
+          },
+          "wall_total_ms": 88.287,
+          "state_ms": {
+            "Running": 81.975,
+            "R": 6.155,
+            "R+": 0.158
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.301,
+            "p95_ms": 0.676,
+            "max_ms": 1.059
+          },
+          "wall_total_ms": 106.353,
+          "state_ms": {
+            "Running": 98.386,
+            "R": 7.475,
+            "R+": 0.492
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.144,
+            "p95_ms": 0.291,
+            "max_ms": 0.971
+          },
+          "wall_total_ms": 50.101,
+          "state_ms": {
+            "Running": 47.839,
+            "R": 1.912,
+            "R+": 0.35
+          }
+        }
+      },
+      "frame_join_count": 305,
+      "frame_join_unique": 305,
+      "frame_timing": {
+        "app_ms": {
+          "n": 305,
+          "median_ms": 10.729,
+          "p95_ms": 18.241,
+          "max_ms": 32.639
+        },
+        "rt_start_after_app_ms": {
+          "n": 305,
+          "median_ms": 4.611,
+          "p95_ms": 6.438,
+          "max_ms": 21.964
+        },
+        "rt_wall_ms": {
+          "n": 305,
+          "median_ms": 4.882,
+          "p95_ms": 6.195,
+          "max_ms": 11.413
+        },
+        "completion_after_rt_ms": {
+          "n": 305,
+          "median_ms": 0.166,
+          "p95_ms": 8.503,
+          "max_ms": 11.827
+        }
+      }
+    },
+    {
+      "label": "2_new",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 306,
+            "median_ms": 5.035,
+            "p95_ms": 8.091,
+            "max_ms": 10.317
+          },
+          "wall_total_ms": 1576.654,
+          "state_ms": {
+            "R+": 126.741,
+            "Running": 1302.716,
+            "R": 134.354,
+            "D": 9.416,
+            "S": 3.426
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 306,
+            "median_ms": 4.325,
+            "p95_ms": 7.314,
+            "max_ms": 9.402
+          },
+          "wall_total_ms": 1362.321,
+          "state_ms": {
+            "Running": 1116.334,
+            "R": 122.563,
+            "R+": 114.008,
+            "D": 9.416
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 306,
+            "median_ms": 1.825,
+            "p95_ms": 3.364,
+            "max_ms": 4.897
+          },
+          "wall_total_ms": 612.39,
+          "state_ms": {
+            "Running": 483.447,
+            "R": 49.818,
+            "R+": 69.71,
+            "D": 9.416
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.985,
+            "p95_ms": 2.187,
+            "max_ms": 3.547
+          },
+          "wall_total_ms": 347.588,
+          "state_ms": {
+            "Running": 277.031,
+            "R+": 42.246,
+            "R": 28.311
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.24,
+            "p95_ms": 1.35,
+            "max_ms": 2.496
+          },
+          "wall_total_ms": 151.021,
+          "state_ms": {
+            "Running": 65.443,
+            "R+": 64.742,
+            "D": 9.416,
+            "R": 11.421
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.244,
+            "p95_ms": 0.485,
+            "max_ms": 1.082
+          },
+          "wall_total_ms": 83.473,
+          "state_ms": {
+            "Running": 78.121,
+            "R": 5.351
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.297,
+            "p95_ms": 0.559,
+            "max_ms": 1.147
+          },
+          "wall_total_ms": 99.284,
+          "state_ms": {
+            "Running": 93.579,
+            "R": 5.704
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.143,
+            "p95_ms": 0.354,
+            "max_ms": 1.859
+          },
+          "wall_total_ms": 52.016,
+          "state_ms": {
+            "R+": 1.778,
+            "Running": 46.126,
+            "R": 4.112
+          }
+        }
+      },
+      "frame_join_count": 305,
+      "frame_join_unique": 305,
+      "frame_timing": {
+        "app_ms": {
+          "n": 305,
+          "median_ms": 13.886,
+          "p95_ms": 16.243,
+          "max_ms": 32.039
+        },
+        "rt_start_after_app_ms": {
+          "n": 305,
+          "median_ms": 1.184,
+          "p95_ms": 2.419,
+          "max_ms": 25.351
+        },
+        "rt_wall_ms": {
+          "n": 305,
+          "median_ms": 5.042,
+          "p95_ms": 8.091,
+          "max_ms": 10.317
+        },
+        "completion_after_rt_ms": {
+          "n": 305,
+          "median_ms": 7.403,
+          "p95_ms": 8.655,
+          "max_ms": 8.984
+        }
+      }
+    },
+    {
+      "label": "3_new",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 305,
+            "median_ms": 5.141,
+            "p95_ms": 8.348,
+            "max_ms": 10.858
+          },
+          "wall_total_ms": 1600.634,
+          "state_ms": {
+            "R": 140.701,
+            "R+": 143.581,
+            "Running": 1304.152,
+            "D": 9.299,
+            "S": 2.901
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 305,
+            "median_ms": 4.382,
+            "p95_ms": 7.214,
+            "max_ms": 9.555
+          },
+          "wall_total_ms": 1374.67,
+          "state_ms": {
+            "R": 125.645,
+            "R+": 126.511,
+            "Running": 1113.216,
+            "D": 9.299
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 305,
+            "median_ms": 1.866,
+            "p95_ms": 3.405,
+            "max_ms": 4.252
+          },
+          "wall_total_ms": 616.901,
+          "state_ms": {
+            "R": 48.258,
+            "R+": 77.291,
+            "Running": 482.054,
+            "D": 9.299
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 305,
+            "median_ms": 0.976,
+            "p95_ms": 2.334,
+            "max_ms": 3.96
+          },
+          "wall_total_ms": 350.327,
+          "state_ms": {
+            "R+": 45.161,
+            "Running": 273.872,
+            "R": 31.294
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 305,
+            "median_ms": 0.253,
+            "p95_ms": 1.472,
+            "max_ms": 2.139
+          },
+          "wall_total_ms": 160.768,
+          "state_ms": {
+            "R+": 72.229,
+            "Running": 65.824,
+            "D": 9.299,
+            "R": 13.417
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.252,
+            "p95_ms": 0.504,
+            "max_ms": 1.048
+          },
+          "wall_total_ms": 87.128,
+          "state_ms": {
+            "Running": 81.369,
+            "R": 5.621,
+            "R+": 0.138
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.304,
+            "p95_ms": 0.566,
+            "max_ms": 1.235
+          },
+          "wall_total_ms": 104.482,
+          "state_ms": {
+            "Running": 97.299,
+            "R": 6.324,
+            "R+": 0.859
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.143,
+            "p95_ms": 0.415,
+            "max_ms": 1.522
+          },
+          "wall_total_ms": 53.446,
+          "state_ms": {
+            "Running": 46.131,
+            "R+": 2.769,
+            "R": 4.546
+          }
+        }
+      },
+      "frame_join_count": 304,
+      "frame_join_unique": 304,
+      "frame_timing": {
+        "app_ms": {
+          "n": 304,
+          "median_ms": 13.82,
+          "p95_ms": 16.394,
+          "max_ms": 32.83
+        },
+        "rt_start_after_app_ms": {
+          "n": 304,
+          "median_ms": 1.138,
+          "p95_ms": 2.683,
+          "max_ms": 25.243
+        },
+        "rt_wall_ms": {
+          "n": 304,
+          "median_ms": 5.143,
+          "p95_ms": 8.348,
+          "max_ms": 10.858
+        },
+        "completion_after_rt_ms": {
+          "n": 304,
+          "median_ms": 7.048,
+          "p95_ms": 8.604,
+          "max_ms": 9.551
+        }
+      }
+    },
+    {
+      "label": "4_old",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 303,
+            "median_ms": 4.864,
+            "p95_ms": 6.215,
+            "max_ms": 7.75
+          },
+          "wall_total_ms": 1383.7,
+          "state_ms": {
+            "R+": 50.693,
+            "Running": 1227.638,
+            "D": 10.126,
+            "R": 92.945,
+            "S": 2.298
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 303,
+            "median_ms": 4.122,
+            "p95_ms": 5.404,
+            "max_ms": 6.906
+          },
+          "wall_total_ms": 1177.376,
+          "state_ms": {
+            "R+": 41.716,
+            "Running": 1042.92,
+            "D": 10.126,
+            "R": 81.32,
+            "S": 1.294
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 303,
+            "median_ms": 1.695,
+            "p95_ms": 2.547,
+            "max_ms": 3.853
+          },
+          "wall_total_ms": 508.973,
+          "state_ms": {
+            "Running": 454.416,
+            "D": 10.126,
+            "R": 34.515,
+            "R+": 9.915
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 303,
+            "median_ms": 0.949,
+            "p95_ms": 1.758,
+            "max_ms": 2.482
+          },
+          "wall_total_ms": 296.787,
+          "state_ms": {
+            "R+": 30.048,
+            "Running": 252.037,
+            "R": 14.702
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 303,
+            "median_ms": 0.196,
+            "p95_ms": 0.86,
+            "max_ms": 1.653
+          },
+          "wall_total_ms": 91.0,
+          "state_ms": {
+            "Running": 62.166,
+            "D": 9.743,
+            "R": 10.987,
+            "R+": 8.104
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 303,
+            "median_ms": 0.259,
+            "p95_ms": 0.576,
+            "max_ms": 0.835
+          },
+          "wall_total_ms": 85.998,
+          "state_ms": {
+            "Running": 80.603,
+            "R": 5.311,
+            "R+": 0.084
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 303,
+            "median_ms": 0.308,
+            "p95_ms": 0.665,
+            "max_ms": 0.888
+          },
+          "wall_total_ms": 101.935,
+          "state_ms": {
+            "Running": 95.687,
+            "R": 5.828,
+            "R+": 0.42
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 303,
+            "median_ms": 0.142,
+            "p95_ms": 0.282,
+            "max_ms": 0.949
+          },
+          "wall_total_ms": 49.542,
+          "state_ms": {
+            "Running": 44.268,
+            "R": 3.291,
+            "R+": 1.983
+          }
+        }
+      },
+      "frame_join_count": 302,
+      "frame_join_unique": 302,
+      "frame_timing": {
+        "app_ms": {
+          "n": 302,
+          "median_ms": 10.936,
+          "p95_ms": 18.093,
+          "max_ms": 31.029
+        },
+        "rt_start_after_app_ms": {
+          "n": 302,
+          "median_ms": 4.464,
+          "p95_ms": 6.519,
+          "max_ms": 22.83
+        },
+        "rt_wall_ms": {
+          "n": 302,
+          "median_ms": 4.868,
+          "p95_ms": 6.215,
+          "max_ms": 7.75
+        },
+        "completion_after_rt_ms": {
+          "n": 302,
+          "median_ms": 0.248,
+          "p95_ms": 8.515,
+          "max_ms": 9.005
+        }
+      }
+    },
+    {
+      "label": "5_old",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 307,
+            "median_ms": 4.69,
+            "p95_ms": 6.376,
+            "max_ms": 9.975
+          },
+          "wall_total_ms": 1390.776,
+          "state_ms": {
+            "R": 95.231,
+            "Running": 1242.227,
+            "D": 8.749,
+            "R+": 43.83,
+            "S": 0.739
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 307,
+            "median_ms": 3.986,
+            "p95_ms": 5.607,
+            "max_ms": 9.437
+          },
+          "wall_total_ms": 1189.798,
+          "state_ms": {
+            "R": 86.959,
+            "Running": 1060.106,
+            "D": 8.749,
+            "R+": 33.41,
+            "S": 0.575
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 307,
+            "median_ms": 1.674,
+            "p95_ms": 2.629,
+            "max_ms": 5.297
+          },
+          "wall_total_ms": 515.452,
+          "state_ms": {
+            "Running": 460.711,
+            "D": 8.749,
+            "R": 35.977,
+            "R+": 10.016
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 307,
+            "median_ms": 0.943,
+            "p95_ms": 1.684,
+            "max_ms": 2.872
+          },
+          "wall_total_ms": 295.16,
+          "state_ms": {
+            "Running": 260.062,
+            "R": 15.465,
+            "R+": 19.634
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 307,
+            "median_ms": 0.186,
+            "p95_ms": 0.84,
+            "max_ms": 1.513
+          },
+          "wall_total_ms": 88.921,
+          "state_ms": {
+            "Running": 61.759,
+            "D": 8.749,
+            "R": 11.962,
+            "R+": 6.451
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 307,
+            "median_ms": 0.235,
+            "p95_ms": 0.421,
+            "max_ms": 0.888
+          },
+          "wall_total_ms": 78.466,
+          "state_ms": {
+            "Running": 76.713,
+            "R": 1.753
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 307,
+            "median_ms": 0.286,
+            "p95_ms": 0.608,
+            "max_ms": 1.029
+          },
+          "wall_total_ms": 94.968,
+          "state_ms": {
+            "Running": 91.991,
+            "R": 2.837,
+            "R+": 0.14
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 307,
+            "median_ms": 0.14,
+            "p95_ms": 0.27,
+            "max_ms": 1.049
+          },
+          "wall_total_ms": 49.506,
+          "state_ms": {
+            "Running": 44.532,
+            "R": 3.132,
+            "R+": 1.841
+          }
+        }
+      },
+      "frame_join_count": 306,
+      "frame_join_unique": 306,
+      "frame_timing": {
+        "app_ms": {
+          "n": 306,
+          "median_ms": 10.432,
+          "p95_ms": 17.989,
+          "max_ms": 32.884
+        },
+        "rt_start_after_app_ms": {
+          "n": 306,
+          "median_ms": 4.521,
+          "p95_ms": 6.277,
+          "max_ms": 23.508
+        },
+        "rt_wall_ms": {
+          "n": 306,
+          "median_ms": 4.687,
+          "p95_ms": 6.376,
+          "max_ms": 9.975
+        },
+        "completion_after_rt_ms": {
+          "n": 306,
+          "median_ms": 0.164,
+          "p95_ms": 8.508,
+          "max_ms": 9.025
+        }
+      }
+    },
+    {
+      "label": "6_new",
+      "stages": {
+        "drawframe": {
+          "wall": {
+            "n": 306,
+            "median_ms": 5.067,
+            "p95_ms": 8.014,
+            "max_ms": 10.957
+          },
+          "wall_total_ms": 1570.254,
+          "state_ms": {
+            "R": 119.252,
+            "Running": 1295.757,
+            "D": 11.334,
+            "R+": 141.962,
+            "S": 1.95
+          }
+        },
+        "drawing": {
+          "wall": {
+            "n": 306,
+            "median_ms": 4.324,
+            "p95_ms": 7.05,
+            "max_ms": 10.245
+          },
+          "wall_total_ms": 1353.414,
+          "state_ms": {
+            "R": 108.058,
+            "Running": 1107.274,
+            "D": 10.672,
+            "R+": 127.355,
+            "S": 0.054
+          }
+        },
+        "flush": {
+          "wall": {
+            "n": 306,
+            "median_ms": 1.9,
+            "p95_ms": 3.282,
+            "max_ms": 4.153
+          },
+          "wall_total_ms": 614.801,
+          "state_ms": {
+            "R": 44.472,
+            "Running": 479.666,
+            "D": 10.615,
+            "R+": 80.048
+          }
+        },
+        "queue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.971,
+            "p95_ms": 2.313,
+            "max_ms": 4.752
+          },
+          "wall_total_ms": 340.244,
+          "state_ms": {
+            "R": 27.813,
+            "Running": 271.474,
+            "R+": 40.956
+          }
+        },
+        "submit": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.282,
+            "p95_ms": 1.472,
+            "max_ms": 1.797
+          },
+          "wall_total_ms": 160.351,
+          "state_ms": {
+            "Running": 67.354,
+            "D": 10.206,
+            "R": 9.678,
+            "R+": 73.112
+          }
+        },
+        "prepare": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.266,
+            "p95_ms": 0.59,
+            "max_ms": 1.052
+          },
+          "wall_total_ms": 89.354,
+          "state_ms": {
+            "Running": 81.599,
+            "R": 7.093,
+            "D": 0.662
+          }
+        },
+        "sync": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.317,
+            "p95_ms": 0.679,
+            "max_ms": 1.115
+          },
+          "wall_total_ms": 105.278,
+          "state_ms": {
+            "Running": 96.943,
+            "R": 7.258,
+            "R+": 0.416,
+            "D": 0.662
+          }
+        },
+        "dequeue": {
+          "wall": {
+            "n": 306,
+            "median_ms": 0.143,
+            "p95_ms": 0.284,
+            "max_ms": 0.694
+          },
+          "wall_total_ms": 48.295,
+          "state_ms": {
+            "Running": 45.73,
+            "R+": 0.973,
+            "R": 1.592
+          }
+        }
+      },
+      "frame_join_count": 305,
+      "frame_join_unique": 305,
+      "frame_timing": {
+        "app_ms": {
+          "n": 305,
+          "median_ms": 13.956,
+          "p95_ms": 16.314,
+          "max_ms": 30.971
+        },
+        "rt_start_after_app_ms": {
+          "n": 305,
+          "median_ms": 1.126,
+          "p95_ms": 2.235,
+          "max_ms": 28.432
+        },
+        "rt_wall_ms": {
+          "n": 305,
+          "median_ms": 5.073,
+          "p95_ms": 8.014,
+          "max_ms": 10.957
+        },
+        "completion_after_rt_ms": {
+          "n": 305,
+          "median_ms": 7.26,
+          "p95_ms": 8.703,
+          "max_ms": 11.483
+        }
+      }
+    }
+  ],
+  "completion_tails": [
+    {
+      "label": "1_old",
+      "positive_tail_frames": 187,
+      "positive_tail_wall_ms": 872.568,
+      "renderthread_running_within_tail_ms": 8.459,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 262,
+          "wall_total_ms": 3.736,
+          "max_ms": 0.574
+        }
+      ]
+    },
+    {
+      "label": "2_new",
+      "positive_tail_frames": 259,
+      "positive_tail_wall_ms": 1670.906,
+      "renderthread_running_within_tail_ms": 12.207,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 263,
+          "wall_total_ms": 2.48,
+          "max_ms": 0.303
+        }
+      ]
+    },
+    {
+      "label": "3_new",
+      "positive_tail_frames": 243,
+      "positive_tail_wall_ms": 1623.956,
+      "renderthread_running_within_tail_ms": 11.657,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 256,
+          "wall_total_ms": 2.945,
+          "max_ms": 0.283
+        }
+      ]
+    },
+    {
+      "label": "4_old",
+      "positive_tail_frames": 194,
+      "positive_tail_wall_ms": 983.14,
+      "renderthread_running_within_tail_ms": 7.911,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 261,
+          "wall_total_ms": 3.533,
+          "max_ms": 1.166
+        }
+      ]
+    },
+    {
+      "label": "5_old",
+      "positive_tail_frames": 187,
+      "positive_tail_wall_ms": 840.932,
+      "renderthread_running_within_tail_ms": 7.814,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 267,
+          "wall_total_ms": 2.666,
+          "max_ms": 0.262
+        }
+      ]
+    },
+    {
+      "label": "6_new",
+      "positive_tail_frames": 250,
+      "positive_tail_wall_ms": 1668.853,
+      "renderthread_running_within_tail_ms": 11.73,
+      "gpu_completion_wait_slices": [
+        {
+          "n": 258,
+          "wall_total_ms": 4.208,
+          "max_ms": 0.527
+        }
+      ]
+    }
+  ],
+  "frequency": [
+    {
+      "label": "1_old",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 248.076,
+          "weighted_mhz": 429.1
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 320.337,
+          "weighted_mhz": 458.3
+        },
+        {
+          "cpu": 2,
+          "cpu_ms": 4.229,
+          "weighted_mhz": 483.8
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 384.604,
+          "weighted_mhz": 428.7
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 434.524,
+          "weighted_mhz": 433.4
+        }
+      ]
+    },
+    {
+      "label": "2_new",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 511.171,
+          "weighted_mhz": 424.5
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 296.143,
+          "weighted_mhz": 432.0
+        },
+        {
+          "cpu": 2,
+          "cpu_ms": 0.783,
+          "weighted_mhz": 556.8
+        },
+        {
+          "cpu": 3,
+          "cpu_ms": 0.45,
+          "weighted_mhz": 1363.2
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 306.666,
+          "weighted_mhz": 467.6
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 273.292,
+          "weighted_mhz": 456.7
+        }
+      ]
+    },
+    {
+      "label": "3_new",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 560.957,
+          "weighted_mhz": 423.9
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 258.797,
+          "weighted_mhz": 469.7
+        },
+        {
+          "cpu": 2,
+          "cpu_ms": 2.108,
+          "weighted_mhz": 1363.2
+        },
+        {
+          "cpu": 3,
+          "cpu_ms": 1.331,
+          "weighted_mhz": 384.0
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 284.257,
+          "weighted_mhz": 448.7
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 280.6,
+          "weighted_mhz": 485.8
+        }
+      ]
+    },
+    {
+      "label": "4_old",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 243.567,
+          "weighted_mhz": 488.0
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 311.035,
+          "weighted_mhz": 504.1
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 425.035,
+          "weighted_mhz": 459.8
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 329.376,
+          "weighted_mhz": 459.2
+        }
+      ]
+    },
+    {
+      "label": "5_old",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 232.805,
+          "weighted_mhz": 479.5
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 338.358,
+          "weighted_mhz": 482.8
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 383.623,
+          "weighted_mhz": 453.2
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 368.916,
+          "weighted_mhz": 469.8
+        }
+      ]
+    },
+    {
+      "label": "6_new",
+      "by_cpu": [
+        {
+          "cpu": 0,
+          "cpu_ms": 540.241,
+          "weighted_mhz": 439.5
+        },
+        {
+          "cpu": 1,
+          "cpu_ms": 247.014,
+          "weighted_mhz": 455.7
+        },
+        {
+          "cpu": 4,
+          "cpu_ms": 306.501,
+          "weighted_mhz": 454.0
+        },
+        {
+          "cpu": 5,
+          "cpu_ms": 288.261,
+          "weighted_mhz": 463.4
+        }
+      ]
+    }
+  ]
+}
