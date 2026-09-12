@@ -411,7 +411,17 @@ private fun readRuntimeNativeLibPathsFromProcMaps(): List<File> =
         emptyList()
     }
 
+private val nativeMarkerCache = NativeFileDiagnosticCache<Boolean>()
+private val nativeHashCache = NativeFileDiagnosticCache<String> { !it.startsWith("unavailable") }
+
 private fun fileContainsAsciiMarker(file: File, marker: String): Boolean =
+    if (marker == GPU_NATIVE_PREFILL_PREINVOKE_MARKER) {
+        nativeMarkerCache.read(file) { scanFileForAsciiMarker(file, marker) }
+    } else {
+        scanFileForAsciiMarker(file, marker)
+    }
+
+private fun scanFileForAsciiMarker(file: File, marker: String): Boolean =
     runCatching {
         val needle = marker.toByteArray(Charsets.UTF_8)
         if (needle.isEmpty()) return@runCatching false
@@ -491,6 +501,9 @@ private fun File?.nativeLibSha256Diagnostic(libName: String): String =
     }
 
 private fun sha256ForGalleryStackProbeFileSafely(file: File): String =
+    nativeHashCache.read(file) { computeGalleryStackProbeFileSha256(file) }
+
+private fun computeGalleryStackProbeFileSha256(file: File): String =
     runCatching {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
