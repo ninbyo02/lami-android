@@ -1124,8 +1124,7 @@ fun Home(
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
     var stopButtonOwnerAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var stopButtonOwnerSetAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
-    var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
-    var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
+    val responseSpeechSession = remember { ResponseSpeechSession() }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var isStreamingSentencePlaybackActive by remember(effectiveChatId) { mutableStateOf(false) }
     var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
@@ -2808,8 +2807,6 @@ fun Home(
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
-        streamingSpeechBuffer = ""
-        streamingSpeechLastConsumedLength = 0
         streamingSpeechStartedForMessageId = null
         if (clearPlaybackFlag) {
             isStreamingSentencePlaybackActive = false
@@ -2821,6 +2818,8 @@ fun Home(
         armTapGuards: Boolean,
     ) {
         suppressedTtsAssistantMessageId = suppressedMessageId
+        responseSpeechSession.stop()
+        ttsTapGuardEpoch += 1
 
         ttsController.stop()
         viewModel.stopTtsPlayback()
@@ -3504,70 +3503,38 @@ fun Home(
         }
     }
 
-    fun consumeStreamingSentenceAndSpeak(fullText: String) {
-        if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+    fun queueResponseSpeech(fullText: String, final: Boolean) {
+        if (!ttsEnabled || !responseSpeechSession.accepts()) return
+        val targetMessageId = streamingSpeechStartedForMessageId
+        if (targetMessageId != null && isTtsSuppressedForAssistant(targetMessageId)) return
+        if (fullText.contains("```")) {
+            responseSpeechSession.stop()
             isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
+            ttsController.stop()
             viewModel.stopTtsPlayback()
             return
         }
-        val targetMessageId = streamingSpeechStartedForMessageId
-        if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
-        if (fullText.length < streamingSpeechLastConsumedLength) {
-            streamingSpeechLastConsumedLength = 0
+        val unsaid = responseSpeechSession.take(fullText, final) ?: return
+        val normalized = sanitizeStreamingTextForTts(unsaid)
+        if (normalized.isBlank()) return
+        targetMessageId?.let { messageId ->
+            currentSpeakingAssistantMessageId = messageId
+            stopButtonOwnerAssistantMessageId = messageId
+            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
         }
-        streamingSpeechBuffer = fullText
-        if (streamingSpeechLastConsumedLength >= fullText.length) return
-        val remaining = fullText.substring(streamingSpeechLastConsumedLength)
-        val sentenceBreakIndex = findStreamingTtsBreakIndex(remaining)
-        if (sentenceBreakIndex < 0) return
-        val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
-        val normalized = sanitizeStreamingTextForTts(speakTarget)
-        // Streaming sentence TTS uses QUEUE_ADD, so do not drop sentence fragments because
-        // the previous queued utterance just ended and the controller is in auto-speak cooldown.
-        // Dropping here can skip the final short tail such as "お気軽にどうぞ".
-        if (normalized.isNotEmpty()) {
-            streamingSpeechStartedForMessageId?.let { messageId ->
-                currentSpeakingAssistantMessageId = messageId
-                if (!isTtsSuppressedForAssistant(messageId)) {
-                    stopButtonOwnerAssistantMessageId = messageId
-                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-                }
-            }
-            isStreamingSentencePlaybackActive = true
-            ttsController.speakQueued(normalized)
-        }
-        streamingSpeechLastConsumedLength += sentenceBreakIndex + 1
+        isStreamingSentencePlaybackActive = true
+        ttsController.speakQueued(normalized)
     }
 
-    fun speakStreamingTailIfNeeded(fullText: String) {
-        if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
-            isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
-            viewModel.stopTtsPlayback()
-            return
-        }
-        val targetMessageId = streamingSpeechStartedForMessageId
-        if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
-        val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
-        val remaining = fullText.substring(safeConsumed)
-        val normalized = sanitizeStreamingTextForTts(remaining)
-        // Tail flush also uses QUEUE_ADD; cooldown must not discard the final unsaid tail.
-        if (normalized.isNotEmpty()) {
-            streamingSpeechStartedForMessageId?.let { messageId ->
-                currentSpeakingAssistantMessageId = messageId
-                if (!isTtsSuppressedForAssistant(messageId)) {
-                    stopButtonOwnerAssistantMessageId = messageId
-                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-                }
-            }
-            isStreamingSentencePlaybackActive = true
-            ttsController.speakQueued(normalized)
-        }
+    fun consumeStreamingSentenceAndSpeak(fullText: String) = queueResponseSpeech(fullText, final = false)
+
+    fun speakStreamingTailIfNeeded(fullText: String) = queueResponseSpeech(fullText, final = true)
+
+    suspend fun prepareResponseSpeechPlayback(): Boolean {
+        val token = responseSpeechSession.generation
+        if (!responseSpeechSession.accepts(token)) return false
+        maybeReleaseHeldEngineForTtsPlayback()
+        return responseSpeechSession.accepts(token)
     }
 
     val effectiveStreamingSentenceTtsEnabled = shouldEnableStreamingSentenceTts(
@@ -3833,8 +3800,7 @@ fun Home(
                     // if this coroutine suspends or is cancelled after that, speech scheduled later can
                     // be skipped intermittently even though the assistant text was displayed and saved.
                     if (effectiveStreamingSentenceTtsEnabled) {
-                        maybeReleaseHeldEngineForTtsPlayback()
-                        speakStreamingTailIfNeeded(response)
+                        if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(response)
                         // Keep the streaming TTS playback flag active after queueing the final tail.
                         // A second unconditional reset here clears ownership while the queued final
                         // utterance is still pending, which can make the last sentence disappear from
@@ -3853,8 +3819,7 @@ fun Home(
                                 stopButtonOwnerAssistantMessageId = assistantId
                                 stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                             }
-                            maybeReleaseHeldEngineForTtsPlayback()
-                            ttsController.speak(speechText)
+                            if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(response)
                         }
                     }
                     if (!streamingSpeechStateResetForQueuedTail) {
@@ -4539,6 +4504,7 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
@@ -4774,6 +4740,8 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
+                                                        val npuSpeechGeneration = responseSpeechSession.generation
                                                         localInferenceJob = coroutineScope.launch {
                                                             var resolvedNpuChatId: Int? = null
                                                             var npuS1DecodeStartedAtMs: Long? = null
@@ -4877,7 +4845,7 @@ fun Home(
                                                                                 currentUserPrompt = requestPrompt,
                                                                             )
                                                                             if (NpuKotlinConversationProductRoute.enabled) {
-                                                                                npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                                 val kotlinConversationAttempt = try {
                                                                                     NpuKotlinConversationProductRoute.run(
                                                                                         context = context.applicationContext,
@@ -4888,9 +4856,9 @@ fun Home(
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (!localStopRequested && effectiveChatId == npuChatId) {
+                                                                                            if (!localStopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (localStopRequested || effectiveChatId != npuChatId) return@launch
+                                                                                                    if (localStopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     didReceiveRealLocalPartial = true
                                                                                                     realLocalPartialChunkCount += 1
                                                                                                     localStreamingResponseText = partial
@@ -5656,8 +5624,9 @@ fun Home(
                                                             ) {
                                                                 npuStandardRouteTtsRequested = true
                                                                 try {
-                                                                    maybeReleaseHeldEngineForTtsPlayback()
-                                                                    ttsController.speak(phase5TtsCandidate.speakText)
+                                                                    if (prepareResponseSpeechPlayback()) {
+                                                                        speakStreamingTailIfNeeded(npuStandardRouteSafeTtsText)
+                                                                    }
                                                                     npuStandardRouteTtsStarted = true
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
@@ -5948,7 +5917,7 @@ fun Home(
                                                                             ),
                                                                         )
                                                                             val s5SavedResult = try {
-                                                                                ttsController.speak(ttsCandidate.speakText)
+                                                                                speakStreamingTailIfNeeded(s1Result.ttsText)
                                                                                 buildNpuStandardRouteS5TtsSavedResult(
                                                                                     s1Result = s1Result,
                                                                                     finalAssistantText = s1Result.ttsText,
@@ -6299,6 +6268,7 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
                                                         localInferenceJob = coroutineScope.launch {
                                                             var currentChatId = effectiveChatId
                                                             if (currentChatId == null) {
@@ -6533,6 +6503,7 @@ fun Home(
                                                             ?: streamingSpeechStartedForMessageId,
                                                         armTapGuards = false,
                                                     )
+                                                    responseSpeechSession.begin()
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
@@ -7968,8 +7939,7 @@ fun Home(
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
                                                                         ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                         ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
-                                                                        maybeReleaseHeldEngineForTtsPlayback()
-                                                                        speakStreamingTailIfNeeded(resolvedAssistantResponse)
+                                                                        if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
                                                                         ttsEnabled &&
@@ -7986,8 +7956,7 @@ fun Home(
                                                                                 stopButtonOwnerAssistantMessageId = assistantId
                                                                                 stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                                                                             }
-                                                                            maybeReleaseHeldEngineForTtsPlayback()
-                                                                            ttsController.speak(speechText)
+                                                                            if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         }
                                                                     }
                                                                     if (assistantId != null && localStats != null) {
@@ -8939,9 +8908,12 @@ fun Home(
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
                                                     stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                    val replayEpoch = ttsTapGuardEpoch
                                                     coroutineScope.launch {
                                                         maybeReleaseHeldEngineForTtsPlayback()
-                                                        ttsController.speak(speechText)
+                                                        if (replayEpoch == ttsTapGuardEpoch && !isTtsSuppressedForAssistant(message.messageID)) {
+                                                            ttsController.speak(speechText)
+                                                        }
                                                     }
                                                 }
                                                 } else {

@@ -19,7 +19,7 @@ class ChatScreenTtsOrderingSourceTest {
         val normalPath = successBranch.substring(normalPathStart)
 
         val speechTailIndex = normalPath.indexOf("speakStreamingTailIfNeeded(response)")
-        val speechFullIndex = normalPath.indexOf("ttsController.speak(speechText)")
+        val speechFullIndex = normalPath.lastIndexOf("speakStreamingTailIfNeeded(response)")
         val resetIndex = normalPath.indexOf("viewModel.resetUiState()")
         val declarationCount = Regex("var streamingSpeechStateResetForQueuedTail = false").findAll(normalPath).count()
 
