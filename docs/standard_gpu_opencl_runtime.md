@@ -16,3 +16,5 @@ Gradle validates the complete input set, excludes competing arm64 ClGl/Gpu provi
 `-Plami.allowMissingQairt244Jni=true` is still a non-NPU CI smoke build, with the new runtime disabled. It must not be installed as the daily NPU app. StandardRelease remains unchanged by default; an explicitly enabled NPU Release candidate also uses the pinned runtime and requires separate device qualification. `-Plami.standardGpuOpenClEnabled=false` permits controlled comparison with the previous configuration.
 
 Runtime changes require updating the manifest only after coherent GPU/NPU qualification. Do not replace individual hashes to make a failing validation pass.
+
+Device qualification and remaining limits: [normal GPU recovery](reviews/2026-09-12-standard-gpu-recovery.md). The verified routing applies only to arm64 processes.
