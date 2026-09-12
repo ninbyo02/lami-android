@@ -1,5 +1,7 @@
 package io.github.ninbyo02.lami.viewmodels
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.cancel
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.db.dao.ChatDao
 import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
@@ -41,6 +43,7 @@ import org.robolectric.RuntimeEnvironment
 @Config(manifest = Config.NONE, sdk = [34])
 class OllamaViewModelConnectionFailureTest {
     private val dispatcher: TestDispatcher = StandardTestDispatcher()
+    private val viewModels = mutableSetOf<OllamaViewModel>()
 
     @Before
     fun setUp() {
@@ -49,6 +52,8 @@ class OllamaViewModelConnectionFailureTest {
 
     @After
     fun tearDown() {
+        viewModels.forEach { it.viewModelScope.cancel() }
+        dispatcher.scheduler.runCurrent()
         Dispatchers.resetMain()
     }
 
@@ -74,6 +79,7 @@ class OllamaViewModelConnectionFailureTest {
             throw IOException("server disconnected")
         }
 
+        viewModels += viewModel
         viewModel.loadAvailableModels().join()
         advanceUntilIdle()
 
@@ -100,6 +106,7 @@ class OllamaViewModelConnectionFailureTest {
             // Both endpoints succeed but expose different identifiers.
             RemoteModelsResult(listOf(ModelInfo(if (provider == RemoteProvider.LEMONADE) "model" else "model:latest")), provider)
         }
+        viewModels += vm
         vm.loadAvailableModels().join()
         assertEquals(RemoteProvider.LEMONADE, receivedProvider)
         assertEquals("model", vm.selectedModel.value)
@@ -126,9 +133,11 @@ class OllamaViewModelConnectionFailureTest {
             }
             RemoteModelsResult(listOf(ModelInfo(if (url == firstUrl) "old-model" else "new-model")), provider)
         }
+        viewModels += vm
         val first = vm.loadAvailableModels()
         entered.await()
         urls.value = secondUrl
+        viewModels += vm
         vm.loadAvailableModels().join()
         release.complete(Unit)
         first.join()
@@ -149,10 +158,12 @@ class OllamaViewModelConnectionFailureTest {
             null, MutableStateFlow(url), false) { _, _ ->
             RemoteModelsResult(names.map(::ModelInfo), RemoteProvider.LEMONADE)
         }
+        viewModels += vm
         vm.loadAvailableModels().join()
         assertEquals("single", vm.selectedModel.value)
         assertEquals("single", dao.selected[url]?.modelName)
         names = listOf("other-a", "other-b")
+        viewModels += vm
         vm.loadAvailableModels().join()
         assertEquals(null, vm.selectedModel.value)
         assertEquals(null, dao.selected[url])
@@ -164,18 +175,26 @@ class OllamaViewModelConnectionFailureTest {
         val secondUrl = "http://selection-two.local:13511"
         val dao = FakeModelPreferenceDao().apply { selected[secondUrl] = SelectedModel(secondUrl, "saved") }
         val urls = MutableStateFlow(firstUrl)
+        val preferences = SettingsPreferences(RuntimeEnvironment.getApplication())
+        // Both fake servers are Lemonade. Seed both URLs before starting collectors,
+        // so this selection test cannot fall through to Ollama model-detail prefetch.
+        preferences.saveRemoteProvider(RemoteProvider.LEMONADE, firstUrl)
+        preferences.saveRemoteProvider(RemoteProvider.LEMONADE, secondUrl)
         val vm = OllamaViewModel(ChatRepository(FakeMessageDao(), FakeChatDao()),
-            ModelPreferenceRepository(dao), SettingsPreferences(RuntimeEnvironment.getApplication()),
+            ModelPreferenceRepository(dao), preferences,
             null, urls, false) { url, _ ->
             RemoteModelsResult((if (url == firstUrl) listOf("only") else listOf("saved", "other")).map(::ModelInfo), RemoteProvider.LEMONADE)
         }
+        viewModels += vm
         vm.loadAvailableModels().join()
         urls.value = secondUrl
+        viewModels += vm
         vm.loadAvailableModels().join()
         assertEquals("saved", vm.selectedModel.value)
         assertEquals("only", dao.selected[firstUrl]?.modelName)
         assertEquals("saved", dao.selected[secondUrl]?.modelName)
         urls.value = firstUrl
+        viewModels += vm
         vm.loadAvailableModels().join()
         assertEquals("only", vm.selectedModel.value)
     }
