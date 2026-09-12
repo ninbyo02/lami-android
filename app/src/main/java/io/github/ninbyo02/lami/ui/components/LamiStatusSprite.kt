@@ -573,18 +573,6 @@ fun LamiStatusSprite(
     }
     var syncTimeMs by remember(syncEpochMs) { mutableStateOf(SystemClock.uptimeMillis()) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, animSpec) {
-        if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
-        if (!useSyncMode || !animationsEnabled) {
-            syncTimeMs = SystemClock.uptimeMillis()
-            return@LaunchedEffect
-        }
-        lifecycleOwner.lifecycle.runSpriteFrameClock(
-            epochMs = syncEpochMs,
-            intervalMs = animSpec.frameDuration.minMs,
-            nowMs = SystemClock::uptimeMillis,
-        ) { syncTimeMs = it }
-    }
     val syncDiagnostics by remember(useSyncMode, animationsEnabled, animSpec, syncEpochMs) {
         derivedStateOf {
             if (!useSyncMode || !animationsEnabled) {
@@ -701,30 +689,24 @@ fun LamiStatusSprite(
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
-    val syncFrameIndex by remember(
-        useSyncMode, animationsEnabled, animSpec, syncEpochMs,
-        insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
+    val resolveSyncSample = remember(
+        animSpec, syncEpochMs, insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
     ) {
-        // Repeated base frames and sub-frame clock changes do not require recomposition.
-        derivedStateOf {
-            if (!useSyncMode || !animationsEnabled) {
-                currentFrameIndex
-            } else {
-                val baseFrames = animSpec.frames.ifEmpty { listOf(0) }
-                val baseIntervalMs = animSpec.frameDuration.minMs.coerceAtLeast(1L)
-                val loopDurationMs = baseIntervalMs * baseFrames.size
-                val elapsedMs = (syncTimeMs - syncEpochMs).coerceAtLeast(0L)
-                val loopCount = if (loopDurationMs > 0L) {
-                    (elapsedMs / loopDurationMs).toInt() + 1
-                } else {
-                    1
-                }
-                val loopElapsedMs = if (loopDurationMs > 0L) {
-                    (elapsedMs % loopDurationMs).toInt()
-                } else {
-                    0
-                }
-                val insertionDecision = insertionSettings?.let { settings ->
+        val baseFrames = animSpec.frames.ifEmpty { listOf(0) }
+        val baseIntervalMs = animSpec.frameDuration.minMs.coerceAtLeast(1L)
+        val loopDurationMs = baseIntervalMs * baseFrames.size
+        val canInsert = insertionSettings?.let { settings ->
+            settings.enabled && settings.everyNLoops > 0 && settings.probabilityPercent > 0 &&
+                settings.patterns.any { it.weight > 0 && it.frameSequence.isNotEmpty() }
+        } == true
+        var cachedLoop = -1
+        var cachedDecision: DeterministicInsertionDecision? = null
+        var cachedTimeline: SpriteEventTimeline? = null
+        val resolve: (Long) -> SpriteFrameSample = { nowMs ->
+            val elapsedMs = (nowMs - syncEpochMs).coerceAtLeast(0L)
+            val loopCount = (elapsedMs / loopDurationMs).toInt() + 1
+            if (cachedTimeline == null || (canInsert && cachedLoop != loopCount)) {
+                val insertionDecision = insertionSettings?.takeIf { canInsert }?.let { settings ->
                     if (loopCount < insertionCache.lastComputedLoop) {
                         insertionCache.lastComputedLoop = 0
                         insertionCache.lastInsertionLoop = null
@@ -788,52 +770,37 @@ fun LamiStatusSprite(
                         null
                     }
                 }
-                val ticksPerFrame = if (baseIntervalMs > 0L) baseIntervalMs else 1L
-                val tickIndex = if (ticksPerFrame > 0L) {
-                    (loopElapsedMs / ticksPerFrame).coerceAtLeast(0)
-                } else {
-                    0
+                if (cachedTimeline == null || cachedDecision != insertionDecision) {
+                    cachedTimeline = SpriteEventTimeline(
+                        baseFrames = baseFrames,
+                        intervalMs = baseIntervalMs,
+                        insertionFrames = insertionDecision?.frames.orEmpty(),
+                        insertionIntervalMs = insertionDecision?.intervalMs?.toLong() ?: baseIntervalMs,
+                        exclusive = insertionDecision?.exclusive == true,
+                        maxFrameIndex = maxFrameIndex,
+                    )
+                    cachedDecision = insertionDecision
                 }
-                val timeline = buildList(baseFrames.size) {
-                    val totalTicks = baseFrames.size.coerceAtLeast(1)
-                    val insertionFrames = insertionDecision?.frames.orEmpty()
-                    if (insertionFrames.isEmpty()) {
-                        addAll(baseFrames)
-                    } else {
-                        val resolvedIntervalMs = insertionDecision?.intervalMs?.coerceAtLeast(1) ?: baseIntervalMs.toInt()
-                        val holdCount = ((resolvedIntervalMs + (baseIntervalMs / 2)) / baseIntervalMs)
-                            .toInt()
-                            .coerceAtLeast(1)
-                        val expanded = buildList(insertionFrames.size * holdCount) {
-                            insertionFrames.forEach { frame ->
-                                repeat(holdCount) { add(frame) }
-                            }
-                        }
-                        if (insertionDecision?.exclusive == true) {
-                            for (index in 0 until totalTicks) {
-                                add(expanded.getOrElse(index) { expanded.lastOrNull() ?: baseFrames.first() })
-                            }
-                        } else {
-                            val insertionLength = expanded.size.coerceAtMost(totalTicks)
-                            for (index in 0 until totalTicks) {
-                                if (index < insertionLength) {
-                                    add(expanded[index])
-                                } else {
-                                    add(baseFrames[index])
-                                }
-                            }
-                        }
-                    }
-                }
-                val tickIndexInt = tickIndex.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-                val safeIndex = if (timeline.isNotEmpty()) {
-                    val idx = (tickIndexInt % timeline.size).coerceAtLeast(0)
-                    timeline[idx]
-                } else {
-                    0
-                }
-                safeIndex.coerceIn(0, maxFrameIndex)
+                cachedLoop = loopCount
             }
+            requireNotNull(cachedTimeline).sample(elapsedMs % loopDurationMs, canInsert)
+        }
+        resolve
+    }
+    var syncFrameIndex by remember(animSpec, maxFrameIndex) {
+        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
+    }
+    LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, resolveSyncSample) {
+        if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
+        if (!useSyncMode || !animationsEnabled) {
+            syncFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
+            return@LaunchedEffect
+        }
+        lifecycleOwner.lifecycle.runSpriteEventClock(SystemClock::uptimeMillis) { now ->
+            val sample = resolveSyncSample(now)
+            syncTimeMs = now
+            syncFrameIndex = sample.frame
+            sample.delayMs
         }
     }
     val resolvedFrameIndex = if (useSyncMode) syncFrameIndex else currentFrameIndex
