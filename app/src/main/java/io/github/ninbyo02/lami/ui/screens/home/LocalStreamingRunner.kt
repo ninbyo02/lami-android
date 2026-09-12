@@ -4226,6 +4226,7 @@ private fun mergeTokenizerRecountSnapshot(
     fullResponseText: String?,
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
+    deferMediaPipeRecount: Boolean = true,
 ): LocalInferenceMeasuredTokenSnapshot? {
     val sanitizedPrompt = promptText
     val sanitizedResponse = fullResponseText.orEmpty()
@@ -4238,11 +4239,13 @@ private fun mergeTokenizerRecountSnapshot(
         fullResponseText = sanitizedResponse,
         timing = timing,
         appendTrace = appendTrace,
+        deferMediaPipeRecount = deferMediaPipeRecount,
     ) ?: return base
     return if (base == null) {
         tokenizerSnapshot
     } else {
         base.copy(
+            tokenizerRecountStatus = tokenizerSnapshot.tokenizerRecountStatus,
             inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
             totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
@@ -4281,6 +4284,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
     fullResponseText: String,
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
+    deferMediaPipeRecount: Boolean = true,
 ): LocalInferenceMeasuredTokenSnapshot? {
     return runCatching {
         if (BuildConfig.DEBUG && promptText.isBlank()) {
@@ -4299,6 +4303,16 @@ private fun readTokenizerRecountSnapshotFromConversation(
         } else {
             null
         }?.takeIf { it.isFinite() }
+
+        if (deferMediaPipeRecount) {
+            return LocalInferenceMeasuredTokenSnapshot(
+                tokenizerRecountStatus = "deferred-post-completion",
+                charsPerSecond = charsPerSecond,
+                ttftMs = ttftMs,
+                decodeDurationMs = decodeDurationMs,
+                totalDurationMs = totalDurationMs,
+            )
+        }
 
         val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
         val tokenizerRecountOutcome = if (conversation is Conversation) {
@@ -4319,8 +4333,6 @@ private fun readTokenizerRecountSnapshotFromConversation(
             promptText = promptText,
             fullResponseText = fullResponseText,
         )
-        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-count mediapipe_status=${mediaPipeProbeOutcome.status} " +
-            "resource_reused=${mediaPipeProbeOutcome.summary.contains("resource reused: true")}")
         val tokenizerCountFinishedAtElapsedMs = SystemClock.elapsedRealtime()
         val tokenizerCountDurationMs =
             (tokenizerCountFinishedAtElapsedMs - tokenizerCountStartedAtElapsedMs).coerceAtLeast(0L)
@@ -4394,34 +4406,50 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
     response: String,
     trace: LocalInferenceTrace,
 ): LocalInferenceTrace = withContext(Dispatchers.IO) {
-    val startedAtMs = trace.localTraceStartElapsedRealtimeMs
-        ?: return@withContext trace
-    val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
-        ?: return@withContext trace
-    val existingSnapshot = trace.measuredTokenSnapshot
-    val recountedSnapshot = mergeTokenizerRecountSnapshot(
-        base = existingSnapshot,
-        conversation = null,
-        tokenizerSessionSource = null,
-        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-        mediaPipeProbeContext = context.applicationContext,
-        promptText = prompt,
-        fullResponseText = response,
-        timing = LocalLiteRtTimingSnapshot(
-            startedAtMs = startedAtMs,
-            firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
-            lastChunkAtMs = endedAtMs,
-            endedAtMs = endedAtMs,
-        ),
-        appendTrace = { message ->
-            if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
-        },
-    ) ?: return@withContext trace
-    trace.copy(
-        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-        measuredTokenSnapshot = recountedSnapshot,
-    )
+    if (!localTokenRecountSlots.tryAcquire()) return@withContext trace
+    try {
+        localTokenRecountMutex.lock()
+        try {
+            val startedAtMs = trace.localTraceStartElapsedRealtimeMs
+                ?: return@withContext trace
+            val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
+                ?: return@withContext trace
+            val existingSnapshot = trace.measuredTokenSnapshot
+            val recountedSnapshot = mergeTokenizerRecountSnapshot(
+                base = existingSnapshot,
+                deferMediaPipeRecount = false,
+                conversation = null,
+                tokenizerSessionSource = null,
+                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+                mediaPipeProbeContext = context.applicationContext,
+                promptText = prompt,
+                fullResponseText = response,
+                timing = LocalLiteRtTimingSnapshot(
+                    startedAtMs = startedAtMs,
+                    firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
+                    lastChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs?.let { first ->
+                        existingSnapshot?.decodeDurationMs?.let { first + it }
+                    } ?: endedAtMs,
+                    endedAtMs = endedAtMs,
+                ),
+                appendTrace = { message ->
+                    if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
+                },
+            ) ?: return@withContext trace
+            trace.copy(
+                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+                measuredTokenSnapshot = recountedSnapshot,
+            )
+        } finally {
+            localTokenRecountMutex.unlock()
+        }
+    } finally {
+        localTokenRecountSlots.release()
+    }
 }
+
+private val localTokenRecountSlots = kotlinx.coroutines.sync.Semaphore(2)
+private val localTokenRecountMutex = kotlinx.coroutines.sync.Mutex()
 
 private data class TokenizerRecountResult(
     val promptTokens: Int,
@@ -4650,8 +4678,6 @@ private fun tryReadTokenizerRecountViaReflection(
             )
         }
     }
-    // A new inference session is neither used for counting nor safe while a
-    // conversation owns the engine. Only inspect existing tokenizer surfaces.
     val engineSessionAttempt = EngineCreateSessionAttempt(status = "skipped-count-only")
     val createdSessionResolution: CreatedTokenizerSessionResolution? = null
     val existingSessionResolution = tryResolveExistingSessionForTokenizer(
@@ -4827,88 +4853,170 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         }.trimEnd(),
     )
 
-    var creationFailure: MediaPipeTokenizerProbeOutcome? = null
+    val modelFile = File(modelPath)
+    val cacheKey = ExactTokenCountKey(
+        modelPath = modelFile.absolutePath,
+        modelSize = modelFile.length(),
+        modelModified = modelFile.lastModified(),
+        promptDigest = tokenTextDigest(promptText),
+        responseDigest = tokenTextDigest(fullResponseText),
+    )
+    mediaPipeExactCountCache.get(cacheKey)?.let { cached ->
+        return cached.copy(summary = cached.summary + "\nMediaPipe result cache hit: true")
+    }
     return runCatching {
-        val model = File(modelPath)
-        val key = MediaPipeTokenizerKey(model.canonicalPath, model.length(), model.lastModified())
-        mediaPipeTokenizerResource.use(
-            key = key,
-            create = {
-                val inference = createMediaPipeLlmInferenceInstance(
-                    llmInferenceClass, modelPath, mediaPipeContext, mediaPipeContextSource,
-                )
-                val instance = inference.instance
-                if (instance == null) {
-                    creationFailure = MediaPipeTokenizerProbeOutcome(
-                        attempted = true, succeeded = false, status = "failed(createFromOptions)",
-                        summary = baseSummary + inference.debugSummaryLines.joinToString("\n"),
-                    )
-                    null
-                } else {
-                    val session = createMediaPipeLlmSession(llmSessionClass, llmSessionOptionsClass, instance)
-                    if (session.session == null || session.sizeInTokensMethod == null) {
-                        tryCloseTokenizerSession(session.session, appendTrace = {})
-                        tryCloseTokenizerSession(instance, appendTrace = {})
-                        creationFailure = MediaPipeTokenizerProbeOutcome(
-                            attempted = true, succeeded = false, status = "failed(session-create)",
-                            summary = baseSummary + session.debugSummaryLines.joinToString("\n"),
-                        )
-                        null
-                    } else {
-                        MediaPipeTokenizerResource(instance, session.session, session.sizeInTokensMethod)
-                    }
-                }
-            },
-        ) { resource, reused ->
-            val promptTokens = invokeSizeInTokens(resource.session, resource.sizeMethod, promptText)
-            val responseTokens = invokeSizeInTokens(resource.session, resource.sizeMethod, fullResponseText)
-            // Do not retain a failed native resource or promote estimates to exact counts.
-            check(promptTokens != null && responseTokens != null) { "sizeInTokens-invoke-failed" }
-            MediaPipeTokenizerProbeOutcome(
-                attempted = true, succeeded = true, status = "success",
-                promptTokens = promptTokens, responseTokens = responseTokens,
-                totalTokens = promptTokens + responseTokens,
-                summary = "MediaPipe tokenizer: success\nMediaPipe model path: $modelPath\n" +
-                    "MediaPipe tokenizer resource reused: $reused\n" +
-                    "MediaPipe tokenizer idle expiry ms: 60000\n" +
-                    "MediaPipe prompt tokens: $promptTokens\nMediaPipe response tokens: $responseTokens",
-            )
-        } ?: creationFailure ?: MediaPipeTokenizerProbeOutcome(
-            attempted = true, succeeded = false, status = "failed(resource-unavailable)", summary = baseSummary,
+        val inferenceOutcome = createMediaPipeLlmInferenceInstance(
+            llmInferenceClass = llmInferenceClass,
+            modelPath = modelPath,
+            context = mediaPipeContext,
+            contextSource = mediaPipeContextSource,
         )
+        if (inferenceOutcome.instance == null) {
+            return@runCatching MediaPipeTokenizerProbeOutcome(
+                attempted = true,
+                succeeded = false,
+                status = "failed(createFromOptions)",
+                summary = buildString {
+                    append(baseSummary)
+                    appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                    appendLine("MediaPipe context source: $mediaPipeContextSource")
+                    appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                    appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                    appendLine(
+                        "MediaPipe context hasCacheDir: ${
+                            runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                        }",
+                    )
+                    inferenceOutcome.debugSummaryLines.forEach { appendLine(it) }
+                    appendLine("MediaPipe session create: failed")
+                    appendLine("MediaPipe sizeInTokens: not-found")
+                    append("MediaPipe failure: ${inferenceOutcome.failureSummary ?: "createFromOptions-failed"}")
+                }.trimEnd(),
+            )
+        }
+        var session: Any? = null
+        try {
+            val sessionCreationOutcome = createMediaPipeLlmSession(
+                llmSessionClass = llmSessionClass,
+                llmSessionOptionsClass = llmSessionOptionsClass,
+                llmInferenceInstance = inferenceOutcome.instance,
+            )
+            session = sessionCreationOutcome.session
+            val sizeMethod = sessionCreationOutcome.sizeInTokensMethod
+            if (session == null || sizeMethod == null) {
+                return@runCatching MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = if (session == null) "failed(session-create)" else "failed(sizeInTokens-not-found)",
+                    summary = buildString {
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        sessionCreationOutcome.debugSummaryLines.forEach { appendLine(it) }
+                        appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
+                        appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
+                        append(
+                            "MediaPipe failure: ${
+                                sessionCreationOutcome.failureSummary
+                                    ?: if (session == null) "session-create-failed" else "sizeInTokens-not-found"
+                            }",
+                        )
+                    }.trimEnd(),
+                )
+            }
+            val promptTokens = invokeSizeInTokens(session, sizeMethod, promptText)
+            val responseTokens = invokeSizeInTokens(session, sizeMethod, fullResponseText)
+            val totalTokens = if (promptTokens != null && responseTokens != null) promptTokens + responseTokens else null
+            if (promptTokens != null && responseTokens != null && totalTokens != null) {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = true,
+                    promptTokens = promptTokens,
+                    responseTokens = responseTokens,
+                    totalTokens = totalTokens,
+                    status = "success",
+                    summary = buildString {
+                        appendLine("MediaPipe tokenizer: success")
+                        appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe model path source: ${modelPathResolution.source}")
+                        appendLine("MediaPipe model path: $modelPath")
+                        appendLine("MediaPipe model path exists: ${modelPathResolution.exists}")
+                        appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
+                        appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        appendLine("MediaPipe prompt tokens: $promptTokens")
+                        appendLine("MediaPipe response tokens: $responseTokens")
+                        append("MediaPipe total tokens: $totalTokens")
+                    }.trimEnd(),
+                )
+            } else {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = "failed(sizeInTokens-invoke)",
+                    summary = buildString {
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        append("MediaPipe failure: invoke-sizeInTokens-failed")
+                    }.trimEnd(),
+                )
+            }
+        } finally {
+            runCatching { tryCloseTokenizerSession(session, appendTrace = {}) }
+            runCatching { tryCloseTokenizerSession(inferenceOutcome.instance, appendTrace = {}) }
+        }
     }.getOrElse { throwable ->
         MediaPipeTokenizerProbeOutcome(
-            attempted = true, succeeded = false, status = "failed(${throwable.javaClass.simpleName})",
-            summary = baseSummary + "MediaPipe failure: ${throwable.message}",
+            attempted = true,
+            succeeded = false,
+            status = "failed(${throwable.javaClass.simpleName})",
+            summary = buildString {
+                append(baseSummary)
+                appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                appendLine("MediaPipe context source: $mediaPipeContextSource")
+                appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                appendLine(
+                    "MediaPipe context hasCacheDir: ${
+                        runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                    }",
+                )
+                buildMediaPipeThrowableSummaryLines(throwable).forEach { appendLine(it) }
+                appendLine("MediaPipe session create: failed")
+                appendLine("MediaPipe sizeInTokens: not-found")
+                append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
+            }.trimEnd(),
         )
+    }.also { result ->
+        if (result.succeeded) mediaPipeExactCountCache.put(cacheKey, result)
     }
-}
-
-private data class MediaPipeTokenizerKey(val path: String, val size: Long, val modified: Long)
-
-private class MediaPipeTokenizerResource(
-    val inference: Any,
-    val session: Any,
-    val sizeMethod: Method,
-) : AutoCloseable {
-    override fun close() {
-        tryCloseTokenizerSession(session, appendTrace = {})
-        tryCloseTokenizerSession(inference, appendTrace = {})
-    }
-}
-
-private val mediaPipeTokenizerExpiry = java.util.concurrent.ScheduledThreadPoolExecutor(1) { runnable ->
-    Thread(runnable, "LamiTokenizerExpiry").apply { isDaemon = true }
-}.apply { removeOnCancelPolicy = true }
-
-private val mediaPipeTokenizerResource = IdleCloseableResource<MediaPipeTokenizerKey, MediaPipeTokenizerResource> { expire ->
-    val future = mediaPipeTokenizerExpiry.schedule(expire, 60L, java.util.concurrent.TimeUnit.SECONDS)
-    AutoCloseable { future.cancel(false) }
-}
-
-/** Runs off the UI thread; disposal waits for an active count to finish. */
-internal fun releaseMediaPipeTokenizerResource() {
-    mediaPipeTokenizerExpiry.execute { mediaPipeTokenizerResource.close() }
 }
 
 private data class MediaPipeInferenceCreateOutcome(
@@ -8927,3 +9035,5 @@ private fun extractPartialTextFromListenerArgs(args: Array<out Any?>?): String? 
     }
     return null
 }
+
+private val mediaPipeExactCountCache = ExactTokenCountCache<MediaPipeTokenizerProbeOutcome>(16)
