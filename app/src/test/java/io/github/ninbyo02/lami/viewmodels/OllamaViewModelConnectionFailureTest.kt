@@ -139,6 +139,47 @@ class OllamaViewModelConnectionFailureTest {
         assertTrue(vm.uiState.value !is UiState.Error)
     }
 
+    @Test
+    fun `single model selection is persisted and missing selection clears on multiple models`() = runTest(dispatcher) {
+        val dao = FakeModelPreferenceDao()
+        val url = "http://selection-test.local:13511"
+        var names = listOf("single")
+        val vm = OllamaViewModel(ChatRepository(FakeMessageDao(), FakeChatDao()),
+            ModelPreferenceRepository(dao), SettingsPreferences(RuntimeEnvironment.getApplication()),
+            null, MutableStateFlow(url), false) { _, _ ->
+            RemoteModelsResult(names.map(::ModelInfo), RemoteProvider.LEMONADE)
+        }
+        vm.loadAvailableModels().join()
+        assertEquals("single", vm.selectedModel.value)
+        assertEquals("single", dao.selected[url]?.modelName)
+        names = listOf("other-a", "other-b")
+        vm.loadAvailableModels().join()
+        assertEquals(null, vm.selectedModel.value)
+        assertEquals(null, dao.selected[url])
+    }
+
+    @Test
+    fun `server switching restores saved selection from multiple models`() = runTest(dispatcher) {
+        val firstUrl = "http://selection-one.local:13511"
+        val secondUrl = "http://selection-two.local:13511"
+        val dao = FakeModelPreferenceDao().apply { selected[secondUrl] = SelectedModel(secondUrl, "saved") }
+        val urls = MutableStateFlow(firstUrl)
+        val vm = OllamaViewModel(ChatRepository(FakeMessageDao(), FakeChatDao()),
+            ModelPreferenceRepository(dao), SettingsPreferences(RuntimeEnvironment.getApplication()),
+            null, urls, false) { url, _ ->
+            RemoteModelsResult((if (url == firstUrl) listOf("only") else listOf("saved", "other")).map(::ModelInfo), RemoteProvider.LEMONADE)
+        }
+        vm.loadAvailableModels().join()
+        urls.value = secondUrl
+        vm.loadAvailableModels().join()
+        assertEquals("saved", vm.selectedModel.value)
+        assertEquals("only", dao.selected[firstUrl]?.modelName)
+        assertEquals("saved", dao.selected[secondUrl]?.modelName)
+        urls.value = firstUrl
+        vm.loadAvailableModels().join()
+        assertEquals("only", vm.selectedModel.value)
+    }
+
 }
 
 private class FakeChatDao : ChatDao {

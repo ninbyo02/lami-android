@@ -18,11 +18,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -312,7 +314,7 @@ private fun resolveAnimationKeyForTrace(perStateAnimJson: String?): String {
     }
 }
 
-private fun selectWeightedInsertionPattern(
+internal fun selectWeightedInsertionPattern(
     patterns: List<InsertionPattern>,
     random: Random,
 ): Pair<Int, InsertionPattern>? {
@@ -394,7 +396,7 @@ private fun selectWeightedInsertionPatternDeterministic(
     return candidates.lastOrNull()?.let { (index, pattern) -> index to pattern }
 }
 
-private fun shouldAttemptInsertionDeterministic(
+internal fun shouldAttemptInsertionDeterministic(
     settings: InsertionAnimationSettings,
     loopCount: Int,
     lastInsertionLoop: Int?,
@@ -569,21 +571,20 @@ fun LamiStatusSprite(
         DeterministicInsertionCache()
     }
     var syncTimeMs by remember(syncEpochMs) { mutableStateOf(SystemClock.uptimeMillis()) }
-    LaunchedEffect(syncEpochMs, animationsEnabled, useSyncMode) {
-        if (RuntimeFlags.shouldDisableContinuousAnimations()) {
-            return@LaunchedEffect
-        }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, animSpec) {
+        if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
         if (!useSyncMode || !animationsEnabled) {
             syncTimeMs = SystemClock.uptimeMillis()
             return@LaunchedEffect
         }
-        while (true) {
-            withFrameNanos { frameTimeNs ->
-                syncTimeMs = frameTimeNs / 1_000_000L
-            }
-        }
+        lifecycleOwner.lifecycle.runSpriteFrameClock(
+            epochMs = syncEpochMs,
+            intervalMs = animSpec.frameDuration.minMs,
+            nowMs = SystemClock::uptimeMillis,
+        ) { syncTimeMs = it }
     }
-    val syncDiagnostics by remember {
+    val syncDiagnostics by remember(useSyncMode, animationsEnabled, animSpec, syncEpochMs) {
         derivedStateOf {
             if (!useSyncMode || !animationsEnabled) {
                 SyncDiagnostics(loopCount = 0, tickIndex = 0L)
@@ -863,7 +864,7 @@ fun LamiStatusSprite(
     }
 
     if (!useSyncMode) {
-        LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionKey) {
+        LaunchedEffect(lifecycleOwner, resolvedStatus, animationsEnabled, animSpec, insertionKey) {
             if (RuntimeFlags.shouldDisableContinuousAnimations()) {
                 return@LaunchedEffect
             }
@@ -877,76 +878,78 @@ fun LamiStatusSprite(
                 return@LaunchedEffect
             }
 
-            val random = Random(System.currentTimeMillis())
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                val random = Random(System.currentTimeMillis())
 
-            suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
-                if (frameSequence.isEmpty()) return
-                // 設定の intervalMs を固定間隔として使用する
-                val resolvedIntervalMs = intervalMs.coerceAtLeast(0).toLong()
-                for (frame in frameSequence) {
-                    currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                    delay(resolvedIntervalMs)
+                suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
+                    if (frameSequence.isEmpty()) return
+                    // 設定の intervalMs を固定間隔として使用する
+                    val resolvedIntervalMs = intervalMs.toLong().coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS)
+                    for (frame in frameSequence) {
+                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
+                        delay(resolvedIntervalMs)
+                    }
                 }
-            }
 
-            while (true) {
-                loopCountState.value += 1
-                val loopCount = loopCountState.value
-                val lastInsertionLoop = lastInsertionLoopState.value
-                val settings = insertionSettingsLatest
-                // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
-                val shouldInsert = settings?.shouldAttemptInsertion(
-                    loopCount = loopCount,
-                    lastInsertionLoop = lastInsertionLoop,
-                    random = random,
-                ) == true
-                if (shouldInsert && settings.patterns.isNotEmpty()) {
-                    val activeSettings = requireNotNull(settings)
-                    val defaultIntervalMs = effectiveInsertionIntervalMs(
-                        activeSettings,
-                        activeSettings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
-                    )
-                    // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
-                    val (patternIndex, pattern) = selectWeightedInsertionPattern(activeSettings.patterns, random)
-                        ?: continue
-                    val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
-                    lastInsertionPatternIndex = patternIndex
-                    lastInsertionResolvedIntervalMs = resolvedIntervalMs
-                    lastInsertionFrames = pattern.frameSequence.toList()
-                    if (BuildConfig.DEBUG) {
-                        // 実効 interval の決定根拠をログで確認できるようにする
-                        Log.d(
-                            "LamiStatusSprite",
-                            "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
-                                "patternIndex=$patternIndex " +
-                                "frames=${pattern.frameSequence} " +
-                                "patternInterval=${pattern.intervalMs} " +
-                                "defaultInterval=$defaultIntervalMs " +
-                                "resolvedInterval=$resolvedIntervalMs " +
-                                "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
+                while (true) {
+                    loopCountState.value += 1
+                    val loopCount = loopCountState.value
+                    val lastInsertionLoop = lastInsertionLoopState.value
+                    val settings = insertionSettingsLatest
+                    // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
+                    val shouldInsert = settings?.shouldAttemptInsertion(
+                        loopCount = loopCount,
+                        lastInsertionLoop = lastInsertionLoop,
+                        random = random,
+                    ) == true
+                    val selection = if (shouldInsert) selectWeightedInsertionPattern(settings.patterns, random) else null
+                    if (selection != null) {
+                        val activeSettings = requireNotNull(settings)
+                        val defaultIntervalMs = effectiveInsertionIntervalMs(
+                            activeSettings,
+                            activeSettings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
                         )
-                    }
-                    playInsertionFrames(
-                        frameSequence = pattern.frameSequence,
-                        intervalMs = resolvedIntervalMs,
-                    )
-                    lastInsertionLoopState.value = loopCount
-                    if (activeSettings.exclusive) {
-                        // exclusive：挿入が発生したループでは Base を再生せず次へ進む
-                        if (!animSpec.loop) {
-                            break
+                        // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
+                        val (patternIndex, pattern) = selection
+                        val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
+                        lastInsertionPatternIndex = patternIndex
+                        lastInsertionResolvedIntervalMs = resolvedIntervalMs
+                        lastInsertionFrames = pattern.frameSequence.toList()
+                        if (BuildConfig.DEBUG) {
+                            // 実効 interval の決定根拠をログで確認できるようにする
+                            Log.d(
+                                "LamiStatusSprite",
+                                "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
+                                    "patternIndex=$patternIndex " +
+                                    "frames=${pattern.frameSequence} " +
+                                    "patternInterval=${pattern.intervalMs} " +
+                                    "defaultInterval=$defaultIntervalMs " +
+                                    "resolvedInterval=$resolvedIntervalMs " +
+                                    "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
+                            )
                         }
-                        continue
+                        playInsertionFrames(
+                            frameSequence = pattern.frameSequence,
+                            intervalMs = resolvedIntervalMs,
+                        )
+                        lastInsertionLoopState.value = loopCount
+                        if (activeSettings.exclusive) {
+                            // exclusive：挿入が発生したループでは Base を再生せず次へ進む
+                            if (!animSpec.loop) {
+                                break
+                            }
+                            continue
+                        }
                     }
-                }
 
-                for (frame in animSpec.frames) {
-                    currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                    delay(animSpec.frameDuration.draw(random))
-                }
+                    for (frame in animSpec.frames) {
+                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
+                        delay(animSpec.frameDuration.draw(random).coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS))
+                    }
 
-                if (!animSpec.loop) {
-                    break
+                    if (!animSpec.loop) {
+                        break
+                    }
                 }
             }
         }
