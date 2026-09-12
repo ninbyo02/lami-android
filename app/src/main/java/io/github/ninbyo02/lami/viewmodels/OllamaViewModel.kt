@@ -789,14 +789,9 @@ class OllamaViewModel(
     }
 
     fun moveToIdleIfStale(referenceTimeMs: Long, idleTimeoutMs: Long) {
-        val snapshot = _lamiUiState.value
-        if (snapshot.state is LamiState.Thinking) {
-            return
-        }
-        val elapsed = System.currentTimeMillis() - referenceTimeMs
-        if (snapshot.lastInteractionTimeMs == referenceTimeMs && elapsed >= idleTimeoutMs) {
-            _lamiUiState.value =
-                LamiUiState(state = LamiState.Idle, lastInteractionTimeMs = System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        _lamiUiState.update { snapshot ->
+            snapshot.idleAfterTimeout(referenceTimeMs, idleTimeoutMs, now)
         }
     }
 
