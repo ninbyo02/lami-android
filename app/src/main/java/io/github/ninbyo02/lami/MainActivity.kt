@@ -281,12 +281,14 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        io.github.ninbyo02.lami.ui.screens.home.releaseMediaPipeTokenizerResource()
         heldEngineLifecycleBridge.onStop(scope = lifecycleScope)
         super.onStop()
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        io.github.ninbyo02.lami.ui.screens.home.releaseMediaPipeTokenizerResource()
         heldEngineLifecycleBridge.onTrimMemory(scope = lifecycleScope, level = level)
     }
 
