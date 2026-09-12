@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
@@ -142,7 +143,8 @@ fun LamiSprite3x3(
         }
     }
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
-    Canvas(modifier = modifier.size(sizeDp)) {
+    // Isolate frame redraws from parent drawing; retain default compositing and no clipping.
+    Canvas(modifier = modifier.size(sizeDp).graphicsLayer()) {
         // Snapshot reads here invalidate drawing, not composition or layout.
         val index = (frameIndexProvider?.invoke() ?: frameIndex)
             .coerceIn(0, (normalizedConfig.frameCount - 1).coerceAtLeast(0))
