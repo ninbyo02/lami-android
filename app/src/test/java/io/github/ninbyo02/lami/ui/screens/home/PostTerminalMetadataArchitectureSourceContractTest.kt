@@ -16,8 +16,9 @@ class PostTerminalMetadataArchitectureSourceContractTest {
 
         assertTrue(chat.contains("PostTerminalAssistantMetadataUpdater("))
         assertTrue(chat.contains("OllamaViewModelPostTerminalAssistantMetadataStore(viewModel)"))
-        assertEquals(3, chat.windowed("postTerminalAssistantMetadataUpdater.update(".length)
+        assertEquals(4, chat.windowed("postTerminalAssistantMetadataUpdater.update(".length)
             .count { it == "postTerminalAssistantMetadataUpdater.update(" })
+        assertTrue(chat.contains("expectedMessage = response"))
         assertTrue(chat.contains("expectedMessage = persistedResponse"))
         assertTrue(chat.contains("expectedMessage = assistantTextForPersist"))
         assertTrue(chat.contains("expectedMessage = resolvedAssistantResponse"))

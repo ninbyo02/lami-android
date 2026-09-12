@@ -1212,6 +1212,52 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
 
+    fun scheduleLocalTokenizerStatsUpdate(
+        assistantId: Int,
+        chatId: Int,
+        response: String,
+        prompt: String,
+        trace: LocalInferenceTrace,
+        modelPath: String?,
+        generationTimeMs: Long,
+        sourceSummary: String,
+    ) {
+        if (assistantId <= 0) return
+        if (trace.measuredTokenSnapshot?.inputTokens != null &&
+            trace.measuredTokenSnapshot?.outputTokens != null) return
+        coroutineScope.launch {
+            val recounted = recountLocalInferenceTokensAfterCompletion(
+                context = context.applicationContext,
+                modelPath = modelPath,
+                prompt = prompt,
+                response = response,
+                trace = trace,
+            )
+            val snapshot = recounted.measuredTokenSnapshot ?: return@launch
+            val stats = InferenceStatsFactory.fromLocalTrace(
+                trace = recounted,
+                generationTimeMs = generationTimeMs,
+                responseCharCount = response.length,
+                responseText = response,
+                fallbackTimeToFirstTokenMs = generationTimeMs,
+            ) ?: return@launch
+            val summary = mergePostTerminalTokenCountDiagnostics(sourceSummary, snapshot)
+            val finalStats = stats.copy(localSourceSummary = summary)
+            val update = withContext(Dispatchers.IO) {
+                postTerminalAssistantMetadataUpdater.update(
+                    messageId = assistantId,
+                    expectedChatId = chatId,
+                    expectedMessage = response,
+                    patch = PostTerminalAssistantMetadataPatch.fromInferenceStats(
+                        stats = finalStats,
+                        localSourceSummary = summary,
+                    ),
+                )
+            }
+            if (update.accepted) immediateInferenceStatsByMessageId[assistantId] = finalStats
+        }
+    }
+
     fun scheduleNpuFallbackTokenizerStatsUpdate(
         assistantId: Int,
         chatId: Int,
@@ -7995,6 +8041,18 @@ fun Home(
                                                                         }
                                                                         if (metadataUpdate.accepted) {
                                                                             immediateInferenceStatsByMessageId[assistantId] = finalStats
+                                                                            resolvedTrace?.let { completedTrace ->
+                                                                                scheduleLocalTokenizerStatsUpdate(
+                                                                                    assistantId = assistantId,
+                                                                                    chatId = currentChatId,
+                                                                                    response = resolvedAssistantResponse,
+                                                                                    prompt = requestPrompt,
+                                                                                    trace = completedTrace,
+                                                                                    modelPath = mediaPipeProbeModelPathForRun,
+                                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                                    sourceSummary = finalLocalSourceSummary,
+                                                                                )
+                                                                            }
                                                                         } else {
                                                                             Log.w(
                                                                                 "ChatScreen",

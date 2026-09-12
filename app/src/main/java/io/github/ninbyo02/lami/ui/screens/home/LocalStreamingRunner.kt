@@ -4226,6 +4226,7 @@ private fun mergeTokenizerRecountSnapshot(
     fullResponseText: String?,
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
+    deferMediaPipeRecount: Boolean = true,
 ): LocalInferenceMeasuredTokenSnapshot? {
     val sanitizedPrompt = promptText
     val sanitizedResponse = fullResponseText.orEmpty()
@@ -4238,11 +4239,14 @@ private fun mergeTokenizerRecountSnapshot(
         fullResponseText = sanitizedResponse,
         timing = timing,
         appendTrace = appendTrace,
+        deferMediaPipeRecount = deferMediaPipeRecount,
     ) ?: return base
     return if (base == null) {
         tokenizerSnapshot
     } else {
         base.copy(
+            deferredTokenizerInput = tokenizerSnapshot.deferredTokenizerInput,
+            tokenizerRecountStatus = tokenizerSnapshot.tokenizerRecountStatus,
             inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
             totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
@@ -4281,6 +4285,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
     fullResponseText: String,
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
+    deferMediaPipeRecount: Boolean = true,
 ): LocalInferenceMeasuredTokenSnapshot? {
     return runCatching {
         if (BuildConfig.DEBUG && promptText.isBlank()) {
@@ -4299,6 +4304,17 @@ private fun readTokenizerRecountSnapshotFromConversation(
         } else {
             null
         }?.takeIf { it.isFinite() }
+
+        if (deferMediaPipeRecount) {
+            return LocalInferenceMeasuredTokenSnapshot(
+                tokenizerRecountStatus = "deferred-post-completion",
+                deferredTokenizerInput = DeferredTokenizerInput(promptText, fullResponseText),
+                charsPerSecond = charsPerSecond,
+                ttftMs = ttftMs,
+                decodeDurationMs = decodeDurationMs,
+                totalDurationMs = totalDurationMs,
+            )
+        }
 
         val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
         val tokenizerRecountOutcome = if (conversation is Conversation) {
@@ -4392,34 +4408,51 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
     response: String,
     trace: LocalInferenceTrace,
 ): LocalInferenceTrace = withContext(Dispatchers.IO) {
-    val startedAtMs = trace.localTraceStartElapsedRealtimeMs
-        ?: return@withContext trace
-    val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
-        ?: return@withContext trace
-    val existingSnapshot = trace.measuredTokenSnapshot
-    val recountedSnapshot = mergeTokenizerRecountSnapshot(
-        base = existingSnapshot,
-        conversation = null,
-        tokenizerSessionSource = null,
-        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-        mediaPipeProbeContext = context.applicationContext,
-        promptText = prompt,
-        fullResponseText = response,
-        timing = LocalLiteRtTimingSnapshot(
-            startedAtMs = startedAtMs,
-            firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
-            lastChunkAtMs = endedAtMs,
-            endedAtMs = endedAtMs,
-        ),
-        appendTrace = { message ->
-            if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
-        },
-    ) ?: return@withContext trace
-    trace.copy(
-        mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
-        measuredTokenSnapshot = recountedSnapshot,
-    )
+    if (!localTokenRecountSlots.tryAcquire()) return@withContext trace
+    try {
+        localTokenRecountMutex.lock()
+        try {
+            val startedAtMs = trace.localTraceStartElapsedRealtimeMs
+                ?: return@withContext trace
+            val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
+                ?: return@withContext trace
+            val existingSnapshot = trace.measuredTokenSnapshot
+            val recountInput = resolveDeferredTokenizerInput(existingSnapshot, prompt, response)
+            val recountedSnapshot = mergeTokenizerRecountSnapshot(
+                base = existingSnapshot,
+                deferMediaPipeRecount = false,
+                conversation = null,
+                tokenizerSessionSource = null,
+                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+                mediaPipeProbeContext = context.applicationContext,
+                promptText = recountInput.prompt,
+                fullResponseText = recountInput.response,
+                timing = LocalLiteRtTimingSnapshot(
+                    startedAtMs = startedAtMs,
+                    firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,
+                    lastChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs?.let { first ->
+                        existingSnapshot?.decodeDurationMs?.let { first + it }
+                    } ?: endedAtMs,
+                    endedAtMs = endedAtMs,
+                ),
+                appendTrace = { message ->
+                    if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
+                },
+            ) ?: return@withContext trace
+            trace.copy(
+                mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
+                measuredTokenSnapshot = recountedSnapshot,
+            )
+        } finally {
+            localTokenRecountMutex.unlock()
+        }
+    } finally {
+        localTokenRecountSlots.release()
+    }
 }
+
+private val localTokenRecountSlots = kotlinx.coroutines.sync.Semaphore(2)
+private val localTokenRecountMutex = kotlinx.coroutines.sync.Mutex()
 
 private data class TokenizerRecountResult(
     val promptTokens: Int,
@@ -4648,18 +4681,8 @@ private fun tryReadTokenizerRecountViaReflection(
             )
         }
     }
-    val engineSessionAttempt = tryCreateTokenizerSessionFromEngineViaReflection(
-        tokenizerSessionSource = tokenizerSessionSource,
-        appendTrace = appendTrace,
-    )
-    val createdSessionResolution = inspectCreatedSessionForTokenizer(
-        createdSession = engineSessionAttempt.session,
-        createdSessionPath = engineSessionAttempt.createdSessionPath,
-    )
-    if (engineSessionAttempt.session != null) {
-        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount session-created-but-not-used path=engine-createSession")
-        tryCloseTokenizerSession(engineSessionAttempt.session, appendTrace)
-    }
+    val engineSessionAttempt = EngineCreateSessionAttempt(status = "skipped-count-only")
+    val createdSessionResolution: CreatedTokenizerSessionResolution? = null
     val existingSessionResolution = tryResolveExistingSessionForTokenizer(
         conversation = conversation,
         tokenizerSessionSource = tokenizerSessionSource,
@@ -4833,6 +4856,17 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         }.trimEnd(),
     )
 
+    val modelFile = File(modelPath)
+    val cacheKey = ExactTokenCountKey(
+        modelPath = modelFile.absolutePath,
+        modelSize = modelFile.length(),
+        modelModified = modelFile.lastModified(),
+        promptDigest = tokenTextDigest(promptText),
+        responseDigest = tokenTextDigest(fullResponseText),
+    )
+    mediaPipeExactCountCache.get(cacheKey)?.let { cached ->
+        return cached.copy(summary = cached.summary + "\nMediaPipe result cache hit: true")
+    }
     return runCatching {
         val inferenceOutcome = createMediaPipeLlmInferenceInstance(
             llmInferenceClass = llmInferenceClass,
@@ -4983,6 +5017,8 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                 append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
             }.trimEnd(),
         )
+    }.also { result ->
+        if (result.succeeded) mediaPipeExactCountCache.put(cacheKey, result)
     }
 }
 
@@ -9002,3 +9038,5 @@ private fun extractPartialTextFromListenerArgs(args: Array<out Any?>?): String? 
     }
     return null
 }
+
+private val mediaPipeExactCountCache = ExactTokenCountCache<MediaPipeTokenizerProbeOutcome>(16)
