@@ -1,0 +1,136 @@
+{
+  "source_commit": "1acd9fb9fb07dced99b140e1d8ea6871d903bdac",
+  "samples": [
+    {
+      "label": "previous_debug_original_settings",
+      "pid": "1592",
+      "elapsed_s": 40.45105389296077,
+      "cpu_percent": 8.479383526264277,
+      "cpu_seconds": 3.43,
+      "foreground_checks": [
+        "mCurrentFocus=Window{71d0f6f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{71d0f6f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{71d0f6f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{71d0f6f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   223674            TOTAL RSS:   350312       TOTAL SWAP PSS:      135"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 59",
+        "Janky frames: 44 (74.58%)",
+        "90th percentile: 150ms",
+        "95th percentile: 200ms",
+        "99th percentile: 250ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "event_debug_original_settings",
+      "pid": "2171",
+      "elapsed_s": 40.34814699005801,
+      "cpu_percent": 3.271525704328515,
+      "cpu_seconds": 1.32,
+      "foreground_checks": [
+        "mCurrentFocus=Window{a71bd9f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{a71bd9f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{a71bd9f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{a71bd9f u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   220318            TOTAL RSS:   346952       TOTAL SWAP PSS:      138"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 45",
+        "Janky frames: 32 (71.11%)",
+        "90th percentile: 150ms",
+        "95th percentile: 250ms",
+        "99th percentile: 300ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "event_debug_changing_frames",
+      "pid": "2592",
+      "elapsed_s": 40.532849151990376,
+      "cpu_percent": 14.802808402392726,
+      "cpu_seconds": 6.0,
+      "foreground_checks": [
+        "mCurrentFocus=Window{61433c7 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{61433c7 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{61433c7 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{61433c7 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   224902            TOTAL RSS:   351876       TOTAL SWAP PSS:      135"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 320",
+        "Janky frames: 250 (78.12%)",
+        "90th percentile: 29ms",
+        "95th percentile: 34ms",
+        "99th percentile: 300ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "event_release_changing_frames",
+      "pid": "3432",
+      "elapsed_s": 40.55340334493667,
+      "cpu_percent": 8.482641939420613,
+      "cpu_seconds": 3.44,
+      "foreground_checks": [
+        "mCurrentFocus=Window{42cde17 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{42cde17 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{42cde17 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{42cde17 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   188471            TOTAL RSS:   308716       TOTAL SWAP PSS:      201"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 321",
+        "Janky frames: 179 (55.76%)",
+        "90th percentile: 20ms",
+        "95th percentile: 22ms",
+        "99th percentile: 53ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "event_release_background",
+      "pid": "3432",
+      "elapsed_s": 60.7997078159824,
+      "cpu_percent": 0.39473873908471524,
+      "cpu_seconds": 0.24,
+      "foreground_checks": [
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   115899            TOTAL RSS:   245944       TOTAL SWAP PSS:       93"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 381",
+        "Janky frames: 189 (49.61%)",
+        "90th percentile: 20ms",
+        "95th percentile: 21ms",
+        "99th percentile: 53ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    }
+  ],
+  "no_inference": true,
+  "cpu_basis": "one core",
+  "settings_restored": true,
+  "apk_sha256": {
+    "debug": "099a2b3ccca10ddd10a90bad2bdf59c6b029985ab949ddd05df49481e066c41f",
+    "release": "38f566590a7ac90decefa29998439107e756ef1e6e6be1d36fe66cfdb0f24da1"
+  },
+  "debug_distinct_avatar_crops": 5,
+  "release_distinct_avatar_crops": 4
+}

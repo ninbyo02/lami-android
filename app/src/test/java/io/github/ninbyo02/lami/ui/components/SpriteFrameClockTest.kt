@@ -64,4 +64,36 @@ class SpriteFrameClockTest {
         assertEquals(75L, nextSpriteFrameDelayMs(125, 0, 100))
         assertEquals(100L, nextSpriteFrameDelayMs(0, 10, 100))
     }
+    @Test fun `event clock skips equal frames and resumes a fully sleeping clock`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val owner = Owner()
+            owner.lifecycle.currentState = Lifecycle.State.STARTED
+            val ticks = mutableListOf<Long>()
+            var static = false
+            val timeline = SpriteEventTimeline(listOf(0, 0, 5, 0), 100)
+            val job = launch {
+                owner.lifecycle.runSpriteEventClock({ currentTime }) { now ->
+                    ticks += now
+                    if (static) null else timeline.sample(now % 400, false).delayMs
+                }
+            }
+            runCurrent(); advanceTimeBy(300); runCurrent()
+            assertEquals(listOf(0L, 200L, 300L), ticks)
+            static = true
+            advanceTimeBy(300); runCurrent()
+            assertEquals(600L, ticks.last())
+            advanceTimeBy(86_400_000); runCurrent()
+            assertEquals(4, ticks.size)
+            owner.lifecycle.currentState = Lifecycle.State.CREATED
+            runCurrent()
+            owner.lifecycle.currentState = Lifecycle.State.STARTED
+            runCurrent()
+            assertEquals(5, ticks.size)
+            job.cancel(); runCurrent()
+            advanceTimeBy(1000); runCurrent()
+            assertEquals(5, ticks.size)
+        } finally { Dispatchers.resetMain() }
+    }
+
 }
