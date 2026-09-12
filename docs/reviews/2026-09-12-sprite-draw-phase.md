@@ -51,3 +51,7 @@ The new Debug APK was reinstalled at the end. Both original preference files wer
 ## Review status
 
 PR #2592 is stacked on #2591 (`perf/sprite-event-clock`). Local unit tests, lint and APK builds passed. CI must be dispatched explicitly because the stacked PR base and perf branch do not match the workflow's automatic trigger filters. No merge is included in this measurement task. The CPU change is supported by the matched measurement; presentation latency remains the main unresolved performance check before calling the overall animation fully optimized.
+
+## Repeated latency follow-up
+
+The initial single-run latency concern was subsequently remeasured over six 60-second captures. See [the repeated latency review](2026-09-12-sprite-latency-repeat.md): late presentations were 10.73% old versus 11.04% new, with nearly unchanged display latency. CPU savings persisted; app completion median increased while p95 decreased. This updates the initial uncertainty without claiming improved smoothness.
