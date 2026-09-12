@@ -3918,6 +3918,7 @@ fun Home(
     }
 
     LaunchedEffect(lamiUiState.lastInteractionTimeMs, lamiUiState.state) {
+        if (lamiUiState.state !is LamiState.Speaking) return@LaunchedEffect
         val referenceTime = lamiUiState.lastInteractionTimeMs
         val idleTimeoutMs = 6_000L
         delay(idleTimeoutMs)

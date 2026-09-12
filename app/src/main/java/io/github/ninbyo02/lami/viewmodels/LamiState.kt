@@ -21,6 +21,17 @@ data class LamiUiState(
     val lastInteractionTimeMs: Long = System.currentTimeMillis(),
 )
 
+/** A stale timeout must neither overwrite newer activity nor refresh an idle state's timestamp. */
+internal fun LamiUiState.idleAfterTimeout(
+    referenceTimeMs: Long,
+    idleTimeoutMs: Long,
+    nowMs: Long,
+): LamiUiState {
+    if (state !is LamiState.Speaking || lastInteractionTimeMs != referenceTimeMs) return this
+    if (nowMs - referenceTimeMs < idleTimeoutMs) return this
+    return LamiUiState(state = LamiState.Idle, lastInteractionTimeMs = nowMs)
+}
+
 fun bucket(len: Int): Int {
     return when {
         len <= 0 -> 0
