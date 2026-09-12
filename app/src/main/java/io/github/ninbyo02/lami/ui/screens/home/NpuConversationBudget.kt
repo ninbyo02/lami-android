@@ -23,7 +23,8 @@ internal object NpuConversationBudgetPolicy {
         requestedOutputTokens: Int,
         totalTokens: Int = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
     ): NpuConversationBudget {
-        val reserve = requestedOutputTokens.coerceIn(128, 256)
+        val preferredReserve = requestedOutputTokens.coerceIn(128, 256)
+        val minimumReserve = 128
         var input = estimate(LocalConversationPolicy.SYSTEM_INSTRUCTION).toLong() +
             TEMPLATE_ALLOWANCE + MESSAGE_ALLOWANCE + estimate(prompt)
         val pairs = mutableListOf<List<LocalConversationTurn>>()
@@ -41,11 +42,13 @@ internal object NpuConversationBudgetPolicy {
         val selected = mutableListOf<LocalConversationTurn>()
         for (pair in pairs.asReversed()) {
             val cost = pair.sumOf { estimate(it.text).toLong() + MESSAGE_ALLOWANCE }
-            if (input + cost + reserve > totalTokens ||
+            if (input + cost + minimumReserve > totalTokens ||
                 selected.size + 2 > LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES) break
             selected.addAll(0, pair)
             input += cost
         }
+        // Keep recent complete turns before increasing the speculative output reservation.
+        val reserve = minOf(preferredReserve.toLong(), (totalTokens - input).coerceAtLeast(minimumReserve.toLong())).toInt()
         return NpuConversationBudget(
             selected.toList(), input.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), reserve,
             input + reserve <= totalTokens,

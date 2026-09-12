@@ -3,6 +3,11 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.MessageStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -142,26 +147,41 @@ internal class AssistantMessageLifecycleCoordinator(
         return when (plan.action) {
             AssistantMessageLifecycleAction.INSERT_PENDING -> {
                 val payload = requireNotNull(plan.payload)
-                val insertedId = store.insertAssistantMessage(payload)
-                if (!store.markAssistantMessageGenerating(insertedId)) {
-                    val failureApplied = store.failAssistantMessage(insertedId, startFailureMessage)
-                    AssistantMessageLifecycleExecutionResult(
-                        action = plan.action,
-                        outcome = if (failureApplied) {
-                            AssistantMessageLifecycleExecutionOutcome.START_FAILED
-                        } else {
-                            AssistantMessageLifecycleExecutionOutcome.LOST_RACE
-                        },
-                        messageId = insertedId,
-                        persistedText = startFailureMessage.takeIf { failureApplied },
-                    )
-                } else {
-                    AssistantMessageLifecycleExecutionResult(
-                        action = plan.action,
-                        outcome = AssistantMessageLifecycleExecutionOutcome.APPLIED,
-                        messageId = insertedId,
-                        persistedText = payload.message,
-                    )
+                currentCoroutineContext().ensureActive()
+                var committedId: Int? = null
+                try {
+                    // Keep the ID even if Room commits before cancellation is delivered
+                    // while resuming the caller. Only this short write is non-cancellable.
+                    withContext(NonCancellable) {
+                        committedId = store.insertAssistantMessage(payload)
+                    }
+                    currentCoroutineContext().ensureActive()
+                    val insertedId = requireNotNull(committedId)
+                    if (!store.markAssistantMessageGenerating(insertedId)) {
+                        val failureApplied = store.failAssistantMessage(insertedId, startFailureMessage)
+                        AssistantMessageLifecycleExecutionResult(
+                            action = plan.action,
+                            outcome = if (failureApplied) {
+                                AssistantMessageLifecycleExecutionOutcome.START_FAILED
+                            } else {
+                                AssistantMessageLifecycleExecutionOutcome.LOST_RACE
+                            },
+                            messageId = insertedId,
+                            persistedText = startFailureMessage.takeIf { failureApplied },
+                        )
+                    } else {
+                        AssistantMessageLifecycleExecutionResult(
+                            action = plan.action,
+                            outcome = AssistantMessageLifecycleExecutionOutcome.APPLIED,
+                            messageId = insertedId,
+                            persistedText = payload.message,
+                        )
+                    }
+                } catch (cancelled: CancellationException) {
+                    withContext(NonCancellable) {
+                        committedId?.let { store.cancelAssistantMessage(it) }
+                    }
+                    throw cancelled
                 }
             }
 
