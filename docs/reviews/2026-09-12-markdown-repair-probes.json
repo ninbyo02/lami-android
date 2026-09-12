@@ -1,0 +1,30 @@
+[
+  {
+    "case": "top_level_valid",
+    "input": "```python\nfor event in pygame.event.get():\n    if event.type == pygame.QUIT:\n        pygame.quit()\n        sys.exit()\n```",
+    "output": "```python\nfor event in pygame.event.get():\n        if event.type == pygame.QUIT:\n            pygame.quit()\n            sys.exit()\n```",
+    "unchanged": false,
+    "python_parse_error": null
+  },
+  {
+    "case": "nested_valid",
+    "input": "```python\ndef main():\n    while True:\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                pygame.quit()\n                sys.exit()\n```",
+    "output": "```python\ndef main():\nwhile True:\n    for event in pygame.event.get():\n        if event.type == pygame.QUIT:\n            pygame.quit()\n            sys.exit()\n```",
+    "unchanged": false,
+    "python_parse_error": "expected an indented block after function definition on line 1 (<unknown>, line 2)"
+  },
+  {
+    "case": "flat_for",
+    "input": "```python\nfor event in pygame.event.get():\nif event.type == pygame.QUIT:\npygame.quit()\nsys.exit()\n```",
+    "output": "```python\nfor event in pygame.event.get():\n        if event.type == pygame.QUIT:\n            pygame.quit()\n            sys.exit()\n```",
+    "unchanged": false,
+    "python_parse_error": null
+  },
+  {
+    "case": "flat_while",
+    "input": "```python\nwhile True:\n# 1.\u30a4\u30d9\u30f3\u30c8\u51e6\u7406\nfor event in pygame.event.get():\nif event.type == pygame.QUIT:\npygame.quit()\nsys.exit()\n```",
+    "output": "```python\nwhile True:\n    # 1.\u30a4\u30d9\u30f3\u30c8\u51e6\u7406\n    for event in pygame.event.get():\n        if event.type == pygame.QUIT:\n            pygame.quit()\n            sys.exit()\n```",
+    "unchanged": false,
+    "python_parse_error": null
+  }
+]

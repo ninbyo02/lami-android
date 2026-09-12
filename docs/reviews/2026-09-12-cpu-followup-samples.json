@@ -1,0 +1,64 @@
+{
+  "device": "NX733J",
+  "package": "io.github.ninbyo02.lami",
+  "installed_commit": "a1b7169172debd3d3b901913dbf40d994f01355d",
+  "source_review_main": "074db1037799811e0e3d70316d43ef9d27ea2f61",
+  "metric": "process utime+stime / CLK_TCK / elapsed_monotonic_seconds * 100; one logical CPU baseline",
+  "no_inference": true,
+  "no_install": true,
+  "animation_setting_restored": true,
+  "samples": [
+    {
+      "scope": "whole_process",
+      "label": "background_5min_verified",
+      "pid": "13718",
+      "elapsed": 301.2874888170045,
+      "cpu_seconds": 1.81,
+      "cpu_percent": 0.6007551150254882,
+      "top_activity_checks": [
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}",
+        "topResumedActivity=ActivityRecord{117128592 u0 com.openai.chatgpt/.MainActivity t16167}"
+      ],
+      "uninterrupted_background": true
+    },
+    {
+      "scope": "whole_process",
+      "label": "foreground_original_setting_after_20s_settle",
+      "pid": "13718",
+      "elapsed": 40.06505092093721,
+      "cpu_seconds": 19.53,
+      "cpu_percent": 48.74572614057007
+    },
+    {
+      "scope": "whole_process",
+      "label": "foreground_animation_off",
+      "settle_seconds": 20,
+      "pid": "13718",
+      "elapsed": 40.08490492205601,
+      "cpu_seconds": 0.33,
+      "cpu_percent": 0.8232525451704972
+    },
+    {
+      "scope": "whole_process",
+      "label": "foreground_animation_on_restored",
+      "settle_seconds": 20,
+      "pid": "13718",
+      "elapsed": 40.08355085004587,
+      "cpu_seconds": 19.53,
+      "cpu_percent": 48.723228321419164
+    }
+  ]
+}

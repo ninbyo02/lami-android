@@ -93,3 +93,8 @@ The two PythonCodeSyntaxInspector files already match main exactly. The other ei
 - Read back all 25 PR states/draft flags and verify the intended dispositions.
 - Verify the original directory is clean, on the new main-based work branch, and the archive is still present remotely.
 - This is an investigation/documentation change; it changes no application code. The 1,717 passing tests and successful lint previously reported belong to PR #2587, not to a new CPU fix.
+
+
+## Follow-up: detailed review of the seven Draft PRs
+
+The subsequent detailed review supersedes the earlier seven-Draft holding decision: five additional PRs are closed, and #680 / #2446 remain necessary work that must be reconstructed on current main. See [detailed decisions and reproducible evidence](2026-09-12-draft-pr-detailed-review.md).
