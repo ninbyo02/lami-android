@@ -16,6 +16,28 @@ import org.junit.Test
 
 class AssistantMessageLifecycleCoordinatorTest {
     @Test
+    fun `checkpoint queued behind completion cannot recreate or overwrite answer`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            messages[20] = message(id = 20, text = "partial", status = MessageStatus.GENERATING)
+            terminalTransitionDelayMs = 40L
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+        assertTrue(coordinator.checkpoint(20, "new partial"))
+        val completion = async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            coordinator.complete(20, message(text = "fallback notice\nfinal answer"))
+        }
+        val checkpoint = async { coordinator.checkpoint(20, "final answer") }
+        completion.await()
+        assertFalse(checkpoint.await())
+        assertEquals(1, store.messages.size)
+        assertEquals("fallback notice\nfinal answer", store.messages[20]?.message)
+        assertEquals(MessageStatus.COMPLETED, store.messages[20]?.status)
+        assertFalse(store.calls.contains("insert"))
+        assertFalse(coordinator.checkpoint(999, "orphan partial"))
+        assertEquals(1, store.messages.size)
+    }
+
+    @Test
     fun `new placeholder is inserted and promoted to generating`() = runBlocking {
         val store = FakeAssistantMessageLifecycleStore()
         val coordinator = AssistantMessageLifecycleCoordinator(store)
