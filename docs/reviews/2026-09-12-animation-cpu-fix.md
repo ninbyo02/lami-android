@@ -25,8 +25,28 @@ Android hardware-accelerated Canvas already handles supported image drawing. Mov
 
 Sources: https://developer.android.com/develop/ui/compose/performance/bestpractices and https://developer.android.com/develop/ui/views/graphics/hardware-accel .
 
-Validation and on-device results will be recorded after execution. This change does not establish the cause of the earlier background EXCESSIVE CPU USAGE termination.
+This change does not establish the cause of the earlier background EXCESSIVE CPU USAGE termination.
 
 Rebuilt URL coverage exposed a bare-scheme normalization bug: `http://` was trimmed and then prefixed as though `http:` were a hostname. Reject bare HTTP/HTTPS schemes before adding a default scheme. The mixed-valid/invalid initialization regression covers this fix.
 
 Repeated frame indices are now derived state, so clock ticks that resolve to the same image do not invalidate composition. Debug diagnostics observe the clock through snapshotFlow rather than effect keys.
+
+## Completed validation and device results
+
+All 1,734 standardDebug unit tests passed with zero failures/errors/skips; lintStandardDebug and assembleStandardDebug passed after the final code change, commit `3d1ec6618c13e8449dbd208b224450c5ee9b6897`.
+
+NX733J, animation enabled, unchanged preferences, no inference; process CPU is reported on a one-core basis using /proc/PID/stat and device CLK_TCK. Each foreground sample followed 20 seconds settling and lasted about 40 seconds.
+
+| Version | Foreground CPU | Foreground after resume |
+| --- | ---: | ---: |
+| Previous installed baseline (see #2588) | 48.75% | 48.72% (on/off/on restoration) |
+| Frame-paced clock | 13.75% | 11.25% |
+| Frame-paced clock + unchanged-frame suppression | 8.42% | 7.02% |
+
+The final initial sample is approximately 83% below baseline. Background CPU over 60 seconds after 5 seconds settling was 1.08%; the process survived and foreground playback scheduling resumed. This short test does not prove the historical five-minute excessive-CPU termination is fixed.
+
+The device reports `Pipeline=Skia (Vulkan)`: GPU-assisted rendering is already active. The observed ready/idle configurations repeat identical base frame indices (`[0,0,0,0]` / `[8,8,8,8]`). The first optimized avatar screenshot samples were identical, consistent with that configuration; these measurements do not establish continuously changing visual playback quality or the same gain during inference. Results apply to this debug build and configuration, not all release workloads.
+
+The UI verification APK used `-Plami.allowMissingQairt244Jni=true`; it is not evidence for NPU runtime readiness. No app data was cleared or animation preference changed, and ChatGPT was restored to the foreground afterward.
+
+Raw records: [first optimization](2026-09-12-animation-optimized-device.json), [final optimization](2026-09-12-animation-deduplicated-device.json). They include code identity and APK SHA-256.
