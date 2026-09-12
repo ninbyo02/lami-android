@@ -207,6 +207,12 @@ internal class AssistantMessageLifecycleCoordinator(
         }
     }
 
+    /** A periodic save may update its row, but cannot start another lifecycle. */
+    suspend fun checkpoint(existingMessageId: Int, response: String): Boolean =
+        persistenceMutex.withLock {
+            store.updateGeneratingAssistantMessageContent(existingMessageId, response)
+        }
+
     suspend fun complete(
         existingMessageId: Int?,
         finalPayload: Message,

@@ -3347,17 +3347,22 @@ fun Home(
     LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingAssistantMessageId) {
         if (!isLocalInferenceRunning) return@LaunchedEffect
         val checkpointChatId = effectiveChatId ?: return@LaunchedEffect
-        if (streamingAssistantMessageId == null) return@LaunchedEffect
+        val checkpointMessageId = streamingAssistantMessageId ?: return@LaunchedEffect
         var lastCheckpointText = lastPersistedStreamingAssistantText.orEmpty()
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
             if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
             val checkpointText = localStreamingResponseText?.trim().orEmpty()
             if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
-            upsertStreamingAssistantPlaceholderSerialized(
-                chatId = checkpointChatId,
-                response = checkpointText,
-            )
+            streamingAssistantPersistMutex.withLock {
+                // Completion releases ownership under this same mutex. A checkpoint
+                // queued before completion must never create a fresh pending row.
+                if (streamingAssistantMessageId != checkpointMessageId) return@withLock
+                assistantMessageLifecycleCoordinator.checkpoint(
+                    existingMessageId = checkpointMessageId,
+                    response = checkpointText,
+                )
+            }
             lastCheckpointText = checkpointText
             logStreamTrace(
                 "STREAM room checkpoint id=$streamingAssistantMessageId len=${checkpointText.length}",
