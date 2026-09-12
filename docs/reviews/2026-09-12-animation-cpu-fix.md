@@ -26,3 +26,5 @@ Android hardware-accelerated Canvas already handles supported image drawing. Mov
 Sources: https://developer.android.com/develop/ui/compose/performance/bestpractices and https://developer.android.com/develop/ui/views/graphics/hardware-accel .
 
 Validation and on-device results will be recorded after execution. This change does not establish the cause of the earlier background EXCESSIVE CPU USAGE termination.
+
+Rebuilt URL coverage exposed a bare-scheme normalization bug: `http://` was trimmed and then prefixed as though `http:` were a hostname. Reject bare HTTP/HTTPS schemes before adding a default scheme. The mixed-valid/invalid initialization regression covers this fix.
