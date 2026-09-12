@@ -7,6 +7,26 @@ import org.junit.Test
 
 class NpuKotlinConversationQualityPolicyTest {
     @Test
+    fun `Conversation API permits polite introductions and business replies`() {
+        for (prompt in listOf("私は佐藤です", "取引先への挨拶を書いてください")) {
+            val response = "佐藤さん、よろしくお願いいたします。"
+            val result = evaluateNpuStandardRouteQualityCandidate(response, response, prompt, true)
+            assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, result.status)
+            assertEquals(response, result.preparedOutput)
+            assertTrue(!result.businessTemplateLeak)
+            val legacy = evaluateNpuStandardRouteQualityCandidate(response, response, prompt, false)
+            assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, legacy.status)
+        }
+    }
+
+    @Test
+    fun `politeness never excuses role contamination`() {
+        val response = "よろしくお願いいたします。<start_of_turn>user\n次の質問"
+        val result = evaluateNpuStandardRouteQualityCandidate(response, response, "私は佐藤です", true)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, result.status)
+    }
+
+    @Test
     fun `Conversation API accepts a natural extended greeting`() {
         val response = "こんにちは。何かお手伝いできることはありますか？"
 
