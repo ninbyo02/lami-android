@@ -235,13 +235,11 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "while True:" &&
                 (nextTrimmed == "# 1.イベント処理" || nextTrimmed == "for event in pygame.event.get():")
             ) {
-                rebuilt[index] = withIndentIfNeeded(rebuilt[index], 0)
-                rebuilt[index + 1] = withIndentIfNeeded(rebuilt[index + 1], 4)
-                if (nextTrimmed == "# 1.イベント処理" && index + 2 <= rebuilt.lastIndex) {
-                    val eventLoopTrimmed = rebuilt[index + 2].trim()
-                    if (eventLoopTrimmed == "for event in pygame.event.get():") {
-                        rebuilt[index + 2] = withIndentIfNeeded(rebuilt[index + 2], 4)
-                    }
+                rebuilt[index + 1] = indentMissingPythonChild(rebuilt[index], rebuilt[index + 1])
+                if (nextTrimmed == "# 1.イベント処理" && index + 2 <= rebuilt.lastIndex &&
+                    rebuilt[index + 2].trim() == "for event in pygame.event.get():"
+                ) {
+                    rebuilt[index + 2] = indentMissingPythonChild(rebuilt[index], rebuilt[index + 2])
                 }
                 index += 1
                 continue
@@ -250,14 +248,21 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "for event in pygame.event.get():" &&
                 nextTrimmed == "if event.type == pygame.QUIT:"
             ) {
+                rebuilt[index + 1] = indentMissingPythonChild(rebuilt[index], rebuilt[index + 1])
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "if event.type == pygame.QUIT:" &&
+                (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()") &&
+                pythonIndentWidth(rebuilt[index + 1]) <= pythonIndentWidth(rebuilt[index])
+            ) {
+                // Only repair a demonstrably missing suite. A valid dedent after it is meaningful.
                 var quitLineIndex = index + 1
-                while (quitLineIndex <= rebuilt.lastIndex) {
-                    val quitTrimmed = rebuilt[quitLineIndex].trim()
-                    when (quitTrimmed) {
-                        "if event.type == pygame.QUIT:" -> rebuilt[quitLineIndex] = withIndent(quitTrimmed, 8)
-                        "pygame.quit()", "sys.exit()" -> rebuilt[quitLineIndex] = withIndent(quitTrimmed, 12)
-                        else -> break
-                    }
+                while (quitLineIndex <= rebuilt.lastIndex &&
+                    rebuilt[quitLineIndex].trim() in setOf("pygame.quit()", "sys.exit()")
+                ) {
+                    rebuilt[quitLineIndex] = indentMissingPythonChild(rebuilt[index], rebuilt[quitLineIndex])
                     quitLineIndex += 1
                 }
                 index = quitLineIndex
@@ -459,6 +464,23 @@ object MarkdownCodeRepair {
         }
     }
 
+    private fun pythonIndentWidth(line: String): Int {
+        var column = 0
+        for (char in line) {
+            when (char) {
+                ' ' -> column += 1
+                '\t' -> column += 8 - column % 8
+                else -> return column
+            }
+        }
+        return column
+    }
+
+    private fun indentMissingPythonChild(parent: String, child: String): String {
+        if (pythonIndentWidth(child) > pythonIndentWidth(parent)) return child
+        return parent.takeWhile { it == ' ' || it == '\t' } + "    " + child.trimStart()
+    }
+
     private fun withIndent(trimmedLine: String, spaces: Int): String {
         return "${" ".repeat(spaces)}$trimmedLine"
     }
@@ -583,6 +605,7 @@ object MarkdownCodeRepair {
         val repairedLines = mutableListOf<String>()
         val commentFragments = mutableListOf<String>()
         var isCommentContinuationActive = false
+        var commentIndent = ""
 
         fun flushCommentFragments() {
             if (commentFragments.isEmpty()) {
@@ -591,8 +614,9 @@ object MarkdownCodeRepair {
             }
             val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
             val normalized = normalizeMergedComment(merged)
-            repairedLines.add(normalized)
+            repairedLines.add(commentIndent + normalized)
             commentFragments.clear()
+            commentIndent = ""
             isCommentContinuationActive = false
         }
 
@@ -615,6 +639,9 @@ object MarkdownCodeRepair {
             }
 
             if (trimmedLine.startsWith("#")) {
+                val indent = line.takeWhile { it == ' ' || it == '\t' }
+                if (commentFragments.isNotEmpty() && commentIndent != indent) flushCommentFragments()
+                if (commentFragments.isEmpty()) commentIndent = indent
                 val split = splitCommentFragmentAndCode(line)
                 val content = split.line.trim().removePrefix("#").trim()
                 isCommentContinuationActive = true
@@ -646,7 +673,7 @@ object MarkdownCodeRepair {
                 ) {
                     commentFragments.add(commentPart)
                     flushCommentFragments()
-                    repairedLines.add(repairCodeLine(looseSplit.extractedCode))
+                    repairedLines.add(repairCodeLine(line.takeWhile { it == ' ' || it == '\t' } + looseSplit.extractedCode))
                     index += 1
                     continue
                 }
@@ -657,7 +684,7 @@ object MarkdownCodeRepair {
                 }
                 if (looseSplit.extractedCode != null) {
                     flushCommentFragments()
-                    repairedLines.add(repairCodeLine(looseSplit.extractedCode))
+                    repairedLines.add(repairCodeLine(line.takeWhile { it == ' ' || it == '\t' } + looseSplit.extractedCode))
                     index += 1
                     continue
                 }
@@ -881,7 +908,7 @@ object MarkdownCodeRepair {
             val trimmed = line.trim()
 
             if (trimmed.startsWith("#")) {
-                val normalized = normalizeFinalCommentLine(trimmed)
+                val normalized = normalizeFinalCommentKeepingIndent(line)
                 appendMergedCommentLine(rebuilt, normalized)
                 index += 1
                 continue
@@ -918,7 +945,7 @@ object MarkdownCodeRepair {
         return rebuilt
             .let(::applyDeterministicFinalCommentRepairs)
             .flatMap(::splitKnownCompositeComment)
-            .map { normalizeFinalCommentLine(it.trim()) }
+            .map(::normalizeFinalCommentKeepingIndent)
             .let(::deduplicateFrameRateComments)
             .let(::mergeResidualPaddlePlayerSupplement)
     }
@@ -1040,11 +1067,13 @@ object MarkdownCodeRepair {
     }
 
     private fun appendMergedCommentLine(rebuilt: MutableList<String>, commentLine: String) {
-        val normalized = normalizeFinalCommentLine(commentLine.trim())
+        val normalized = normalizeFinalCommentKeepingIndent(commentLine)
         val previous = rebuilt.lastOrNull()?.trim()
-        if (previous != null && previous.startsWith("#")) {
+        if (previous != null && previous.startsWith("#") &&
+            rebuilt.last().takeWhile { it == ' ' || it == '\t' } == commentLine.takeWhile { it == ' ' || it == '\t' }
+        ) {
             val previousContent = previous.removePrefix("#").trim()
-            val currentContent = normalized.removePrefix("#").trim()
+            val currentContent = normalized.trimStart().removePrefix("#").trim()
             if (shouldKeepCommentSeparated(previousContent, currentContent)) {
                 rebuilt.add(normalized)
                 return
@@ -1096,6 +1125,11 @@ object MarkdownCodeRepair {
             }
             else -> listOf(line)
         }
+    }
+
+    private fun normalizeFinalCommentKeepingIndent(line: String): String {
+        if (!line.trimStart().startsWith("#")) return line
+        return line.takeWhile { it == ' ' || it == '\t' } + normalizeFinalCommentLine(line.trim())
     }
 
     private fun normalizeFinalCommentLine(line: String): String {
@@ -1389,8 +1423,7 @@ object MarkdownCodeRepair {
     private fun normalizePlainComment(line: String): String {
         val trimmed = line.trim()
         val content = trimmed.removePrefix("#").trim()
-        var merged = content
-            .replace(Regex("\\s+"), "")
+        var merged = (if (containsJapanese(content)) content.replace(Regex("\\s+"), "") else content)
             .replace("（", "(")
             .replace("）", ")")
         merged = merged.replace(Regex("^(\\d+\\.[^()]+)\\("), "$1 (")
