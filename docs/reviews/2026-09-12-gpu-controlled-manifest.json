@@ -1,0 +1,54 @@
+{
+  "same_non_native_payload": true,
+  "apks": {
+    "standard": {
+      "sha256": "d2348632839e91d757dc7b4fdc4a047dd0c7face42b8a24e1b8bd49df9409ab6",
+      "native": {
+        "lib/arm64-v8a/libGemmaModelConstraintProvider.so": "45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6",
+        "lib/arm64-v8a/libLiteRt.so": "84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553",
+        "lib/arm64-v8a/libLiteRtClGlAccelerator.so": "9204d082a9fe2deb1061d713deb5cfb85947f5ae848e05c5ff92e95d4e15d1fc",
+        "lib/arm64-v8a/libLiteRtCompilerPlugin_Qualcomm.so": "c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c",
+        "lib/arm64-v8a/libLiteRtDispatch_Qualcomm.so": "7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f",
+        "lib/arm64-v8a/libQnnDsp.so": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
+        "lib/arm64-v8a/libQnnDspV66Skel.so": "2fc26a2659fd325d59748359c34648cbd5e7c6331b73b9a2d08e409b83e07554",
+        "lib/arm64-v8a/libQnnDspV66Stub.so": "66b9c869cd9ea8fe8dc32e67248cfdb968e3fa0ae1a5238e380246834228149a",
+        "lib/arm64-v8a/libQnnGpu.so": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694",
+        "lib/arm64-v8a/libQnnHtp.so": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a",
+        "lib/arm64-v8a/libQnnHtpPrepare.so": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298",
+        "lib/arm64-v8a/libQnnHtpV68Skel.so": "cc51220569108633f8f75261971c38e681e3e035b3ff422775cc882f2fa3ec15",
+        "lib/arm64-v8a/libQnnHtpV68Stub.so": "b953a2b25eca45e7f480f2a13f985433e636d1cdfea19acf3abb07a296e38fea",
+        "lib/arm64-v8a/libQnnHtpV69Skel.so": "9bf562e7fd7aee20532903d351aac59f4208892f695774eb1d7bc84a7a7d8ed0",
+        "lib/arm64-v8a/libQnnHtpV69Stub.so": "a88210a26aa18e5dfd8199d16cb826e8d0e1c976321026cbd90fc83a0729c556",
+        "lib/arm64-v8a/libQnnHtpV73Skel.so": "70764996d32dd3e8087df63faf516de8c9a29f6e1ddd77c547b81316719008fa",
+        "lib/arm64-v8a/libQnnHtpV73Stub.so": "c46b625a99f88c6e6efc1f35f9041a5c45f49a94bd5abdba2beaff7733d67e6a",
+        "lib/arm64-v8a/libQnnHtpV75Skel.so": "4140ec7102c15d9b942ea575b83ede682dd5f0f1db4fdd5f65574c5d567f196c",
+        "lib/arm64-v8a/libQnnHtpV75Stub.so": "8101b3b8390571ce55871807468a4db370ece4c92bcf836fdcc1bcbf4ad6589d",
+        "lib/arm64-v8a/libQnnHtpV79Skel.so": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
+        "lib/arm64-v8a/libQnnHtpV79Stub.so": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1",
+        "lib/arm64-v8a/libQnnSystem.so": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8",
+        "lib/arm64-v8a/libQnnTFLiteDelegate.so": "92761e895e226a9a6d49ddc593b3a4d91fae86849958533bb31e9b1f736d36a4",
+        "lib/arm64-v8a/libandroidx.graphics.path.so": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+        "lib/arm64-v8a/libdatastore_shared_counter.so": "d3e48717c9aa147e0ab21063ba0e8e0211cabf8bf40b222640829519edbf58e1",
+        "lib/arm64-v8a/liblami_npu_persistent_holder_stub.so": "2daa5865abae0117d3c0f30275ef36687eee146b0c2121bace77249c670127cd",
+        "lib/arm64-v8a/liblami_qairt244_npu_jni.so": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea",
+        "lib/arm64-v8a/liblitertlm_jni.so": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca",
+        "lib/arm64-v8a/libllm_inference_engine_jni.so": "51b27a87a4723172b2661d68c03de01d73aaea71909c9dd2b2c8d1ef149ca1f8",
+        "lib/arm64-v8a/libqnn_delegate_jni.so": "879aaf4f87f732b770b4d76a438c1383101130a74da89325b0e2e5019dbe8260",
+        "lib/arm64-v8a/libqnn_direct_probe_debug.so": "42e6fa5f1553c6b5d9aa546a5067821f607e9e0b50d05584d76d3b8e9d0bfb07"
+      }
+    },
+    "minimal": {
+      "sha256": "23a9b88ad9834dd94f6471be20bf0d005cd8ff0647fbaa99cd0922ebd70c9521",
+      "native": {
+        "lib/arm64-v8a/libandroidx.graphics.path.so": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+        "lib/arm64-v8a/libdatastore_shared_counter.so": "d3e48717c9aa147e0ab21063ba0e8e0211cabf8bf40b222640829519edbf58e1",
+        "lib/arm64-v8a/libGemmaModelConstraintProvider.so": "45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6",
+        "lib/arm64-v8a/libLiteRt.so": "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24",
+        "lib/arm64-v8a/libLiteRtOpenClAccelerator.so": "e3386a53095e13c37ea0b0f63ebcf5ec1698404e63baf606558664ebe8c5dcf1",
+        "lib/arm64-v8a/liblami_npu_persistent_holder_stub.so": "8640b0c0ae06f3d93e813e3755f2586e6027f89959536cc07ed58aa063e00f61",
+        "lib/arm64-v8a/liblitertlm_jni.so": "310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230",
+        "lib/arm64-v8a/libllm_inference_engine_jni.so": "51b27a87a4723172b2661d68c03de01d73aaea71909c9dd2b2c8d1ef149ca1f8"
+      }
+    }
+  }
+}
