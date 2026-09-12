@@ -4411,10 +4411,12 @@ internal fun shouldUseHeldOfficialBlockingFastPath(
     preferredBackend: PreferredBackendDryRunSetting,
     gpuGenerateProbeMode: String,
     callbackStreamingDebugPropertyEnabled: Boolean,
+    verifiedOpenClRuntime: Boolean = false,
 ): Boolean =
     currentFlavor == "standard" &&
         preferredBackend == PreferredBackendDryRunSetting.GPU &&
-        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
+        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL &&
+        !(verifiedOpenClRuntime && callbackStreamingDebugPropertyEnabled)
 
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,

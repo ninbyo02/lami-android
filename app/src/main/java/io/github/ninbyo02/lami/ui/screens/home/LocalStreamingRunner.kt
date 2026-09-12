@@ -325,6 +325,7 @@ internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
     preferredBackend: PreferredBackendDryRunSetting,
     propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
 ): Boolean {
+    if (BuildConfig.STANDARD_GPU_OPENCL_RUNTIME) return preferredBackend == PreferredBackendDryRunSetting.GPU
     if (!BuildConfig.DEBUG) return false
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
@@ -3016,6 +3017,7 @@ internal suspend fun runWithHeldEngine(
         normalRouteUseCallbackStreamingRequested &&
             (
                 BuildConfig.CURRENT_FLAVOR != "standard" ||
+                    BuildConfig.STANDARD_GPU_OPENCL_RUNTIME ||
                     standardCandidateEligibility.eligible
                 )
     val callbackStreamingPathSelected = isGpuCallbackStreamingPathSelectedForDebug(
@@ -3291,6 +3293,7 @@ internal suspend fun runWithHeldEngine(
         runnerWhitespaceTraceEntries += stage to text
     }
 
+    appendTrace("gpu_runtime_profile=${if (BuildConfig.STANDARD_GPU_OPENCL_RUNTIME) "pinned_opencl_npu_v1" else "legacy"}")
     val response = runCatching {
         runWithConversation(
             engine = heldEngine.engineInstance,
@@ -3316,6 +3319,7 @@ internal suspend fun runWithHeldEngine(
                         preferredBackend = heldEngine.preferredBackendDryRunSetting,
                         gpuGenerateProbeMode = generateProbeMode,
                         callbackStreamingDebugPropertyEnabled = normalRouteUseCallbackStreamingRequested,
+                        verifiedOpenClRuntime = BuildConfig.STANDARD_GPU_OPENCL_RUNTIME,
                     )
                 ) {
                     if (namespace != "com.google.ai.edge.litertlm") return@runCatching null

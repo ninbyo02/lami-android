@@ -56,6 +56,11 @@ val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
+val standardGpuOpenClEnabled = providers.gradleProperty("lami.standardGpuOpenClEnabled")
+    .map { it.toBooleanStrict() }.orElse(true)
+val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
+    !providers.gradleProperty("lami.allowMissingQairt244Jni").map { it.toBooleanStrict() }.orElse(false).get()
+
 val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
     .map { it.toBooleanStrict() }
     .orElse(false)
@@ -390,6 +395,14 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val combinedGpuRuntime = flavor == "standard" && standardGpuOpenClEnabled.get() &&
+            (if (variant.buildType == "debug") standardGpuOpenClDebugEnabled else standardNpuRuntimeEnabled.get())
+        variant.buildConfigFields?.put("STANDARD_GPU_OPENCL_RUNTIME", BuildConfigField("boolean", combinedGpuRuntime.toString(), "Pinned combined GPU/NPU runtime"))
+        if (combinedGpuRuntime) {
+            variant.packaging.jniLibs.keepDebugSymbols.add("**/*.so")
+            variant.packaging.jniLibs.excludes.add("**/arm64-v8a/libLiteRtClGlAccelerator.so")
+            variant.packaging.jniLibs.excludes.add("**/arm64-v8a/libLiteRtGpuAccelerator.so")
+        }
         if (
             variant.buildType == "release" &&
             flavor == "standard" &&
@@ -607,6 +620,13 @@ val allowMissingQairt244Jni =
     providers.gradleProperty("lami.allowMissingQairt244Jni")
         .map { it.toBooleanStrict() }
         .orElse(false)
+
+fun verifyStandardGpuOpenClInputs(nativeDir: File) {
+    exec {
+        commandLine("python3", rootProject.file("scripts/stage_standard_gpu_opencl.py").absolutePath,
+            "--native-dir", nativeDir.absolutePath)
+    }
+}
 
 fun prepareQairt244StandardDebugBuildOutputForCopy(
     outputFile: File,
@@ -1041,6 +1061,9 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
     outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
     inputs.property("allowMissingQairt244Jni", allowMissingQairt244Jni)
 
+    inputs.property("standardGpuOpenClEnabled", standardGpuOpenClDebugEnabled)
+    inputs.file(rootProject.file("config/standard_gpu_npu_runtime.json"))
+    inputs.file(rootProject.file("scripts/stage_standard_gpu_opencl.py"))
     doLast {
         val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         prepareQairt244StandardDebugBuildOutputsForCopy(
@@ -1049,11 +1072,17 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             allowedOutputRoots = listOf(qairt244StandardDebugGeneratedJniOutputDir.get().asFile),
             taskName = name,
         )
+        // Remove providers left by an earlier configuration before staging this variant.
+        listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
+            prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
+        }
+        if (standardGpuOpenClDebugEnabled) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         copy {
             from(qairt244StandardDebugNativeSourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
+                if (!(standardGpuOpenClDebugEnabled)) exclude("libLiteRtOpenClAccelerator.so")
                 }
             into(outputDir)
         }
@@ -1117,6 +1146,9 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
     inputs.property("standardNpuRuntimeEnabled", standardNpuRuntimeEnabled)
     outputs.dir(qairt244StandardReleaseGeneratedJniOutputDir)
 
+    inputs.property("standardGpuOpenClEnabled", standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get())
+    inputs.file(rootProject.file("config/standard_gpu_npu_runtime.json"))
+    inputs.file(rootProject.file("scripts/stage_standard_gpu_opencl.py"))
     doLast {
         val sourceDir = qairt244StandardDebugNativeSourceDir.asFile
         val outputDir = qairt244StandardReleaseGeneratedJniOutputDir.get().asFile
@@ -1126,6 +1158,11 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
             allowedOutputRoots = listOf(qairt244StandardReleaseGeneratedJniOutputDir.get().asFile),
             taskName = name,
         )
+        // Remove providers left by an earlier configuration before staging this variant.
+        listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
+            prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
+        }
+        if (standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get()) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         if (!standardNpuRuntimeEnabled.get()) {
             logger.lifecycle("Standard Release NPU runtime disabled; generated vendor runtime directory is clean.")
@@ -1135,6 +1172,7 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
             from(sourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
+                if (!(standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get())) exclude("libLiteRtOpenClAccelerator.so")
                 }
             into(outputDir)
         }
@@ -1537,4 +1575,19 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Verify the final APK, not just the inputs: another dependency must not reintroduce ClGl.
+tasks.register("verifyStandardGpuOpenClApk") {
+    dependsOn("packageStandardDebug")
+    onlyIf { standardGpuOpenClDebugEnabled }
+    doLast {
+        exec {
+            commandLine("python3", rootProject.file("scripts/stage_standard_gpu_opencl.py").absolutePath,
+                "--apk", layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath)
+        }
+    }
+}
+tasks.matching { it.name == "assembleStandardDebug" }.configureEach {
+    dependsOn("verifyStandardGpuOpenClApk")
 }
