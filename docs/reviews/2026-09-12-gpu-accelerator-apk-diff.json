@@ -1,0 +1,10 @@
+{
+  "removed": [
+    "lib/arm64-v8a/libLiteRtClGlAccelerator.so"
+  ],
+  "added": [
+    "lib/arm64-v8a/libLiteRtOpenClAccelerator.so"
+  ],
+  "changed": [],
+  "candidate_sha256": "7c74b1485518ebcc3b94a80234dbd2fa2d11636f7c7faae79bda7ad65bdba70e"
+}
