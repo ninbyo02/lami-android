@@ -330,8 +330,9 @@ private fun isVerifiedStandardGpuOpenClRuntime(): Boolean =
 internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
     preferredBackend: PreferredBackendDryRunSetting,
     propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+    verifiedOpenClRuntime: Boolean = false,
 ): Boolean {
-    if (isVerifiedStandardGpuOpenClRuntime()) return preferredBackend == PreferredBackendDryRunSetting.GPU
+    if (verifiedOpenClRuntime) return preferredBackend == PreferredBackendDryRunSetting.GPU
     if (!BuildConfig.DEBUG) return false
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
@@ -3012,6 +3013,7 @@ internal suspend fun runWithHeldEngine(
     val generateProbeMode = resolveGpuGenerateProbeModeForDebug(heldEngine.preferredBackendDryRunSetting)
     val normalRouteUseCallbackStreamingRequested = isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
+        verifiedOpenClRuntime = isVerifiedStandardGpuOpenClRuntime(),
     )
     val standardCandidateEligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
