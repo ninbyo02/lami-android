@@ -4245,6 +4245,7 @@ private fun mergeTokenizerRecountSnapshot(
         tokenizerSnapshot
     } else {
         base.copy(
+            deferredTokenizerInput = tokenizerSnapshot.deferredTokenizerInput,
             tokenizerRecountStatus = tokenizerSnapshot.tokenizerRecountStatus,
             inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
@@ -4307,6 +4308,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
         if (deferMediaPipeRecount) {
             return LocalInferenceMeasuredTokenSnapshot(
                 tokenizerRecountStatus = "deferred-post-completion",
+                deferredTokenizerInput = DeferredTokenizerInput(promptText, fullResponseText),
                 charsPerSecond = charsPerSecond,
                 ttftMs = ttftMs,
                 decodeDurationMs = decodeDurationMs,
@@ -4415,6 +4417,7 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
             val endedAtMs = trace.localTraceCompletedElapsedRealtimeMs
                 ?: return@withContext trace
             val existingSnapshot = trace.measuredTokenSnapshot
+            val recountInput = resolveDeferredTokenizerInput(existingSnapshot, prompt, response)
             val recountedSnapshot = mergeTokenizerRecountSnapshot(
                 base = existingSnapshot,
                 deferMediaPipeRecount = false,
@@ -4422,8 +4425,8 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
                 tokenizerSessionSource = null,
                 mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
                 mediaPipeProbeContext = context.applicationContext,
-                promptText = prompt,
-                fullResponseText = response,
+                promptText = recountInput.prompt,
+                fullResponseText = recountInput.response,
                 timing = LocalLiteRtTimingSnapshot(
                     startedAtMs = startedAtMs,
                     firstNonEmptyChunkAtMs = trace.localTraceFirstResponseElapsedRealtimeMs,

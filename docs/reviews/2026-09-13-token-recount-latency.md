@@ -1,5 +1,7 @@
 # Post-response token recount review
 
+Update: the connection blocker below is historical and is now resolved. See [final device verification](2026-09-13-token-recount-device-verification.md) for the original-text correction, installed APK and completed tests.
+
 ## Proposed final behavior
 
 Production code: `7b0e5a7daf79ed0b59dbc6184f1ed71ce874758e` (PR #2603).

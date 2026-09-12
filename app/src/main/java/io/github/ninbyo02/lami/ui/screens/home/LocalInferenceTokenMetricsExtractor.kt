@@ -25,6 +25,7 @@ internal data class LocalInferenceTokenMetrics(
 )
 
 internal data class LocalInferenceMeasuredTokenSnapshot(
+    val deferredTokenizerInput: DeferredTokenizerInput? = null,
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
