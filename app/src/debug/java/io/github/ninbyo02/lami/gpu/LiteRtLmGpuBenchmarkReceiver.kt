@@ -243,6 +243,9 @@ internal suspend fun collectStringFlowForBenchmark(
 
 @OptIn(ExperimentalApi::class)
 class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
+    private var controlledContext: Int? = null
+    private var controlledCache: String? = null
+
     override fun onReceive(context: Context, intent: Intent) {
         val appContext = context.applicationContext
         if (intent.getBooleanExtra(EXTRA_COMMAND_CANCEL, false)) {
@@ -298,6 +301,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             stage = "receiver_started",
             detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} model_path_source=${modelPathSource.wireValue} onReceive_enter",
         )
+        controlledContext = intent.getIntExtra("controlled_context", 0).takeIf { it in 128..8192 }
+        controlledCache = intent.getStringExtra("controlled_cache")?.takeIf { it in setOf("null", "fresh") }
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!running.compareAndSet(false, true)) {
             writeMarker(
@@ -1668,7 +1673,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             cacheDirPath = appContext.cacheDir.absolutePath,
             backendVariant = backendVariant,
             maxOutputTokens = maxOutputTokens,
-        )
+        ).let { parts ->
+            parts.copy(
+                maxNumTokens = controlledContext ?: parts.maxNumTokens,
+                cacheDir = when (controlledCache) {
+                    "null" -> null
+                    "fresh" -> File(appContext.cacheDir, "controlled-${System.nanoTime()}").apply { mkdirs() }.absolutePath
+                    else -> parts.cacheDir
+                },
+            )
+        }
 
     internal fun resolveEngineConfigPartsForBenchmark(
         cacheDirPath: String,

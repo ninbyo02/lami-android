@@ -103,6 +103,7 @@ android {
     flavorDimensions += "dispatchExperiment"
     productFlavors {
         create("standard") {
+            applicationIdSuffix = ".gpucontrolled"
             dimension = "dispatchExperiment"
             if (standardNpuRuntimeEnabled.get()) {
                 applicationIdSuffix = ".npuvalidation"
