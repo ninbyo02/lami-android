@@ -1,0 +1,23 @@
+[
+  {
+    "label": "existing_background",
+    "pid": "13718",
+    "elapsed": 20.09582687797956,
+    "cpu_seconds": 0.13,
+    "cpu_percent": 0.6469004773446289
+  },
+  {
+    "label": "foreground_idle",
+    "pid": "13718",
+    "elapsed": 20.142954612034373,
+    "cpu_seconds": 12.28,
+    "cpu_percent": 60.96424400749697
+  },
+  {
+    "label": "background_after_foreground",
+    "pid": "13718",
+    "elapsed": 30.138902685022913,
+    "cpu_seconds": 0.23,
+    "cpu_percent": 0.763133291227272
+  }
+]
