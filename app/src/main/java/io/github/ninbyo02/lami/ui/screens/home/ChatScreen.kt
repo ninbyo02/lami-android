@@ -302,10 +302,7 @@ private data class LocalInferenceInitializationResult(
     val probeResult: LocalLiteRtProbeResult?,
 )
 
-private data class GpuExperimentalTimeoutOperationResult<T>(
-    val value: T?,
-    val timedOut: Boolean,
-)
+
 
 private data class LocalModelResolution(
     val modelPath: String,
@@ -11311,23 +11308,9 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
 private suspend fun <T> runGpuExperimentalOperationWithTimeout(
     timeoutMs: Long = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
     block: suspend () -> T?,
-): GpuExperimentalTimeoutOperationResult<T> {
-    val deferred = CoroutineScope(Dispatchers.IO).async {
-        block()
-    }
-    val startedAtMs = SystemClock.elapsedRealtime()
-    while (!deferred.isCompleted) {
-        if (SystemClock.elapsedRealtime() - startedAtMs >= timeoutMs) {
-            deferred.cancel()
-            return GpuExperimentalTimeoutOperationResult(value = null, timedOut = true)
-        }
-        delay(100L)
-    }
-    return GpuExperimentalTimeoutOperationResult(
-        value = deferred.await(),
-        timedOut = false,
-    )
-}
+): GpuExperimentalTimeoutOperationResult<T> =
+    runCancellableGpuOperation(timeoutMs = timeoutMs, block = block)
+
 
 private fun buildGpuExperimentalTimeoutDiagnosticsText(
     context: LocalRouteDiagnosticContext,

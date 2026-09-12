@@ -3139,11 +3139,18 @@ internal suspend fun runWithHeldEngine(
         )
     }
 
+    val progressDiagnosticSampler = if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+        GpuProgressDiagnosticSampler()
+    } else null
+
     fun appendRouteStage(
         stage: String,
         flags: LocalRouteDiagnosticFlags,
     ) {
         onRouteDiagnosticStage(stage)
+        // Watchdog/UI progress above remains per-event; only expensive diagnostic serialization is sampled.
+        if (progressDiagnosticSampler?.shouldEmit(stage, SystemClock.elapsedRealtime()) == false) return
+
         buildRouteStageText(
             stage = stage,
             flags = flags,
@@ -6906,6 +6913,15 @@ private suspend fun <T> runWithConversation(
             )
         }
         block(conversation)
+    } catch (cancelled: CancellationException) {
+        (conversation as? Conversation)?.let { activeConversation ->
+            runCatching { activeConversation.cancelProcess() }
+                .onSuccess { safeAppendTrace(appendTrace, "UPSTREAM held-conversation cancelProcess success") }
+                .onFailure { failure ->
+                    safeAppendTrace(appendTrace, "UPSTREAM held-conversation cancelProcess failed ${failure.javaClass.simpleName}:${failure.message}")
+                }
+        }
+        throw cancelled
     } finally {
         safeAppendTrace(
             appendTrace,
