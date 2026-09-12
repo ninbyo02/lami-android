@@ -1,0 +1,33 @@
+{
+  "source_sha256": "a5e4952eb6ff94ce1930c3ee3e34d6f8ab2ccd2b00b6a812f6de4149c228473a",
+  "samples": [
+    {
+      "case": "top_level_valid",
+      "input": "```python\nfor event in pygame.event.get():\n    if event.type == pygame.QUIT:\n        pygame.quit()\n        sys.exit()\n```",
+      "output": "```python\nfor event in pygame.event.get():\n    if event.type == pygame.QUIT:\n        pygame.quit()\n        sys.exit()\n```",
+      "python_ast_parse": "passed",
+      "unchanged": true
+    },
+    {
+      "case": "nested_valid",
+      "input": "```python\ndef main():\n    while True:\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                pygame.quit()\n                sys.exit()\n```",
+      "output": "```python\ndef main():\n    while True:\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                pygame.quit()\n                sys.exit()\n```",
+      "python_ast_parse": "passed",
+      "unchanged": true
+    },
+    {
+      "case": "flat_for",
+      "input": "```python\nfor event in pygame.event.get():\nif event.type == pygame.QUIT:\npygame.quit()\nsys.exit()\n```",
+      "output": "```python\nfor event in pygame.event.get():\n    if event.type == pygame.QUIT:\n        pygame.quit()\n        sys.exit()\n```",
+      "python_ast_parse": "passed",
+      "unchanged": false
+    },
+    {
+      "case": "flat_while",
+      "input": "```python\nwhile True:\n# 1.イベント処理\nfor event in pygame.event.get():\nif event.type == pygame.QUIT:\npygame.quit()\nsys.exit()\n```",
+      "output": "```python\nwhile True:\n    # 1.イベント処理\n    for event in pygame.event.get():\n        if event.type == pygame.QUIT:\n            pygame.quit()\n            sys.exit()\n```",
+      "python_ast_parse": "passed",
+      "unchanged": false
+    }
+  ]
+}
