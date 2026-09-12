@@ -46,77 +46,82 @@ class AndroidTtsController(context: Context) {
     private var currentPitch: Float = DEFAULT_TTS_PITCH
     private var lastPlaybackEndedAtMs: Long = 0L
     private var playbackGeneration: Long = 0L
+    private var activeUtteranceId: String? = null
+    private var playbackStateRevision = 0L
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     init {
         tts = TextToSpeech(appContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                isReady = true
-                val languageResult = tts?.setLanguage(Locale.JAPANESE)
-                Log.i(LOG_TAG, "initialized status=success language_result=$languageResult")
-                trace("initialized status=success language_result=$languageResult")
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
-                        if (!isCurrentPlaybackGeneration(utteranceId)) return
-                        Log.i(LOG_TAG, "playback_started utterance_id=$utteranceId")
-                        trace("playback_started utterance_id=$utteranceId")
-                        hasActiveUtterance = true
-                        notifyPlaybackState(true)
-                    }
+            synchronized(this@AndroidTtsController) {
+                if (status == TextToSpeech.SUCCESS) {
+                    isReady = true
+                    val languageResult = tts?.setLanguage(Locale.JAPANESE)
+                    Log.i(LOG_TAG, "initialized status=success language_result=$languageResult")
+                    trace("initialized status=success language_result=$languageResult")
+                    tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            Log.i(LOG_TAG, "playback_started utterance_id=$utteranceId")
+                            trace("playback_started utterance_id=$utteranceId")
+                            hasActiveUtterance = true
+                            notifyPlaybackState(true)
+                        }
 
-                    override fun onDone(utteranceId: String?) {
-                        if (!isCurrentPlaybackGeneration(utteranceId)) return
-                        Log.i(LOG_TAG, "playback_done utterance_id=$utteranceId")
-                        trace("playback_done utterance_id=$utteranceId")
-                        hasActiveUtterance = false
-                        if (speakNextQueuedIfAvailable()) return
-                        markPlaybackEnded()
-                        notifyPlaybackState(false)
-                    }
+                        override fun onDone(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            Log.i(LOG_TAG, "playback_done utterance_id=$utteranceId")
+                            trace("playback_done utterance_id=$utteranceId")
+                            hasActiveUtterance = false
+                            if (speakNextQueuedIfAvailable()) return
+                            markPlaybackEnded()
+                            notifyPlaybackState(false)
+                        }
 
-                    @Deprecated("Deprecated by Android; kept for compatibility with older TTS callbacks.")
-                    override fun onError(utteranceId: String?) {
-                        if (!isCurrentPlaybackGeneration(utteranceId)) return
-                        Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=legacy")
-                        hasActiveUtterance = false
-                        if (speakNextQueuedIfAvailable()) return
-                        markPlaybackEnded()
-                        notifyPlaybackState(false)
-                    }
+                        @Deprecated("Deprecated by Android; kept for compatibility with older TTS callbacks.")
+                        override fun onError(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=legacy")
+                            hasActiveUtterance = false
+                            if (speakNextQueuedIfAvailable()) return
+                            markPlaybackEnded()
+                            notifyPlaybackState(false)
+                        }
 
-                    override fun onError(utteranceId: String?, errorCode: Int) {
-                        if (!isCurrentPlaybackGeneration(utteranceId)) return
-                        Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=$errorCode")
-                        hasActiveUtterance = false
-                        if (speakNextQueuedIfAvailable()) return
-                        markPlaybackEnded()
-                        notifyPlaybackState(false)
-                    }
+                        override fun onError(utteranceId: String?, errorCode: Int): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=$errorCode")
+                            hasActiveUtterance = false
+                            if (speakNextQueuedIfAvailable()) return
+                            markPlaybackEnded()
+                            notifyPlaybackState(false)
+                        }
 
-                    override fun onStop(utteranceId: String?, interrupted: Boolean) {
-                        if (!isCurrentPlaybackGeneration(utteranceId)) return
-                        hasActiveUtterance = false
-                        if (!interrupted && speakNextQueuedIfAvailable()) return
-                        markPlaybackEnded()
-                        notifyPlaybackState(false)
-                    }
-                })
+                        override fun onStop(utteranceId: String?, interrupted: Boolean): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            hasActiveUtterance = false
+                            if (!interrupted && speakNextQueuedIfAvailable()) return
+                            markPlaybackEnded()
+                            notifyPlaybackState(false)
+                        }
+                    })
 
-                val pendingText = pendingSpeakText
-                pendingSpeakText = null
-                if (!pendingText.isNullOrEmpty()) {
-                    speakInternal(pendingText, TextToSpeech.QUEUE_FLUSH)
+                    val pendingText = pendingSpeakText
+                    pendingSpeakText = null
+                    if (!pendingText.isNullOrEmpty()) {
+                        speakInternal(pendingText, TextToSpeech.QUEUE_FLUSH)
+                    }
+                } else {
+                    Log.e(LOG_TAG, "initialized status=failure error_code=$status")
+                    isReady = false
+                    pendingSpeakText = null
+                    notifyPlaybackState(false)
                 }
-            } else {
-                Log.e(LOG_TAG, "initialized status=failure error_code=$status")
-                isReady = false
-                pendingSpeakText = null
-                notifyPlaybackState(false)
             }
         }
     }
 
+    @Synchronized
     fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
         onPlaybackStateChanged = listener
     }
@@ -145,19 +150,23 @@ class AndroidTtsController(context: Context) {
         speak(TTS_REFERENCE_PHRASE_4)
     }
 
+    @Synchronized
     fun setSpeechRate(rate: Float) {
         currentSpeechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
     }
 
+    @Synchronized
     fun setPitch(pitch: Float) {
         currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
+    @Synchronized
     fun setSpeechConfig(rate: Float, pitch: Float) {
         currentSpeechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
         currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
+    @Synchronized
     private fun speakWithQueueMode(text: String, queueMode: Int) {
         val cleanedSpeechText = SpeechTextBuilder.build(text)
         val finalSpeechText = TtsSummaryBuilder.build(
@@ -206,6 +215,7 @@ class AndroidTtsController(context: Context) {
         runCatching {
             val engine = checkNotNull(tts) { "TTS engine unavailable" }
             val utteranceId = nextUtteranceId()
+            activeUtteranceId = utteranceId
             engine.setSpeechRate(currentSpeechRate)
             engine.setPitch(currentPitch)
             val result = engine.speak(text, queueMode, null, utteranceId)
@@ -221,8 +231,11 @@ class AndroidTtsController(context: Context) {
         }
     }
 
+    @Synchronized
     fun stop() {
         playbackGeneration += 1
+        activeUtteranceId = null
+        trace("stop generation=$playbackGeneration queued=${queuedSpeechTexts.size}")
         pendingSpeakText = null
         queuedSpeechTexts.clear()
         hasActiveUtterance = false
@@ -237,10 +250,12 @@ class AndroidTtsController(context: Context) {
         return nowMs - lastPlaybackEndedAtMs < AUTO_SPEAK_COOLDOWN_MS
     }
 
+    @Synchronized
     fun clearCooldown() {
         lastPlaybackEndedAtMs = 0L
     }
 
+    @Synchronized
     fun shutdown() {
         stop()
         runCatching {
@@ -255,8 +270,11 @@ class AndroidTtsController(context: Context) {
 
     private fun notifyPlaybackState(isPlaying: Boolean) {
         _isSpeaking.value = isPlaying
+        val revision = ++playbackStateRevision
         mainHandler.post {
-            onPlaybackStateChanged?.invoke(isPlaying)
+            synchronized(this@AndroidTtsController) {
+                if (revision == playbackStateRevision) onPlaybackStateChanged?.invoke(isPlaying)
+            }
         }
     }
 
@@ -271,6 +289,7 @@ class AndroidTtsController(context: Context) {
     }
 
     private fun isCurrentPlaybackGeneration(utteranceId: String?): Boolean {
-        return utteranceId?.startsWith("lami-tts-$playbackGeneration-") == true
+        return utteranceId != null && utteranceId == activeUtteranceId &&
+            utteranceId.startsWith("lami-tts-$playbackGeneration-")
     }
 }
