@@ -28,3 +28,5 @@ Sources: https://developer.android.com/develop/ui/compose/performance/bestpracti
 Validation and on-device results will be recorded after execution. This change does not establish the cause of the earlier background EXCESSIVE CPU USAGE termination.
 
 Rebuilt URL coverage exposed a bare-scheme normalization bug: `http://` was trimmed and then prefixed as though `http:` were a hostname. Reject bare HTTP/HTTPS schemes before adding a default scheme. The mixed-valid/invalid initialization regression covers this fix.
+
+Repeated frame indices are now derived state, so clock ticks that resolve to the same image do not invalidate composition. Debug diagnostics observe the clock through snapshotFlow rather than effect keys.
