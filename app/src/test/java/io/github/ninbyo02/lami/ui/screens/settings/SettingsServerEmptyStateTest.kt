@@ -37,6 +37,33 @@ class SettingsServerEmptyStateTest {
         assertEquals(emptyList<BaseUrl>(), baseUrlRepository.getAll())
         assertEquals("", baseUrlRepository.activeBaseUrl.value)
     }
+    @Test
+    fun `only active nonempty server inputs are validated`() = runTest {
+        val visited = mutableListOf<String>()
+        val active = ServerInput(url = "http://active.local:11434", isActive = true)
+        val inactive = ServerInput(url = "http://inactive.local:11434", isActive = false)
+        val result = validateActiveConnections(listOf(inactive, active)) { url ->
+            visited += url
+            ConnectionValidationResult(normalizedUrl = url, isSuccess = true, isReachable = true)
+        }
+        assertEquals(listOf(active.url), visited)
+        assertEquals(setOf(active.localId), result.keys)
+    }
+
+    @Test
+    fun `saving servers publishes active URL only after client refresh`() = runTest {
+        val repo = BaseUrlRepository(SettingsFakeBaseUrlDao(emptyList()))
+        val models = ModelPreferenceRepository(SettingsFakeModelPreferenceDao())
+        repo.updateActiveBaseUrl("http://previous.local:11434/")
+        val inputs = listOf(BaseUrl(1, "http://new.local:11434/", true))
+        val result = saveServers(inputs, repo, models) { persisted, _ ->
+            assertEquals(inputs, persisted.getAll())
+            assertEquals("http://previous.local:11434", repo.activeBaseUrl.value)
+            BaseUrlInitializationState(baseUrl = "http://new.local:11434/", usedFallback = false)
+        }
+        assertEquals(result.baseUrl.trimEnd('/'), repo.activeBaseUrl.value)
+    }
+
 }
 
 private class SettingsFakeBaseUrlDao(initialBaseUrls: List<BaseUrl>) : BaseUrlDao {

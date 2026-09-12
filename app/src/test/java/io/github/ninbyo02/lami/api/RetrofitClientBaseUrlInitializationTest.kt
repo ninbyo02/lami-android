@@ -49,6 +49,25 @@ class RetrofitClientBaseUrlInitializationTest {
         assertEquals(emptyList<BaseUrl>(), provider.lastReplaceAll)
         assertEquals("", RetrofitClient.currentBaseUrl())
     }
+    @Test
+    fun `mixed invalid URLs are pruned while valid active server is retained`() = runTest {
+        val valid = BaseUrl(2, "http://server.local:11434/", true)
+        val provider = FakeBaseUrlProvider(listOf(BaseUrl(1, "http://", false), valid))
+        val state = RetrofitClient.initialize(provider)
+        assertEquals(valid.url, state.baseUrl)
+        assertEquals(listOf(valid), provider.baseUrls)
+    }
+
+    @Test
+    fun `missing active selection promotes the first valid server`() = runTest {
+        val first = BaseUrl(1, "http://first.local:11434/", false)
+        val second = BaseUrl(2, "http://second.local:11434/", false)
+        val provider = FakeBaseUrlProvider(listOf(first, second))
+        val state = RetrofitClient.initialize(provider)
+        assertEquals(first.url, state.baseUrl)
+        assertEquals(listOf(first.copy(isActive = true), second), provider.baseUrls)
+    }
+
 }
 
 private class FakeBaseUrlProvider(initialBaseUrls: List<BaseUrl>) : BaseUrlProvider {
