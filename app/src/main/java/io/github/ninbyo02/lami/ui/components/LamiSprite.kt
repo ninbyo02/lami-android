@@ -1,7 +1,6 @@
 package io.github.ninbyo02.lami.ui.components
 
 import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -112,84 +111,47 @@ fun LamiSprite3x3(
     frameSizePx: IntSize? = null,
     frameMaps: LamiSpriteFrameMaps? = null,
     spriteSheetConfig: SpriteSheetConfig = DefaultSpriteSheetConfig,
+    frameIndexProvider: (() -> Int)? = null,
 ) {
-    val normalizedConfig = remember(spriteSheetConfig) {
-        spriteSheetConfig.normalize(DefaultSpriteSheetConfig)
-    }
+    val normalizedConfig = remember(spriteSheetConfig) { spriteSheetConfig.normalize(DefaultSpriteSheetConfig) }
     val spriteSheetState by rememberLamiSpriteSheetState(normalizedConfig)
-    val spriteSheetData: SpriteSheetData? = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
-    val safeFrameIndexBound = (normalizedConfig.frameCount - 1).coerceAtLeast(0)
-    val safeFrameIndex = frameIndex.coerceIn(0, safeFrameIndexBound)
-    val sheetFrameRegion: SpriteSheetFrameRegion? = remember(spriteSheetData, safeFrameIndex, normalizedConfig) {
-        spriteSheetData?.frameRegion(frameIndex = safeFrameIndex)
-    }
-    val bitmap = spriteSheetData?.imageBitmap ?: return
-    val defaultFrameSize = frameSizePx
-        ?: frameMaps?.frameSize
-        ?: sheetFrameRegion?.srcSize
-        ?: IntSize(width = normalizedConfig.frameWidth, height = normalizedConfig.frameHeight)
-    val baseOffset = frameMaps?.offsetMap?.get(safeFrameIndex)
-        ?: frameSrcOffsetMap[safeFrameIndex]
-        ?: sheetFrameRegion?.srcOffset
-        ?: IntOffset.Zero
-    val baseSize = frameMaps?.sizeMap?.get(safeFrameIndex)
-        ?: frameSrcSizeMap[safeFrameIndex]
-        ?: sheetFrameRegion?.srcSize
-        ?: defaultFrameSize
-    if (baseSize.width <= 0 || baseSize.height <= 0) {
-        return
-    }
-    val srcOffset = if (autoCropTransparentArea) {
-        val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
-        IntOffset(
-            x = baseOffset.x + srcOffsetAdjustment.x,
-            y = baseOffset.y + srcOffsetAdjustment.y,
-        )
-    } else {
-        baseOffset
-    }
-    val srcSize = if (autoCropTransparentArea) {
-        frameSrcSizeMap[safeFrameIndex] ?: baseSize
-    } else {
-        baseSize
-    }
-    val frameRegion = remember(sheetFrameRegion, srcOffset, srcSize) {
-        SpriteFrameRegion(
-            srcOffset = srcOffset,
-            srcSize = srcSize,
-        )
-    }
-
-    val dstSize = with(LocalDensity.current) {
-        val sizePx = sizeDp.roundToPx().coerceAtLeast(1)
-        IntSize(sizePx, sizePx)
-    }
-
-    val dstOffset = with(LocalDensity.current) {
-        val baseOffsetX = contentOffsetDp.roundToPx()
-        val baseOffsetY = contentOffsetYDp.roundToPx()
-        val frameXOffsetPx = frameXOffsetPxMap[safeFrameIndex] ?: 0
-        val frameYOffsetPx = frameYOffsetPxMap[safeFrameIndex] ?: 0
-        val scaleX = dstSize.width.toFloat() / srcSize.width
-        val scaleY = dstSize.height.toFloat() / srcSize.height
-        val resolvedXOffset = baseOffsetX + (frameXOffsetPx * scaleX).roundToInt()
-        val resolvedYOffset = baseOffsetY + (frameYOffsetPx * scaleY).roundToInt()
-        if (frameXOffsetPx != 0 || frameYOffsetPx != 0) {
-            Log.d(
-                "SpriteRuntime",
-                "frame=$safeFrameIndex frameXOffsetPx=$frameXOffsetPx srcOffsetX=${srcOffset.x} dstOffsetX=$resolvedXOffset"
+    val sheet = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data ?: return
+    val density = LocalDensity.current
+    val dstSize = with(density) { sizeDp.roundToPx().coerceAtLeast(1).let { IntSize(it, it) } }
+    val contentOffset = with(density) { IntOffset(contentOffsetDp.roundToPx(), contentOffsetYDp.roundToPx()) }
+    val geometry = remember(
+        sheet, normalizedConfig, frameSizePx, frameMaps, frameSrcOffsetMap, frameSrcSizeMap,
+        autoCropTransparentArea, dstSize, contentOffset, frameXOffsetPxMap, frameYOffsetPxMap,
+    ) {
+        SpriteDrawGeometryCache { index ->
+            val source = sheet.frameRegion(index)?.let { SpriteFrameRegion(it.srcOffset, it.srcSize) }
+            resolveSpriteDrawGeometry(
+                frameIndex = index,
+                sheetRegion = source,
+                defaultFrameSize = frameSizePx ?: frameMaps?.frameSize ?: source?.srcSize
+                    ?: IntSize(normalizedConfig.frameWidth, normalizedConfig.frameHeight),
+                frameMaps = frameMaps,
+                frameSrcOffsetMap = frameSrcOffsetMap,
+                frameSrcSizeMap = frameSrcSizeMap,
+                autoCrop = autoCropTransparentArea,
+                dstSize = dstSize,
+                contentOffset = contentOffset,
+                frameXOffsetPxMap = frameXOffsetPxMap,
+                frameYOffsetPxMap = frameYOffsetPxMap,
             )
         }
-        IntOffset(x = resolvedXOffset, y = resolvedYOffset)
     }
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
-
     Canvas(modifier = modifier.size(sizeDp)) {
+        // Snapshot reads here invalidate drawing, not composition or layout.
+        val index = (frameIndexProvider?.invoke() ?: frameIndex)
+            .coerceIn(0, (normalizedConfig.frameCount - 1).coerceAtLeast(0))
+        val frame = geometry.get(index) ?: return@Canvas
         drawFrameRegion(
-            sheet = bitmap,
-            region = frameRegion,
+            sheet = sheet.imageBitmap,
+            region = frame.region,
             dstSize = dstSize,
-            dstOffset = dstOffset,
+            dstOffset = frame.dstOffset,
             colorFilter = spriteColorFilter,
             placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
         )

@@ -476,9 +476,8 @@ fun LamiStatusSprite(
     val settingsPreferences = remember(context) {
         SettingsPreferences(context.applicationContext)
     }
-    val storedErrorSelectedKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.ERROR)
-        .collectAsState(initial = null)
+    val selectedErrorKeyFlow = remember(settingsPreferences) { settingsPreferences.selectedKeyFlow(SpriteState.ERROR) }
+    val storedErrorSelectedKey by selectedErrorKeyFlow.collectAsState(initial = null)
     val errorCause by settingsPreferences.errorCauseFlow.collectAsState(initial = ErrorCause.UNKNOWN)
     val resolvedErrorKeyFromStore = remember(storedErrorSelectedKey, errorCause) {
         resolveErrorKey(storedErrorSelectedKey, errorCause)
@@ -686,9 +685,10 @@ fun LamiStatusSprite(
         lastTracePayload.value = tracePayload
     }
 
-    var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
+    val currentFrameState = remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
+    var currentFrameIndex by currentFrameState
     val resolveSyncSample = remember(
         animSpec, syncEpochMs, insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
     ) {
@@ -787,9 +787,10 @@ fun LamiStatusSprite(
         }
         resolve
     }
-    var syncFrameIndex by remember(animSpec, maxFrameIndex) {
+    val syncFrameState = remember(animSpec, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
+    var syncFrameIndex by syncFrameState
     LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, resolveSyncSample) {
         if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
         if (!useSyncMode || !animationsEnabled) {
@@ -803,7 +804,11 @@ fun LamiStatusSprite(
             sample.delayMs
         }
     }
-    val resolvedFrameIndex = if (useSyncMode) syncFrameIndex else currentFrameIndex
+    val frameIndexProvider = remember(useSyncMode, syncFrameState, currentFrameState) {
+        { if (useSyncMode) syncFrameState.value else currentFrameState.value }
+    }
+    // Only the optional diagnostic text needs a composition-time frame read.
+    val resolvedFrameIndex = if (overlayOn) frameIndexProvider() else 0
     val currentFrameXOffsetPx = frameXOffsetPxMap[resolvedFrameIndex] ?: 0
     val currentFrameYOffsetPx = frameYOffsetPxMap[resolvedFrameIndex] ?: 0
     val debugOverlayText = remember(
@@ -935,7 +940,8 @@ fun LamiStatusSprite(
 
     Box(modifier = modifier) {
         LamiSprite3x3(
-            frameIndex = resolvedFrameIndex,
+            frameIndex = 0,
+            frameIndexProvider = frameIndexProvider,
             sizeDp = constrainedSize,
             modifier = Modifier,
             contentOffsetDp = contentOffsetDp,
