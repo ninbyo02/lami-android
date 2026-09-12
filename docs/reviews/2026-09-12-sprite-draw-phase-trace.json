@@ -1,0 +1,209 @@
+{
+  "old_release_dynamic": {
+    "pid": 8924,
+    "threads": [
+      {
+        "name": "b.ninbyo02.lami",
+        "tid": 8924,
+        "cpu_ms": 1147.793
+      },
+      {
+        "name": "RenderThread",
+        "tid": 8952,
+        "cpu_ms": 594.359
+      },
+      {
+        "name": "Jit thread pool",
+        "tid": 8931,
+        "cpu_ms": 170.081
+      },
+      {
+        "name": "jank",
+        "tid": 8940,
+        "cpu_ms": 102.543
+      },
+      {
+        "name": "DefaultExecutor",
+        "tid": 9004,
+        "cpu_ms": 59.673
+      },
+      {
+        "name": "binder:8924_3",
+        "tid": 8941,
+        "cpu_ms": 44.028
+      },
+      {
+        "name": "DefaultDispatch",
+        "tid": 8964,
+        "cpu_ms": 39.761
+      },
+      {
+        "name": "Profile Saver",
+        "tid": 8949,
+        "cpu_ms": 33.714
+      }
+    ],
+    "total_cpu_ms": 2426.783,
+    "slices": [
+      {
+        "name": "Compose:applyChanges",
+        "n": 145,
+        "total_ms": 99.15,
+        "avg_ms": 0.684,
+        "max_ms": 2.197
+      },
+      {
+        "name": "Compose:recompose",
+        "n": 155,
+        "total_ms": 246.768,
+        "avg_ms": 1.592,
+        "max_ms": 9.239
+      },
+      {
+        "name": "Recomposer:recompose",
+        "n": 134,
+        "total_ms": 468.045,
+        "avg_ms": 3.493,
+        "max_ms": 19.944
+      },
+      {
+        "name": "Record View#draw()",
+        "n": 130,
+        "total_ms": 87.024,
+        "avg_ms": 0.669,
+        "max_ms": 1.615
+      },
+      {
+        "name": "flush commands",
+        "n": 130,
+        "total_ms": 233.769,
+        "avg_ms": 1.798,
+        "max_ms": 4.662
+      }
+    ],
+    "frame_timeline": [
+      {
+        "present_type": "Late Present",
+        "jank_type": "App Deadline Missed",
+        "n": 4
+      },
+      {
+        "present_type": "Late Present",
+        "jank_type": "Display HAL",
+        "n": 11
+      },
+      {
+        "present_type": "On-time Present",
+        "jank_type": "None",
+        "n": 113
+      }
+    ],
+    "trace_errors": []
+  },
+  "new_release_dynamic": {
+    "pid": 9653,
+    "threads": [
+      {
+        "name": "RenderThread",
+        "tid": 9718,
+        "cpu_ms": 619.985
+      },
+      {
+        "name": "b.ninbyo02.lami",
+        "tid": 9653,
+        "cpu_ms": 557.819
+      },
+      {
+        "name": "Jit thread pool",
+        "tid": 9660,
+        "cpu_ms": 99.604
+      },
+      {
+        "name": "jank",
+        "tid": 9699,
+        "cpu_ms": 71.699
+      },
+      {
+        "name": "DefaultExecutor",
+        "tid": 9756,
+        "cpu_ms": 62.715
+      },
+      {
+        "name": "binder:9653_2",
+        "tid": 9697,
+        "cpu_ms": 41.626
+      },
+      {
+        "name": "binder:9653_4",
+        "tid": 9890,
+        "cpu_ms": 37.841
+      },
+      {
+        "name": "Profile Saver",
+        "tid": 9715,
+        "cpu_ms": 26.715
+      }
+    ],
+    "total_cpu_ms": 1556.416,
+    "slices": [
+      {
+        "name": "Compose:applyChanges",
+        "n": 20,
+        "total_ms": 2.929,
+        "avg_ms": 0.146,
+        "max_ms": 0.73
+      },
+      {
+        "name": "Compose:recompose",
+        "n": 30,
+        "total_ms": 85.619,
+        "avg_ms": 2.854,
+        "max_ms": 11.813
+      },
+      {
+        "name": "Recomposer:recompose",
+        "n": 10,
+        "total_ms": 101.297,
+        "avg_ms": 10.13,
+        "max_ms": 24.702
+      },
+      {
+        "name": "Record View#draw()",
+        "n": 129,
+        "total_ms": 101.627,
+        "avg_ms": 0.788,
+        "max_ms": 2.227
+      },
+      {
+        "name": "flush commands",
+        "n": 129,
+        "total_ms": 283.514,
+        "avg_ms": 2.198,
+        "max_ms": 4.279
+      }
+    ],
+    "frame_timeline": [
+      {
+        "present_type": "Late Present",
+        "jank_type": "App Deadline Missed",
+        "n": 5
+      },
+      {
+        "present_type": "Late Present",
+        "jank_type": "Display HAL",
+        "n": 10
+      },
+      {
+        "present_type": "Late Present",
+        "jank_type": "Display HAL, App Deadline Missed",
+        "n": 5
+      },
+      {
+        "present_type": "On-time Present",
+        "jank_type": "None",
+        "n": 108
+      }
+    ],
+    "trace_errors": []
+  }
+}
