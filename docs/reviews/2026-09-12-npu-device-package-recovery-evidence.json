@@ -1,0 +1,320 @@
+{
+  "device": {
+    "started_utc": "2026-09-12T08:49:26.907058+00:00",
+    "restored": true,
+    "recovery_apk_sha256": "642490ca07f3d3023e06825c73e235d5dd94319b474aa8bd45776452aa07252e",
+    "before_error": "before exceeded 180 seconds",
+    "recovery_installed": true,
+    "focus": "mCurrentFocus=Window{3028565 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+    "ended_utc": "2026-09-12T08:52:55.151129+00:00",
+    "after": {
+      "status": "success",
+      "turns_requested": "18",
+      "turn_1_chat_id": "9101",
+      "turn_1_success": "true",
+      "turn_1_engine_reused": "false",
+      "turn_1_conversation_reused": "false",
+      "turn_1_response": "2",
+      "turn_2_chat_id": "9101",
+      "turn_2_success": "true",
+      "turn_2_engine_reused": "true",
+      "turn_2_conversation_reused": "true",
+      "turn_2_response": "3",
+      "turn_3_chat_id": "9101",
+      "turn_3_success": "true",
+      "turn_3_engine_reused": "true",
+      "turn_3_conversation_reused": "true",
+      "turn_3_response": "4",
+      "turn_4_chat_id": "9101",
+      "turn_4_success": "true",
+      "turn_4_engine_reused": "true",
+      "turn_4_conversation_reused": "true",
+      "turn_4_response": "5",
+      "turn_5_chat_id": "9101",
+      "turn_5_success": "true",
+      "turn_5_engine_reused": "true",
+      "turn_5_conversation_reused": "true",
+      "turn_5_response": "6",
+      "turn_6_chat_id": "9101",
+      "turn_6_success": "true",
+      "turn_6_engine_reused": "true",
+      "turn_6_conversation_reused": "true",
+      "turn_6_response": "7",
+      "event_before_turn_7": "brief_background_foreground",
+      "turn_7_chat_id": "9101",
+      "turn_7_success": "true",
+      "turn_7_engine_reused": "true",
+      "turn_7_conversation_reused": "true",
+      "turn_7_response": "8",
+      "turn_8_chat_id": "9101",
+      "turn_8_success": "true",
+      "turn_8_engine_reused": "true",
+      "turn_8_conversation_reused": "true",
+      "turn_8_response": "9",
+      "turn_9_chat_id": "9101",
+      "turn_9_success": "true",
+      "turn_9_engine_reused": "true",
+      "turn_9_conversation_reused": "true",
+      "turn_9_response": "10",
+      "turn_10_chat_id": "9101",
+      "turn_10_success": "true",
+      "turn_10_engine_reused": "true",
+      "turn_10_conversation_reused": "true",
+      "turn_10_response": "11",
+      "turn_11_chat_id": "9102",
+      "turn_11_success": "true",
+      "turn_11_engine_reused": "true",
+      "turn_11_conversation_reused": "false",
+      "turn_11_response": "12",
+      "turn_12_chat_id": "9101",
+      "turn_12_success": "true",
+      "turn_12_engine_reused": "true",
+      "turn_12_conversation_reused": "false",
+      "turn_12_response": "13",
+      "turn_13_chat_id": "9101",
+      "turn_13_success": "true",
+      "turn_13_engine_reused": "true",
+      "turn_13_conversation_reused": "true",
+      "turn_13_response": "14",
+      "event_before_turn_14": "background_timeout",
+      "turn_14_chat_id": "9101",
+      "turn_14_success": "true",
+      "turn_14_engine_reused": "false",
+      "turn_14_conversation_reused": "false",
+      "turn_14_response": "15",
+      "turn_15_chat_id": "9101",
+      "turn_15_success": "true",
+      "turn_15_engine_reused": "true",
+      "turn_15_conversation_reused": "true",
+      "turn_15_response": "16",
+      "turn_16_chat_id": "9101",
+      "turn_16_success": "true",
+      "turn_16_engine_reused": "true",
+      "turn_16_conversation_reused": "true",
+      "turn_16_response": "17",
+      "event_before_turn_17": "low_memory",
+      "turn_17_chat_id": "9101",
+      "turn_17_success": "true",
+      "turn_17_engine_reused": "false",
+      "turn_17_conversation_reused": "false",
+      "turn_17_response": "18",
+      "turn_18_chat_id": "9101",
+      "turn_18_success": "true",
+      "turn_18_engine_reused": "true",
+      "turn_18_conversation_reused": "true",
+      "turn_18_response": "19",
+      "turns_completed": "18",
+      "route_success_count": "18",
+      "semantic_pass_count": "18",
+      "engine_reuse_count": "15",
+      "conversation_reuse_count": "13",
+      "brief_background_reuse_pass": "true",
+      "chat_switch_engine_reuse_pass": "true",
+      "background_timeout_recreate_pass": "true",
+      "low_memory_recreate_pass": "true",
+      "lifecycle_pass": "true",
+      "route_pass": "true"
+    }
+  },
+  "packaging": {
+    "faulty": {
+      "passed": false,
+      "apk_sha256": "f0ef8fd38fcd15b2f2ac47e16a61a0fdb5d8662aeef74211e6cd6183fbb014bb",
+      "libraries": [
+        {
+          "name": "libLiteRt.so",
+          "sha256": "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24"
+        },
+        {
+          "name": "libQnnSystem.so",
+          "sha256": "3bf3cf0841fccd8f14482a520d6c6f21f52e496de10253fa212d84eb06439994"
+        },
+        {
+          "name": "libQnnHtp.so",
+          "sha256": "3e5592d4a7361082f958aa1534f1d3adb29639a74dd5d47a014a4ce37e9fd927"
+        },
+        {
+          "name": "libQnnHtpPrepare.so",
+          "sha256": "b178fcb21b68062e7b7aa7a0531a65f194ecc6dcaba9ad9b0b4ef8d54bced21b"
+        },
+        {
+          "name": "libQnnHtpV79Stub.so",
+          "sha256": "610d69e78e9a26e9e6b706dcebc9a199fbb058403dce36b67749715095f68166"
+        },
+        {
+          "name": "libQnnHtpV79Skel.so",
+          "sha256": "5590d6b34efdaef561155b77bc734a1a1e560767c180df9aba2dbceeb7ad28d1"
+        },
+        {
+          "name": "libQnnDsp.so",
+          "sha256": "733895d35c95d7abca2fe7bb0b83b480b7bf34b9b4d252ca7b1fc096770dc490"
+        },
+        {
+          "name": "libQnnGpu.so",
+          "sha256": "ff2415a5290d6f58b79550b908bd3c69ea6c6473653a3a498d16ab62ddd73f31"
+        },
+        {
+          "name": "liblitertlm_jni.so",
+          "sha256": "ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f"
+        }
+      ],
+      "errors": [
+        "APK differs from staged reference: libLiteRt.so",
+        "APK missing libLiteRtDispatch_Qualcomm.so",
+        "APK missing libLiteRtCompilerPlugin_Qualcomm.so",
+        "APK missing libGemmaModelConstraintProvider.so",
+        "APK differs from staged reference: libQnnSystem.so",
+        "APK differs from staged reference: libQnnHtp.so",
+        "APK differs from staged reference: libQnnHtpPrepare.so",
+        "APK differs from staged reference: libQnnHtpV79Stub.so",
+        "APK differs from staged reference: libQnnHtpV79Skel.so",
+        "APK differs from staged reference: libQnnDsp.so",
+        "APK differs from staged reference: libQnnGpu.so",
+        "APK differs from staged reference: liblitertlm_jni.so",
+        "Kotlin NPU Conversation sampler marker missing",
+        "APK missing liblami_qairt244_npu_jni.so"
+      ],
+      "scope": "Packaging only; device inference validation is still required."
+    },
+    "recovery": {
+      "passed": true,
+      "apk_sha256": "642490ca07f3d3023e06825c73e235d5dd94319b474aa8bd45776452aa07252e",
+      "libraries": [
+        {
+          "name": "libLiteRt.so",
+          "sha256": "84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553"
+        },
+        {
+          "name": "libLiteRtDispatch_Qualcomm.so",
+          "sha256": "7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f"
+        },
+        {
+          "name": "libLiteRtCompilerPlugin_Qualcomm.so",
+          "sha256": "c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c"
+        },
+        {
+          "name": "libGemmaModelConstraintProvider.so",
+          "sha256": "45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6"
+        },
+        {
+          "name": "libQnnSystem.so",
+          "sha256": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8"
+        },
+        {
+          "name": "libQnnHtp.so",
+          "sha256": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a"
+        },
+        {
+          "name": "libQnnHtpPrepare.so",
+          "sha256": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298"
+        },
+        {
+          "name": "libQnnHtpV79Stub.so",
+          "sha256": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1"
+        },
+        {
+          "name": "libQnnHtpV79Skel.so",
+          "sha256": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98"
+        },
+        {
+          "name": "libQnnDsp.so",
+          "sha256": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66"
+        },
+        {
+          "name": "libQnnGpu.so",
+          "sha256": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694"
+        },
+        {
+          "name": "liblitertlm_jni.so",
+          "sha256": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca"
+        },
+        {
+          "name": "liblami_qairt244_npu_jni.so",
+          "sha256": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea"
+        }
+      ],
+      "errors": [],
+      "scope": "Packaging only; device inference validation is still required."
+    }
+  },
+  "native_comparison": [
+    {
+      "library": "libQnnDsp.so",
+      "sha256": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
+      "old_present": true,
+      "old_sha256": "733895d35c95d7abca2fe7bb0b83b480b7bf34b9b4d252ca7b1fc096770dc490"
+    },
+    {
+      "library": "liblami_qairt244_npu_jni.so",
+      "sha256": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea",
+      "old_present": false,
+      "old_sha256": null
+    },
+    {
+      "library": "libQnnSystem.so",
+      "sha256": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8",
+      "old_present": true,
+      "old_sha256": "3bf3cf0841fccd8f14482a520d6c6f21f52e496de10253fa212d84eb06439994"
+    },
+    {
+      "library": "libQnnGpu.so",
+      "sha256": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694",
+      "old_present": true,
+      "old_sha256": "ff2415a5290d6f58b79550b908bd3c69ea6c6473653a3a498d16ab62ddd73f31"
+    },
+    {
+      "library": "liblitertlm_jni.so",
+      "sha256": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca",
+      "old_present": true,
+      "old_sha256": "ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f"
+    },
+    {
+      "library": "libGemmaModelConstraintProvider.so",
+      "sha256": "45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6",
+      "old_present": false,
+      "old_sha256": null
+    },
+    {
+      "library": "libQnnHtp.so",
+      "sha256": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a",
+      "old_present": true,
+      "old_sha256": "3e5592d4a7361082f958aa1534f1d3adb29639a74dd5d47a014a4ce37e9fd927"
+    },
+    {
+      "library": "libQnnHtpV79Skel.so",
+      "sha256": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
+      "old_present": true,
+      "old_sha256": "5590d6b34efdaef561155b77bc734a1a1e560767c180df9aba2dbceeb7ad28d1"
+    },
+    {
+      "library": "libLiteRt.so",
+      "sha256": "84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553",
+      "old_present": true,
+      "old_sha256": "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24"
+    },
+    {
+      "library": "libLiteRtDispatch_Qualcomm.so",
+      "sha256": "7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f",
+      "old_present": false,
+      "old_sha256": null
+    },
+    {
+      "library": "libLiteRtCompilerPlugin_Qualcomm.so",
+      "sha256": "c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c",
+      "old_present": false,
+      "old_sha256": null
+    },
+    {
+      "library": "libQnnHtpPrepare.so",
+      "sha256": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298",
+      "old_present": true,
+      "old_sha256": "b178fcb21b68062e7b7aa7a0531a65f194ecc6dcaba9ad9b0b4ef8d54bced21b"
+    },
+    {
+      "library": "libQnnHtpV79Stub.so",
+      "sha256": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1",
+      "old_present": true,
+      "old_sha256": "610d69e78e9a26e9e6b706dcebc9a199fbb058403dce36b67749715095f68166"
+    }
+  ]
+}
