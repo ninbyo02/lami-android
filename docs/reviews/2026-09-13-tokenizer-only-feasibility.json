@@ -1,0 +1,264 @@
+{
+  "probe": "host-only-no-inference-engine",
+  "sentencepiece": "0.2.1",
+  "models": [
+    {
+      "model": "gemma-4-E2B-it.litertlm",
+      "model_bytes": 2588147712,
+      "version": [
+        1,
+        5,
+        0
+      ],
+      "sections": [
+        {
+          "type": 5,
+          "begin": 16384,
+          "bytes": 12192
+        },
+        {
+          "type": 4,
+          "begin": 32768,
+          "bytes": 4689013
+        },
+        {
+          "type": 3,
+          "begin": 4734976,
+          "bytes": 103811720
+        },
+        {
+          "type": 3,
+          "begin": 108560384,
+          "bytes": 1284518392
+        },
+        {
+          "type": 3,
+          "begin": 1393082368,
+          "bytes": 94052280
+        },
+        {
+          "type": 3,
+          "begin": 1487142912,
+          "bytes": 9441244
+        },
+        {
+          "type": 3,
+          "begin": 1496596480,
+          "bytes": 6772
+        },
+        {
+          "type": 3,
+          "begin": 1496612864,
+          "bytes": 224137936
+        },
+        {
+          "type": 3,
+          "begin": 1720762368,
+          "bytes": 4742928
+        },
+        {
+          "type": 3,
+          "begin": 1725513728,
+          "bytes": 6772
+        },
+        {
+          "type": 3,
+          "begin": 1725530112,
+          "bytes": 818275184
+        },
+        {
+          "type": 3,
+          "begin": 2543812608,
+          "bytes": 44325712
+        }
+      ],
+      "tokenizers": [
+        {
+          "type": 4,
+          "begin": 32768,
+          "bytes": 4689013,
+          "sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "host_load_ms": 51.82043300010264,
+          "vocab_size": 262144,
+          "host_six_counts_ms": 0.08753000292927027,
+          "examples": [
+            {
+              "text": "",
+              "count": 0
+            },
+            {
+              "text": "こんにちは",
+              "count": 1
+            },
+            {
+              "text": "赤",
+              "count": 1
+            },
+            {
+              "text": "承知しました。",
+              "count": 4
+            },
+            {
+              "text": "**宇宙旅行**\n\n原文。\n",
+              "count": 8
+            },
+            {
+              "text": "日本語 English １２３ 👨‍👩‍👧‍👦",
+              "count": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+      "model_bytes": 3016294400,
+      "version": [
+        1,
+        5,
+        0
+      ],
+      "sections": [
+        {
+          "type": 3,
+          "begin": 16384,
+          "bytes": 106959512
+        },
+        {
+          "type": 3,
+          "begin": 106987520,
+          "bytes": 475504
+        },
+        {
+          "type": 3,
+          "begin": 107479040,
+          "bytes": 1394630752
+        },
+        {
+          "type": 3,
+          "begin": 1502117888,
+          "bytes": 1182084464
+        },
+        {
+          "type": 3,
+          "begin": 2684207104,
+          "bytes": 219090120
+        },
+        {
+          "type": 3,
+          "begin": 2903310336,
+          "bytes": 4727112
+        },
+        {
+          "type": 3,
+          "begin": 2908045312,
+          "bytes": 6772
+        },
+        {
+          "type": 3,
+          "begin": 2908061696,
+          "bytes": 94028072
+        },
+        {
+          "type": 3,
+          "begin": 3002105856,
+          "bytes": 9441248
+        },
+        {
+          "type": 3,
+          "begin": 3011559424,
+          "bytes": 6772
+        },
+        {
+          "type": 5,
+          "begin": 3011575808,
+          "bytes": 12192
+        },
+        {
+          "type": 4,
+          "begin": 3011592192,
+          "bytes": 4689013
+        }
+      ],
+      "tokenizers": [
+        {
+          "type": 4,
+          "begin": 3011592192,
+          "bytes": 4689013,
+          "sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "host_load_ms": 36.209621001034975,
+          "vocab_size": 262144,
+          "host_six_counts_ms": 0.102830003015697,
+          "examples": [
+            {
+              "text": "",
+              "count": 0
+            },
+            {
+              "text": "こんにちは",
+              "count": 1
+            },
+            {
+              "text": "赤",
+              "count": 1
+            },
+            {
+              "text": "承知しました。",
+              "count": 4
+            },
+            {
+              "text": "**宇宙旅行**\n\n原文。\n",
+              "count": 8
+            },
+            {
+              "text": "日本語 English １２３ 👨‍👩‍👧‍👦",
+              "count": 14
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "display_comparison_not_equivalence_test": [
+    {
+      "case": "greeting",
+      "display_chars": 11,
+      "host_display_count": 5,
+      "previous_device_raw_count": 5,
+      "same_input_confirmed": false
+    },
+    {
+      "case": "long",
+      "display_chars": 835,
+      "host_display_count": 454,
+      "previous_device_raw_count": 455,
+      "same_input_confirmed": false
+    },
+    {
+      "case": "short",
+      "display_chars": 1,
+      "host_display_count": 1,
+      "previous_device_raw_count": 1,
+      "same_input_confirmed": false
+    },
+    {
+      "case": "resend",
+      "display_chars": 6,
+      "host_display_count": 2,
+      "previous_device_raw_count": 2,
+      "same_input_confirmed": false
+    }
+  ],
+  "upstream_ref": "c87189528a758db32ead241f4fc9c64836398ee7",
+  "device_gpu_model_bytes_previous": 2583085056,
+  "device_model_identity_verified": false,
+  "source_sha256": {
+    "runtime/components/model_resources.h": "99ecb43078f63d72ae2b66eabceb05e8c4da395383473a23e88a162eb78c520d",
+    "runtime/components/model_resources_litert_lm.cc": "893943cb984574503cddb580b27c12946f2a4c873153f8abb07adcb9abfe6d1d",
+    "runtime/components/sentencepiece_tokenizer.cc": "045d669c59be1aceec7150c33d502a44457ee8ff273ea1db38c391c2302c9ddb",
+    "runtime/components/model_resources_litert_lm.h": "8eca434571921cc8037276d27183ac5233c2f278d8bfdc04852989d63917ddb5",
+    "runtime/components/huggingface_tokenizer.cc": "c153176a5d4393f2c439d7d82ff243e6012d57ee0ac79ed3c9e49c4be94eb32b",
+    "runtime/util/litert_lm_loader.cc": "ffc3d35f129399acd6469927f8e6786f525b5053c9793925f70f737d4b7baf41",
+    "runtime/util/litert_lm_loader.h": "eb07d4191cbbf298cb00b1ed04b1f882c54a9d8353b155ceeffa4e0a042de2a7"
+  }
+}
