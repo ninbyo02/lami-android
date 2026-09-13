@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-13",
+  "base_commit": "ab7c72d56d0e0c1a3aa716918f55f15fca22761d",
+  "device": {
+    "model": "NX733J",
+    "soc": "SM8750",
+    "abi": "arm64-v8a",
+    "battery_level_percent": 80,
+    "charging": true,
+    "temperature_tenths_c_before": 310,
+    "temperature_tenths_c_after": 310
+  },
+  "conditions": {
+    "prompts": [
+      "こんにちは",
+      "赤だけ答えてください。"
+    ],
+    "requested_max_output_tokens": 32,
+    "conversation_api_used": true,
+    "app_template_used": false,
+    "prompt_template_owner": "model_metadata",
+    "sampler_profile": "lami_stable_v1",
+    "sampler_top_k": 40,
+    "sampler_top_p": 0.9,
+    "sampler_temperature": 0.3,
+    "sampler_seed": 42,
+    "conversation_state_profile": "persistent_v1"
+  },
+  "runs": [
+    {
+      "scenario_id": "gpu_npu_short_v1_gpu",
+      "backend": "GPU",
+      "process_state": "fresh",
+      "model_file_name": "1788277987375_gemma-4-E2B-it.litertlm",
+      "model_bytes": 2583085056,
+      "total_ms": 15229,
+      "engine_create_ms": 13705,
+      "conversation_create_ms": 13,
+      "turns": [
+        {
+          "send_ms": 1204,
+          "output": "こんにちは。何かお手伝いできることはありますか？"
+        },
+        {
+          "send_ms": 233,
+          "output": "赤"
+        }
+      ]
+    },
+    {
+      "scenario_id": "gpu_npu_short_v1_gpu_warm_process",
+      "backend": "GPU",
+      "process_state": "warm_process_new_engine",
+      "model_file_name": "1788277987375_gemma-4-E2B-it.litertlm",
+      "model_bytes": 2583085056,
+      "total_ms": 8056,
+      "engine_create_ms": 6493,
+      "conversation_create_ms": 11,
+      "turns": [
+        {
+          "send_ms": 1221,
+          "output": "こんにちは。何かお手伝いできることはありますか？"
+        },
+        {
+          "send_ms": 254,
+          "output": "赤"
+        }
+      ]
+    },
+    {
+      "scenario_id": "gpu_npu_short_v1_npu",
+      "backend": "NPU",
+      "process_state": "fresh",
+      "model_file_name": "1788277956115_gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+      "model_bytes": 3016294400,
+      "total_ms": 2525,
+      "engine_create_ms": null,
+      "conversation_create_ms": null,
+      "turns": [
+        {
+          "send_ms": 736,
+          "output": "こんにちは。何かお手伝いできることはありますか？"
+        },
+        {
+          "send_ms": 150,
+          "output": "承知いたしました。"
+        }
+      ]
+    },
+    {
+      "scenario_id": "gpu_npu_short_v1_npu_warm_process",
+      "backend": "NPU",
+      "process_state": "warm_process",
+      "model_file_name": "1788277956115_gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+      "model_bytes": 3016294400,
+      "total_ms": 2085,
+      "engine_create_ms": null,
+      "conversation_create_ms": null,
+      "turns": [
+        {
+          "send_ms": 279,
+          "output": "こんにちは。何かお手伝いできることはありますか？"
+        },
+        {
+          "send_ms": 125,
+          "output": "承知いたしました。"
+        }
+      ]
+    }
+  ],
+  "quality": {
+    "greeting_match": true,
+    "gpu_second_turn_instruction_followed": true,
+    "npu_second_turn_instruction_followed": false,
+    "npu_second_turn_repeatable": true
+  },
+  "decision": {
+    "production_gpu_prewarm": "not_adopted",
+    "reason": "Measured initialization would be shifted earlier, while memory, energy, lifecycle and contention costs remain unmeasured.",
+    "next_experiment": "debug_only_idle_gpu_prewarm_with_resource_and_lifecycle_measurement"
+  },
+  "restoration": {
+    "chat_history_changed": false,
+    "settings_changed": false,
+    "databases_changed": false,
+    "installed_apk_changed": false,
+    "lami_force_stopped_after_test": true,
+    "chatgpt_restored_foreground": true,
+    "fatal_or_jni_errors_in_final_scan": false
+  }
+}
