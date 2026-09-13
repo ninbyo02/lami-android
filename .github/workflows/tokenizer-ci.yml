@@ -1,0 +1,99 @@
+name: Tokenizer native CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tokenizer-ci.yml'
+      - 'native/tokenizer_only/**'
+      - 'scripts/*tokenizer*'
+      - 'scripts/tests/test_tokenizer_ci.py'
+      - 'app/build.gradle.kts'
+      - 'app/src/**/Standalone*'
+      - 'app/src/**/LitertLmSentencePieceSection*'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+  push:
+    branches: [main, future, stable]
+    paths:
+      - '.github/workflows/tokenizer-ci.yml'
+      - 'native/tokenizer_only/**'
+      - 'scripts/*tokenizer*'
+      - 'scripts/tests/test_tokenizer_ci.py'
+      - 'app/build.gradle.kts'
+      - 'app/src/**/Standalone*'
+      - 'app/src/**/LitertLmSentencePieceSection*'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tokenizer-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tokenizer-native:
+    name: Tokenizer reproducibility and packaging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Checkout pinned SentencePiece
+        uses: actions/checkout@v7
+        with:
+          repository: google/sentencepiece
+          ref: 31646a467d2051eb904e0b45de3a73e91fe1c1e3
+          path: build/tokenizer-source
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install pinned native build tools
+        run: python -m pip install -r scripts/tokenizer_ci_requirements.txt
+      - uses: android-actions/setup-android@v4
+      - name: Install pinned Android toolchain
+        run: |
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+      - name: Run native and APK verification
+        run: |
+          python scripts/run_tokenizer_ci.py \
+            --sentencepiece-source build/tokenizer-source \
+            --ndk "$ANDROID_HOME/ndk/28.2.13676358" \
+            --output "$RUNNER_TEMP/tokenizer-ci"
+      - name: Publish verification summary
+        if: always()
+        run: |
+          python - <<'PYCODE'
+          import json, os
+          from pathlib import Path
+          result=Path(os.environ['RUNNER_TEMP'])/'tokenizer-ci/result.json'
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+              if result.exists():
+                  summary.write('Tokenizer native verification passed: two identical Android builds, real host JNI tests and four APK packaging modes.\n')
+                  summary.write('```json\n'+result.read_text()+'```\n')
+              else:
+                  summary.write('Tokenizer verification did not finish successfully. Inspect the uploaded logs.\n')
+          PYCODE
+      - name: Upload native verification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tokenizer-native-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/tokenizer-ci/*.json
+            ${{ runner.temp }}/tokenizer-ci/*.log
+            ${{ runner.temp }}/tokenizer-ci/fixture/*.json
+            ${{ runner.temp }}/tokenizer-ci/android-one/manifest.json
+            ${{ runner.temp }}/tokenizer-ci/android-one/jniLibs/**
+            ${{ runner.temp }}/tokenizer-ci/android-one/notices/**
