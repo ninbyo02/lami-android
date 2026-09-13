@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-13T19:35:00+09:00",
+  "repository": "ninbyo02/lami-android",
+  "base_commit": "ab7c72d56d0e0c1a3aa716918f55f15fca22761d",
+  "prerequisite": {
+    "pull_request": 2610,
+    "head_sha": "15a427dbdb087d271f45bc9e8d153eb4f6a5e47d",
+    "android_ci_run": 34747380590,
+    "status": "success"
+  },
+  "device": {
+    "host": "X870E-PLUS",
+    "android_model": "NX733J",
+    "adb_serial": "192.168.52.52:40863",
+    "battery_temperature_c": 31.0,
+    "thermal_status": 0
+  },
+  "build": {
+    "diagnostic_application_id": "io.github.ninbyo02.lami.gpuidleprewarm",
+    "diagnostic_apk_sha256": "5bb546d4f239a2695b50e6ea188ae6ca9bc808cb07a6b78fbe886372ee914caa",
+    "debug_only": true,
+    "explicit_property": "lami.gpuIdlePrewarmDiagnostic=true",
+    "normal_default_enabled": false,
+    "release_enabled": false
+  },
+  "workload": {
+    "model_file": "1788277987375_gemma-4-E2B-it.litertlm",
+    "model_sha256": "ab7838cdfc8f77e54d8ca45eadceb20452d9f01e4bfade03e5dce27911b27e42",
+    "prompt": "赤だけ答えてください。",
+    "output": "赤",
+    "api": "LiteRT-LM Kotlin Conversation.sendMessage",
+    "prompt_template_owner": "model_metadata",
+    "generation_extra_context": "enable_thinking=false",
+    "sampler": {
+      "profile": "lami_stable_v1",
+      "top_k": 40,
+      "top_p": 0.9,
+      "temperature": 0.3,
+      "seed": 42
+    },
+    "backends": {
+      "text": "GPU",
+      "vision": "GPU",
+      "audio": "CPU"
+    },
+    "gpu_context_max_tokens": 512
+  },
+  "comparison": {
+    "on_demand": {
+      "engine_create_ms": 8504,
+      "conversation_create_ms": 5,
+      "send_ms": 372,
+      "total_ms": 11345,
+      "user_visible_latency_ms": 9498,
+      "main_thread_max_latency_ms": 1,
+      "pss_before_kb": 116796,
+      "pss_after_engine_kb": 1041218,
+      "pss_after_release_kb": 534759
+    },
+    "idle_prewarm": {
+      "engine_create_ms": 5161,
+      "conversation_create_ms": 16,
+      "send_ms": 276,
+      "total_ms": 14729,
+      "user_visible_latency_ms": 924,
+      "prewarm_lead_ms": 13805,
+      "main_thread_max_latency_ms": 2,
+      "pss_before_kb": 116059,
+      "pss_after_engine_kb": 970336,
+      "pss_after_release_kb": 501506
+    },
+    "user_visible_latency_improvement_ms": 8574,
+    "user_visible_latency_improvement_percent": 90.27,
+    "prewarm_pss_residency_increase_kb": 854277,
+    "immediate_post_close_pss_above_baseline_kb": 385447,
+    "ttft_prefill_decode": "unavailable_from_current_LiteRT-LM_benchmark_reflection",
+    "energy_counter": "unavailable",
+    "charge_counter_uah_before_after": [5115200, 5115200]
+  },
+  "cancellation": [
+    {"trigger":"navigation","status":"cancelled","reason":"navigation"},
+    {"trigger":"model_change","status":"cancelled","reason":"model_changed"},
+    {"trigger":"backend_change","status":"cancelled","reason":"backend_changed"},
+    {"trigger":"low_memory","status":"cancelled","reason":"low_memory"},
+    {"trigger":"confirmed_background","status":"cancelled","reason":"background_confirmed"},
+    {"trigger":"user_stop","status":"cancelled","reason":"user_stop"},
+    {"trigger":"timeout","status":"cancelled","reason":"timeout"},
+    {
+      "trigger":"user_stop_after_engine_initialized",
+      "status":"cancelled",
+      "reason":"user_stop",
+      "engine_create_ms":6879,
+      "pss_before_kb":116640,
+      "pss_after_engine_kb":938540,
+      "pss_after_release_kb":490674,
+      "resources_closed":true
+    }
+  ],
+  "recovery_after_cancel": {
+    "status": "success",
+    "output": "赤",
+    "engine_create_ms": 6126,
+    "conversation_create_ms": 16,
+    "send_ms": 175,
+    "resources_closed": true,
+    "process_absent_after_force_stop": true
+  },
+  "regression": {
+    "crash_log_matches": 0,
+    "jni_error_matches": 0,
+    "tts_stop_resend_targeted_tests": "passed",
+    "diagnostic_writes_normal_conversation_db": false
+  },
+  "restoration": {
+    "diagnostic_package_removed": true,
+    "normal_application_id": "io.github.ninbyo02.lami",
+    "normal_apk_sha256": "a36c30d139a4da5365beda095a83fdea825dbc456cce6b488fe68cdc40acafc4",
+    "normal_model_sha256": "ab7838cdfc8f77e54d8ca45eadceb20452d9f01e4bfade03e5dce27911b27e42",
+    "normal_first_install_time": "2026-09-12 23:59:15",
+    "normal_last_update_time": "2026-09-13 16:25:25",
+    "history_settings_touched": false,
+    "normal_data_sha256": {
+      "app_database": "bfaef8fac18709034d1b023086575733ab2f5ba0628478989b5e704180ca2513",
+      "app_database_wal": "1ea7898f7ae0552435c3f3d7321714deaccae70be15445093e45d6abc51d8892",
+      "app_database_shm": "2480d484ebf2efce8c73cc71f976b81bf784f01a6f258da4762aca45690977fc",
+      "chat_database": "d7fc484850067e9ad7289fe9b23231ff6c3a054659ed9eb6eef649d066dc1f08",
+      "chat_database_wal": "7ee60bf41488dde5aa21cb2b086490a54ec6fb477e7a883fae184cec471e3315",
+      "chat_database_shm": "09e2e1ad303bf690ed9a6bfefa301811b67306ec4086f07cf7112307ffc24c89",
+      "normal_history_xml": "b1253efa12637a453a131f555bfbec8665768ff0bbb69d07a7ac62550a4b02ef",
+      "settings_datastore": "165ae79ec145e187288e5a65f8c03300fcd9c33e4f1c516076e19cda80b3f45d"
+    }
+  },
+  "decision": {
+    "adopt_automatic_product_prewarm": false,
+    "reason": "The visible-latency win is large, but prewarm merely shifts work earlier, holds about 0.85 GB additional PSS, leaves about 0.39 GB above baseline immediately after close, and the device exposes no usable energy counter."
+  }
+}

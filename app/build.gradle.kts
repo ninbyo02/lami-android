@@ -71,6 +71,9 @@ val tokenizerOnlyPackaged = tokenizerOnlyDiagnostic.get() || (tokenizerOnlyGpuEn
 val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
     .map { it.toBooleanStrict() }
     .orElse(false)
+val gpuIdlePrewarmDiagnostic = providers.gradleProperty("lami.gpuIdlePrewarmDiagnostic")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
 
 android {
 
@@ -110,13 +113,14 @@ android {
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
+        buildConfigField("Boolean", "GPU_IDLE_PREWARM_DIAGNOSTIC", "false")
     }
 
     flavorDimensions += "dispatchExperiment"
     productFlavors {
         create("standard") {
             dimension = "dispatchExperiment"
-            if (standardNpuRuntimeEnabled.get()) {
+            if (standardNpuRuntimeEnabled.get() && !gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".npuvalidation"
             }
             buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
@@ -319,6 +323,10 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
+            if (gpuIdlePrewarmDiagnostic.get()) {
+                applicationIdSuffix = ".gpuidleprewarm"
+                versionNameSuffix = "-gpuIdlePrewarmDiagnostic"
+            }
         }
         release {
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
@@ -402,6 +410,12 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val gpuPrewarmDiagnosticVariant =
+            flavor == "standard" && variant.buildType == "debug" && gpuIdlePrewarmDiagnostic.get()
+        variant.buildConfigFields?.put(
+            "GPU_IDLE_PREWARM_DIAGNOSTIC",
+            BuildConfigField("boolean", gpuPrewarmDiagnosticVariant.toString(), "Isolated debug-only GPU idle-prewarm diagnostic"),
+        )
         val tokenizerComparison = flavor == "standard" && variant.buildType == "debug" && tokenizerOnlyDiagnostic.get()
         variant.buildConfigFields?.put("TOKENIZER_ONLY_DIAGNOSTIC", BuildConfigField("boolean", tokenizerComparison.toString(), "Diagnostic comparison only; never replaces counts"))
         val tokenizerGpu = flavor == "standard" && variant.buildType == "debug" &&
