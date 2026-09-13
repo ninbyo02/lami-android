@@ -1,0 +1,58 @@
+{
+  "default": {
+    "tokenizer_packaged": false,
+    "apk_sha256": "73a473e65a5344f6da6af5257fb136b64b7a144b6a27554662fbe2a8775b28c4"
+  },
+  "diagnostic": {
+    "tokenizer_packaged": true,
+    "apk_sha256": "b37d4085821bd1179e111ba0071e089abaa5d78b67a00eae6bf6e331519d581b",
+    "packaged_tokenizer_sha256": "2999612f10c44cb6c59bac7b757037318f69ecf1e1e92be49473ce507c49267c"
+  },
+  "release": {
+    "tokenizer_packaged": false,
+    "apk_sha256": "dc619314fe1857272bf8e20658931a7e1196a433d3efe42b22f47e8598629800"
+  },
+  "existing_native_payload": {
+    "count": 39,
+    "byte_identical": true,
+    "added": [
+      "lib/arm64-v8a/liblami_tokenizer_only.so"
+    ]
+  },
+  "native_artifacts": {
+    "host": {
+      "sentencepiece_commit": "31646a467d2051eb904e0b45de3a73e91fe1c1e3",
+      "abi": "host",
+      "sha256": "5d6bd8bf9dda15186b5a98b84b26de50761f1cf7effd4a81cc06ddafacf9ccd8",
+      "bytes": 1153592,
+      "inference_runtime_linked": false
+    },
+    "android": {
+      "sentencepiece_commit": "31646a467d2051eb904e0b45de3a73e91fe1c1e3",
+      "abi": "arm64-v8a",
+      "sha256": "2999612f10c44cb6c59bac7b757037318f69ecf1e1e92be49473ce507c49267c",
+      "bytes": 1263704,
+      "inference_runtime_linked": false
+    }
+  },
+  "unit_tests": {
+    "standard_debug": 1819,
+    "standard_release": 1282,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "standard_debug": "passed",
+    "standard_release": "passed"
+  },
+  "host_jni": {
+    "full_model_containers": 2,
+    "cases_per_model": 11,
+    "failure_recovery_cycles_per_model": 3,
+    "uses_actual_kotlin_reader": true,
+    "android_parity_proven": false
+  },
+  "device_install_performed": false,
+  "packaging_scope": "clean-checkout non-NPU smoke; not GPU/NPU device runtime validation"
+}

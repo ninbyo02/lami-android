@@ -4435,6 +4435,9 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
             if (BuildConfig.DEBUG) Log.d("LocalTokenizerRecount", message)
         },
     ) ?: return@execute trace
+    recordStandaloneTokenCountComparison(
+        modelPath ?: trace.mediaPipeProbeModelPath, recountInput.prompt, recountInput.response, recountedSnapshot,
+    )
     trace.copy(
         mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
         measuredTokenSnapshot = recountedSnapshot,

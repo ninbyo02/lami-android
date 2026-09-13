@@ -1,0 +1,4 @@
+{
+  global: Java_io_github_ninbyo02_lami_ui_screens_home_StandaloneSentencePieceJni_countPair;
+  local: *;
+};
