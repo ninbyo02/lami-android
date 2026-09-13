@@ -21,6 +21,9 @@ internal class HeldEngineLifecycleBridge(
 
     fun onStop(scope: CoroutineScope) {
         GpuIdlePrewarmCancellationSignal.cancel(reason = "app-backgrounded")
+        scope.launch {
+            holder.releaseUnusedDebugPrewarm(reason = "debug-idle-prewarm-app-backgrounded")
+        }
         val nowElapsedMs = SystemClock.elapsedRealtime()
         scope.launch { holder.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
         scope.launch { npuLifecycle.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }

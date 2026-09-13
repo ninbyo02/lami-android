@@ -739,14 +739,14 @@ internal class LocalInferenceEngineHolder(
     }
 
     suspend fun releaseUnusedDebugPrewarm(
-        engineKey: HeldEngineKey,
+        engineKey: HeldEngineKey? = null,
         reason: String,
         appendTrace: ((String) -> Unit)? = null,
     ): Boolean = mutex.withLock {
-        check(BuildConfig.DEBUG) { "GPU idle prewarm is debug-only" }
+        if (!BuildConfig.DEBUG) return@withLock false
         val current = held ?: return@withLock false
         if (
-            current.engineKey != engineKey ||
+            (engineKey != null && current.engineKey != engineKey) ||
             current.useCount != 0 ||
             lastAcquireAction != "debug-idle-prewarmed"
         ) {
