@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -53,12 +54,23 @@ class OllamaViewModelConnectionFailureTest {
     @After
     fun tearDown() {
         viewModels.forEach { it.viewModelScope.cancel() }
+        viewModels.clear()
         dispatcher.scheduler.runCurrent()
         Dispatchers.resetMain()
     }
 
+    private fun runViewModelTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) {
+        try {
+            block()
+        } finally {
+            viewModels.forEach { it.viewModelScope.cancel() }
+            viewModels.clear()
+            dispatcher.scheduler.runCurrent()
+        }
+    }
+
     @Test
-    fun `server model load exception becomes error state and keeps selected model`() = runTest(dispatcher) {
+    fun `server model load exception becomes error state and keeps selected model`() = runViewModelTest {
         val modelPreferenceDao = FakeModelPreferenceDao().apply {
             selected["http://localhost:13511"] = SelectedModel(
                 baseUrl = "http://localhost:13511",
@@ -90,7 +102,7 @@ class OllamaViewModelConnectionFailureTest {
         assertEquals("saved-server-model", modelPreferenceDao.selected["http://localhost:13511"]?.modelName)
     }
     @Test
-    fun `provider preferences survive switching to a server supporting both APIs`() = runTest(dispatcher) {
+    fun `provider preferences survive switching to a server supporting both APIs`() = runViewModelTest {
         val preferences = SettingsPreferences(RuntimeEnvironment.getApplication())
         val lemonadeUrl = "http://localhost:13512"
         val ollamaUrl = "http://localhost:13513"
@@ -115,7 +127,7 @@ class OllamaViewModelConnectionFailureTest {
     }
 
     @Test
-    fun `late discovery cannot overwrite new server models or selection`() = runTest(dispatcher) {
+    fun `late discovery cannot overwrite new server models or selection`() = runViewModelTest {
         val preferences = SettingsPreferences(RuntimeEnvironment.getApplication())
         val firstUrl = "http://localhost:13514"
         val secondUrl = "http://localhost:13515"
@@ -149,7 +161,7 @@ class OllamaViewModelConnectionFailureTest {
     }
 
     @Test
-    fun `single model selection is persisted and missing selection clears on multiple models`() = runTest(dispatcher) {
+    fun `single model selection is persisted and missing selection clears on multiple models`() = runViewModelTest {
         val dao = FakeModelPreferenceDao()
         val url = "http://selection-test.local:13511"
         var names = listOf("single")
@@ -170,7 +182,7 @@ class OllamaViewModelConnectionFailureTest {
     }
 
     @Test
-    fun `server switching restores saved selection from multiple models`() = runTest(dispatcher) {
+    fun `server switching restores saved selection from multiple models`() = runViewModelTest {
         val firstUrl = "http://selection-one.local:13511"
         val secondUrl = "http://selection-two.local:13511"
         val dao = FakeModelPreferenceDao().apply { selected[secondUrl] = SelectedModel(secondUrl, "saved") }
