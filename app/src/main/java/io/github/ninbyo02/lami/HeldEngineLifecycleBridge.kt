@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami
 
 import android.content.ComponentCallbacks2
 import android.os.SystemClock
+import io.github.ninbyo02.lami.ui.screens.home.GpuIdlePrewarmCancellationSignal
 import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.home.NpuConversationLifecycle
 import io.github.ninbyo02.lami.ui.screens.home.NpuKotlinConversationProductRoute
@@ -19,6 +20,7 @@ internal class HeldEngineLifecycleBridge(
     }
 
     fun onStop(scope: CoroutineScope) {
+        GpuIdlePrewarmCancellationSignal.cancel(reason = "app-backgrounded")
         val nowElapsedMs = SystemClock.elapsedRealtime()
         scope.launch { holder.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
         scope.launch { npuLifecycle.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
@@ -34,6 +36,7 @@ internal class HeldEngineLifecycleBridge(
     }
 
     private fun notifyLowMemory(scope: CoroutineScope) {
+        GpuIdlePrewarmCancellationSignal.cancel(reason = LOW_MEMORY_REASON)
         scope.launch { holder.notifyLifecycleEvent(reason = LOW_MEMORY_REASON) }
         scope.launch { npuLifecycle.notifyLowMemory() }
     }

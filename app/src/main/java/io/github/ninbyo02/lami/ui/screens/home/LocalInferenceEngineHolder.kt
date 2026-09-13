@@ -5,6 +5,8 @@ import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -652,6 +654,115 @@ internal class LocalInferenceEngineHolder(
 
     suspend fun hasReusableHeldEngineForKey(engineKey: HeldEngineKey): Boolean = mutex.withLock {
         held?.engineKey == engineKey
+    }
+
+    suspend fun prewarmForDebug(
+        engineKey: HeldEngineKey,
+        preferredBackend: PreferredBackendDryRunSetting,
+        generationIsCurrent: () -> Boolean,
+        appendTrace: ((String) -> Unit)? = null,
+    ): GpuIdlePrewarmAcquireResult = mutex.withLock {
+        check(BuildConfig.DEBUG) { "GPU idle prewarm is debug-only" }
+        if (!appInForeground || !generationIsCurrent()) {
+            return@withLock GpuIdlePrewarmAcquireResult(status = "cancelled_before_create")
+        }
+        val current = held
+        if (current != null) {
+            val status = if (current.engineKey == engineKey) "already_held" else "blocked_by_other_engine"
+            return@withLock GpuIdlePrewarmAcquireResult(status = status)
+        }
+
+        val startedAtMs = SystemClock.elapsedRealtime()
+        var created: HeldLocalEngine? = null
+        try {
+            val diagnostic = createReusableLocalInferenceEngineWithDiagnostic(
+                context = appContext,
+                engineKey = engineKey,
+                appendTrace = appendTrace,
+                preferredBackendDryRunSetting = preferredBackend,
+            )
+            created = diagnostic.engine
+            if (created == null) {
+                return@withLock GpuIdlePrewarmAcquireResult(
+                    status = "failed",
+                    engineCreateMs = SystemClock.elapsedRealtime() - startedAtMs,
+                    failureStage = diagnostic.stage,
+                    failureClassName = diagnostic.className,
+                    failureMessage = diagnostic.message,
+                )
+            }
+            currentCoroutineContext().ensureActive()
+            if (!generationIsCurrent()) {
+                created.closeEngine(appendTrace)
+                return@withLock GpuIdlePrewarmAcquireResult(
+                    status = "cancelled_after_create",
+                    engineCreateMs = SystemClock.elapsedRealtime() - startedAtMs,
+                )
+            }
+
+            created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+            heldEngineGeneration += 1
+            clearAllConversationsLocked(reason = "debug-idle-prewarm", appendTrace = appendTrace)
+            held = created
+            lastAcquireAction = "debug-idle-prewarmed"
+            recordHeldEngineCreateLocked(
+                reason = "debug-idle-prewarm",
+                source = "LocalInferenceEngineHolder.prewarmForDebug",
+                createdAtElapsedMs = created.createdAtElapsedMs,
+                requestedPreferredBackend = preferredBackend.name,
+                preferredBackendApplyResult = diagnostic.preferredBackendApplyResult,
+            )
+            recordHeldEngineLifecycleEventLocked(
+                event = "held_engine_created",
+                reason = "debug-idle-prewarm",
+                owner = "LocalInferenceEngineHolder.prewarmForDebug",
+                failureStage = "none",
+                target = created,
+            )
+            GpuIdlePrewarmAcquireResult(
+                status = "prewarmed",
+                engineCreateMs = SystemClock.elapsedRealtime() - startedAtMs,
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            created?.let { runCatching { it.closeEngine(appendTrace) } }
+            throw cancelled
+        } catch (throwable: Throwable) {
+            created?.let { runCatching { it.closeEngine(appendTrace) } }
+            GpuIdlePrewarmAcquireResult(
+                status = "failed",
+                engineCreateMs = SystemClock.elapsedRealtime() - startedAtMs,
+                failureStage = "create-reusable-engine",
+                failureClassName = throwable.javaClass.name,
+                failureMessage = throwable.message,
+            )
+        }
+    }
+
+    suspend fun releaseUnusedDebugPrewarm(
+        engineKey: HeldEngineKey,
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ): Boolean = mutex.withLock {
+        check(BuildConfig.DEBUG) { "GPU idle prewarm is debug-only" }
+        val current = held ?: return@withLock false
+        if (
+            current.engineKey != engineKey ||
+            current.useCount != 0 ||
+            lastAcquireAction != "debug-idle-prewarmed"
+        ) {
+            return@withLock false
+        }
+        applyLifecycleDecisionLocked(
+            current = current,
+            decision = HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            ),
+            owner = "LocalInferenceEngineHolder.releaseUnusedDebugPrewarm",
+            appendTrace = appendTrace,
+        )
+        true
     }
 
     private fun resolveGpuTransientOnStopDeferReasonLocked(

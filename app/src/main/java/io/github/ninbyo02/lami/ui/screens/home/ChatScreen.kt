@@ -123,6 +123,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
@@ -881,6 +884,35 @@ fun Home(
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(
+        lifecycleOwner,
+        selectedInferenceTarget,
+        preferredBackendDryRunSetting,
+        selectedLocalModelFilePath,
+        isLocalInferenceRunning,
+        effectiveChatId,
+    ) {
+        GpuIdlePrewarmCancellationSignal.cancel(reason = "route-updated")
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            GpuIdlePrewarmDiagnostic.run(
+                context = context.applicationContext,
+                holder = localInferenceEngineHolder,
+                request = GpuIdlePrewarmRequest(
+                    modelPath = selectedLocalModelFilePath?.trim().orEmpty(),
+                    cacheDirPath = context.applicationContext.cacheDir.absolutePath,
+                    preferredBackend = preferredBackendDryRunSetting,
+                    localTargetSelected = selectedInferenceTarget == InferenceTarget.LOCAL,
+                    inferenceActive = isLocalInferenceRunning,
+                ),
+            )
+        }
+    }
+    DisposableEffect(effectiveChatId) {
+        onDispose {
+            GpuIdlePrewarmCancellationSignal.cancel(reason = "navigation")
+        }
     }
     LaunchedEffect(selectedInferenceTarget, effectiveChatId, isLocalInferenceRunning) {
         if (isLocalInferenceRunning) return@LaunchedEffect
