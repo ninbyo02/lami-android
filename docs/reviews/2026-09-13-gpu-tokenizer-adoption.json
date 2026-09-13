@@ -1,0 +1,352 @@
+{
+  "date": "2026-09-13",
+  "implementation_commit": "0df3aefa",
+  "device_build_commit": "0929939b",
+  "unit_tests": {
+    "debug": 1829,
+    "release": 1292,
+    "failures": 0
+  },
+  "lint": [
+    "standardDebug",
+    "standardRelease"
+  ],
+  "sequences": {
+    "gpu": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [
+        {
+          "case": "greeting",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 5,
+          "token_count_mode": "sentencepiece_tokenizer_recount",
+          "generation_ms": 7178,
+          "recount_ms": "260",
+          "provider": "standalone_sentencepiece",
+          "cache_hit": "false",
+          "fallback_reason": "unavailable"
+        },
+        {
+          "case": "long",
+          "status": "COMPLETED",
+          "input_tokens": 16,
+          "output_tokens": 455,
+          "token_count_mode": "sentencepiece_tokenizer_recount",
+          "generation_ms": 19891,
+          "recount_ms": "216",
+          "provider": "standalone_sentencepiece",
+          "cache_hit": "false",
+          "fallback_reason": "unavailable"
+        },
+        {
+          "case": "short",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 1,
+          "token_count_mode": "sentencepiece_tokenizer_recount",
+          "generation_ms": 2079,
+          "recount_ms": "251",
+          "provider": "standalone_sentencepiece",
+          "cache_hit": "false",
+          "fallback_reason": "unavailable"
+        },
+        {
+          "case": "cancel",
+          "status": "CANCELLED",
+          "input_tokens": null,
+          "output_tokens": null,
+          "token_count_mode": null,
+          "generation_ms": null,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "resend",
+          "status": "COMPLETED",
+          "input_tokens": 10,
+          "output_tokens": 2,
+          "token_count_mode": "sentencepiece_tokenizer_recount",
+          "generation_ms": 2141,
+          "recount_ms": "203",
+          "provider": "standalone_sentencepiece",
+          "cache_hit": "false",
+          "fallback_reason": "unavailable"
+        },
+        {
+          "case": "cached-short",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 1,
+          "token_count_mode": "sentencepiece_tokenizer_recount",
+          "generation_ms": 2049,
+          "recount_ms": "1",
+          "provider": "standalone_sentencepiece",
+          "cache_hit": "true",
+          "fallback_reason": "unavailable"
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      }
+    },
+    "npu": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [
+        {
+          "case": "greeting",
+          "status": "COMPLETED",
+          "input_tokens": null,
+          "output_tokens": 11,
+          "token_count_mode": "estimated_code_points",
+          "generation_ms": 588,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "long",
+          "status": "COMPLETED",
+          "input_tokens": null,
+          "output_tokens": 751,
+          "token_count_mode": "estimated_code_points",
+          "generation_ms": 11382,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "short",
+          "status": "COMPLETED",
+          "input_tokens": null,
+          "output_tokens": 1,
+          "token_count_mode": "estimated_code_points",
+          "generation_ms": 91,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "cancel",
+          "status": "CANCELLED",
+          "input_tokens": null,
+          "output_tokens": null,
+          "token_count_mode": null,
+          "generation_ms": null,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "resend",
+          "status": "COMPLETED",
+          "input_tokens": null,
+          "output_tokens": 9,
+          "token_count_mode": "estimated_code_points",
+          "generation_ms": 141,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      }
+    },
+    "overlap": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [],
+      "confirmed_overlap": false,
+      "first_count_finished_elapsed_ms": 2419409826,
+      "second_send_after_elapsed_ms": 2419410050
+    },
+    "fallback-repeat": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [
+        {
+          "case": "greeting",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 5,
+          "token_count_mode": "mediapipe_tokenizer_recount",
+          "generation_ms": 5494,
+          "recount_ms": "1197",
+          "provider": "mediapipe",
+          "cache_hit": "false",
+          "fallback_reason": "forced-fallback"
+        },
+        {
+          "case": "long",
+          "status": "COMPLETED",
+          "input_tokens": 16,
+          "output_tokens": 455,
+          "token_count_mode": "mediapipe_tokenizer_recount",
+          "generation_ms": 18880,
+          "recount_ms": "1846",
+          "provider": "mediapipe",
+          "cache_hit": "false",
+          "fallback_reason": "forced-fallback"
+        },
+        {
+          "case": "short",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 1,
+          "token_count_mode": "mediapipe_tokenizer_recount",
+          "generation_ms": 1412,
+          "recount_ms": "1626",
+          "provider": "mediapipe",
+          "cache_hit": "false",
+          "fallback_reason": "forced-fallback"
+        },
+        {
+          "case": "cancel",
+          "status": "CANCELLED",
+          "input_tokens": null,
+          "output_tokens": null,
+          "token_count_mode": null,
+          "generation_ms": null,
+          "recount_ms": null,
+          "provider": null,
+          "cache_hit": null,
+          "fallback_reason": null
+        },
+        {
+          "case": "resend",
+          "status": "COMPLETED",
+          "input_tokens": 10,
+          "output_tokens": 2,
+          "token_count_mode": "mediapipe_tokenizer_recount",
+          "generation_ms": 1959,
+          "recount_ms": "1563",
+          "provider": "mediapipe",
+          "cache_hit": "false",
+          "fallback_reason": "forced-fallback"
+        },
+        {
+          "case": "cached-short",
+          "status": "COMPLETED",
+          "input_tokens": 11,
+          "output_tokens": 1,
+          "token_count_mode": "mediapipe_tokenizer_recount",
+          "generation_ms": 2110,
+          "recount_ms": "2",
+          "provider": "mediapipe",
+          "cache_hit": "true",
+          "fallback_reason": "unavailable"
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      }
+    },
+    "fallback-overlap": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [],
+      "confirmed_overlap": true,
+      "first_count_finished_elapsed_ms": 2419821179,
+      "second_send_after_elapsed_ms": 2419820230
+    },
+    "count-cancel": {
+      "completed": true,
+      "preferences_restored": true,
+      "ime_restored": true,
+      "timeout_restored": true,
+      "steps": [],
+      "count_update_cancelled": true,
+      "navigation_elapsed_ms": 2419848660
+    }
+  },
+  "packaging": {
+    "candidate": {
+      "sha256": "a8d59fc7b1054dc6861ee9f2017a0d78557fb8ceb873b344b362572ffa8f2ad2",
+      "tokenizer_library": true,
+      "license": true
+    },
+    "fallback": {
+      "sha256": "19c560d187f04e3af47e7854e19a4d65257063beea3e1cc699d7206134d12fd8",
+      "tokenizer_library": true,
+      "license": true
+    },
+    "disabled": {
+      "sha256": "59f680fbc7614baf4455c1308df6fb3cde80b9256efe5e57179f5bb94c923686",
+      "tokenizer_library": false,
+      "license": false
+    },
+    "app-standard-release-unsigned.apk": {
+      "sha256": "07d90a741829202ed84e1f5fad12c0a7ab8a79f4a39e7838b5e07977c8d2304c",
+      "tokenizer_library": false,
+      "license": false
+    }
+  },
+  "native_libraries": {
+    "existing_count": 43,
+    "byte_identical": true,
+    "added": [
+      "lib/arm64-v8a/liblami_tokenizer_only.so"
+    ]
+  },
+  "final_integrity": {
+    "before_rows": 180,
+    "after_rows": 234,
+    "existing_rows_unchanged": true,
+    "preferences_unchanged": true,
+    "integrity_check": "ok",
+    "final_apk_sha256": "4b650fafbfadb5d8f3d0a19d327935d4abce83c48071eaaacb48138496229db7",
+    "final_installed_verified": true,
+    "tokenizer_packaged": true,
+    "log_properties_restored": true,
+    "focus": "mCurrentFocus=Window{39baf0c u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}"
+  },
+  "final_smoke": {
+    "sequence_completed": true,
+    "confirmed_overlap": false,
+    "main_preferences_unchanged": true,
+    "restored_ime": true,
+    "restored_timeout": true,
+    "native_payloads_identical_to_candidate": 44
+  }
+}
