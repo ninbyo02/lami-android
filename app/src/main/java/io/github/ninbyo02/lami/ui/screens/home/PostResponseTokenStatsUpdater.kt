@@ -12,6 +12,7 @@ internal data class LocalTokenRecountRequest(
     val prompt: String,
     val response: String,
     val trace: LocalInferenceTrace,
+    val allowStandaloneGpu: Boolean = false,
 )
 
 /** Uses the caller's UI scope; never owns a generation engine or an independent job. */
@@ -42,6 +43,7 @@ internal class PostResponseTokenStatsUpdater(
                     prompt = prompt,
                     response = response,
                     trace = trace,
+                    allowStandaloneGpu = trace.requestedPreferredBackend == "GPU" && trace.appliedPreferredBackend == "GPU",
                 ),
             )
             val snapshot = recounted.measuredTokenSnapshot ?: return@launch

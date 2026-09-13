@@ -1225,6 +1225,7 @@ fun Home(
                     prompt = request.prompt,
                     response = request.response,
                     trace = request.trace,
+                    allowStandaloneGpu = request.allowStandaloneGpu,
                 )
             },
             onStatsUpdated = { id, stats -> immediateInferenceStatsByMessageId[id] = stats },

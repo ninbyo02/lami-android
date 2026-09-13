@@ -39,3 +39,7 @@ internal suspend fun recordStandaloneTokenCountComparison(
         "candidate_input=${result.counts?.input} candidate_output=${result.counts?.output} " +
         "load_ns=${result.counts?.loadNs} count_ns=${result.counts?.countNs} elapsed_ns=${System.nanoTime() - started}")
 }
+
+private val standaloneGpuCounter = StandaloneGpuTokenCounter(count = StandaloneSentencePieceJni::count)
+internal fun tryStandaloneGpuTokenCount(modelPath: String?, input: String, output: String): StandaloneGpuCountAttempt =
+    standaloneGpuCounter.attempt(BuildConfig.TOKENIZER_ONLY_GPU_ENABLED, BuildConfig.TOKENIZER_ONLY_FORCE_FALLBACK, modelPath, input, output)

@@ -64,6 +64,9 @@ val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
 val tokenizerOnlyDiagnostic = providers.gradleProperty("lami.tokenizerOnlyDiagnostic")
     .map { it.toBooleanStrict() }.orElse(false)
 val tokenizerOnlyArtifactDir = providers.gradleProperty("lami.tokenizerOnlyArtifactDir")
+val tokenizerOnlyGpuEnabled = providers.gradleProperty("lami.tokenizerOnlyGpuEnabled").map { it.toBooleanStrict() }.orElse(true)
+val tokenizerOnlyForceFallback = providers.gradleProperty("lami.tokenizerOnlyForceFallback").map { it.toBooleanStrict() }.orElse(false)
+val tokenizerOnlyPackaged = tokenizerOnlyDiagnostic.get() || (tokenizerOnlyGpuEnabled.get() && tokenizerOnlyArtifactDir.isPresent)
 
 val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
     .map { it.toBooleanStrict() }
@@ -401,7 +404,11 @@ androidComponents {
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val tokenizerComparison = flavor == "standard" && variant.buildType == "debug" && tokenizerOnlyDiagnostic.get()
         variant.buildConfigFields?.put("TOKENIZER_ONLY_DIAGNOSTIC", BuildConfigField("boolean", tokenizerComparison.toString(), "Diagnostic comparison only; never replaces counts"))
-        if (tokenizerComparison) {
+        val tokenizerGpu = flavor == "standard" && variant.buildType == "debug" &&
+            !tokenizerComparison && tokenizerOnlyGpuEnabled.get() && tokenizerOnlyArtifactDir.isPresent
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_GPU_ENABLED", BuildConfigField("boolean", tokenizerGpu.toString(), "Validated GPU recount with legacy fallback"))
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_FORCE_FALLBACK", BuildConfigField("boolean", (tokenizerGpu && tokenizerOnlyForceFallback.get()).toString(), "Debug validation only"))
+        if (tokenizerComparison || tokenizerGpu) {
             val artifact = file(tokenizerOnlyArtifactDir.orNull ?: error("Set lami.tokenizerOnlyArtifactDir to the verified tokenizer build output"))
             require(File(artifact, "jniLibs/arm64-v8a/liblami_tokenizer_only.so").isFile) { "Build tokenizer-only JNI first" }
             variant.sources.jniLibs?.addStaticSourceDirectory(File(artifact, "jniLibs").absolutePath)
@@ -1607,7 +1614,7 @@ tasks.matching { it.name == "assembleStandardDebug" }.configureEach {
 }
 
 val verifyTokenizerOnlyDiagnosticArtifact by tasks.registering {
-    onlyIf { tokenizerOnlyDiagnostic.get() }
+    onlyIf { tokenizerOnlyPackaged }
     doLast {
         val artifact = file(tokenizerOnlyArtifactDir.get())
         val manifestFile = File(artifact, "manifest.json")
@@ -1629,8 +1636,8 @@ tasks.matching { it.name == "mergeStandardDebugNativeLibs" || it.name == "mergeS
 // AGP's merged folder tasks must invalidate when this optional external input
 // is enabled/disabled, even when their conventional source-set paths are unchanged.
 tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mergeStandardDebugAssets" }.configureEach {
-    inputs.property("tokenizerOnlyDiagnostic", tokenizerOnlyDiagnostic)
-    if (tokenizerOnlyDiagnostic.get()) {
+    inputs.property("tokenizerOnlyPackaged", tokenizerOnlyPackaged)
+    if (tokenizerOnlyPackaged) {
         val subdirectory = if (name == "mergeStandardDebugAssets") "notices" else "jniLibs"
         inputs.dir(file(tokenizerOnlyArtifactDir.get()).resolve(subdirectory))
     }

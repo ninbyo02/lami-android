@@ -14,7 +14,9 @@ internal fun mergePostTerminalTokenCountDiagnostics(
         "tokenizer_count_delayed_stats_update" to true,
         "stats_token_metrics_final_source" to if (exact) "tokenizer_tokens" else "estimated_tokens",
         "tokenizer_recount_policy" to "post_terminal_no_native_retention",
-        "tokenizer_result_cache_hit" to (snapshot.mediaPipeTokenizerSummary?.contains("result cache hit: true") == true),
+        "tokenizer_result_cache_hit" to (snapshot.recountCacheHit || snapshot.mediaPipeTokenizerSummary?.contains("result cache hit: true") == true),
+        "tokenizer_count_provider" to snapshot.recountProvider,
+        "tokenizer_fallback_reason" to snapshot.recountFallbackReason,
     )
     val retained = sourceSummary.lineSequence().filter { it.substringBefore('=') !in fields }.toList()
     return (retained + fields.map { (key, value) -> "$key=${value ?: "unavailable"}" }).joinToString("\n")

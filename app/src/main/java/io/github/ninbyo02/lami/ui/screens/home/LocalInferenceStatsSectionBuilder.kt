@@ -449,8 +449,7 @@ internal fun buildInferenceDetailSections(
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
     val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
-        (snapshot.tokenCountMode == "tokenizer_recount" ||
-            snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
+        isTokenizerRecountMode(snapshot.tokenCountMode) &&
             snapshot.inputTokens != null &&
             snapshot.outputTokens != null
     } == true
@@ -1850,8 +1849,7 @@ private fun resolvePreferredBackendEngineRecreateDiagnostic(
 
 private fun resolveDevSummaryTokenizerRecountStatus(trace: LocalInferenceTrace?): String {
     val snapshot = trace?.measuredTokenSnapshot ?: return "未取得"
-    val succeeded = (snapshot.tokenCountMode == "tokenizer_recount" ||
-        snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
+    val succeeded = isTokenizerRecountMode(snapshot.tokenCountMode) &&
         snapshot.inputTokens != null &&
         snapshot.outputTokens != null
     return if (succeeded) "成功" else "未取得"

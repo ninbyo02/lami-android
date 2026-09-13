@@ -76,6 +76,28 @@ class PostResponseTokenStatsUpdaterTest {
         assertTrue(store.row!!.localSourceSummary!!.contains("fallback_path=NPU,GPU"))
     }
 
+    @Test fun standaloneEligibilityIsLimitedToExplicitSuccessfulGpu() = runTest {
+        for ((requested, applied) in listOf("GPU" to "GPU", "CPU" to "CPU", "NPU" to "GPU", "GPU" to "CPU", null to null)) {
+            val store = Store(); var eligible: Boolean? = null
+            val updater = PostResponseTokenStatsUpdater(this, PostTerminalAssistantMetadataUpdater(store),
+                recount = { eligible = it.allowStandaloneGpu; counted() }, metadataDispatcher = StandardTestDispatcher(testScheduler),
+                onStatsUpdated = { _, _ -> })
+            updater.submit(LocalInferenceTrace(requestedPreferredBackend = requested, appliedPreferredBackend = applied))
+            advanceUntilIdle()
+            assertEquals(requested == "GPU" && applied == "GPU", eligible)
+        }
+    }
+
+    @Test fun npuFallbackNeverOptsIntoStandaloneEvenWithGpuTrace() = runTest {
+        val store = Store(); var called = false
+        val updater = PostResponseTokenStatsUpdater(this, PostTerminalAssistantMetadataUpdater(store),
+            recount = { assertFalse(it.allowStandaloneGpu); called = true; counted() },
+            metadataDispatcher = StandardTestDispatcher(testScheduler), onStatsUpdated = { _, _ -> })
+        updater.scheduleNpuFallbackTokenizerStatsUpdate(1, 2, "answer", "question", "answer", "GPU",
+            LocalInferenceTrace(requestedPreferredBackend = "GPU", appliedPreferredBackend = "GPU"), "model")
+        advanceUntilIdle(); assertTrue(called)
+    }
+
     @Test fun completeMeasuredCountsDoNotScheduleAnotherCounter() = runTest {
         val store = Store()
         val updater = PostResponseTokenStatsUpdater(this, PostTerminalAssistantMetadataUpdater(store),

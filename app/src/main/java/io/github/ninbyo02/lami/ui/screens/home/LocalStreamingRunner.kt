@@ -4227,6 +4227,7 @@ private fun mergeTokenizerRecountSnapshot(
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
     deferMediaPipeRecount: Boolean = true,
+    allowStandaloneGpu: Boolean = false,
 ): LocalInferenceMeasuredTokenSnapshot? {
     val sanitizedPrompt = promptText
     val sanitizedResponse = fullResponseText.orEmpty()
@@ -4240,6 +4241,7 @@ private fun mergeTokenizerRecountSnapshot(
         timing = timing,
         appendTrace = appendTrace,
         deferMediaPipeRecount = deferMediaPipeRecount,
+        allowStandaloneGpu = allowStandaloneGpu,
     ) ?: return base
     return if (base == null) {
         tokenizerSnapshot
@@ -4247,6 +4249,9 @@ private fun mergeTokenizerRecountSnapshot(
         base.copy(
             deferredTokenizerInput = tokenizerSnapshot.deferredTokenizerInput,
             tokenizerRecountStatus = tokenizerSnapshot.tokenizerRecountStatus,
+            recountProvider = tokenizerSnapshot.recountProvider,
+            recountFallbackReason = tokenizerSnapshot.recountFallbackReason,
+            recountCacheHit = tokenizerSnapshot.recountCacheHit,
             inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
             totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
@@ -4286,6 +4291,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
     deferMediaPipeRecount: Boolean = true,
+    allowStandaloneGpu: Boolean = false,
 ): LocalInferenceMeasuredTokenSnapshot? {
     return runCatching {
         if (BuildConfig.DEBUG && promptText.isBlank()) {
@@ -4317,6 +4323,26 @@ private fun readTokenizerRecountSnapshotFromConversation(
         }
 
         val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
+        val legacyCacheHit = exactCountKey(mediaPipeProbeModelPath, promptText, fullResponseText)
+            ?.let { mediaPipeExactCountCache.get(it) } != null
+        val standaloneAttempt = if (allowStandaloneGpu && !legacyCacheHit) {
+            tryStandaloneGpuTokenCount(mediaPipeProbeModelPath, promptText, fullResponseText)
+        } else StandaloneGpuCountAttempt(status = if (legacyCacheHit) "legacy-cache" else "route-ineligible")
+        standaloneAttempt.counts?.let { counts ->
+            val finished = SystemClock.elapsedRealtime()
+            return LocalInferenceMeasuredTokenSnapshot(
+                inputTokens = counts.input, outputTokens = counts.output, totalTokens = counts.input + counts.output,
+                tokenizerRecountStatus = "success(standalone-sentencepiece)",
+                recountProvider = "standalone_sentencepiece", recountCacheHit = standaloneAttempt.cacheHit,
+                mediaPipeTokenizerStatus = "not-attempted(standalone-sentencepiece)",
+                tokenCountMode = STANDALONE_TOKEN_COUNT_MODE,
+                tokensPerSecond = decodeDurationMs?.takeIf { it > 0 }?.let { counts.output / (it / 1000.0) },
+                charsPerSecond = charsPerSecond, ttftMs = ttftMs, decodeDurationMs = decodeDurationMs,
+                totalDurationMs = totalDurationMs, tokenizerCountStartedAtElapsedMs = tokenizerCountStartedAtElapsedMs,
+                tokenizerCountFinishedAtElapsedMs = finished,
+                tokenizerCountDurationMs = (finished - tokenizerCountStartedAtElapsedMs).coerceAtLeast(0L),
+            )
+        }
         val tokenizerRecountOutcome = if (conversation is Conversation) {
             tryReadTokenizerRecountViaReflection(
                 conversation = conversation,
@@ -4376,6 +4402,9 @@ private fun readTokenizerRecountSnapshotFromConversation(
             outputTokens = outputTokenCount,
             totalTokens = totalTokenCount,
             tokenizerRecountStatus = tokenizerRecountOutcome.status,
+            recountProvider = if (mediaPipeProbeOutcome.succeeded) "mediapipe" else null,
+            recountFallbackReason = standaloneAttempt.status.takeUnless { it in setOf("route-ineligible", "legacy-cache", "disabled") },
+            recountCacheHit = legacyCacheHit,
             tokenizerSourceTraceSummary = tokenizerRecountOutcome.sourceTraceSummary,
             mediaPipeTokenizerStatus = mediaPipeProbeOutcome.status,
             mediaPipeTokenizerSummary = mediaPipeProbeOutcome.summary,
@@ -4394,6 +4423,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
             tokenizerCountDurationMs = tokenizerCountDurationMs,
         )
     }.onFailure { throwable ->
+        if (throwable is java.util.concurrent.CancellationException) throw throwable
         safeAppendTrace(
             appendTrace,
             "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
@@ -4407,6 +4437,7 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
     prompt: String,
     response: String,
     trace: LocalInferenceTrace,
+    allowStandaloneGpu: Boolean = false,
 ): LocalInferenceTrace = localTokenRecountCoordinator.execute(fallback = trace) {
     val startedAtMs = trace.localTraceStartElapsedRealtimeMs
         ?: return@execute trace
@@ -4417,6 +4448,7 @@ internal suspend fun recountLocalInferenceTokensAfterCompletion(
     val recountedSnapshot = mergeTokenizerRecountSnapshot(
         base = existingSnapshot,
         deferMediaPipeRecount = false,
+        allowStandaloneGpu = allowStandaloneGpu,
         conversation = null,
         tokenizerSessionSource = null,
         mediaPipeProbeModelPath = modelPath ?: trace.mediaPipeProbeModelPath,
