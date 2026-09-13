@@ -61,6 +61,10 @@ val standardGpuOpenClEnabled = providers.gradleProperty("lami.standardGpuOpenClE
 val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
     !providers.gradleProperty("lami.allowMissingQairt244Jni").map { it.toBooleanStrict() }.orElse(false).get()
 
+val tokenizerOnlyDiagnostic = providers.gradleProperty("lami.tokenizerOnlyDiagnostic")
+    .map { it.toBooleanStrict() }.orElse(false)
+val tokenizerOnlyArtifactDir = providers.gradleProperty("lami.tokenizerOnlyArtifactDir")
+
 val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
     .map { it.toBooleanStrict() }
     .orElse(false)
@@ -395,6 +399,16 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val tokenizerComparison = flavor == "standard" && variant.buildType == "debug" && tokenizerOnlyDiagnostic.get()
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_DIAGNOSTIC", BuildConfigField("boolean", tokenizerComparison.toString(), "Diagnostic comparison only; never replaces counts"))
+        if (tokenizerComparison) {
+            val artifact = file(tokenizerOnlyArtifactDir.orNull ?: error("Set lami.tokenizerOnlyArtifactDir to the verified tokenizer build output"))
+            require(File(artifact, "jniLibs/arm64-v8a/liblami_tokenizer_only.so").isFile) { "Build tokenizer-only JNI first" }
+            variant.sources.jniLibs?.addStaticSourceDirectory(File(artifact, "jniLibs").absolutePath)
+            variant.sources.assets?.addStaticSourceDirectory(File(artifact, "notices").absolutePath)
+        } else {
+            variant.packaging.jniLibs.excludes.add("**/liblami_tokenizer_only.so")
+        }
         val combinedGpuRuntime = flavor == "standard" && standardGpuOpenClEnabled.get() &&
             (if (variant.buildType == "debug") standardGpuOpenClDebugEnabled else standardNpuRuntimeEnabled.get())
         variant.buildConfigFields?.put("STANDARD_GPU_OPENCL_RUNTIME", BuildConfigField("boolean", combinedGpuRuntime.toString(), "Pinned combined GPU/NPU runtime"))
@@ -1590,4 +1604,34 @@ tasks.register("verifyStandardGpuOpenClApk") {
 }
 tasks.matching { it.name == "assembleStandardDebug" }.configureEach {
     dependsOn("verifyStandardGpuOpenClApk")
+}
+
+val verifyTokenizerOnlyDiagnosticArtifact by tasks.registering {
+    onlyIf { tokenizerOnlyDiagnostic.get() }
+    doLast {
+        val artifact = file(tokenizerOnlyArtifactDir.get())
+        val manifestFile = File(artifact, "manifest.json")
+        val manifest = groovy.json.JsonSlurper().parse(manifestFile) as Map<*, *>
+        require(manifest["sentencepiece_commit"] == "31646a467d2051eb904e0b45de3a73e91fe1c1e3")
+        require(manifest["abi"] == "arm64-v8a")
+        val files = File(artifact, "jniLibs").walkTopDown().filter { it.isFile }.map { it.relativeTo(File(artifact, "jniLibs")).invariantSeparatorsPath }.toSet()
+        require(files == setOf("arm64-v8a/liblami_tokenizer_only.so")) { "Tokenizer artifact must contain only its own library" }
+        val library = File(artifact, "jniLibs/arm64-v8a/liblami_tokenizer_only.so")
+        val actual = MessageDigest.getInstance("SHA-256").digest(library.readBytes()).joinToString("") { "%02x".format(it) }
+        require(manifest["sha256"] == actual) { "Tokenizer JNI checksum mismatch" }
+        require(File(artifact, "notices/tokenizer_only/LICENSE").isFile) { "Tokenizer license missing" }
+    }
+}
+tasks.matching { it.name == "mergeStandardDebugNativeLibs" || it.name == "mergeStandardDebugAssets" }.configureEach {
+    dependsOn(verifyTokenizerOnlyDiagnosticArtifact)
+}
+
+// AGP's merged folder tasks must invalidate when this optional external input
+// is enabled/disabled, even when their conventional source-set paths are unchanged.
+tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mergeStandardDebugAssets" }.configureEach {
+    inputs.property("tokenizerOnlyDiagnostic", tokenizerOnlyDiagnostic)
+    if (tokenizerOnlyDiagnostic.get()) {
+        val subdirectory = if (name == "mergeStandardDebugAssets") "notices" else "jniLibs"
+        inputs.dir(file(tokenizerOnlyArtifactDir.get()).resolve(subdirectory))
+    }
 }
