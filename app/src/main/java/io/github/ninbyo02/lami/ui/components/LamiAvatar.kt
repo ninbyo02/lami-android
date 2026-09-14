@@ -259,16 +259,20 @@ fun LamiAvatar(
         LamiStatusSprite(
             status = avatarStatusState,
             lamiState = lamiState,
-            sizeDp = avatarSize.dp,
             modifier = Modifier
                 .offset(x = adjustedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 0.dp,
-            animationsEnabled = animationsEnabled,
-            replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled,
-            debugOverlayEnabled = debugOverlayEnabled,
+            layout = LamiStatusSpriteLayout(
+                sizeDp = avatarSize.dp,
+                contentOffsetDp = 0.dp,
+            ),
+            options = LamiStatusSpriteOptions(
+                animationsEnabled = animationsEnabled,
+                replacementEnabled = replacementEnabled,
+                blinkEffectEnabled = blinkEffectEnabled,
+                debugOverlayEnabled = debugOverlayEnabled,
+            ),
             syncEpochMs = syncEpochMs,
         )
         if (debugEnabled && debugOverlayEnabled) {
