@@ -446,6 +446,19 @@ private data class InsertionPreviewValues(
     val pattern2WeightText: String,
 )
 
+private data class ReadyAnimationPreviewModel(
+    val imageBitmap: ImageBitmap?,
+    val spriteSheetConfig: SpriteSheetConfig,
+    val baseSummary: AnimationSummary,
+    val insertionSummary: AnimationSummary,
+    val insertionPreviewValues: InsertionPreviewValues,
+    val insertionEnabled: Boolean,
+    val insertionPatterns: List<InsertionPattern>,
+    val insertionDefaultIntervalMs: Int,
+    val shouldShowDefaultInterval: Boolean,
+    val insertionDefaults: InsertionAnimationSettings,
+)
+
 internal data class DevPreviewSettings(
     val cardMaxHeightDp: Int,
     val innerBottomDp: Int,
@@ -4963,21 +4976,21 @@ private fun ReadyAnimationTab(
             color = MaterialTheme.colorScheme.background
         ) {
             ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseState.summary,
-                insertionSummary = insertionState.summary,
-                insertionPreviewValues = insertionState.previewValues,
-                insertionEnabled = insertionState.enabled,
-                insertionPatterns = insertionState.patterns,
-                insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
-                shouldShowDefaultInterval = insertionState.shouldShowDefaultInterval,
-                insertionDefaults = insertionState.defaults,
+                model = ReadyAnimationPreviewModel(
+                    imageBitmap = imageBitmap,
+                    spriteSheetConfig = spriteSheetConfig,
+                    baseSummary = baseState.summary,
+                    insertionSummary = insertionState.summary,
+                    insertionPreviewValues = insertionState.previewValues,
+                    insertionEnabled = insertionState.enabled,
+                    insertionPatterns = insertionState.patterns,
+                    insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
+                    shouldShowDefaultInterval = insertionState.shouldShowDefaultInterval,
+                    insertionDefaults = insertionState.defaults,
+                ),
+                previewUiState = readyPreviewUiState,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                previewUiState = readyPreviewUiState,
-                selectedAnimation = selectedAnimation,
-                resolvedErrorKey = resolvedErrorKey,
             )
         }
     }
@@ -5965,23 +5978,22 @@ private fun ReadyAnimationInfo(
 
 @Composable
 private fun ReadyAnimationPreviewPane(
-    imageBitmap: ImageBitmap?,
-    spriteSheetConfig: SpriteSheetConfig,
-    baseSummary: AnimationSummary,
-    insertionSummary: AnimationSummary,
-    insertionPreviewValues: InsertionPreviewValues,
-    insertionEnabled: Boolean,
-    insertionPatterns: List<InsertionPattern>,
-    insertionDefaultIntervalMs: Int,
-    shouldShowDefaultInterval: Boolean,
-    insertionDefaults: InsertionAnimationSettings,
+    model: ReadyAnimationPreviewModel,
+    previewUiState: ReadyPreviewUiState,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
-    previewUiState: ReadyPreviewUiState,
-    selectedAnimation: AnimationType,
-    resolvedErrorKey: String?,
     devMenuContent: (@Composable () -> Unit)? = null,
 ) {
+    val imageBitmap = model.imageBitmap
+    val spriteSheetConfig = model.spriteSheetConfig
+    val baseSummary = model.baseSummary
+    val insertionSummary = model.insertionSummary
+    val insertionPreviewValues = model.insertionPreviewValues
+    val insertionEnabled = model.insertionEnabled
+    val insertionPatterns = model.insertionPatterns
+    val insertionDefaultIntervalMs = model.insertionDefaultIntervalMs
+    val shouldShowDefaultInterval = model.shouldShowDefaultInterval
+    val insertionDefaults = model.insertionDefaults
     Column(modifier = modifier) {
         val outerPaddingColor = if (previewUiState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
