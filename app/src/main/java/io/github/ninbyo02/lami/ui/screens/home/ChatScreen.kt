@@ -14166,33 +14166,37 @@ private fun InferenceStatsSheetContent(
                     onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
                 )
                 NpuS1RepeatedRunDevSection(
-                    state = npuS1RepeatedRunState,
-                    preferredBackendSetting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    selectedMode = npuS1RepeatedRunMode,
-                    selectedPrompt = npuS1RepeatedRunPrompt,
-                    selectedRunCount = npuS1RepeatedRunCount,
-                    selectedWaitMs = npuS1RepeatedRunWaitMs,
-                    running = npuS1RepeatedRunInProgress,
-                    blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    onModeChange = onNpuS1RepeatedRunModeChange,
-                    onPromptChange = onNpuS1RepeatedRunPromptChange,
-                    onRunCountChange = onNpuS1RepeatedRunCountChange,
-                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
-                    onStart = onNpuS1RepeatedRunStart,
-                    onCancel = onNpuS1RepeatedRunCancel,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
-                            "Copy Stability Summary",
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
-                            "Copy Stability Full Dump",
-                        )
-                    },
+                    ui = NpuS1RepeatedRunUi(
+                        state = npuS1RepeatedRunState,
+                        preferredBackendSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = npuStandardRouteMode,
+                        selectedMode = npuS1RepeatedRunMode,
+                        selectedPrompt = npuS1RepeatedRunPrompt,
+                        selectedRunCount = npuS1RepeatedRunCount,
+                        selectedWaitMs = npuS1RepeatedRunWaitMs,
+                        running = npuS1RepeatedRunInProgress,
+                        blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    ),
+                    actions = NpuS1RepeatedRunActions(
+                        onModeChange = onNpuS1RepeatedRunModeChange,
+                        onPromptChange = onNpuS1RepeatedRunPromptChange,
+                        onRunCountChange = onNpuS1RepeatedRunCountChange,
+                        onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                        onStart = onNpuS1RepeatedRunStart,
+                        onCancel = onNpuS1RepeatedRunCancel,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
+                                "Copy Stability Summary",
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
+                                "Copy Stability Full Dump",
+                            )
+                        },
+                    ),
                 )
                 NpuNonStreamingRepeatedStabilityDevSection(
                     state = npuNonStreamingRepeatedStabilityState,
@@ -14716,23 +14720,27 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuS1RepeatedRunCancel != null
             ) {
                 NpuS1RepeatedRunDevSection(
-                    state = npuS1RepeatedRunState,
-                    preferredBackendSetting = preferredBackendSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    selectedMode = npuS1RepeatedRunMode,
-                    selectedPrompt = npuS1RepeatedRunPrompt,
-                    selectedRunCount = npuS1RepeatedRunCount,
-                    selectedWaitMs = npuS1RepeatedRunWaitMs,
-                    running = npuS1RepeatedRunInProgress,
-                    blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    onModeChange = onNpuS1RepeatedRunModeChange,
-                    onPromptChange = onNpuS1RepeatedRunPromptChange,
-                    onRunCountChange = onNpuS1RepeatedRunCountChange,
-                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
-                    onStart = onNpuS1RepeatedRunStart,
-                    onCancel = onNpuS1RepeatedRunCancel,
-                    onCopySummary = onCopyStabilitySummary,
-                    onCopyFullDump = onCopyStabilityFullDump,
+                    ui = NpuS1RepeatedRunUi(
+                        state = npuS1RepeatedRunState,
+                        preferredBackendSetting = preferredBackendSetting,
+                        npuStandardRouteMode = npuStandardRouteMode,
+                        selectedMode = npuS1RepeatedRunMode,
+                        selectedPrompt = npuS1RepeatedRunPrompt,
+                        selectedRunCount = npuS1RepeatedRunCount,
+                        selectedWaitMs = npuS1RepeatedRunWaitMs,
+                        running = npuS1RepeatedRunInProgress,
+                        blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    ),
+                    actions = NpuS1RepeatedRunActions(
+                        onModeChange = onNpuS1RepeatedRunModeChange,
+                        onPromptChange = onNpuS1RepeatedRunPromptChange,
+                        onRunCountChange = onNpuS1RepeatedRunCountChange,
+                        onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                        onStart = onNpuS1RepeatedRunStart,
+                        onCancel = onNpuS1RepeatedRunCancel,
+                        onCopySummary = onCopyStabilitySummary,
+                        onCopyFullDump = onCopyStabilityFullDump,
+                    ),
                 )
             }
             if (
