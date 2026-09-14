@@ -4092,30 +4092,36 @@ fun Home(
                         }
                     ) {
                         HeaderAvatar(
-                            baseUrl = baseUrl,
-                            selectedModel = selectedModel,
-                            lastError = errorMessage,
-                            lamiStatus = effectiveLamiStatusForChatUi,
-                            lamiState = effectiveLamiHeaderStateForChatUi,
-                            availableModels = availableModels,
-                            initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
-                            minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                            maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                            onSelectModel = { modelName ->
-                                viewModel.onUserInteraction()
-                                viewModel.updateSelectedModel(modelName)
-                            },
-                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                            selectedInferenceTarget = selectedInferenceTarget,
-                            onSelectInferenceTarget = { target ->
-                                selectedInferenceTarget = target
-                                coroutineScope.launch {
-                                    settingsPreferences.saveInferenceTarget(target)
-                                }
-                            },
-                            localInferenceEngineState = localInferenceEngineState,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
+                            state = LamiHeaderStatusState(
+                                baseUrl = baseUrl,
+                                selectedModel = selectedModel,
+                                lastError = errorMessage,
+                                lamiStatus = effectiveLamiStatusForChatUi,
+                                lamiState = effectiveLamiHeaderStateForChatUi,
+                                availableModels = availableModels,
+                                selectedInferenceTarget = selectedInferenceTarget,
+                                localInferenceEngineState = localInferenceEngineState,
+                                debugOverlayEnabled = false,
+                                syncEpochMs = animationEpochMs,
+                            ),
+                            actions = LamiHeaderStatusActions(
+                                onSelectModel = { modelName ->
+                                    viewModel.onUserInteraction()
+                                    viewModel.updateSelectedModel(modelName)
+                                },
+                                onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                                onSelectInferenceTarget = { target ->
+                                    selectedInferenceTarget = target
+                                    coroutineScope.launch {
+                                        settingsPreferences.saveInferenceTarget(target)
+                                    }
+                                },
+                            ),
+                            avatarPresentation = LamiHeaderAvatarPresentation(
+                                initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
+                                minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                                maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            ),
                             openControlRequestKey = openLamiControlRequestKey,
                         )
                     }

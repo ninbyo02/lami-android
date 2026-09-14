@@ -77,19 +77,23 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                             modifier = Modifier.padding(bottom = 4.dp)
                         ) {
                             HeaderAvatar(
-                                baseUrl = baseUrl,
-                                selectedModel = selectedModel,
-                                lastError = lastError,
-                                lamiStatus = lamiStatusState.value,
-                                lamiState = lamiUiState.state,
-                                availableModels = availableModels,
-                                onSelectModel = { modelName ->
-                                    viewModel.onUserInteraction()
-                                    viewModel.updateSelectedModel(modelName)
-                                },
-                                onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                                debugOverlayEnabled = false,
-                                syncEpochMs = animationEpochMs,
+                                state = LamiHeaderStatusState(
+                                    baseUrl = baseUrl,
+                                    selectedModel = selectedModel,
+                                    lastError = lastError,
+                                    lamiStatus = lamiStatusState.value,
+                                    lamiState = lamiUiState.state,
+                                    availableModels = availableModels,
+                                    debugOverlayEnabled = false,
+                                    syncEpochMs = animationEpochMs,
+                                ),
+                                actions = LamiHeaderStatusActions(
+                                    onSelectModel = { modelName ->
+                                        viewModel.onUserInteraction()
+                                        viewModel.updateSelectedModel(modelName)
+                                    },
+                                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                                ),
                                 openControlRequestKey = openLamiControlRequestKey,
                             )
                             // ヘッダー内の最小間隔だけ確保して左余白を増やさない
