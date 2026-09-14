@@ -44,6 +44,18 @@ class OpenAiCompatibleProtocolTest {
     }
 
     @Test
+    fun `parses Lemonade effective context length from models response`() {
+        val models = parseOpenAiCompatibleModels(
+            """{"data":[{"id":"Qwen3.8-27B-MTP","context_length":16384,"max_context_window":262144}]}""",
+        )
+
+        assertEquals(
+            listOf(ModelInfo(name = "Qwen3.8-27B-MTP", contextWindow = 16_384)),
+            models,
+        )
+    }
+
+    @Test
     fun `parses OpenAI compatible streaming content delta`() {
         val chunk = requireNotNull(parseOpenAiCompatibleStreamingLine(
             "data: {\"choices\":[{\"delta\":{\"content\":\"こんにちは\"},\"finish_reason\":null}]}"
@@ -295,6 +307,29 @@ class OpenAiCompatibleProtocolTest {
     }
 
     @Test
+    fun `remote output budget preserves prior name turn when context lookup falls back`() {
+        val history = listOf(
+            Message(chatId = 12, message = "私は佐藤です。", isSendbyMe = true),
+            Message(chatId = 12, message = "佐藤様、こんにちは。", isSendbyMe = false),
+        )
+        val budget = resolveRemoteChatTokenBudget(
+            contextWindow = null,
+            currentContent = "私の名前は",
+            history = history,
+        )
+        val messages = buildRemoteChatMessages(
+            history = history,
+            currentContent = "私の名前は",
+            inputTokenBudget = budget.inputTokenBudget,
+        )
+
+        assertEquals(8_192, budget.contextWindow)
+        assertTrue(budget.effectiveOutputTokens < 8_100)
+        assertEquals(listOf("user", "assistant", "user"), messages.map { it.role })
+        assertEquals(listOf("私は佐藤です。", "佐藤様、こんにちは。", "私の名前は"), messages.map { it.content })
+    }
+
+    @Test
     fun `remote output budget clamps to context after current input and safety reserve`() {
         val budget = resolveRemoteChatTokenBudget(
             contextWindow = 4_096,
@@ -313,6 +348,27 @@ class OpenAiCompatibleProtocolTest {
             contextWindow = 80,
             currentContent = "x".repeat(100),
         )
+    }
+
+    @Test
+    fun `remote chat default limit retains exactly newest 24 history messages`() {
+        val history = (1..13).flatMap { index ->
+            listOf(
+                Message(chatId = 13, message = "user-$index", isSendbyMe = true),
+                Message(chatId = 13, message = "assistant-$index", isSendbyMe = false),
+            )
+        }
+
+        val messages = buildRemoteChatMessages(
+            history = history,
+            currentContent = "current",
+            inputTokenBudget = 100_000,
+        )
+
+        assertEquals(25, messages.size)
+        assertEquals("user-2", messages.first().content)
+        assertEquals("assistant-13", messages[messages.lastIndex - 1].content)
+        assertEquals("current", messages.last().content)
     }
 
     @Test

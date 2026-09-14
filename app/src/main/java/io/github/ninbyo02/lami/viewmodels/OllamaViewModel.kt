@@ -65,7 +65,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
-data class ModelInfo(val name: String)
+data class ModelInfo(
+    val name: String,
+    val contextWindow: Int? = null,
+)
 
 data class RemoteModelsResult(
     val models: List<ModelInfo>,
@@ -328,6 +331,7 @@ internal const val REMOTE_CHAT_DEFAULT_MAX_OUTPUT_TOKENS = 8_192
 private const val REMOTE_CHAT_MESSAGE_OVERHEAD_TOKENS = 4
 private const val REMOTE_CHAT_REQUEST_OVERHEAD_TOKENS = 16
 private const val REMOTE_CHAT_CONTEXT_SAFETY_TOKENS = 64
+private const val REMOTE_CHAT_MIN_OUTPUT_TOKENS = 512
 private const val REMOTE_CHAT_IMAGE_RESERVE_TOKENS = 1_024
 
 internal data class RemoteChatTokenBudget(
@@ -351,11 +355,30 @@ private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
     return estimatedTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
 
+private fun eligibleRemoteChatHistory(
+    history: List<Message>,
+    historyLimit: Int,
+): List<OllamaChatMessage> = history.asSequence()
+    .filter { message ->
+        message.message.isNotBlank() &&
+            (message.isSendbyMe || message.status == MessageStatus.COMPLETED)
+    }
+    .map { message ->
+        OllamaChatMessage(
+            role = if (message.isSendbyMe) "user" else "assistant",
+            content = message.message,
+        )
+    }
+    .toList()
+    .takeLast(historyLimit.coerceAtLeast(0))
+
 internal fun resolveRemoteChatTokenBudget(
     contextWindow: Int?,
     currentContent: String,
     currentImageCount: Int = 0,
     requestedOutputTokens: Int = REMOTE_CHAT_DEFAULT_MAX_OUTPUT_TOKENS,
+    history: List<Message> = emptyList(),
+    historyLimit: Int = REMOTE_CHAT_HISTORY_MESSAGE_LIMIT,
 ): RemoteChatTokenBudget {
     require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
     val effectiveContextWindow = contextWindow
@@ -374,7 +397,20 @@ internal fun resolveRemoteChatTokenBudget(
     require(availableForOutput >= 1L) {
         "Current remote chat input exceeds the available context window"
     }
-    val effectiveOutput = min(requested.toLong(), availableForOutput).toInt()
+    val minimumOutput = min(
+        requested.toLong(),
+        min(REMOTE_CHAT_MIN_OUTPUT_TOKENS.toLong(), availableForOutput),
+    )
+    val desiredHistoryTokens = eligibleRemoteChatHistory(history, historyLimit)
+        .sumOf { estimateRemoteChatMessageTokens(it).toLong() }
+    val reservedHistoryTokens = min(
+        desiredHistoryTokens,
+        (availableForOutput - minimumOutput).coerceAtLeast(0L),
+    )
+    val effectiveOutput = min(
+        requested.toLong(),
+        availableForOutput - reservedHistoryTokens,
+    ).coerceAtLeast(1L).toInt()
     val inputBudget = effectiveContextWindow - effectiveOutput - REMOTE_CHAT_CONTEXT_SAFETY_TOKENS
     return RemoteChatTokenBudget(
         contextWindow = effectiveContextWindow,
@@ -393,19 +429,7 @@ internal fun buildRemoteChatMessages(
     historyLimit: Int = REMOTE_CHAT_HISTORY_MESSAGE_LIMIT,
 ): List<OllamaChatMessage> {
     require(currentContent.isNotBlank()) { "Current remote chat message must not be blank" }
-    val eligibleHistory = history.asSequence()
-        .filter { message ->
-            message.message.isNotBlank() &&
-                (message.isSendbyMe || message.status == MessageStatus.COMPLETED)
-        }
-        .map { message ->
-            OllamaChatMessage(
-                role = if (message.isSendbyMe) "user" else "assistant",
-                content = message.message,
-            )
-        }
-        .toList()
-        .takeLast(historyLimit.coerceAtLeast(0))
+    val eligibleHistory = eligibleRemoteChatHistory(history, historyLimit)
 
     val currentMessage = OllamaChatMessage(
         role = "user",
@@ -875,6 +899,7 @@ class OllamaViewModel(
                     contextWindow = effectiveContextWindow,
                     currentContent = effectivePrompt,
                     currentImageCount = encodedImages.size,
+                    history = priorMessages,
                 )
             } catch (error: IllegalArgumentException) {
                 updateErrorState(error.message ?: "Remote prompt exceeds the context window")
@@ -2249,7 +2274,12 @@ class OllamaViewModel(
         if (responseCode !in 200..299) {
             throw IOException("Failed to load model details (HTTP $responseCode): $response")
         }
-        return extractEffectiveContextWindowFromShowResponse(response)
+        extractEffectiveContextWindowFromShowResponse(response)?.let { return it }
+        if (remoteProvider != RemoteProvider.LEMONADE) return null
+
+        return fetchAvailableModelsFromServer(baseUrl, RemoteProvider.LEMONADE)
+            .firstOrNull { it.name == modelName }
+            ?.contextWindow
     }
 
     private enum class ContextWindowResolutionState {

@@ -62,7 +62,9 @@ internal fun parseOpenAiCompatibleModels(response: String): List<ModelInfo> {
         val model = data.getJSONObject(index)
         val id = model.optString("id").takeIf { it.isNotBlank() }
         if (id != null) {
-            models.add(ModelInfo(id))
+            val contextWindow = model.optInt("context_length")
+                .takeIf { it > 0 }
+            models.add(ModelInfo(name = id, contextWindow = contextWindow))
         }
     }
     return models
