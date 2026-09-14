@@ -69,10 +69,12 @@ fun LamiStatusPanel(
             ) {
                 LamiStatusSprite(
                     status = statusState,
-                    sizeDp = spriteSize,
-                    contentOffsetDp = 0.dp,
                     modifier = Modifier
                         .align(Alignment.Center),
+                    layout = LamiStatusSpriteLayout(
+                        sizeDp = spriteSize,
+                        contentOffsetDp = 0.dp,
+                    ),
                 )
                 if (debugEnabled) {
                     Canvas(modifier = Modifier.matchParentSize()) {
