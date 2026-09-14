@@ -39,6 +39,18 @@ internal data class NpuKotlinConversationProductAttempt(
         get() = result?.successCriteriaMet == true
 }
 
+internal const val NPU_ENGINE_CREATE_MAX_ATTEMPTS = 2
+internal const val NPU_ENGINE_CREATE_RETRY_DELAY_MS = 500L
+
+internal fun shouldRetryNpuEngineCreateFailure(
+    attemptNumber: Int,
+    throwable: Throwable,
+): Boolean {
+    if (attemptNumber >= NPU_ENGINE_CREATE_MAX_ATTEMPTS) return false
+    if (throwable.javaClass.simpleName != "LiteRtLmJniException") return false
+    return throwable.message.orEmpty().contains("Failed to create engine", ignoreCase = true)
+}
+
 internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     const val ROUTE_ID = "npu_kotlin_conversation_product_candidate_v1"
     const val NATIVE_PATCH_MARKER = "qairt244_kotlin_npu_conversation_sampler_v1"
@@ -107,22 +119,12 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     closeLocked("model_changed", trace)
                 }
                 if (engine == null) {
-                    val cacheDir = context.applicationContext.cacheDir
-                        .resolve("litertlm_npu_product_candidate")
-                        .apply { mkdirs() }
-                    val startedAt = SystemClock.elapsedRealtime()
-                    engine = Engine(
-                        EngineConfig(
-                            modelPath = modelPath,
-                            backend = Backend.NPU(context.applicationInfo.nativeLibraryDir),
-                            visionBackend = null,
-                            audioBackend = null,
-                            maxNumTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
-                            cacheDir = cacheDir.absolutePath,
-                        ),
-                    ).also { it.initialize() }
+                    engine = createNpuEngineWithBoundedRetry(
+                        context = context,
+                        modelPath = modelPath,
+                        trace = trace,
+                    )
                     engineModelPath = modelPath
-                    trace("$ROUTE_ID engine_created_ms=${SystemClock.elapsedRealtime() - startedAt}")
                 } else {
                     engineReused = true
                     trace("$ROUTE_ID engine_reused=true")
@@ -297,6 +299,51 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         }
     }
 
+    private suspend fun createNpuEngineWithBoundedRetry(
+        context: Context,
+        modelPath: String,
+        trace: (String) -> Unit,
+    ): Engine {
+        val cacheDir = context.applicationContext.cacheDir
+            .resolve("litertlm_npu_product_candidate")
+            .apply { mkdirs() }
+        for (attemptNumber in 1..NPU_ENGINE_CREATE_MAX_ATTEMPTS) {
+            currentCoroutineContext().ensureActive()
+            val startedAt = SystemClock.elapsedRealtime()
+            var candidate: Engine? = null
+            try {
+                candidate = Engine(
+                    EngineConfig(
+                        modelPath = modelPath,
+                        backend = Backend.NPU(context.applicationInfo.nativeLibraryDir),
+                        visionBackend = null,
+                        audioBackend = null,
+                        maxNumTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+                        cacheDir = cacheDir.absolutePath,
+                    ),
+                )
+                candidate.initialize()
+                trace(
+                    "$ROUTE_ID engine_created_ms=${SystemClock.elapsedRealtime() - startedAt} " +
+                        "attempt=$attemptNumber retried=${attemptNumber > 1}",
+                )
+                return candidate
+            } catch (cancelled: CancellationException) {
+                runCatching { candidate?.close() }
+                throw cancelled
+            } catch (throwable: Throwable) {
+                runCatching { candidate?.close() }
+                val retry = shouldRetryNpuEngineCreateFailure(attemptNumber, throwable)
+                trace(
+                    "$ROUTE_ID engine_create_failed=true attempt=$attemptNumber retry=$retry " +
+                        "error=${throwable.javaClass.simpleName}:${throwable.message.orEmpty()}",
+                )
+                if (!retry) throw throwable
+                delay(NPU_ENGINE_CREATE_RETRY_DELAY_MS)
+            }
+        }
+        error("NPU engine create retry loop exhausted")
+    }
 
     private data class NpuConversationGenerationResult(
         val response: String,
