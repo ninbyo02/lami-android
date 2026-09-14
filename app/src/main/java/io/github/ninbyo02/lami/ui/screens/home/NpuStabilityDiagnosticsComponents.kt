@@ -15,27 +15,52 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 
+internal data class NpuS1RepeatedRunUi(
+    val state: NpuS1RepeatedRunState,
+    val preferredBackendSetting: PreferredBackendDryRunSetting,
+    val npuStandardRouteMode: NpuStandardRouteMode,
+    val selectedMode: NpuS1RepeatedRunMode,
+    val selectedPrompt: String,
+    val selectedRunCount: Int,
+    val selectedWaitMs: Long,
+    val running: Boolean,
+    val blockedByGeneration: Boolean,
+)
+
+internal data class NpuS1RepeatedRunActions(
+    val onModeChange: (NpuS1RepeatedRunMode) -> Unit,
+    val onPromptChange: (String) -> Unit,
+    val onRunCountChange: (Int) -> Unit,
+    val onWaitMsChange: (Long) -> Unit,
+    val onStart: () -> Unit,
+    val onCancel: () -> Unit,
+    val onCopySummary: (() -> Unit)? = null,
+    val onCopyFullDump: (() -> Unit)? = null,
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NpuS1RepeatedRunDevSection(
-    state: NpuS1RepeatedRunState,
-    preferredBackendSetting: PreferredBackendDryRunSetting,
-    npuStandardRouteMode: NpuStandardRouteMode,
-    selectedMode: NpuS1RepeatedRunMode,
-    selectedPrompt: String,
-    selectedRunCount: Int,
-    selectedWaitMs: Long,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onModeChange: (NpuS1RepeatedRunMode) -> Unit,
-    onPromptChange: (String) -> Unit,
-    onRunCountChange: (Int) -> Unit,
-    onWaitMsChange: (Long) -> Unit,
-    onStart: () -> Unit,
-    onCancel: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
+    ui: NpuS1RepeatedRunUi,
+    actions: NpuS1RepeatedRunActions,
 ) {
+    val state = ui.state
+    val preferredBackendSetting = ui.preferredBackendSetting
+    val npuStandardRouteMode = ui.npuStandardRouteMode
+    val selectedMode = ui.selectedMode
+    val selectedPrompt = ui.selectedPrompt
+    val selectedRunCount = ui.selectedRunCount
+    val selectedWaitMs = ui.selectedWaitMs
+    val running = ui.running
+    val blockedByGeneration = ui.blockedByGeneration
+    val onModeChange = actions.onModeChange
+    val onPromptChange = actions.onPromptChange
+    val onRunCountChange = actions.onRunCountChange
+    val onWaitMsChange = actions.onWaitMsChange
+    val onStart = actions.onStart
+    val onCancel = actions.onCancel
+    val onCopySummary = actions.onCopySummary
+    val onCopyFullDump = actions.onCopyFullDump
     val startGate = npuS1RepeatedRunStartGate(
         preferredBackendSetting = preferredBackendSetting,
         npuStandardRouteMode = npuStandardRouteMode,
