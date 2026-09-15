@@ -291,145 +291,14 @@ internal fun buildInferenceDetailSections(
                     ),
                 )
             }
-        acceleratorProbeSnapshot?.let { probe ->
-            add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
-            add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
-            add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "GPU Probe", value = probe.gpuProbeSource?.ifBlank { "unknown" } ?: "unknown"))
-            probe.gpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "GPU Probe Error", value = it)) }
-            add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
-            if (probe.nnapiDeprecatedWarning) {
-                add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
-            }
-            add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
-            probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
-            add(InferenceStatItemUi(label = "Delegate API Probe", value = probe.delegateProbeSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Delegate switching hint", value = probe.delegateSwitchingSupportedHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Delegate option candidates", value = probe.delegateOptionCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU status", value = "probe-only (not applied)"))
-            add(InferenceStatItemUi(label = "NPU apply status", value = "disabled (forced GPU fallback)"))
-            add(InferenceStatItemUi(label = "NPU note", value = "NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference."))
-            add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe", value = "probe-only"))
-            add(InferenceStatItemUi(label = "NPU constructor available", value = probe.npuConstructorAvailable.toString()))
-            add(InferenceStatItemUi(label = "NPU string constructor available", value = probe.npuStringConstructorAvailable.toString()))
-            add(InferenceStatItemUi(label = "NPU nativeLibraryDir candidate", value = probe.npuNativeLibraryDirCandidate?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe result", value = probe.npuStageProbeResult?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe error", value = probe.npuStageProbeError?.takeIf { it.isNotBlank() } ?: "—"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU official vendor", value = probe.npuOfficialVendor?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC support", value = probe.npuOfficialSocSupport?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU model requirement", value = probe.npuModelRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime libs", value = probe.npuRuntimeLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib", value = probe.npuDispatchLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU CLI proof", value = probe.npuCliProofRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU packaged libs", value = probe.npuPackagedLibraryCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
-            formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
-            add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
-            add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
-            add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU errorClass", value = probe.qnnNpuAttemptErrorClass?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU errorMessage", value = probe.qnnNpuAttemptErrorMessage?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU evidence", value = probe.qnnNpuAttemptEvidence.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(" / ") ?: "none/unknown"))
-            val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
-            add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
-            val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
-            add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
-            val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
-            val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: "not-applied"
-            val resolvedPreferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
-                PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
-                else -> "not-supported"
-            }
-            add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
-            add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(resolvedAppliedPreferredBackend, resolvedPreferredBackendApplyResult)))
-            add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
-            if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
-                add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
-            }
-            add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = localTraceForDev?.preferredBackendHookReached?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook source", value = localTraceForDev?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend apply error", value = localTraceForDev?.preferredBackendApplyError ?: "—"))
-            add(InferenceStatItemUi(label = "PreferredBackend builder class", value = localTraceForDev?.preferredBackendApplyBuilderClass?.ifBlank { "none/unknown" } ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend method candidates", value = localTraceForDev?.preferredBackendApplyMethodCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend backend enum candidates", value = localTraceForDev?.preferredBackendApplyBackendEnumCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Held engine create path", value = localTraceForDev?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder instance hash", value = localTraceForDev?.holderInstanceHash?.toString() ?: "-1"))
-            add(InferenceStatItemUi(label = "Held engine hash", value = localTraceForDev?.heldEngineHash?.toString() ?: "-1"))
-            add(InferenceStatItemUi(label = "Holder app foreground", value = localTraceForDev?.holderAppInForeground?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last acquire action", value = localTraceForDev?.holderLastAcquireAction ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last lifecycle event", value = localTraceForDev?.holderLastLifecycleEventReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last lifecycle decision", value = localTraceForDev?.holderLastLifecycleDecisionAction ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held recreate request count", value = localTraceForDev?.heldEngineRecreateRequestCount?.toString() ?: "0"))
-            add(InferenceStatItemUi(label = "Held present at run start", value = localTraceForDev?.heldEngineWasPresentAtRunStart?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "Held created during run", value = localTraceForDev?.heldEngineCreatedDuringRun?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "Holder last recreate result", value = localTraceForDev?.holderLastRecreateResult ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last recreate reason", value = localTraceForDev?.holderLastRecreateReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder held before recreate", value = localTraceForDev?.holderHasHeldEngineBeforeRecreate?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder held after recreate", value = localTraceForDev?.holderHasHeldEngineAfterRecreate?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held destroy reason", value = localTraceForDev?.heldEngineDestroyReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last owner", value = localTraceForDev?.heldEngineLastOwner ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last failure stage", value = localTraceForDev?.heldEngineLastFailureStage ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held snapshot before destroy", value = localTraceForDev?.heldEngineSnapshotBeforeDestroy ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held lifecycle history", value = localTraceForDev?.heldEngineLifecycleHistory ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create source", value = localTraceForDev?.lastHeldEngineCreateSource ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create reason", value = localTraceForDev?.lastHeldEngineCreateReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create requested preferredBackend", value = localTraceForDev?.lastHeldEngineCreateRequestedPreferredBackend ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create elapsed", value = localTraceForDev?.lastHeldEngineCreateAtElapsedMs?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create stack hint", value = localTraceForDev?.lastHeldEngineCreateStackHint ?: "unknown"))
-            add(InferenceStatItemUi(label = "LlmInference create method", value = localTraceForDev?.llmInferenceCreateMethod?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend EngineConfig request setting", value = preferredBackendDryRunSetting.name))
-            val resolverRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
-            val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
+        addAll(
+            buildAcceleratorProbeDevItems(
+                probe = acceleratorProbeSnapshot,
                 trace = localTraceForDev,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-            )
-            if (preferredBackendRecreateRequired?.first == true) {
-                add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = "true"))
-                preferredBackendRecreateRequired.second?.let {
-                    add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
-                }
-            }
-            localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
-                add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
-            }
-            add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
-            probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
-            probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
-            probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
-            probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
-            add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
-            val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
-                "${executionInference.reason}; ${recreateReason}"
-            } ?: executionInference.reason
-            add(InferenceStatItemUi(label = "推定理由", value = executionReason))
-        }
+                executionInference = executionInference,
+            ),
+        )
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))
         }
@@ -1725,6 +1594,154 @@ private fun String.toUiStatusForMediaPipeTokenizer(): String {
         normalized.startsWith("unavailable") -> "未対応"
         normalized.isBlank() -> "未実行"
         else -> normalized
+    }
+}
+
+private fun buildAcceleratorProbeDevItems(
+    probe: AcceleratorProbeSnapshot?,
+    trace: LocalInferenceTrace?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    executionInference: ExecutionTargetInference,
+): List<InferenceStatItemUi> {
+    if (probe == null) return emptyList()
+    return buildList {
+        add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
+        add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
+        add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "GPU Probe", value = probe.gpuProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+        probe.gpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "GPU Probe Error", value = it)) }
+        add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
+        if (probe.nnapiDeprecatedWarning) {
+            add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
+        }
+        add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
+        probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
+        add(InferenceStatItemUi(label = "Delegate API Probe", value = probe.delegateProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Delegate switching hint", value = probe.delegateSwitchingSupportedHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Delegate option candidates", value = probe.delegateOptionCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU status", value = "probe-only (not applied)"))
+        add(InferenceStatItemUi(label = "NPU apply status", value = "disabled (forced GPU fallback)"))
+        add(InferenceStatItemUi(label = "NPU note", value = "NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference."))
+        add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe", value = "probe-only"))
+        add(InferenceStatItemUi(label = "NPU constructor available", value = probe.npuConstructorAvailable.toString()))
+        add(InferenceStatItemUi(label = "NPU string constructor available", value = probe.npuStringConstructorAvailable.toString()))
+        add(InferenceStatItemUi(label = "NPU nativeLibraryDir candidate", value = probe.npuNativeLibraryDirCandidate?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe result", value = probe.npuStageProbeResult?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe error", value = probe.npuStageProbeError?.takeIf { it.isNotBlank() } ?: "—"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU official vendor", value = probe.npuOfficialVendor?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC support", value = probe.npuOfficialSocSupport?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU model requirement", value = probe.npuModelRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime libs", value = probe.npuRuntimeLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib", value = probe.npuDispatchLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU CLI proof", value = probe.npuCliProofRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU packaged libs", value = probe.npuPackagedLibraryCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
+        formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
+        add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
+        add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
+        add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU errorClass", value = probe.qnnNpuAttemptErrorClass?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU errorMessage", value = probe.qnnNpuAttemptErrorMessage?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU evidence", value = probe.qnnNpuAttemptEvidence.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(" / ") ?: "none/unknown"))
+        val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
+        add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
+        val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
+        add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
+        val resolvedRequestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+        val resolvedAppliedPreferredBackend = trace?.appliedPreferredBackend ?: "not-applied"
+        val resolvedPreferredBackendApplyResult = trace?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
+            PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
+            else -> "not-supported"
+        }
+        add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
+        add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(resolvedAppliedPreferredBackend, resolvedPreferredBackendApplyResult)))
+        add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
+        if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
+            add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
+        }
+        add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend apply error", value = trace?.preferredBackendApplyError ?: "—"))
+        add(InferenceStatItemUi(label = "PreferredBackend builder class", value = trace?.preferredBackendApplyBuilderClass?.ifBlank { "none/unknown" } ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend method candidates", value = trace?.preferredBackendApplyMethodCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend backend enum candidates", value = trace?.preferredBackendApplyBackendEnumCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Held engine create path", value = trace?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder instance hash", value = trace?.holderInstanceHash?.toString() ?: "-1"))
+        add(InferenceStatItemUi(label = "Held engine hash", value = trace?.heldEngineHash?.toString() ?: "-1"))
+        add(InferenceStatItemUi(label = "Holder app foreground", value = trace?.holderAppInForeground?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last acquire action", value = trace?.holderLastAcquireAction ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last lifecycle event", value = trace?.holderLastLifecycleEventReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last lifecycle decision", value = trace?.holderLastLifecycleDecisionAction ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held recreate request count", value = trace?.heldEngineRecreateRequestCount?.toString() ?: "0"))
+        add(InferenceStatItemUi(label = "Held present at run start", value = trace?.heldEngineWasPresentAtRunStart?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "Held created during run", value = trace?.heldEngineCreatedDuringRun?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "Holder last recreate result", value = trace?.holderLastRecreateResult ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last recreate reason", value = trace?.holderLastRecreateReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder held before recreate", value = trace?.holderHasHeldEngineBeforeRecreate?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder held after recreate", value = trace?.holderHasHeldEngineAfterRecreate?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held destroy reason", value = trace?.heldEngineDestroyReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last owner", value = trace?.heldEngineLastOwner ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last failure stage", value = trace?.heldEngineLastFailureStage ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held snapshot before destroy", value = trace?.heldEngineSnapshotBeforeDestroy ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held lifecycle history", value = trace?.heldEngineLifecycleHistory ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create source", value = trace?.lastHeldEngineCreateSource ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create reason", value = trace?.lastHeldEngineCreateReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create requested preferredBackend", value = trace?.lastHeldEngineCreateRequestedPreferredBackend ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create elapsed", value = trace?.lastHeldEngineCreateAtElapsedMs?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create stack hint", value = trace?.lastHeldEngineCreateStackHint ?: "unknown"))
+        add(InferenceStatItemUi(label = "LlmInference create method", value = trace?.llmInferenceCreateMethod?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Options builder source", value = trace?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = trace?.preferredBackendHookEligible?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = trace?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend EngineConfig request setting", value = preferredBackendDryRunSetting.name))
+        val resolverRequestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+        val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
+            trace = trace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        )
+        if (preferredBackendRecreateRequired?.first == true) {
+            add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = "true"))
+            preferredBackendRecreateRequired.second?.let {
+                add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
+            }
+        }
+        trace?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
+        }
+        add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
+        probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
+        probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
+        probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
+        probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
+        add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
+        val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
+            "${executionInference.reason}; ${recreateReason}"
+        } ?: executionInference.reason
+        add(InferenceStatItemUi(label = "推定理由", value = executionReason))
     }
 }
 
