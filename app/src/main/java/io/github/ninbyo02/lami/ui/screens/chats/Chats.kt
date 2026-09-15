@@ -28,6 +28,8 @@ import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusActions
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusState
 import io.github.ninbyo02.lami.ui.components.LamiSprite
+import io.github.ninbyo02.lami.ui.components.LamiSpritePresentation
+import io.github.ninbyo02.lami.ui.components.LamiStatusSpriteOptions
 import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.launch
@@ -172,13 +174,17 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         state = lamiState,
                         lamiStatus = lamiStatusState.value,
                         sizeDp = 96.dp,
-                        contentPadding = 0.dp,
-                        tightContainer = true,
-                        backgroundColor = rememberLamiCharacterBackdropColor(),
-                        debugOverlayEnabled = false,
-                        animationsEnabled = true,
-                        replacementEnabled = true,
-                        blinkEffectEnabled = true,
+                        presentation = LamiSpritePresentation(
+                            backgroundColor = rememberLamiCharacterBackdropColor(),
+                            contentPadding = 0.dp,
+                            tightContainer = true,
+                        ),
+                        options = LamiStatusSpriteOptions(
+                            animationsEnabled = true,
+                            replacementEnabled = true,
+                            blinkEffectEnabled = true,
+                            debugOverlayEnabled = false,
+                        ),
                         syncEpochMs = animationEpochMs,
                     )
                     Text("Click on + to start a new chat")
@@ -252,13 +258,17 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                                 state = lamiState,
                                 lamiStatus = lamiStatusState.value,
                                 sizeDp = 32.dp,
-                                contentPadding = 0.dp,
-                                tightContainer = true,
-                                backgroundColor = rememberLamiCharacterBackdropColor(),
-                                debugOverlayEnabled = false,
-                                animationsEnabled = true,
-                                replacementEnabled = true,
-                                blinkEffectEnabled = true,
+                                presentation = LamiSpritePresentation(
+                                    backgroundColor = rememberLamiCharacterBackdropColor(),
+                                    contentPadding = 0.dp,
+                                    tightContainer = true,
+                                ),
+                                options = LamiStatusSpriteOptions(
+                                    animationsEnabled = true,
+                                    replacementEnabled = true,
+                                    blinkEffectEnabled = true,
+                                    debugOverlayEnabled = false,
+                                ),
                                 syncEpochMs = animationEpochMs,
                             )
                             Spacer(Modifier.width(5.dp))

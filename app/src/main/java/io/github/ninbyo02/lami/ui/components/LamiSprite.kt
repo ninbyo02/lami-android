@@ -196,61 +196,58 @@ private fun rememberSpriteSheet(@DrawableRes resId: Int): ImageBitmap {
     }
 }
 
+@Immutable
+data class LamiSpritePresentation(
+    val shape: Shape = RoundedCornerShape(8.dp),
+    val backgroundColor: Color? = null,
+    val contentPadding: Dp = 6.dp,
+    val contentOffsetYDp: Dp = 0.dp,
+    val tightContainer: Boolean = false,
+    val maxStatusSpriteSizeDp: Dp = 100.dp,
+)
+
 @Composable
 fun LamiSprite(
     state: LamiState,
     lamiStatus: LamiStatus? = null,
     sizeDp: Dp,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(8.dp),
-    backgroundColor: Color? = null,
-    contentPadding: Dp = 6.dp,
-    animationsEnabled: Boolean = true,
-    replacementEnabled: Boolean = true,
-    blinkEffectEnabled: Boolean = true,
-    contentOffsetYDp: Dp = 0.dp,
-    tightContainer: Boolean = false,
-    maxStatusSpriteSizeDp: Dp = 100.dp,
-    debugOverlayEnabled: Boolean = true,
+    presentation: LamiSpritePresentation = LamiSpritePresentation(),
+    options: LamiStatusSpriteOptions = LamiStatusSpriteOptions(),
     syncEpochMs: Long = 0L,
 ) {
     val resolvedBackgroundColor = resolveLamiSpriteBackgroundColor(
         state = state,
-        backgroundColor = backgroundColor,
+        backgroundColor = presentation.backgroundColor,
     )
     val spriteStatus = mapToLamiSpriteStatus(
         lamiState = state,
         lamiStatus = lamiStatus,
     )
 
-    val spriteSize = (sizeDp - (contentPadding * 2)).coerceAtLeast(0.dp)
-    val containerSize = if (tightContainer) spriteSize else sizeDp
-    val resolvedPadding = if (tightContainer) 0.dp else contentPadding
+    val spriteSize = (sizeDp - (presentation.contentPadding * 2)).coerceAtLeast(0.dp)
+    val containerSize = if (presentation.tightContainer) spriteSize else sizeDp
+    val resolvedPadding = if (presentation.tightContainer) 0.dp else presentation.contentPadding
 
     Box(
         modifier = modifier
             .size(containerSize)
-            .background(resolvedBackgroundColor, shape)
+            .background(resolvedBackgroundColor, presentation.shape)
             // 内側：スプライトを中央に収めるための padding（tightContainer 時は余白を無効化）
             .padding(resolvedPadding),
         contentAlignment = Alignment.Center
     ) {
         LamiStatusSprite(
             status = spriteStatus,
-            modifier = Modifier.clip(shape),
+            modifier = Modifier.clip(presentation.shape),
             layout = LamiStatusSpriteLayout(
                 sizeDp = spriteSize,
-                maxSizeDp = maxStatusSpriteSizeDp,
+                maxSizeDp = presentation.maxStatusSpriteSizeDp,
                 // センター表示に揃えるためオフセットを 0.dp に固定する
                 contentOffsetDp = 0.dp,
-                contentOffsetYDp = contentOffsetYDp,
+                contentOffsetYDp = presentation.contentOffsetYDp,
             ),
-            options = LamiStatusSpriteOptions(
-                animationsEnabled = animationsEnabled,
-                replacementEnabled = replacementEnabled,
-                blinkEffectEnabled = blinkEffectEnabled,
-                debugOverlayEnabled = debugOverlayEnabled,
-            ),
+            options = options,
             syncEpochMs = syncEpochMs,
         )
     }
