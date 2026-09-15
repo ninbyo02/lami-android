@@ -352,156 +352,27 @@ internal fun buildInferenceDetailSections(
     } else {
         "合計トークン"
     }
-    val detailedItems = buildList {
-        if (localTraceForDev != null) {
-            addAll(localBackendSummaryItems)
-            add(
-                InferenceStatItemUi(
-                    label = "速度取得元",
-                    value = localStatsUiModel?.resolvedSpeedSourceLabel
-                        ?: resolveBackendSpeedSourceLabel(
-                            stats = stats,
-                            hasPerceived = localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond != null,
-                            backendKind = InferenceBackendKind.LITERT,
-                        ),
-                ),
-            )
-            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
-            val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
-                String.format(Locale.US, "%.1f token/s", it)
-            } ?: "—"
-            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
-            localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
-                add(InferenceStatItemUi(label = "体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
-            }
-            addAll(
-                buildUnifiedTtftItems(
-                    lamiTtftMs = localStatsUiModel?.resolvedLamiTtftMs,
-                    backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
-                ),
-            )
-            stats.decodeDurationMs?.let {
-                add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
-            }
-            stats.totalDurationMs?.let {
-                add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
-            }
-        }
-        if (isLocalBackendStats && localTraceForDev == null) {
-            addAll(localBackendSummaryItems)
-            add(
-                InferenceStatItemUi(
-                    label = "速度取得元",
-                    value = resolveBackendSpeedSourceLabel(
-                        stats = stats,
-                        hasPerceived = false,
-                        backendKind = InferenceBackendKind.LITERT,
-                    ),
-                ),
-            )
-            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
-            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
-            addAll(
-                buildUnifiedTtftItems(
-                    lamiTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
-                    backendTtftMs = if (heldOfficialBlocking) null else (
-                        stats.backendTimeToFirstTokenMs ?: stats.timeToFirstTokenMs
-                    ),
-                ),
-            )
-        }
-        if (showOllamaPerceivedTokensPerSecond) {
-            add(
-                InferenceStatItemUi(
-                    label = "速度取得元",
-                    value = resolveBackendSpeedSourceLabel(
-                        stats = stats,
-                        hasPerceived = perceivedTokensPerSecondText != null,
-                        backendKind = InferenceBackendKind.OLLAMA,
-                    ),
-                ),
-            )
-            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
-            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
-            perceivedTokensPerSecondText?.let {
-                add(InferenceStatItemUi(label = "体感速度", value = it))
-            }
-            ollamaThinkingStats.timeToFirstTokenMs?.let {
-                add(InferenceStatItemUi(label = "Thinking基準TTFT", value = formatMillisToCompactText(it)))
-            }
-            ollamaThinkingStats.streamSummary?.let {
-                add(InferenceStatItemUi(label = "Thinkingストリーム", value = it))
-            }
-            addAll(
-                buildUnifiedTtftItems(
-                    lamiTtftMs = stats.timeToFirstTokenMs,
-                    backendTtftMs = stats.timeToFirstTokenMs,
-                ),
-            )
-        }
-        localSourceSummaryText?.let {
-            add(InferenceStatItemUi(label = "採用元", value = it))
-        }
-        if (isLocalBackendStats) {
-            add(InferenceStatItemUi(label = "ローカル常駐方針", value = residentPolicySummary.oneLine))
-            add(
-                InferenceStatItemUi(
-                    label = "Resident Router dry-run",
-                    value = "選択予定: ${residentRoutingDryRunDecision.selectedBackend.name} / ${residentRoutingDryRunDecision.reason}",
-                ),
-            )
-        }
-        add(
-            InferenceStatItemUi(
-                label = "モデルロード時間",
-                value = withProbeStateLabel(
-                    value = localStatsUiModel?.modelLoadTime?.valueText ?: formatModelLoadDuration(stats),
-                    state = localStatsUiModel?.modelLoadTime?.source?.toUiStateLabel()
-                        ?: if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
-                ),
-            ),
-        )
-        add(
-            InferenceStatItemUi(
-                label = "入力評価時間",
-                value = withProbeStateLabel(
-                    value = if (heldOfficialBlocking) null
-                        else localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
-                    state = if (heldOfficialBlocking) "未取得（一括応答）"
-                        else localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
-                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
-                ),
-            ),
-        )
-        add(
-            InferenceStatItemUi(
-                label = "生成時間",
-                value = withProbeStateLabel(
-                    value = if (heldOfficialBlocking) null
-                        else localStatsUiModel?.generationTime?.valueText
-                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
-                    state = if (heldOfficialBlocking) "未取得（一括応答）"
-                        else localStatsUiModel?.generationTime?.source?.toUiStateLabel()
-                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
-                ),
-            ),
-        )
-        add(
-            InferenceStatItemUi(
-                label = "推論時間",
-                value = withProbeStateLabel(
-                    value = if (heldOfficialBlocking) {
-                        formatProbeDurationForUi(heldOfficialBlockingInferenceDurationNs)
-                    } else {
-                        localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs)
-                    },
-                    state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
-                        ?: if ((heldOfficialBlocking && heldOfficialBlockingInferenceDurationNs != null) ||
-                            (!heldOfficialBlocking && stats.evalDurationNs != null)) "取得済み" else "未取得",
-                ),
-            ),
-        )
-    }
+    val detailedItems = buildInferenceDetailItems(
+        InferenceDetailItemsInput(
+            stats = stats,
+            hasLocalTrace = localTraceForDev != null,
+            localStatsUiModel = localStatsUiModel,
+            localBackendSummaryItems = localBackendSummaryItems,
+            isLocalBackendStats = isLocalBackendStats,
+            showOllamaPerceivedTokensPerSecond = showOllamaPerceivedTokensPerSecond,
+            displayTokensPerSecondText = displayTokensPerSecondText,
+            backendTokensPerSecondText = backendTokensPerSecondText,
+            perceivedTokensPerSecondText = perceivedTokensPerSecondText,
+            ollamaThinkingStats = ollamaThinkingStats,
+            localSourceSummaryText = localSourceSummaryText,
+            residentPolicySummaryText = residentPolicySummary.oneLine,
+            residentRoutingDryRunText =
+                "選択予定: ${residentRoutingDryRunDecision.selectedBackend.name} / ${residentRoutingDryRunDecision.reason}",
+            heldOfficialBlocking = heldOfficialBlocking,
+            heldOfficialBlockingInferenceDurationNs = heldOfficialBlockingInferenceDurationNs,
+            hasRealGenerationDuration = hasRealGenerationDuration,
+        ),
+    )
 
     return listOfNotNull(
         InferenceStatsSectionUi(
@@ -726,6 +597,175 @@ internal fun buildInferenceDetailSections(
             residentRouterDryRun = residentRoutingDryRunDecision.diagnosticText.takeIf { isLocalBackendStats },
         ),
     )
+}
+
+private data class InferenceDetailItemsInput(
+    val stats: InferenceStats,
+    val hasLocalTrace: Boolean,
+    val localStatsUiModel: LocalInferenceStatsUiModel?,
+    val localBackendSummaryItems: List<InferenceStatItemUi>,
+    val isLocalBackendStats: Boolean,
+    val showOllamaPerceivedTokensPerSecond: Boolean,
+    val displayTokensPerSecondText: String?,
+    val backendTokensPerSecondText: String?,
+    val perceivedTokensPerSecondText: String?,
+    val ollamaThinkingStats: OllamaThinkingStats,
+    val localSourceSummaryText: String?,
+    val residentPolicySummaryText: String,
+    val residentRoutingDryRunText: String,
+    val heldOfficialBlocking: Boolean,
+    val heldOfficialBlockingInferenceDurationNs: Long?,
+    val hasRealGenerationDuration: Boolean,
+)
+
+private fun buildInferenceDetailItems(
+    input: InferenceDetailItemsInput,
+): List<InferenceStatItemUi> = with(input) {
+    buildList {
+        if (hasLocalTrace) {
+            addAll(localBackendSummaryItems)
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = localStatsUiModel?.resolvedSpeedSourceLabel
+                        ?: resolveBackendSpeedSourceLabel(
+                            stats = stats,
+                            hasPerceived = localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond != null,
+                            backendKind = InferenceBackendKind.LITERT,
+                        ),
+                ),
+            )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
+            val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
+                String.format(Locale.US, "%.1f token/s", it)
+            } ?: "—"
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
+            localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
+                add(InferenceStatItemUi(label = "体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
+            }
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = localStatsUiModel?.resolvedLamiTtftMs,
+                    backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
+                ),
+            )
+            stats.decodeDurationMs?.let {
+                add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
+            }
+            stats.totalDurationMs?.let {
+                add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
+            }
+        }
+        if (isLocalBackendStats && !hasLocalTrace) {
+            addAll(localBackendSummaryItems)
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = resolveBackendSpeedSourceLabel(
+                        stats = stats,
+                        hasPerceived = false,
+                        backendKind = InferenceBackendKind.LITERT,
+                    ),
+                ),
+            )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = if (heldOfficialBlocking) null else stats.timeToFirstTokenMs,
+                    backendTtftMs = if (heldOfficialBlocking) null else (
+                        stats.backendTimeToFirstTokenMs ?: stats.timeToFirstTokenMs
+                    ),
+                ),
+            )
+        }
+        if (showOllamaPerceivedTokensPerSecond) {
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = resolveBackendSpeedSourceLabel(
+                        stats = stats,
+                        hasPerceived = perceivedTokensPerSecondText != null,
+                        backendKind = InferenceBackendKind.OLLAMA,
+                    ),
+                ),
+            )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            perceivedTokensPerSecondText?.let {
+                add(InferenceStatItemUi(label = "体感速度", value = it))
+            }
+            ollamaThinkingStats.timeToFirstTokenMs?.let {
+                add(InferenceStatItemUi(label = "Thinking基準TTFT", value = formatMillisToCompactText(it)))
+            }
+            ollamaThinkingStats.streamSummary?.let {
+                add(InferenceStatItemUi(label = "Thinkingストリーム", value = it))
+            }
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = stats.timeToFirstTokenMs,
+                    backendTtftMs = stats.timeToFirstTokenMs,
+                ),
+            )
+        }
+        localSourceSummaryText?.let {
+            add(InferenceStatItemUi(label = "採用元", value = it))
+        }
+        if (isLocalBackendStats) {
+            add(InferenceStatItemUi(label = "ローカル常駐方針", value = residentPolicySummaryText))
+            add(InferenceStatItemUi(label = "Resident Router dry-run", value = residentRoutingDryRunText))
+        }
+        add(
+            InferenceStatItemUi(
+                label = "モデルロード時間",
+                value = withProbeStateLabel(
+                    value = localStatsUiModel?.modelLoadTime?.valueText ?: formatModelLoadDuration(stats),
+                    state = localStatsUiModel?.modelLoadTime?.source?.toUiStateLabel()
+                        ?: if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "入力評価時間",
+                value = withProbeStateLabel(
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
+                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "生成時間",
+                value = withProbeStateLabel(
+                    value = if (heldOfficialBlocking) null
+                        else localStatsUiModel?.generationTime?.valueText
+                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                    state = if (heldOfficialBlocking) "未取得（一括応答）"
+                        else localStatsUiModel?.generationTime?.source?.toUiStateLabel()
+                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "推論時間",
+                value = withProbeStateLabel(
+                    value = if (heldOfficialBlocking) {
+                        formatProbeDurationForUi(heldOfficialBlockingInferenceDurationNs)
+                    } else {
+                        localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs)
+                    },
+                    state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
+                        ?: if ((heldOfficialBlocking && heldOfficialBlockingInferenceDurationNs != null) ||
+                            (!heldOfficialBlocking && stats.evalDurationNs != null)) "取得済み" else "未取得",
+                ),
+            ),
+        )
+    }
 }
 
 private fun buildLocalDevDiagnosticSection(
