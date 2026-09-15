@@ -942,17 +942,21 @@ fun LamiStatusSprite(
         LamiSprite3x3(
             frameIndex = 0,
             frameIndexProvider = frameIndexProvider,
-            sizeDp = constrainedSize,
             modifier = Modifier,
-            contentOffsetDp = contentOffsetDp,
-            contentOffsetYDp = contentOffsetYDp,
-            frameXOffsetPxMap = frameXOffsetPxMap,
-            frameYOffsetPxMap = frameYOffsetPxMap,
-            frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
-            frameSrcSizeMap = resolvedFrameSrcSizeMap,
-            autoCropTransparentArea = autoCropTransparentArea,
-            frameSizePx = frameMaps.frameSize,
-            frameMaps = frameMaps,
+            layout = LamiSprite3x3Layout(
+                sizeDp = constrainedSize,
+                contentOffsetDp = contentOffsetDp,
+                contentOffsetYDp = contentOffsetYDp,
+            ),
+            frameOverrides = LamiSprite3x3FrameOverrides(
+                frameXOffsetPxMap = frameXOffsetPxMap,
+                frameYOffsetPxMap = frameYOffsetPxMap,
+                frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+                frameSrcSizeMap = resolvedFrameSrcSizeMap,
+                autoCropTransparentArea = autoCropTransparentArea,
+                frameSizePx = frameMaps.frameSize,
+                frameMaps = frameMaps,
+            ),
             spriteSheetConfig = spriteSheetConfig,
         )
         if (overlayOn) {

@@ -97,23 +97,43 @@ fun LamiSprite(
     }
 }
 
+@Immutable
+data class LamiSprite3x3Layout(
+    val sizeDp: Dp = 48.dp,
+    val contentOffsetDp: Dp = 0.dp,
+    val contentOffsetYDp: Dp = 0.dp,
+)
+
+@Immutable
+data class LamiSprite3x3FrameOverrides(
+    val frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
+    val frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
+    val frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    val frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    val autoCropTransparentArea: Boolean = false,
+    val frameSizePx: IntSize? = null,
+    val frameMaps: LamiSpriteFrameMaps? = null,
+)
+
 @Composable
 fun LamiSprite3x3(
     frameIndex: Int,
-    sizeDp: Dp = 48.dp,
     modifier: Modifier = Modifier,
-    contentOffsetDp: Dp = 0.dp,
-    contentOffsetYDp: Dp = 0.dp,
-    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
-    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
-    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
-    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
-    autoCropTransparentArea: Boolean = false,
-    frameSizePx: IntSize? = null,
-    frameMaps: LamiSpriteFrameMaps? = null,
+    layout: LamiSprite3x3Layout = LamiSprite3x3Layout(),
+    frameOverrides: LamiSprite3x3FrameOverrides = LamiSprite3x3FrameOverrides(),
     spriteSheetConfig: SpriteSheetConfig = DefaultSpriteSheetConfig,
     frameIndexProvider: (() -> Int)? = null,
 ) {
+    val sizeDp = layout.sizeDp
+    val contentOffsetDp = layout.contentOffsetDp
+    val contentOffsetYDp = layout.contentOffsetYDp
+    val frameXOffsetPxMap = frameOverrides.frameXOffsetPxMap
+    val frameYOffsetPxMap = frameOverrides.frameYOffsetPxMap
+    val frameSrcOffsetMap = frameOverrides.frameSrcOffsetMap
+    val frameSrcSizeMap = frameOverrides.frameSrcSizeMap
+    val autoCropTransparentArea = frameOverrides.autoCropTransparentArea
+    val frameSizePx = frameOverrides.frameSizePx
+    val frameMaps = frameOverrides.frameMaps
     val normalizedConfig = remember(spriteSheetConfig) { spriteSheetConfig.normalize(DefaultSpriteSheetConfig) }
     val spriteSheetState by rememberLamiSpriteSheetState(normalizedConfig)
     val sheet = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data ?: return
