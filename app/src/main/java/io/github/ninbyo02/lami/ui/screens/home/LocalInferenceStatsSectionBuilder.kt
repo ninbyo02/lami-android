@@ -316,42 +316,6 @@ internal fun buildInferenceDetailSections(
     )
     val devQairt244Sm8750NpuSection = buildDevQairt244Sm8750NpuSection(stats)
 
-    val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
-    val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
-        isTokenizerRecountMode(snapshot.tokenCountMode) &&
-            snapshot.inputTokens != null &&
-            snapshot.outputTokens != null
-    } == true
-    val inputTokenLabel = if (localTraceForDev != null) {
-        buildTokenizerTokenLabel(
-            baseLabel = "入力トークン数",
-            tokenizerSucceeded = tokenizerSucceeded,
-            statValue = localStatsUiModel?.tokens?.inputTokens,
-            fallbackValue = stats.inputTokens?.toString(),
-        )
-    } else {
-        "入力トークン"
-    }
-    val outputTokenLabel = if (localTraceForDev != null) {
-        buildTokenizerTokenLabel(
-            baseLabel = "出力トークン数",
-            tokenizerSucceeded = tokenizerSucceeded,
-            statValue = localStatsUiModel?.tokens?.outputTokens,
-            fallbackValue = formatOutputTokens(stats),
-        )
-    } else {
-        "生成トークン"
-    }
-    val totalTokenLabel = if (localTraceForDev != null) {
-        buildTokenizerTokenLabel(
-            baseLabel = "合計トークン",
-            tokenizerSucceeded = tokenizerSucceeded,
-            statValue = localStatsUiModel?.tokens?.totalTokens,
-            fallbackValue = formatTotalTokens(stats),
-        )
-    } else {
-        "合計トークン"
-    }
     val detailedItems = buildInferenceDetailItems(
         InferenceDetailItemsInput(
             stats = stats,
@@ -375,59 +339,18 @@ internal fun buildInferenceDetailSections(
     )
 
     return listOfNotNull(
-        InferenceStatsSectionUi(
-            title = "トークン",
-            items = buildList {
-                add(
-                    InferenceStatItemUi(
-                        label = inputTokenLabel,
-                        value = formatRegularTokenValue(
-                            statValue = localStatsUiModel?.tokens?.inputTokens,
-                            fallbackValue = stats.inputTokens?.toString(),
-                            tokenizerSucceeded = tokenizerSucceeded,
-                        ),
-                    ),
-                )
-                add(
-                    InferenceStatItemUi(
-                        label = outputTokenLabel,
-                        value = formatRegularTokenValue(
-                            statValue = localStatsUiModel?.tokens?.outputTokens,
-                            fallbackValue = formatOutputTokens(stats),
-                            tokenizerSucceeded = tokenizerSucceeded,
-                        ),
-                    ),
-                )
-                add(
-                    InferenceStatItemUi(
-                        label = totalTokenLabel,
-                        value = formatRegularTokenValue(
-                            statValue = localStatsUiModel?.tokens?.totalTokens,
-                            fallbackValue = formatTotalTokens(stats),
-                            tokenizerSucceeded = tokenizerSucceeded,
-                        ),
-                    ),
-                )
-                add(
-                    InferenceStatItemUi(
-                        label = "トークン取得元",
-                        value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveTokenSourceLabel(stats),
-                    ),
-                )
-            },
+        buildInferenceTokenSection(
+            stats = stats,
+            trace = localTraceForDev,
+            localStatsUiModel = localStatsUiModel,
         ),
         InferenceStatsSectionUi(
             title = "詳細",
             items = detailedItems,
         ),
-        InferenceStatsSectionUi(
-            title = "補足",
-            items = buildList {
-                add(InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"))
-                if (localTraceForDev != null && !stats.notes.isNullOrBlank()) {
-                    add(InferenceStatItemUi(label = "注記", value = stats.notes))
-                }
-            },
+        buildInferenceSupplementSection(
+            stats = stats,
+            trace = localTraceForDev,
         ),
         devQairt244Sm8750NpuSection,
         devDiagnosticSummarySection.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER },
@@ -598,6 +521,95 @@ internal fun buildInferenceDetailSections(
         ),
     )
 }
+
+private fun buildInferenceTokenSection(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+    localStatsUiModel: LocalInferenceStatsUiModel?,
+): InferenceStatsSectionUi {
+    val tokenizerRecountSnapshot = trace?.measuredTokenSnapshot
+    val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
+        isTokenizerRecountMode(snapshot.tokenCountMode) &&
+            snapshot.inputTokens != null &&
+            snapshot.outputTokens != null
+    } == true
+    val inputTokenLabel = if (trace != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "入力トークン数",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.inputTokens,
+            fallbackValue = stats.inputTokens?.toString(),
+        )
+    } else {
+        "入力トークン"
+    }
+    val outputTokenLabel = if (trace != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "出力トークン数",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.outputTokens,
+            fallbackValue = formatOutputTokens(stats),
+        )
+    } else {
+        "生成トークン"
+    }
+    val totalTokenLabel = if (trace != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "合計トークン",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.totalTokens,
+            fallbackValue = formatTotalTokens(stats),
+        )
+    } else {
+        "合計トークン"
+    }
+    return InferenceStatsSectionUi(
+        title = "トークン",
+        items = listOf(
+            InferenceStatItemUi(
+                label = inputTokenLabel,
+                value = formatRegularTokenValue(
+                    statValue = localStatsUiModel?.tokens?.inputTokens,
+                    fallbackValue = stats.inputTokens?.toString(),
+                    tokenizerSucceeded = tokenizerSucceeded,
+                ),
+            ),
+            InferenceStatItemUi(
+                label = outputTokenLabel,
+                value = formatRegularTokenValue(
+                    statValue = localStatsUiModel?.tokens?.outputTokens,
+                    fallbackValue = formatOutputTokens(stats),
+                    tokenizerSucceeded = tokenizerSucceeded,
+                ),
+            ),
+            InferenceStatItemUi(
+                label = totalTokenLabel,
+                value = formatRegularTokenValue(
+                    statValue = localStatsUiModel?.tokens?.totalTokens,
+                    fallbackValue = formatTotalTokens(stats),
+                    tokenizerSucceeded = tokenizerSucceeded,
+                ),
+            ),
+            InferenceStatItemUi(
+                label = "トークン取得元",
+                value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveTokenSourceLabel(stats),
+            ),
+        ),
+    )
+}
+
+private fun buildInferenceSupplementSection(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+): InferenceStatsSectionUi = InferenceStatsSectionUi(
+    title = "補足",
+    items = buildList {
+        add(InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"))
+        if (trace != null && !stats.notes.isNullOrBlank()) {
+            add(InferenceStatItemUi(label = "注記", value = stats.notes))
+        }
+    },
+)
 
 private data class InferenceDetailItemsInput(
     val stats: InferenceStats,
