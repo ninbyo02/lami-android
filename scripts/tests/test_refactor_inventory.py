@@ -24,12 +24,23 @@ class RefactorInventoryTest(unittest.TestCase):
         params = "state: State, onRun: (Int, String) -> Unit, enabled: Boolean"
         self.assertEqual(refactor.count_top_level_parameters(params), 3)
 
+    def test_parameter_counter_ignores_trailing_comma(self):
+        params = "first: Int,\nsecond: String,\n"
+        self.assertEqual(refactor.count_top_level_parameters(params), 2)
+
+    def test_parameter_counter_handles_nested_default_and_trailing_comma(self):
+        params = (
+            "contentPadding: PaddingValues(horizontal = 16.dp, vertical = 10.dp),\n"
+            "onClick: (() -> Unit)?,\n"
+        )
+        self.assertEqual(refactor.count_top_level_parameters(params), 2)
+
     def test_scan_selects_unique_small_risk_one_candidate(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "app/src/main/java/example/Sample.kt"
             source.parent.mkdir(parents=True)
-            arguments = ",\n".join(f"    p{i}: Int" for i in range(13))
+            arguments = ",\n".join(f"    p{i}: Int" for i in range(13)) + ","
             source.write_text(f"@Composable\nfun Sample(\n{arguments}\n) {{}}\n")
             old_root = refactor.ROOT
             refactor.ROOT = root

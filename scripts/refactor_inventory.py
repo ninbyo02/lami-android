@@ -107,18 +107,19 @@ def matching(text: str, start: int, opener: str, closer: str) -> int | None:
 
 
 def count_top_level_parameters(masked: str) -> int:
-    if not masked.strip():
+    stripped = masked.strip()
+    if not stripped:
         return 0
     depth = 0
     commas = 0
-    for char in masked:
+    for char in stripped:
         if char in "([{<":
             depth += 1
         elif char in ")]}>":
             depth = max(0, depth - 1)
         elif char == "," and depth == 0:
             commas += 1
-    return commas + 1
+    return commas if stripped.endswith(",") else commas + 1
 
 
 def line_number(text: str, offset: int) -> int:
