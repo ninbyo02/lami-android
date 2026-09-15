@@ -5529,16 +5529,30 @@ private fun ReadyAnimationTab(
         }
     }
 
+    ReadyAnimationResponsiveLayout(
+        isLandscapeOrWide = isLandscapeOrWide,
+        screenWidthDp = configuration.screenWidthDp,
+        screenHeightDp = configuration.screenHeightDp,
+        previewContent = previewContent,
+        formContent = formContent,
+    )
+}
+
+@Composable
+private fun ReadyAnimationResponsiveLayout(
+    isLandscapeOrWide: Boolean,
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+    previewContent: @Composable (Modifier) -> Unit,
+    formContent: @Composable (Modifier) -> Unit,
+) {
     if (isLandscapeOrWide) {
         BoxWithConstraints(
             modifier = Modifier
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                 .fillMaxSize()
         ) {
-            val portraitLikeWidthDp = minOf(
-                configuration.screenWidthDp,
-                configuration.screenHeightDp
-            ).dp
+            val portraitLikeWidthDp = minOf(screenWidthDp, screenHeightDp).dp
             val previewWidth = minOf((maxWidth - 6.dp) / 2f, portraitLikeWidthDp)
             Row(
                 modifier = Modifier
