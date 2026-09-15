@@ -209,16 +209,11 @@ internal fun buildInferenceDetailSections(
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
-    val heldOfficialBlockingInferenceDurationNs = if (heldOfficialBlocking) {
-        val totalDurationNs = stats.totalDurationMs
-            ?.takeIf { it >= 0L }
-            ?.let { it * 1_000_000L }
-        stats.evalDurationNs
-            ?.takeIf { durationNs ->
-                durationNs > 0L && (totalDurationNs == null || durationNs <= totalDurationNs)
-            }
-            ?: totalDurationNs
-    } else null
+    val heldOfficialBlockingInferenceDurationNs =
+        resolveHeldOfficialBlockingInferenceDurationNs(
+            stats = stats,
+            heldOfficialBlocking = heldOfficialBlocking,
+        )
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val npuDisplaySelection = displayOnlyResidentPolicySelection(stats)
     val residentPolicy = if (npuDisplaySelection != null) {
@@ -250,59 +245,21 @@ internal fun buildInferenceDetailSections(
         devDebugText = devDebugText,
         trace = localTraceForDev,
     )
-    val executionInference = inferExecutionTarget(
-        officialFlowUsed = localTraceForDev?.officialFlowUsed,
-        fallbackReason = localTraceForDev?.officialFlowFallbackReason,
-        requestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name,
-        appliedPreferredBackend = localTraceForDev?.appliedPreferredBackend,
-        preferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult,
-        gpuRenderer = acceleratorProbeSnapshot?.gpuRenderer,
-        nnapiAvailable = acceleratorProbeSnapshot?.nnapiAvailable == true,
-        nnapiDevices = acceleratorProbeSnapshot?.nnapiDevices.orEmpty(),
-        androidSdk = acceleratorProbeSnapshot?.androidSdk,
-        delegateSwitchingSupportedHint = acceleratorProbeSnapshot?.delegateSwitchingSupportedHint,
-        qnnNpuAttempted = acceleratorProbeSnapshot?.qnnNpuAttempted == true,
-        qnnNpuAvailable = acceleratorProbeSnapshot?.qnnNpuAvailable,
-        qnnNpuSelectedPath = acceleratorProbeSnapshot?.qnnNpuSelectedPath,
-        qnnNpuFallbackPath = acceleratorProbeSnapshot?.qnnNpuFallbackPath,
-        npuReadinessSummary = acceleratorProbeSnapshot?.npuReadinessSummary,
+    val executionInference = buildExecutionInference(
+        trace = localTraceForDev,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        acceleratorProbeSnapshot = acceleratorProbeSnapshot,
     )
-    val devSectionItems = buildList {
-        devHeldStateText?.takeIf { it.isNotBlank() }?.let {
-            add(InferenceStatItemUi(label = "Held Engine State", value = it))
-        }
-        devCloseLifecycleText?.takeIf { it.isNotBlank() }?.let {
-            add(InferenceStatItemUi(label = "Close Lifecycle", value = it))
-        }
-        devDebugText?.takeIf { it.isNotBlank() }?.let {
-            add(InferenceStatItemUi(label = "Failure / Debug", value = it))
-        }
-        localTraceForDev
-            ?.memorySnapshots
-            ?.takeIf { it.isNotEmpty() }
-            ?.let { snapshots ->
-                add(
-                    InferenceStatItemUi(
-                        label = "App/System memory diagnostics",
-                        value = formatMemoryDiagnosticsForDev(
-                            snapshots = snapshots,
-                            guardBlock = localTraceForDev.safetyGuardBlock,
-                        ),
-                    ),
-                )
-            }
-        addAll(
-            buildAcceleratorProbeDevItems(
-                probe = acceleratorProbeSnapshot,
-                trace = localTraceForDev,
-                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-                executionInference = executionInference,
-            ),
-        )
-        perceivedTokensPerSecondSourceText?.let {
-            add(InferenceStatItemUi(label = "体感生成速度source", value = it))
-        }
-    }
+    val devSectionItems = buildInferenceDevSectionItems(
+        devHeldStateText = devHeldStateText,
+        devCloseLifecycleText = devCloseLifecycleText,
+        devDebugText = devDebugText,
+        trace = localTraceForDev,
+        acceleratorProbeSnapshot = acceleratorProbeSnapshot,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        executionInference = executionInference,
+        perceivedTokensPerSecondSourceText = perceivedTokensPerSecondSourceText,
+    )
     val devDiagnosticSummarySection = buildDevDiagnosticSummarySection(
         stats = stats,
         trace = localTraceForDev,
@@ -520,6 +477,89 @@ internal fun buildInferenceDetailSections(
             residentRouterDryRun = residentRoutingDryRunDecision.diagnosticText.takeIf { isLocalBackendStats },
         ),
     )
+}
+
+private fun resolveHeldOfficialBlockingInferenceDurationNs(
+    stats: InferenceStats,
+    heldOfficialBlocking: Boolean,
+): Long? {
+    if (!heldOfficialBlocking) return null
+    val totalDurationNs = stats.totalDurationMs
+        ?.takeIf { it >= 0L }
+        ?.let { it * 1_000_000L }
+    return stats.evalDurationNs
+        ?.takeIf { durationNs ->
+            durationNs > 0L && (totalDurationNs == null || durationNs <= totalDurationNs)
+        }
+        ?: totalDurationNs
+}
+
+private fun buildExecutionInference(
+    trace: LocalInferenceTrace?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    acceleratorProbeSnapshot: AcceleratorProbeSnapshot?,
+): ExecutionTargetInference = inferExecutionTarget(
+    officialFlowUsed = trace?.officialFlowUsed,
+    fallbackReason = trace?.officialFlowFallbackReason,
+    requestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name,
+    appliedPreferredBackend = trace?.appliedPreferredBackend,
+    preferredBackendApplyResult = trace?.preferredBackendApplyResult,
+    gpuRenderer = acceleratorProbeSnapshot?.gpuRenderer,
+    nnapiAvailable = acceleratorProbeSnapshot?.nnapiAvailable == true,
+    nnapiDevices = acceleratorProbeSnapshot?.nnapiDevices.orEmpty(),
+    androidSdk = acceleratorProbeSnapshot?.androidSdk,
+    delegateSwitchingSupportedHint = acceleratorProbeSnapshot?.delegateSwitchingSupportedHint,
+    qnnNpuAttempted = acceleratorProbeSnapshot?.qnnNpuAttempted == true,
+    qnnNpuAvailable = acceleratorProbeSnapshot?.qnnNpuAvailable,
+    qnnNpuSelectedPath = acceleratorProbeSnapshot?.qnnNpuSelectedPath,
+    qnnNpuFallbackPath = acceleratorProbeSnapshot?.qnnNpuFallbackPath,
+    npuReadinessSummary = acceleratorProbeSnapshot?.npuReadinessSummary,
+)
+
+private fun buildInferenceDevSectionItems(
+    devHeldStateText: String?,
+    devCloseLifecycleText: String?,
+    devDebugText: String?,
+    trace: LocalInferenceTrace?,
+    acceleratorProbeSnapshot: AcceleratorProbeSnapshot?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    executionInference: ExecutionTargetInference,
+    perceivedTokensPerSecondSourceText: String?,
+): List<InferenceStatItemUi> = buildList {
+    devHeldStateText?.takeIf { it.isNotBlank() }?.let {
+        add(InferenceStatItemUi(label = "Held Engine State", value = it))
+    }
+    devCloseLifecycleText?.takeIf { it.isNotBlank() }?.let {
+        add(InferenceStatItemUi(label = "Close Lifecycle", value = it))
+    }
+    devDebugText?.takeIf { it.isNotBlank() }?.let {
+        add(InferenceStatItemUi(label = "Failure / Debug", value = it))
+    }
+    trace
+        ?.memorySnapshots
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { snapshots ->
+            add(
+                InferenceStatItemUi(
+                    label = "App/System memory diagnostics",
+                    value = formatMemoryDiagnosticsForDev(
+                        snapshots = snapshots,
+                        guardBlock = trace.safetyGuardBlock,
+                    ),
+                ),
+            )
+        }
+    addAll(
+        buildAcceleratorProbeDevItems(
+            probe = acceleratorProbeSnapshot,
+            trace = trace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            executionInference = executionInference,
+        ),
+    )
+    perceivedTokensPerSecondSourceText?.let {
+        add(InferenceStatItemUi(label = "体感生成速度source", value = it))
+    }
 }
 
 private fun buildInferenceTokenSection(
