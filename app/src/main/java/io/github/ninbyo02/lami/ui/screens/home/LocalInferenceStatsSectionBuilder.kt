@@ -716,95 +716,121 @@ internal fun buildInferenceDetailSections(
                     ),
                 )
             },
-        InferenceStatsSectionUi(
-            title = "DEV診断",
-            items = buildList {
-                addAll(devSectionItems)
-                measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
-                    add(InferenceStatItemUi(label = "measuredTokens", value = it))
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Prefill Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Decode Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                if (isLocalBackendStats) {
-                    add(InferenceStatItemUi(label = "Resident Router summary", value = residentPolicySummary.oneLine))
-                    add(InferenceStatItemUi(label = "Resident Router diagnostics", value = residentPolicySummary.diagnosticText))
-                    add(InferenceStatItemUi(label = "Resident Router dry-run", value = residentRoutingDryRunDecision.diagnosticText))
-                }
-                localTraceForDev?.let { trace ->
-                    add(InferenceStatItemUi(label = "selected_model_slot", value = trace.selectedLocalModelSlot ?: "—"))
-                    add(
-                        InferenceStatItemUi(
-                            label = "generic_fallback_model_configured",
-                            value = trace.genericFallbackModelConfigured?.toString() ?: "—",
-                        ),
-                    )
-                    add(
-                        InferenceStatItemUi(
-                            label = "npu_preview_model_configured",
-                            value = trace.npuPreviewModelConfigured?.toString() ?: "—",
-                        ),
-                    )
-                    add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
-                    add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
-                    add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkCount", value = trace.officialChunkCount.toString()))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalAvgMs", value = formatMillis(trace.officialChunkIntervalAvgMs)))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalMaxMs", value = formatMillis(trace.officialChunkIntervalMaxMs)))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalMinMs", value = formatMillis(trace.officialChunkIntervalMinMs)))
-                    add(InferenceStatItemUi(label = "officialChunkFirstToLastMs", value = formatMillis(trace.officialChunkFirstToLastMs)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsAvg", value = formatChars(trace.officialChunkCharsAvg)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsMax", value = trace.officialChunkCharsMax?.let { "$it chars" } ?: "—"))
-                    add(InferenceStatItemUi(label = "officialChunkCharsMin", value = trace.officialChunkCharsMin?.let { "$it chars" } ?: "—"))
-                    add(InferenceStatItemUi(label = "officialChunkEventsPerSecond", value = formatEventsPerSecond(trace.officialChunkEventsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsPerSecond", value = formatCharsPerSecond(trace.officialChunkCharsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkEmptyCount", value = trace.officialChunkEmptyCount.toString()))
-                    add(InferenceStatItemUi(label = "officialChunkNonEmptyCount", value = trace.officialChunkNonEmptyCount.toString()))
-                    add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(trace)))
-                    add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = trace.composeRecomposeEstimate?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
-                }
-                if (localTraceForDev != null) {
-                    add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
-                    add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "outputTokens", value = localTraceForDev.outputTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "outputTokensSignature", value = localTraceForDev.outputTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawOutputTokens", value = localTraceForDev.outputTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "estimatedTokens", value = localTraceForDev.estimatedTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "estimatedTokensSignature", value = localTraceForDev.estimatedTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawEstimatedTokens", value = localTraceForDev.estimatedTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "firstToken", value = localTraceForDev.firstTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "firstTokenSignature", value = localTraceForDev.firstTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawFirstToken", value = localTraceForDev.firstTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "assistantUpdateCount", value = localTraceForDev.assistantUpdateCount.toString()))
-                    add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = localTraceForDev.firstNonEmptyAssistantChunkSeen.toString()))
-                    add(InferenceStatItemUi(label = "assistantStreamedToUi", value = localTraceForDev.assistantStreamedToUi.toString()))
-                    add(InferenceStatItemUi(label = "realPartialReceived", value = localTraceForDev.realPartialReceived.toString()))
-                    add(InferenceStatItemUi(label = "realPartialChunkCount", value = localTraceForDev.realPartialChunkCount.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowAttempted", value = localTraceForDev.officialFlowAttempted.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowUsed", value = localTraceForDev.officialFlowUsed.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = localTraceForDev.officialFlowFallbackReason ?: "—"))
-                    add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = localTraceForDev.officialConversationApiAvailable?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
-                }
-            },
-        ).takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.items.isNotEmpty() },
+        buildLocalDevDiagnosticSection(
+            displayMode = displayMode,
+            baseItems = devSectionItems,
+            measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
+            trace = localTraceForDev,
+            residentRouterSummary = residentPolicySummary.oneLine.takeIf { isLocalBackendStats },
+            residentRouterDiagnostics = residentPolicySummary.diagnosticText.takeIf { isLocalBackendStats },
+            residentRouterDryRun = residentRoutingDryRunDecision.diagnosticText.takeIf { isLocalBackendStats },
+        ),
     )
+}
+
+private fun buildLocalDevDiagnosticSection(
+    displayMode: InferenceStatsDisplayMode,
+    baseItems: List<InferenceStatItemUi>,
+    measuredTokenSnapshotSummary: String?,
+    trace: LocalInferenceTrace?,
+    residentRouterSummary: String?,
+    residentRouterDiagnostics: String?,
+    residentRouterDryRun: String?,
+): InferenceStatsSectionUi? {
+    if (displayMode != InferenceStatsDisplayMode.DEVELOPER) return null
+
+    val items = buildList {
+        addAll(baseItems)
+        measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "measuredTokens", value = it))
+        }
+        trace?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
+            add(
+                InferenceStatItemUi(
+                    label = "直近 Prefill Token",
+                    value = it.toString(),
+                ),
+            )
+        }
+        trace?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
+            add(
+                InferenceStatItemUi(
+                    label = "直近 Decode Token",
+                    value = it.toString(),
+                ),
+            )
+        }
+        residentRouterSummary?.let {
+            add(InferenceStatItemUi(label = "Resident Router summary", value = it))
+        }
+        residentRouterDiagnostics?.let {
+            add(InferenceStatItemUi(label = "Resident Router diagnostics", value = it))
+        }
+        residentRouterDryRun?.let {
+            add(InferenceStatItemUi(label = "Resident Router dry-run", value = it))
+        }
+        trace?.let {
+            add(InferenceStatItemUi(label = "selected_model_slot", value = it.selectedLocalModelSlot ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "generic_fallback_model_configured",
+                    value = it.genericFallbackModelConfigured?.toString() ?: "—",
+                ),
+            )
+            add(
+                InferenceStatItemUi(
+                    label = "npu_preview_model_configured",
+                    value = it.npuPreviewModelConfigured?.toString() ?: "—",
+                ),
+            )
+            add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(it.streamedCharsPerSecond)))
+            add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(it.appendBatchSizeAvg)))
+            add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(it.appendEventsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkCount", value = it.officialChunkCount.toString()))
+            add(InferenceStatItemUi(label = "officialChunkIntervalAvgMs", value = formatMillis(it.officialChunkIntervalAvgMs)))
+            add(InferenceStatItemUi(label = "officialChunkIntervalMaxMs", value = formatMillis(it.officialChunkIntervalMaxMs)))
+            add(InferenceStatItemUi(label = "officialChunkIntervalMinMs", value = formatMillis(it.officialChunkIntervalMinMs)))
+            add(InferenceStatItemUi(label = "officialChunkFirstToLastMs", value = formatMillis(it.officialChunkFirstToLastMs)))
+            add(InferenceStatItemUi(label = "officialChunkCharsAvg", value = formatChars(it.officialChunkCharsAvg)))
+            add(InferenceStatItemUi(label = "officialChunkCharsMax", value = it.officialChunkCharsMax?.let { count -> "$count chars" } ?: "—"))
+            add(InferenceStatItemUi(label = "officialChunkCharsMin", value = it.officialChunkCharsMin?.let { count -> "$count chars" } ?: "—"))
+            add(InferenceStatItemUi(label = "officialChunkEventsPerSecond", value = formatEventsPerSecond(it.officialChunkEventsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkCharsPerSecond", value = formatCharsPerSecond(it.officialChunkCharsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkEmptyCount", value = it.officialChunkEmptyCount.toString()))
+            add(InferenceStatItemUi(label = "officialChunkNonEmptyCount", value = it.officialChunkNonEmptyCount.toString()))
+            add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(it)))
+            add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = it.composeRecomposeEstimate?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "markdownRepairCount", value = it.markdownRepairCount?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = it.uiAppendDebounceMs?.let { delay -> "${delay} ms" } ?: "—"))
+
+            add(InferenceStatItemUi(label = "evalTime", value = it.evalTimeProbe.availability.name))
+            add(InferenceStatItemUi(label = "evalTimeSignature", value = it.evalTimeProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawEvalTime", value = it.evalTimeProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "outputTokens", value = it.outputTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "outputTokensSignature", value = it.outputTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawOutputTokens", value = it.outputTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "estimatedTokens", value = it.estimatedTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "estimatedTokensSignature", value = it.estimatedTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawEstimatedTokens", value = it.estimatedTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "firstToken", value = it.firstTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "firstTokenSignature", value = it.firstTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawFirstToken", value = it.firstTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "assistantUpdateCount", value = it.assistantUpdateCount.toString()))
+            add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = it.firstNonEmptyAssistantChunkSeen.toString()))
+            add(InferenceStatItemUi(label = "assistantStreamedToUi", value = it.assistantStreamedToUi.toString()))
+            add(InferenceStatItemUi(label = "realPartialReceived", value = it.realPartialReceived.toString()))
+            add(InferenceStatItemUi(label = "realPartialChunkCount", value = it.realPartialChunkCount.toString()))
+            add(InferenceStatItemUi(label = "officialFlowAttempted", value = it.officialFlowAttempted.toString()))
+            add(InferenceStatItemUi(label = "officialFlowUsed", value = it.officialFlowUsed.toString()))
+            add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = it.officialFlowFallbackReason ?: "—"))
+            add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = it.officialConversationApiAvailable?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "officialFlowChunkCount", value = it.officialFlowChunkCount.toString()))
+        }
+    }
+    return InferenceStatsSectionUi(
+        title = "DEV診断",
+        items = items,
+    ).takeIf { it.items.isNotEmpty() }
 }
 
 private const val DEV_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_dev_npu"
