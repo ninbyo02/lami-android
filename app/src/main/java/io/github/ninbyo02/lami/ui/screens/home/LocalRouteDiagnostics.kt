@@ -1969,26 +1969,12 @@ internal fun buildLocalRouteDiagnosticTrace(
     val finalResponseProbeDiagnostics = flags.gpuPrefillProbeDiagnostics
     val npuStandardRouteDevGateDiagnostics = buildNpuStandardRoutePhase1Diagnostics(context = context)
     return (
-        listOf(
-        "LOCAL_ROUTE_DIAG",
-        "stage=$stage",
-        "selected_model_name=${context.selectedModelName}",
-        "selected_model_file=${context.selectedModelFile}",
-        "selected_model_path=${context.selectedModelPath}",
-        "selected_model_slot=${context.selectedModelSlot}",
-        "generic_fallback_model_configured=${context.genericFallbackModelConfigured}",
-        "npu_preview_model_configured=${context.npuPreviewModelConfigured}",
-        "model_kind=${context.modelKind}",
-        "preferred_backend=${context.preferredBackend}",
-        "baseline_role=${context.baselineRole}",
-        "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
-        "npu_standard_route_mode=${context.npuStandardRouteMode}",
-        "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
-        "should_enter_npu_s1=${context.shouldEnterNpuS1}",
-        "local_route_entered=${context.localRouteEntered}",
-        "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
-        "blocked_reason=${context.blockedReason}",
-        "guard_recommendation=$guardRecommendation",
+        buildLocalRouteContextDiagnosticLines(
+            stage = stage,
+            context = context,
+            guardRecommendation = guardRecommendation,
+        ) +
+            listOf(
         "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
         "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
         "holder_created=${flags.holderCreated.toDiagnosticValue()}",
@@ -2408,6 +2394,32 @@ internal fun buildLocalRouteDiagnosticTrace(
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
+
+private fun buildLocalRouteContextDiagnosticLines(
+    stage: String,
+    context: LocalRouteDiagnosticContext,
+    guardRecommendation: String,
+): List<String> = listOf(
+    "LOCAL_ROUTE_DIAG",
+    "stage=$stage",
+    "selected_model_name=${context.selectedModelName}",
+    "selected_model_file=${context.selectedModelFile}",
+    "selected_model_path=${context.selectedModelPath}",
+    "selected_model_slot=${context.selectedModelSlot}",
+    "generic_fallback_model_configured=${context.genericFallbackModelConfigured}",
+    "npu_preview_model_configured=${context.npuPreviewModelConfigured}",
+    "model_kind=${context.modelKind}",
+    "preferred_backend=${context.preferredBackend}",
+    "baseline_role=${context.baselineRole}",
+    "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
+    "npu_standard_route_mode=${context.npuStandardRouteMode}",
+    "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
+    "should_enter_npu_s1=${context.shouldEnterNpuS1}",
+    "local_route_entered=${context.localRouteEntered}",
+    "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
+    "blocked_reason=${context.blockedReason}",
+    "guard_recommendation=$guardRecommendation",
+)
 
 private fun resolveGpuOutputQualityGateStatus(diagnostics: GpuOutputQualityDiagnostics): String =
     when (diagnostics.candidateResult) {
