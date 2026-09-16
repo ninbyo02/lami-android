@@ -13899,6 +13899,33 @@ private fun NpuS1PersistentCustomJniDevSection(
 }
 
 @Composable
+private fun InferenceStatsAdvancedCopySection(
+    onCopyGpuDiagnosticKeys: (() -> Unit)?,
+    onCopyGpuInternalSurfaceKeys: (() -> Unit)?,
+) {
+    if (onCopyGpuDiagnosticKeys == null && onCopyGpuInternalSurfaceKeys == null) return
+
+    InferenceStatsSection(title = "DEV診断 Advanced Copy") {
+        if (onCopyGpuDiagnosticKeys != null) {
+            TextButton(
+                onClick = onCopyGpuDiagnosticKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
+            ) {
+                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
+            }
+        }
+        if (onCopyGpuInternalSurfaceKeys != null) {
+            TextButton(
+                onClick = onCopyGpuInternalSurfaceKeys,
+                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
+            ) {
+                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
+            }
+        }
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetHeader(
     selectedMode: InferenceStatsDisplayMode,
     onModeSelected: (InferenceStatsDisplayMode) -> Unit,
@@ -14451,26 +14478,10 @@ private fun InferenceStatsSheetContent(
                     onToggleExpanded = { devDiagnosticsAdvancedExpanded = !devDiagnosticsAdvancedExpanded },
                 )
                 if (devDiagnosticsAdvancedExpanded) {
-                    if (copyGpuDiagnosticKeysAction != null || copyGpuInternalSurfaceKeysAction != null) {
-                        InferenceStatsSection(title = "DEV診断 Advanced Copy") {
-                            if (copyGpuDiagnosticKeysAction != null) {
-                                TextButton(
-                                    onClick = copyGpuDiagnosticKeysAction,
-                                    modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
-                                ) {
-                                    Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
-                                }
-                            }
-                            if (copyGpuInternalSurfaceKeysAction != null) {
-                                TextButton(
-                                    onClick = copyGpuInternalSurfaceKeysAction,
-                                    modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
-                                ) {
-                                    Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
-                                }
-                            }
-                        }
-                    }
+                    InferenceStatsAdvancedCopySection(
+                        onCopyGpuDiagnosticKeys = copyGpuDiagnosticKeysAction,
+                        onCopyGpuInternalSurfaceKeys = copyGpuInternalSurfaceKeysAction,
+                    )
                     MemoryRecoveryCheckDevSection(
                         state = memoryRecoveryCheckState,
                         buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
