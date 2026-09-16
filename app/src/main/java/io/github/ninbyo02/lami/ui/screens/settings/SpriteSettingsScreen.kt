@@ -5076,81 +5076,15 @@ private fun ReadyAnimationTab(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            // [dp] 縦: パターン1入力 の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "パターン1",
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-                            OutlinedTextField(
-                                value = insertionState.pattern1FramesInput,
-                                onValueChange = insertionState.onPattern1FramesInputChange,
-                                modifier = Modifier
-                                    // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth()
-                                    .bringIntoViewRequester(pattern1FramesBringIntoViewRequester)
-                                    .onFocusEvent { focusState ->
-                                        handleFieldFocus(
-                                            fieldKey = "pattern1Frames",
-                                            isFocused = focusState.isFocused,
-                                            requester = pattern1FramesBringIntoViewRequester,
-                                        )
-                                    },
-                                label = { Text("パターン1 フレーム列（例: 4,5,6）") },
-                                singleLine = true,
-                                isError = insertionState.pattern1FramesError != null,
-                                supportingText = insertionState.pattern1FramesError?.let { errorText ->
-                                    { Text(errorText, color = Color.Red) }
-                                }
-                            )
-                            OutlinedTextField(
-                                value = insertionState.pattern1WeightInput,
-                                onValueChange = insertionState.onPattern1WeightInputChange,
-                                modifier = Modifier
-                                    // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth()
-                                    .bringIntoViewRequester(pattern1WeightBringIntoViewRequester)
-                                    .onFocusEvent { focusState ->
-                                        handleFieldFocus(
-                                            fieldKey = "pattern1Weight",
-                                            isFocused = focusState.isFocused,
-                                            requester = pattern1WeightBringIntoViewRequester,
-                                        )
-                                    },
-                                label = { Text("パターン1 重み（比率）") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                isError = insertionState.pattern1WeightError != null,
-                                supportingText = insertionState.pattern1WeightError?.let { errorText ->
-                                    { Text(errorText, color = Color.Red) }
-                                }
-                            )
-                            OutlinedTextField(
-                                value = insertionState.pattern1IntervalInput,
-                                onValueChange = insertionState.onPattern1IntervalInputChange,
-                                modifier = Modifier
-                                    // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth()
-                                    .bringIntoViewRequester(pattern1IntervalBringIntoViewRequester)
-                                    .onFocusEvent { focusState ->
-                                        handleFieldFocus(
-                                            fieldKey = "pattern1Interval",
-                                            isFocused = focusState.isFocused,
-                                            requester = pattern1IntervalBringIntoViewRequester,
-                                        )
-                                    },
-                                label = { Text("パターン1 周期（ms）") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                isError = insertionState.pattern1IntervalError != null,
-                                supportingText = insertionState.pattern1IntervalError?.let { errorText ->
-                                    { Text(errorText, color = Color.Red) }
-                                }
-                            )
-                        }
+                        ReadyInsertionPatternOneSettings(
+                            insertionState = insertionState,
+                            framesBringIntoViewRequester = pattern1FramesBringIntoViewRequester,
+                            weightBringIntoViewRequester = pattern1WeightBringIntoViewRequester,
+                            intervalBringIntoViewRequester = pattern1IntervalBringIntoViewRequester,
+                            onFieldFocus = { fieldKey, isFocused, requester ->
+                                handleFieldFocus(fieldKey, isFocused, requester)
+                            },
+                        )
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             // [dp] 縦: パターン2入力 の間隔(間隔)に関係
@@ -5434,6 +5368,91 @@ private fun ReadyAnimationTab(
         previewContent = previewContent,
         formContent = formContent,
     )
+}
+
+@Composable
+private fun ReadyInsertionPatternOneSettings(
+    insertionState: InsertionAnimationUiState,
+    framesBringIntoViewRequester: BringIntoViewRequester,
+    weightBringIntoViewRequester: BringIntoViewRequester,
+    intervalBringIntoViewRequester: BringIntoViewRequester,
+    onFieldFocus: (String, Boolean, BringIntoViewRequester) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        // [dp] 縦: パターン1入力 の間隔(間隔)に関係
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = "パターン1",
+            style = MaterialTheme.typography.labelMedium,
+        )
+        OutlinedTextField(
+            value = insertionState.pattern1FramesInput,
+            onValueChange = insertionState.onPattern1FramesInputChange,
+            modifier = Modifier
+                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
+                .fillMaxWidth()
+                .bringIntoViewRequester(framesBringIntoViewRequester)
+                .onFocusEvent { focusState ->
+                    onFieldFocus(
+                        "pattern1Frames",
+                        focusState.isFocused,
+                        framesBringIntoViewRequester,
+                    )
+                },
+            label = { Text("パターン1 フレーム列（例: 4,5,6）") },
+            singleLine = true,
+            isError = insertionState.pattern1FramesError != null,
+            supportingText = insertionState.pattern1FramesError?.let { errorText ->
+                { Text(errorText, color = Color.Red) }
+            }
+        )
+        OutlinedTextField(
+            value = insertionState.pattern1WeightInput,
+            onValueChange = insertionState.onPattern1WeightInputChange,
+            modifier = Modifier
+                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
+                .fillMaxWidth()
+                .bringIntoViewRequester(weightBringIntoViewRequester)
+                .onFocusEvent { focusState ->
+                    onFieldFocus(
+                        "pattern1Weight",
+                        focusState.isFocused,
+                        weightBringIntoViewRequester,
+                    )
+                },
+            label = { Text("パターン1 重み（比率）") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = insertionState.pattern1WeightError != null,
+            supportingText = insertionState.pattern1WeightError?.let { errorText ->
+                { Text(errorText, color = Color.Red) }
+            }
+        )
+        OutlinedTextField(
+            value = insertionState.pattern1IntervalInput,
+            onValueChange = insertionState.onPattern1IntervalInputChange,
+            modifier = Modifier
+                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
+                .fillMaxWidth()
+                .bringIntoViewRequester(intervalBringIntoViewRequester)
+                .onFocusEvent { focusState ->
+                    onFieldFocus(
+                        "pattern1Interval",
+                        focusState.isFocused,
+                        intervalBringIntoViewRequester,
+                    )
+                },
+            label = { Text("パターン1 周期（ms）") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = insertionState.pattern1IntervalError != null,
+            supportingText = insertionState.pattern1IntervalError?.let { errorText ->
+                { Text(errorText, color = Color.Red) }
+            }
+        )
+    }
 }
 
 @Composable
