@@ -13899,6 +13899,28 @@ private fun NpuS1PersistentCustomJniDevSection(
 }
 
 @Composable
+private fun InferenceStatsSheetHeader(
+    selectedMode: InferenceStatsDisplayMode,
+    onModeSelected: (InferenceStatsDisplayMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "推論統計",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        InferenceStatsModeSelector(
+            selectedMode = selectedMode,
+            onModeSelected = onModeSelected,
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -14103,24 +14125,13 @@ private fun InferenceStatsSheetContent(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(sectionSpacing),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "推論統計",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                InferenceStatsModeSelector(
-                    selectedMode = selectedDisplayMode,
-                    onModeSelected = { mode ->
-                        selectedDisplayMode = mode
-                        onDisplayModeChange(mode)
-                    },
-                )
-            }
+            InferenceStatsSheetHeader(
+                selectedMode = selectedDisplayMode,
+                onModeSelected = { mode ->
+                    selectedDisplayMode = mode
+                    onDisplayModeChange(mode)
+                },
+            )
 
             InferenceModelInfoRow(
                 stats = stats,
