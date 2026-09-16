@@ -14511,38 +14511,55 @@ private fun InferenceStatsSheetContent(
                         )
                     }
                     if (showDevManualEngineRecreate) {
-                        HorizontalDivider()
-                        Text(
-                            text = "ローカルエンジンを再作成",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Button(
-                            onClick = onManualEngineRecreate,
-                            enabled = manualEngineRecreateEnabled && !manualEngineRecreateBusy,
-                        ) {
-                            Text("ローカルエンジンを再作成")
-                        }
-                        Text(
-                            text = "PreferredBackend manual recreate result: $manualEngineRecreateResult",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "PreferredBackend manual recreate reason: $manualEngineRecreateReason",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        InferenceStatsManualEngineRecreateSection(
+                            enabled = manualEngineRecreateEnabled,
+                            busy = manualEngineRecreateBusy,
+                            result = manualEngineRecreateResult,
+                            reason = manualEngineRecreateReason,
+                            onRecreate = onManualEngineRecreate,
                         )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun InferenceStatsManualEngineRecreateSection(
+    enabled: Boolean,
+    busy: Boolean,
+    result: String,
+    reason: String,
+    onRecreate: () -> Unit,
+) {
+    HorizontalDivider()
+    Text(
+        text = "ローカルエンジンを再作成",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Button(
+        onClick = onRecreate,
+        enabled = enabled && !busy,
+    ) {
+        Text("ローカルエンジンを再作成")
+    }
+    Text(
+        text = "PreferredBackend manual recreate result: $result",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+        text = "PreferredBackend manual recreate reason: $reason",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 internal fun extractNpuStandardRouteActualDisplayText(text: String?): String? {
