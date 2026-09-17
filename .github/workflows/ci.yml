@@ -74,6 +74,14 @@ jobs:
       - name: Verify GPU stage run identity
         run: python3 -m unittest discover -s scripts/tests -p test_gpu_token_stage_identity.py -v
 
+      - name: Verify refactor automation
+        run: >-
+          python3 -m unittest
+          scripts.tests.test_refactor_inventory
+          scripts.tests.test_refactor_guard
+          scripts.tests.test_refactor_loop_controller
+          -v
+
       - name: Run standard debug unit tests
         run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process :app:testStandardDebugUnitTest --stacktrace -PbuildPr=${{ github.event_name == 'pull_request' && github.event.number || '' }}
 

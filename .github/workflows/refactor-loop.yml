@@ -30,8 +30,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Test inventory engine
-        run: python3 -m unittest scripts.tests.test_refactor_inventory -v
+      - name: Test refactor automation
+        run: >-
+          python3 -m unittest
+          scripts.tests.test_refactor_inventory
+          scripts.tests.test_refactor_guard
+          scripts.tests.test_refactor_loop_controller
+          -v
 
       - name: Generate refactoring plan
         id: scan
