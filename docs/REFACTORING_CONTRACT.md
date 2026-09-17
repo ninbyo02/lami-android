@@ -38,6 +38,39 @@ The machine-readable thresholds currently require Kotlin production files to rem
 
 Architecture completion additionally requires screen-level UI to consume state/events instead of owning inference engines, persistence, TTS, networking, or runtime lifecycle directly. Runtime, memory, communication, and platform-specific adapters must be independently testable. These architecture gates are reviewed before declaring the overall refactor program complete.
 
+## CI-gated Risk 1 completion loop
+
+`scripts/refactor_loop_controller.py` may continue Risk 1 iterations only when
+`LAMI_REFACTOR_AUTO_MERGE=yes` is set explicitly. It resumes at most one open
+`refactor/auto-*` pull request, waits for both Standard Debug and Standard
+Release verification, confirms an unchanged head SHA, a clean merge state, and
+no requested changes, then squash-merges before selecting from the new
+`main`.
+
+The initial auto-merge allowlist contains only `oversized_function`. Reaching
+`oversized_file`, an unknown candidate kind, a failed or unsupported check,
+a changed head, a conflict, a draft, a requested change, a timeout, multiple
+automated pull requests, or a non-clean merge state is a mandatory safety stop.
+The controller reports inventory progress every five merges. Its default limit
+is five merges per invocation; `--max-merges 0` explicitly runs until eligible
+Risk 1 completion or a safety stop.
+
+The execution account must pass `gh auth status -h github.com` and have an
+authenticated `codex` CLI before the loop starts. Credentials are never copied
+between local users by the controller.
+
+Example supervised run:
+
+```bash
+gh auth status -h github.com
+LAMI_REFACTOR_AUTO_MERGE=yes \
+  python3 scripts/refactor_loop_controller.py --max-merges 5
+```
+
 ## Rollout policy
 
-Initial mode is `max-risk=1`, PR generation only, no automatic merge. After repeated clean runs, Risk 1 may later be promoted to CI-gated auto-merge. Risk 2 and Risk 3 remain separately governed until enough regression and device evidence exists.
+Risk 1 oversized-function iterations are eligible for explicitly enabled,
+CI-gated squash merge after repeated clean manual runs. Oversized-file changes
+remain review-gated until file-move regression evidence is established.
+Risk 2 and Risk 3 remain separately governed and are never promoted by this
+controller.
