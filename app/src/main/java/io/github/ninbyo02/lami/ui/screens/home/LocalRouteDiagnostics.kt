@@ -1974,22 +1974,8 @@ internal fun buildLocalRouteDiagnosticTrace(
             context = context,
             guardRecommendation = guardRecommendation,
         ) +
+            buildHeldEngineLifecycleRouteDiagnosticLines(flags) +
             listOf(
-        "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
-        "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
-        "holder_created=${flags.holderCreated.toDiagnosticValue()}",
-        "holder_acquired=${flags.holderAcquired.toDiagnosticValue()}",
-        "holder_reused=${flags.holderReused.toDiagnosticValue()}",
-        "holder_invalidated=${flags.holderInvalidated.toDiagnosticValue()}",
-        "holder_closed=${flags.holderClosed.toDiagnosticValue()}",
-        "holder_timeout_cleanup=${flags.holderTimeoutCleanup.toDiagnosticValue()}",
-        "holder_failure_cleanup=${flags.holderFailureCleanup.toDiagnosticValue()}",
-        "holder_process_restart=${flags.holderProcessRestart.toDiagnosticValue()}",
-        "held_engine_lifecycle_history=${flags.heldEngineLifecycleHistory.toDiagnosticValue()}",
-        "held_engine_destroy_reason=${flags.heldEngineDestroyReason.toDiagnosticValue()}",
-        "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
-        "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
-        "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
         "gpu_alignment_holder_present_before_acquire=${gpuAlignmentHolder.presentBeforeAcquire}",
         "gpu_alignment_holder_acquire_result=${gpuAlignmentHolder.acquireResult}",
         "gpu_alignment_holder_reused=${gpuAlignmentHolder.reused}",
@@ -2419,6 +2405,26 @@ private fun buildLocalRouteContextDiagnosticLines(
     "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
     "blocked_reason=${context.blockedReason}",
     "guard_recommendation=$guardRecommendation",
+)
+
+private fun buildHeldEngineLifecycleRouteDiagnosticLines(
+    flags: LocalRouteDiagnosticFlags,
+): List<String> = listOf(
+    "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
+    "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
+    "holder_created=${flags.holderCreated.toDiagnosticValue()}",
+    "holder_acquired=${flags.holderAcquired.toDiagnosticValue()}",
+    "holder_reused=${flags.holderReused.toDiagnosticValue()}",
+    "holder_invalidated=${flags.holderInvalidated.toDiagnosticValue()}",
+    "holder_closed=${flags.holderClosed.toDiagnosticValue()}",
+    "holder_timeout_cleanup=${flags.holderTimeoutCleanup.toDiagnosticValue()}",
+    "holder_failure_cleanup=${flags.holderFailureCleanup.toDiagnosticValue()}",
+    "holder_process_restart=${flags.holderProcessRestart.toDiagnosticValue()}",
+    "held_engine_lifecycle_history=${flags.heldEngineLifecycleHistory.toDiagnosticValue()}",
+    "held_engine_destroy_reason=${flags.heldEngineDestroyReason.toDiagnosticValue()}",
+    "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
+    "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
+    "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
 )
 
 private fun resolveGpuOutputQualityGateStatus(diagnostics: GpuOutputQualityDiagnostics): String =
