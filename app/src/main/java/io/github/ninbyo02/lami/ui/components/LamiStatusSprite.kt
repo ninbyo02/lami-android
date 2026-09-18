@@ -414,6 +414,110 @@ internal fun shouldAttemptInsertionDeterministic(
     return roll < settings.probabilityPercent
 }
 
+private fun createSyncFrameResolver(
+    animSpec: AnimationSpec,
+    syncEpochMs: Long,
+    insertionSettings: InsertionAnimationSettings?,
+    insertionKey: Int,
+    insertionCache: DeterministicInsertionCache,
+    resolvedStatus: LamiSpriteStatus,
+    maxFrameIndex: Int,
+): (Long) -> SpriteFrameSample {
+    val baseFrames = animSpec.frames.ifEmpty { listOf(0) }
+    val baseIntervalMs = animSpec.frameDuration.minMs.coerceAtLeast(1L)
+    val loopDurationMs = baseIntervalMs * baseFrames.size
+    val canInsert = insertionSettings?.let { settings ->
+        settings.enabled && settings.everyNLoops > 0 && settings.probabilityPercent > 0 &&
+            settings.patterns.any { it.weight > 0 && it.frameSequence.isNotEmpty() }
+    } == true
+    var cachedLoop = -1
+    var cachedDecision: DeterministicInsertionDecision? = null
+    var cachedTimeline: SpriteEventTimeline? = null
+    return { nowMs ->
+        val elapsedMs = (nowMs - syncEpochMs).coerceAtLeast(0L)
+        val loopCount = (elapsedMs / loopDurationMs).toInt() + 1
+        if (cachedTimeline == null || (canInsert && cachedLoop != loopCount)) {
+            val insertionDecision = insertionSettings?.takeIf { canInsert }?.let { settings ->
+                if (loopCount < insertionCache.lastComputedLoop) {
+                    insertionCache.lastComputedLoop = 0
+                    insertionCache.lastInsertionLoop = null
+                    insertionCache.lastDecisionLoop = 0
+                    insertionCache.lastDecision = null
+                }
+                for (loop in (insertionCache.lastComputedLoop + 1)..loopCount) {
+                    val attemptSeed = deterministicSeed(
+                        syncEpochMs = syncEpochMs,
+                        status = resolvedStatus,
+                        loopCount = loop,
+                        insertionKey = insertionKey,
+                        salt = 0x51C7FCD39C65E5E0L,
+                    )
+                    val shouldInsert = shouldAttemptInsertionDeterministic(
+                        settings = settings,
+                        loopCount = loop,
+                        lastInsertionLoop = insertionCache.lastInsertionLoop,
+                        seed = attemptSeed,
+                    )
+                    val decision = if (shouldInsert && settings.patterns.isNotEmpty()) {
+                        val defaultIntervalMs = effectiveInsertionIntervalMs(
+                            settings,
+                            settings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+                        )
+                        val patternSeed = deterministicSeed(
+                            syncEpochMs = syncEpochMs,
+                            status = resolvedStatus,
+                            loopCount = loop,
+                            insertionKey = insertionKey,
+                            salt = DETERMINISTIC_GOLDEN_GAMMA,
+                        )
+                        val selection = selectWeightedInsertionPatternDeterministic(
+                            patterns = settings.patterns,
+                            seed = patternSeed,
+                        )
+                        selection?.let { (patternIndex, pattern) ->
+                            val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
+                            DeterministicInsertionDecision(
+                                patternIndex = patternIndex,
+                                frames = pattern.frameSequence.toList(),
+                                intervalMs = resolvedIntervalMs,
+                                exclusive = settings.exclusive,
+                            )
+                        }
+                    } else {
+                        null
+                    }
+                    if (decision != null) {
+                        insertionCache.lastInsertionLoop = loop
+                    }
+                    insertionCache.lastComputedLoop = loop
+                    if (loop == loopCount) {
+                        insertionCache.lastDecisionLoop = loop
+                        insertionCache.lastDecision = decision
+                    }
+                }
+                if (insertionCache.lastDecisionLoop == loopCount) {
+                    insertionCache.lastDecision
+                } else {
+                    null
+                }
+            }
+            if (cachedTimeline == null || cachedDecision != insertionDecision) {
+                cachedTimeline = SpriteEventTimeline(
+                    baseFrames = baseFrames,
+                    intervalMs = baseIntervalMs,
+                    insertionFrames = insertionDecision?.frames.orEmpty(),
+                    insertionIntervalMs = insertionDecision?.intervalMs?.toLong() ?: baseIntervalMs,
+                    exclusive = insertionDecision?.exclusive == true,
+                    maxFrameIndex = maxFrameIndex,
+                )
+                cachedDecision = insertionDecision
+            }
+            cachedLoop = loopCount
+        }
+        requireNotNull(cachedTimeline).sample(elapsedMs % loopDurationMs, canInsert)
+    }
+}
+
 @Composable
 fun LamiStatusSprite(
     status: LamiSpriteStatus,
@@ -692,100 +796,15 @@ fun LamiStatusSprite(
     val resolveSyncSample = remember(
         animSpec, syncEpochMs, insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
     ) {
-        val baseFrames = animSpec.frames.ifEmpty { listOf(0) }
-        val baseIntervalMs = animSpec.frameDuration.minMs.coerceAtLeast(1L)
-        val loopDurationMs = baseIntervalMs * baseFrames.size
-        val canInsert = insertionSettings?.let { settings ->
-            settings.enabled && settings.everyNLoops > 0 && settings.probabilityPercent > 0 &&
-                settings.patterns.any { it.weight > 0 && it.frameSequence.isNotEmpty() }
-        } == true
-        var cachedLoop = -1
-        var cachedDecision: DeterministicInsertionDecision? = null
-        var cachedTimeline: SpriteEventTimeline? = null
-        val resolve: (Long) -> SpriteFrameSample = { nowMs ->
-            val elapsedMs = (nowMs - syncEpochMs).coerceAtLeast(0L)
-            val loopCount = (elapsedMs / loopDurationMs).toInt() + 1
-            if (cachedTimeline == null || (canInsert && cachedLoop != loopCount)) {
-                val insertionDecision = insertionSettings?.takeIf { canInsert }?.let { settings ->
-                    if (loopCount < insertionCache.lastComputedLoop) {
-                        insertionCache.lastComputedLoop = 0
-                        insertionCache.lastInsertionLoop = null
-                        insertionCache.lastDecisionLoop = 0
-                        insertionCache.lastDecision = null
-                    }
-                    for (loop in (insertionCache.lastComputedLoop + 1)..loopCount) {
-                        val attemptSeed = deterministicSeed(
-                            syncEpochMs = syncEpochMs,
-                            status = resolvedStatus,
-                            loopCount = loop,
-                            insertionKey = insertionKey,
-                            salt = 0x51C7FCD39C65E5E0L,
-                        )
-                        val shouldInsert = shouldAttemptInsertionDeterministic(
-                            settings = settings,
-                            loopCount = loop,
-                            lastInsertionLoop = insertionCache.lastInsertionLoop,
-                            seed = attemptSeed,
-                        )
-                        val decision = if (shouldInsert && settings.patterns.isNotEmpty()) {
-                            val defaultIntervalMs = effectiveInsertionIntervalMs(
-                                settings,
-                                settings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
-                            )
-                            val patternSeed = deterministicSeed(
-                                syncEpochMs = syncEpochMs,
-                                status = resolvedStatus,
-                                loopCount = loop,
-                                insertionKey = insertionKey,
-                                salt = DETERMINISTIC_GOLDEN_GAMMA,
-                            )
-                            val selection = selectWeightedInsertionPatternDeterministic(
-                                patterns = settings.patterns,
-                                seed = patternSeed,
-                            )
-                            selection?.let { (patternIndex, pattern) ->
-                                val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
-                                DeterministicInsertionDecision(
-                                    patternIndex = patternIndex,
-                                    frames = pattern.frameSequence.toList(),
-                                    intervalMs = resolvedIntervalMs,
-                                    exclusive = settings.exclusive,
-                                )
-                            }
-                        } else {
-                            null
-                        }
-                        if (decision != null) {
-                            insertionCache.lastInsertionLoop = loop
-                        }
-                        insertionCache.lastComputedLoop = loop
-                        if (loop == loopCount) {
-                            insertionCache.lastDecisionLoop = loop
-                            insertionCache.lastDecision = decision
-                        }
-                    }
-                    if (insertionCache.lastDecisionLoop == loopCount) {
-                        insertionCache.lastDecision
-                    } else {
-                        null
-                    }
-                }
-                if (cachedTimeline == null || cachedDecision != insertionDecision) {
-                    cachedTimeline = SpriteEventTimeline(
-                        baseFrames = baseFrames,
-                        intervalMs = baseIntervalMs,
-                        insertionFrames = insertionDecision?.frames.orEmpty(),
-                        insertionIntervalMs = insertionDecision?.intervalMs?.toLong() ?: baseIntervalMs,
-                        exclusive = insertionDecision?.exclusive == true,
-                        maxFrameIndex = maxFrameIndex,
-                    )
-                    cachedDecision = insertionDecision
-                }
-                cachedLoop = loopCount
-            }
-            requireNotNull(cachedTimeline).sample(elapsedMs % loopDurationMs, canInsert)
-        }
-        resolve
+        createSyncFrameResolver(
+            animSpec = animSpec,
+            syncEpochMs = syncEpochMs,
+            insertionSettings = insertionSettings,
+            insertionKey = insertionKey,
+            insertionCache = insertionCache,
+            resolvedStatus = resolvedStatus,
+            maxFrameIndex = maxFrameIndex,
+        )
     }
     val syncFrameState = remember(animSpec, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
