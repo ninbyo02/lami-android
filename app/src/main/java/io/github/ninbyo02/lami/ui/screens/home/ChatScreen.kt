@@ -14473,55 +14473,128 @@ private fun InferenceStatsSheetContent(
                         )
                     },
                 )
-                DevDiagnosticsAdvancedToggle(
-                    expanded = devDiagnosticsAdvancedExpanded,
-                    onToggleExpanded = { devDiagnosticsAdvancedExpanded = !devDiagnosticsAdvancedExpanded },
-                )
-                if (devDiagnosticsAdvancedExpanded) {
-                    InferenceStatsAdvancedCopySection(
+                InferenceStatsAdvancedDevSection(
+                    ui = InferenceStatsAdvancedDevUi(
+                        expanded = devDiagnosticsAdvancedExpanded,
+                        memoryRecoveryCheckState = memoryRecoveryCheckState,
+                        memoryRecoveryCheckInProgress = memoryRecoveryCheckInProgress,
+                        isInferenceRunningForMemoryRecovery = isInferenceRunningForMemoryRecovery,
+                        npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                        npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                        npuS1PersistentCustomJniQualityPromptProfile =
+                            npuS1PersistentCustomJniQualityPromptProfile,
+                        npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniInProgress,
+                        isInferenceRunningForPersistentCustomJni = isInferenceRunningForPersistentCustomJni,
+                        markdownStreamingMode = markdownStreamingMode,
+                        showDevManualEngineRecreate = showDevManualEngineRecreate,
+                        manualEngineRecreateEnabled = manualEngineRecreateEnabled,
+                        manualEngineRecreateBusy = manualEngineRecreateBusy,
+                        manualEngineRecreateResult = manualEngineRecreateResult,
+                        manualEngineRecreateReason = manualEngineRecreateReason,
+                    ),
+                    actions = InferenceStatsAdvancedDevActions(
+                        onToggleExpanded = {
+                            devDiagnosticsAdvancedExpanded = !devDiagnosticsAdvancedExpanded
+                        },
                         onCopyGpuDiagnosticKeys = copyGpuDiagnosticKeysAction,
                         onCopyGpuInternalSurfaceKeys = copyGpuInternalSurfaceKeysAction,
-                    )
-                    MemoryRecoveryCheckDevSection(
-                        state = memoryRecoveryCheckState,
-                        buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
-                            isInferenceRunning = isInferenceRunningForMemoryRecovery,
-                            isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
-                        ),
-                        blockedByGeneration = isInferenceRunningForMemoryRecovery,
-                        onStart = onMemoryRecoveryCheck,
-                    )
-                    if (BuildConfig.DEBUG) {
-                        NpuS1PersistentCustomJniDevSection(
-                            state = npuS1PersistentCustomJniState,
-                            selectedMode = npuS1PersistentCustomJniProbeMode,
-                            selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
-                            running = npuS1PersistentCustomJniInProgress,
-                            blockedByGeneration = isInferenceRunningForPersistentCustomJni,
-                            onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
-                            onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
-                            onStart = onNpuS1PersistentCustomJniStart,
-                            onCancel = onNpuS1PersistentCustomJniCancel,
-                        )
-                    }
-                    InferenceStatsSection(title = "DEV Markdown") {
-                        InferenceStatRow(
-                            label = "Markdown mode",
-                            value = markdownStreamingMode.displayLabel,
-                        )
-                    }
-                    if (showDevManualEngineRecreate) {
-                        InferenceStatsManualEngineRecreateSection(
-                            enabled = manualEngineRecreateEnabled,
-                            busy = manualEngineRecreateBusy,
-                            result = manualEngineRecreateResult,
-                            reason = manualEngineRecreateReason,
-                            onRecreate = onManualEngineRecreate,
-                        )
-                    }
-                }
+                        onMemoryRecoveryCheck = onMemoryRecoveryCheck,
+                        onNpuS1PersistentCustomJniProbeModeChange =
+                            onNpuS1PersistentCustomJniProbeModeChange,
+                        onNpuS1PersistentCustomJniQualityPromptProfileChange =
+                            onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                        onNpuS1PersistentCustomJniStart = onNpuS1PersistentCustomJniStart,
+                        onNpuS1PersistentCustomJniCancel = onNpuS1PersistentCustomJniCancel,
+                        onManualEngineRecreate = onManualEngineRecreate,
+                    ),
+                )
             }
         }
+    }
+}
+
+private data class InferenceStatsAdvancedDevUi(
+    val expanded: Boolean,
+    val memoryRecoveryCheckState: MemoryRecoveryCheckState,
+    val memoryRecoveryCheckInProgress: Boolean,
+    val isInferenceRunningForMemoryRecovery: Boolean,
+    val npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState,
+    val npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode,
+    val npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
+    val npuS1PersistentCustomJniInProgress: Boolean,
+    val isInferenceRunningForPersistentCustomJni: Boolean,
+    val markdownStreamingMode: MarkdownStreamingMode,
+    val showDevManualEngineRecreate: Boolean,
+    val manualEngineRecreateEnabled: Boolean,
+    val manualEngineRecreateBusy: Boolean,
+    val manualEngineRecreateResult: String,
+    val manualEngineRecreateReason: String,
+)
+
+private data class InferenceStatsAdvancedDevActions(
+    val onToggleExpanded: () -> Unit,
+    val onCopyGpuDiagnosticKeys: (() -> Unit)?,
+    val onCopyGpuInternalSurfaceKeys: (() -> Unit)?,
+    val onMemoryRecoveryCheck: () -> Unit,
+    val onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit,
+    val onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit,
+    val onNpuS1PersistentCustomJniStart: () -> Unit,
+    val onNpuS1PersistentCustomJniCancel: () -> Unit,
+    val onManualEngineRecreate: () -> Unit,
+)
+
+@Composable
+private fun InferenceStatsAdvancedDevSection(
+    ui: InferenceStatsAdvancedDevUi,
+    actions: InferenceStatsAdvancedDevActions,
+) {
+    DevDiagnosticsAdvancedToggle(
+        expanded = ui.expanded,
+        onToggleExpanded = actions.onToggleExpanded,
+    )
+    if (!ui.expanded) return
+
+    InferenceStatsAdvancedCopySection(
+        onCopyGpuDiagnosticKeys = actions.onCopyGpuDiagnosticKeys,
+        onCopyGpuInternalSurfaceKeys = actions.onCopyGpuInternalSurfaceKeys,
+    )
+    MemoryRecoveryCheckDevSection(
+        state = ui.memoryRecoveryCheckState,
+        buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+            isInferenceRunning = ui.isInferenceRunningForMemoryRecovery,
+            isRecoveryCheckRunning = ui.memoryRecoveryCheckInProgress,
+        ),
+        blockedByGeneration = ui.isInferenceRunningForMemoryRecovery,
+        onStart = actions.onMemoryRecoveryCheck,
+    )
+    if (BuildConfig.DEBUG) {
+        NpuS1PersistentCustomJniDevSection(
+            state = ui.npuS1PersistentCustomJniState,
+            selectedMode = ui.npuS1PersistentCustomJniProbeMode,
+            selectedQualityPromptProfile = ui.npuS1PersistentCustomJniQualityPromptProfile,
+            running = ui.npuS1PersistentCustomJniInProgress,
+            blockedByGeneration = ui.isInferenceRunningForPersistentCustomJni,
+            onModeChange = actions.onNpuS1PersistentCustomJniProbeModeChange,
+            onQualityPromptProfileChange = actions.onNpuS1PersistentCustomJniQualityPromptProfileChange,
+            onStart = actions.onNpuS1PersistentCustomJniStart,
+            onCancel = actions.onNpuS1PersistentCustomJniCancel,
+        )
+    }
+    InferenceStatsSection(title = "DEV Markdown") {
+        InferenceStatRow(
+            label = "Markdown mode",
+            value = ui.markdownStreamingMode.displayLabel,
+        )
+    }
+    if (ui.showDevManualEngineRecreate) {
+        InferenceStatsManualEngineRecreateSection(
+            enabled = ui.manualEngineRecreateEnabled,
+            busy = ui.manualEngineRecreateBusy,
+            result = ui.manualEngineRecreateResult,
+            reason = ui.manualEngineRecreateReason,
+            onRecreate = actions.onManualEngineRecreate,
+        )
     }
 }
 
