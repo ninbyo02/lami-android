@@ -14280,176 +14280,37 @@ private fun InferenceStatsSheetContent(
                         )
                     },
                 )
-                NpuPersistentHolderCreateCloseDevSection(
-                    ui = holderCreateCloseUi,
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = holderCreateCloseActions.onStart,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderCreateCloseSummaryForCopy(
-                                    holderCreateCloseUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderCreateCloseFullDumpForCopy(
-                                    holderCreateCloseUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
+                InferenceStatsHolderProbeSections(
+                    ui = InferenceStatsHolderProbeUi(
+                        holderCreateClose = holderCreateCloseUi,
+                        trueEngineEntrypointState = npuTrueEngineEntrypointState,
+                        trueEngineEntrypointRunning = npuTrueEngineEntrypointInProgress,
+                        trueEngineEntrypointBlocked = isInferenceRunningForTrueEngineEntrypoint,
+                        trueEngineModelAssetsState = npuTrueEngineModelAssetsState,
+                        trueEngineModelAssetsRunning = npuTrueEngineModelAssetsInProgress,
+                        trueEngineModelAssetsBlocked = isInferenceRunningForTrueEngineModelAssets,
+                        trueEngineHolderState = npuTrueEngineHolderCreateCloseState,
+                        trueEngineHolderRunning = npuTrueEngineHolderCreateCloseInProgress,
+                        trueEngineHolderBlocked = isInferenceRunningForTrueEngineHolderCreateClose,
+                        holderRunOnce = holderRunOnceUi,
+                        holderTwoTurn = holderTwoTurnUi,
+                        holderFiveTurn = holderFiveTurnUi,
+                        holderTenTurn = holderTenTurnUi,
                     ),
-                )
-                if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
-                    NpuTrueEngineEntrypointDevSection(
-                        state = npuTrueEngineEntrypointState,
-                        running = npuTrueEngineEntrypointInProgress,
-                        blockedByGeneration = isInferenceRunningForTrueEngineEntrypoint,
-                        onStart = onNpuTrueEngineEntrypointStart,
-                        onCopySummary = onCopyTrueEngineEntrypointSummary ?: {
-                            copyDevDiagnosticText(
-                                formatNpuTrueEngineEntrypointSummaryForCopy(npuTrueEngineEntrypointState),
-                                NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = onCopyTrueEngineEntrypointFullDump ?: {
-                            copyDevDiagnosticText(
-                                formatNpuTrueEngineEntrypointFullDumpForCopy(npuTrueEngineEntrypointState),
-                                NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
-                    )
-                }
-                if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
-                    NpuTrueEngineModelAssetsDevSection(
-                        state = npuTrueEngineModelAssetsState,
-                        running = npuTrueEngineModelAssetsInProgress,
-                        blockedByGeneration = isInferenceRunningForTrueEngineModelAssets,
-                        onStart = onNpuTrueEngineModelAssetsStart,
-                        onCopySummary = onCopyTrueEngineModelAssetsSummary ?: {
-                            copyDevDiagnosticText(
-                                formatNpuTrueEngineModelAssetsSummaryForCopy(npuTrueEngineModelAssetsState),
-                                NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = onCopyTrueEngineModelAssetsFullDump ?: {
-                            copyDevDiagnosticText(
-                                formatNpuTrueEngineModelAssetsFullDumpForCopy(npuTrueEngineModelAssetsState),
-                                NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
-                    )
-                }
-                NpuTrueEngineHolderCreateCloseDevSection(
-                    state = npuTrueEngineHolderCreateCloseState,
-                    running = npuTrueEngineHolderCreateCloseInProgress,
-                    blockedByGeneration = isInferenceRunningForTrueEngineHolderCreateClose,
-                    onStart = onNpuTrueEngineHolderCreateCloseStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuTrueEngineHolderCreateCloseSummaryForCopy(
-                                npuTrueEngineHolderCreateCloseState,
-                            ),
-                            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(
-                                npuTrueEngineHolderCreateCloseState,
-                            ),
-                            NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
-                )
-                NpuPersistentHolderRunOnceDevSection(
-                    ui = holderRunOnceUi,
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = holderRunOnceActions.onStart,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderRunOnceSummaryForCopy(
-                                    holderRunOnceUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderRunOnceFullDumpForCopy(
-                                    holderRunOnceUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
-                    ),
-                )
-                NpuPersistentHolderTwoTurnDevSection(
-                    ui = holderTwoTurnUi,
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = holderTwoTurnActions.onStart,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderTwoTurnSummaryForCopy(
-                                    holderTwoTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderTwoTurnFullDumpForCopy(
-                                    holderTwoTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
-                    ),
-                )
-                NpuPersistentHolderFiveTurnDevSection(
-                    ui = holderFiveTurnUi,
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = holderFiveTurnActions.onStart,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderFiveTurnSummaryForCopy(
-                                    holderFiveTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderFiveTurnFullDumpForCopy(
-                                    holderFiveTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
-                    ),
-                )
-                NpuPersistentHolderTenTurnDevSection(
-                    ui = holderTenTurnUi,
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = holderTenTurnActions.onStart,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderTenTurnSummaryForCopy(
-                                    holderTenTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_SUMMARY_LABEL,
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                formatNpuPersistentHolderTenTurnFullDumpForCopy(
-                                    holderTenTurnUi.state,
-                                ),
-                                NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_FULL_DUMP_LABEL,
-                            )
-                        },
+                    actions = InferenceStatsHolderProbeActions(
+                        onHolderCreateCloseStart = holderCreateCloseActions.onStart,
+                        onTrueEngineEntrypointStart = onNpuTrueEngineEntrypointStart,
+                        onCopyTrueEngineEntrypointSummary = onCopyTrueEngineEntrypointSummary,
+                        onCopyTrueEngineEntrypointFullDump = onCopyTrueEngineEntrypointFullDump,
+                        onTrueEngineModelAssetsStart = onNpuTrueEngineModelAssetsStart,
+                        onCopyTrueEngineModelAssetsSummary = onCopyTrueEngineModelAssetsSummary,
+                        onCopyTrueEngineModelAssetsFullDump = onCopyTrueEngineModelAssetsFullDump,
+                        onTrueEngineHolderStart = onNpuTrueEngineHolderCreateCloseStart,
+                        onHolderRunOnceStart = holderRunOnceActions.onStart,
+                        onHolderTwoTurnStart = holderTwoTurnActions.onStart,
+                        onHolderFiveTurnStart = holderFiveTurnActions.onStart,
+                        onHolderTenTurnStart = holderTenTurnActions.onStart,
+                        onCopyDiagnosticText = ::copyDevDiagnosticText,
                     ),
                 )
                 NpuLongGenerationDevSection(
@@ -14511,6 +14372,194 @@ private fun InferenceStatsSheetContent(
             }
         }
     }
+}
+
+private data class InferenceStatsHolderProbeUi(
+    val holderCreateClose: NpuHolderDiagnosticUi<NpuPersistentHolderCreateCloseProbeState>,
+    val trueEngineEntrypointState: NpuTrueEngineEntrypointProbeState,
+    val trueEngineEntrypointRunning: Boolean,
+    val trueEngineEntrypointBlocked: Boolean,
+    val trueEngineModelAssetsState: NpuTrueEngineModelAssetsProbeState,
+    val trueEngineModelAssetsRunning: Boolean,
+    val trueEngineModelAssetsBlocked: Boolean,
+    val trueEngineHolderState: NpuTrueEngineHolderCreateCloseProbeState,
+    val trueEngineHolderRunning: Boolean,
+    val trueEngineHolderBlocked: Boolean,
+    val holderRunOnce: NpuHolderDiagnosticUi<NpuPersistentHolderRunOnceProbeState>,
+    val holderTwoTurn: NpuHolderDiagnosticUi<NpuPersistentHolderTwoTurnProbeState>,
+    val holderFiveTurn: NpuHolderDiagnosticUi<NpuPersistentHolderFiveTurnProbeState>,
+    val holderTenTurn: NpuHolderDiagnosticUi<NpuPersistentHolderTenTurnProbeState>,
+)
+
+private data class InferenceStatsHolderProbeActions(
+    val onHolderCreateCloseStart: () -> Unit,
+    val onTrueEngineEntrypointStart: () -> Unit,
+    val onCopyTrueEngineEntrypointSummary: (() -> Unit)?,
+    val onCopyTrueEngineEntrypointFullDump: (() -> Unit)?,
+    val onTrueEngineModelAssetsStart: () -> Unit,
+    val onCopyTrueEngineModelAssetsSummary: (() -> Unit)?,
+    val onCopyTrueEngineModelAssetsFullDump: (() -> Unit)?,
+    val onTrueEngineHolderStart: () -> Unit,
+    val onHolderRunOnceStart: () -> Unit,
+    val onHolderTwoTurnStart: () -> Unit,
+    val onHolderFiveTurnStart: () -> Unit,
+    val onHolderTenTurnStart: () -> Unit,
+    val onCopyDiagnosticText: (String, String) -> Unit,
+)
+
+@Composable
+private fun InferenceStatsHolderProbeSections(
+    ui: InferenceStatsHolderProbeUi,
+    actions: InferenceStatsHolderProbeActions,
+) {
+    NpuPersistentHolderCreateCloseDevSection(
+        ui = ui.holderCreateClose,
+        actions = NpuHolderDiagnosticActions(
+            onStart = actions.onHolderCreateCloseStart,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderCreateCloseSummaryForCopy(ui.holderCreateClose.state),
+                    NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderCreateCloseFullDumpForCopy(ui.holderCreateClose.state),
+                    NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        ),
+    )
+    if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+        NpuTrueEngineEntrypointDevSection(
+            state = ui.trueEngineEntrypointState,
+            running = ui.trueEngineEntrypointRunning,
+            blockedByGeneration = ui.trueEngineEntrypointBlocked,
+            onStart = actions.onTrueEngineEntrypointStart,
+            onCopySummary = actions.onCopyTrueEngineEntrypointSummary ?: {
+                actions.onCopyDiagnosticText(
+                    formatNpuTrueEngineEntrypointSummaryForCopy(ui.trueEngineEntrypointState),
+                    NPU_TRUE_ENGINE_ENTRYPOINT_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = actions.onCopyTrueEngineEntrypointFullDump ?: {
+                actions.onCopyDiagnosticText(
+                    formatNpuTrueEngineEntrypointFullDumpForCopy(ui.trueEngineEntrypointState),
+                    NPU_TRUE_ENGINE_ENTRYPOINT_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        )
+    }
+    if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
+        NpuTrueEngineModelAssetsDevSection(
+            state = ui.trueEngineModelAssetsState,
+            running = ui.trueEngineModelAssetsRunning,
+            blockedByGeneration = ui.trueEngineModelAssetsBlocked,
+            onStart = actions.onTrueEngineModelAssetsStart,
+            onCopySummary = actions.onCopyTrueEngineModelAssetsSummary ?: {
+                actions.onCopyDiagnosticText(
+                    formatNpuTrueEngineModelAssetsSummaryForCopy(ui.trueEngineModelAssetsState),
+                    NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = actions.onCopyTrueEngineModelAssetsFullDump ?: {
+                actions.onCopyDiagnosticText(
+                    formatNpuTrueEngineModelAssetsFullDumpForCopy(ui.trueEngineModelAssetsState),
+                    NPU_TRUE_ENGINE_MODEL_ASSETS_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        )
+    }
+    NpuTrueEngineHolderCreateCloseDevSection(
+        state = ui.trueEngineHolderState,
+        running = ui.trueEngineHolderRunning,
+        blockedByGeneration = ui.trueEngineHolderBlocked,
+        onStart = actions.onTrueEngineHolderStart,
+        onCopySummary = {
+            actions.onCopyDiagnosticText(
+                formatNpuTrueEngineHolderCreateCloseSummaryForCopy(ui.trueEngineHolderState),
+                NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
+            )
+        },
+        onCopyFullDump = {
+            actions.onCopyDiagnosticText(
+                formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(ui.trueEngineHolderState),
+                NPU_TRUE_ENGINE_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
+            )
+        },
+    )
+    NpuPersistentHolderRunOnceDevSection(
+        ui = ui.holderRunOnce,
+        actions = NpuHolderDiagnosticActions(
+            onStart = actions.onHolderRunOnceStart,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderRunOnceSummaryForCopy(ui.holderRunOnce.state),
+                    NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderRunOnceFullDumpForCopy(ui.holderRunOnce.state),
+                    NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        ),
+    )
+    NpuPersistentHolderTwoTurnDevSection(
+        ui = ui.holderTwoTurn,
+        actions = NpuHolderDiagnosticActions(
+            onStart = actions.onHolderTwoTurnStart,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderTwoTurnSummaryForCopy(ui.holderTwoTurn.state),
+                    NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderTwoTurnFullDumpForCopy(ui.holderTwoTurn.state),
+                    NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        ),
+    )
+    NpuPersistentHolderFiveTurnDevSection(
+        ui = ui.holderFiveTurn,
+        actions = NpuHolderDiagnosticActions(
+            onStart = actions.onHolderFiveTurnStart,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderFiveTurnSummaryForCopy(ui.holderFiveTurn.state),
+                    NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderFiveTurnFullDumpForCopy(ui.holderFiveTurn.state),
+                    NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        ),
+    )
+    NpuPersistentHolderTenTurnDevSection(
+        ui = ui.holderTenTurn,
+        actions = NpuHolderDiagnosticActions(
+            onStart = actions.onHolderTenTurnStart,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderTenTurnSummaryForCopy(ui.holderTenTurn.state),
+                    NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_SUMMARY_LABEL,
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    formatNpuPersistentHolderTenTurnFullDumpForCopy(ui.holderTenTurn.state),
+                    NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_FULL_DUMP_LABEL,
+                )
+            },
+        ),
+    )
 }
 
 private data class InferenceStatsAdvancedDevUi(
