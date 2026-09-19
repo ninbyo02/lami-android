@@ -10768,123 +10768,37 @@ private fun readResidentRouterDebugProperty(key: String): String? {
     }.getOrNull()
 }
 
-private suspend fun runLocalInferenceOnceEntry(
+private class OfficialConversationAttemptState {
+    var officialFlowAttempted = false
+    var officialFlowUsed = false
+    var officialFlowFallbackReason: String? = null
+    var officialFlowChunkCount = 0
+    var officialConversationApiAvailable = false
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
+    var localFailureDiagnosticsText: String? = null
+}
+
+private suspend fun tryRunOfficialConversationAttempt(
     context: Context,
-    settingsPreferences: SettingsPreferences,
-    localBaseModelFilePath: String?,
-    localBaseModelDisplayName: String?,
-    localGenericModelFilePath: String? = null,
-    localGenericModelDisplayName: String? = null,
-    resolvedModelPath: String? = null,
-    resolvedCacheDirPath: String? = null,
-    mediaPipeProbeContext: Context? = null,
-    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
-    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    modelResolution: LocalModelResolution,
+    mediaPipeProbeContext: Context?,
+    effectivePreferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    markdownStreamingMode: MarkdownStreamingMode,
     prompt: String,
-    initialTurns: List<LocalConversationTurn> = emptyList(),
-    onPartial: (String) -> Unit = {},
-    allowLegacyReflectionFallback: Boolean = true,
-): LocalInferenceRunResult {
-    val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
-    appendLocalReflectionTrace(
-        context = context,
-        message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
-    )
-    val memorySnapshots = mutableListOf<MemorySnapshot>()
-    var activeModelResolution: LocalModelResolution? = null
-    fun recordMemorySnapshot(stage: String) {
-        memorySnapshots += captureLocalMemorySnapshot(
-            context = context,
-            stage = stage,
-        )
-    }
+    initialTurns: List<LocalConversationTurn>,
+    onPartial: (String) -> Unit,
+    allowLegacyReflectionFallback: Boolean,
+    localTraceStartElapsedRealtimeMs: Long,
+    state: OfficialConversationAttemptState,
+    recordMemorySnapshot: (String) -> Unit,
+    finishResult: (LocalInferenceRunResult, String) -> LocalInferenceRunResult,
+): LocalInferenceRunResult? {
     fun finishWithMemorySnapshots(
         result: LocalInferenceRunResult,
         terminalStage: String,
-        includeDisposeStage: Boolean = true,
-    ): LocalInferenceRunResult {
-        recordMemorySnapshot(terminalStage)
-        if (includeDisposeStage) {
-            recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
-        }
-        val enrichedTrace = activeModelResolution
-            ?.let { result.trace.withLocalModelResolution(it) }
-            ?: result.trace
-        return result.copy(
-            trace = enrichedTrace.copy(
-                memorySnapshots = enrichedTrace.memorySnapshots + memorySnapshots,
-            ),
-        )
-    }
-    recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
-    recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
-    val residentRouterRuntimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
-        context = context.applicationContext,
-        currentNpuModelPath = localBaseModelFilePath,
-    )
-    val residentRouterHookDecision = localInferenceResidencyPolicyForUserFacingSelection(
-        selection = preferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(),
-        runtimeEvidence = residentRouterRuntimeEvidence,
-    ).resolveResidentRouterHookDecision(
-        LocalInferenceRoutingHookInput(
-            currentBackend = preferredBackendDryRunSetting,
-            dryRunInput = LocalInferenceRoutingDryRunInput(
-                promptTokenEstimate = estimateLocalPromptTokensForResidentRouter(prompt),
-                requestedOutputTokens = null,
-            ),
-            enabled = isResidentRouterRealRoutingEnabledForDebug(),
-        ),
-    )
-    val effectivePreferredBackendDryRunSetting = residentRouterHookDecision.selectedBackend
-    appendLocalReflectionTrace(
-        context = context,
-        message = "UPSTREAM resident-router-hook enabled=${residentRouterHookDecision.enabled} applied=${residentRouterHookDecision.applied} current=${preferredBackendDryRunSetting.name} selected=${effectivePreferredBackendDryRunSetting.name} reason=${residentRouterHookDecision.reason} npuSupported=${residentRouterRuntimeEvidence.npuSupported} npuHealthy=${residentRouterRuntimeEvidence.npuHealthy}",
-    )
-    val selectedModelSlot = localModelSlotForBackend(effectivePreferredBackendDryRunSetting)
-    val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
-        LocalModelResolution(
-            modelPath = resolvedModelPath,
-            displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
-            selectedModelSlot = selectedModelSlot,
-            npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
-            genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
-            backendKey = buildLocalLiteRtBackendKey(effectivePreferredBackendDryRunSetting),
-            cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
-        )
-    } else {
-        resolveLocalModelResolutionOrNull(
-            context = context,
-            settingsPreferences = settingsPreferences,
-            localBaseModelFilePath = localBaseModelFilePath,
-            localBaseModelDisplayName = localBaseModelDisplayName,
-            localGenericModelFilePath = localGenericModelFilePath,
-            localGenericModelDisplayName = localGenericModelDisplayName,
-            preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
-        )
-    } ?: run {
-        appendLocalReflectionTrace(
-            context = context,
-            message = "UPSTREAM resolved-local-model-path success=false",
-        )
-        return finishWithMemorySnapshots(
-            result = LocalInferenceRunResult(
-                state = LocalInferenceEngineState.UNINITIALIZED,
-                trace = LocalInferenceTrace(
-                    selectedLocalModelSlot = selectedModelSlot.diagnosticName,
-                    npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
-                    genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
-                ),
-            ),
-            terminalStage = MEMORY_STAGE_GENERATION_FAILED,
-            includeDisposeStage = false,
-        )
-    }
-    activeModelResolution = modelResolution
+    ): LocalInferenceRunResult = finishResult(result, terminalStage)
+
     val modelPath = modelResolution.modelPath
-    appendLocalReflectionTrace(
-        context = context,
-        message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
-    )
     val officialConversationApiProbe = probeLocalOfficialConversationApi()
     appendLocalReflectionTrace(
         context = context,
@@ -11155,6 +11069,162 @@ private suspend fun runLocalInferenceOnceEntry(
             message = "UPSTREAM official-flow-streaming fallback reason=api_unavailable",
         )
     }
+    state.officialFlowAttempted = officialFlowAttempted
+    state.officialFlowUsed = officialFlowUsed
+    state.officialFlowFallbackReason = officialFlowFallbackReason
+    state.officialFlowChunkCount = officialFlowChunkCount
+    state.officialConversationApiAvailable = officialConversationApiProbe.isAvailable
+    state.preferredBackendApplyResult = preferredBackendApplyResult
+    state.localFailureDiagnosticsText = localFailureDiagnosticsText
+    return null
+}
+
+private suspend fun runLocalInferenceOnceEntry(
+    context: Context,
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+    localBaseModelDisplayName: String?,
+    localGenericModelFilePath: String? = null,
+    localGenericModelDisplayName: String? = null,
+    resolvedModelPath: String? = null,
+    resolvedCacheDirPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    prompt: String,
+    initialTurns: List<LocalConversationTurn> = emptyList(),
+    onPartial: (String) -> Unit = {},
+    allowLegacyReflectionFallback: Boolean = true,
+): LocalInferenceRunResult {
+    val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
+    )
+    val memorySnapshots = mutableListOf<MemorySnapshot>()
+    var activeModelResolution: LocalModelResolution? = null
+    fun recordMemorySnapshot(stage: String) {
+        memorySnapshots += captureLocalMemorySnapshot(
+            context = context,
+            stage = stage,
+        )
+    }
+    fun finishWithMemorySnapshots(
+        result: LocalInferenceRunResult,
+        terminalStage: String,
+        includeDisposeStage: Boolean = true,
+    ): LocalInferenceRunResult {
+        recordMemorySnapshot(terminalStage)
+        if (includeDisposeStage) {
+            recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
+        }
+        val enrichedTrace = activeModelResolution
+            ?.let { result.trace.withLocalModelResolution(it) }
+            ?: result.trace
+        return result.copy(
+            trace = enrichedTrace.copy(
+                memorySnapshots = enrichedTrace.memorySnapshots + memorySnapshots,
+            ),
+        )
+    }
+    recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
+    recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
+    val residentRouterRuntimeEvidence = NpuStandardRouteS1AppHistory.runtimeEvidence(
+        context = context.applicationContext,
+        currentNpuModelPath = localBaseModelFilePath,
+    )
+    val residentRouterHookDecision = localInferenceResidencyPolicyForUserFacingSelection(
+        selection = preferredBackendDryRunSetting.toResidentRouterInferenceBackendSelection(),
+        runtimeEvidence = residentRouterRuntimeEvidence,
+    ).resolveResidentRouterHookDecision(
+        LocalInferenceRoutingHookInput(
+            currentBackend = preferredBackendDryRunSetting,
+            dryRunInput = LocalInferenceRoutingDryRunInput(
+                promptTokenEstimate = estimateLocalPromptTokensForResidentRouter(prompt),
+                requestedOutputTokens = null,
+            ),
+            enabled = isResidentRouterRealRoutingEnabledForDebug(),
+        ),
+    )
+    val effectivePreferredBackendDryRunSetting = residentRouterHookDecision.selectedBackend
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM resident-router-hook enabled=${residentRouterHookDecision.enabled} applied=${residentRouterHookDecision.applied} current=${preferredBackendDryRunSetting.name} selected=${effectivePreferredBackendDryRunSetting.name} reason=${residentRouterHookDecision.reason} npuSupported=${residentRouterRuntimeEvidence.npuSupported} npuHealthy=${residentRouterRuntimeEvidence.npuHealthy}",
+    )
+    val selectedModelSlot = localModelSlotForBackend(effectivePreferredBackendDryRunSetting)
+    val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
+        LocalModelResolution(
+            modelPath = resolvedModelPath,
+            displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
+            selectedModelSlot = selectedModelSlot,
+            npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+            genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
+            backendKey = buildLocalLiteRtBackendKey(effectivePreferredBackendDryRunSetting),
+            cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
+        )
+    } else {
+        resolveLocalModelResolutionOrNull(
+            context = context,
+            settingsPreferences = settingsPreferences,
+            localBaseModelFilePath = localBaseModelFilePath,
+            localBaseModelDisplayName = localBaseModelDisplayName,
+            localGenericModelFilePath = localGenericModelFilePath,
+            localGenericModelDisplayName = localGenericModelDisplayName,
+            preferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
+        )
+    } ?: run {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM resolved-local-model-path success=false",
+        )
+        return finishWithMemorySnapshots(
+            result = LocalInferenceRunResult(
+                state = LocalInferenceEngineState.UNINITIALIZED,
+                trace = LocalInferenceTrace(
+                    selectedLocalModelSlot = selectedModelSlot.diagnosticName,
+                    npuPreviewModelConfigured = !localBaseModelFilePath.isNullOrBlank(),
+                    genericFallbackModelConfigured = !localGenericModelFilePath.isNullOrBlank(),
+                ),
+            ),
+            terminalStage = MEMORY_STAGE_GENERATION_FAILED,
+            includeDisposeStage = false,
+        )
+    }
+    activeModelResolution = modelResolution
+    val modelPath = modelResolution.modelPath
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
+    )
+    val officialAttemptState = OfficialConversationAttemptState()
+    val officialAttemptResult = tryRunOfficialConversationAttempt(
+        context = context,
+        modelResolution = modelResolution,
+        mediaPipeProbeContext = mediaPipeProbeContext,
+        effectivePreferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
+        markdownStreamingMode = markdownStreamingMode,
+        prompt = prompt,
+        initialTurns = initialTurns,
+        onPartial = onPartial,
+        allowLegacyReflectionFallback = allowLegacyReflectionFallback,
+        localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+        state = officialAttemptState,
+        recordMemorySnapshot = ::recordMemorySnapshot,
+        finishResult = { result, terminalStage ->
+            finishWithMemorySnapshots(result, terminalStage)
+        },
+    )
+    if (officialAttemptResult != null) return officialAttemptResult
+    val officialFlowAttempted = officialAttemptState.officialFlowAttempted
+    val officialFlowUsed = officialAttemptState.officialFlowUsed
+    val officialFlowFallbackReason = officialAttemptState.officialFlowFallbackReason
+    val officialFlowChunkCount = officialAttemptState.officialFlowChunkCount
+    val officialConversationApiAvailable = officialAttemptState.officialConversationApiAvailable
+    val preferredBackendApplyResult = officialAttemptState.preferredBackendApplyResult
+    val localFailureDiagnosticsText = officialAttemptState.localFailureDiagnosticsText
+    val emitFinal: (String?) -> Unit = { result ->
+        if (!result.isNullOrBlank()) onPartial(result)
+    }
 
     appendLocalReflectionTrace(context = context, message = "UPSTREAM legacy start")
     appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
@@ -11190,7 +11260,7 @@ private suspend fun runLocalInferenceOnceEntry(
         officialFlowAttempted = officialFlowAttempted,
         officialFlowUsed = officialFlowUsed,
         officialFlowFallbackReason = officialFlowFallbackReason,
-        officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+        officialConversationApiAvailable = officialConversationApiAvailable,
         officialFlowChunkCount = officialFlowChunkCount,
         preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached ?: generated.trace.preferredBackendHookReached,
         preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource ?: generated.trace.preferredBackendHookSource,
