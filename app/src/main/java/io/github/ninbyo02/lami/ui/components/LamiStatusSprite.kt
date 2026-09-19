@@ -176,6 +176,37 @@ private data class SyncDiagnostics(
     val tickIndex: Long,
 )
 
+private fun buildDebugOverlayText(
+    overlayOn: Boolean,
+    debugOverloadLabel: String,
+    resolvedStatus: LamiSpriteStatus,
+    spriteStateForAnim: SpriteState?,
+    perStateAnimJson: String?,
+    animSpec: AnimationSpec,
+    resolvedFrameIndex: Int,
+    currentFrameXOffsetPx: Int,
+    currentFrameYOffsetPx: Int,
+): String {
+    if (!overlayOn) {
+        return ""
+    }
+    val perStateJsonState = when {
+        perStateAnimJson == null -> "null"
+        perStateAnimJson.isBlank() -> "blank"
+        else -> "present"
+    }
+    val animationKey = when {
+        perStateAnimJson.isNullOrBlank() -> "fallback"
+        else -> "json:${perStateAnimJson.hashCode()}"
+    }
+    return "usedOverload=$debugOverloadLabel\n" +
+        "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
+        "animationKey=$animationKey perStateAnimJson=$perStateJsonState\n" +
+        "baseFrames=${animSpec.frames} baseIntervalMs=${animSpec.frameDuration.minMs}\n" +
+        "currentFrameIndex=$resolvedFrameIndex\n" +
+        "dstOffsetPx=(x=$currentFrameXOffsetPx, y=$currentFrameYOffsetPx)"
+}
+
 // 挿入判定は InsertionAnimationSettings に統一し、旧 insertions は無効化する。
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimationSpec(
@@ -843,26 +874,17 @@ fun LamiStatusSprite(
         currentFrameXOffsetPx,
         currentFrameYOffsetPx,
     ) {
-        if (!overlayOn) {
-            ""
-        } else {
-            val json = perStateAnimJson
-            val perStateJsonState = when {
-                json == null -> "null"
-                json.isBlank() -> "blank"
-                else -> "present"
-            }
-            val animationKey = when {
-                json.isNullOrBlank() -> "fallback"
-                else -> "json:${json.hashCode()}"
-            }
-            "usedOverload=$debugOverloadLabel\n" +
-                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
-                "animationKey=$animationKey perStateAnimJson=$perStateJsonState\n" +
-                "baseFrames=${animSpec.frames} baseIntervalMs=${animSpec.frameDuration.minMs}\n" +
-                "currentFrameIndex=$resolvedFrameIndex\n" +
-                "dstOffsetPx=(x=$currentFrameXOffsetPx, y=$currentFrameYOffsetPx)"
-        }
+        buildDebugOverlayText(
+            overlayOn = overlayOn,
+            debugOverloadLabel = debugOverloadLabel,
+            resolvedStatus = resolvedStatus,
+            spriteStateForAnim = spriteStateForAnim,
+            perStateAnimJson = perStateAnimJson,
+            animSpec = animSpec,
+            resolvedFrameIndex = resolvedFrameIndex,
+            currentFrameXOffsetPx = currentFrameXOffsetPx,
+            currentFrameYOffsetPx = currentFrameYOffsetPx,
+        )
     }
 
     if (!useSyncMode) {
