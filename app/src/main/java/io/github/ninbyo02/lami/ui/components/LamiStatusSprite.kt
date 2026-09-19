@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -174,6 +175,40 @@ private data class InsertionSettingsKey(
 private data class SyncDiagnostics(
     val loopCount: Int,
     val tickIndex: Long,
+)
+
+private data class LamiSpritePlayback(
+    val modifier: Modifier,
+    val constrainedSize: Dp,
+    val contentOffsetDp: Dp,
+    val contentOffsetYDp: Dp,
+    val animationsEnabled: Boolean,
+    val overlayOn: Boolean,
+    val debugOverloadLabel: String,
+    val frameXOffsetPxMap: Map<Int, Int>,
+    val frameYOffsetPxMap: Map<Int, Int>,
+    val resolvedFrameSrcOffsetMap: Map<Int, IntOffset>,
+    val resolvedFrameSrcSizeMap: Map<Int, IntSize>,
+    val autoCropTransparentArea: Boolean,
+    val frameMaps: LamiSpriteFrameMaps,
+    val spriteSheetConfig: SpriteSheetConfig,
+    val maxFrameIndex: Int,
+    val resolvedStatus: LamiSpriteStatus,
+    val spriteStateForAnim: SpriteState?,
+    val perStateAnimJson: String?,
+    val animSpec: AnimationSpec,
+    val insertionSettings: InsertionAnimationSettings?,
+    val insertionSettingsLatest: State<InsertionAnimationSettings?>,
+    val insertionKey: Int,
+    val insertionCache: DeterministicInsertionCache,
+    val syncEpochMs: Long,
+    val useSyncMode: Boolean,
+    val syncTimeMsState: MutableState<Long>,
+    val loopCountState: MutableState<Int>,
+    val lastInsertionLoopState: MutableState<Int?>,
+    val lastInsertionPatternIndexState: MutableState<Int?>,
+    val lastInsertionResolvedIntervalMsState: MutableState<Int?>,
+    val lastInsertionFramesState: MutableState<List<Int>?>,
 )
 
 private fun buildDebugOverlayText(
@@ -550,6 +585,209 @@ private fun createSyncFrameResolver(
 }
 
 @Composable
+private fun LamiSpritePlaybackContent(playback: LamiSpritePlayback) = with(playback) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentFrameState = remember(resolvedStatus, maxFrameIndex) {
+        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
+    }
+    var currentFrameIndex by currentFrameState
+    val resolveSyncSample = remember(
+        animSpec, syncEpochMs, insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
+    ) {
+        createSyncFrameResolver(
+            animSpec = animSpec,
+            syncEpochMs = syncEpochMs,
+            insertionSettings = insertionSettings,
+            insertionKey = insertionKey,
+            insertionCache = insertionCache,
+            resolvedStatus = resolvedStatus,
+            maxFrameIndex = maxFrameIndex,
+        )
+    }
+    val syncFrameState = remember(animSpec, maxFrameIndex) {
+        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
+    }
+    var syncFrameIndex by syncFrameState
+    LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, resolveSyncSample) {
+        if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
+        if (!useSyncMode || !animationsEnabled) {
+            syncFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
+            return@LaunchedEffect
+        }
+        lifecycleOwner.lifecycle.runSpriteEventClock(SystemClock::uptimeMillis) { now ->
+            val sample = resolveSyncSample(now)
+            syncTimeMsState.value = now
+            syncFrameIndex = sample.frame
+            sample.delayMs
+        }
+    }
+    val frameIndexProvider = remember(useSyncMode, syncFrameState, currentFrameState) {
+        { if (useSyncMode) syncFrameState.value else currentFrameState.value }
+    }
+    // Only the optional diagnostic text needs a composition-time frame read.
+    val resolvedFrameIndex = if (overlayOn) frameIndexProvider() else 0
+    val currentFrameXOffsetPx = frameXOffsetPxMap[resolvedFrameIndex] ?: 0
+    val currentFrameYOffsetPx = frameYOffsetPxMap[resolvedFrameIndex] ?: 0
+    val debugOverlayText = remember(
+        overlayOn,
+        debugOverloadLabel,
+        lastInsertionResolvedIntervalMsState.value,
+        lastInsertionFramesState.value,
+        resolvedStatus,
+        spriteStateForAnim,
+        perStateAnimJson,
+        animSpec,
+        resolvedFrameIndex,
+        currentFrameXOffsetPx,
+        currentFrameYOffsetPx,
+    ) {
+        buildDebugOverlayText(
+            overlayOn = overlayOn,
+            debugOverloadLabel = debugOverloadLabel,
+            resolvedStatus = resolvedStatus,
+            spriteStateForAnim = spriteStateForAnim,
+            perStateAnimJson = perStateAnimJson,
+            animSpec = animSpec,
+            resolvedFrameIndex = resolvedFrameIndex,
+            currentFrameXOffsetPx = currentFrameXOffsetPx,
+            currentFrameYOffsetPx = currentFrameYOffsetPx,
+        )
+    }
+
+    if (!useSyncMode) {
+        LaunchedEffect(lifecycleOwner, resolvedStatus, animationsEnabled, animSpec, insertionKey) {
+            if (RuntimeFlags.shouldDisableContinuousAnimations()) {
+                return@LaunchedEffect
+            }
+            loopCountState.value = 0
+            lastInsertionLoopState.value = null
+            lastInsertionPatternIndexState.value = null
+            lastInsertionResolvedIntervalMsState.value = null
+            lastInsertionFramesState.value = null
+            currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
+            if (!animationsEnabled || animSpec.frames.isEmpty()) {
+                return@LaunchedEffect
+            }
+
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                val random = Random(System.currentTimeMillis())
+
+                suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
+                    if (frameSequence.isEmpty()) return
+                    // 設定の intervalMs を固定間隔として使用する
+                    val resolvedIntervalMs = intervalMs.toLong().coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS)
+                    for (frame in frameSequence) {
+                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
+                        delay(resolvedIntervalMs)
+                    }
+                }
+
+                while (true) {
+                    loopCountState.value += 1
+                    val loopCount = loopCountState.value
+                    val lastInsertionLoop = lastInsertionLoopState.value
+                    val settings = insertionSettingsLatest.value
+                    // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
+                    val shouldInsert = settings?.shouldAttemptInsertion(
+                        loopCount = loopCount,
+                        lastInsertionLoop = lastInsertionLoop,
+                        random = random,
+                    ) == true
+                    val selection = if (shouldInsert) selectWeightedInsertionPattern(settings.patterns, random) else null
+                    if (selection != null) {
+                        val activeSettings = requireNotNull(settings)
+                        val defaultIntervalMs = effectiveInsertionIntervalMs(
+                            activeSettings,
+                            activeSettings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+                        )
+                        // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
+                        val (patternIndex, pattern) = selection
+                        val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
+                        lastInsertionPatternIndexState.value = patternIndex
+                        lastInsertionResolvedIntervalMsState.value = resolvedIntervalMs
+                        lastInsertionFramesState.value = pattern.frameSequence.toList()
+                        if (BuildConfig.DEBUG) {
+                            // 実効 interval の決定根拠をログで確認できるようにする
+                            Log.d(
+                                "LamiStatusSprite",
+                                "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
+                                    "patternIndex=$patternIndex " +
+                                    "frames=${pattern.frameSequence} " +
+                                    "patternInterval=${pattern.intervalMs} " +
+                                    "defaultInterval=$defaultIntervalMs " +
+                                    "resolvedInterval=$resolvedIntervalMs " +
+                                    "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
+                            )
+                        }
+                        playInsertionFrames(
+                            frameSequence = pattern.frameSequence,
+                            intervalMs = resolvedIntervalMs,
+                        )
+                        lastInsertionLoopState.value = loopCount
+                        if (activeSettings.exclusive) {
+                            // exclusive：挿入が発生したループでは Base を再生せず次へ進む
+                            if (!animSpec.loop) {
+                                break
+                            }
+                            continue
+                        }
+                    }
+
+                    for (frame in animSpec.frames) {
+                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
+                        delay(animSpec.frameDuration.draw(random).coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS))
+                    }
+
+                    if (!animSpec.loop) {
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    Box(modifier = modifier) {
+        LamiSprite3x3(
+            frameIndex = 0,
+            frameIndexProvider = frameIndexProvider,
+            modifier = Modifier,
+            layout = LamiSprite3x3Layout(
+                sizeDp = constrainedSize,
+                contentOffsetDp = contentOffsetDp,
+                contentOffsetYDp = contentOffsetYDp,
+            ),
+            frameOverrides = LamiSprite3x3FrameOverrides(
+                frameXOffsetPxMap = frameXOffsetPxMap,
+                frameYOffsetPxMap = frameYOffsetPxMap,
+                frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+                frameSrcSizeMap = resolvedFrameSrcSizeMap,
+                autoCropTransparentArea = autoCropTransparentArea,
+                frameSizePx = frameMaps.frameSize,
+                frameMaps = frameMaps,
+            ),
+            spriteSheetConfig = spriteSheetConfig,
+        )
+        if (overlayOn) {
+            Text(
+                text = debugOverlayText,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    // デバッグ表示の読みやすさのため最小限の内側余白
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 11.sp,
+            )
+        }
+    }
+}
+
+@Composable
 fun LamiStatusSprite(
     status: LamiSpriteStatus,
     modifier: Modifier = Modifier,
@@ -691,22 +929,25 @@ fun LamiStatusSprite(
     // 設定変更時は Effect 開始時にクールダウン状態もリセットする
     val lastInsertionLoopState = remember(resolvedStatus) { mutableStateOf<Int?>(null) }
     // 挿入イベントの確定値を保持する
-    var lastInsertionPatternIndex by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
-    var lastInsertionResolvedIntervalMs by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
-    var lastInsertionFrames by remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
+    val lastInsertionPatternIndexState = remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    val lastInsertionPatternIndex by lastInsertionPatternIndexState
+    val lastInsertionResolvedIntervalMsState = remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    val lastInsertionResolvedIntervalMs by lastInsertionResolvedIntervalMsState
+    val lastInsertionFramesState = remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
+    val lastInsertionFrames by lastInsertionFramesState
     val lastLoggedSyncLoopState = remember(syncEpochMs, resolvedStatus, insertionKey) {
         mutableStateOf<Int?>(null)
     }
     var lastLoggedSyncAtMs by remember(syncEpochMs, resolvedStatus, insertionKey) { mutableStateOf(0L) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
-    val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
+    val insertionSettingsLatest = rememberUpdatedState(insertionSettings)
 
     val useSyncMode = syncEpochMs > 0L
     val insertionCache = remember(syncEpochMs, resolvedStatus, insertionKey) {
         DeterministicInsertionCache()
     }
-    var syncTimeMs by remember(syncEpochMs) { mutableStateOf(SystemClock.uptimeMillis()) }
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val syncTimeMsState = remember(syncEpochMs) { mutableStateOf(SystemClock.uptimeMillis()) }
+    val syncTimeMs by syncTimeMsState
     val syncDiagnostics by remember(useSyncMode, animationsEnabled, animSpec, syncEpochMs) {
         derivedStateOf {
             if (!useSyncMode || !animationsEnabled) {
@@ -820,204 +1061,41 @@ fun LamiStatusSprite(
         lastTracePayload.value = tracePayload
     }
 
-    val currentFrameState = remember(resolvedStatus, maxFrameIndex) {
-        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
-    }
-    var currentFrameIndex by currentFrameState
-    val resolveSyncSample = remember(
-        animSpec, syncEpochMs, insertionSettings, insertionKey, insertionCache, resolvedStatus, maxFrameIndex,
-    ) {
-        createSyncFrameResolver(
-            animSpec = animSpec,
-            syncEpochMs = syncEpochMs,
-            insertionSettings = insertionSettings,
-            insertionKey = insertionKey,
-            insertionCache = insertionCache,
-            resolvedStatus = resolvedStatus,
-            maxFrameIndex = maxFrameIndex,
-        )
-    }
-    val syncFrameState = remember(animSpec, maxFrameIndex) {
-        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
-    }
-    var syncFrameIndex by syncFrameState
-    LaunchedEffect(lifecycleOwner, syncEpochMs, animationsEnabled, useSyncMode, resolveSyncSample) {
-        if (RuntimeFlags.shouldDisableContinuousAnimations()) return@LaunchedEffect
-        if (!useSyncMode || !animationsEnabled) {
-            syncFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
-            return@LaunchedEffect
-        }
-        lifecycleOwner.lifecycle.runSpriteEventClock(SystemClock::uptimeMillis) { now ->
-            val sample = resolveSyncSample(now)
-            syncTimeMs = now
-            syncFrameIndex = sample.frame
-            sample.delayMs
-        }
-    }
-    val frameIndexProvider = remember(useSyncMode, syncFrameState, currentFrameState) {
-        { if (useSyncMode) syncFrameState.value else currentFrameState.value }
-    }
-    // Only the optional diagnostic text needs a composition-time frame read.
-    val resolvedFrameIndex = if (overlayOn) frameIndexProvider() else 0
-    val currentFrameXOffsetPx = frameXOffsetPxMap[resolvedFrameIndex] ?: 0
-    val currentFrameYOffsetPx = frameYOffsetPxMap[resolvedFrameIndex] ?: 0
-    val debugOverlayText = remember(
-        overlayOn,
-        debugOverloadLabel,
-        lastInsertionResolvedIntervalMs,
-        lastInsertionFrames,
-        resolvedStatus,
-        spriteStateForAnim,
-        perStateAnimJson,
-        animSpec,
-        resolvedFrameIndex,
-        currentFrameXOffsetPx,
-        currentFrameYOffsetPx,
-    ) {
-        buildDebugOverlayText(
+    LamiSpritePlaybackContent(
+        playback = LamiSpritePlayback(
+            modifier = modifier,
+            constrainedSize = constrainedSize,
+            contentOffsetDp = contentOffsetDp,
+            contentOffsetYDp = contentOffsetYDp,
+            animationsEnabled = animationsEnabled,
             overlayOn = overlayOn,
             debugOverloadLabel = debugOverloadLabel,
+            frameXOffsetPxMap = frameXOffsetPxMap,
+            frameYOffsetPxMap = frameYOffsetPxMap,
+            resolvedFrameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+            resolvedFrameSrcSizeMap = resolvedFrameSrcSizeMap,
+            autoCropTransparentArea = autoCropTransparentArea,
+            frameMaps = frameMaps,
+            spriteSheetConfig = spriteSheetConfig,
+            maxFrameIndex = maxFrameIndex,
             resolvedStatus = resolvedStatus,
             spriteStateForAnim = spriteStateForAnim,
             perStateAnimJson = perStateAnimJson,
             animSpec = animSpec,
-            resolvedFrameIndex = resolvedFrameIndex,
-            currentFrameXOffsetPx = currentFrameXOffsetPx,
-            currentFrameYOffsetPx = currentFrameYOffsetPx,
-        )
-    }
-
-    if (!useSyncMode) {
-        LaunchedEffect(lifecycleOwner, resolvedStatus, animationsEnabled, animSpec, insertionKey) {
-            if (RuntimeFlags.shouldDisableContinuousAnimations()) {
-                return@LaunchedEffect
-            }
-            loopCountState.value = 0
-            lastInsertionLoopState.value = null
-            lastInsertionPatternIndex = null
-            lastInsertionResolvedIntervalMs = null
-            lastInsertionFrames = null
-            currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
-            if (!animationsEnabled || animSpec.frames.isEmpty()) {
-                return@LaunchedEffect
-            }
-
-            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                val random = Random(System.currentTimeMillis())
-
-                suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
-                    if (frameSequence.isEmpty()) return
-                    // 設定の intervalMs を固定間隔として使用する
-                    val resolvedIntervalMs = intervalMs.toLong().coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS)
-                    for (frame in frameSequence) {
-                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                        delay(resolvedIntervalMs)
-                    }
-                }
-
-                while (true) {
-                    loopCountState.value += 1
-                    val loopCount = loopCountState.value
-                    val lastInsertionLoop = lastInsertionLoopState.value
-                    val settings = insertionSettingsLatest
-                    // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
-                    val shouldInsert = settings?.shouldAttemptInsertion(
-                        loopCount = loopCount,
-                        lastInsertionLoop = lastInsertionLoop,
-                        random = random,
-                    ) == true
-                    val selection = if (shouldInsert) selectWeightedInsertionPattern(settings.patterns, random) else null
-                    if (selection != null) {
-                        val activeSettings = requireNotNull(settings)
-                        val defaultIntervalMs = effectiveInsertionIntervalMs(
-                            activeSettings,
-                            activeSettings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
-                        )
-                        // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
-                        val (patternIndex, pattern) = selection
-                        val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
-                        lastInsertionPatternIndex = patternIndex
-                        lastInsertionResolvedIntervalMs = resolvedIntervalMs
-                        lastInsertionFrames = pattern.frameSequence.toList()
-                        if (BuildConfig.DEBUG) {
-                            // 実効 interval の決定根拠をログで確認できるようにする
-                            Log.d(
-                                "LamiStatusSprite",
-                                "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
-                                    "patternIndex=$patternIndex " +
-                                    "frames=${pattern.frameSequence} " +
-                                    "patternInterval=${pattern.intervalMs} " +
-                                    "defaultInterval=$defaultIntervalMs " +
-                                    "resolvedInterval=$resolvedIntervalMs " +
-                                    "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
-                            )
-                        }
-                        playInsertionFrames(
-                            frameSequence = pattern.frameSequence,
-                            intervalMs = resolvedIntervalMs,
-                        )
-                        lastInsertionLoopState.value = loopCount
-                        if (activeSettings.exclusive) {
-                            // exclusive：挿入が発生したループでは Base を再生せず次へ進む
-                            if (!animSpec.loop) {
-                                break
-                            }
-                            continue
-                        }
-                    }
-
-                    for (frame in animSpec.frames) {
-                        currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                        delay(animSpec.frameDuration.draw(random).coerceAtLeast(MIN_SPRITE_FRAME_DELAY_MS))
-                    }
-
-                    if (!animSpec.loop) {
-                        break
-                    }
-                }
-            }
-        }
-    }
-
-    Box(modifier = modifier) {
-        LamiSprite3x3(
-            frameIndex = 0,
-            frameIndexProvider = frameIndexProvider,
-            modifier = Modifier,
-            layout = LamiSprite3x3Layout(
-                sizeDp = constrainedSize,
-                contentOffsetDp = contentOffsetDp,
-                contentOffsetYDp = contentOffsetYDp,
-            ),
-            frameOverrides = LamiSprite3x3FrameOverrides(
-                frameXOffsetPxMap = frameXOffsetPxMap,
-                frameYOffsetPxMap = frameYOffsetPxMap,
-                frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
-                frameSrcSizeMap = resolvedFrameSrcSizeMap,
-                autoCropTransparentArea = autoCropTransparentArea,
-                frameSizePx = frameMaps.frameSize,
-                frameMaps = frameMaps,
-            ),
-            spriteSheetConfig = spriteSheetConfig,
-        )
-        if (overlayOn) {
-            Text(
-                text = debugOverlayText,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .background(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(4.dp),
-                    )
-                    // デバッグ表示の読みやすさのため最小限の内側余白
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                color = Color.White,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium,
-                lineHeight = 11.sp,
-            )
-        }
-    }
+            insertionSettings = insertionSettings,
+            insertionSettingsLatest = insertionSettingsLatest,
+            insertionKey = insertionKey,
+            insertionCache = insertionCache,
+            syncEpochMs = syncEpochMs,
+            useSyncMode = useSyncMode,
+            syncTimeMsState = syncTimeMsState,
+            loopCountState = loopCountState,
+            lastInsertionLoopState = lastInsertionLoopState,
+            lastInsertionPatternIndexState = lastInsertionPatternIndexState,
+            lastInsertionResolvedIntervalMsState = lastInsertionResolvedIntervalMsState,
+            lastInsertionFramesState = lastInsertionFramesState,
+        ),
+    )
 }
 
 @Composable
