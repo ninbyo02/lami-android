@@ -10328,20 +10328,30 @@ fun Home(
                             settingsPreferences.saveInferenceStatsDisplayMode(mode)
                         }
                     },
-                    localTraceForDev = selectedLocalTraceForDevSheet,
-                    assistantText = selectedAssistantMessageTextForStatsSheet,
-                    promptText = selectedPromptMessageTextForStatsSheet,
-                    devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
-                    devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
-                    devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
-                    preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
-                    markdownStreamingMode = markdownStreamingMode,
-                    showDevManualEngineRecreate = BuildConfig.DEBUG,
-                    manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
-                    manualEngineRecreateResult = preferredBackendManualRecreateResult,
-                    manualEngineRecreateReason = preferredBackendManualRecreateReason,
-                    manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    content = InferenceStatsSheetContentInput(
+                        localTraceForDev = selectedLocalTraceForDevSheet,
+                        assistantText = selectedAssistantMessageTextForStatsSheet,
+                        promptText = selectedPromptMessageTextForStatsSheet,
+                        devHeldStateText =
+                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
+                        devCloseLifecycleText =
+                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
+                        devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
+                    ),
+                    developerOptions = InferenceStatsSheetDeveloperOptions(
+                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                        markdownStreamingMode = markdownStreamingMode,
+                        showDevManualEngineRecreate = BuildConfig.DEBUG,
+                        manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
+                        manualEngineRecreateResult = preferredBackendManualRecreateResult,
+                        manualEngineRecreateReason = preferredBackendManualRecreateReason,
+                        manualEngineRecreateEnabled =
+                            !isInferenceRunningUi &&
+                                !isTtsSpeaking &&
+                                !isStreamingSentencePlaybackActive &&
+                                !preferredBackendManualRecreateInProgress,
+                    ),
                     diagnostics = InferenceStatsDiagnostics(
                     memoryRecoveryCheckState = memoryRecoveryCheckState,
                     memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
@@ -14180,28 +14190,52 @@ private data class InferenceStatsDiagnostics(
     val onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 )
 
+private data class InferenceStatsSheetContentInput(
+    val localTraceForDev: LocalInferenceTrace? = null,
+    val assistantText: String? = null,
+    val promptText: String? = null,
+    val devHeldStateText: String? = null,
+    val devCloseLifecycleText: String? = null,
+    val devDebugText: String? = null,
+)
+
+private data class InferenceStatsSheetDeveloperOptions(
+    val preferredBackendDryRunSetting: PreferredBackendDryRunSetting =
+        PreferredBackendDryRunSetting.DEFAULT,
+    val npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    val showDevManualEngineRecreate: Boolean = false,
+    val manualEngineRecreateEnabled: Boolean = false,
+    val manualEngineRecreateBusy: Boolean = false,
+    val manualEngineRecreateResult: String = "none",
+    val manualEngineRecreateReason: String = "user-requested",
+)
+
 @Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
     onDisplayModeChange: (InferenceStatsDisplayMode) -> Unit,
-    localTraceForDev: LocalInferenceTrace? = null,
-    assistantText: String? = null,
-    promptText: String? = null,
-    devHeldStateText: String? = null,
-    devCloseLifecycleText: String? = null,
-    devDebugText: String? = null,
-    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
-    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
-    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
-    showDevManualEngineRecreate: Boolean = false,
-    manualEngineRecreateEnabled: Boolean = false,
-    manualEngineRecreateBusy: Boolean = false,
-    manualEngineRecreateResult: String = "none",
-    manualEngineRecreateReason: String = "user-requested",
+    content: InferenceStatsSheetContentInput = InferenceStatsSheetContentInput(),
+    developerOptions: InferenceStatsSheetDeveloperOptions = InferenceStatsSheetDeveloperOptions(),
     onManualEngineRecreate: () -> Unit = {},
     diagnostics: InferenceStatsDiagnostics = InferenceStatsDiagnostics(),
 ) {
+    val localTraceForDev = content.localTraceForDev
+    val assistantText = content.assistantText
+    val promptText = content.promptText
+    val devHeldStateText = content.devHeldStateText
+    val devCloseLifecycleText = content.devCloseLifecycleText
+    val devDebugText = content.devDebugText
+    val preferredBackendDryRunSetting = developerOptions.preferredBackendDryRunSetting
+    val npuStandardRouteMode = developerOptions.npuStandardRouteMode
+    val markdownStreamingMode = developerOptions.markdownStreamingMode
+    val showDevManualEngineRecreate = developerOptions.showDevManualEngineRecreate
+    val manualEngineRecreateEnabled = developerOptions.manualEngineRecreateEnabled
+    val manualEngineRecreateBusy = developerOptions.manualEngineRecreateBusy
+    val manualEngineRecreateResult = developerOptions.manualEngineRecreateResult
+    val manualEngineRecreateReason = developerOptions.manualEngineRecreateReason
+
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     var devDiagnosticsAdvancedExpanded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(initialDisplayMode) {
