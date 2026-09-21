@@ -769,6 +769,215 @@ private fun buildNpuS1RepeatedRunRecord(
     nativeDiagnostics = nativeDiagnostics,
 )
 
+private data class NpuS1RepeatedRunIterationResult(
+    val record: NpuS1RepeatedRunRecord,
+    val memoryRecovery5s: MemorySnapshot,
+    val logcatContext: NpuS1LogcatContext,
+)
+
+private suspend fun runNpuS1RepeatedRunIteration(
+    context: Context,
+    localInferenceEngineHolder: LocalInferenceEngineHolder,
+    effectiveNpuStandardRouteMode: NpuStandardRouteMode,
+    localBaseModelFilePath: String?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    runIndex: Int,
+    requestedRunCount: Int,
+    runMode: NpuS1RepeatedRunMode,
+    promptForRun: String,
+    maxTokensForRun: Int,
+    maxTokensResolution: NpuStandardRouteMaxOutputTokensResolution,
+    lifecyclePlan: NpuS1RepeatedRunLifecyclePlan,
+): NpuS1RepeatedRunIterationResult {
+    val runStartedAtWallTimeMs = System.currentTimeMillis()
+    val runStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+    val logcatContext = NpuS1LogcatContext(
+        repeatedRunMode = runMode,
+        runIndex = runIndex,
+        runCountRequested = requestedRunCount,
+        promptLength = promptForRun.length,
+        requestedMaxOutputTokens = maxTokensResolution.requestedMaxOutputTokens,
+        effectiveMaxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
+    )
+    NpuS1LogcatDiagnostics.setContext(logcatContext)
+    NpuS1LogcatDiagnostics.logRepeatedRunStart(
+        mode = runMode,
+        runIndex = runIndex,
+        runCountRequested = requestedRunCount,
+        promptLength = promptForRun.length,
+        requestedMaxOutputTokens = maxTokensForRun,
+        effectiveMaxOutputTokens = logcatContext.effectiveMaxOutputTokens,
+    )
+    val memoryBefore = withContext(Dispatchers.Default) {
+        captureLocalMemorySnapshot(
+            context = context.applicationContext,
+            stage = "npu_s1_repeated_run_${runIndex}_before",
+        )
+    }
+    val engineRequestStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+    val decodeStartedAtMs = engineRequestStartedAtElapsedRealtimeMs
+    NpuEngineLogcatDiagnostics.i(
+        event = "s1_engine_request_start",
+        route = "ChatScreen.startNpuS1RepeatedRun",
+        probeName = "npu_s1_repeated_run",
+        backendRequested = "NPU",
+        maxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
+        memorySnapshot = memoryBefore,
+        detail = "run_index=$runIndex repeated_run_mode=${runMode.wireValue} prompt_length=${promptForRun.length} requested_max_output_tokens=$maxTokensForRun effective_max_output_tokens=${logcatContext.effectiveMaxOutputTokens}",
+    )
+    val rawResult = withContext(Dispatchers.Default) {
+        NpuStandardRouteS1Bridge(
+            mode = effectiveNpuStandardRouteMode,
+            trace = {},
+            allowDevNativeRoute = true,
+        ).run(
+            userPrompt = promptForRun,
+            selectedModelFile = localBaseModelFilePath,
+            maxOutputTokens = maxTokensForRun,
+        )
+    }
+    val engineRequestFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+    val engineRequestFinishedAtWallTimeMs = System.currentTimeMillis()
+    val result = rawResult.withTiming(
+        buildNpuStandardRouteS1UiTiming(
+            result = rawResult,
+            decodeStartedAtMs = decodeStartedAtMs,
+        ),
+    )
+    val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
+        result = result,
+        preferredBackendSetting = preferredBackendDryRunSetting,
+        npuStandardRouteMode = effectiveNpuStandardRouteMode,
+    )
+    val memoryAfter = withContext(Dispatchers.Default) {
+        captureLocalMemorySnapshot(
+            context = context.applicationContext,
+            stage = "npu_s1_repeated_run_${runIndex}_after",
+        )
+    }
+    delay(5_000L)
+    val memoryRecovery5s = withContext(Dispatchers.Default) {
+        captureLocalMemorySnapshot(
+            context = context.applicationContext,
+            stage = "npu_s1_repeated_run_${runIndex}_recovery_5s",
+        )
+    }
+    val recreateResult = if (lifecyclePlan.recreateAfterRun) {
+        val reason = "npu_s1_repeated_run_${runMode.wireValue}_run_$runIndex"
+        val succeeded = withContext(Dispatchers.IO) {
+            localInferenceEngineHolder.requestRecreateForDev(
+                reason = reason,
+                appendTrace = {
+                    appendLocalReflectionTrace(
+                        context = context.applicationContext,
+                        message = "NPU_S1_REPEATED_RUN recreate mode=${runMode.wireValue} run=$runIndex $it",
+                    )
+                },
+            )
+        }
+        if (succeeded) "success" else "failed"
+    } else {
+        "not_requested"
+    }
+    if (lifecyclePlan.postRecreateDelayMs > 0L) {
+        delay(lifecyclePlan.postRecreateDelayMs)
+    }
+    val telemetry = buildNpuS1ShortOutputTelemetry(promptForRun, result)
+    val safetyGuardTriggered = isSafetyGuardTriggered(
+        reasonCode = result.reason,
+        failureStage = result.status,
+        stopReason = telemetry.stopReason,
+    )
+    val failed = result.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
+    val failureExceptionClass = if (failed) inferNpuS1FailureExceptionClass(result.reason) else "unavailable"
+    val nativeDiagnostics = if (failed && result.nativeDiagnostics.nativeErrorClass == "unavailable") {
+        result.nativeDiagnostics.copy(
+            nativeErrorClass = failureExceptionClass,
+            nativeErrorMessage = result.reason,
+            nativeErrorStage = inferNpuS1FailureStage(
+                status = result.status,
+                reason = result.reason,
+                runDecodeReached = result.runDecodeReached,
+                timeout = result.timeout,
+            ),
+            nativeErrorSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
+        )
+    } else {
+        result.nativeDiagnostics
+    }
+    val shouldWaitAfterRun = lifecyclePlan.waitAfterRunMs > 0L &&
+        !failed &&
+        runIndex < requestedRunCount
+    val waitStartedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+        SystemClock.elapsedRealtime()
+    } else {
+        null
+    }
+    if (shouldWaitAfterRun) {
+        delay(lifecyclePlan.waitAfterRunMs)
+    }
+    val waitFinishedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+        SystemClock.elapsedRealtime()
+    } else {
+        null
+    }
+    val runFinishedAtWallTimeMs = System.currentTimeMillis()
+    val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+    val npuS1FailureKind = npuStandardRouteS1FailureKind(result)
+    val nativeCrashRiskHint = npuStandardRouteS1NativeCrashRiskHint(result)
+    val processPid = android.os.Process.myPid()
+    val processName = currentNpuS1ProcessName()
+    val threadName = Thread.currentThread().name.ifBlank { "unavailable" }
+    val failureExceptionSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass)
+    val failureStage = inferNpuS1FailureStage(
+        status = result.status,
+        reason = result.reason,
+        runDecodeReached = result.runDecodeReached,
+        timeout = result.timeout,
+    )
+    val record = buildNpuS1RepeatedRunRecord(
+        runIndex = runIndex,
+        requestedRunCount = requestedRunCount,
+        runMode = runMode,
+        prompt = promptForRun,
+        result = result,
+        telemetry = telemetry,
+        runBackendDiagnostics = runBackendDiagnostics,
+        npuS1FailureKind = npuS1FailureKind,
+        nativeCrashRiskHint = nativeCrashRiskHint,
+        safetyGuardTriggered = safetyGuardTriggered,
+        memoryBefore = memoryBefore,
+        memoryAfter = memoryAfter,
+        memoryRecovery5s = memoryRecovery5s,
+        lifecyclePlan = lifecyclePlan,
+        recreateResultAfterRun = recreateResult,
+        shouldWaitAfterRun = shouldWaitAfterRun,
+        waitStartedAtElapsedRealtimeMs = waitStartedAtElapsedRealtimeMs,
+        waitFinishedAtElapsedRealtimeMs = waitFinishedAtElapsedRealtimeMs,
+        processPid = processPid,
+        processName = processName,
+        threadName = threadName,
+        runStartedAtWallTimeMs = runStartedAtWallTimeMs,
+        runStartedAtElapsedRealtimeMs = runStartedAtElapsedRealtimeMs,
+        runFinishedAtWallTimeMs = runFinishedAtWallTimeMs,
+        runFinishedAtElapsedRealtimeMs = runFinishedAtElapsedRealtimeMs,
+        engineRequestStartedAtElapsedRealtimeMs = engineRequestStartedAtElapsedRealtimeMs,
+        decodeStartedAtMs = decodeStartedAtMs,
+        engineRequestFinishedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs,
+        engineRequestFinishedAtWallTimeMs = engineRequestFinishedAtWallTimeMs,
+        failed = failed,
+        failureExceptionClass = failureExceptionClass,
+        failureExceptionSource = failureExceptionSource,
+        failureStage = failureStage,
+        nativeDiagnostics = nativeDiagnostics,
+    )
+    return NpuS1RepeatedRunIterationResult(
+        record = record,
+        memoryRecovery5s = memoryRecovery5s,
+        logcatContext = logcatContext,
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
@@ -1585,188 +1794,23 @@ fun Home(
             val records = mutableListOf<NpuS1RepeatedRunRecord>()
             try {
                 for (runIndex in 1..requestedRunCount) {
-                    val runStartedAtWallTimeMs = System.currentTimeMillis()
-                    val runStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    val logcatContext = NpuS1LogcatContext(
-                        repeatedRunMode = runMode,
-                        runIndex = runIndex,
-                        runCountRequested = requestedRunCount,
-                        promptLength = promptForRun.length,
-                        requestedMaxOutputTokens = maxTokensResolution.requestedMaxOutputTokens,
-                        effectiveMaxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
-                    )
-                    NpuS1LogcatDiagnostics.setContext(logcatContext)
-                    NpuS1LogcatDiagnostics.logRepeatedRunStart(
-                        mode = runMode,
-                        runIndex = runIndex,
-                        runCountRequested = requestedRunCount,
-                        promptLength = promptForRun.length,
-                        requestedMaxOutputTokens = maxTokensForRun,
-                        effectiveMaxOutputTokens = logcatContext.effectiveMaxOutputTokens,
-                    )
-                    val memoryBefore = withContext(Dispatchers.Default) {
-                        captureLocalMemorySnapshot(
-                            context = context.applicationContext,
-                            stage = "npu_s1_repeated_run_${runIndex}_before",
-                        )
-                    }
-                    val engineRequestStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    val decodeStartedAtMs = engineRequestStartedAtElapsedRealtimeMs
-                    NpuEngineLogcatDiagnostics.i(
-                        event = "s1_engine_request_start",
-                        route = "ChatScreen.startNpuS1RepeatedRun",
-                        probeName = "npu_s1_repeated_run",
-                        backendRequested = "NPU",
-                        maxOutputTokens = maxTokensResolution.effectiveMaxOutputTokens,
-                        memorySnapshot = memoryBefore,
-                        detail = "run_index=$runIndex repeated_run_mode=${runMode.wireValue} prompt_length=${promptForRun.length} requested_max_output_tokens=$maxTokensForRun effective_max_output_tokens=${logcatContext.effectiveMaxOutputTokens}",
-                    )
-                    val rawResult = withContext(Dispatchers.Default) {
-                        NpuStandardRouteS1Bridge(
-                            mode = effectiveNpuStandardRouteMode,
-                            trace = {},
-                            allowDevNativeRoute = true,
-                        ).run(
-                            userPrompt = promptForRun,
-                            selectedModelFile = localBaseModelFilePath,
-                            maxOutputTokens = maxTokensForRun,
-                        )
-                    }
-                    val engineRequestFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    val engineRequestFinishedAtWallTimeMs = System.currentTimeMillis()
-                    val result = rawResult.withTiming(
-                        buildNpuStandardRouteS1UiTiming(
-                            result = rawResult,
-                            decodeStartedAtMs = decodeStartedAtMs,
-                        ),
-                    )
-                    val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
-                        result = result,
-                        preferredBackendSetting = preferredBackendDryRunSetting,
-                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
-                    )
-                    val memoryAfter = withContext(Dispatchers.Default) {
-                        captureLocalMemorySnapshot(
-                            context = context.applicationContext,
-                            stage = "npu_s1_repeated_run_${runIndex}_after",
-                        )
-                    }
-                    delay(5_000L)
-                    val memoryRecovery5s = withContext(Dispatchers.Default) {
-                        captureLocalMemorySnapshot(
-                            context = context.applicationContext,
-                            stage = "npu_s1_repeated_run_${runIndex}_recovery_5s",
-                        )
-                    }
-                    val recreateResult = if (lifecyclePlan.recreateAfterRun) {
-                        val reason = "npu_s1_repeated_run_${runMode.wireValue}_run_$runIndex"
-                        val succeeded = withContext(Dispatchers.IO) {
-                            localInferenceEngineHolder.requestRecreateForDev(
-                                reason = reason,
-                                appendTrace = {
-                                    appendLocalReflectionTrace(
-                                        context = context.applicationContext,
-                                        message = "NPU_S1_REPEATED_RUN recreate mode=${runMode.wireValue} run=$runIndex $it",
-                                    )
-                                },
-                            )
-                        }
-                        if (succeeded) "success" else "failed"
-                    } else {
-                        "not_requested"
-                    }
-                    if (lifecyclePlan.postRecreateDelayMs > 0L) {
-                        delay(lifecyclePlan.postRecreateDelayMs)
-                    }
-                    val telemetry = buildNpuS1ShortOutputTelemetry(promptForRun, result)
-                    val safetyGuardTriggered = isSafetyGuardTriggered(
-                        reasonCode = result.reason,
-                        failureStage = result.status,
-                        stopReason = telemetry.stopReason,
-                    )
-                    val failed = result.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
-                    val failureExceptionClass = if (failed) inferNpuS1FailureExceptionClass(result.reason) else "unavailable"
-                    val nativeDiagnostics = if (failed && result.nativeDiagnostics.nativeErrorClass == "unavailable") {
-                        result.nativeDiagnostics.copy(
-                            nativeErrorClass = failureExceptionClass,
-                            nativeErrorMessage = result.reason,
-                            nativeErrorStage = inferNpuS1FailureStage(
-                                status = result.status,
-                                reason = result.reason,
-                                runDecodeReached = result.runDecodeReached,
-                                timeout = result.timeout,
-                            ),
-                            nativeErrorSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
-                        )
-                    } else {
-                        result.nativeDiagnostics
-                    }
-                    val shouldWaitAfterRun = lifecyclePlan.waitAfterRunMs > 0L &&
-                        !failed &&
-                        runIndex < requestedRunCount
-                    val waitStartedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
-                        SystemClock.elapsedRealtime()
-                    } else {
-                        null
-                    }
-                    if (shouldWaitAfterRun) {
-                        delay(lifecyclePlan.waitAfterRunMs)
-                    }
-                    val waitFinishedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
-                        SystemClock.elapsedRealtime()
-                    } else {
-                        null
-                    }
-                    val runFinishedAtWallTimeMs = System.currentTimeMillis()
-                    val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    val npuS1FailureKind = npuStandardRouteS1FailureKind(result)
-                    val nativeCrashRiskHint = npuStandardRouteS1NativeCrashRiskHint(result)
-                    val processPid = android.os.Process.myPid()
-                    val processName = currentNpuS1ProcessName()
-                    val threadName = Thread.currentThread().name.ifBlank { "unavailable" }
-                    val failureExceptionSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass)
-                    val failureStage = inferNpuS1FailureStage(
-                        status = result.status,
-                        reason = result.reason,
-                        runDecodeReached = result.runDecodeReached,
-                        timeout = result.timeout,
-                    )
-                    val record = buildNpuS1RepeatedRunRecord(
+                    val iteration = runNpuS1RepeatedRunIteration(
+                        context = context,
+                        localInferenceEngineHolder = localInferenceEngineHolder,
+                        effectiveNpuStandardRouteMode = effectiveNpuStandardRouteMode,
+                        localBaseModelFilePath = localBaseModelFilePath,
+                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                         runIndex = runIndex,
                         requestedRunCount = requestedRunCount,
                         runMode = runMode,
-                        prompt = promptForRun,
-                        result = result,
-                        telemetry = telemetry,
-                        runBackendDiagnostics = runBackendDiagnostics,
-                        npuS1FailureKind = npuS1FailureKind,
-                        nativeCrashRiskHint = nativeCrashRiskHint,
-                        safetyGuardTriggered = safetyGuardTriggered,
-                        memoryBefore = memoryBefore,
-                        memoryAfter = memoryAfter,
-                        memoryRecovery5s = memoryRecovery5s,
+                        promptForRun = promptForRun,
+                        maxTokensForRun = maxTokensForRun,
+                        maxTokensResolution = maxTokensResolution,
                         lifecyclePlan = lifecyclePlan,
-                        recreateResultAfterRun = recreateResult,
-                        shouldWaitAfterRun = shouldWaitAfterRun,
-                        waitStartedAtElapsedRealtimeMs = waitStartedAtElapsedRealtimeMs,
-                        waitFinishedAtElapsedRealtimeMs = waitFinishedAtElapsedRealtimeMs,
-                        processPid = processPid,
-                        processName = processName,
-                        threadName = threadName,
-                        runStartedAtWallTimeMs = runStartedAtWallTimeMs,
-                        runStartedAtElapsedRealtimeMs = runStartedAtElapsedRealtimeMs,
-                        runFinishedAtWallTimeMs = runFinishedAtWallTimeMs,
-                        runFinishedAtElapsedRealtimeMs = runFinishedAtElapsedRealtimeMs,
-                        engineRequestStartedAtElapsedRealtimeMs = engineRequestStartedAtElapsedRealtimeMs,
-                        decodeStartedAtMs = decodeStartedAtMs,
-                        engineRequestFinishedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs,
-                        engineRequestFinishedAtWallTimeMs = engineRequestFinishedAtWallTimeMs,
-                        failed = failed,
-                        failureExceptionClass = failureExceptionClass,
-                        failureExceptionSource = failureExceptionSource,
-                        failureStage = failureStage,
-                        nativeDiagnostics = nativeDiagnostics,
                     )
+                    val record = iteration.record
+                    val memoryRecovery5s = iteration.memoryRecovery5s
+                    val logcatContext = iteration.logcatContext
                     records += record
                     NpuS1LogcatDiagnostics.logRunFinished(record)
                     NpuEngineLogcatDiagnostics.i(
