@@ -10342,6 +10342,7 @@ fun Home(
                     manualEngineRecreateResult = preferredBackendManualRecreateResult,
                     manualEngineRecreateReason = preferredBackendManualRecreateReason,
                     manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    diagnostics = InferenceStatsDiagnostics(
                     memoryRecoveryCheckState = memoryRecoveryCheckState,
                     memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
                     isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
@@ -10610,6 +10611,7 @@ fun Home(
                     },
                     onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                     onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
+                    ),
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -14096,6 +14098,88 @@ private fun InferenceStatsSheetHeader(
     }
 }
 
+private data class InferenceStatsDiagnostics(
+    val memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
+    val memoryRecoveryCheckInProgress: Boolean = false,
+    val isInferenceRunningForMemoryRecovery: Boolean = false,
+    val onMemoryRecoveryCheck: () -> Unit = {},
+    val npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    val npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
+    val npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+    val npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
+    val npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
+    val npuS1RepeatedRunInProgress: Boolean = false,
+    val isInferenceRunningForRepeatedRun: Boolean = false,
+    val onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
+    val onNpuS1RepeatedRunPromptChange: (String) -> Unit = {},
+    val onNpuS1RepeatedRunCountChange: (Int) -> Unit = {},
+    val onNpuS1RepeatedRunWaitMsChange: (Long) -> Unit = {},
+    val onNpuS1RepeatedRunStart: () -> Unit = {},
+    val onNpuS1RepeatedRunCancel: () -> Unit = {},
+    val npuLongGenerationState: NpuLongGenerationState = NpuLongGenerationState(),
+    val npuLongGenerationInProgress: Boolean = false,
+    val isInferenceRunningForLongGeneration: Boolean = false,
+    val onNpuLongGenerationStart: () -> Unit = {},
+    val onNpuLongGenerationCancel: () -> Unit = {},
+    val npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState =
+        NpuNonStreamingRepeatedStabilityState(),
+    val npuNonStreamingRepeatedStabilityInProgress: Boolean = false,
+    val isInferenceRunningForNonStreamingRepeatedStability: Boolean = false,
+    val onNpuNonStreamingRepeatedStabilityStart: () -> Unit = {},
+    val onNpuNonStreamingRepeatedStabilityCancel: () -> Unit = {},
+    val npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
+    val npuS1PersistentEngineInProgress: Boolean = false,
+    val isInferenceRunningForPersistentEngine: Boolean = false,
+    val onNpuS1PersistentEngineStart: () -> Unit = {},
+    val onNpuS1PersistentEngineCancel: () -> Unit = {},
+    val holderCreateCloseUi: NpuHolderDiagnosticUi<NpuPersistentHolderCreateCloseProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderCreateCloseProbeState()),
+    val holderCreateCloseActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    val npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState =
+        NpuTrueEngineHolderCreateCloseProbeState(),
+    val npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
+    val isInferenceRunningForTrueEngineHolderCreateClose: Boolean = false,
+    val onNpuTrueEngineHolderCreateCloseStart: () -> Unit = {},
+    val npuTrueEngineEntrypointState: NpuTrueEngineEntrypointProbeState =
+        NpuTrueEngineEntrypointProbeState(),
+    val npuTrueEngineEntrypointInProgress: Boolean = false,
+    val isInferenceRunningForTrueEngineEntrypoint: Boolean = false,
+    val onNpuTrueEngineEntrypointStart: () -> Unit = {},
+    val onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
+    val onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
+    val npuTrueEngineModelAssetsState: NpuTrueEngineModelAssetsProbeState =
+        NpuTrueEngineModelAssetsProbeState(),
+    val npuTrueEngineModelAssetsInProgress: Boolean = false,
+    val isInferenceRunningForTrueEngineModelAssets: Boolean = false,
+    val onNpuTrueEngineModelAssetsStart: () -> Unit = {},
+    val onCopyTrueEngineModelAssetsSummary: (() -> Unit)? = null,
+    val onCopyTrueEngineModelAssetsFullDump: (() -> Unit)? = null,
+    val holderRunOnceUi: NpuHolderDiagnosticUi<NpuPersistentHolderRunOnceProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderRunOnceProbeState()),
+    val holderRunOnceActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    val holderTwoTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTwoTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderTwoTurnProbeState()),
+    val holderTwoTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    val holderFiveTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderFiveTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderFiveTurnProbeState()),
+    val holderFiveTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    val holderTenTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTenTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderTenTurnProbeState()),
+    val holderTenTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    val npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    val npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
+        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+    val npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
+    val npuS1PersistentCustomJniInProgress: Boolean = false,
+    val isInferenceRunningForPersistentCustomJni: Boolean = false,
+    val onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit = {},
+    val onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit = {},
+    val onNpuS1PersistentCustomJniStart: () -> Unit = {},
+    val onNpuS1PersistentCustomJniCancel: () -> Unit = {},
+)
+
 @Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
@@ -14116,85 +14200,7 @@ private fun InferenceStatsSheetContent(
     manualEngineRecreateResult: String = "none",
     manualEngineRecreateReason: String = "user-requested",
     onManualEngineRecreate: () -> Unit = {},
-    memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
-    memoryRecoveryCheckInProgress: Boolean = false,
-    isInferenceRunningForMemoryRecovery: Boolean = false,
-    onMemoryRecoveryCheck: () -> Unit = {},
-    npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
-    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
-    npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
-    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
-    npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
-    npuS1RepeatedRunInProgress: Boolean = false,
-    isInferenceRunningForRepeatedRun: Boolean = false,
-    onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
-    onNpuS1RepeatedRunPromptChange: (String) -> Unit = {},
-    onNpuS1RepeatedRunCountChange: (Int) -> Unit = {},
-    onNpuS1RepeatedRunWaitMsChange: (Long) -> Unit = {},
-    onNpuS1RepeatedRunStart: () -> Unit = {},
-    onNpuS1RepeatedRunCancel: () -> Unit = {},
-    npuLongGenerationState: NpuLongGenerationState = NpuLongGenerationState(),
-    npuLongGenerationInProgress: Boolean = false,
-    isInferenceRunningForLongGeneration: Boolean = false,
-    onNpuLongGenerationStart: () -> Unit = {},
-    onNpuLongGenerationCancel: () -> Unit = {},
-    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState =
-        NpuNonStreamingRepeatedStabilityState(),
-    npuNonStreamingRepeatedStabilityInProgress: Boolean = false,
-    isInferenceRunningForNonStreamingRepeatedStability: Boolean = false,
-    onNpuNonStreamingRepeatedStabilityStart: () -> Unit = {},
-    onNpuNonStreamingRepeatedStabilityCancel: () -> Unit = {},
-    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
-    npuS1PersistentEngineInProgress: Boolean = false,
-    isInferenceRunningForPersistentEngine: Boolean = false,
-    onNpuS1PersistentEngineStart: () -> Unit = {},
-    onNpuS1PersistentEngineCancel: () -> Unit = {},
-    holderCreateCloseUi: NpuHolderDiagnosticUi<NpuPersistentHolderCreateCloseProbeState> =
-        NpuHolderDiagnosticUi(NpuPersistentHolderCreateCloseProbeState()),
-    holderCreateCloseActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
-    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState =
-        NpuTrueEngineHolderCreateCloseProbeState(),
-    npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
-    isInferenceRunningForTrueEngineHolderCreateClose: Boolean = false,
-    onNpuTrueEngineHolderCreateCloseStart: () -> Unit = {},
-    npuTrueEngineEntrypointState: NpuTrueEngineEntrypointProbeState =
-        NpuTrueEngineEntrypointProbeState(),
-    npuTrueEngineEntrypointInProgress: Boolean = false,
-    isInferenceRunningForTrueEngineEntrypoint: Boolean = false,
-    onNpuTrueEngineEntrypointStart: () -> Unit = {},
-    onCopyTrueEngineEntrypointSummary: (() -> Unit)? = null,
-    onCopyTrueEngineEntrypointFullDump: (() -> Unit)? = null,
-    npuTrueEngineModelAssetsState: NpuTrueEngineModelAssetsProbeState =
-        NpuTrueEngineModelAssetsProbeState(),
-    npuTrueEngineModelAssetsInProgress: Boolean = false,
-    isInferenceRunningForTrueEngineModelAssets: Boolean = false,
-    onNpuTrueEngineModelAssetsStart: () -> Unit = {},
-    onCopyTrueEngineModelAssetsSummary: (() -> Unit)? = null,
-    onCopyTrueEngineModelAssetsFullDump: (() -> Unit)? = null,
-    holderRunOnceUi: NpuHolderDiagnosticUi<NpuPersistentHolderRunOnceProbeState> =
-        NpuHolderDiagnosticUi(NpuPersistentHolderRunOnceProbeState()),
-    holderRunOnceActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
-    holderTwoTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTwoTurnProbeState> =
-        NpuHolderDiagnosticUi(NpuPersistentHolderTwoTurnProbeState()),
-    holderTwoTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
-    holderFiveTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderFiveTurnProbeState> =
-        NpuHolderDiagnosticUi(NpuPersistentHolderFiveTurnProbeState()),
-    holderFiveTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
-    holderTenTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTenTurnProbeState> =
-        NpuHolderDiagnosticUi(NpuPersistentHolderTenTurnProbeState()),
-    holderTenTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
-    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
-    npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
-        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
-    npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
-        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
-    npuS1PersistentCustomJniInProgress: Boolean = false,
-    isInferenceRunningForPersistentCustomJni: Boolean = false,
-    onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit = {},
-    onNpuS1PersistentCustomJniQualityPromptProfileChange:
-        (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit = {},
-    onNpuS1PersistentCustomJniStart: () -> Unit = {},
-    onNpuS1PersistentCustomJniCancel: () -> Unit = {},
+    diagnostics: InferenceStatsDiagnostics = InferenceStatsDiagnostics(),
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     var devDiagnosticsAdvancedExpanded by rememberSaveable { mutableStateOf(false) }
@@ -14323,18 +14329,18 @@ private fun InferenceStatsSheetContent(
                                 displayMode = selectedDisplayMode,
                                 sections = sections,
                                 detailSections = detailSections,
-                                memoryRecoveryCheckState = memoryRecoveryCheckState,
-                                npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                memoryRecoveryCheckState = diagnostics.memoryRecoveryCheckState,
+                                npuS1RepeatedRunState = diagnostics.npuS1RepeatedRunState,
                                 npuNonStreamingRepeatedStabilityState =
-                                    npuNonStreamingRepeatedStabilityState,
-                                npuS1PersistentEngineState = npuS1PersistentEngineState,
-                                npuPersistentHolderCreateCloseState = holderCreateCloseUi.state,
-                                npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
-                                npuPersistentHolderRunOnceState = holderRunOnceUi.state,
-                                npuPersistentHolderTwoTurnState = holderTwoTurnUi.state,
-                                npuPersistentHolderFiveTurnState = holderFiveTurnUi.state,
-                                npuPersistentHolderTenTurnState = holderTenTurnUi.state,
-                                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                    diagnostics.npuNonStreamingRepeatedStabilityState,
+                                npuS1PersistentEngineState = diagnostics.npuS1PersistentEngineState,
+                                npuPersistentHolderCreateCloseState = diagnostics.holderCreateCloseUi.state,
+                                npuTrueEngineHolderCreateCloseState = diagnostics.npuTrueEngineHolderCreateCloseState,
+                                npuPersistentHolderRunOnceState = diagnostics.holderRunOnceUi.state,
+                                npuPersistentHolderTwoTurnState = diagnostics.holderTwoTurnUi.state,
+                                npuPersistentHolderFiveTurnState = diagnostics.holderFiveTurnUi.state,
+                                npuPersistentHolderTenTurnState = diagnostics.holderTenTurnUi.state,
+                                npuS1PersistentCustomJniState = diagnostics.npuS1PersistentCustomJniState,
                             ),
                         ),
                     )
@@ -14349,178 +14355,232 @@ private fun InferenceStatsSheetContent(
                 sectionSpacing = sectionSpacing,
             )
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
-                NpuBetaDevPrimaryIntroSection(
-                    onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
-                )
-                NpuS1RepeatedRunDevSection(
-                    ui = NpuS1RepeatedRunUi(
-                        state = npuS1RepeatedRunState,
-                        preferredBackendSetting = preferredBackendDryRunSetting,
+                InferenceStatsDeveloperSections(
+                    diagnostics = diagnostics,
+                    ui = InferenceStatsDeveloperUi(
+                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                         npuStandardRouteMode = npuStandardRouteMode,
-                        selectedMode = npuS1RepeatedRunMode,
-                        selectedPrompt = npuS1RepeatedRunPrompt,
-                        selectedRunCount = npuS1RepeatedRunCount,
-                        selectedWaitMs = npuS1RepeatedRunWaitMs,
-                        running = npuS1RepeatedRunInProgress,
-                        blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    ),
-                    actions = NpuS1RepeatedRunActions(
-                        onModeChange = onNpuS1RepeatedRunModeChange,
-                        onPromptChange = onNpuS1RepeatedRunPromptChange,
-                        onRunCountChange = onNpuS1RepeatedRunCountChange,
-                        onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
-                        onStart = onNpuS1RepeatedRunStart,
-                        onCancel = onNpuS1RepeatedRunCancel,
-                        onCopySummary = {
-                            copyDevDiagnosticText(
-                                buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
-                                "Copy Stability Summary",
-                            )
-                        },
-                        onCopyFullDump = {
-                            copyDevDiagnosticText(
-                                buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
-                                "Copy Stability Full Dump",
-                            )
-                        },
-                    ),
-                )
-                NpuNonStreamingRepeatedStabilityDevSection(
-                    state = npuNonStreamingRepeatedStabilityState,
-                    preferredBackendSetting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    running = npuNonStreamingRepeatedStabilityInProgress,
-                    blockedByGeneration = isInferenceRunningForNonStreamingRepeatedStability,
-                    onStart = onNpuNonStreamingRepeatedStabilityStart,
-                    onCancel = onNpuNonStreamingRepeatedStabilityCancel,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
-                                npuNonStreamingRepeatedStabilityState,
-                            ),
-                            NPU_NON_STREAMING_REPEATED_STABILITY_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
-                                npuNonStreamingRepeatedStabilityState,
-                            ),
-                            NPU_NON_STREAMING_REPEATED_STABILITY_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
-                )
-                NpuS1PersistentEngineDevSection(
-                    state = npuS1PersistentEngineState,
-                    running = npuS1PersistentEngineInProgress,
-                    blockedByGeneration = isInferenceRunningForPersistentEngine,
-                    onStart = onNpuS1PersistentEngineStart,
-                    onCancel = onNpuS1PersistentEngineCancel,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            buildNpuPersistentEngineSummaryCopyText(npuS1PersistentEngineState),
-                            "Copy Persistent Summary",
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            buildNpuPersistentEngineFullDumpCopyText(npuS1PersistentEngineState),
-                            "Copy Persistent Full Dump",
-                        )
-                    },
-                )
-                InferenceStatsHolderProbeSections(
-                    ui = InferenceStatsHolderProbeUi(
-                        holderCreateClose = holderCreateCloseUi,
-                        trueEngineEntrypointState = npuTrueEngineEntrypointState,
-                        trueEngineEntrypointRunning = npuTrueEngineEntrypointInProgress,
-                        trueEngineEntrypointBlocked = isInferenceRunningForTrueEngineEntrypoint,
-                        trueEngineModelAssetsState = npuTrueEngineModelAssetsState,
-                        trueEngineModelAssetsRunning = npuTrueEngineModelAssetsInProgress,
-                        trueEngineModelAssetsBlocked = isInferenceRunningForTrueEngineModelAssets,
-                        trueEngineHolderState = npuTrueEngineHolderCreateCloseState,
-                        trueEngineHolderRunning = npuTrueEngineHolderCreateCloseInProgress,
-                        trueEngineHolderBlocked = isInferenceRunningForTrueEngineHolderCreateClose,
-                        holderRunOnce = holderRunOnceUi,
-                        holderTwoTurn = holderTwoTurnUi,
-                        holderFiveTurn = holderFiveTurnUi,
-                        holderTenTurn = holderTenTurnUi,
-                    ),
-                    actions = InferenceStatsHolderProbeActions(
-                        onHolderCreateCloseStart = holderCreateCloseActions.onStart,
-                        onTrueEngineEntrypointStart = onNpuTrueEngineEntrypointStart,
-                        onCopyTrueEngineEntrypointSummary = onCopyTrueEngineEntrypointSummary,
-                        onCopyTrueEngineEntrypointFullDump = onCopyTrueEngineEntrypointFullDump,
-                        onTrueEngineModelAssetsStart = onNpuTrueEngineModelAssetsStart,
-                        onCopyTrueEngineModelAssetsSummary = onCopyTrueEngineModelAssetsSummary,
-                        onCopyTrueEngineModelAssetsFullDump = onCopyTrueEngineModelAssetsFullDump,
-                        onTrueEngineHolderStart = onNpuTrueEngineHolderCreateCloseStart,
-                        onHolderRunOnceStart = holderRunOnceActions.onStart,
-                        onHolderTwoTurnStart = holderTwoTurnActions.onStart,
-                        onHolderFiveTurnStart = holderFiveTurnActions.onStart,
-                        onHolderTenTurnStart = holderTenTurnActions.onStart,
-                        onCopyDiagnosticText = ::copyDevDiagnosticText,
-                    ),
-                )
-                NpuLongGenerationDevSection(
-                    state = npuLongGenerationState,
-                    preferredBackendSetting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    running = npuLongGenerationInProgress,
-                    blockedByGeneration = isInferenceRunningForLongGeneration,
-                    onStart = onNpuLongGenerationStart,
-                    onCancel = onNpuLongGenerationCancel,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            buildNpuLongGenerationSummaryCopyText(npuLongGenerationState),
-                            "Copy Long Summary",
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            buildNpuLongGenerationFullDumpCopyText(npuLongGenerationState),
-                            "Copy Long Full Dump",
-                        )
-                    },
-                )
-                InferenceStatsAdvancedDevSection(
-                    ui = InferenceStatsAdvancedDevUi(
-                        expanded = devDiagnosticsAdvancedExpanded,
-                        memoryRecoveryCheckState = memoryRecoveryCheckState,
-                        memoryRecoveryCheckInProgress = memoryRecoveryCheckInProgress,
-                        isInferenceRunningForMemoryRecovery = isInferenceRunningForMemoryRecovery,
-                        npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
-                        npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
-                        npuS1PersistentCustomJniQualityPromptProfile =
-                            npuS1PersistentCustomJniQualityPromptProfile,
-                        npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniInProgress,
-                        isInferenceRunningForPersistentCustomJni = isInferenceRunningForPersistentCustomJni,
                         markdownStreamingMode = markdownStreamingMode,
+                        advancedExpanded = devDiagnosticsAdvancedExpanded,
                         showDevManualEngineRecreate = showDevManualEngineRecreate,
                         manualEngineRecreateEnabled = manualEngineRecreateEnabled,
                         manualEngineRecreateBusy = manualEngineRecreateBusy,
                         manualEngineRecreateResult = manualEngineRecreateResult,
                         manualEngineRecreateReason = manualEngineRecreateReason,
                     ),
-                    actions = InferenceStatsAdvancedDevActions(
-                        onToggleExpanded = {
+                    actions = InferenceStatsDeveloperActions(
+                        onToggleAdvanced = {
                             devDiagnosticsAdvancedExpanded = !devDiagnosticsAdvancedExpanded
                         },
+                        onManualEngineRecreate = onManualEngineRecreate,
                         onCopyGpuDiagnosticKeys = copyGpuDiagnosticKeysAction,
                         onCopyGpuInternalSurfaceKeys = copyGpuInternalSurfaceKeysAction,
-                        onMemoryRecoveryCheck = onMemoryRecoveryCheck,
-                        onNpuS1PersistentCustomJniProbeModeChange =
-                            onNpuS1PersistentCustomJniProbeModeChange,
-                        onNpuS1PersistentCustomJniQualityPromptProfileChange =
-                            onNpuS1PersistentCustomJniQualityPromptProfileChange,
-                        onNpuS1PersistentCustomJniStart = onNpuS1PersistentCustomJniStart,
-                        onNpuS1PersistentCustomJniCancel = onNpuS1PersistentCustomJniCancel,
-                        onManualEngineRecreate = onManualEngineRecreate,
+                        onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
+                        onCopyDiagnosticText = ::copyDevDiagnosticText,
                     ),
                 )
             }
         }
     }
+}
+
+
+private data class InferenceStatsDeveloperUi(
+    val preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    val npuStandardRouteMode: NpuStandardRouteMode,
+    val markdownStreamingMode: MarkdownStreamingMode,
+    val advancedExpanded: Boolean,
+    val showDevManualEngineRecreate: Boolean,
+    val manualEngineRecreateEnabled: Boolean,
+    val manualEngineRecreateBusy: Boolean,
+    val manualEngineRecreateResult: String,
+    val manualEngineRecreateReason: String,
+)
+
+private data class InferenceStatsDeveloperActions(
+    val onToggleAdvanced: () -> Unit,
+    val onManualEngineRecreate: () -> Unit,
+    val onCopyGpuDiagnosticKeys: (() -> Unit)?,
+    val onCopyGpuInternalSurfaceKeys: (() -> Unit)?,
+    val onCopyNpuDiagnosticKeys: (() -> Unit)?,
+    val onCopyDiagnosticText: (String, String) -> Unit,
+)
+
+@Composable
+private fun InferenceStatsDeveloperSections(
+    diagnostics: InferenceStatsDiagnostics,
+    ui: InferenceStatsDeveloperUi,
+    actions: InferenceStatsDeveloperActions,
+) {
+    NpuBetaDevPrimaryIntroSection(
+        onCopyNpuDiagnosticKeys = actions.onCopyNpuDiagnosticKeys,
+    )
+    NpuS1RepeatedRunDevSection(
+        ui = NpuS1RepeatedRunUi(
+            state = diagnostics.npuS1RepeatedRunState,
+            preferredBackendSetting = ui.preferredBackendDryRunSetting,
+            npuStandardRouteMode = ui.npuStandardRouteMode,
+            selectedMode = diagnostics.npuS1RepeatedRunMode,
+            selectedPrompt = diagnostics.npuS1RepeatedRunPrompt,
+            selectedRunCount = diagnostics.npuS1RepeatedRunCount,
+            selectedWaitMs = diagnostics.npuS1RepeatedRunWaitMs,
+            running = diagnostics.npuS1RepeatedRunInProgress,
+            blockedByGeneration = diagnostics.isInferenceRunningForRepeatedRun,
+        ),
+        actions = NpuS1RepeatedRunActions(
+            onModeChange = diagnostics.onNpuS1RepeatedRunModeChange,
+            onPromptChange = diagnostics.onNpuS1RepeatedRunPromptChange,
+            onRunCountChange = diagnostics.onNpuS1RepeatedRunCountChange,
+            onWaitMsChange = diagnostics.onNpuS1RepeatedRunWaitMsChange,
+            onStart = diagnostics.onNpuS1RepeatedRunStart,
+            onCancel = diagnostics.onNpuS1RepeatedRunCancel,
+            onCopySummary = {
+                actions.onCopyDiagnosticText(
+                    buildNpuBetaStabilitySummaryCopyText(diagnostics.npuS1RepeatedRunState),
+                    "Copy Stability Summary",
+                )
+            },
+            onCopyFullDump = {
+                actions.onCopyDiagnosticText(
+                    buildNpuBetaStabilityFullDumpCopyText(diagnostics.npuS1RepeatedRunState),
+                    "Copy Stability Full Dump",
+                )
+            },
+        ),
+    )
+    NpuNonStreamingRepeatedStabilityDevSection(
+        state = diagnostics.npuNonStreamingRepeatedStabilityState,
+        preferredBackendSetting = ui.preferredBackendDryRunSetting,
+        npuStandardRouteMode = ui.npuStandardRouteMode,
+        running = diagnostics.npuNonStreamingRepeatedStabilityInProgress,
+        blockedByGeneration = diagnostics.isInferenceRunningForNonStreamingRepeatedStability,
+        onStart = diagnostics.onNpuNonStreamingRepeatedStabilityStart,
+        onCancel = diagnostics.onNpuNonStreamingRepeatedStabilityCancel,
+        onCopySummary = {
+            actions.onCopyDiagnosticText(
+                buildNpuNonStreamingRepeatedStabilitySummaryCopyText(
+                    diagnostics.npuNonStreamingRepeatedStabilityState,
+                ),
+                NPU_NON_STREAMING_REPEATED_STABILITY_COPY_SUMMARY_LABEL,
+            )
+        },
+        onCopyFullDump = {
+            actions.onCopyDiagnosticText(
+                buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
+                    diagnostics.npuNonStreamingRepeatedStabilityState,
+                ),
+                NPU_NON_STREAMING_REPEATED_STABILITY_COPY_FULL_DUMP_LABEL,
+            )
+        },
+    )
+    NpuS1PersistentEngineDevSection(
+        state = diagnostics.npuS1PersistentEngineState,
+        running = diagnostics.npuS1PersistentEngineInProgress,
+        blockedByGeneration = diagnostics.isInferenceRunningForPersistentEngine,
+        onStart = diagnostics.onNpuS1PersistentEngineStart,
+        onCancel = diagnostics.onNpuS1PersistentEngineCancel,
+        onCopySummary = {
+            actions.onCopyDiagnosticText(
+                buildNpuPersistentEngineSummaryCopyText(diagnostics.npuS1PersistentEngineState),
+                "Copy Persistent Summary",
+            )
+        },
+        onCopyFullDump = {
+            actions.onCopyDiagnosticText(
+                buildNpuPersistentEngineFullDumpCopyText(diagnostics.npuS1PersistentEngineState),
+                "Copy Persistent Full Dump",
+            )
+        },
+    )
+    InferenceStatsHolderProbeSections(
+        ui = InferenceStatsHolderProbeUi(
+            holderCreateClose = diagnostics.holderCreateCloseUi,
+            trueEngineEntrypointState = diagnostics.npuTrueEngineEntrypointState,
+            trueEngineEntrypointRunning = diagnostics.npuTrueEngineEntrypointInProgress,
+            trueEngineEntrypointBlocked = diagnostics.isInferenceRunningForTrueEngineEntrypoint,
+            trueEngineModelAssetsState = diagnostics.npuTrueEngineModelAssetsState,
+            trueEngineModelAssetsRunning = diagnostics.npuTrueEngineModelAssetsInProgress,
+            trueEngineModelAssetsBlocked = diagnostics.isInferenceRunningForTrueEngineModelAssets,
+            trueEngineHolderState = diagnostics.npuTrueEngineHolderCreateCloseState,
+            trueEngineHolderRunning = diagnostics.npuTrueEngineHolderCreateCloseInProgress,
+            trueEngineHolderBlocked = diagnostics.isInferenceRunningForTrueEngineHolderCreateClose,
+            holderRunOnce = diagnostics.holderRunOnceUi,
+            holderTwoTurn = diagnostics.holderTwoTurnUi,
+            holderFiveTurn = diagnostics.holderFiveTurnUi,
+            holderTenTurn = diagnostics.holderTenTurnUi,
+        ),
+        actions = InferenceStatsHolderProbeActions(
+            onHolderCreateCloseStart = diagnostics.holderCreateCloseActions.onStart,
+            onTrueEngineEntrypointStart = diagnostics.onNpuTrueEngineEntrypointStart,
+            onCopyTrueEngineEntrypointSummary = diagnostics.onCopyTrueEngineEntrypointSummary,
+            onCopyTrueEngineEntrypointFullDump = diagnostics.onCopyTrueEngineEntrypointFullDump,
+            onTrueEngineModelAssetsStart = diagnostics.onNpuTrueEngineModelAssetsStart,
+            onCopyTrueEngineModelAssetsSummary = diagnostics.onCopyTrueEngineModelAssetsSummary,
+            onCopyTrueEngineModelAssetsFullDump = diagnostics.onCopyTrueEngineModelAssetsFullDump,
+            onTrueEngineHolderStart = diagnostics.onNpuTrueEngineHolderCreateCloseStart,
+            onHolderRunOnceStart = diagnostics.holderRunOnceActions.onStart,
+            onHolderTwoTurnStart = diagnostics.holderTwoTurnActions.onStart,
+            onHolderFiveTurnStart = diagnostics.holderFiveTurnActions.onStart,
+            onHolderTenTurnStart = diagnostics.holderTenTurnActions.onStart,
+            onCopyDiagnosticText = actions.onCopyDiagnosticText,
+        ),
+    )
+    NpuLongGenerationDevSection(
+        state = diagnostics.npuLongGenerationState,
+        preferredBackendSetting = ui.preferredBackendDryRunSetting,
+        npuStandardRouteMode = ui.npuStandardRouteMode,
+        running = diagnostics.npuLongGenerationInProgress,
+        blockedByGeneration = diagnostics.isInferenceRunningForLongGeneration,
+        onStart = diagnostics.onNpuLongGenerationStart,
+        onCancel = diagnostics.onNpuLongGenerationCancel,
+        onCopySummary = {
+            actions.onCopyDiagnosticText(
+                buildNpuLongGenerationSummaryCopyText(diagnostics.npuLongGenerationState),
+                "Copy Long Summary",
+            )
+        },
+        onCopyFullDump = {
+            actions.onCopyDiagnosticText(
+                buildNpuLongGenerationFullDumpCopyText(diagnostics.npuLongGenerationState),
+                "Copy Long Full Dump",
+            )
+        },
+    )
+    InferenceStatsAdvancedDevSection(
+        ui = InferenceStatsAdvancedDevUi(
+            expanded = ui.advancedExpanded,
+            memoryRecoveryCheckState = diagnostics.memoryRecoveryCheckState,
+            memoryRecoveryCheckInProgress = diagnostics.memoryRecoveryCheckInProgress,
+            isInferenceRunningForMemoryRecovery = diagnostics.isInferenceRunningForMemoryRecovery,
+            npuS1PersistentCustomJniState = diagnostics.npuS1PersistentCustomJniState,
+            npuS1PersistentCustomJniProbeMode = diagnostics.npuS1PersistentCustomJniProbeMode,
+            npuS1PersistentCustomJniQualityPromptProfile =
+                diagnostics.npuS1PersistentCustomJniQualityPromptProfile,
+            npuS1PersistentCustomJniInProgress = diagnostics.npuS1PersistentCustomJniInProgress,
+            isInferenceRunningForPersistentCustomJni = diagnostics.isInferenceRunningForPersistentCustomJni,
+            markdownStreamingMode = ui.markdownStreamingMode,
+            showDevManualEngineRecreate = ui.showDevManualEngineRecreate,
+            manualEngineRecreateEnabled = ui.manualEngineRecreateEnabled,
+            manualEngineRecreateBusy = ui.manualEngineRecreateBusy,
+            manualEngineRecreateResult = ui.manualEngineRecreateResult,
+            manualEngineRecreateReason = ui.manualEngineRecreateReason,
+        ),
+        actions = InferenceStatsAdvancedDevActions(
+            onToggleExpanded = {
+                actions.onToggleAdvanced()
+            },
+            onCopyGpuDiagnosticKeys = actions.onCopyGpuDiagnosticKeys,
+            onCopyGpuInternalSurfaceKeys = actions.onCopyGpuInternalSurfaceKeys,
+            onMemoryRecoveryCheck = diagnostics.onMemoryRecoveryCheck,
+            onNpuS1PersistentCustomJniProbeModeChange =
+                diagnostics.onNpuS1PersistentCustomJniProbeModeChange,
+            onNpuS1PersistentCustomJniQualityPromptProfileChange =
+                diagnostics.onNpuS1PersistentCustomJniQualityPromptProfileChange,
+            onNpuS1PersistentCustomJniStart = diagnostics.onNpuS1PersistentCustomJniStart,
+            onNpuS1PersistentCustomJniCancel = diagnostics.onNpuS1PersistentCustomJniCancel,
+            onManualEngineRecreate = actions.onManualEngineRecreate,
+        ),
+    )
 }
 
 private data class InferenceStatsHolderProbeUi(
