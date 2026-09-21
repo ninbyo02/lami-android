@@ -15115,16 +15115,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
             NpuBetaDevPrimaryIntroSection(
                 onCopyCompact = onCopyCompact,
             )
-            if (
-                onNpuS1RepeatedRunModeChange != null &&
-                onNpuS1RepeatedRunPromptChange != null &&
-                onNpuS1RepeatedRunCountChange != null &&
-                onNpuS1RepeatedRunWaitMsChange != null &&
-                onNpuS1RepeatedRunStart != null &&
-                onNpuS1RepeatedRunCancel != null
-            ) {
-                NpuS1RepeatedRunDevSection(
-                    ui = NpuS1RepeatedRunUi(
+            NpuStandardRouteProbeSections(
+                input = NpuStandardRouteProbeSectionsInput(
+                    preferredBackendSetting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
+                    repeatedRun = npuStandardRouteRepeatedRunProbe(
                         state = npuS1RepeatedRunState,
                         preferredBackendSetting = preferredBackendSetting,
                         npuStandardRouteMode = npuStandardRouteMode,
@@ -15134,8 +15129,6 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                         selectedWaitMs = npuS1RepeatedRunWaitMs,
                         running = npuS1RepeatedRunInProgress,
                         blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    ),
-                    actions = NpuS1RepeatedRunActions(
                         onModeChange = onNpuS1RepeatedRunModeChange,
                         onPromptChange = onNpuS1RepeatedRunPromptChange,
                         onRunCountChange = onNpuS1RepeatedRunCountChange,
@@ -15145,245 +15138,541 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                         onCopySummary = onCopyStabilitySummary,
                         onCopyFullDump = onCopyStabilityFullDump,
                     ),
-                )
-            }
-            if (
-                onNpuNonStreamingRepeatedStabilityStart != null &&
-                onNpuNonStreamingRepeatedStabilityCancel != null
-            ) {
-                NpuNonStreamingRepeatedStabilityDevSection(
-                    state = npuNonStreamingRepeatedStabilityState,
-                    preferredBackendSetting = preferredBackendSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    running = npuNonStreamingRepeatedStabilityInProgress,
-                    blockedByGeneration = isInferenceRunningForNonStreamingRepeatedStability,
-                    onStart = onNpuNonStreamingRepeatedStabilityStart,
-                    onCancel = onNpuNonStreamingRepeatedStabilityCancel,
-                    onCopySummary = onCopyNonStreamingRepeatedStabilitySummary,
-                    onCopyFullDump = onCopyNonStreamingRepeatedStabilityFullDump,
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuS1PersistentEngineStart != null &&
-                onNpuS1PersistentEngineCancel != null
-            ) {
-                NpuS1PersistentEngineDevSection(
-                    state = npuS1PersistentEngineState,
-                    running = npuS1PersistentEngineInProgress,
-                    blockedByGeneration = isInferenceRunningForPersistentEngine,
-                    onStart = onNpuS1PersistentEngineStart,
-                    onCancel = onNpuS1PersistentEngineCancel,
-                    onCopySummary = onCopyPersistentSummary,
-                    onCopyFullDump = onCopyPersistentFullDump,
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuPersistentHolderCreateCloseStart != null
-            ) {
-                NpuPersistentHolderCreateCloseDevSection(
-                    ui = NpuHolderDiagnosticUi(
-                        state = npuPersistentHolderCreateCloseState,
-                        running = npuPersistentHolderCreateCloseInProgress,
-                        blockedByGeneration = isInferenceRunningForHolderCreateClose,
+                    nonStreamingRepeatedStability = npuStandardRouteOptionalProbe(
+                        npuNonStreamingRepeatedStabilityState,
+                        npuNonStreamingRepeatedStabilityInProgress,
+                        isInferenceRunningForNonStreamingRepeatedStability,
+                        onNpuNonStreamingRepeatedStabilityStart,
+                        onNpuNonStreamingRepeatedStabilityCancel,
+                        onCopySummary = onCopyNonStreamingRepeatedStabilitySummary,
+                        onCopyFullDump = onCopyNonStreamingRepeatedStabilityFullDump,
                     ),
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = onNpuPersistentHolderCreateCloseStart,
+                    persistentEngine = npuStandardRouteOptionalProbe(
+                        npuS1PersistentEngineState,
+                        npuS1PersistentEngineInProgress,
+                        isInferenceRunningForPersistentEngine,
+                        onNpuS1PersistentEngineStart,
+                        onNpuS1PersistentEngineCancel,
+                        onCopySummary = onCopyPersistentSummary,
+                        onCopyFullDump = onCopyPersistentFullDump,
+                    ),
+                    holderCreateClose = npuStandardRouteOptionalProbe(
+                        npuPersistentHolderCreateCloseState,
+                        npuPersistentHolderCreateCloseInProgress,
+                        isInferenceRunningForHolderCreateClose,
+                        onNpuPersistentHolderCreateCloseStart,
                         onCopySummary = onCopyHolderCreateCloseSummary,
                         onCopyFullDump = onCopyHolderCreateCloseFullDump,
                     ),
-                )
-            }
-            if (
-                BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
-                onNpuTrueEngineEntrypointStart != null
-            ) {
-                NpuTrueEngineEntrypointDevSection(
-                    state = npuTrueEngineEntrypointState,
-                    running = npuTrueEngineEntrypointInProgress,
-                    blockedByGeneration = isInferenceRunningForTrueEngineEntrypoint,
-                    onStart = onNpuTrueEngineEntrypointStart,
-                    onCopySummary = onCopyTrueEngineEntrypointSummary,
-                    onCopyFullDump = onCopyTrueEngineEntrypointFullDump,
-                )
-            }
-            if (
-                BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
-                onNpuTrueEngineModelAssetsStart != null
-            ) {
-                NpuTrueEngineModelAssetsDevSection(
-                    state = npuTrueEngineModelAssetsState,
-                    running = npuTrueEngineModelAssetsInProgress,
-                    blockedByGeneration = isInferenceRunningForTrueEngineModelAssets,
-                    onStart = onNpuTrueEngineModelAssetsStart,
-                    onCopySummary = onCopyTrueEngineModelAssetsSummary,
-                    onCopyFullDump = onCopyTrueEngineModelAssetsFullDump,
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuTrueEngineHolderCreateCloseStart != null
-            ) {
-                NpuTrueEngineHolderCreateCloseDevSection(
-                    state = npuTrueEngineHolderCreateCloseState,
-                    running = npuTrueEngineHolderCreateCloseInProgress,
-                    blockedByGeneration = isInferenceRunningForTrueEngineHolderCreateClose,
-                    onStart = onNpuTrueEngineHolderCreateCloseStart,
-                    onCopySummary = onCopyTrueEngineHolderSummary,
-                    onCopyFullDump = onCopyTrueEngineHolderFullDump,
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuPersistentHolderRunOnceStart != null
-            ) {
-                NpuPersistentHolderRunOnceDevSection(
-                    ui = NpuHolderDiagnosticUi(
-                        state = npuPersistentHolderRunOnceState,
-                        running = npuPersistentHolderRunOnceInProgress,
-                        blockedByGeneration = isInferenceRunningForHolderRunOnce,
+                    trueEngineEntrypoint = npuStandardRouteOptionalProbe(
+                        npuTrueEngineEntrypointState,
+                        npuTrueEngineEntrypointInProgress,
+                        isInferenceRunningForTrueEngineEntrypoint,
+                        onNpuTrueEngineEntrypointStart,
+                        onCopySummary = onCopyTrueEngineEntrypointSummary,
+                        onCopyFullDump = onCopyTrueEngineEntrypointFullDump,
                     ),
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = onNpuPersistentHolderRunOnceStart,
+                    trueEngineModelAssets = npuStandardRouteOptionalProbe(
+                        npuTrueEngineModelAssetsState,
+                        npuTrueEngineModelAssetsInProgress,
+                        isInferenceRunningForTrueEngineModelAssets,
+                        onNpuTrueEngineModelAssetsStart,
+                        onCopySummary = onCopyTrueEngineModelAssetsSummary,
+                        onCopyFullDump = onCopyTrueEngineModelAssetsFullDump,
+                    ),
+                    trueEngineHolderCreateClose = npuStandardRouteOptionalProbe(
+                        npuTrueEngineHolderCreateCloseState,
+                        npuTrueEngineHolderCreateCloseInProgress,
+                        isInferenceRunningForTrueEngineHolderCreateClose,
+                        onNpuTrueEngineHolderCreateCloseStart,
+                        onCopySummary = onCopyTrueEngineHolderSummary,
+                        onCopyFullDump = onCopyTrueEngineHolderFullDump,
+                    ),
+                    holderRunOnce = npuStandardRouteOptionalProbe(
+                        npuPersistentHolderRunOnceState,
+                        npuPersistentHolderRunOnceInProgress,
+                        isInferenceRunningForHolderRunOnce,
+                        onNpuPersistentHolderRunOnceStart,
                         onCopySummary = onCopyHolderRunOnceSummary,
                         onCopyFullDump = onCopyHolderRunOnceFullDump,
                     ),
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuPersistentHolderTwoTurnStart != null
-            ) {
-                NpuPersistentHolderTwoTurnDevSection(
-                    ui = NpuHolderDiagnosticUi(
-                        state = npuPersistentHolderTwoTurnState,
-                        running = npuPersistentHolderTwoTurnInProgress,
-                        blockedByGeneration = isInferenceRunningForHolderTwoTurn,
-                    ),
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = onNpuPersistentHolderTwoTurnStart,
+                    holderTwoTurn = npuStandardRouteOptionalProbe(
+                        npuPersistentHolderTwoTurnState,
+                        npuPersistentHolderTwoTurnInProgress,
+                        isInferenceRunningForHolderTwoTurn,
+                        onNpuPersistentHolderTwoTurnStart,
                         onCopySummary = onCopyHolderTwoTurnSummary,
                         onCopyFullDump = onCopyHolderTwoTurnFullDump,
                     ),
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuPersistentHolderFiveTurnStart != null
-            ) {
-                NpuPersistentHolderFiveTurnDevSection(
-                    ui = NpuHolderDiagnosticUi(
-                        state = npuPersistentHolderFiveTurnState,
-                        running = npuPersistentHolderFiveTurnInProgress,
-                        blockedByGeneration = isInferenceRunningForHolderFiveTurn,
-                    ),
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = onNpuPersistentHolderFiveTurnStart,
+                    holderFiveTurn = npuStandardRouteOptionalProbe(
+                        npuPersistentHolderFiveTurnState,
+                        npuPersistentHolderFiveTurnInProgress,
+                        isInferenceRunningForHolderFiveTurn,
+                        onNpuPersistentHolderFiveTurnStart,
                         onCopySummary = onCopyHolderFiveTurnSummary,
                         onCopyFullDump = onCopyHolderFiveTurnFullDump,
                     ),
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuPersistentHolderTenTurnStart != null
-            ) {
-                NpuPersistentHolderTenTurnDevSection(
-                    ui = NpuHolderDiagnosticUi(
-                        state = npuPersistentHolderTenTurnState,
-                        running = npuPersistentHolderTenTurnInProgress,
-                        blockedByGeneration = isInferenceRunningForHolderTenTurn,
-                    ),
-                    actions = NpuHolderDiagnosticActions(
-                        onStart = onNpuPersistentHolderTenTurnStart,
+                    holderTenTurn = npuStandardRouteOptionalProbe(
+                        npuPersistentHolderTenTurnState,
+                        npuPersistentHolderTenTurnInProgress,
+                        isInferenceRunningForHolderTenTurn,
+                        onNpuPersistentHolderTenTurnStart,
                         onCopySummary = onCopyHolderTenTurnSummary,
                         onCopyFullDump = onCopyHolderTenTurnFullDump,
                     ),
-                )
-            }
-            if (
-                onNpuLongGenerationStart != null &&
-                onNpuLongGenerationCancel != null
-            ) {
-                NpuLongGenerationDevSection(
-                    state = npuLongGenerationState,
-                    preferredBackendSetting = preferredBackendSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    running = npuLongGenerationInProgress,
-                    blockedByGeneration = isInferenceRunningForLongGeneration,
-                    onStart = onNpuLongGenerationStart,
-                    onCancel = onNpuLongGenerationCancel,
-                    onCopySummary = onCopyLongSummary,
-                    onCopyFullDump = onCopyLongFullDump,
-                )
-            }
-            DevDiagnosticsAdvancedToggle(
-                expanded = advancedExpanded,
-                onToggleExpanded = { advancedExpanded = !advancedExpanded },
-            )
-            if (!advancedExpanded) return@Column
-            if (onMemoryRecoveryCheck != null) {
-                MemoryRecoveryCheckDevSection(
-                    state = memoryRecoveryCheckState,
-                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
-                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
-                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    longGeneration = npuStandardRouteOptionalProbe(
+                        npuLongGenerationState,
+                        npuLongGenerationInProgress,
+                        isInferenceRunningForLongGeneration,
+                        onNpuLongGenerationStart,
+                        onNpuLongGenerationCancel,
+                        onCopySummary = onCopyLongSummary,
+                        onCopyFullDump = onCopyLongFullDump,
                     ),
-                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
-                    onStart = onMemoryRecoveryCheck,
-                )
-            }
-            if (
-                BuildConfig.DEBUG &&
-                onNpuS1PersistentCustomJniProbeModeChange != null &&
-                onNpuS1PersistentCustomJniQualityPromptProfileChange != null &&
-                onNpuS1PersistentCustomJniStart != null &&
-                onNpuS1PersistentCustomJniCancel != null
-            ) {
-                NpuS1PersistentCustomJniDevSection(
-                    state = npuS1PersistentCustomJniState,
-                    selectedMode = npuS1PersistentCustomJniProbeMode,
-                    selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
-                    running = npuS1PersistentCustomJniInProgress,
-                    blockedByGeneration = isInferenceRunningForPersistentCustomJni,
-                    onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
-                    onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
-                    onStart = onNpuS1PersistentCustomJniStart,
-                    onCancel = onNpuS1PersistentCustomJniCancel,
-                )
-            }
-            if (!routeText.isNullOrBlank() && onCopyRoute != null) {
-                CopyableDebugBlock(
-                    text = routeText,
-                    title = routeTitle,
-                    onCopy = onCopyRoute,
-                )
-            }
-            if (
-                !devTraceText.isNullOrBlank() &&
-                onCopyInput != null &&
-                onCopyOutput != null &&
-                onCopyCompact != null &&
-                onCopyRepeatedSummary != null &&
-                onCopyFullDump != null
-            ) {
-                NpuStandardRouteS1DevTraceBlock(
-                    text = devTraceText,
+                ),
+            )
+            NpuStandardRouteAdvancedDiagnostics(
+                input = NpuStandardRouteAdvancedDiagnosticsInput(
+                    expanded = advancedExpanded,
+                    onToggleExpanded = { advancedExpanded = !advancedExpanded },
+                    memoryRecoveryCheckState = memoryRecoveryCheckState,
+                    memoryRecoveryCheckInProgress = memoryRecoveryCheckInProgress,
+                    isInferenceRunningForMemoryRecovery = isInferenceRunningForMemoryRecovery,
+                    onMemoryRecoveryCheck = onMemoryRecoveryCheck,
+                    customJniState = npuS1PersistentCustomJniState,
+                    customJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                    customJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
+                    customJniInProgress = npuS1PersistentCustomJniInProgress,
+                    isInferenceRunningForCustomJni = isInferenceRunningForPersistentCustomJni,
+                    onCustomJniProbeModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                    onCustomJniQualityPromptProfileChange =
+                        onNpuS1PersistentCustomJniQualityPromptProfileChange,
+                    onCustomJniStart = onNpuS1PersistentCustomJniStart,
+                    onCustomJniCancel = onNpuS1PersistentCustomJniCancel,
+                    routeText = routeText,
+                    routeTitle = routeTitle,
+                    onCopyRoute = onCopyRoute,
+                    devTraceText = devTraceText,
                     onCopyInput = onCopyInput,
                     onCopyOutput = onCopyOutput,
+                    onCopyCompact = onCopyCompact,
                     onCopyRepeatedSummary = onCopyRepeatedSummary,
                     onCopyFullDump = onCopyFullDump,
-                )
-            }
-            if (!s4Text.isNullOrBlank() && onCopyS4 != null) {
-                CopyableDebugBlock(
-                    text = s4Text,
-                    title = s4Title,
-                    onCopy = onCopyS4,
-                )
-            }
+                    s4Text = s4Text,
+                    s4Title = s4Title,
+                    onCopyS4 = onCopyS4,
+                ),
+            )
         }
+    }
+}
+
+private data class NpuStandardRouteRepeatedRunProbe(
+    val ui: NpuS1RepeatedRunUi,
+    val actions: NpuS1RepeatedRunActions?,
+)
+
+private data class NpuStandardRouteOptionalProbe<T>(
+    val ui: NpuHolderDiagnosticUi<T>,
+    val onStart: (() -> Unit)?,
+    val onCancel: (() -> Unit)? = null,
+    val onCopySummary: (() -> Unit)? = null,
+    val onCopyFullDump: (() -> Unit)? = null,
+)
+
+private data class NpuStandardRouteProbeSectionsInput(
+    val preferredBackendSetting: PreferredBackendDryRunSetting,
+    val npuStandardRouteMode: NpuStandardRouteMode,
+    val repeatedRun: NpuStandardRouteRepeatedRunProbe,
+    val nonStreamingRepeatedStability:
+        NpuStandardRouteOptionalProbe<NpuNonStreamingRepeatedStabilityState>,
+    val persistentEngine: NpuStandardRouteOptionalProbe<NpuS1PersistentEngineProbeState>,
+    val holderCreateClose:
+        NpuStandardRouteOptionalProbe<NpuPersistentHolderCreateCloseProbeState>,
+    val trueEngineEntrypoint:
+        NpuStandardRouteOptionalProbe<NpuTrueEngineEntrypointProbeState>,
+    val trueEngineModelAssets:
+        NpuStandardRouteOptionalProbe<NpuTrueEngineModelAssetsProbeState>,
+    val trueEngineHolderCreateClose:
+        NpuStandardRouteOptionalProbe<NpuTrueEngineHolderCreateCloseProbeState>,
+    val holderRunOnce: NpuStandardRouteOptionalProbe<NpuPersistentHolderRunOnceProbeState>,
+    val holderTwoTurn: NpuStandardRouteOptionalProbe<NpuPersistentHolderTwoTurnProbeState>,
+    val holderFiveTurn: NpuStandardRouteOptionalProbe<NpuPersistentHolderFiveTurnProbeState>,
+    val holderTenTurn: NpuStandardRouteOptionalProbe<NpuPersistentHolderTenTurnProbeState>,
+    val longGeneration: NpuStandardRouteOptionalProbe<NpuLongGenerationState>,
+)
+
+private fun npuStandardRouteRepeatedRunProbe(
+    state: NpuS1RepeatedRunState,
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+    selectedMode: NpuS1RepeatedRunMode,
+    selectedPrompt: String,
+    selectedRunCount: Int,
+    selectedWaitMs: Long,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onModeChange: ((NpuS1RepeatedRunMode) -> Unit)?,
+    onPromptChange: ((String) -> Unit)?,
+    onRunCountChange: ((Int) -> Unit)?,
+    onWaitMsChange: ((Long) -> Unit)?,
+    onStart: (() -> Unit)?,
+    onCancel: (() -> Unit)?,
+    onCopySummary: (() -> Unit)?,
+    onCopyFullDump: (() -> Unit)?,
+): NpuStandardRouteRepeatedRunProbe {
+    val actions =
+        if (
+            onModeChange != null &&
+            onPromptChange != null &&
+            onRunCountChange != null &&
+            onWaitMsChange != null &&
+            onStart != null &&
+            onCancel != null
+        ) {
+            NpuS1RepeatedRunActions(
+                onModeChange = onModeChange,
+                onPromptChange = onPromptChange,
+                onRunCountChange = onRunCountChange,
+                onWaitMsChange = onWaitMsChange,
+                onStart = onStart,
+                onCancel = onCancel,
+                onCopySummary = onCopySummary,
+                onCopyFullDump = onCopyFullDump,
+            )
+        } else {
+            null
+        }
+    return NpuStandardRouteRepeatedRunProbe(
+        ui = NpuS1RepeatedRunUi(
+            state = state,
+            preferredBackendSetting = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+            selectedMode = selectedMode,
+            selectedPrompt = selectedPrompt,
+            selectedRunCount = selectedRunCount,
+            selectedWaitMs = selectedWaitMs,
+            running = running,
+            blockedByGeneration = blockedByGeneration,
+        ),
+        actions = actions,
+    )
+}
+
+private fun <T> npuStandardRouteOptionalProbe(
+    state: T,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: (() -> Unit)?,
+    onCancel: (() -> Unit)? = null,
+    onCopySummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
+): NpuStandardRouteOptionalProbe<T> =
+    NpuStandardRouteOptionalProbe(
+        ui = NpuHolderDiagnosticUi(
+            state = state,
+            running = running,
+            blockedByGeneration = blockedByGeneration,
+        ),
+        onStart = onStart,
+        onCancel = onCancel,
+        onCopySummary = onCopySummary,
+        onCopyFullDump = onCopyFullDump,
+    )
+
+@Composable
+private fun NpuStandardRouteProbeSections(
+    input: NpuStandardRouteProbeSectionsInput,
+) {
+    input.repeatedRun.actions?.let { actions ->
+        NpuS1RepeatedRunDevSection(
+            ui = input.repeatedRun.ui,
+            actions = actions,
+        )
+    }
+
+    val nonStreaming = input.nonStreamingRepeatedStability
+    val nonStreamingStart = nonStreaming.onStart
+    val nonStreamingCancel = nonStreaming.onCancel
+    if (nonStreamingStart != null && nonStreamingCancel != null) {
+        NpuNonStreamingRepeatedStabilityDevSection(
+            state = nonStreaming.ui.state,
+            preferredBackendSetting = input.preferredBackendSetting,
+            npuStandardRouteMode = input.npuStandardRouteMode,
+            running = nonStreaming.ui.running,
+            blockedByGeneration = nonStreaming.ui.blockedByGeneration,
+            onStart = nonStreamingStart,
+            onCancel = nonStreamingCancel,
+            onCopySummary = nonStreaming.onCopySummary,
+            onCopyFullDump = nonStreaming.onCopyFullDump,
+        )
+    }
+
+    val persistentEngine = input.persistentEngine
+    val persistentEngineStart = persistentEngine.onStart
+    val persistentEngineCancel = persistentEngine.onCancel
+    if (
+        BuildConfig.DEBUG &&
+        persistentEngineStart != null &&
+        persistentEngineCancel != null
+    ) {
+        NpuS1PersistentEngineDevSection(
+            state = persistentEngine.ui.state,
+            running = persistentEngine.ui.running,
+            blockedByGeneration = persistentEngine.ui.blockedByGeneration,
+            onStart = persistentEngineStart,
+            onCancel = persistentEngineCancel,
+            onCopySummary = persistentEngine.onCopySummary,
+            onCopyFullDump = persistentEngine.onCopyFullDump,
+        )
+    }
+
+    val holderCreateClose = input.holderCreateClose
+    val holderCreateCloseStart = holderCreateClose.onStart
+    if (BuildConfig.DEBUG && holderCreateCloseStart != null) {
+        NpuPersistentHolderCreateCloseDevSection(
+            ui = holderCreateClose.ui,
+            actions = NpuHolderDiagnosticActions(
+                onStart = holderCreateCloseStart,
+                onCopySummary = holderCreateClose.onCopySummary,
+                onCopyFullDump = holderCreateClose.onCopyFullDump,
+            ),
+        )
+    }
+
+    val trueEngineEntrypoint = input.trueEngineEntrypoint
+    val trueEngineEntrypointStart = trueEngineEntrypoint.onStart
+    if (
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        trueEngineEntrypointStart != null
+    ) {
+        NpuTrueEngineEntrypointDevSection(
+            state = trueEngineEntrypoint.ui.state,
+            running = trueEngineEntrypoint.ui.running,
+            blockedByGeneration = trueEngineEntrypoint.ui.blockedByGeneration,
+            onStart = trueEngineEntrypointStart,
+            onCopySummary = trueEngineEntrypoint.onCopySummary,
+            onCopyFullDump = trueEngineEntrypoint.onCopyFullDump,
+        )
+    }
+
+    val trueEngineModelAssets = input.trueEngineModelAssets
+    val trueEngineModelAssetsStart = trueEngineModelAssets.onStart
+    if (
+        BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR &&
+        trueEngineModelAssetsStart != null
+    ) {
+        NpuTrueEngineModelAssetsDevSection(
+            state = trueEngineModelAssets.ui.state,
+            running = trueEngineModelAssets.ui.running,
+            blockedByGeneration = trueEngineModelAssets.ui.blockedByGeneration,
+            onStart = trueEngineModelAssetsStart,
+            onCopySummary = trueEngineModelAssets.onCopySummary,
+            onCopyFullDump = trueEngineModelAssets.onCopyFullDump,
+        )
+    }
+
+    val trueEngineHolderCreateClose = input.trueEngineHolderCreateClose
+    val trueEngineHolderCreateCloseStart = trueEngineHolderCreateClose.onStart
+    if (BuildConfig.DEBUG && trueEngineHolderCreateCloseStart != null) {
+        NpuTrueEngineHolderCreateCloseDevSection(
+            state = trueEngineHolderCreateClose.ui.state,
+            running = trueEngineHolderCreateClose.ui.running,
+            blockedByGeneration = trueEngineHolderCreateClose.ui.blockedByGeneration,
+            onStart = trueEngineHolderCreateCloseStart,
+            onCopySummary = trueEngineHolderCreateClose.onCopySummary,
+            onCopyFullDump = trueEngineHolderCreateClose.onCopyFullDump,
+        )
+    }
+
+    val holderRunOnce = input.holderRunOnce
+    val holderRunOnceStart = holderRunOnce.onStart
+    if (BuildConfig.DEBUG && holderRunOnceStart != null) {
+        NpuPersistentHolderRunOnceDevSection(
+            ui = holderRunOnce.ui,
+            actions = NpuHolderDiagnosticActions(
+                onStart = holderRunOnceStart,
+                onCopySummary = holderRunOnce.onCopySummary,
+                onCopyFullDump = holderRunOnce.onCopyFullDump,
+            ),
+        )
+    }
+
+    val holderTwoTurn = input.holderTwoTurn
+    val holderTwoTurnStart = holderTwoTurn.onStart
+    if (BuildConfig.DEBUG && holderTwoTurnStart != null) {
+        NpuPersistentHolderTwoTurnDevSection(
+            ui = holderTwoTurn.ui,
+            actions = NpuHolderDiagnosticActions(
+                onStart = holderTwoTurnStart,
+                onCopySummary = holderTwoTurn.onCopySummary,
+                onCopyFullDump = holderTwoTurn.onCopyFullDump,
+            ),
+        )
+    }
+
+    val holderFiveTurn = input.holderFiveTurn
+    val holderFiveTurnStart = holderFiveTurn.onStart
+    if (BuildConfig.DEBUG && holderFiveTurnStart != null) {
+        NpuPersistentHolderFiveTurnDevSection(
+            ui = holderFiveTurn.ui,
+            actions = NpuHolderDiagnosticActions(
+                onStart = holderFiveTurnStart,
+                onCopySummary = holderFiveTurn.onCopySummary,
+                onCopyFullDump = holderFiveTurn.onCopyFullDump,
+            ),
+        )
+    }
+
+    val holderTenTurn = input.holderTenTurn
+    val holderTenTurnStart = holderTenTurn.onStart
+    if (BuildConfig.DEBUG && holderTenTurnStart != null) {
+        NpuPersistentHolderTenTurnDevSection(
+            ui = holderTenTurn.ui,
+            actions = NpuHolderDiagnosticActions(
+                onStart = holderTenTurnStart,
+                onCopySummary = holderTenTurn.onCopySummary,
+                onCopyFullDump = holderTenTurn.onCopyFullDump,
+            ),
+        )
+    }
+
+    val longGeneration = input.longGeneration
+    val longGenerationStart = longGeneration.onStart
+    val longGenerationCancel = longGeneration.onCancel
+    if (longGenerationStart != null && longGenerationCancel != null) {
+        NpuLongGenerationDevSection(
+            state = longGeneration.ui.state,
+            preferredBackendSetting = input.preferredBackendSetting,
+            npuStandardRouteMode = input.npuStandardRouteMode,
+            running = longGeneration.ui.running,
+            blockedByGeneration = longGeneration.ui.blockedByGeneration,
+            onStart = longGenerationStart,
+            onCancel = longGenerationCancel,
+            onCopySummary = longGeneration.onCopySummary,
+            onCopyFullDump = longGeneration.onCopyFullDump,
+        )
+    }
+}
+
+private data class NpuStandardRouteAdvancedDiagnosticsInput(
+    val expanded: Boolean,
+    val onToggleExpanded: () -> Unit,
+    val memoryRecoveryCheckState: MemoryRecoveryCheckState,
+    val memoryRecoveryCheckInProgress: Boolean,
+    val isInferenceRunningForMemoryRecovery: Boolean,
+    val onMemoryRecoveryCheck: (() -> Unit)?,
+    val customJniState: NpuS1PersistentCustomJniProbeState,
+    val customJniProbeMode: NpuS1PersistentCustomJniProbeMode,
+    val customJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
+    val customJniInProgress: Boolean,
+    val isInferenceRunningForCustomJni: Boolean,
+    val onCustomJniProbeModeChange: ((NpuS1PersistentCustomJniProbeMode) -> Unit)?,
+    val onCustomJniQualityPromptProfileChange:
+        ((NpuS1PersistentCustomJniQualityPromptProfile) -> Unit)?,
+    val onCustomJniStart: (() -> Unit)?,
+    val onCustomJniCancel: (() -> Unit)?,
+    val routeText: String?,
+    val routeTitle: String?,
+    val onCopyRoute: (() -> Unit)?,
+    val devTraceText: String?,
+    val onCopyInput: (() -> Unit)?,
+    val onCopyOutput: (() -> Unit)?,
+    val onCopyCompact: (() -> Unit)?,
+    val onCopyRepeatedSummary: (() -> Unit)?,
+    val onCopyFullDump: (() -> Unit)?,
+    val s4Text: String?,
+    val s4Title: String?,
+    val onCopyS4: (() -> Unit)?,
+)
+
+@Composable
+private fun NpuStandardRouteAdvancedDiagnostics(
+    input: NpuStandardRouteAdvancedDiagnosticsInput,
+) {
+    DevDiagnosticsAdvancedToggle(
+        expanded = input.expanded,
+        onToggleExpanded = input.onToggleExpanded,
+    )
+    if (!input.expanded) return
+
+    val memoryRecoveryCheck = input.onMemoryRecoveryCheck
+    if (memoryRecoveryCheck != null) {
+        MemoryRecoveryCheckDevSection(
+            state = input.memoryRecoveryCheckState,
+            buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                isInferenceRunning = input.isInferenceRunningForMemoryRecovery,
+                isRecoveryCheckRunning = input.memoryRecoveryCheckInProgress,
+            ),
+            blockedByGeneration = input.isInferenceRunningForMemoryRecovery,
+            onStart = memoryRecoveryCheck,
+        )
+    }
+
+    val onCustomJniProbeModeChange = input.onCustomJniProbeModeChange
+    val onCustomJniQualityPromptProfileChange = input.onCustomJniQualityPromptProfileChange
+    val onCustomJniStart = input.onCustomJniStart
+    val onCustomJniCancel = input.onCustomJniCancel
+    if (
+        BuildConfig.DEBUG &&
+        onCustomJniProbeModeChange != null &&
+        onCustomJniQualityPromptProfileChange != null &&
+        onCustomJniStart != null &&
+        onCustomJniCancel != null
+    ) {
+        NpuS1PersistentCustomJniDevSection(
+            state = input.customJniState,
+            selectedMode = input.customJniProbeMode,
+            selectedQualityPromptProfile = input.customJniQualityPromptProfile,
+            running = input.customJniInProgress,
+            blockedByGeneration = input.isInferenceRunningForCustomJni,
+            onModeChange = onCustomJniProbeModeChange,
+            onQualityPromptProfileChange = onCustomJniQualityPromptProfileChange,
+            onStart = onCustomJniStart,
+            onCancel = onCustomJniCancel,
+        )
+    }
+
+    val routeText = input.routeText
+    val onCopyRoute = input.onCopyRoute
+    if (!routeText.isNullOrBlank() && onCopyRoute != null) {
+        CopyableDebugBlock(
+            text = routeText,
+            title = input.routeTitle,
+            onCopy = onCopyRoute,
+        )
+    }
+
+    val devTraceText = input.devTraceText
+    val onCopyInput = input.onCopyInput
+    val onCopyOutput = input.onCopyOutput
+    val onCopyRepeatedSummary = input.onCopyRepeatedSummary
+    val onCopyFullDump = input.onCopyFullDump
+    if (
+        !devTraceText.isNullOrBlank() &&
+        onCopyInput != null &&
+        onCopyOutput != null &&
+        input.onCopyCompact != null &&
+        onCopyRepeatedSummary != null &&
+        onCopyFullDump != null
+    ) {
+        NpuStandardRouteS1DevTraceBlock(
+            text = devTraceText,
+            onCopyInput = onCopyInput,
+            onCopyOutput = onCopyOutput,
+            onCopyRepeatedSummary = onCopyRepeatedSummary,
+            onCopyFullDump = onCopyFullDump,
+        )
+    }
+
+    val s4Text = input.s4Text
+    val onCopyS4 = input.onCopyS4
+    if (!s4Text.isNullOrBlank() && onCopyS4 != null) {
+        CopyableDebugBlock(
+            text = s4Text,
+            title = input.s4Title,
+            onCopy = onCopyS4,
+        )
     }
 }
 
