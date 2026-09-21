@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.QnnDelegateProbe
+import io.github.ninbyo02.lami.local.QnnDelegateProbeResult
 import java.io.File
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
@@ -214,81 +215,33 @@ internal object AcceleratorProbe {
             emptyList()
         }
 
-        val gpuProbeResult = probeGpuInfoSafely()
-        val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
-        val npuStageProbeResult = probeBackendNpuStageSafely()
-        val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
-        val npuPackagedLibraryProbeResult = probePackagedNpuLibrariesSafely(
+        val probeResults = collectUncachedProbeResults(
             context = context,
-            officialVendor = npuRequirementsProbeResult.officialVendor,
-        )
-        val externalQairtStageProbeResult = probeExternalQairtStageSafely()
-        val dispatchRuntimeCompatibility = probeDispatchRuntimeCompatibilitySafely(npuPackagedLibraryProbeResult)
-        val backendNpuInstantiateProbeResult = probeBackendNpuInstantiateOnlySafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-        )
-        val backendNpuAttachDryRunProbeResult = probeBackendNpuAttachDryRunSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            delegateApiProbeResult = delegateApiProbeResult,
-        )
-        val liteRtLmNpuApiInventoryProbeResult = probeLiteRtLmNpuApiInventorySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-        )
-        val engineConfigNpuDryBuildProbeResult = probeEngineConfigNpuDryBuildSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            requestedVariantName = engineConfigVariant,
-        )
-        val galleryStackJavaNativeApiCompatibilityProbeResult = probeGalleryStackJavaNativeApiCompatibilitySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
-        )
-        val galleryStackGpuProbeDiagnostics = buildGalleryStackGpuProbeRuntimeDiagnostics(
-            selectedModelPath = GALLERY_STACK_GPU_PROBE_DEFAULT_MODEL_PATH,
-            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
-            preferredBackend = "GPU",
-        )
-        val runtimeAlignmentProbeDiagnostics = buildRuntimeAlignmentProbeDiagnostics(
-            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
-            resultCandidate = "unavailable",
-            successGate = "unavailable",
-        )
-        val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
-            apiInventory = liteRtLmNpuApiInventoryProbeResult,
-            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
-        )
-        val engineApiInventoryProbeResult = probeEngineApiInventorySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
-        )
-        val engineInitializeDryRunProbeResult = probeEngineInitializeDryRunSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
             explicitOptIn = engineInitializeDryRunOptIn,
             requestedModelPath = engineInitializeDryRunModelPath,
             requestedRunId = engineInitializeDryRunRunId,
             requestedEngineConfigVariant = engineConfigVariant,
             diagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
-            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
         )
-        val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
-            requirements = npuRequirementsProbeResult,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            delegateApiProbeResult = delegateApiProbeResult,
-        )
-        val qnnDelegateProbeResult = context?.let { QnnDelegateProbe.probe(it) }
+        val gpuProbeResult = probeResults.gpuProbeResult
+        val delegateApiProbeResult = probeResults.delegateApiProbeResult
+        val npuStageProbeResult = probeResults.npuStageProbeResult
+        val npuRequirementsProbeResult = probeResults.npuRequirementsProbeResult
+        val npuPackagedLibraryProbeResult = probeResults.npuPackagedLibraryProbeResult
+        val externalQairtStageProbeResult = probeResults.externalQairtStageProbeResult
+        val dispatchRuntimeCompatibility = probeResults.dispatchRuntimeCompatibility
+        val backendNpuInstantiateProbeResult = probeResults.backendNpuInstantiateProbeResult
+        val backendNpuAttachDryRunProbeResult = probeResults.backendNpuAttachDryRunProbeResult
+        val liteRtLmNpuApiInventoryProbeResult = probeResults.liteRtLmNpuApiInventoryProbeResult
+        val engineConfigNpuDryBuildProbeResult = probeResults.engineConfigNpuDryBuildProbeResult
+        val galleryStackJavaNativeApiCompatibilityProbeResult = probeResults.galleryStackJavaNativeApiCompatibilityProbeResult
+        val galleryStackGpuProbeDiagnostics = probeResults.galleryStackGpuProbeDiagnostics
+        val runtimeAlignmentProbeDiagnostics = probeResults.runtimeAlignmentProbeDiagnostics
+        val backendNpuConnectionCandidateProbeResult = probeResults.backendNpuConnectionCandidateProbeResult
+        val engineApiInventoryProbeResult = probeResults.engineApiInventoryProbeResult
+        val engineInitializeDryRunProbeResult = probeResults.engineInitializeDryRunProbeResult
+        val qnnNpuAttemptSnapshot = probeResults.qnnNpuAttemptSnapshot
+        val qnnDelegateProbeResult = probeResults.qnnDelegateProbeResult
 
         val snapshot = AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -543,6 +496,113 @@ internal object AcceleratorProbe {
             detail = "engine_initialize_dry_run_result=${engineInitializeDryRunProbeResult.initializeResult}",
         )
         return snapshot
+    }
+
+    private fun collectUncachedProbeResults(
+        context: Context?,
+        explicitOptIn: Boolean,
+        requestedModelPath: String?,
+        requestedRunId: String?,
+        requestedEngineConfigVariant: String?,
+        diagnosticFilesClearedBeforeRun: Boolean,
+    ): UncachedProbeResults {
+        val gpuProbeResult = probeGpuInfoSafely()
+        val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
+        val npuStageProbeResult = probeBackendNpuStageSafely()
+        val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
+        val npuPackagedLibraryProbeResult = probePackagedNpuLibrariesSafely(
+            context = context,
+            officialVendor = npuRequirementsProbeResult.officialVendor,
+        )
+        val externalQairtStageProbeResult = probeExternalQairtStageSafely()
+        val dispatchRuntimeCompatibility = probeDispatchRuntimeCompatibilitySafely(npuPackagedLibraryProbeResult)
+        val backendNpuInstantiateProbeResult = probeBackendNpuInstantiateOnlySafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+        )
+        val backendNpuAttachDryRunProbeResult = probeBackendNpuAttachDryRunSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+        )
+        val liteRtLmNpuApiInventoryProbeResult = probeLiteRtLmNpuApiInventorySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+        )
+        val engineConfigNpuDryBuildProbeResult = probeEngineConfigNpuDryBuildSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            requestedVariantName = requestedEngineConfigVariant,
+        )
+        val galleryStackJavaNativeApiCompatibilityProbeResult = probeGalleryStackJavaNativeApiCompatibilitySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
+        )
+        val galleryStackGpuProbeDiagnostics = buildGalleryStackGpuProbeRuntimeDiagnostics(
+            selectedModelPath = GALLERY_STACK_GPU_PROBE_DEFAULT_MODEL_PATH,
+            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            preferredBackend = "GPU",
+        )
+        val runtimeAlignmentProbeDiagnostics = buildRuntimeAlignmentProbeDiagnostics(
+            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            resultCandidate = "unavailable",
+            successGate = "unavailable",
+        )
+        val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
+            apiInventory = liteRtLmNpuApiInventoryProbeResult,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
+        )
+        val engineApiInventoryProbeResult = probeEngineApiInventorySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+        )
+        val engineInitializeDryRunProbeResult = probeEngineInitializeDryRunSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+            explicitOptIn = explicitOptIn,
+            requestedModelPath = requestedModelPath,
+            requestedRunId = requestedRunId,
+            requestedEngineConfigVariant = requestedEngineConfigVariant,
+            diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
+            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
+        )
+        val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
+            requirements = npuRequirementsProbeResult,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+        )
+        val qnnDelegateProbeResult = context?.let { QnnDelegateProbe.probe(it) }
+
+        return UncachedProbeResults(
+            gpuProbeResult = gpuProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+            npuStageProbeResult = npuStageProbeResult,
+            npuRequirementsProbeResult = npuRequirementsProbeResult,
+            npuPackagedLibraryProbeResult = npuPackagedLibraryProbeResult,
+            externalQairtStageProbeResult = externalQairtStageProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            backendNpuInstantiateProbeResult = backendNpuInstantiateProbeResult,
+            backendNpuAttachDryRunProbeResult = backendNpuAttachDryRunProbeResult,
+            liteRtLmNpuApiInventoryProbeResult = liteRtLmNpuApiInventoryProbeResult,
+            engineConfigNpuDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+            galleryStackJavaNativeApiCompatibilityProbeResult = galleryStackJavaNativeApiCompatibilityProbeResult,
+            galleryStackGpuProbeDiagnostics = galleryStackGpuProbeDiagnostics,
+            runtimeAlignmentProbeDiagnostics = runtimeAlignmentProbeDiagnostics,
+            backendNpuConnectionCandidateProbeResult = backendNpuConnectionCandidateProbeResult,
+            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
+            engineInitializeDryRunProbeResult = engineInitializeDryRunProbeResult,
+            qnnNpuAttemptSnapshot = qnnNpuAttemptSnapshot,
+            qnnDelegateProbeResult = qnnDelegateProbeResult,
+        )
     }
 
     private fun probeDispatchRuntimeCompatibilitySafely(
@@ -3365,6 +3425,28 @@ internal object AcceleratorProbe {
         if (nnapiCandidates.isNotEmpty()) return "nnapi-only-candidate"
         return "not-detected"
     }
+
+    private data class UncachedProbeResults(
+        val gpuProbeResult: GpuProbeResult,
+        val delegateApiProbeResult: DelegateApiProbeResult,
+        val npuStageProbeResult: BackendNpuStageProbeResult,
+        val npuRequirementsProbeResult: LiteRtLmNpuRequirementsProbeResult,
+        val npuPackagedLibraryProbeResult: PackagedNpuLibraryProbeResult,
+        val externalQairtStageProbeResult: ExternalQairtStageProbeResult,
+        val dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        val backendNpuInstantiateProbeResult: BackendNpuInstantiateProbeResult,
+        val backendNpuAttachDryRunProbeResult: BackendNpuAttachDryRunProbeResult,
+        val liteRtLmNpuApiInventoryProbeResult: LiteRtLmNpuApiInventoryProbeResult,
+        val engineConfigNpuDryBuildProbeResult: EngineConfigNpuDryBuildProbeResult,
+        val galleryStackJavaNativeApiCompatibilityProbeResult: GalleryStackJavaNativeApiCompatibilityProbeResult,
+        val galleryStackGpuProbeDiagnostics: GalleryStackGpuProbeRuntimeDiagnostics,
+        val runtimeAlignmentProbeDiagnostics: RuntimeAlignmentProbeDiagnostics,
+        val backendNpuConnectionCandidateProbeResult: BackendNpuConnectionCandidateProbeResult,
+        val engineApiInventoryProbeResult: EngineApiInventoryProbeResult,
+        val engineInitializeDryRunProbeResult: EngineInitializeDryRunProbeResult,
+        val qnnNpuAttemptSnapshot: LocalAcceleratorAttemptSnapshot,
+        val qnnDelegateProbeResult: QnnDelegateProbeResult?,
+    )
 
     private data class DelegateApiProbeResult(
         val error: String? = null,
