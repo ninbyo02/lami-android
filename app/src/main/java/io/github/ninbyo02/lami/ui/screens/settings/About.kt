@@ -44,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -161,6 +162,24 @@ fun About(
             )
         }
     }
+    val copyLicenseToClipboard: () -> Unit = {
+        clipboardManager.setText(AnnotatedString(fullLicenseText))
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val dismissJob = launch {
+                delay(PROJECT_SNACKBAR_SHORT_MS)
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+            try {
+                snackbarHostState.showSnackbar(
+                    message = copiedText,
+                    duration = SnackbarDuration.Indefinite,
+                )
+            } finally {
+                dismissJob.cancel()
+            }
+        }
+    }
 
     Scaffold(
         // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
@@ -218,58 +237,16 @@ fun About(
                             modifier = developerAccessTapModifier,
                         )
                         Spacer(Modifier.height(24.dp))
-                        ElevatedCard(
+                        AboutLicenseCard(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .pointerInput(fullLicenseText) {
-                                    detectTapGestures(
-                                        onLongPress = {
-                                            clipboardManager.setText(AnnotatedString(fullLicenseText))
-                                            scope.launch {
-                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                                val dismissJob = launch {
-                                                    delay(PROJECT_SNACKBAR_SHORT_MS)
-                                                    snackbarHostState.currentSnackbarData?.dismiss()
-                                                }
-                                                try {
-                                                    snackbarHostState.showSnackbar(
-                                                        message = copiedText,
-                                                        duration = SnackbarDuration.Indefinite,
-                                                    )
-                                                } finally {
-                                                    dismissJob.cancel()
-                                                }
-                                            }
-                                        },
-                                    )
-                                },
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.about_license_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Text(
-                                    text = licenseLine1,
-                                    style = readableBodyTextStyle,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Text(
-                                    text = licenseLine2,
-                                    style = readableBodyTextStyle,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Text(
-                                    text = noticeAnnotatedText,
-                                    style = readableBodyTextStyle,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                        }
+                                .fillMaxWidth(),
+                            fullLicenseText = fullLicenseText,
+                            licenseLine1 = licenseLine1,
+                            licenseLine2 = licenseLine2,
+                            noticeAnnotatedText = noticeAnnotatedText,
+                            readableBodyTextStyle = readableBodyTextStyle,
+                            onLongPress = copyLicenseToClipboard,
+                        )
                     }
                     Box(
                         modifier = Modifier
@@ -373,61 +350,67 @@ fun About(
                         modifier = developerAccessTapModifier,
                     )
                     Spacer(Modifier.height(24.dp))
-                    ElevatedCard(
+                    AboutLicenseCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .pointerInput(fullLicenseText) {
-                                detectTapGestures(
-                                    onLongPress = {
-                                        clipboardManager.setText(AnnotatedString(fullLicenseText))
-                                        scope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            val dismissJob = launch {
-                                                delay(PROJECT_SNACKBAR_SHORT_MS)
-                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                            }
-                                            try {
-                                                snackbarHostState.showSnackbar(
-                                                    message = copiedText,
-                                                    duration = SnackbarDuration.Indefinite,
-                                                )
-                                            } finally {
-                                                dismissJob.cancel()
-                                            }
-                                        }
-                                    },
-                                )
-                            },
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.about_license_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = licenseLine1,
-                                style = readableBodyTextStyle,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = licenseLine2,
-                                style = readableBodyTextStyle,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = noticeAnnotatedText,
-                                style = readableBodyTextStyle,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
+                            .padding(horizontal = 16.dp),
+                        fullLicenseText = fullLicenseText,
+                        licenseLine1 = licenseLine1,
+                        licenseLine2 = licenseLine2,
+                        noticeAnnotatedText = noticeAnnotatedText,
+                        readableBodyTextStyle = readableBodyTextStyle,
+                        onLongPress = copyLicenseToClipboard,
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AboutLicenseCard(
+    modifier: Modifier = Modifier,
+    fullLicenseText: String,
+    licenseLine1: String,
+    licenseLine2: String,
+    noticeAnnotatedText: AnnotatedString,
+    readableBodyTextStyle: TextStyle,
+    onLongPress: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = modifier
+            .pointerInput(fullLicenseText) {
+                detectTapGestures(
+                    onLongPress = {
+                        onLongPress()
+                    },
+                )
+            },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.about_license_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = licenseLine1,
+                style = readableBodyTextStyle,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = licenseLine2,
+                style = readableBodyTextStyle,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = noticeAnnotatedText,
+                style = readableBodyTextStyle,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
