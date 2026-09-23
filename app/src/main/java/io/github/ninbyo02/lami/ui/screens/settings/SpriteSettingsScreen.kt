@@ -9,13 +9,11 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,12 +40,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,7 +57,6 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -95,11 +89,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -126,8 +118,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.R
@@ -146,7 +136,6 @@ import io.github.ninbyo02.lami.ui.components.DevMenuTtsUiState
 import io.github.ninbyo02.lami.ui.components.drawFramePlaceholder
 import io.github.ninbyo02.lami.ui.components.drawFrameRegion
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
-import io.github.ninbyo02.lami.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import io.github.ninbyo02.lami.ui.components.rememberReadyPreviewLayoutState
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
@@ -5037,256 +5026,6 @@ private fun ReadyAnimationPreviewPane(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             content()
-        }
-    }
-}
-
-@Composable
-private fun SpritePreviewBlock(
-    imageBitmap: ImageBitmap?,
-    backgroundColor: Color,
-    modifier: Modifier = Modifier,
-    onContainerSizeChanged: ((IntSize) -> Unit)? = null,
-    overlayContent: @Composable BoxScope.() -> Unit = {},
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        // [dp] 縦: プレビュー の間隔(間隔)に関係
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-        val minHeight = 180.dp
-        val configuration = LocalConfiguration.current
-        val aspectRatio = min(
-            1f,
-            configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.toFloat()
-        ).coerceAtLeast(0.7f)
-        val previewShape = RoundedCornerShape(8.dp)
-        Box(
-            modifier = Modifier
-                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
-                .fillMaxWidth()
-                // [非dp] 縦横: プレビュー の aspectRatio(制約)に関係
-                .aspectRatio(aspectRatio)
-                // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-                .heightIn(min = minHeight)
-                .background(backgroundColor, previewShape)
-                .clip(previewShape),
-            // [非dp] 縦: プレビュー の配置(配置)に関係
-            contentAlignment = Alignment.TopCenter
-        ) {
-            val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
-            if (imageBitmap == null) {
-                // 画像読み込み中でも画面骨組みを維持するため、軽量プレースホルダーを表示する
-                Box(
-                    modifier = Modifier
-                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                        .fillMaxSize()
-                        .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) }
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "Loading...", style = MaterialTheme.typography.labelMedium)
-                }
-            } else {
-                Image(
-                    bitmap = imageBitmap,
-                    contentDescription = "Sprite Preview",
-                    modifier = Modifier
-                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                        .fillMaxSize()
-                        .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
-                    contentScale = ContentScale.Fit,
-                    colorFilter = spriteColorFilter
-                )
-                overlayContent()
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpriteSettingsControls(
-    buttonHeight: Dp,
-    buttonContentPadding: PaddingValues,
-    buttonShape: Shape,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onMoveXNegative: () -> Unit,
-    onMoveXPositive: () -> Unit,
-    onMoveYNegative: () -> Unit,
-    onMoveYPositive: () -> Unit,
-    onSizeDecrease: () -> Unit,
-    onSizeIncrease: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-            .fillMaxWidth()
-            // [dp] 左右: 下部バー の余白(余白)に関係
-            .padding(horizontal = 12.dp)
-            // [dp] 下: 下部バー の余白(余白)に関係
-            .padding(bottom = 8.dp),
-        // [dp] 縦: 下部バー の間隔(間隔)に関係
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        val buttonModifier = Modifier
-            // [非dp] 横: 画面全体 の weight(制約)に関係
-            .fillMaxWidth()
-            // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
-            .height(buttonHeight)
-
-        val navigatorButtonColors = ButtonDefaults.buttonColors(
-            // ナビゲーションボタンはテーマ準拠で動的カラーに追従させる
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
-        val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
-        val cellModifier = Modifier
-            // [非dp] 横: 画面全体 の weight(制約)に関係
-            .weight(1f)
-            // [dp] 縦: ボタンのタップ領域(最小サイズ)に関係
-            .heightIn(min = 48.dp)
-
-        Column(
-            // [dp] 縦: 画面全体 の間隔(間隔)に関係
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                modifier = Modifier.fillMaxWidth(),
-                // [dp] 横: 画面全体 の間隔(間隔)に関係
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onPrev,
-                        modifier = buttonModifier.semantics { contentDescription = "Previous" },
-                        colors = navigatorButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onNext,
-                        modifier = buttonModifier.semantics { contentDescription = "Next" },
-                        colors = navigatorButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onMoveXNegative,
-                        modifier = buttonModifier,
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("X-")
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onMoveXPositive,
-                        modifier = buttonModifier.testTag("spriteAdjustMoveRight"),
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("X+")
-                    }
-                }
-            }
-            Row(
-                // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                modifier = Modifier.fillMaxWidth(),
-                // [dp] 横: 画面全体 の間隔(間隔)に関係
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onSizeDecrease,
-                        modifier = buttonModifier.testTag("spriteAdjustSizeDecrease"),
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("-")
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onSizeIncrease,
-                        modifier = buttonModifier.testTag("spriteAdjustSizeIncrease"),
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("+")
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onMoveYNegative,
-                        modifier = buttonModifier,
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("Y-")
-                    }
-                }
-                Box(
-                    modifier = cellModifier,
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilledTonalButton(
-                        onClick = onMoveYPositive,
-                        modifier = buttonModifier,
-                        colors = defaultControlButtonColors,
-                        contentPadding = buttonContentPadding,
-                        shape = buttonShape
-                    ) {
-                        Text("Y+")
-                    }
-                }
-            }
         }
     }
 }
