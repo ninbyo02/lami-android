@@ -156,13 +156,6 @@ import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-data class BoxPosition(val x: Int, val y: Int)
-
-data class SpriteSheetSnapshot(
-    val boxSizePx: Int,
-    val boxPositions: List<BoxPosition>,
-)
-
 internal object SpriteSettingsSessionSpriteOverride {
     var bitmap: Bitmap? by mutableStateOf(null)
 }
@@ -251,7 +244,6 @@ internal fun buildEffectiveInsertionIntervalText(
     }
 }
 
-private const val DEFAULT_BOX_SIZE_PX = 88
 private const val ALL_ANIMATIONS_JSON_VERSION = 1
 private const val JSON_VERSION_KEY = "version"
 private const val JSON_ANIMATIONS_KEY = "animations"
@@ -274,70 +266,6 @@ private const val META_USER_MODIFIED_KEY = "userModified"
 private const val READY_LEGACY_LABEL = "ReadyBlink"
 private const val UNSET_SPRITE_TAB = "__UNSET__"
 
-private fun clampPosition(
-    position: BoxPosition,
-    boxSizePx: Int,
-    sheetWidth: Int,
-    sheetHeight: Int
-): BoxPosition {
-    val maxX = (sheetWidth - boxSizePx).coerceAtLeast(0)
-    val maxY = (sheetHeight - boxSizePx).coerceAtLeast(0)
-    return BoxPosition(
-        x = position.x.coerceIn(0, maxX),
-        y = position.y.coerceIn(0, maxY)
-    )
-}
-
-private fun boxPositionsSaver() = androidx.compose.runtime.saveable.listSaver<List<BoxPosition>, Int>(
-    save = { list -> list.flatMap { position -> listOf(position.x, position.y) } },
-    restore = { flat ->
-        flat.chunked(2).map { (x, y) ->
-            BoxPosition(x = x, y = y)
-        }
-    }
-)
-
-private fun spriteSheetSnapshotSaver() = androidx.compose.runtime.saveable.listSaver<SpriteSheetSnapshot, Int>(
-    save = { snapshot ->
-        buildList {
-            add(snapshot.boxSizePx)
-            add(snapshot.boxPositions.size)
-            snapshot.boxPositions.forEach { position ->
-                add(position.x)
-                add(position.y)
-            }
-        }
-    },
-    restore = { values ->
-        if (values.size < 2) {
-            SpriteSheetSnapshot(
-                boxSizePx = DEFAULT_BOX_SIZE_PX,
-                boxPositions = defaultBoxPositions(),
-            )
-        } else {
-            val restoredBoxSize = values[0]
-            val restoredCount = values[1].coerceAtLeast(0)
-            val restoredPositions = mutableListOf<BoxPosition>()
-            var cursor = 2
-            repeat(restoredCount) {
-                val x = values.getOrNull(cursor) ?: 0
-                val y = values.getOrNull(cursor + 1) ?: 0
-                restoredPositions.add(BoxPosition(x, y))
-                cursor += 2
-            }
-            SpriteSheetSnapshot(
-                boxSizePx = restoredBoxSize,
-                boxPositions = restoredPositions,
-            )
-        }
-    }
-)
-
-private fun defaultBoxPositions(): List<BoxPosition> =
-    SpriteSheetConfig.default3x3()
-        .boxesWithInternalIndex()
-        .sortedBy { it.frameIndex }
-            .map { box -> BoxPosition(box.x, box.y) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
