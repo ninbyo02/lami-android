@@ -10789,22 +10789,6 @@ internal fun buildFinalizedStreamingResponseForPersist(
     return repaired.replace(Regex("\\n```$"), "\n#\n```")
 }
 
-private fun previewForDevLog(
-    text: String,
-    maxLength: Int = 2000,
-): String {
-    if (text.length <= maxLength) return text
-    val headLength = maxLength / 2
-    val tailLength = maxLength - headLength
-    val omittedCount = text.length - maxLength
-    val head = text.take(headLength)
-    val tail = text.takeLast(tailLength)
-    return buildString {
-        appendLine(head)
-        appendLine("...<omitted $omittedCount chars>...")
-        append(tail)
-    }
-}
 internal fun shouldShowComposerExpandAffordance(measuredLines: Int): Boolean = measuredLines >= 5
 
 internal fun shouldUseFullScreenComposerEditor(): Boolean = true
