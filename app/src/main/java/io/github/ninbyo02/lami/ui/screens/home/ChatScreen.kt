@@ -11960,25 +11960,6 @@ private class GpuRouteProgressTracker(
     }
 }
 
-private fun Map<String, String>.diagnosticString(key: String): String? =
-    this[key]?.takeUnless { value ->
-        value.isBlank() || value == "unavailable" || value == "unknown"
-    }
-
-private fun Map<String, String>.diagnosticBoolean(key: String): Boolean? =
-    diagnosticString(key)?.toBooleanStrictOrNull()
-
-private fun Map<String, String>.diagnosticInt(key: String): Int? =
-    diagnosticString(key)?.toIntOrNull()
-
-private fun Map<String, String>.diagnosticLong(key: String): Long? =
-    diagnosticString(key)?.toLongOrNull()
-
-private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
-    text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
-        text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING") ||
-        text.contains("gpu_callback_streaming_path_selected=true")
-
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,
     path: String,
