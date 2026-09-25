@@ -16445,22 +16445,6 @@ internal fun buildNpuStandardRouteS5TtsSpeakTrace(
     append(" backend_npu_persisted=true")
 }
 
-private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(
-    context: Context,
-    prompt: String,
-): String {
-    return runCatching {
-        val branchClass = Class.forName(
-            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
-        )
-        branchClass
-            .getMethod("run", Context::class.java, String::class.java)
-            .invoke(null, context, prompt) as String
-    }.getOrElse { throwable ->
-        "DEV NPU blocked branch unavailable: ${throwable.javaClass.simpleName}"
-    }
-}
-
 private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
     context: Context,
     prompt: String,
