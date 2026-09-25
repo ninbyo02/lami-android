@@ -16461,27 +16461,6 @@ internal fun buildNpuStandardRouteS5TtsSpeakTrace(
     append(" backend_npu_persisted=true")
 }
 
-private fun computeLatestUserAnchor(messages: List<Message>): Int {
-    if (messages.isEmpty()) {
-        return 0
-    }
-    val lastUser = messages.indexOfLast { it.isSendbyMe }
-    return if (lastUser >= 0) {
-        lastUser
-    } else {
-        messages.lastIndex
-    }
-}
-
-private fun isStopCancellationLikeMessage(message: String?): Boolean {
-    val text = message?.lowercase().orEmpty()
-    return "socket closed" in text ||
-        "software caused connection abort" in text ||
-        "canceled" in text ||
-        "cancelled" in text ||
-        "stream was reset" in text
-}
-
 private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(
     context: Context,
     prompt: String,
