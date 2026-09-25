@@ -12102,32 +12102,6 @@ private const val GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB = 6_144L
 private const val GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER = 2L
 private const val GPU_MEMORY_PREFLIGHT_RESERVE_MB = 1_536L
 private const val GPU_MEMORY_PREFLIGHT_GC_DELAY_MS = 250L
-private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
-
-private fun buildLocalLiteRtBackendKey(
-    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
-): String {
-    val textBackend = when (preferredBackendDryRunSetting) {
-        PreferredBackendDryRunSetting.CPU,
-        PreferredBackendDryRunSetting.DEFAULT -> "CPU"
-        PreferredBackendDryRunSetting.GPU -> "GPU"
-        PreferredBackendDryRunSetting.NPU,
-        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> "GPU"
-    }
-    return "$LOCAL_LITERT_BACKEND_KEY/requested=${preferredBackendDryRunSetting.name}/text=$textBackend"
-}
-
-private fun buildLiteRtCacheDirPath(context: Context): String = context.cacheDir.absolutePath
-
-private fun resolveLocalModelDisplayName(
-    localModelDisplayName: String?,
-    modelPath: String,
-): String {
-    val normalizedDisplayName = localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
-    if (normalizedDisplayName != null) return normalizedDisplayName
-    return File(modelPath).name.removeSuffix(".litertlm")
-}
-
 private fun LocalInferenceTrace.withLocalModelResolution(
     modelResolution: LocalModelResolution,
 ): LocalInferenceTrace =
