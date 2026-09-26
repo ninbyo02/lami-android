@@ -1208,12 +1208,12 @@ fun Home(
         initial = InferenceStatsDisplayMode.SIMPLE,
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
-    var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
+    var localInferenceRunState by rememberSaveable { mutableStateOf(LocalInferenceRunState()) }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
-    LaunchedEffect(selectedInferenceTarget, effectiveChatId, isLocalInferenceRunning) {
-        if (isLocalInferenceRunning) return@LaunchedEffect
+    LaunchedEffect(selectedInferenceTarget, effectiveChatId, localInferenceRunState.running) {
+        if (localInferenceRunState.running) return@LaunchedEffect
         if (selectedInferenceTarget != InferenceTarget.LOCAL) {
             effectiveChatId?.let { currentChatId ->
                 localInferenceEngineHolder.notifyLifecycleEvent(
@@ -1247,13 +1247,13 @@ fun Home(
             )
         }
     }
-    LaunchedEffect(selectedLocalModelFilePath, selectedLocalModelDisplayName, isLocalInferenceRunning) {
+    LaunchedEffect(selectedLocalModelFilePath, selectedLocalModelDisplayName, localInferenceRunState.running) {
         val hasSavedLocalModelInfo = !selectedLocalModelFilePath.isNullOrBlank() ||
             !selectedLocalModelDisplayName.isNullOrBlank()
         if (!hasSavedLocalModelInfo) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
-        if (isLocalInferenceRunning) return@LaunchedEffect
+        if (localInferenceRunState.running) return@LaunchedEffect
         if (shouldApplyHeldEngineModelPath(selectedLocalModelFilePath)) {
             localInferenceEngineHolder.clearIfModelChanged(selectedLocalModelFilePath?.trim().orEmpty())
         }
@@ -1283,7 +1283,6 @@ fun Home(
     var localStreamingUiState by remember(effectiveChatId) {
         mutableStateOf(LocalStreamingUiState())
     }
-    var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var localPartialStreamingState by remember(effectiveChatId) {
         mutableStateOf(LocalPartialStreamingState())
     }
@@ -1318,7 +1317,7 @@ fun Home(
     val safetyGuardBlockedConversations = remember { mutableStateMapOf<Int, SafetyGuardConversationBlock>() }
     val streamingResponseText = localStreamingUiState.responseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
-    val isLocalRunningRaw = isLocalInferenceRunning
+    val isLocalRunningRaw = localInferenceRunState.running
     val isServerRunning =
         !remoteStopRequested &&
             (
@@ -1328,7 +1327,7 @@ fun Home(
                     uiState is UiState.Streaming
                 )
     val isServerRunningRaw = isServerRunning
-    val isStopRequested = localStopRequested || remoteStopRequested
+    val isStopRequested = localInferenceRunState.stopRequested || remoteStopRequested
     val isLocalRunningUi = isLocalRunningRaw && !isStopRequested
     val isServerRunningUi = isServerRunningRaw && !isStopRequested
     val isInferenceRunningUi = isLocalRunningUi || isServerRunningUi
@@ -1342,15 +1341,15 @@ fun Home(
     val isServerLoadingUi =
         (uiState is UiState.Loading || uiState is UiState.Thinking) && isServerRunningUi
     LaunchedEffect(
-        isLocalInferenceRunning,
-        localStopRequested,
+        localInferenceRunState.running,
+        localInferenceRunState.stopRequested,
         streamingPersistenceState.assistantMessageId,
         localStreamingUiState.responseText,
     ) {
         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         if (
-            !isLocalInferenceRunning ||
-            localStopRequested ||
+            !localInferenceRunState.running ||
+            localInferenceRunState.stopRequested ||
             streamingPersistenceState.assistantMessageId != null ||
             !localStreamingUiState.responseText.isNullOrBlank()
         ) {
@@ -1358,8 +1357,8 @@ fun Home(
         }
         delay(LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS)
         if (
-            isLocalInferenceRunning &&
-            !localStopRequested &&
+            localInferenceRunState.running &&
+            !localInferenceRunState.stopRequested &&
             streamingPersistenceState.assistantMessageId == null &&
             localStreamingUiState.responseText.isNullOrBlank()
         ) {
@@ -1374,7 +1373,7 @@ fun Home(
     }
     val showLocalRespondingAssistantRow = shouldShowLocalRespondingPlaceholder(
         isLocalRunning = isLocalRunningUi,
-        localStopRequested = localStopRequested,
+        localStopRequested = localInferenceRunState.stopRequested,
         streamingAssistantMessageId = streamingPersistenceState.assistantMessageId,
         localStreamingResponseText = localStreamingUiState.responseText,
         showDelayedPlaceholder = localStreamingUiState.showDelayedPlaceholder,
@@ -2824,8 +2823,8 @@ fun Home(
         npuS1PersistentCustomJniJob?.cancel()
     }
 
-    LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
-        if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
+    LaunchedEffect(localInferenceRunState.running, streamingResponseText) {
+        if (!BuildConfig.DEBUG || !localInferenceRunState.running) return@LaunchedEffect
         val currentChunk = streamingResponseText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
         if (currentChunk != lastStreamingAssistantChunkForDev) {
             assistantUpdateCountForDev += 1
@@ -2857,7 +2856,7 @@ fun Home(
         )
 
         if (shouldRefreshRenderText) {
-            if (BuildConfig.DEBUG && isLocalInferenceRunning) {
+            if (BuildConfig.DEBUG && localInferenceRunState.running) {
                 localStreamingUiMetricsForDev.recordRenderUpdate()
             }
             streamingResponseTextForRender = latestText
@@ -3093,10 +3092,10 @@ fun Home(
         stopButtonOwnerAssistantMessageId = null
         stopButtonOwnerSetAtMs = null
         localPartialStreamingState = LocalPartialStreamingState()
-                localStopRequested = false
+                localInferenceRunState = localInferenceRunState.clearStopRequest()
         localInferenceEngineState = LocalInferenceEngineState.READY
         viewModel.resetUiState()
-        isLocalInferenceRunning = false
+        localInferenceRunState = localInferenceRunState.finish()
         localInferenceJob = null
         File(context.applicationContext.filesDir, "qairt244_dev_npu_ui_cleanup_state.txt").writeText(
             listOf(
@@ -3124,7 +3123,7 @@ fun Home(
         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         npuStandardRouteS4PseudoStreamingActive = false
         npuStandardRouteStreamingSentenceTtsBlocked = false
-        isLocalInferenceRunning = false
+        localInferenceRunState = localInferenceRunState.finish()
         localInferenceEngineState = LocalInferenceEngineState.READY
         resetStreamingAssistantPlaceholderId(reason = reason)
         stopTtsWithCleanup(
@@ -3213,7 +3212,7 @@ fun Home(
             delay(GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS)
             if (timedOut.get()) return@launch
             if (runGuardEpoch != streamingGuardEpoch) return@launch
-            if (!isLocalInferenceRunning || localPartialStreamingState.didReceiveRealPartial || localStopRequested) return@launch
+            if (!localInferenceRunState.running || localPartialStreamingState.didReceiveRealPartial || localInferenceRunState.stopRequested) return@launch
 
             timedOut.set(true)
             val elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs
@@ -3253,7 +3252,7 @@ fun Home(
             )
             resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
             localInferenceEngineState = LocalInferenceEngineState.ERROR
-            isLocalInferenceRunning = false
+            localInferenceRunState = localInferenceRunState.finish()
             localInferenceJob?.cancel()
             localInferenceJob = null
             localGpuWatchdogJob = null
@@ -3440,14 +3439,14 @@ fun Home(
             upsertStreamingAssistantPlaceholder(chatId = chatId, response = response)
         }
 
-    LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingPersistenceState.assistantMessageId) {
-        if (!isLocalInferenceRunning) return@LaunchedEffect
+    LaunchedEffect(effectiveChatId, localInferenceRunState.running, streamingPersistenceState.assistantMessageId) {
+        if (!localInferenceRunState.running) return@LaunchedEffect
         val checkpointChatId = effectiveChatId ?: return@LaunchedEffect
         val checkpointMessageId = streamingPersistenceState.assistantMessageId ?: return@LaunchedEffect
         var lastCheckpointText = streamingPersistenceState.lastPersistedText.orEmpty()
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
-            if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
+            if (!localInferenceRunState.running || localInferenceRunState.stopRequested || effectiveChatId != checkpointChatId) break
             val checkpointText = localStreamingUiState.responseText?.trim().orEmpty()
             if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
             streamingAssistantPersistMutex.withLock {
@@ -4524,7 +4523,7 @@ fun Home(
                                             }
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
-                                                        localStopRequested = true
+                                                        localInferenceRunState = localInferenceRunState.requestStop()
                                                         localGpuWatchdogJob?.cancel()
                                                         localGpuWatchdogJob = null
                                                         localInferenceJob?.cancel()
@@ -4539,7 +4538,7 @@ fun Home(
                                                     }
                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                     localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                        isLocalInferenceRunning = false
+                                                                                                        localInferenceRunState = localInferenceRunState.finish()
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
@@ -4657,7 +4656,7 @@ fun Home(
                                                 InferenceTarget.LOCAL -> {
                                                     val existingLocalJob = localInferenceJob
                                                     when (resolveExistingLocalGenerationJobPolicy(
-                                                        isLocalInferenceRunning = isLocalInferenceRunning,
+                                                        isLocalInferenceRunning = localInferenceRunState.running,
                                                         existingJobActive = existingLocalJob?.isActive == true,
                                                     )) {
                                                         ExistingLocalGenerationJobPolicy.CANCEL_STALE_AND_WAIT -> {
@@ -4755,7 +4754,7 @@ fun Home(
                                                     selectedImageUriStrings = emptyList()
                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
-                                                    localStopRequested = false
+                                                    localInferenceRunState = localInferenceRunState.clearStopRequest()
                                                     debugLocalUiTrace(
                                                         label = "COMPOSER_CLEARED",
                                                         extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
@@ -4833,9 +4832,9 @@ fun Home(
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
-                                                        localStopRequested = false
+                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
                                                         effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
-                                                        isLocalInferenceRunning = true
+                                                        localInferenceRunState = localInferenceRunState.start()
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
@@ -4958,9 +4957,9 @@ fun Home(
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (!localStopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
+                                                                                            if (!localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (localStopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
+                                                                                                    if (localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                                                                                                                                         localStreamingUiState = localStreamingUiState.copy(responseText = partial)
                                                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
@@ -5107,7 +5106,7 @@ fun Home(
                                                         val npuOutputDecision = LocalInferenceOutputPolicy.evaluateNpu(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
-                                                            localStopRequested = localStopRequested,
+                                                            localStopRequested = localInferenceRunState.stopRequested,
                                                         )
                                                         val s1Fallback = npuOutputDecision.transientFallback
                                                         val shouldFallbackNpuFailure =
@@ -5122,7 +5121,7 @@ fun Home(
                                                         if (
                                                             npuOutputDecision.shouldFinalizeImmediately &&
                                                             npuFailureAssistantText != null &&
-                                                            !localStopRequested
+                                                            !localInferenceRunState.stopRequested
                                                         ) {
                                                             npuStandardRouteS1FallbackText = null
                                                             if (npuOutputDecision.shouldFinalizeAsAssistantResponse) {
@@ -5250,11 +5249,11 @@ fun Home(
                                                                         }
                                                                     if (
                                                                         safePartial != null &&
-                                                                        !localStopRequested &&
+                                                                        !localInferenceRunState.stopRequested &&
                                                                         effectiveChatId == currentChatId
                                                                     ) {
                                                                         coroutineScope.launch {
-                                                                            if (localStopRequested || effectiveChatId != currentChatId) return@launch
+                                                                            if (localInferenceRunState.stopRequested || effectiveChatId != currentChatId) return@launch
                                                                             localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                                                                                         localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)
                                                                             localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
@@ -5434,7 +5433,7 @@ fun Home(
                                                         if (
                                                             npuStandardRouteUiAppendAllowed &&
                                                             npuStandardRouteSafeUiText.isNotBlank() &&
-                                                            !localStopRequested
+                                                            !localInferenceRunState.stopRequested
                                                         ) {
                                                             npuStandardRoutePhaseUiAppendText = if (npuStandardRouteDbSaveAllowed) {
                                                                 null
@@ -5455,7 +5454,7 @@ fun Home(
                                                             }
                                                         } else if (npuStandardRouteUiAppendAllowed) {
                                                             npuStandardRoutePhaseUiAppendText = null
-                                                            npuStandardRouteUiAppendFailureReason = if (localStopRequested) {
+                                                            npuStandardRouteUiAppendFailureReason = if (localInferenceRunState.stopRequested) {
                                                                 "local_stop_requested"
                                                             } else {
                                                                 "safe_text_empty"
@@ -5473,7 +5472,7 @@ fun Home(
                                                             npuStandardRouteMarkdownAllowed &&
                                                             npuStandardRouteDbSaveAllowed &&
                                                             npuStandardRouteUiAppendAllowed &&
-                                                            !localStopRequested
+                                                            !localInferenceRunState.stopRequested
                                                         ) {
                                                             val markdownMapping = NpuStandardRouteS3MarkdownBridge()
                                                                 .prepareMarkdownCandidate(
@@ -5536,7 +5535,7 @@ fun Home(
                                                             npuStandardRouteMarkdownExecuted &&
                                                             npuStandardRouteDbSaveAllowed &&
                                                             npuStandardRouteUiAppendAllowed &&
-                                                            !localStopRequested
+                                                            !localInferenceRunState.stopRequested
                                                         ) {
                                                             val streamingFinalText = npuStandardRouteAssistantTextForPersist.trim()
                                                             val pseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
@@ -5561,7 +5560,7 @@ fun Home(
                                                                     pseudoStreamingCandidate.chunks.forEach { chunk ->
                                                                         if (
                                                                             !shouldContinueNpuStandardRouteS4APseudoStreaming(
-                                                                                localStopRequested = localStopRequested,
+                                                                                localStopRequested = localInferenceRunState.stopRequested,
                                                                                 runGuardEpoch = s4GuardEpoch,
                                                                                 currentGuardEpoch = streamingGuardEpoch,
                                                                                 expectedChatId = currentChatId,
@@ -5630,7 +5629,7 @@ fun Home(
                                                             npuStandardRoutePhaseGateActive &&
                                                             npuStandardRouteDbSaveAllowed &&
                                                             npuStandardRouteUiAppendAllowed &&
-                                                            !localStopRequested
+                                                            !localInferenceRunState.stopRequested
                                                         ) {
                                                             if (npuStandardRouteAssistantTextForPersist.isBlank()) {
                                                                 npuStandardRouteDbSaveBlockReason = "safe_text_empty"
@@ -5693,10 +5692,10 @@ fun Home(
                                                         }
                                                         logStreamTrace(
                                                             "LAMI_TTS npu_phase_gate phase_owner=${npuStandardRouteTtsOwnership.phaseOwner} " +
-                                                                "tts_enabled=$ttsEnabled local_stop=$localStopRequested " +
+                                                                "tts_enabled=$ttsEnabled local_stop=$localInferenceRunState.stopRequested " +
                                                                 "tts_text_code_points=${s1Result.ttsText.codePointCount(0, s1Result.ttsText.length)}",
                                                         )
-                                                        if (npuStandardRouteTtsOwnership.phaseOwner && !localStopRequested) {
+                                                        if (npuStandardRouteTtsOwnership.phaseOwner && !localInferenceRunState.stopRequested) {
                                                             val npuStandardRouteSafeTtsText = s1Result.ttsText
                                                                 .ifBlank { s1Result.actualDisplayText }
                                                                 .ifBlank { s1Result.preparedOutput }
@@ -5926,7 +5925,7 @@ fun Home(
                                                                         s4PseudoStreamingCandidate.chunks.forEach { chunk ->
                                                                             if (
                                                                                 !shouldContinueNpuStandardRouteS4APseudoStreaming(
-                                                                                    localStopRequested = localStopRequested,
+                                                                                    localStopRequested = localInferenceRunState.stopRequested,
                                                                                     runGuardEpoch = s4GuardEpoch,
                                                                                     currentGuardEpoch = streamingGuardEpoch,
                                                                                     expectedChatId = currentChatId,
@@ -5948,7 +5947,7 @@ fun Home(
                                                                     }
                                                                     if (
                                                                         !shouldContinueNpuStandardRouteS4APseudoStreaming(
-                                                                            localStopRequested = localStopRequested,
+                                                                            localStopRequested = localInferenceRunState.stopRequested,
                                                                             runGuardEpoch = s4GuardEpoch,
                                                                             currentGuardEpoch = streamingGuardEpoch,
                                                                             expectedChatId = currentChatId,
@@ -6229,12 +6228,12 @@ fun Home(
                                                                             }
                                                                         if (
                                                                             safePartial != null &&
-                                                                            !localStopRequested &&
+                                                                            !localInferenceRunState.stopRequested &&
                                                                             effectiveChatId == resolvedNpuChatId
                                                                         ) {
                                                                             coroutineScope.launch {
                                                                                 val fallbackChatId = resolvedNpuChatId ?: return@launch
-                                                                                if (localStopRequested || effectiveChatId != fallbackChatId) return@launch
+                                                                                if (localInferenceRunState.stopRequested || effectiveChatId != fallbackChatId) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                                                                                                 localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)
                                                                                 localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
@@ -6278,7 +6277,7 @@ fun Home(
                                                                         trace = exceptionFallbackResult?.trace,
                                                                     )
                                                                 val failureChatId = resolvedNpuChatId
-                                                                if (!localStopRequested && failureChatId != null) {
+                                                                if (!localInferenceRunState.stopRequested && failureChatId != null) {
                                                                     val assistantResponse = if (exceptionFallbackResponse.isNotBlank()) {
                                                                         "NPU推論に失敗したためGPU/CPUで応答します。\n\n$exceptionFallbackResponse"
                                                                     } else {
@@ -6334,7 +6333,7 @@ fun Home(
                                                                 npuStandardRouteS4PseudoStreamingActive = false
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                                isLocalInferenceRunning = false
+                                                                localInferenceRunState = localInferenceRunState.finish()
                                                                 effectiveLocalModelDisplayNameForHeader = null
                                                                 localInferenceJob = null
                                                             }
@@ -6351,7 +6350,7 @@ fun Home(
                                                         )
                                                     if (legacyQairt244ChatScreenRouteEnabled) {
                                                         // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
-                                                        isLocalInferenceRunning = true
+                                                        localInferenceRunState = localInferenceRunState.start()
                                                         debugLocalUiTrace(
                                                             label = "DEV_QAIRT244_SM8750_NPU_SEND_TAPPED",
                                                             extra = "effectiveChatId=$effectiveChatId promptLength=${requestPrompt.length}",
@@ -6361,7 +6360,7 @@ fun Home(
                                                         selectedImageUriStrings = emptyList()
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
-                                                        localStopRequested = false
+                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
@@ -6396,7 +6395,7 @@ fun Home(
                                                                     )
                                                                 )
                                                             }
-                                                            isLocalInferenceRunning = true
+                                                            localInferenceRunState = localInferenceRunState.start()
                                                             localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                             localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             try {
@@ -6510,7 +6509,7 @@ fun Home(
                                                                     localSourceSummary = sourceSummary,
                                                                 )
                                                                 devDebugText = sourceSummary
-                                                                if (!localStopRequested) {
+                                                                if (!localInferenceRunState.stopRequested) {
                                                                     val assistantId = withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
@@ -6560,7 +6559,7 @@ fun Home(
                                                                     "normal_ui_route_connected=false",
                                                                     "message=${exception.message.orEmpty()}",
                                                                 ).joinToString("\n")
-                                                                if (!localStopRequested) {
+                                                                if (!localInferenceRunState.stopRequested) {
                                                                     withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
@@ -6592,7 +6591,7 @@ fun Home(
                                                     selectedImageUriStrings = emptyList()
                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
-                                                    localStopRequested = false
+                                                    localInferenceRunState = localInferenceRunState.clearStopRequest()
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_INPUT_CLEARED",
                                                         extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId userPromptLengthAfterClear=${userPrompt.length}",
@@ -6660,7 +6659,7 @@ fun Home(
                                                                 context = localRouteDiagnosticContext,
                                                             ),
                                                         )
-                                                        if (isLocalInferenceRunning) return@launch
+                                                        if (localInferenceRunState.running) return@launch
                                                         if (streamingPersistenceState.assistantMessageId == null) {
                                                             val lifecycle = startStreamingAssistantLifecycleSerialized(
                                                                 chatId = resolvedChatId,
@@ -6675,11 +6674,11 @@ fun Home(
                                                                 return@launch
                                                             }
                                                         }
-                                                        localStopRequested = false
+                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
                                                         localPartialStreamingState = LocalPartialStreamingState()
                                                                                                                 localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                        isLocalInferenceRunning = true
+                                                        localInferenceRunState = localInferenceRunState.start()
                                                         val localRunGuardEpoch = streamingGuardEpoch
                                                         val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                         val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
@@ -7374,7 +7373,7 @@ fun Home(
                                                                             gpuRouteProgressTracker.recordStage(stage)
                                                                         },
                                                                         onPartial = { partial ->
-                                                                            if (localRouteTimedOut.get() || localStopRequested) return@runWithHeldEngine
+                                                                            if (localRouteTimedOut.get() || localInferenceRunState.stopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
                                                                                 markdownStreamingMode = markdownStreamingMode,
@@ -7406,7 +7405,7 @@ fun Home(
                                                                             coroutineScope.launch {
                                                                                 if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                if (localStopRequested) return@launch
+                                                                                if (localInferenceRunState.stopRequested) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#held.localStreamingUiState.responseText",
@@ -7579,7 +7578,7 @@ fun Home(
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 initialTurns = localConversationHistorySnapshot,
                                                                                 onPartial = legacyPartial@{ partial ->
-                                                                                    if (localStopRequested) return@legacyPartial
+                                                                                    if (localInferenceRunState.stopRequested) return@legacyPartial
                                                                                     val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                         partial = partial,
                                                                                         markdownStreamingMode = markdownStreamingMode,
@@ -7609,7 +7608,7 @@ fun Home(
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                        if (localStopRequested) return@launch
+                                                                                        if (localInferenceRunState.stopRequested) return@launch
                                                                                         localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                         logLocalStreamingWhitespace(
                                                                                             stage = "ChatScreen#legacy.localStreamingUiState.responseText",
@@ -7680,7 +7679,7 @@ fun Home(
                                                                         cacheDirPath = modelResolution.cacheDirPath,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
-                                                                            if (localStopRequested) return@legacyPartial
+                                                                            if (localInferenceRunState.stopRequested) return@legacyPartial
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
                                                                                 markdownStreamingMode = markdownStreamingMode,
@@ -7710,7 +7709,7 @@ fun Home(
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                if (localStopRequested) return@launch
+                                                                                if (localInferenceRunState.stopRequested) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#legacyDirect.localStreamingUiState.responseText",
@@ -7795,7 +7794,7 @@ fun Home(
                                                             val initialTracePresent = runResultWithUiTrace?.trace != null
                                                             Log.i(
                                                                 "ChatScreen",
-                                                                "LOCAL compare initial: effectiveChatId=$effectiveChatId, initialState=$initialState, initialTimedOut=$initialTimedOut, initialResponseBlank=$initialResponseBlank, initialResponseLength=$initialResponseLength, initialTracePresent=$initialTracePresent, localInferenceEngineState=$localInferenceEngineState, isLocalInferenceRunning=$isLocalInferenceRunning",
+                                                                "LOCAL compare initial: effectiveChatId=$effectiveChatId, initialState=$initialState, initialTimedOut=$initialTimedOut, initialResponseBlank=$initialResponseBlank, initialResponseLength=$initialResponseLength, initialTracePresent=$initialTracePresent, localInferenceEngineState=$localInferenceEngineState, localInferenceRunState.running=$localInferenceRunState.running",
                                                             )
                                                             val needsStateGrace = runResultWithUiTrace == null ||
                                                                 initialState == null ||
@@ -7803,7 +7802,7 @@ fun Home(
                                                             val resolvedState = if (needsStateGrace) {
                                                                 Log.i(
                                                                     "ChatScreen",
-                                                                    "LOCAL state grace check before recheck: initialState=$initialState, initialResponseBlank=$initialResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                    "LOCAL state grace check before recheck: initialState=$initialState, initialResponseBlank=$initialResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$localInferenceRunState.running, chatId=$effectiveChatId",
                                                                 )
                                                                 delay(350L)
                                                                 val recheckedState = runResultWithUiTrace?.state ?: localInferenceEngineState.takeIf {
@@ -7815,7 +7814,7 @@ fun Home(
                                                                 ).isBlank()
                                                                 Log.i(
                                                                     "ChatScreen",
-                                                                    "LOCAL state grace check after recheck: recheckedState=$recheckedState, recheckedResponseBlank=$recheckedResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                    "LOCAL state grace check after recheck: recheckedState=$recheckedState, recheckedResponseBlank=$recheckedResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$localInferenceRunState.running, chatId=$effectiveChatId",
                                                                 )
                                                                 recheckedState
                                                             } else {
@@ -7834,7 +7833,7 @@ fun Home(
                                                                     if (resolvedAssistantResponse.isBlank()) {
                                                                         Log.e(
                                                                             "ChatScreen",
-                                                                            "LOCAL blank response after grace: assistantBlank=${assistantResponse.isBlank()}, uiBlank=${fallbackUiResponse.isBlank()}, uiLen=${fallbackUiResponse.length}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                            "LOCAL blank response after grace: assistantBlank=${assistantResponse.isBlank()}, uiBlank=${fallbackUiResponse.isBlank()}, uiLen=${fallbackUiResponse.length}, running=$localInferenceRunState.running, chatId=$effectiveChatId",
                                                                         )
                                                                     }
                                                                 }
@@ -7905,7 +7904,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM before-createAssistantMessage localResponseBlank=${resolvedAssistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
                                                                     )
-                                                                    if (localStopRequested) {
+                                                                    if (localInferenceRunState.stopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
                                                                         latestLocalTraceForDev = resolvedTrace?.copy(
                                                                             memorySnapshots = resolvedTrace.memorySnapshots.withMemorySnapshot(
@@ -7929,7 +7928,7 @@ fun Home(
                                                                         streamLocalAssistantPreviewTextToUi(
                                                                             responseText = resolvedAssistantResponse,
                                                                             onChunk = { chunk ->
-                                                                                if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
+                                                                                if (localInferenceRunState.stopRequested) return@streamLocalAssistantPreviewTextToUi
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#preview.onChunk.raw",
                                                                                     raw = chunk,
@@ -7945,7 +7944,7 @@ fun Home(
                                                                                 if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
                                                                                 coroutineScope.launch {
                                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                    if (localStopRequested) return@launch
+                                                                                    if (localInferenceRunState.stopRequested) return@launch
                                                                                 }
                                                                             },
                                                                         )
@@ -7994,7 +7993,7 @@ fun Home(
                                                                             ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
-                                                                    if (localStopRequested) {
+                                                                    if (localInferenceRunState.stopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         latestLocalTraceForDev = resolvedTrace?.copy(
                                                                             memorySnapshots = resolvedTrace.memorySnapshots.withMemorySnapshot(
@@ -8029,16 +8028,16 @@ fun Home(
                                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
-                                                                    isLocalInferenceRunning = false
+                                                                    localInferenceRunState = localInferenceRunState.finish()
                                                                     yield()
-                                                                    if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
+                                                                    if (effectiveStreamingSentenceTtsEnabled && !localInferenceRunState.stopRequested) {
                                                                         ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                         ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
                                                                         if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
                                                                         ttsEnabled &&
-                                                                        !localStopRequested &&
+                                                                        !localInferenceRunState.stopRequested &&
                                                                         assistantId != null &&
                                                                         suppressedTtsAssistantMessageId != assistantId &&
                                                                         !ttsController.isInCooldown()
@@ -8117,7 +8116,7 @@ fun Home(
                                                             }
                                                             localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                             localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                            isLocalInferenceRunning = false
+                                                            localInferenceRunState = localInferenceRunState.finish()
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
@@ -8183,7 +8182,7 @@ fun Home(
                                                             latestLocalTraceForDev = runResultWithUiTrace?.trace?.copy(
                                                                 localFailureDiagnosticsText = localFailureCompactText,
                                                             ) ?: latestLocalTraceForDev
-                                                            if (!localStopRequested) {
+                                                            if (!localInferenceRunState.stopRequested) {
                                                                 val failureAssistantText = timeoutFailureRunResult?.response
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?: when (resolvedState) {
@@ -8215,7 +8214,7 @@ fun Home(
                                                             }
                                                             Log.e(
                                                                 "ChatScreen",
-                                                                "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, isLocalInferenceRunning=$isLocalInferenceRunning",
+                                                                "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, localInferenceRunState.running=$localInferenceRunState.running",
                                                             )
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             val dismissJob = launch {
@@ -8282,14 +8281,14 @@ fun Home(
                                                                 )
                                                             }
                                                             localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                                        isLocalInferenceRunning = false
+                                                                                                                        localInferenceRunState = localInferenceRunState.finish()
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL inference execution failed",
                                                                 exception,
                                                             )
                                                             effectiveChatId?.let { chatId ->
-                                                                if (!localStopRequested) {
+                                                                if (!localInferenceRunState.stopRequested) {
                                                                     val failureText = "ローカル推論の応答取得に失敗しました"
                                                                     val failureStats = InferenceStats(
                                                                         modelName = selectedLocalModelDisplayName ?: selectedModel,
@@ -8326,7 +8325,7 @@ fun Home(
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                                        isLocalInferenceRunning = false
+                                                                                                                        localInferenceRunState = localInferenceRunState.finish()
                                                             localInferenceJob = null
                                                         }
                                                     }
