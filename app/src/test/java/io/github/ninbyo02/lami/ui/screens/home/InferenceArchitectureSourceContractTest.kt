@@ -66,7 +66,7 @@ class InferenceArchitectureSourceContractTest {
             .substringAfter("beforeInference = { chatId ->")
             .substringBefore("runInference = {")
         val localLifecycleStart = chat
-            .substringAfter("if (streamingAssistantMessageId == null) {")
+            .substringAfter("if (streamingPersistenceState.assistantMessageId == null) {")
             .substringBefore("localStopRequested = false")
         val remoteUiState = chat
             .substringAfter("is UiState.Error -> {")
