@@ -1280,8 +1280,9 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
-    var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
-    var showDelayedLocalRespondingPlaceholder by remember(effectiveChatId) { mutableStateOf(false) }
+    var localStreamingUiState by remember(effectiveChatId) {
+        mutableStateOf(LocalStreamingUiState())
+    }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var localPartialStreamingState by remember(effectiveChatId) {
         mutableStateOf(LocalPartialStreamingState())
@@ -1315,7 +1316,7 @@ fun Home(
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val safetyGuardBlockedConversations = remember { mutableStateMapOf<Int, SafetyGuardConversationBlock>() }
-    val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
+    val streamingResponseText = localStreamingUiState.responseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
@@ -1344,14 +1345,14 @@ fun Home(
         isLocalInferenceRunning,
         localStopRequested,
         streamingPersistenceState.assistantMessageId,
-        localStreamingResponseText,
+        localStreamingUiState.responseText,
     ) {
-        showDelayedLocalRespondingPlaceholder = false
+        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         if (
             !isLocalInferenceRunning ||
             localStopRequested ||
             streamingPersistenceState.assistantMessageId != null ||
-            !localStreamingResponseText.isNullOrBlank()
+            !localStreamingUiState.responseText.isNullOrBlank()
         ) {
             return@LaunchedEffect
         }
@@ -1360,9 +1361,9 @@ fun Home(
             isLocalInferenceRunning &&
             !localStopRequested &&
             streamingPersistenceState.assistantMessageId == null &&
-            localStreamingResponseText.isNullOrBlank()
+            localStreamingUiState.responseText.isNullOrBlank()
         ) {
-            showDelayedLocalRespondingPlaceholder = true
+            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(true)
         }
     }
     val headerStatusTitleOverride = when {
@@ -1375,12 +1376,12 @@ fun Home(
         isLocalRunning = isLocalRunningUi,
         localStopRequested = localStopRequested,
         streamingAssistantMessageId = streamingPersistenceState.assistantMessageId,
-        localStreamingResponseText = localStreamingResponseText,
-        showDelayedPlaceholder = showDelayedLocalRespondingPlaceholder,
+        localStreamingResponseText = localStreamingUiState.responseText,
+        showDelayedPlaceholder = localStreamingUiState.showDelayedPlaceholder,
     )
     val localRespondingAssistantRowMessage = if (
         localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
-        localStreamingResponseText.isNullOrBlank()
+        localStreamingUiState.responseText.isNullOrBlank()
     ) {
         "モデルを読み込み中…"
     } else {
@@ -2872,7 +2873,7 @@ fun Home(
     }
     val devStreamingTailLimitEnabled = BuildConfig.DEBUG && DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED
     val isStreamingRenderActive =
-        isInferenceRunningUi || !localStreamingResponseText.isNullOrBlank()
+        isInferenceRunningUi || !localStreamingUiState.responseText.isNullOrBlank()
     val assistantRenderTailLimitChars = DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS
     val streamingResponseTextForDisplay = (
         streamingResponseTextForRender ?: streamingResponseText
@@ -3074,9 +3075,9 @@ fun Home(
     }
 
     fun cleanupDevQairt244NpuUiState(reason: String) {
-        localStreamingResponseText = null
+        localStreamingUiState = localStreamingUiState.copy(responseText = null)
         pendingLocalUserMessageText = null
-        showDelayedLocalRespondingPlaceholder = false
+        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = reason)
@@ -3118,9 +3119,9 @@ fun Home(
         localGpuWatchdogJob = null
         localInferenceJob?.cancel()
         localInferenceJob = null
-        localStreamingResponseText = null
+        localStreamingUiState = localStreamingUiState.copy(responseText = null)
         pendingLocalUserMessageText = null
-        showDelayedLocalRespondingPlaceholder = false
+        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         npuStandardRouteS4PseudoStreamingActive = false
         npuStandardRouteStreamingSentenceTtsBlocked = false
         isLocalInferenceRunning = false
@@ -3241,8 +3242,8 @@ fun Home(
                 localFailureDiagnosticsText = diagnosticsText,
             )
 
-            localStreamingResponseText = null
-            showDelayedLocalRespondingPlaceholder = false
+            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
             resetStreamingSpeechState()
             finalizeStreamingAssistantFailureSerialized(
                 chatId = currentChatId,
@@ -3447,7 +3448,7 @@ fun Home(
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
             if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
-            val checkpointText = localStreamingResponseText?.trim().orEmpty()
+            val checkpointText = localStreamingUiState.responseText?.trim().orEmpty()
             if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
             streamingAssistantPersistMutex.withLock {
                 // Completion releases ownership under this same mutex. A checkpoint
@@ -4536,7 +4537,7 @@ fun Home(
                                                             )
                                                         }
                                                     }
-                                                    localStreamingResponseText = null
+                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                     localPartialStreamingState = LocalPartialStreamingState()
                                                                                                         isLocalInferenceRunning = false
                                                     stopTtsWithCleanup(
@@ -4752,7 +4753,7 @@ fun Home(
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
-                                                    showDelayedLocalRespondingPlaceholder = false
+                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
@@ -4830,7 +4831,7 @@ fun Home(
                                                         npuStandardRouteStreamingSentenceTtsBlocked = false
                                                         npuStandardRouteDevDiagnosticsExpanded = false
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
-                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
                                                         effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
@@ -4961,8 +4962,8 @@ fun Home(
                                                                                                 coroutineScope.launch {
                                                                                                     if (localStopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     localPartialStreamingState = localPartialStreamingState.onPartialReceived()
-                                                                                                                                                                                                        localStreamingResponseText = partial
-                                                                                                    showDelayedLocalRespondingPlaceholder = false
+                                                                                                                                                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = partial)
+                                                                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                                                     suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                                 }
                                                                                             }
@@ -5149,9 +5150,9 @@ fun Home(
                                                                     localSourceSummary = s1DisplayTextForDev,
                                                                 )
                                                             }
-                                                            localStreamingResponseText = null
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                             streamingResponseTextForRender = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             return@launch
                                                         }
                                                         npuStandardRouteS1DevTraceText = if (
@@ -5255,8 +5256,8 @@ fun Home(
                                                                         coroutineScope.launch {
                                                                             if (localStopRequested || effectiveChatId != currentChatId) return@launch
                                                                             localPartialStreamingState = localPartialStreamingState.onPartialReceived()
-                                                                                                                                                        localStreamingResponseText = safePartial
-                                                                            showDelayedLocalRespondingPlaceholder = false
+                                                                                                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)
+                                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                         }
                                                                     }
@@ -5360,9 +5361,9 @@ fun Home(
                                                                     modelPath = finalFallbackResult.trace.mediaPipeProbeModelPath
                                                                         ?: localGenericModelFilePath,
                                                                 )
-                                                                localStreamingResponseText = null
+                                                                localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                 streamingResponseTextForRender = null
-                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                 return@launch
                                                             } else {
                                                                 val fallbackFailureMessage = buildNpuStandardRouteFallbackFailureMessage(
@@ -5373,9 +5374,9 @@ fun Home(
                                                                     response = fallbackFailureMessage,
                                                                     localSourceSummary = fallbackDiagnostics,
                                                                 )
-                                                                localStreamingResponseText = null
+                                                                localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                 streamingResponseTextForRender = null
-                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                 return@launch
                                                             }
                                                         }
@@ -5440,7 +5441,7 @@ fun Home(
                                                             } else {
                                                                 npuStandardRouteSafeUiText
                                                             }
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             npuStandardRouteDeliveryPath = if (npuStandardRouteDbSaveAllowed) {
                                                                 "phase6_db_save_pending"
                                                             } else if (npuStandardRouteTtsAllowed) {
@@ -5517,7 +5518,7 @@ fun Home(
                                                                 ] ?: "phase_not_markdown"
                                                         }
                                                         if (npuStandardRouteNativeStreamingUsed) {
-                                                            localStreamingResponseText = npuStandardRouteAssistantTextForPersist
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = npuStandardRouteAssistantTextForPersist)
                                                             streamingResponseTextForRender = npuStandardRouteAssistantTextForPersist
                                                             npuStandardRouteStreamingExecuted = true
                                                             npuStandardRouteStreamingMode = "native_flow"
@@ -5569,12 +5570,12 @@ fun Home(
                                                                         ) {
                                                                             return@launch
                                                                         }
-                                                                        localStreamingResponseText = chunk
+                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = chunk)
                                                                         streamingResponseTextForRender = chunk
                                                                         npuStandardRouteS4PseudoStreamingText = chunk
                                                                         delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
                                                                     }
-                                                                    localStreamingResponseText = pseudoStreamingCandidate.finalText
+                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = pseudoStreamingCandidate.finalText)
                                                                     streamingResponseTextForRender = pseudoStreamingCandidate.finalText
                                                                     npuStandardRouteS4PseudoStreamingText = pseudoStreamingCandidate.finalText
                                                                     npuStandardRouteStreamingExecuted = true
@@ -5650,7 +5651,7 @@ fun Home(
                                                                     streamingPersistenceState = streamingPersistenceState.copy(
                                                                         lastPersistedText = npuStandardRouteAssistantTextForPersist,
                                                                     )
-                                                                    localStreamingResponseText = null
+                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                     streamingResponseTextForRender = null
                                                                     npuStandardRoutePhaseUiAppendText = null
                                                                     npuStandardRouteUiAppendExecuted = true
@@ -5934,12 +5935,12 @@ fun Home(
                                                                             ) {
                                                                                 return@launch
                                                                             }
-                                                                            localStreamingResponseText = chunk
+                                                                            localStreamingUiState = localStreamingUiState.copy(responseText = chunk)
                                                                             streamingResponseTextForRender = chunk
                                                                             npuStandardRouteS4PseudoStreamingText = chunk
                                                                             delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
                                                                         }
-                                                                        localStreamingResponseText = s4PseudoStreamingCandidate.finalText
+                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = s4PseudoStreamingCandidate.finalText)
                                                                         streamingResponseTextForRender = s4PseudoStreamingCandidate.finalText
                                                                         npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
                                                                     } finally {
@@ -5973,7 +5974,7 @@ fun Home(
                                                                     localSourceSummary = sharedInferenceStats.localSourceSummary,
                                                                 ) ?: return@launch
                                                                 streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = assistantTextForPersist)
-                                                                localStreamingResponseText = null
+                                                                localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                 streamingResponseTextForRender = null
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 if (npuStandardRouteS5TtsEnabled && npuStandardRouteTtsOwnership.legacyOwner) {
@@ -6235,8 +6236,8 @@ fun Home(
                                                                                 val fallbackChatId = resolvedNpuChatId ?: return@launch
                                                                                 if (localStopRequested || effectiveChatId != fallbackChatId) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
-                                                                                                                                                                localStreamingResponseText = safePartial
-                                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                                                                                                                localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)
+                                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                             }
                                                                         }
@@ -6332,7 +6333,7 @@ fun Home(
                                                             } finally {
                                                                 npuStandardRouteS4PseudoStreamingActive = false
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
-                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                 isLocalInferenceRunning = false
                                                                 effectiveLocalModelDisplayNameForHeader = null
                                                                 localInferenceJob = null
@@ -6358,7 +6359,7 @@ fun Home(
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
-                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
                                                         stopTtsWithCleanup(
@@ -6396,8 +6397,8 @@ fun Home(
                                                                 )
                                                             }
                                                             isLocalInferenceRunning = true
-                                                            localStreamingResponseText = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             try {
                                                                 val devMemorySnapshots = mutableListOf(
                                                                     captureLocalMemorySnapshot(
@@ -6589,7 +6590,7 @@ fun Home(
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
-                                                    showDelayedLocalRespondingPlaceholder = false
+                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
@@ -6676,8 +6677,8 @@ fun Home(
                                                         }
                                                         localStopRequested = false
                                                         localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                                localStreamingResponseText = null
-                                                        showDelayedLocalRespondingPlaceholder = false
+                                                                                                                localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         isLocalInferenceRunning = true
                                                         val localRunGuardEpoch = streamingGuardEpoch
                                                         val localRunStartedAtMs = SystemClock.elapsedRealtime()
@@ -6689,8 +6690,8 @@ fun Home(
                                                         var localGpuWatchdogForRun: Job? = null
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
-                                                            localStreamingResponseText = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             localPartialStreamingState = LocalPartialStreamingState()
                                                                                                                         assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
@@ -7408,13 +7409,13 @@ fun Home(
                                                                                 if (localStopRequested) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
-                                                                                    stage = "ChatScreen#held.localStreamingResponseText",
+                                                                                    stage = "ChatScreen#held.localStreamingUiState.responseText",
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                localStreamingResponseText = normalizedPartial
+                                                                                localStreamingUiState = localStreamingUiState.copy(responseText = normalizedPartial)
                                                                             }
                                                                         },
                                                                         appendTrace = { message ->
@@ -7611,13 +7612,13 @@ fun Home(
                                                                                         if (localStopRequested) return@launch
                                                                                         localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                         logLocalStreamingWhitespace(
-                                                                                            stage = "ChatScreen#legacy.localStreamingResponseText",
+                                                                                            stage = "ChatScreen#legacy.localStreamingUiState.responseText",
                                                                                             raw = partial,
                                                                                             normalized = normalizedPartial,
                                                                                         )
-                                                                                        showDelayedLocalRespondingPlaceholder = false
+                                                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
-                                                                                        localStreamingResponseText = normalizedPartial
+                                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = normalizedPartial)
                                                                                     }
                                                                                 },
                                                                             )
@@ -7712,12 +7713,12 @@ fun Home(
                                                                                 if (localStopRequested) return@launch
                                                                                 localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
-                                                                                    stage = "ChatScreen#legacyDirect.localStreamingResponseText",
+                                                                                    stage = "ChatScreen#legacyDirect.localStreamingUiState.responseText",
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                                localStreamingResponseText = normalizedPartial
+                                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                                                localStreamingUiState = localStreamingUiState.copy(responseText = normalizedPartial)
                                                                             }
                                                                         },
                                                                     )
@@ -7825,7 +7826,7 @@ fun Home(
                                                             if (resolvedState == LocalInferenceEngineState.READY) {
                                                                 if (resolvedAssistantResponse.isBlank()) {
                                                                     delay(250L)
-                                                                    val fallbackUiResponse = localStreamingResponseText?.trim().orEmpty()
+                                                                    val fallbackUiResponse = localStreamingUiState.responseText?.trim().orEmpty()
                                                                     resolvedAssistantResponse = sanitizeLocalAssistantResponse(
                                                                         assistantResponse.ifBlank { fallbackUiResponse },
                                                                         requestPrompt,
@@ -7848,7 +7849,7 @@ fun Home(
                                                             val recheckedResponseLength = recheckedRunResult?.response?.length ?: -1
                                                             val recheckedTracePresent = recheckedRunResult?.trace != null
                                                             val resolvedAssistantBlank = resolvedAssistantResponse.isBlank()
-                                                            val streamingUiLength = localStreamingResponseText?.length ?: 0
+                                                            val streamingUiLength = localStreamingUiState.responseText?.length ?: 0
                                                             Log.i(
                                                                 "ChatScreen",
                                                                 "LOCAL compare recheck: effectiveChatId=$effectiveChatId, recheckedState=$resolvedState, recheckedTimedOut=$recheckedTimedOut, recheckedResponseBlank=$recheckedResponseBlank, recheckedResponseLength=$recheckedResponseLength, recheckedTracePresent=$recheckedTracePresent, resolvedAssistantBlank=$resolvedAssistantBlank, streamingUiLength=$streamingUiLength",
@@ -7914,8 +7915,8 @@ fun Home(
                                                                                 ),
                                                                             ),
                                                                         )
-                                                                        localStreamingResponseText = null
-                                                                        showDelayedLocalRespondingPlaceholder = false
+                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -7933,8 +7934,8 @@ fun Home(
                                                                                     stage = "ChatScreen#preview.onChunk.raw",
                                                                                     raw = chunk,
                                                                                 )
-                                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                                localStreamingResponseText = chunk
+                                                                                localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                                                localStreamingUiState = localStreamingUiState.copy(responseText = chunk)
                                                                                 val normalizedChunk = chunk.trim()
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#preview.onChunk.trim",
@@ -8003,8 +8004,8 @@ fun Home(
                                                                                 ),
                                                                             ),
                                                                         )
-                                                                        localStreamingResponseText = null
-                                                                        showDelayedLocalRespondingPlaceholder = false
+                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -8025,8 +8026,8 @@ fun Home(
                                                                     if (assistantId != null) {
                                                                         streamingSpeechStartedForMessageId = assistantId
                                                                     }
-                                                                    localStreamingResponseText = null
-                                                                    showDelayedLocalRespondingPlaceholder = false
+                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
                                                                     isLocalInferenceRunning = false
                                                                     yield()
@@ -8114,8 +8115,8 @@ fun Home(
                                                                     }
                                                                     return@launch
                                                             }
-                                                            localStreamingResponseText = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -8271,8 +8272,8 @@ fun Home(
                                                                 ),
                                                             )
                                                             devDebugText = localFailureCompactText
-                                                            localStreamingResponseText = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             resetStreamingSpeechState()
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
@@ -8320,8 +8321,8 @@ fun Home(
                                                             if (localGpuWatchdogJob == localGpuWatchdogForRun) {
                                                                 localGpuWatchdogJob = null
                                                             }
-                                                            localStreamingResponseText = null
-                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             localPartialStreamingState = LocalPartialStreamingState()
@@ -10248,7 +10249,7 @@ fun Home(
                                         append(" renderLen=")
                                         append(streamingResponseTextForRender?.length ?: 0)
                                         append(" localLen=")
-                                        append(localStreamingResponseText?.length ?: 0)
+                                        append(localStreamingUiState.responseText?.length ?: 0)
                                         append("\nstreaming=")
                                         append(isInferenceRunningUi)
                                         append(" lines=")
