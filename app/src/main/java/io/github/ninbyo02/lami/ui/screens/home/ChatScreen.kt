@@ -1283,8 +1283,9 @@ fun Home(
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var showDelayedLocalRespondingPlaceholder by remember(effectiveChatId) { mutableStateOf(false) }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
-    var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
-    var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
+    var localPartialStreamingState by remember(effectiveChatId) {
+        mutableStateOf(LocalPartialStreamingState())
+    }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var localGpuWatchdogJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
@@ -3089,9 +3090,8 @@ fun Home(
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
         stopButtonOwnerSetAtMs = null
-        didReceiveRealLocalPartial = false
-        realLocalPartialChunkCount = 0
-        localStopRequested = false
+        localPartialStreamingState = LocalPartialStreamingState()
+                localStopRequested = false
         localInferenceEngineState = LocalInferenceEngineState.READY
         viewModel.resetUiState()
         isLocalInferenceRunning = false
@@ -3211,7 +3211,7 @@ fun Home(
             delay(GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS)
             if (timedOut.get()) return@launch
             if (runGuardEpoch != streamingGuardEpoch) return@launch
-            if (!isLocalInferenceRunning || didReceiveRealLocalPartial || localStopRequested) return@launch
+            if (!isLocalInferenceRunning || localPartialStreamingState.didReceiveRealPartial || localStopRequested) return@launch
 
             timedOut.set(true)
             val elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs
@@ -4535,9 +4535,8 @@ fun Home(
                                                         }
                                                     }
                                                     localStreamingResponseText = null
-                                                    didReceiveRealLocalPartial = false
-                                                    realLocalPartialChunkCount = 0
-                                                    isLocalInferenceRunning = false
+                                                    localPartialStreamingState = LocalPartialStreamingState()
+                                                                                                        isLocalInferenceRunning = false
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
@@ -4959,9 +4958,8 @@ fun Home(
                                                                                             if (!localStopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
                                                                                                     if (localStopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
-                                                                                                    didReceiveRealLocalPartial = true
-                                                                                                    realLocalPartialChunkCount += 1
-                                                                                                    localStreamingResponseText = partial
+                                                                                                    localPartialStreamingState = localPartialStreamingState.onPartialReceived()
+                                                                                                                                                                                                        localStreamingResponseText = partial
                                                                                                     showDelayedLocalRespondingPlaceholder = false
                                                                                                     suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                                 }
@@ -5254,9 +5252,8 @@ fun Home(
                                                                     ) {
                                                                         coroutineScope.launch {
                                                                             if (localStopRequested || effectiveChatId != currentChatId) return@launch
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = safePartial
+                                                                            localPartialStreamingState = localPartialStreamingState.onPartialReceived()
+                                                                                                                                                        localStreamingResponseText = safePartial
                                                                             showDelayedLocalRespondingPlaceholder = false
                                                                             suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                         }
@@ -6234,9 +6231,8 @@ fun Home(
                                                                             coroutineScope.launch {
                                                                                 val fallbackChatId = resolvedNpuChatId ?: return@launch
                                                                                 if (localStopRequested || effectiveChatId != fallbackChatId) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
-                                                                                localStreamingResponseText = safePartial
+                                                                                localPartialStreamingState = localPartialStreamingState.onPartialReceived()
+                                                                                                                                                                localStreamingResponseText = safePartial
                                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                                 suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                             }
@@ -6676,9 +6672,8 @@ fun Home(
                                                             }
                                                         }
                                                         localStopRequested = false
-                                                        didReceiveRealLocalPartial = false
-                                                        realLocalPartialChunkCount = 0
-                                                        localStreamingResponseText = null
+                                                        localPartialStreamingState = LocalPartialStreamingState()
+                                                                                                                localStreamingResponseText = null
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         isLocalInferenceRunning = true
                                                         val localRunGuardEpoch = streamingGuardEpoch
@@ -6693,9 +6688,8 @@ fun Home(
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
-                                                            didReceiveRealLocalPartial = false
-                                                            realLocalPartialChunkCount = 0
-                                                            assistantUpdateCountForDev = 0
+                                                            localPartialStreamingState = LocalPartialStreamingState()
+                                                                                                                        assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
                                                             localStreamingUiMetricsForDev.reset()
@@ -7409,8 +7403,7 @@ fun Home(
                                                                                 if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
+                                                                                localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#held.localStreamingResponseText",
                                                                                     raw = partial,
@@ -7613,8 +7606,7 @@ fun Home(
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                         if (localStopRequested) return@launch
-                                                                                        didReceiveRealLocalPartial = true
-                                                                                        realLocalPartialChunkCount += 1
+                                                                                        localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                         logLocalStreamingWhitespace(
                                                                                             stage = "ChatScreen#legacy.localStreamingResponseText",
                                                                                             raw = partial,
@@ -7715,8 +7707,7 @@ fun Home(
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
+                                                                                localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                 logLocalStreamingWhitespace(
                                                                                     stage = "ChatScreen#legacyDirect.localStreamingResponseText",
                                                                                     raw = partial,
@@ -7769,8 +7760,8 @@ fun Home(
                                                                         assistantUpdateCount = assistantUpdateCountForDev,
                                                                         firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
                                                                         assistantStreamedToUi = assistantUpdateCountForDev >= 2,
-                                                                        realPartialReceived = didReceiveRealLocalPartial,
-                                                                        realPartialChunkCount = realLocalPartialChunkCount,
+                                                                        realPartialReceived = localPartialStreamingState.didReceiveRealPartial,
+                                                                        realPartialChunkCount = localPartialStreamingState.realPartialChunkCount,
                                                                     ).withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot()),
                                                                 )
                                                             )
@@ -7926,7 +7917,7 @@ fun Home(
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
                                                                     }
-                                                                    if (!didReceiveRealLocalPartial) {
+                                                                    if (!localPartialStreamingState.didReceiveRealPartial) {
                                                                         Log.i(
                                                                             "ChatScreen",
                                                                             "LOCAL pseudo-stream start: replay final response text to UI for debug comparison",
@@ -7957,7 +7948,7 @@ fun Home(
                                                                     } else {
                                                                         Log.i(
                                                                             "ChatScreen",
-                                                                            "LOCAL pseudo-stream skipped: real partial already received count=$realLocalPartialChunkCount",
+                                                                            "LOCAL pseudo-stream skipped: real partial already received count=$localPartialStreamingState.realPartialChunkCount",
                                                                         )
                                                                     }
                                                                     resolvedTrace = resolvedTrace
@@ -7965,8 +7956,8 @@ fun Home(
                                                                             assistantUpdateCount = assistantUpdateCountForDev,
                                                                             firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
                                                                             assistantStreamedToUi = assistantUpdateCountForDev >= 2,
-                                                                            realPartialReceived = didReceiveRealLocalPartial,
-                                                                            realPartialChunkCount = realLocalPartialChunkCount,
+                                                                            realPartialReceived = localPartialStreamingState.didReceiveRealPartial,
+                                                                            realPartialChunkCount = localPartialStreamingState.realPartialChunkCount,
                                                                         )
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                     latestLocalTraceForDev = resolvedTrace
@@ -8286,9 +8277,8 @@ fun Home(
                                                                     reason = "error",
                                                                 )
                                                             }
-                                                            didReceiveRealLocalPartial = false
-                                                            realLocalPartialChunkCount = 0
-                                                            isLocalInferenceRunning = false
+                                                            localPartialStreamingState = LocalPartialStreamingState()
+                                                                                                                        isLocalInferenceRunning = false
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL inference execution failed",
@@ -8331,9 +8321,8 @@ fun Home(
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
-                                                            didReceiveRealLocalPartial = false
-                                                            realLocalPartialChunkCount = 0
-                                                            isLocalInferenceRunning = false
+                                                            localPartialStreamingState = LocalPartialStreamingState()
+                                                                                                                        isLocalInferenceRunning = false
                                                             localInferenceJob = null
                                                         }
                                                     }
