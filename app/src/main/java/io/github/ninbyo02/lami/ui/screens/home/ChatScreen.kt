@@ -3092,10 +3092,10 @@ fun Home(
         stopButtonOwnerAssistantMessageId = null
         stopButtonOwnerSetAtMs = null
         localPartialStreamingState = LocalPartialStreamingState()
-                localInferenceRunState = localInferenceRunState.clearStopRequest()
+                localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
         localInferenceEngineState = LocalInferenceEngineState.READY
         viewModel.resetUiState()
-        localInferenceRunState = localInferenceRunState.finish()
+        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
         localInferenceJob = null
         File(context.applicationContext.filesDir, "qairt244_dev_npu_ui_cleanup_state.txt").writeText(
             listOf(
@@ -3123,7 +3123,7 @@ fun Home(
         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
         npuStandardRouteS4PseudoStreamingActive = false
         npuStandardRouteStreamingSentenceTtsBlocked = false
-        localInferenceRunState = localInferenceRunState.finish()
+        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
         localInferenceEngineState = LocalInferenceEngineState.READY
         resetStreamingAssistantPlaceholderId(reason = reason)
         stopTtsWithCleanup(
@@ -3252,7 +3252,7 @@ fun Home(
             )
             resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
             localInferenceEngineState = LocalInferenceEngineState.ERROR
-            localInferenceRunState = localInferenceRunState.finish()
+            localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
             localInferenceJob?.cancel()
             localInferenceJob = null
             localGpuWatchdogJob = null
@@ -4523,7 +4523,7 @@ fun Home(
                                             }
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
-                                                        localInferenceRunState = localInferenceRunState.requestStop()
+                                                        localInferenceRunState = LocalInferenceRunController.requestStop(localInferenceRunState)
                                                         localGpuWatchdogJob?.cancel()
                                                         localGpuWatchdogJob = null
                                                         localInferenceJob?.cancel()
@@ -4538,7 +4538,7 @@ fun Home(
                                                     }
                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                     localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                        localInferenceRunState = localInferenceRunState.finish()
+                                                                                                        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
@@ -4754,7 +4754,7 @@ fun Home(
                                                     selectedImageUriStrings = emptyList()
                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
-                                                    localInferenceRunState = localInferenceRunState.clearStopRequest()
+                                                    localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
                                                     debugLocalUiTrace(
                                                         label = "COMPOSER_CLEARED",
                                                         extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
@@ -4832,9 +4832,9 @@ fun Home(
                                                         suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
-                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
+                                                        localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
                                                         effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
-                                                        localInferenceRunState = localInferenceRunState.start()
+                                                        localInferenceRunState = LocalInferenceRunController.start(localInferenceRunState)
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
@@ -6333,7 +6333,7 @@ fun Home(
                                                                 npuStandardRouteS4PseudoStreamingActive = false
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                                localInferenceRunState = localInferenceRunState.finish()
+                                                                localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                                 effectiveLocalModelDisplayNameForHeader = null
                                                                 localInferenceJob = null
                                                             }
@@ -6350,7 +6350,7 @@ fun Home(
                                                         )
                                                     if (legacyQairt244ChatScreenRouteEnabled) {
                                                         // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
-                                                        localInferenceRunState = localInferenceRunState.start()
+                                                        localInferenceRunState = LocalInferenceRunController.start(localInferenceRunState)
                                                         debugLocalUiTrace(
                                                             label = "DEV_QAIRT244_SM8750_NPU_SEND_TAPPED",
                                                             extra = "effectiveChatId=$effectiveChatId promptLength=${requestPrompt.length}",
@@ -6360,7 +6360,7 @@ fun Home(
                                                         selectedImageUriStrings = emptyList()
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
-                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
+                                                        localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
@@ -6395,7 +6395,7 @@ fun Home(
                                                                     )
                                                                 )
                                                             }
-                                                            localInferenceRunState = localInferenceRunState.start()
+                                                            localInferenceRunState = LocalInferenceRunController.start(localInferenceRunState)
                                                             localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                             localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                             try {
@@ -6591,7 +6591,7 @@ fun Home(
                                                     selectedImageUriStrings = emptyList()
                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
-                                                    localInferenceRunState = localInferenceRunState.clearStopRequest()
+                                                    localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_INPUT_CLEARED",
                                                         extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId userPromptLengthAfterClear=${userPrompt.length}",
@@ -6674,11 +6674,11 @@ fun Home(
                                                                 return@launch
                                                             }
                                                         }
-                                                        localInferenceRunState = localInferenceRunState.clearStopRequest()
+                                                        localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
                                                         localPartialStreamingState = LocalPartialStreamingState()
                                                                                                                 localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                         localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                        localInferenceRunState = localInferenceRunState.start()
+                                                        localInferenceRunState = LocalInferenceRunController.start(localInferenceRunState)
                                                         val localRunGuardEpoch = streamingGuardEpoch
                                                         val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                         val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
@@ -8028,7 +8028,7 @@ fun Home(
                                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
-                                                                    localInferenceRunState = localInferenceRunState.finish()
+                                                                    localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                                     yield()
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localInferenceRunState.stopRequested) {
                                                                         ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
@@ -8116,7 +8116,7 @@ fun Home(
                                                             }
                                                             localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                             localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                            localInferenceRunState = localInferenceRunState.finish()
+                                                            localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
@@ -8281,7 +8281,7 @@ fun Home(
                                                                 )
                                                             }
                                                             localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                                        localInferenceRunState = localInferenceRunState.finish()
+                                                                                                                        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL inference execution failed",
@@ -8325,7 +8325,7 @@ fun Home(
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             localPartialStreamingState = LocalPartialStreamingState()
-                                                                                                                        localInferenceRunState = localInferenceRunState.finish()
+                                                                                                                        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                             localInferenceJob = null
                                                         }
                                                     }
