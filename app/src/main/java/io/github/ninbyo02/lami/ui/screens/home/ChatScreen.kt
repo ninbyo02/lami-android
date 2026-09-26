@@ -1290,7 +1290,9 @@ fun Home(
     var localGpuWatchdogJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var streamingPersistenceState by remember(effectiveChatId) {
+        mutableStateOf(StreamingPersistenceState())
+    }
     var pendingLocalUserMessageText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var lastLocalSendTapElapsedMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
     var lastLocalSendPromptForTrace by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -1341,14 +1343,14 @@ fun Home(
     LaunchedEffect(
         isLocalInferenceRunning,
         localStopRequested,
-        streamingAssistantMessageId,
+        streamingPersistenceState.assistantMessageId,
         localStreamingResponseText,
     ) {
         showDelayedLocalRespondingPlaceholder = false
         if (
             !isLocalInferenceRunning ||
             localStopRequested ||
-            streamingAssistantMessageId != null ||
+            streamingPersistenceState.assistantMessageId != null ||
             !localStreamingResponseText.isNullOrBlank()
         ) {
             return@LaunchedEffect
@@ -1357,7 +1359,7 @@ fun Home(
         if (
             isLocalInferenceRunning &&
             !localStopRequested &&
-            streamingAssistantMessageId == null &&
+            streamingPersistenceState.assistantMessageId == null &&
             localStreamingResponseText.isNullOrBlank()
         ) {
             showDelayedLocalRespondingPlaceholder = true
@@ -1372,7 +1374,7 @@ fun Home(
     val showLocalRespondingAssistantRow = shouldShowLocalRespondingPlaceholder(
         isLocalRunning = isLocalRunningUi,
         localStopRequested = localStopRequested,
-        streamingAssistantMessageId = streamingAssistantMessageId,
+        streamingAssistantMessageId = streamingPersistenceState.assistantMessageId,
         localStreamingResponseText = localStreamingResponseText,
         showDelayedPlaceholder = showDelayedLocalRespondingPlaceholder,
     )
@@ -1540,7 +1542,6 @@ fun Home(
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
-    var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
 
     val postResponseTokenStatsUpdater = remember(
@@ -2980,7 +2981,7 @@ fun Home(
         localSourceSummary: String? = null,
         generationTimeMs: Long? = null,
     ): Int? {
-        val existingId = streamingAssistantMessageId
+        val existingId = streamingPersistenceState.assistantMessageId
         val result = assistantMessageLifecycleCoordinator.fail(
             existingMessageId = existingId,
             failurePayload = createAssistantMessage(
@@ -2992,7 +2993,7 @@ fun Home(
             ),
             nowEpochMs = System.currentTimeMillis(),
         )
-        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        result.messageId?.let { messageId -> streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = messageId) }
         when (result.outcome) {
             AssistantMessageLifecycleExecutionOutcome.LOST_RACE -> {
                 logStreamTrace("STREAM failure lifecycle lost terminal race id=${result.messageId}")
@@ -3014,7 +3015,7 @@ fun Home(
         }
 
         val persistedId = requireNotNull(result.messageId)
-        lastPersistedStreamingAssistantText = response
+        streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = response)
         if (latestInferenceStats != null) {
             immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
         }
@@ -3025,11 +3026,11 @@ fun Home(
         terminalMessageId: Int?,
         reason: String,
     ) {
-        if (terminalMessageId != null && streamingAssistantMessageId == terminalMessageId) {
+        if (terminalMessageId != null && streamingPersistenceState.assistantMessageId == terminalMessageId) {
             logStreamTrace(
                 "STREAM lifecycle ownership released id=$terminalMessageId reason=$reason",
             )
-            streamingAssistantMessageId = null
+            streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = null)
         }
     }
 
@@ -3056,7 +3057,7 @@ fun Home(
 
     fun resetStreamingAssistantPlaceholderId(reason: String) {
         streamingGuardEpoch += 1
-        val previousId = streamingAssistantMessageId
+        val previousId = streamingPersistenceState.assistantMessageId
         if (previousId != null) {
             logStreamTrace("STREAM reset placeholder id from $previousId to null reason=$reason")
             if (reason == "stop") {
@@ -3068,8 +3069,8 @@ fun Home(
                 }
             }
         }
-        streamingAssistantMessageId = null
-        lastPersistedStreamingAssistantText = null
+        streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = null)
+        streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = null)
     }
 
     fun cleanupDevQairt244NpuUiState(reason: String) {
@@ -3324,7 +3325,7 @@ fun Home(
     }
 
     fun bindStreamingAssistantMessageOwnership(messageId: Int, persistedText: String) {
-        lastPersistedStreamingAssistantText = persistedText
+        streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = persistedText)
         streamingSpeechStartedForMessageId = messageId
         currentSpeakingAssistantMessageId = messageId
         if (!isTtsSuppressedForAssistant(messageId)) {
@@ -3337,7 +3338,7 @@ fun Home(
         chatId: Int,
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
-        val existingId = streamingAssistantMessageId
+        val existingId = streamingPersistenceState.assistantMessageId
         val placeholderPayload = createAssistantMessage(
             chatId = chatId,
             response = "",
@@ -3353,7 +3354,7 @@ fun Home(
                 "STREAM lifecycle stale ownership recovered oldId=$existingId " +
                     "oldStatus=${result.existingStatus}",
             )
-            streamingAssistantMessageId = null
+            streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = null)
             result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
                 existingMessageId = null,
                 placeholderPayload = placeholderPayload,
@@ -3361,10 +3362,11 @@ fun Home(
                 startFailureMessage = startFailureMessage,
             )
         }
-        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        result.messageId?.let { messageId -> streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = messageId) }
         if (result.placeholderOwnershipReady) {
-            lastPersistedStreamingAssistantText = result.persistedText
-                ?.takeIf { it.isNotBlank() }
+            streamingPersistenceState = streamingPersistenceState.copy(
+                lastPersistedText = result.persistedText?.takeIf { it.isNotBlank() },
+            )
             logStreamTrace(
                 "STREAM lifecycle ready action=${result.action} " +
                     "outcome=${result.outcome} id=${result.messageId}",
@@ -3380,9 +3382,9 @@ fun Home(
 
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
         val normalizedResponse = response.trim()
-        if (normalizedResponse.isBlank()) return streamingAssistantMessageId
+        if (normalizedResponse.isBlank()) return streamingPersistenceState.assistantMessageId
 
-        val existingId = streamingAssistantMessageId
+        val existingId = streamingPersistenceState.assistantMessageId
         val result = assistantMessageLifecycleCoordinator.upsertPlaceholder(
             existingMessageId = existingId,
             placeholderPayload = createAssistantMessage(
@@ -3391,7 +3393,7 @@ fun Home(
             ),
             nowEpochMs = System.currentTimeMillis(),
         )
-        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        result.messageId?.let { messageId -> streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = messageId) }
         when (result.outcome) {
             AssistantMessageLifecycleExecutionOutcome.APPLIED -> {
                 val messageId = requireNotNull(result.messageId)
@@ -3417,7 +3419,7 @@ fun Home(
                 )
             AssistantMessageLifecycleExecutionOutcome.KEPT_EXISTING -> {
                 if (result.persistedText == normalizedResponse) {
-                    lastPersistedStreamingAssistantText = normalizedResponse
+                    streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = normalizedResponse)
                     logStreamTrace("STREAM placeholder skip sameText")
                 } else {
                     logStreamTrace(
@@ -3437,11 +3439,11 @@ fun Home(
             upsertStreamingAssistantPlaceholder(chatId = chatId, response = response)
         }
 
-    LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingAssistantMessageId) {
+    LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingPersistenceState.assistantMessageId) {
         if (!isLocalInferenceRunning) return@LaunchedEffect
         val checkpointChatId = effectiveChatId ?: return@LaunchedEffect
-        val checkpointMessageId = streamingAssistantMessageId ?: return@LaunchedEffect
-        var lastCheckpointText = lastPersistedStreamingAssistantText.orEmpty()
+        val checkpointMessageId = streamingPersistenceState.assistantMessageId ?: return@LaunchedEffect
+        var lastCheckpointText = streamingPersistenceState.lastPersistedText.orEmpty()
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
             if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
@@ -3450,7 +3452,7 @@ fun Home(
             streamingAssistantPersistMutex.withLock {
                 // Completion releases ownership under this same mutex. A checkpoint
                 // queued before completion must never create a fresh pending row.
-                if (streamingAssistantMessageId != checkpointMessageId) return@withLock
+                if (streamingPersistenceState.assistantMessageId != checkpointMessageId) return@withLock
                 assistantMessageLifecycleCoordinator.checkpoint(
                     existingMessageId = checkpointMessageId,
                     response = checkpointText,
@@ -3458,7 +3460,7 @@ fun Home(
             }
             lastCheckpointText = checkpointText
             logStreamTrace(
-                "STREAM room checkpoint id=$streamingAssistantMessageId len=${checkpointText.length}",
+                "STREAM room checkpoint id=$streamingPersistenceState.assistantMessageId len=${checkpointText.length}",
             )
         }
     }
@@ -3480,13 +3482,13 @@ fun Home(
                 }
             },
         )
-        if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
+        if (finalizedResponseForPersist.isBlank()) return streamingPersistenceState.assistantMessageId
         if (finalizedResponseForPersist == "コード生成中…") {
             logStreamTrace("STREAM final skip displayOnlyText")
-            return streamingAssistantMessageId
+            return streamingPersistenceState.assistantMessageId
         }
 
-        val existingId = streamingAssistantMessageId
+        val existingId = streamingPersistenceState.assistantMessageId
         val result = assistantMessageLifecycleCoordinator.complete(
             existingMessageId = existingId,
             finalPayload = createAssistantMessage(
@@ -3498,7 +3500,7 @@ fun Home(
                 generationTimeMs = generationTimeMs,
             ),
         )
-        result.messageId?.let { messageId -> streamingAssistantMessageId = messageId }
+        result.messageId?.let { messageId -> streamingPersistenceState = streamingPersistenceState.copy(assistantMessageId = messageId) }
         logStreamTrace(
             "STREAM final path existingId=$existingId action=${result.action} " +
                 "outcome=${result.outcome}",
@@ -3525,7 +3527,7 @@ fun Home(
 
         val persistedId = requireNotNull(result.messageId)
         streamingResponseTextForRender = finalizedResponseForPersist
-        lastPersistedStreamingAssistantText = finalizedResponseForPersist
+        streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = finalizedResponseForPersist)
         if (latestInferenceStats != null) {
             immediateInferenceStatsByMessageId[persistedId] = latestInferenceStats
         }
@@ -5645,8 +5647,9 @@ fun Home(
                                                                         latestInferenceStats = sharedInferenceStats,
                                                                         localSourceSummary = sharedInferenceStats.localSourceSummary,
                                                                     ) ?: return@launch
-                                                                    lastPersistedStreamingAssistantText =
-                                                                        npuStandardRouteAssistantTextForPersist
+                                                                    streamingPersistenceState = streamingPersistenceState.copy(
+                                                                        lastPersistedText = npuStandardRouteAssistantTextForPersist,
+                                                                    )
                                                                     localStreamingResponseText = null
                                                                     streamingResponseTextForRender = null
                                                                     npuStandardRoutePhaseUiAppendText = null
@@ -5969,7 +5972,7 @@ fun Home(
                                                                     latestInferenceStats = npuStandardRouteInferenceStats,
                                                                     localSourceSummary = sharedInferenceStats.localSourceSummary,
                                                                 ) ?: return@launch
-                                                                lastPersistedStreamingAssistantText = assistantTextForPersist
+                                                                streamingPersistenceState = streamingPersistenceState.copy(lastPersistedText = assistantTextForPersist)
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
@@ -6657,7 +6660,7 @@ fun Home(
                                                             ),
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
-                                                        if (streamingAssistantMessageId == null) {
+                                                        if (streamingPersistenceState.assistantMessageId == null) {
                                                             val lifecycle = startStreamingAssistantLifecycleSerialized(
                                                                 chatId = resolvedChatId,
                                                                 startFailureMessage = "Failed to start local generation",
@@ -8562,14 +8565,14 @@ fun Home(
                 val shouldShowTransientAssistantRow = shouldShowTransientAssistantRow(
                     currentChatId = currentChatId,
                     isInferenceRunning = isInferenceRunningUi,
-                    streamingAssistantMessageId = streamingAssistantMessageId,
+                    streamingAssistantMessageId = streamingPersistenceState.assistantMessageId,
                     streamingResponseText = streamingResponseTextForRenderValue,
-                    lastPersistedStreamingAssistantText = lastPersistedStreamingAssistantText,
+                    lastPersistedStreamingAssistantText = streamingPersistenceState.lastPersistedText,
                 )
                 val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
                     val transientChatId = checkNotNull(currentChatId)
                     val transientText = checkNotNull(streamingResponseTextForRenderValue)
-                    val ownedPlaceholderId = streamingAssistantMessageId
+                    val ownedPlaceholderId = streamingPersistenceState.assistantMessageId
                     val renderBase = if (ownedPlaceholderId != null) {
                         messagesForListWithPendingUser.filterNot { message ->
                             !message.isSendbyMe && message.messageID == ownedPlaceholderId
@@ -8589,14 +8592,14 @@ fun Home(
                 } else {
                     if (!streamingResponseTextForRenderValue.isNullOrBlank()) {
                         when {
-                            streamingAssistantMessageId != null -> {
+                            streamingPersistenceState.assistantMessageId != null -> {
                                 Log.i(
                                     "ChatScreen",
-                                    "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
+                                    "STREAM ui transient row suppressed placeholderId=$streamingPersistenceState.assistantMessageId",
                                 )
                             }
 
-                            streamingResponseTextForRenderValue.trim() == lastPersistedStreamingAssistantText -> {
+                            streamingResponseTextForRenderValue.trim() == streamingPersistenceState.lastPersistedText -> {
                                 Log.i(
                                     "ChatScreen",
                                     "STREAM ui transient row suppressed persistedTextMatched",
@@ -8947,10 +8950,10 @@ fun Home(
                                                     ?: immediateInferenceStatsByMessageId[message.messageID]
                                             val canShowTtsActions = ttsEnabled
                                             val isPersistedStreamingAssistantRow =
-                                                streamingAssistantMessageId != null &&
-                                                    message.messageID == streamingAssistantMessageId
+                                                streamingPersistenceState.assistantMessageId != null &&
+                                                    message.messageID == streamingPersistenceState.assistantMessageId
                                             val isProvisionalStreamingAssistantRow =
-                                                streamingAssistantMessageId == null &&
+                                                streamingPersistenceState.assistantMessageId == null &&
                                                     index == messagesForList.lastIndex
                                             val isStreamingMessageRow =
                                                 isInferenceRunningUi &&
