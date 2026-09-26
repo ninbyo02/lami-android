@@ -12098,9 +12098,9 @@ private suspend fun resolveLocalModelPathOrNull(
 }
 
 private const val BYTES_PER_MB = 1024L * 1024L
-private const val GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB = 6_144L
-private const val GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER = 2L
-private const val GPU_MEMORY_PREFLIGHT_RESERVE_MB = 1_536L
+private const val GPU_MEMORY_PREFLIGHT_MODEL_NUMERATOR = 3L
+private const val GPU_MEMORY_PREFLIGHT_MODEL_DENOMINATOR = 2L
+private const val GPU_MEMORY_PREFLIGHT_RESERVE_MB = 1_024L
 private const val GPU_MEMORY_PREFLIGHT_GC_DELAY_MS = 250L
 private fun LocalInferenceTrace.withLocalModelResolution(
     modelResolution: LocalModelResolution,
@@ -12138,9 +12138,11 @@ internal fun decideGpuMemoryPreflight(snapshot: GpuMemoryPreflightSnapshot): Gpu
         ?: return GpuMemoryPreflightDecision(false, null, "model_size_unknown")
     val availableMemoryMb = snapshot.availableMemoryMb
         ?: return GpuMemoryPreflightDecision(false, null, "available_memory_unknown")
+    val modelRequirementMb =
+        (modelSizeMb * GPU_MEMORY_PREFLIGHT_MODEL_NUMERATOR + GPU_MEMORY_PREFLIGHT_MODEL_DENOMINATOR - 1L) /
+            GPU_MEMORY_PREFLIGHT_MODEL_DENOMINATOR + GPU_MEMORY_PREFLIGHT_RESERVE_MB
     val requiredMb = maxOf(
-        GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB,
-        modelSizeMb * GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER + GPU_MEMORY_PREFLIGHT_RESERVE_MB,
+        modelRequirementMb,
         (snapshot.systemThresholdMb ?: 0L) * 2L,
     )
     return if (availableMemoryMb >= requiredMb) {

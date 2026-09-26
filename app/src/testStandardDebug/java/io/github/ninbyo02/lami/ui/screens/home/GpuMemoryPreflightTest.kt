@@ -19,14 +19,14 @@ class GpuMemoryPreflightTest {
 
         assertTrue(decision.allowed)
         assertEquals("enough_available_memory", decision.reason)
-        assertEquals(7_536L, decision.requiredAvailableMemoryMb)
+        assertEquals(5_524L, decision.requiredAvailableMemoryMb)
     }
 
     @Test
     fun `blocks gpu when available memory is below model requirement`() {
         val decision = decideGpuMemoryPreflight(
             GpuMemoryPreflightSnapshot(
-                availableMemoryMb = 7_000,
+                availableMemoryMb = 5_000,
                 systemLowMemory = false,
                 systemThresholdMb = 512,
                 modelSizeMb = 3_000,
@@ -35,7 +35,22 @@ class GpuMemoryPreflightTest {
 
         assertFalse(decision.allowed)
         assertEquals("insufficient_available_memory", decision.reason)
-        assertEquals(7_536L, decision.requiredAvailableMemoryMb)
+        assertEquals(5_524L, decision.requiredAvailableMemoryMb)
+    }
+
+    @Test
+    fun `allows sm8750 sized model with measured five gigabytes available`() {
+        val decision = decideGpuMemoryPreflight(
+            GpuMemoryPreflightSnapshot(
+                availableMemoryMb = 5_326,
+                systemLowMemory = false,
+                systemThresholdMb = 216,
+                modelSizeMb = 2_464,
+            ),
+        )
+
+        assertTrue(decision.allowed)
+        assertEquals(4_720L, decision.requiredAvailableMemoryMb)
     }
 
     @Test
