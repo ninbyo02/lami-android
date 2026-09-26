@@ -3114,10 +3114,30 @@ fun Home(
     }
 
     fun cancelStaleLocalGeneration(reason: String) {
-        localGpuWatchdogJob?.cancel()
-        localGpuWatchdogJob = null
-        localInferenceJob?.cancel()
-        localInferenceJob = null
+        val cleanupEffects = object : LocalInferenceCleanupEffects {
+            override fun cancelGpuWatchdog() {
+                localGpuWatchdogJob?.cancel()
+                localGpuWatchdogJob = null
+            }
+
+            override fun cancelInferenceJob() {
+                localInferenceJob?.cancel()
+                localInferenceJob = null
+            }
+
+            override fun resetStreamingPlaceholder(reason: String) {
+                resetStreamingAssistantPlaceholderId(reason = reason)
+            }
+
+            override fun stopTts() {
+                stopTtsWithCleanup(
+                    suppressedMessageId = stopButtonOwnerAssistantMessageId
+                        ?: currentSpeakingAssistantMessageId
+                        ?: streamingSpeechStartedForMessageId,
+                    armTapGuards = false,
+                )
+            }
+        }
         val cleanupPlan = LocalInferenceCleanupPlanner.staleGeneration(
             runState = localInferenceRunState,
             streamingUiState = localStreamingUiState,
@@ -3132,12 +3152,9 @@ fun Home(
         if (cleanupPlan.resetEngineStateToReady) {
             localInferenceEngineState = LocalInferenceEngineState.READY
         }
-        resetStreamingAssistantPlaceholderId(reason = reason)
-        stopTtsWithCleanup(
-            suppressedMessageId = stopButtonOwnerAssistantMessageId
-                ?: currentSpeakingAssistantMessageId
-                ?: streamingSpeechStartedForMessageId,
-            armTapGuards = false,
+        LocalInferenceCleanupExecutor.executeStaleGenerationSideEffects(
+            reason = reason,
+            effects = cleanupEffects,
         )
     }
 
