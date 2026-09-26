@@ -3118,13 +3118,20 @@ fun Home(
         localGpuWatchdogJob = null
         localInferenceJob?.cancel()
         localInferenceJob = null
-        localStreamingUiState = localStreamingUiState.copy(responseText = null)
-        pendingLocalUserMessageText = null
-        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+        val cleanupPlan = LocalInferenceCleanupPlanner.staleGeneration(
+            runState = localInferenceRunState,
+            streamingUiState = localStreamingUiState,
+            partialStreamingState = localPartialStreamingState,
+        )
+        localStreamingUiState = cleanupPlan.streamingUiState
+        if (cleanupPlan.clearPendingUserMessage) pendingLocalUserMessageText = null
         npuStandardRouteS4PseudoStreamingActive = false
         npuStandardRouteStreamingSentenceTtsBlocked = false
-        localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
-        localInferenceEngineState = LocalInferenceEngineState.READY
+        localInferenceRunState = cleanupPlan.runState
+        localPartialStreamingState = cleanupPlan.partialStreamingState
+        if (cleanupPlan.resetEngineStateToReady) {
+            localInferenceEngineState = LocalInferenceEngineState.READY
+        }
         resetStreamingAssistantPlaceholderId(reason = reason)
         stopTtsWithCleanup(
             suppressedMessageId = stopButtonOwnerAssistantMessageId
