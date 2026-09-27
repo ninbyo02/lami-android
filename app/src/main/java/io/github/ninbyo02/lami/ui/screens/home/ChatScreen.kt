@@ -4858,19 +4858,28 @@ fun Home(
                                                         prompt = immediateNpuSendUiUpdate.prompt
                                                         userPrompt = immediateNpuSendUiUpdate.userPrompt
                                                         selectedImageUriStrings = immediateNpuSendUiUpdate.selectedImageUriStrings
-                                                        npuStandardRouteS1DisplayText = null
-                                                        npuStandardRoutePhaseUiAppendText = null
-                                                        npuStandardRouteS1FallbackText = null
-                                                        npuStandardRouteS4PseudoStreamingText = null
-                                                        npuStandardRouteS4PseudoStreamingActive = false
-                                                        npuStandardRouteStreamingSentenceTtsBlocked = false
-                                                        npuStandardRouteDevDiagnosticsExpanded = false
-                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
-                                                        localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                        localInferenceEngineState = LocalInferenceEngineState.READY
-                                                        localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
+                                                        val npuStartPreparation = NpuInferenceStartPreparationPlanner.prepare(
+                                                            requestPrompt = requestPrompt,
+                                                            streamingUiState = localStreamingUiState,
+                                                            runState = localInferenceRunState,
+                                                        )
+                                                        if (npuStartPreparation.clearRouteDisplayText) npuStandardRouteS1DisplayText = null
+                                                        if (npuStartPreparation.clearPhaseUiAppendText) npuStandardRoutePhaseUiAppendText = null
+                                                        if (npuStartPreparation.clearFallbackText) npuStandardRouteS1FallbackText = null
+                                                        if (npuStartPreparation.clearPseudoStreamingText) npuStandardRouteS4PseudoStreamingText = null
+                                                        if (npuStartPreparation.resetPseudoStreamingActive) npuStandardRouteS4PseudoStreamingActive = false
+                                                        if (npuStartPreparation.resetStreamingSentenceTtsBlocked) {
+                                                            npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                        }
+                                                        if (npuStartPreparation.collapseDevDiagnostics) npuStandardRouteDevDiagnosticsExpanded = false
+                                                        suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
+                                                            npuStartPreparation.common.suppressDevDiagnosticsUntilReplyDisplayed
+                                                        localStreamingUiState = npuStartPreparation.common.streamingUiState
+                                                        if (npuStartPreparation.common.resetEngineStateToReady) {
+                                                            localInferenceEngineState = LocalInferenceEngineState.READY
+                                                        }
+                                                        localInferenceRunState = npuStartPreparation.runState
                                                         effectiveLocalModelDisplayNameForHeader = localBaseModelDisplayName
-                                                        localInferenceRunState = LocalInferenceRunController.start(localInferenceRunState)
                                                         stopTtsWithCleanup(
                                                             suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
