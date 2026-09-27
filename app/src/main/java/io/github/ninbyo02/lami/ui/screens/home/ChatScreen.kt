@@ -1208,7 +1208,7 @@ fun Home(
         initial = InferenceStatsDisplayMode.SIMPLE,
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
-    var localInferenceRunState by rememberSaveable { mutableStateOf(LocalInferenceRunState()) }
+    var localInferenceRunState by remember { mutableStateOf(LocalInferenceRunState()) }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
