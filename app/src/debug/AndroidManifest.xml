@@ -67,6 +67,14 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver
+            android:name="io.github.ninbyo02.lami.remote.RemoteStreamingProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.REMOTE_STREAMING_PROBE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name="io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
             android:exported="true">
             <intent-filter>
