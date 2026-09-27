@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.util.DebugTraceFile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -182,6 +183,11 @@ class AndroidTtsController(context: Context) {
             "request code_points=${finalSpeechText.codePointCount(0, finalSpeechText.length)} ready=$isReady queue_mode=$queueMode"
         Log.i(LOG_TAG, requestTrace)
         trace(requestTrace)
+        if (BuildConfig.DEBUG) {
+            val debugText = finalSpeechText.replace("\n", "\\n").replace("\r", "\\r")
+            trace("request_text=$debugText")
+            Log.d(LOG_TAG, "request_text=$debugText")
+        }
         if (!isReady) {
             pendingSpeakText = if (queueMode == TextToSpeech.QUEUE_ADD && !pendingSpeakText.isNullOrBlank()) {
                 "${pendingSpeakText.orEmpty()} $finalSpeechText".trim()
