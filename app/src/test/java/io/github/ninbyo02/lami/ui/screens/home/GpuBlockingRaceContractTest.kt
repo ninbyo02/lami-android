@@ -479,14 +479,17 @@ class GpuBlockingRaceContractTest {
             searchAfter = "private fun runOfficialLiteRtLmBlocking(",
             failureAnchor = "val npuPreferredBackendApplyResult = preferredBackendApplyResult",
         )
+        val officialRunnerSource = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/OfficialConversationRunner.kt",
+        ).readText()
         assertCancellationRethrowPrecedesFailureHandling(
-            source = source,
+            source = officialRunnerSource,
             searchAfter = "internal suspend fun tryRunOfficialLiteRtFlowStreaming(",
             outerCatchAnchor = "}.onFailure { throwable ->",
             failureAnchor = "val reasonCode = (throwable as? OfficialFlowFallbackException)",
         )
         assertCancellationRethrowPrecedesFailureHandling(
-            source = source,
+            source = officialRunnerSource,
             searchAfter = "internal fun tryRunOfficialLiteRtBlockingConversation(",
             outerCatchAnchor = "}.onFailure { throwable ->",
             failureAnchor = "val reasonCode = (throwable as? OfficialFlowFallbackException)",
