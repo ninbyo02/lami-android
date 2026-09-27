@@ -4679,8 +4679,8 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     val existingLocalJob = localInferenceJob
-                                                    when (resolveExistingLocalGenerationJobPolicy(
-                                                        isLocalInferenceRunning = localInferenceRunState.running,
+                                                    when (LocalInferenceStartCoordinator.resolveStartAction(
+                                                        runState = localInferenceRunState,
                                                         existingJobActive = existingLocalJob?.isActive == true,
                                                     )) {
                                                         ExistingLocalGenerationJobPolicy.CANCEL_STALE_AND_WAIT -> {
