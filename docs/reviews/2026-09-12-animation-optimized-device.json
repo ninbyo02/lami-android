@@ -1,0 +1,37 @@
+{
+  "commit": "60564ac672b0675a0dd587a39302a8bc9fe865bb",
+  "apk_sha256": "eb1db41828ce5aad3fee52356923820088fea6d8ba951cfd5749931e1525b585",
+  "animation_enabled": true,
+  "preference_changed": false,
+  "no_inference": true,
+  "samples": [
+    {
+      "label": "optimized_foreground_animation_enabled",
+      "pid": "24916",
+      "elapsed": 40.07939735602122,
+      "settle_seconds": 20,
+      "cpu_seconds": 5.51,
+      "cpu_percent": 13.747711700989985
+    },
+    {
+      "label": "optimized_background",
+      "pid": "24916",
+      "elapsed": 60.15163698408287,
+      "settle_seconds": 5,
+      "cpu_seconds": 0.55,
+      "cpu_percent": 0.9143558306576748
+    },
+    {
+      "label": "optimized_foreground_after_resume",
+      "pid": "24916",
+      "elapsed": 40.07753395405598,
+      "settle_seconds": 20,
+      "cpu_seconds": 4.51,
+      "cpu_percent": 11.253187397134182
+    }
+  ],
+  "avatar_region_distinct_samples": 1,
+  "graphics_pipeline": [
+    "Pipeline=Skia (Vulkan)"
+  ]
+}

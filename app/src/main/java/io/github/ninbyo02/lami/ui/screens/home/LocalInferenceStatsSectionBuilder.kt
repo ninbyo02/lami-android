@@ -92,6 +92,7 @@ internal fun buildInferenceSummarySections(
     val heldOfficialBlocking = localSourceSummaryText
         ?.contains("held-official-blocking", ignoreCase = true) == true
     val deterministicSafeGreetingFallback = isDeterministicSafeGreetingFallback(stats)
+    val ollamaThinkingStats = parseOllamaThinkingStats(stats.notes)
     val localBackendSummaryItems = buildLocalBackendSummaryItems(stats)
     val summaryItems = if (isLocalMinimal) {
         buildList {
@@ -100,9 +101,21 @@ internal fun buildInferenceSummarySections(
         }
     } else {
         buildList {
+            ollamaThinkingStats.timeToFirstTokenMs?.let {
+                add(
+                    InferenceStatItemUi(
+                        label = "Thinking開始まで（端末基準）",
+                        value = formatMillisToCompactText(it),
+                    ),
+                )
+            }
             add(
                 InferenceStatItemUi(
-                    label = "初回受信まで（端末基準）",
+                    label = if (ollamaThinkingStats.hasThinking) {
+                        "回答本文開始まで（端末基準）"
+                    } else {
+                        "初回受信まで（端末基準）"
+                    },
                     value = if (heldOfficialBlocking) "—" else formatTimeToFirstToken(stats) ?: "—",
                 ),
             )
@@ -173,6 +186,7 @@ internal fun buildInferenceDetailSections(
         )
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
+    val ollamaThinkingStats = parseOllamaThinkingStats(stats.notes)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val isLocalBackendStats = localTraceForDev != null || isLocalBackendInferenceStats(stats)
     val displayTokensPerSecondText = if (isEstimatedCodePointTokenCount(stats)) {
@@ -187,7 +201,7 @@ internal fun buildInferenceDetailSections(
             )
         }
     } else {
-        buildLamiTokensPerSecondText(stats)
+        backendTokensPerSecondText ?: buildLamiTokensPerSecondText(stats)
     }
     val showOllamaPerceivedTokensPerSecond = !isLocalBackendStats
     val localSourceSummaryText = stats.localSourceSummary
@@ -277,145 +291,14 @@ internal fun buildInferenceDetailSections(
                     ),
                 )
             }
-        acceleratorProbeSnapshot?.let { probe ->
-            add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
-            add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
-            add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "GPU Probe", value = probe.gpuProbeSource?.ifBlank { "unknown" } ?: "unknown"))
-            probe.gpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "GPU Probe Error", value = it)) }
-            add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
-            if (probe.nnapiDeprecatedWarning) {
-                add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
-            }
-            add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
-            probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
-            add(InferenceStatItemUi(label = "Delegate API Probe", value = probe.delegateProbeSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Delegate switching hint", value = probe.delegateSwitchingSupportedHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Delegate option candidates", value = probe.delegateOptionCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU status", value = "probe-only (not applied)"))
-            add(InferenceStatItemUi(label = "NPU apply status", value = "disabled (forced GPU fallback)"))
-            add(InferenceStatItemUi(label = "NPU note", value = "NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference."))
-            add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe", value = "probe-only"))
-            add(InferenceStatItemUi(label = "NPU constructor available", value = probe.npuConstructorAvailable.toString()))
-            add(InferenceStatItemUi(label = "NPU string constructor available", value = probe.npuStringConstructorAvailable.toString()))
-            add(InferenceStatItemUi(label = "NPU nativeLibraryDir candidate", value = probe.npuNativeLibraryDirCandidate?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe result", value = probe.npuStageProbeResult?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU stage probe error", value = probe.npuStageProbeError?.takeIf { it.isNotBlank() } ?: "—"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU official vendor", value = probe.npuOfficialVendor?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC support", value = probe.npuOfficialSocSupport?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU model requirement", value = probe.npuModelRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime libs", value = probe.npuRuntimeLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib", value = probe.npuDispatchLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU CLI proof", value = probe.npuCliProofRequirement?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU packaged libs", value = probe.npuPackagedLibraryCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
-            formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
-            add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
-            add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
-            add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "QNN/NPU errorClass", value = probe.qnnNpuAttemptErrorClass?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU errorMessage", value = probe.qnnNpuAttemptErrorMessage?.ifBlank { "—" } ?: "—"))
-            add(InferenceStatItemUi(label = "QNN/NPU evidence", value = probe.qnnNpuAttemptEvidence.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(" / ") ?: "none/unknown"))
-            val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
-            add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
-            val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
-            add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
-            val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
-            val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: "not-applied"
-            val resolvedPreferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
-                PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
-                else -> "not-supported"
-            }
-            add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
-            add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(resolvedAppliedPreferredBackend, resolvedPreferredBackendApplyResult)))
-            add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
-            if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
-                add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
-            }
-            add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = localTraceForDev?.preferredBackendHookReached?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook source", value = localTraceForDev?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend apply error", value = localTraceForDev?.preferredBackendApplyError ?: "—"))
-            add(InferenceStatItemUi(label = "PreferredBackend builder class", value = localTraceForDev?.preferredBackendApplyBuilderClass?.ifBlank { "none/unknown" } ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend method candidates", value = localTraceForDev?.preferredBackendApplyMethodCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend backend enum candidates", value = localTraceForDev?.preferredBackendApplyBackendEnumCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Held engine create path", value = localTraceForDev?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder instance hash", value = localTraceForDev?.holderInstanceHash?.toString() ?: "-1"))
-            add(InferenceStatItemUi(label = "Held engine hash", value = localTraceForDev?.heldEngineHash?.toString() ?: "-1"))
-            add(InferenceStatItemUi(label = "Holder app foreground", value = localTraceForDev?.holderAppInForeground?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last acquire action", value = localTraceForDev?.holderLastAcquireAction ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last lifecycle event", value = localTraceForDev?.holderLastLifecycleEventReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last lifecycle decision", value = localTraceForDev?.holderLastLifecycleDecisionAction ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held recreate request count", value = localTraceForDev?.heldEngineRecreateRequestCount?.toString() ?: "0"))
-            add(InferenceStatItemUi(label = "Held present at run start", value = localTraceForDev?.heldEngineWasPresentAtRunStart?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "Held created during run", value = localTraceForDev?.heldEngineCreatedDuringRun?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "Holder last recreate result", value = localTraceForDev?.holderLastRecreateResult ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder last recreate reason", value = localTraceForDev?.holderLastRecreateReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder held before recreate", value = localTraceForDev?.holderHasHeldEngineBeforeRecreate?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Holder held after recreate", value = localTraceForDev?.holderHasHeldEngineAfterRecreate?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held destroy reason", value = localTraceForDev?.heldEngineDestroyReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last owner", value = localTraceForDev?.heldEngineLastOwner ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last failure stage", value = localTraceForDev?.heldEngineLastFailureStage ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held snapshot before destroy", value = localTraceForDev?.heldEngineSnapshotBeforeDestroy ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held lifecycle history", value = localTraceForDev?.heldEngineLifecycleHistory ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create source", value = localTraceForDev?.lastHeldEngineCreateSource ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create reason", value = localTraceForDev?.lastHeldEngineCreateReason ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create requested preferredBackend", value = localTraceForDev?.lastHeldEngineCreateRequestedPreferredBackend ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create elapsed", value = localTraceForDev?.lastHeldEngineCreateAtElapsedMs?.toString() ?: "unknown"))
-            add(InferenceStatItemUi(label = "Held last create stack hint", value = localTraceForDev?.lastHeldEngineCreateStackHint ?: "unknown"))
-            add(InferenceStatItemUi(label = "LlmInference create method", value = localTraceForDev?.llmInferenceCreateMethod?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
-            add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend EngineConfig request setting", value = preferredBackendDryRunSetting.name))
-            val resolverRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
-            val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
+        addAll(
+            buildAcceleratorProbeDevItems(
+                probe = acceleratorProbeSnapshot,
                 trace = localTraceForDev,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-            )
-            if (preferredBackendRecreateRequired?.first == true) {
-                add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = "true"))
-                preferredBackendRecreateRequired.second?.let {
-                    add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
-                }
-            }
-            localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
-                add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
-            }
-            add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
-            probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
-            probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
-            probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
-            probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
-            add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
-            val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
-                "${executionInference.reason}; ${recreateReason}"
-            } ?: executionInference.reason
-            add(InferenceStatItemUi(label = "推定理由", value = executionReason))
-        }
+                executionInference = executionInference,
+            ),
+        )
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))
         }
@@ -435,8 +318,7 @@ internal fun buildInferenceDetailSections(
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
     val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
-        (snapshot.tokenCountMode == "tokenizer_recount" ||
-            snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
+        isTokenizerRecountMode(snapshot.tokenCountMode) &&
             snapshot.inputTokens != null &&
             snapshot.outputTokens != null
     } == true
@@ -543,6 +425,12 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
             perceivedTokensPerSecondText?.let {
                 add(InferenceStatItemUi(label = "体感速度", value = it))
+            }
+            ollamaThinkingStats.timeToFirstTokenMs?.let {
+                add(InferenceStatItemUi(label = "Thinking基準TTFT", value = formatMillisToCompactText(it)))
+            }
+            ollamaThinkingStats.streamSummary?.let {
+                add(InferenceStatItemUi(label = "Thinkingストリーム", value = it))
             }
             addAll(
                 buildUnifiedTtftItems(
@@ -828,95 +716,121 @@ internal fun buildInferenceDetailSections(
                     ),
                 )
             },
-        InferenceStatsSectionUi(
-            title = "DEV診断",
-            items = buildList {
-                addAll(devSectionItems)
-                measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
-                    add(InferenceStatItemUi(label = "measuredTokens", value = it))
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Prefill Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Decode Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                if (isLocalBackendStats) {
-                    add(InferenceStatItemUi(label = "Resident Router summary", value = residentPolicySummary.oneLine))
-                    add(InferenceStatItemUi(label = "Resident Router diagnostics", value = residentPolicySummary.diagnosticText))
-                    add(InferenceStatItemUi(label = "Resident Router dry-run", value = residentRoutingDryRunDecision.diagnosticText))
-                }
-                localTraceForDev?.let { trace ->
-                    add(InferenceStatItemUi(label = "selected_model_slot", value = trace.selectedLocalModelSlot ?: "—"))
-                    add(
-                        InferenceStatItemUi(
-                            label = "generic_fallback_model_configured",
-                            value = trace.genericFallbackModelConfigured?.toString() ?: "—",
-                        ),
-                    )
-                    add(
-                        InferenceStatItemUi(
-                            label = "npu_preview_model_configured",
-                            value = trace.npuPreviewModelConfigured?.toString() ?: "—",
-                        ),
-                    )
-                    add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
-                    add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
-                    add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkCount", value = trace.officialChunkCount.toString()))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalAvgMs", value = formatMillis(trace.officialChunkIntervalAvgMs)))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalMaxMs", value = formatMillis(trace.officialChunkIntervalMaxMs)))
-                    add(InferenceStatItemUi(label = "officialChunkIntervalMinMs", value = formatMillis(trace.officialChunkIntervalMinMs)))
-                    add(InferenceStatItemUi(label = "officialChunkFirstToLastMs", value = formatMillis(trace.officialChunkFirstToLastMs)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsAvg", value = formatChars(trace.officialChunkCharsAvg)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsMax", value = trace.officialChunkCharsMax?.let { "$it chars" } ?: "—"))
-                    add(InferenceStatItemUi(label = "officialChunkCharsMin", value = trace.officialChunkCharsMin?.let { "$it chars" } ?: "—"))
-                    add(InferenceStatItemUi(label = "officialChunkEventsPerSecond", value = formatEventsPerSecond(trace.officialChunkEventsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkCharsPerSecond", value = formatCharsPerSecond(trace.officialChunkCharsPerSecond)))
-                    add(InferenceStatItemUi(label = "officialChunkEmptyCount", value = trace.officialChunkEmptyCount.toString()))
-                    add(InferenceStatItemUi(label = "officialChunkNonEmptyCount", value = trace.officialChunkNonEmptyCount.toString()))
-                    add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(trace)))
-                    add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = trace.composeRecomposeEstimate?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
-                }
-                if (localTraceForDev != null) {
-                    add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
-                    add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "outputTokens", value = localTraceForDev.outputTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "outputTokensSignature", value = localTraceForDev.outputTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawOutputTokens", value = localTraceForDev.outputTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "estimatedTokens", value = localTraceForDev.estimatedTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "estimatedTokensSignature", value = localTraceForDev.estimatedTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawEstimatedTokens", value = localTraceForDev.estimatedTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "firstToken", value = localTraceForDev.firstTokenProbe.availability.name))
-                    add(InferenceStatItemUi(label = "firstTokenSignature", value = localTraceForDev.firstTokenProbe.signature ?: "—"))
-                    add(InferenceStatItemUi(label = "rawFirstToken", value = localTraceForDev.firstTokenProbe.valueSummary ?: "—"))
-                    add(InferenceStatItemUi(label = "assistantUpdateCount", value = localTraceForDev.assistantUpdateCount.toString()))
-                    add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = localTraceForDev.firstNonEmptyAssistantChunkSeen.toString()))
-                    add(InferenceStatItemUi(label = "assistantStreamedToUi", value = localTraceForDev.assistantStreamedToUi.toString()))
-                    add(InferenceStatItemUi(label = "realPartialReceived", value = localTraceForDev.realPartialReceived.toString()))
-                    add(InferenceStatItemUi(label = "realPartialChunkCount", value = localTraceForDev.realPartialChunkCount.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowAttempted", value = localTraceForDev.officialFlowAttempted.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowUsed", value = localTraceForDev.officialFlowUsed.toString()))
-                    add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = localTraceForDev.officialFlowFallbackReason ?: "—"))
-                    add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = localTraceForDev.officialConversationApiAvailable?.toString() ?: "—"))
-                    add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
-                }
-            },
-        ).takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.items.isNotEmpty() },
+        buildLocalDevDiagnosticSection(
+            displayMode = displayMode,
+            baseItems = devSectionItems,
+            measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
+            trace = localTraceForDev,
+            residentRouterSummary = residentPolicySummary.oneLine.takeIf { isLocalBackendStats },
+            residentRouterDiagnostics = residentPolicySummary.diagnosticText.takeIf { isLocalBackendStats },
+            residentRouterDryRun = residentRoutingDryRunDecision.diagnosticText.takeIf { isLocalBackendStats },
+        ),
     )
+}
+
+private fun buildLocalDevDiagnosticSection(
+    displayMode: InferenceStatsDisplayMode,
+    baseItems: List<InferenceStatItemUi>,
+    measuredTokenSnapshotSummary: String?,
+    trace: LocalInferenceTrace?,
+    residentRouterSummary: String?,
+    residentRouterDiagnostics: String?,
+    residentRouterDryRun: String?,
+): InferenceStatsSectionUi? {
+    if (displayMode != InferenceStatsDisplayMode.DEVELOPER) return null
+
+    val items = buildList {
+        addAll(baseItems)
+        measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "measuredTokens", value = it))
+        }
+        trace?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
+            add(
+                InferenceStatItemUi(
+                    label = "直近 Prefill Token",
+                    value = it.toString(),
+                ),
+            )
+        }
+        trace?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
+            add(
+                InferenceStatItemUi(
+                    label = "直近 Decode Token",
+                    value = it.toString(),
+                ),
+            )
+        }
+        residentRouterSummary?.let {
+            add(InferenceStatItemUi(label = "Resident Router summary", value = it))
+        }
+        residentRouterDiagnostics?.let {
+            add(InferenceStatItemUi(label = "Resident Router diagnostics", value = it))
+        }
+        residentRouterDryRun?.let {
+            add(InferenceStatItemUi(label = "Resident Router dry-run", value = it))
+        }
+        trace?.let {
+            add(InferenceStatItemUi(label = "selected_model_slot", value = it.selectedLocalModelSlot ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "generic_fallback_model_configured",
+                    value = it.genericFallbackModelConfigured?.toString() ?: "—",
+                ),
+            )
+            add(
+                InferenceStatItemUi(
+                    label = "npu_preview_model_configured",
+                    value = it.npuPreviewModelConfigured?.toString() ?: "—",
+                ),
+            )
+            add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(it.streamedCharsPerSecond)))
+            add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(it.appendBatchSizeAvg)))
+            add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(it.appendEventsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkCount", value = it.officialChunkCount.toString()))
+            add(InferenceStatItemUi(label = "officialChunkIntervalAvgMs", value = formatMillis(it.officialChunkIntervalAvgMs)))
+            add(InferenceStatItemUi(label = "officialChunkIntervalMaxMs", value = formatMillis(it.officialChunkIntervalMaxMs)))
+            add(InferenceStatItemUi(label = "officialChunkIntervalMinMs", value = formatMillis(it.officialChunkIntervalMinMs)))
+            add(InferenceStatItemUi(label = "officialChunkFirstToLastMs", value = formatMillis(it.officialChunkFirstToLastMs)))
+            add(InferenceStatItemUi(label = "officialChunkCharsAvg", value = formatChars(it.officialChunkCharsAvg)))
+            add(InferenceStatItemUi(label = "officialChunkCharsMax", value = it.officialChunkCharsMax?.let { count -> "$count chars" } ?: "—"))
+            add(InferenceStatItemUi(label = "officialChunkCharsMin", value = it.officialChunkCharsMin?.let { count -> "$count chars" } ?: "—"))
+            add(InferenceStatItemUi(label = "officialChunkEventsPerSecond", value = formatEventsPerSecond(it.officialChunkEventsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkCharsPerSecond", value = formatCharsPerSecond(it.officialChunkCharsPerSecond)))
+            add(InferenceStatItemUi(label = "officialChunkEmptyCount", value = it.officialChunkEmptyCount.toString()))
+            add(InferenceStatItemUi(label = "officialChunkNonEmptyCount", value = it.officialChunkNonEmptyCount.toString()))
+            add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(it)))
+            add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = it.composeRecomposeEstimate?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "markdownRepairCount", value = it.markdownRepairCount?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = it.uiAppendDebounceMs?.let { delay -> "${delay} ms" } ?: "—"))
+
+            add(InferenceStatItemUi(label = "evalTime", value = it.evalTimeProbe.availability.name))
+            add(InferenceStatItemUi(label = "evalTimeSignature", value = it.evalTimeProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawEvalTime", value = it.evalTimeProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "outputTokens", value = it.outputTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "outputTokensSignature", value = it.outputTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawOutputTokens", value = it.outputTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "estimatedTokens", value = it.estimatedTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "estimatedTokensSignature", value = it.estimatedTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawEstimatedTokens", value = it.estimatedTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "firstToken", value = it.firstTokenProbe.availability.name))
+            add(InferenceStatItemUi(label = "firstTokenSignature", value = it.firstTokenProbe.signature ?: "—"))
+            add(InferenceStatItemUi(label = "rawFirstToken", value = it.firstTokenProbe.valueSummary ?: "—"))
+            add(InferenceStatItemUi(label = "assistantUpdateCount", value = it.assistantUpdateCount.toString()))
+            add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = it.firstNonEmptyAssistantChunkSeen.toString()))
+            add(InferenceStatItemUi(label = "assistantStreamedToUi", value = it.assistantStreamedToUi.toString()))
+            add(InferenceStatItemUi(label = "realPartialReceived", value = it.realPartialReceived.toString()))
+            add(InferenceStatItemUi(label = "realPartialChunkCount", value = it.realPartialChunkCount.toString()))
+            add(InferenceStatItemUi(label = "officialFlowAttempted", value = it.officialFlowAttempted.toString()))
+            add(InferenceStatItemUi(label = "officialFlowUsed", value = it.officialFlowUsed.toString()))
+            add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = it.officialFlowFallbackReason ?: "—"))
+            add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = it.officialConversationApiAvailable?.toString() ?: "—"))
+            add(InferenceStatItemUi(label = "officialFlowChunkCount", value = it.officialFlowChunkCount.toString()))
+        }
+    }
+    return InferenceStatsSectionUi(
+        title = "DEV診断",
+        items = items,
+    ).takeIf { it.items.isNotEmpty() }
 }
 
 private const val DEV_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_dev_npu"
@@ -1563,13 +1477,46 @@ private fun resolveBackendSpeedSourceLabel(
             else -> "未取得"
         }
         InferenceBackendKind.OLLAMA -> when {
-            stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（サーバー統計）"
+            stats.tokensPerSecond != null -> "バックエンド基準（サーバー統計）"
             hasPerceived -> "Lami基準 / バックエンド基準（fallback）"
             (stats.outputTokens ?: stats.completionTokens) != null &&
                 (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
             else -> "未取得"
         }
     }
+}
+
+internal data class OllamaThinkingStats(
+    val timeToFirstTokenMs: Long? = null,
+    val characterCount: Int? = null,
+    val chunkCount: Int? = null,
+) {
+    val hasThinking: Boolean
+        get() = timeToFirstTokenMs != null ||
+            (characterCount ?: 0) > 0 ||
+            (chunkCount ?: 0) > 0
+
+    val streamSummary: String?
+        get() = buildList {
+            characterCount?.takeIf { it > 0 }?.let { add("${it}文字") }
+            chunkCount?.takeIf { it > 0 }?.let { add("${it}チャンク") }
+        }.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+}
+
+internal fun parseOllamaThinkingStats(notes: String?): OllamaThinkingStats {
+    fun longValue(key: String): Long? = notes
+        ?.let { Regex("(?:^|\\s)${Regex.escape(key)}=(\\d+)").find(it) }
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toLongOrNull()
+
+    return OllamaThinkingStats(
+        timeToFirstTokenMs = longValue("remote_time_to_first_thinking_token_ms"),
+        characterCount = longValue("remote_thinking_characters")
+            ?.takeIf { it <= Int.MAX_VALUE }?.toInt(),
+        chunkCount = longValue("remote_thinking_chunks")
+            ?.takeIf { it <= Int.MAX_VALUE }?.toInt(),
+    )
 }
 
 private fun buildLamiTokensPerSecondText(stats: InferenceStats): String? {
@@ -1673,6 +1620,154 @@ private fun String.toUiStatusForMediaPipeTokenizer(): String {
         normalized.startsWith("unavailable") -> "未対応"
         normalized.isBlank() -> "未実行"
         else -> normalized
+    }
+}
+
+private fun buildAcceleratorProbeDevItems(
+    probe: AcceleratorProbeSnapshot?,
+    trace: LocalInferenceTrace?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    executionInference: ExecutionTargetInference,
+): List<InferenceStatItemUi> {
+    if (probe == null) return emptyList()
+    return buildList {
+        add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
+        add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
+        add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "GPU Probe", value = probe.gpuProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+        probe.gpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "GPU Probe Error", value = it)) }
+        add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
+        if (probe.nnapiDeprecatedWarning) {
+            add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
+        }
+        add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
+        probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
+        add(InferenceStatItemUi(label = "Delegate API Probe", value = probe.delegateProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Delegate switching hint", value = probe.delegateSwitchingSupportedHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Delegate option candidates", value = probe.delegateOptionCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU status", value = "probe-only (not applied)"))
+        add(InferenceStatItemUi(label = "NPU apply status", value = "disabled (forced GPU fallback)"))
+        add(InferenceStatItemUi(label = "NPU note", value = "NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference."))
+        add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe", value = "probe-only"))
+        add(InferenceStatItemUi(label = "NPU constructor available", value = probe.npuConstructorAvailable.toString()))
+        add(InferenceStatItemUi(label = "NPU string constructor available", value = probe.npuStringConstructorAvailable.toString()))
+        add(InferenceStatItemUi(label = "NPU nativeLibraryDir candidate", value = probe.npuNativeLibraryDirCandidate?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe result", value = probe.npuStageProbeResult?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "NPU stage probe error", value = probe.npuStageProbeError?.takeIf { it.isNotBlank() } ?: "—"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU official vendor", value = probe.npuOfficialVendor?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU SoC support", value = probe.npuOfficialSocSupport?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU model requirement", value = probe.npuModelRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime libs", value = probe.npuRuntimeLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib", value = probe.npuDispatchLibraryRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU CLI proof", value = probe.npuCliProofRequirement?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU packaged libs", value = probe.npuPackagedLibraryCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
+        formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
+        add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
+        add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
+        add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "QNN/NPU errorClass", value = probe.qnnNpuAttemptErrorClass?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU errorMessage", value = probe.qnnNpuAttemptErrorMessage?.ifBlank { "—" } ?: "—"))
+        add(InferenceStatItemUi(label = "QNN/NPU evidence", value = probe.qnnNpuAttemptEvidence.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(" / ") ?: "none/unknown"))
+        val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
+        add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
+        val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
+        add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
+        val resolvedRequestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+        val resolvedAppliedPreferredBackend = trace?.appliedPreferredBackend ?: "not-applied"
+        val resolvedPreferredBackendApplyResult = trace?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
+            PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
+            else -> "not-supported"
+        }
+        add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
+        add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(resolvedAppliedPreferredBackend, resolvedPreferredBackendApplyResult)))
+        add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
+        if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
+            add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
+        }
+        add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend apply error", value = trace?.preferredBackendApplyError ?: "—"))
+        add(InferenceStatItemUi(label = "PreferredBackend builder class", value = trace?.preferredBackendApplyBuilderClass?.ifBlank { "none/unknown" } ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend method candidates", value = trace?.preferredBackendApplyMethodCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend backend enum candidates", value = trace?.preferredBackendApplyBackendEnumCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        add(InferenceStatItemUi(label = "Held engine create path", value = trace?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder instance hash", value = trace?.holderInstanceHash?.toString() ?: "-1"))
+        add(InferenceStatItemUi(label = "Held engine hash", value = trace?.heldEngineHash?.toString() ?: "-1"))
+        add(InferenceStatItemUi(label = "Holder app foreground", value = trace?.holderAppInForeground?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last acquire action", value = trace?.holderLastAcquireAction ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last lifecycle event", value = trace?.holderLastLifecycleEventReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last lifecycle decision", value = trace?.holderLastLifecycleDecisionAction ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held recreate request count", value = trace?.heldEngineRecreateRequestCount?.toString() ?: "0"))
+        add(InferenceStatItemUi(label = "Held present at run start", value = trace?.heldEngineWasPresentAtRunStart?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "Held created during run", value = trace?.heldEngineCreatedDuringRun?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "Holder last recreate result", value = trace?.holderLastRecreateResult ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder last recreate reason", value = trace?.holderLastRecreateReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder held before recreate", value = trace?.holderHasHeldEngineBeforeRecreate?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Holder held after recreate", value = trace?.holderHasHeldEngineAfterRecreate?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held destroy reason", value = trace?.heldEngineDestroyReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last owner", value = trace?.heldEngineLastOwner ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last failure stage", value = trace?.heldEngineLastFailureStage ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held snapshot before destroy", value = trace?.heldEngineSnapshotBeforeDestroy ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held lifecycle history", value = trace?.heldEngineLifecycleHistory ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create source", value = trace?.lastHeldEngineCreateSource ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create reason", value = trace?.lastHeldEngineCreateReason ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create requested preferredBackend", value = trace?.lastHeldEngineCreateRequestedPreferredBackend ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create elapsed", value = trace?.lastHeldEngineCreateAtElapsedMs?.toString() ?: "unknown"))
+        add(InferenceStatItemUi(label = "Held last create stack hint", value = trace?.lastHeldEngineCreateStackHint ?: "unknown"))
+        add(InferenceStatItemUi(label = "LlmInference create method", value = trace?.llmInferenceCreateMethod?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "Options builder source", value = trace?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = trace?.preferredBackendHookEligible?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = trace?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
+        add(InferenceStatItemUi(label = "PreferredBackend EngineConfig request setting", value = preferredBackendDryRunSetting.name))
+        val resolverRequestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+        val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
+            trace = trace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        )
+        if (preferredBackendRecreateRequired?.first == true) {
+            add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = "true"))
+            preferredBackendRecreateRequired.second?.let {
+                add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
+            }
+        }
+        trace?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
+        }
+        add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+        probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
+        probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
+        probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
+        probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
+        probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
+        add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
+        val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
+            "${executionInference.reason}; ${recreateReason}"
+        } ?: executionInference.reason
+        add(InferenceStatItemUi(label = "推定理由", value = executionReason))
     }
 }
 
@@ -1797,8 +1892,7 @@ private fun resolvePreferredBackendEngineRecreateDiagnostic(
 
 private fun resolveDevSummaryTokenizerRecountStatus(trace: LocalInferenceTrace?): String {
     val snapshot = trace?.measuredTokenSnapshot ?: return "未取得"
-    val succeeded = (snapshot.tokenCountMode == "tokenizer_recount" ||
-        snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
+    val succeeded = isTokenizerRecountMode(snapshot.tokenCountMode) &&
         snapshot.inputTokens != null &&
         snapshot.outputTokens != null
     return if (succeeded) "成功" else "未取得"

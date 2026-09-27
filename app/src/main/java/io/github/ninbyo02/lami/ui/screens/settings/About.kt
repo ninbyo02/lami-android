@@ -59,6 +59,8 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.components.LamiSprite
+import io.github.ninbyo02.lami.ui.components.LamiSpritePresentation
+import io.github.ninbyo02.lami.ui.components.LamiStatusSpriteOptions
 import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
@@ -289,17 +291,21 @@ fun About(
                                 lamiStatus = lamiStatus,
                                 sizeDp = finalSize,
                                 modifier = Modifier.offset(y = upwardOffset),
-                                shape = CircleShape,
-                                backgroundColor = rememberLamiCharacterBackdropColor(),
-                                // 中央キャラ：背景円の余白をなくす
-                                contentPadding = 0.dp,
-                                animationsEnabled = true,
-                                replacementEnabled = true,
-                                blinkEffectEnabled = true,
-                                contentOffsetYDp = 2.dp,
-                                tightContainer = true,
-                                maxStatusSpriteSizeDp = finalSize,
-                                debugOverlayEnabled = false,
+                                presentation = LamiSpritePresentation(
+                                    shape = CircleShape,
+                                    backgroundColor = rememberLamiCharacterBackdropColor(),
+                                    // 中央キャラ：背景円の余白をなくす
+                                    contentPadding = 0.dp,
+                                    contentOffsetYDp = 2.dp,
+                                    tightContainer = true,
+                                    maxStatusSpriteSizeDp = finalSize,
+                                ),
+                                options = LamiStatusSpriteOptions(
+                                    animationsEnabled = true,
+                                    replacementEnabled = true,
+                                    blinkEffectEnabled = true,
+                                    debugOverlayEnabled = false,
+                                ),
                                 syncEpochMs = animationEpochMs,
                             )
                         }
@@ -324,17 +330,21 @@ fun About(
                             lamiStatus = lamiStatus,
                             sizeDp = finalSize,
                             modifier = Modifier,
-                            shape = CircleShape,
-                            backgroundColor = rememberLamiCharacterBackdropColor(),
-                            // 中央キャラ：背景円の余白をなくす
-                            contentPadding = 0.dp,
-                            animationsEnabled = true,
-                            replacementEnabled = true,
-                            blinkEffectEnabled = true,
-                            contentOffsetYDp = 2.dp,
-                            tightContainer = true,
-                            maxStatusSpriteSizeDp = finalSize,
-                            debugOverlayEnabled = false,
+                            presentation = LamiSpritePresentation(
+                                shape = CircleShape,
+                                backgroundColor = rememberLamiCharacterBackdropColor(),
+                                // 中央キャラ：背景円の余白をなくす
+                                contentPadding = 0.dp,
+                                contentOffsetYDp = 2.dp,
+                                tightContainer = true,
+                                maxStatusSpriteSizeDp = finalSize,
+                            ),
+                            options = LamiStatusSpriteOptions(
+                                animationsEnabled = true,
+                                replacementEnabled = true,
+                                blinkEffectEnabled = true,
+                                debugOverlayEnabled = false,
+                            ),
                             syncEpochMs = animationEpochMs,
                         )
                     }

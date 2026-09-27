@@ -80,7 +80,7 @@ fun mapToAnimationLamiStatus(
         return decideErrorSeverity(lastError, retryCount)
     }
 
-    if (uiState is UiState.Loading || lamiState is LamiState.Thinking) {
+    if (uiState is UiState.Loading || uiState is UiState.Thinking || lamiState is LamiState.Thinking) {
         return LamiAnimationStatus.Thinking
     }
 
@@ -114,7 +114,11 @@ fun mapToAnimationLamiStatus(
     )
 
     return when (animation) {
-        LamiAnimationStatus.Thinking -> LamiStatus.CONNECTING
+        LamiAnimationStatus.Thinking -> if (uiState is UiState.Thinking) {
+            LamiStatus.THINKING
+        } else {
+            LamiStatus.CONNECTING
+        }
         LamiAnimationStatus.TalkShort,
         LamiAnimationStatus.TalkLong,
         LamiAnimationStatus.TalkCalm -> LamiStatus.TALKING

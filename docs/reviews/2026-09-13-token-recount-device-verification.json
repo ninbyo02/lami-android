@@ -1,0 +1,350 @@
+{
+  "device_model": "NX733J",
+  "apk_sha256": "1c180d0742e4a1d01a7021d77d2fff5a4ffd9e81c6730578750ddcaff4b32e0e",
+  "tests": {
+    "StandardDebug": 1799,
+    "StandardRelease": 1262,
+    "failures": 0
+  },
+  "lint": "both passed",
+  "sequences": {
+    "final": {
+      "steps": [
+        {
+          "messageID": 108,
+          "status": "COMPLETED",
+          "generationTimeMs": 8790,
+          "inputTokens": 11,
+          "completionTokens": 5,
+          "tokenCountMode": "mediapipe_tokenizer_recount",
+          "label": "greeting",
+          "response_chars": 11,
+          "generation_finished_at_elapsed_ms": "2403749205",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2403749274",
+          "tokenizer_count_started_at_elapsed_ms": "2403749406",
+          "tokenizer_count_finished_at_elapsed_ms": "2403750863",
+          "tokenizer_count_duration_ms": "1457",
+          "tokenizer_result_cache_hit": "false"
+        },
+        {
+          "messageID": 110,
+          "status": "COMPLETED",
+          "generationTimeMs": 23352,
+          "inputTokens": 16,
+          "completionTokens": 455,
+          "tokenCountMode": "mediapipe_tokenizer_recount",
+          "label": "long",
+          "response_chars": 835,
+          "generation_finished_at_elapsed_ms": "2403787708",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2403787815",
+          "tokenizer_count_started_at_elapsed_ms": "2403787994",
+          "tokenizer_count_finished_at_elapsed_ms": "2403789353",
+          "tokenizer_count_duration_ms": "1359",
+          "tokenizer_result_cache_hit": "false"
+        },
+        {
+          "messageID": 112,
+          "status": "COMPLETED",
+          "generationTimeMs": 2193,
+          "inputTokens": 11,
+          "completionTokens": 1,
+          "tokenCountMode": "mediapipe_tokenizer_recount",
+          "label": "short",
+          "response_chars": 1,
+          "generation_finished_at_elapsed_ms": "2403811068",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2403811103",
+          "tokenizer_count_started_at_elapsed_ms": "2403811251",
+          "tokenizer_count_finished_at_elapsed_ms": "2403812700",
+          "tokenizer_count_duration_ms": "1449",
+          "tokenizer_result_cache_hit": "false"
+        },
+        {
+          "messageID": 114,
+          "status": "CANCELLED",
+          "generationTimeMs": null,
+          "inputTokens": null,
+          "completionTokens": null,
+          "tokenCountMode": null,
+          "label": "cancel",
+          "response_chars": 49,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        },
+        {
+          "messageID": 116,
+          "status": "COMPLETED",
+          "generationTimeMs": 1944,
+          "inputTokens": 10,
+          "completionTokens": 2,
+          "tokenCountMode": "mediapipe_tokenizer_recount",
+          "label": "resend",
+          "response_chars": 6,
+          "generation_finished_at_elapsed_ms": "2403848386",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2403848420",
+          "tokenizer_count_started_at_elapsed_ms": "2403848599",
+          "tokenizer_count_finished_at_elapsed_ms": "2403849966",
+          "tokenizer_count_duration_ms": "1367",
+          "tokenizer_result_cache_hit": "false"
+        },
+        {
+          "messageID": 118,
+          "status": "COMPLETED",
+          "generationTimeMs": 2213,
+          "inputTokens": 11,
+          "completionTokens": 1,
+          "tokenCountMode": "mediapipe_tokenizer_recount",
+          "label": "cached-short",
+          "response_chars": 1,
+          "generation_finished_at_elapsed_ms": "2403864112",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2403864126",
+          "tokenizer_count_started_at_elapsed_ms": "2403864317",
+          "tokenizer_count_finished_at_elapsed_ms": "2403864318",
+          "tokenizer_count_duration_ms": "1",
+          "tokenizer_result_cache_hit": "true"
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "settings_restored": true,
+      "focus": "mCurrentFocus=Window{39baf0c u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+      "no_audio_after_stop": true,
+      "cancel-memory": [
+        "Native Heap   343636   343444      160       20   344708   536876   393443   138497",
+        "Native Heap:   343444                         344708",
+        "TOTAL PSS:  1457448            TOTAL RSS:  1590856       TOTAL SWAP PSS:       69"
+      ],
+      "greeting-memory": [
+        "Native Heap  1010318  1010192      100       20  1011388   481136   342883   133238",
+        "Native Heap:  1010192                        1011388",
+        "TOTAL PSS:  1706911            TOTAL RSS:  1831012       TOTAL SWAP PSS:      134"
+      ],
+      "resend-memory": [
+        "Native Heap  1093200  1093008      160       20  1094272   537388   391052   141538",
+        "Native Heap:  1093008                        1094272",
+        "TOTAL PSS:  2169123            TOTAL RSS:  2302632       TOTAL SWAP PSS:       69"
+      ],
+      "cached-short-memory": [
+        "Native Heap   345812   345620      160       20   346884   537388   392543   140047",
+        "Native Heap:   345620                         346884",
+        "TOTAL PSS:  1438085            TOTAL RSS:  1571628       TOTAL SWAP PSS:       69"
+      ],
+      "long-memory": [
+        "Native Heap  1010076  1009884      160       20  1011148   483264   339425   138617",
+        "Native Heap:  1009884                        1011148",
+        "TOTAL PSS:  2031314            TOTAL RSS:  2164380       TOTAL SWAP PSS:       69"
+      ],
+      "short-memory": [
+        "Native Heap  1057448  1057256      160       20  1058520   536596   390322   141294",
+        "Native Heap:  1057256                        1058520",
+        "TOTAL PSS:  2100716            TOTAL RSS:  2233900       TOTAL SWAP PSS:       69"
+      ]
+    },
+    "final-npu": {
+      "steps": [
+        {
+          "messageID": 130,
+          "status": "COMPLETED",
+          "generationTimeMs": 386,
+          "inputTokens": null,
+          "completionTokens": 11,
+          "tokenCountMode": "estimated_code_points",
+          "label": "greeting",
+          "response_chars": 11,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        },
+        {
+          "messageID": 132,
+          "status": "COMPLETED",
+          "generationTimeMs": 11060,
+          "inputTokens": null,
+          "completionTokens": 751,
+          "tokenCountMode": "estimated_code_points",
+          "label": "long",
+          "response_chars": 751,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        },
+        {
+          "messageID": 134,
+          "status": "COMPLETED",
+          "generationTimeMs": 79,
+          "inputTokens": null,
+          "completionTokens": 1,
+          "tokenCountMode": "estimated_code_points",
+          "label": "short",
+          "response_chars": 1,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        },
+        {
+          "messageID": 136,
+          "status": "CANCELLED",
+          "generationTimeMs": null,
+          "inputTokens": null,
+          "completionTokens": null,
+          "tokenCountMode": null,
+          "label": "cancel",
+          "response_chars": 96,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        },
+        {
+          "messageID": 138,
+          "status": "COMPLETED",
+          "generationTimeMs": 136,
+          "inputTokens": null,
+          "completionTokens": 9,
+          "tokenCountMode": "estimated_code_points",
+          "label": "resend",
+          "response_chars": 9,
+          "generation_finished_at_elapsed_ms": null,
+          "bottom_sheet_update_finished_at_elapsed_ms": null,
+          "tokenizer_count_started_at_elapsed_ms": null,
+          "tokenizer_count_finished_at_elapsed_ms": null,
+          "tokenizer_count_duration_ms": null,
+          "tokenizer_result_cache_hit": null
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "settings_restored": true,
+      "focus": "mCurrentFocus=Window{39baf0c u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+      "no_audio_after_stop": true,
+      "cancel-memory": [
+        "Native Heap    40911    40712      168       20    41960   100312    31634    65433",
+        "Native Heap:    40712                          41960",
+        "TOTAL PSS:   292135            TOTAL RSS:   421640       TOTAL SWAP PSS:       69"
+      ],
+      "greeting-memory": [
+        "Native Heap    84905    84772      108       22    85952   175848   167062     4911",
+        "Native Heap:    84772                          85952",
+        "TOTAL PSS:  1588658            TOTAL RSS:  1708936       TOTAL SWAP PSS:      139"
+      ],
+      "resend-memory": [
+        "Native Heap    97559    97360      168       20    98608   204304   170903    29988",
+        "Native Heap:    97360                          98608",
+        "TOTAL PSS:  1606103            TOTAL RSS:  1735676       TOTAL SWAP PSS:       69"
+      ],
+      "long-memory": [
+        "Native Heap    95343    95144      168       20    96392   200820   173838    23224",
+        "Native Heap:    95144                          96392",
+        "TOTAL PSS:  1896053            TOTAL RSS:  2025188       TOTAL SWAP PSS:       69"
+      ],
+      "short-memory": [
+        "Native Heap    93403    93204      168       20    94452   201348   168539    29136",
+        "Native Heap:    93204                          94452",
+        "TOTAL PSS:  1896425            TOTAL RSS:  2025644       TOTAL SWAP PSS:       69"
+      ]
+    }
+  },
+  "baseline_comparison": [
+    {
+      "label": "greeting",
+      "baseline_completion_ms": 10074,
+      "final_completion_ms": 8790,
+      "baseline_input_tokens": 11,
+      "final_input_tokens": 11,
+      "baseline_output_tokens": 5,
+      "final_output_tokens": 5
+    },
+    {
+      "label": "long",
+      "baseline_completion_ms": 25070,
+      "final_completion_ms": 23352,
+      "baseline_input_tokens": 16,
+      "final_input_tokens": 16,
+      "baseline_output_tokens": 455,
+      "final_output_tokens": 455
+    },
+    {
+      "label": "short",
+      "baseline_completion_ms": 3058,
+      "final_completion_ms": 2193,
+      "baseline_input_tokens": 11,
+      "final_input_tokens": 11,
+      "baseline_output_tokens": 1,
+      "final_output_tokens": 1
+    },
+    {
+      "label": "resend",
+      "baseline_completion_ms": 3705,
+      "final_completion_ms": 1944,
+      "baseline_input_tokens": 10,
+      "final_input_tokens": 10,
+      "baseline_output_tokens": 2,
+      "final_output_tokens": 2
+    }
+  ],
+  "overlap": {
+    "confirmed_overlap": true,
+    "second_send_after_elapsed_ms": 2404273180,
+    "first_count_finished_elapsed_ms": 2404274278,
+    "first_count_started_elapsed_ms": 2404272962,
+    "rows": [
+      {
+        "messageID": 140,
+        "status": "COMPLETED",
+        "generationTimeMs": 8017,
+        "inputTokens": 11,
+        "completionTokens": 1,
+        "tokenCountMode": "mediapipe_tokenizer_recount"
+      },
+      {
+        "messageID": 142,
+        "status": "COMPLETED",
+        "generationTimeMs": 1290,
+        "inputTokens": 11,
+        "completionTokens": 1,
+        "tokenCountMode": "mediapipe_tokenizer_recount"
+      }
+    ]
+  },
+  "data_integrity": {
+    "before_rows": 106,
+    "after_rows": 142,
+    "missing": [],
+    "changed": []
+  },
+  "installed_apk_verified": true,
+  "initial_npu_harness_observation": {
+    "error": "AssertionError('resend not spoken')",
+    "evidence": "Current-generation playback_done was retained; start/accepted records were absent. Strict full NPU repeat passed without TTS code changes."
+  }
+}

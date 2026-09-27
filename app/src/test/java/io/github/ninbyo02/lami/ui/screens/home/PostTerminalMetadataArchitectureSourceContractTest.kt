@@ -16,12 +16,15 @@ class PostTerminalMetadataArchitectureSourceContractTest {
 
         assertTrue(chat.contains("PostTerminalAssistantMetadataUpdater("))
         assertTrue(chat.contains("OllamaViewModelPostTerminalAssistantMetadataStore(viewModel)"))
-        assertEquals(3, chat.windowed("postTerminalAssistantMetadataUpdater.update(".length)
+        assertEquals(2, chat.windowed("postTerminalAssistantMetadataUpdater.update(".length)
             .count { it == "postTerminalAssistantMetadataUpdater.update(" })
-        assertTrue(chat.contains("expectedMessage = persistedResponse"))
+        val recount = source("PostResponseTokenStatsUpdater.kt")
+        assertTrue(recount.contains("expectedMessage = response"))
+        assertTrue(recount.contains("expectedMessage = persistedResponse"))
+        assertFalse(recount.contains("viewModel.updateMessage("))
         assertTrue(chat.contains("expectedMessage = assistantTextForPersist"))
         assertTrue(chat.contains("expectedMessage = resolvedAssistantResponse"))
-        assertTrue(chat.contains("PostTerminalAssistantMetadataPatch.fromInferenceStats("))
+        assertTrue(recount.contains("PostTerminalAssistantMetadataPatch.fromInferenceStats("))
         assertFalse(chat.contains("viewModel.updateMessage("))
         assertFalse(chat.contains("message.copy(localSourceSummary ="))
     }

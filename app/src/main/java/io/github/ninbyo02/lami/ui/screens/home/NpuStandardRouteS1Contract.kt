@@ -251,18 +251,27 @@ internal fun evaluateNpuStandardRouteQualityCandidate(
         .filter(String::isNotBlank)
         .toSet()
     val prepared = candidate.preparedOutput.ifBlank { sanitizedOutput.trim() }
-    val greetingOnlyMismatch = reasons == setOf("greeting_response_mismatch")
+    // The legacy probe treats polite business phrases as template artifacts.
+    // Model-owned Conversation API output may legitimately contain those phrases.
+    val remainingReasons = reasons - "business_template_leak"
+    val greetingOnlyMismatch = remainingReasons == setOf("greeting_response_mismatch")
     return if (
-        greetingOnlyMismatch &&
         prepared.isNotBlank() &&
-        NpuStandardRouteS1Contract.isAcceptableConversationApiGreetingResponse(
-            userPrompt = inputPrompt,
-            response = prepared,
-        )
+            (remainingReasons.isEmpty() ||
+                (greetingOnlyMismatch &&
+                    NpuStandardRouteS1Contract.isAcceptableConversationApiGreetingResponse(
+                        userPrompt = inputPrompt,
+                        response = prepared,
+                    )))
     ) {
         candidate.copy(
             status = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
-            reason = "conversation_api_natural_greeting",
+            reason = if (greetingOnlyMismatch) {
+                "conversation_api_natural_greeting"
+            } else {
+                "conversation_api_natural_politeness"
+            },
+            businessTemplateLeak = false,
             preparedOutput = prepared,
         )
     } else {

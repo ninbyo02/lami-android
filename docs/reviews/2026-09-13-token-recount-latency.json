@@ -1,0 +1,318 @@
+{
+  "production_code_commit": "7b0e5a7daf79ed0b59dbc6184f1ed71ce874758e",
+  "device_model": "NX733J",
+  "final_device_status": "blocked_adb_connection_refused_before_install",
+  "local_tests": {
+    "StandardDebug": 1797,
+    "StandardRelease": 1260,
+    "failures": 0
+  },
+  "lint": "StandardDebug and StandardRelease passed",
+  "installed_app": "rejected resident-counter experiment; final deferred variant not installed",
+  "baseline": {
+    "sequence_completed": true,
+    "error": null,
+    "steps": [
+      {
+        "label": "greeting",
+        "status": "COMPLETED",
+        "response_chars": 11,
+        "generation_time_ms": 10074,
+        "input_tokens": 11,
+        "output_tokens": 5,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385650628",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385650707",
+          "tokenizer_count_duration_ms": "1385"
+        }
+      },
+      {
+        "label": "long",
+        "status": "COMPLETED",
+        "response_chars": 835,
+        "generation_time_ms": 25070,
+        "input_tokens": 16,
+        "output_tokens": 455,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385690746",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385690832",
+          "tokenizer_count_duration_ms": "1608"
+        }
+      },
+      {
+        "label": "short",
+        "status": "COMPLETED",
+        "response_chars": 1,
+        "generation_time_ms": 3058,
+        "input_tokens": 11,
+        "output_tokens": 1,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385713840",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385713864",
+          "tokenizer_count_duration_ms": "1135"
+        }
+      },
+      {
+        "label": "cancel",
+        "status": "CANCELLED",
+        "response_chars": 0,
+        "generation_time_ms": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "resend",
+        "status": "COMPLETED",
+        "response_chars": 6,
+        "generation_time_ms": 3705,
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385750977",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385750990",
+          "tokenizer_count_duration_ms": "1606"
+        }
+      }
+    ],
+    "restored_ime": true,
+    "restored_timeout": true,
+    "preferences_restored": true,
+    "playback_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "generation_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "greeting_memory_lines": [
+      "Native Heap   337297   337168      100       20   338372   478832   342291   132314",
+      "Native Heap:   337168                         338372",
+      "TOTAL PSS:  1035291            TOTAL RSS:  1163124       TOTAL SWAP PSS:      131"
+    ],
+    "short_memory_lines": [
+      "Native Heap  1054713  1054520      156       20  1055784   534548   390534   139670",
+      "Native Heap:  1054520                        1055784",
+      "TOTAL PSS:  2111228            TOTAL RSS:  2248896       TOTAL SWAP PSS:       68"
+    ],
+    "resend_memory_lines": [
+      "Native Heap  1057377  1057184      156       20  1058448   535340   391168   139737",
+      "Native Heap:  1057184                        1058448",
+      "TOTAL PSS:  2143328            TOTAL RSS:  2281340       TOTAL SWAP PSS:       68"
+    ]
+  },
+  "candidate": {
+    "sequence_completed": true,
+    "error": null,
+    "steps": [
+      {
+        "label": "greeting",
+        "status": "COMPLETED",
+        "response_chars": 11,
+        "generation_time_ms": 8729,
+        "input_tokens": 11,
+        "output_tokens": 5,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385809704",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385809750",
+          "tokenizer_count_duration_ms": "1478"
+        }
+      },
+      {
+        "label": "long",
+        "status": "COMPLETED",
+        "response_chars": 835,
+        "generation_time_ms": 19886,
+        "input_tokens": 16,
+        "output_tokens": 455,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385843874",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385843946",
+          "tokenizer_count_duration_ms": "5"
+        }
+      },
+      {
+        "label": "short",
+        "status": "COMPLETED",
+        "response_chars": 1,
+        "generation_time_ms": 2354,
+        "input_tokens": 11,
+        "output_tokens": 1,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385867041",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385867055",
+          "tokenizer_count_duration_ms": "6"
+        }
+      },
+      {
+        "label": "cancel",
+        "status": "CANCELLED",
+        "response_chars": 65,
+        "generation_time_ms": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "resend",
+        "status": "COMPLETED",
+        "response_chars": 6,
+        "generation_time_ms": 2323,
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385903513",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385903530",
+          "tokenizer_count_duration_ms": "3"
+        }
+      },
+      {
+        "label": "after-idle",
+        "status": "COMPLETED",
+        "response_chars": 3,
+        "generation_time_ms": 7776,
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "token_count_mode": "mediapipe_tokenizer_recount",
+        "timings": {
+          "generation_finished_at_elapsed_ms": "2385991380",
+          "bottom_sheet_update_finished_at_elapsed_ms": "2385991388",
+          "tokenizer_count_duration_ms": "1197"
+        }
+      }
+    ],
+    "restored_ime": true,
+    "restored_timeout": true,
+    "preferences_restored": true,
+    "playback_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "generation_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "greeting_memory_lines": [
+      "Native Heap  1050693  1050564      100       20  1051756  1152412  1132417    13786",
+      "Native Heap:  1050564                        1051756",
+      "TOTAL PSS:  1701799            TOTAL RSS:  1989776       TOTAL SWAP PSS:      130"
+    ],
+    "short_memory_lines": [
+      "Native Heap  1096829  1096636      156       20  1097896  1207824  1187770    14337",
+      "Native Heap:  1096636                        1097896",
+      "TOTAL PSS:  2170063            TOTAL RSS:  2468188       TOTAL SWAP PSS:       68"
+    ],
+    "resend_memory_lines": [
+      "Native Heap  1097917  1097724      156       20  1098984  1209236  1188823    14411",
+      "Native Heap:  1097724                        1098984",
+      "TOTAL PSS:  2201714            TOTAL RSS:  2500132       TOTAL SWAP PSS:       68"
+    ]
+  },
+  "npu": {
+    "sequence_completed": true,
+    "error": null,
+    "steps": [
+      {
+        "label": "greeting",
+        "status": "COMPLETED",
+        "response_chars": 11,
+        "generation_time_ms": 595,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "long",
+        "status": "COMPLETED",
+        "response_chars": 751,
+        "generation_time_ms": 11407,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "short",
+        "status": "COMPLETED",
+        "response_chars": 1,
+        "generation_time_ms": 90,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "cancel",
+        "status": "CANCELLED",
+        "response_chars": 91,
+        "generation_time_ms": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      },
+      {
+        "label": "resend",
+        "status": "COMPLETED",
+        "response_chars": 9,
+        "generation_time_ms": 142,
+        "input_tokens": null,
+        "output_tokens": null,
+        "token_count_mode": null,
+        "timings": {}
+      }
+    ],
+    "restored_ime": true,
+    "restored_timeout": true,
+    "preferences_restored": true,
+    "playback_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "generation_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "greeting_memory_lines": [
+      "Native Heap    84165    84028      108       20    85212   174312   166420     4411",
+      "Native Heap:    84028                          85212",
+      "TOTAL PSS:  1585554            TOTAL RSS:  1710144       TOTAL SWAP PSS:      132"
+    ],
+    "short_memory_lines": [
+      "Native Heap    90450    90248      168       20    91496   199812   168160    27819",
+      "Native Heap:    90248                          91496",
+      "TOTAL PSS:  1902011            TOTAL RSS:  2035716       TOTAL SWAP PSS:       68"
+    ],
+    "resend_memory_lines": [
+      "Native Heap    96486    96284      168       21    97532   202768   170369    28866",
+      "Native Heap:    96284                          97532",
+      "TOTAL PSS:  1601908            TOTAL RSS:  1732844       TOTAL SWAP PSS:       71"
+    ]
+  },
+  "existing_data_integrity": {
+    "before_rows": 52,
+    "after_rows": 84,
+    "missing": [],
+    "changed": []
+  },
+  "prepared_final_apk_sha256": "daaba42d412c8f5694c50236067f0d27e5a27b2e3c35f8798b66943749d8002e",
+  "resident_apk_sha256": "ddf355f08b1bf41b90fa7234efd6fc43ef0069282fdc965193b420b8854d5f33"
+}

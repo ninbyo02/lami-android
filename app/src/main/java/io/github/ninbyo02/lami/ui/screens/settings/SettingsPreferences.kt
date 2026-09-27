@@ -610,6 +610,15 @@ class SettingsPreferences(private val context: Context) {
         RemoteProvider.fromStorage(preferences[remoteProviderKey])
     }
 
+    /** The last global choice is only a migration default for an unseen server. */
+    fun remoteProviderForBaseUrlFlow(baseUrl: String): Flow<RemoteProvider> = context.dataStore.data.map { preferences ->
+        val key = remoteProviderKeyForBaseUrl(baseUrl)
+        RemoteProvider.fromStorage(preferences[key] ?: preferences[remoteProviderKey])
+    }
+
+    private fun remoteProviderKeyForBaseUrl(baseUrl: String) =
+        stringPreferencesKey("remote_provider_url:${baseUrl.trim().trimEnd('/')}")
+
     val lemonadeAutoUnloadModeFlow: Flow<LemonadeAutoUnloadMode> = context.dataStore.data.map { preferences ->
         LemonadeAutoUnloadMode.fromStorage(preferences[lemonadeAutoUnloadModeKey])
     }
@@ -907,9 +916,12 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    suspend fun saveRemoteProvider(provider: RemoteProvider) {
+    suspend fun saveRemoteProvider(provider: RemoteProvider, baseUrl: String = "") {
         context.dataStore.edit { preferences ->
             preferences[remoteProviderKey] = provider.storageValue
+            if (baseUrl.isNotBlank()) {
+                preferences[remoteProviderKeyForBaseUrl(baseUrl)] = provider.storageValue
+            }
         }
     }
 

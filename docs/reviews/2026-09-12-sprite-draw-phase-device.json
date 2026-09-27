@@ -1,0 +1,146 @@
+{
+  "source_commit": "feddd89f6c50fa787ac4fbe6e11fa15a347c8411",
+  "baseline_code_commit": "1acd9fb9fb07dced99b140e1d8ea6871d903bdac",
+  "samples": [
+    {
+      "label": "draw_debug_original",
+      "pid": "8407",
+      "elapsed_s": 40.44104172906373,
+      "cpu_percent": 2.9178279034092496,
+      "cpu_seconds": 1.18,
+      "foreground_checks": [
+        "mCurrentFocus=Window{3a20214 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{3a20214 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{3a20214 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{3a20214 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   218667            TOTAL RSS:   344748       TOTAL SWAP PSS:      135"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 64",
+        "Janky frames: 28 (43.75%)",
+        "90th percentile: 150ms",
+        "95th percentile: 200ms",
+        "99th percentile: 300ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "old_release_dynamic",
+      "pid": "8924",
+      "elapsed_s": 40.469015419948846,
+      "cpu_percent": 8.89569455209778,
+      "cpu_seconds": 3.6,
+      "foreground_checks": [
+        "mCurrentFocus=Window{940d312 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{940d312 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{940d312 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{940d312 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   186537            TOTAL RSS:   306152       TOTAL SWAP PSS:      201"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 319",
+        "Janky frames: 184 (57.68%)",
+        "90th percentile: 20ms",
+        "95th percentile: 23ms",
+        "99th percentile: 53ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "new_release_dynamic",
+      "pid": "9653",
+      "elapsed_s": 40.516361791989766,
+      "cpu_percent": 4.886914600489754,
+      "cpu_seconds": 1.98,
+      "foreground_checks": [
+        "mCurrentFocus=Window{76fabd4 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{76fabd4 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{76fabd4 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+        "mCurrentFocus=Window{76fabd4 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   181301            TOTAL RSS:   300400       TOTAL SWAP PSS:      201"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 322",
+        "Janky frames: 29 (9.01%)",
+        "90th percentile: 16ms",
+        "95th percentile: 22ms",
+        "99th percentile: 97ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    },
+    {
+      "label": "new_release_background",
+      "pid": "9653",
+      "elapsed_s": 60.73570044199005,
+      "cpu_percent": 0.37868996047831516,
+      "cpu_seconds": 0.23,
+      "foreground_checks": [
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+        "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}"
+      ],
+      "memory_summary": [
+        "TOTAL PSS:   114927            TOTAL RSS:   244480       TOTAL SWAP PSS:       93"
+      ],
+      "graphics_summary": [
+        "Total frames rendered: 524",
+        "Janky frames: 58 (11.07%)",
+        "90th percentile: 16ms",
+        "95th percentile: 21ms",
+        "99th percentile: 40ms",
+        "Pipeline=Skia (Vulkan)"
+      ]
+    }
+  ],
+  "visual": {
+    "old_release_dynamic": {
+      "samples": 24,
+      "distinct": 5,
+      "hashes": [
+        "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+        "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+        "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+        "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79",
+        "eab1542cebd7badab95d73af702845f0981a8d2c3d2a76550e1eb76950fc7adb"
+      ]
+    },
+    "new_release_dynamic": {
+      "samples": 24,
+      "distinct": 5,
+      "hashes": [
+        "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+        "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+        "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+        "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79",
+        "eab1542cebd7badab95d73af702845f0981a8d2c3d2a76550e1eb76950fc7adb"
+      ]
+    },
+    "new_release_resumed": {
+      "samples": 24,
+      "distinct": 4,
+      "hashes": [
+        "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+        "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+        "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+        "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79"
+      ]
+    }
+  },
+  "settings_restored": true,
+  "cpu_basis": "whole application, one core",
+  "no_inference": true,
+  "apk_sha256": {
+    "new_debug": "d583bbed6fc216a2e55f57fb395e508604c887716386364720d14a2c711485fc",
+    "new_release": "559650c9feeeb815721b223a0adb08f46ab36a37c8246f25d06bd21f501bf264",
+    "old_release": "38f566590a7ac90decefa29998439107e756ef1e6e6be1d36fe66cfdb0f24da1"
+  }
+}

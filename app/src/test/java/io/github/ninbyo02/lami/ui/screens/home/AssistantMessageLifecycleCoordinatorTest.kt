@@ -3,6 +3,12 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.MessageErrorCode
 import io.github.ninbyo02.lami.db.entity.MessageStatus
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -15,6 +21,78 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AssistantMessageLifecycleCoordinatorTest {
+    @Test
+    fun `stop after insert commits but before id returns cancels exact row`() = runBlocking {
+        val committed = CompletableDeferred<Unit>()
+        val returnId = CompletableDeferred<Unit>()
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            afterInsert = { committed.complete(Unit); returnId.await() }
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+        val job = launch { coordinator.upsertPlaceholder(null, message(text = ""), 200L) }
+        committed.await()
+        job.cancel()
+        returnId.complete(Unit)
+        job.join()
+        assertTrue(job.isCancelled)
+        assertEquals(MessageStatus.CANCELLED, store.messages[100]?.status)
+        assertEquals(MessageErrorCode.USER_CANCELLED, store.messages[100]?.errorCode)
+        assertFalse(store.calls.contains("mark-generating:100"))
+        // A late checkpoint cannot resurrect the cancelled request; a new request can start.
+        assertFalse(coordinator.checkpoint(100, "late"))
+        store.afterInsert = {}
+        val next = coordinator.upsertPlaceholder(null, message(text = ""), 201L)
+        assertEquals(101, next.messageId)
+        assertEquals(MessageStatus.GENERATING, store.messages[101]?.status)
+    }
+
+    @Test
+    fun `stop during promotion also clears pending row`() = runBlocking {
+        val promotionStarted = CompletableDeferred<Unit>()
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            beforePromotion = { promotionStarted.complete(Unit); CompletableDeferred<Unit>().await() }
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+        val job = launch { coordinator.upsertPlaceholder(null, message(text = ""), 200L) }
+        promotionStarted.await()
+        job.cancelAndJoin()
+        assertEquals(MessageStatus.CANCELLED, store.messages[100]?.status)
+    }
+
+    @Test
+    fun `already cancelled request cannot create placeholder`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore()
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+        val job = launch(start = CoroutineStart.UNDISPATCHED) {
+            currentCoroutineContext().cancel()
+            coordinator.upsertPlaceholder(null, message(text = ""), 200L)
+        }
+        job.cancelAndJoin()
+        assertTrue(store.messages.isEmpty())
+    }
+
+    @Test
+    fun `checkpoint queued behind completion cannot recreate or overwrite answer`() = runBlocking {
+        val store = FakeAssistantMessageLifecycleStore().apply {
+            messages[20] = message(id = 20, text = "partial", status = MessageStatus.GENERATING)
+            terminalTransitionDelayMs = 40L
+        }
+        val coordinator = AssistantMessageLifecycleCoordinator(store)
+        assertTrue(coordinator.checkpoint(20, "new partial"))
+        val completion = async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            coordinator.complete(20, message(text = "fallback notice\nfinal answer"))
+        }
+        val checkpoint = async { coordinator.checkpoint(20, "final answer") }
+        completion.await()
+        assertFalse(checkpoint.await())
+        assertEquals(1, store.messages.size)
+        assertEquals("fallback notice\nfinal answer", store.messages[20]?.message)
+        assertEquals(MessageStatus.COMPLETED, store.messages[20]?.status)
+        assertFalse(store.calls.contains("insert"))
+        assertFalse(coordinator.checkpoint(999, "orphan partial"))
+        assertEquals(1, store.messages.size)
+    }
+
     @Test
     fun `new placeholder is inserted and promoted to generating`() = runBlocking {
         val store = FakeAssistantMessageLifecycleStore()
@@ -294,6 +372,8 @@ class AssistantMessageLifecycleCoordinatorTest {
     private class FakeAssistantMessageLifecycleStore : AssistantMessageLifecycleStore {
         val messages = linkedMapOf<Int, Message>()
         val calls = mutableListOf<String>()
+        var afterInsert: suspend () -> Unit = {}
+        var beforePromotion: suspend () -> Unit = {}
         var nextId = 100
         var markGeneratingResult = true
         var updateGeneratingResult = true
@@ -314,11 +394,13 @@ class AssistantMessageLifecycleCoordinatorTest {
             calls += "insert"
             val id = if (message.messageID > 0) message.messageID else nextId++
             messages[id] = message.copy(messageID = id)
+            afterInsert()
             return id
         }
 
         override suspend fun markAssistantMessageGenerating(messageId: Int): Boolean {
             calls += "mark-generating:$messageId"
+            beforePromotion()
             if (!markGeneratingResult) return false
             val existing = messages[messageId] ?: return false
             if (existing.status !in MessageStatus.IN_FLIGHT) return false

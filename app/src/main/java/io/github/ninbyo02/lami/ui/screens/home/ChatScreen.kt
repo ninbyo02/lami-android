@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,12 +64,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -86,7 +81,6 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
@@ -99,7 +93,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
@@ -163,8 +156,10 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
-import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
+import io.github.ninbyo02.lami.ui.components.LamiHeaderAvatarPresentation
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusActions
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatusState
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
@@ -183,20 +178,16 @@ import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.resolveResidentRouterHookDecision
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
-import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
-import io.github.ninbyo02.lami.ui.util.formatInferenceTime
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatGenerationDuration
-import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
-import io.github.ninbyo02.lami.ui.util.formatModelName
 import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
@@ -259,10 +250,6 @@ private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
 private const val LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS = 350L
 private const val TTS_HEADER_TALKING_GRACE_MS = 900L
-private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
-private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
-private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
-private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
@@ -270,11 +257,6 @@ private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS = 1_500L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
-private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
-    "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
-private const val GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE =
-    "GPU raw callback probe を実行しました。通常GPU生成の後段処理はスキップしました。"
-
 internal fun resolveMissingLocalModelFocus(
     preferredBackend: PreferredBackendDryRunSetting?,
     hasNpuModel: Boolean,
@@ -306,69 +288,6 @@ internal fun resolveActiveLocalHeaderModelDisplayName(
     ?.takeIf { it.isNotBlank() }
     ?: if (automaticNpuRouteSelected) npuModelDisplayName else selectedModelDisplayName
 
-private enum class LocalExecutionPath(
-    val sourceLabel: String,
-    val officialFlowAttempted: Boolean,
-    val officialFlowUsed: Boolean,
-    val usesOfficialConversationApi: Boolean,
-) {
-    HELD_OFFICIAL_FLOW(
-        sourceLabel = "held-official-flow",
-        officialFlowAttempted = true,
-        officialFlowUsed = true,
-        usesOfficialConversationApi = true,
-    ),
-    HELD_OFFICIAL_BLOCKING(
-        sourceLabel = "held-official-blocking",
-        officialFlowAttempted = true,
-        officialFlowUsed = false,
-        usesOfficialConversationApi = true,
-    ),
-    OFFICIAL_FLOW(
-        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
-        officialFlowAttempted = true,
-        officialFlowUsed = true,
-        usesOfficialConversationApi = true,
-    ),
-    OFFICIAL_BLOCKING(
-        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING,
-        officialFlowAttempted = true,
-        officialFlowUsed = false,
-        usesOfficialConversationApi = true,
-    ),
-    ONE_SHOT(
-        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
-        officialFlowAttempted = false,
-        officialFlowUsed = false,
-        usesOfficialConversationApi = false,
-    ),
-    SESSION_LEGACY(
-        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY,
-        officialFlowAttempted = false,
-        officialFlowUsed = false,
-        usesOfficialConversationApi = false,
-    );
-
-    companion object {
-        fun fromSourceLabel(raw: String?): LocalExecutionPath? {
-            val normalized = raw?.trim().orEmpty()
-            return values().firstOrNull { it.sourceLabel == normalized }
-        }
-
-        fun fromClosePath(raw: String?): LocalExecutionPath? {
-            val normalized = raw?.trim().orEmpty()
-            return when {
-                normalized.contains("held-official-flow") -> HELD_OFFICIAL_FLOW
-                normalized.contains("held-official-blocking") -> HELD_OFFICIAL_BLOCKING
-                normalized.contains("official-flow") -> OFFICIAL_FLOW
-                normalized.contains("official-blocking") -> OFFICIAL_BLOCKING
-                normalized.contains("legacy") -> SESSION_LEGACY
-                else -> null
-            }
-        }
-    }
-}
-
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
     API_NOT_CONNECTED,
@@ -383,18 +302,7 @@ private data class LocalInferenceInitializationResult(
     val probeResult: LocalLiteRtProbeResult?,
 )
 
-private data class LocalInferenceRunResult(
-    val state: LocalInferenceEngineState,
-    val response: String? = null,
-    val trace: LocalInferenceTrace = LocalInferenceTrace(),
-    val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
-    val runnerWhitespaceTraceText: String? = null,
-)
 
-private data class GpuExperimentalTimeoutOperationResult<T>(
-    val value: T?,
-    val timedOut: Boolean,
-)
 
 private data class LocalModelResolution(
     val modelPath: String,
@@ -412,152 +320,6 @@ private data class LocalModelResolution(
             cacheDirPath = cacheDirPath,
         )
 }
-
-internal enum class LocalStatsAvailability {
-    AVAILABLE_NOW,
-    DERIVABLE_NOW,
-    API_CANDIDATE_ONLY,
-    NOT_FOUND,
-}
-
-internal enum class LocalStreamingApiProbeResult {
-    ASYNC_API_NOT_FOUND,
-    LISTENER_API_NOT_FOUND,
-    SESSION_API_NOT_FOUND,
-    ASYNC_INVOKE_FAILED,
-    LISTENER_INVOKE_FAILED,
-    SESSION_CREATE_FAILED,
-    ASYNC_INVOKE_SUCCEEDED,
-    LISTENER_INVOKE_SUCCEEDED,
-    SESSION_CREATE_SUCCEEDED,
-}
-
-internal data class LocalStatsCandidateProbe(
-    val availability: LocalStatsAvailability,
-    val signature: String? = null,
-    val returnTypeName: String? = null,
-    val valueSummary: String? = null,
-)
-
-internal data class LocalInferenceTrace(
-    val createMethodSignature: String? = null,
-    val optionsBuildPath: String? = null,
-    val generateMethodSignature: String? = null,
-    val streamingCandidateDetected: Boolean? = null,
-    val localModelDisplayName: String? = null,
-    val mediaPipeProbeModelPath: String? = null,
-    val selectedLocalModelSlot: String? = null,
-    val npuPreviewModelConfigured: Boolean? = null,
-    val genericFallbackModelConfigured: Boolean? = null,
-    val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val wallClockLoadDurationNs: Long? = null,
-    val wallClockTotalInferenceDurationNs: Long? = null,
-    val localTraceStartElapsedRealtimeMs: Long? = null,
-    val localTraceFirstResponseElapsedRealtimeMs: Long? = null,
-    val localTraceCompletedElapsedRealtimeMs: Long? = null,
-    val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val estimatedTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
-    val asyncApiProbeResult: LocalStreamingApiProbeResult? = null,
-    val asyncApiSignature: String? = null,
-    val listenerApiProbeResult: LocalStreamingApiProbeResult? = null,
-    val listenerApiSignature: String? = null,
-    val sessionApiProbeResult: LocalStreamingApiProbeResult? = null,
-    val sessionApiSignature: String? = null,
-    val sessionGenerateSignature: String? = null,
-    val sessionAsyncSignature: String? = null,
-    val sessionStreamingSignature: String? = null,
-    val sessionTokenSignature: String? = null,
-    val sessionPromptTokens: Int? = null,
-    val sessionResponseTokens: Int? = null,
-    val sessionTotalTokens: Int? = null,
-    val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
-    val sessionTokenProbeErrorStage: String? = null,
-    val sessionTokenProbeErrorClassName: String? = null,
-    val sessionListenerSignature: String? = null,
-    val sessionLifecycleSignature: String? = null,
-    val selectedAssistantResponseSource: String? = null,
-    val selectedAssistantResponseHead: String? = null,
-    val oneShotResponseHead: String? = null,
-    val assistantUpdateCount: Int = 0,
-    val streamedCharsPerSecond: Double? = null,
-    val appendBatchSizeAvg: Double? = null,
-    val appendEventsPerSecond: Double? = null,
-    val composeRecomposeEstimate: Int? = null,
-    val markdownRepairCount: Int? = null,
-    val uiAppendDebounceMs: Long? = null,
-    val firstNonEmptyAssistantChunkSeen: Boolean = false,
-    val assistantStreamedToUi: Boolean = false,
-    val realPartialReceived: Boolean = false,
-    val realPartialChunkCount: Int = 0,
-    val officialFlowAttempted: Boolean = false,
-    val officialFlowUsed: Boolean = false,
-    val officialFlowFallbackReason: String? = null,
-    val officialConversationApiAvailable: Boolean? = null,
-    val officialFlowChunkCount: Int = 0,
-    val officialChunkCount: Int = 0,
-    val officialChunkIntervalAvgMs: Double? = null,
-    val officialChunkIntervalMaxMs: Long? = null,
-    val officialChunkIntervalMinMs: Long? = null,
-    val officialChunkFirstToLastMs: Long? = null,
-    val officialChunkCharsAvg: Double? = null,
-    val officialChunkCharsMax: Int? = null,
-    val officialChunkCharsMin: Int? = null,
-    val officialChunkEmptyCount: Int = 0,
-    val officialChunkNonEmptyCount: Int = 0,
-    val officialChunkEventsPerSecond: Double? = null,
-    val officialChunkCharsPerSecond: Double? = null,
-    val requestedPreferredBackend: String? = null,
-    val appliedPreferredBackend: String? = null,
-    val preferredBackendApplyResult: String? = null,
-    val preferredBackendHookReached: Boolean? = null,
-    val preferredBackendHookSource: String? = null,
-    val preferredBackendApplyError: String? = null,
-    val preferredBackendApplyBuilderClass: String? = null,
-    val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
-    val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
-    val preferredBackendApplyNotSupportedReason: String? = null,
-    val heldEngineCreatePath: String? = null,
-    val llmInferenceCreateMethod: String? = null,
-    val optionsBuilderSource: String? = null,
-    val preferredBackendHookEligible: Boolean? = null,
-    val preferredBackendHookMissingReason: String? = null,
-    val preferredBackendRequiresEngineRecreate: Boolean? = null,
-    val preferredBackendEngineRecreateReason: String? = null,
-    val holderInstanceHash: Int? = null,
-    val heldEngineHash: Int? = null,
-    val holderAppInForeground: Boolean? = null,
-    val holderLastAcquireAction: String? = null,
-    val holderLastLifecycleEventReason: String? = null,
-    val holderLastLifecycleDecisionAction: String? = null,
-    val heldEngineRecreateRequestCount: Int? = null,
-    val heldEngineWasPresentAtRunStart: Boolean? = null,
-    val heldEngineCreatedDuringRun: Boolean? = null,
-    val holderLastRecreateResult: String? = null,
-    val holderLastRecreateReason: String? = null,
-    val holderHasHeldEngineBeforeRecreate: Boolean? = null,
-    val holderHasHeldEngineAfterRecreate: Boolean? = null,
-    val heldEngineLifecycleHistory: String? = null,
-    val heldEngineDestroyReason: String? = null,
-    val heldEngineLastOwner: String? = null,
-    val heldEngineLastFailureStage: String? = null,
-    val heldEngineSnapshotBeforeDestroy: String? = null,
-    val lastHeldEngineCreateReason: String? = null,
-    val lastHeldEngineCreateSource: String? = null,
-    val lastHeldEngineCreateAtElapsedMs: Long? = null,
-    val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
-    val lastHeldEngineCreateStackHint: String? = null,
-    val realPartialHookAttempted: Boolean = false,
-    val realPartialHookAttached: Boolean = false,
-    val realPartialCallbackCount: Int = 0,
-    val localFailureDiagnosticsText: String? = null,
-    val memorySnapshots: List<MemorySnapshot> = emptyList(),
-    val safetyGuardBlock: SafetyGuardConversationBlock? = null,
-)
 
 private data class LocalStreamingUiMetricsSnapshot(
     val streamedCharsPerSecond: Double?,
@@ -908,7 +670,7 @@ fun Home(
         )
     }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
-    var isCreatingChat by rememberSaveable { mutableStateOf(false) }
+    var isCreatingChat by remember { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -1228,6 +990,7 @@ fun Home(
             (
                 remoteRequestJob?.isActive == true ||
                     uiState is UiState.Loading ||
+                    uiState is UiState.Thinking ||
                     uiState is UiState.Streaming
                 )
     val isServerRunningRaw = isServerRunning
@@ -1242,7 +1005,8 @@ fun Home(
             !isStopRequested
     val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi || keepTtsTalkingInHeader
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
-    val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
+    val isServerLoadingUi =
+        (uiState is UiState.Loading || uiState is UiState.Thinking) && isServerRunningUi
     LaunchedEffect(
         isLocalInferenceRunning,
         localStopRequested,
@@ -1269,6 +1033,7 @@ fun Home(
         }
     }
     val headerStatusTitleOverride = when {
+        uiState is UiState.Thinking && isServerRunningUi -> "Thinking..."
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
@@ -1356,8 +1121,7 @@ fun Home(
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
     var stopButtonOwnerAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var stopButtonOwnerSetAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
-    var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
-    var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
+    val responseSpeechSession = remember { ResponseSpeechSession() }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var isStreamingSentencePlaybackActive by remember(effectiveChatId) { mutableStateOf(false) }
     var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
@@ -1448,50 +1212,24 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
 
-    fun scheduleNpuFallbackTokenizerStatsUpdate(
-        assistantId: Int,
-        chatId: Int,
-        persistedResponse: String,
-        prompt: String,
-        response: String,
-        successfulBackend: String?,
-        trace: LocalInferenceTrace,
-        modelPath: String?,
+    val postResponseTokenStatsUpdater = remember(
+        coroutineScope, postTerminalAssistantMetadataUpdater, context, immediateInferenceStatsByMessageId,
     ) {
-        if (assistantId <= 0 || successfulBackend !in setOf("GPU", "CPU")) return
-        coroutineScope.launch {
-            val recountedTrace = recountLocalInferenceTokensAfterCompletion(
-                context = context.applicationContext,
-                modelPath = modelPath,
-                prompt = prompt,
-                response = response,
-                trace = trace,
-            )
-            val updatedPersistence = buildSuccessfulNpuFallbackInferencePersistence(
-                successfulBackend = successfulBackend,
-                response = response,
-                trace = recountedTrace,
-            ) ?: return@launch
-            val updatedStats = updatedPersistence.inferenceStats
-            if (updatedStats.inputTokens == null &&
-                updatedStats.outputTokens == null &&
-                updatedStats.totalTokens == null
-            ) return@launch
-            val metadataUpdate = withContext(Dispatchers.IO) {
-                postTerminalAssistantMetadataUpdater.update(
-                    messageId = assistantId,
-                    expectedChatId = chatId,
-                    expectedMessage = persistedResponse,
-                    patch = PostTerminalAssistantMetadataPatch.fromInferenceStats(
-                        stats = updatedStats,
-                        localSourceSummary = updatedPersistence.localSourceSummary,
-                    ),
+        PostResponseTokenStatsUpdater(
+            coroutineScope = coroutineScope,
+            postTerminalAssistantMetadataUpdater = postTerminalAssistantMetadataUpdater,
+            recount = { request ->
+                recountLocalInferenceTokensAfterCompletion(
+                    context = context.applicationContext,
+                    modelPath = request.modelPath,
+                    prompt = request.prompt,
+                    response = request.response,
+                    trace = request.trace,
+                    allowStandaloneGpu = request.allowStandaloneGpu,
                 )
-            }
-            if (metadataUpdate.accepted) {
-                immediateInferenceStatsByMessageId[assistantId] = updatedStats
-            }
-        }
+            },
+            onStatsUpdated = { id, stats -> immediateInferenceStatsByMessageId[id] = stats },
+        )
     }
 
     DisposableEffect(effectiveChatId) {
@@ -3040,8 +2778,6 @@ fun Home(
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
-        streamingSpeechBuffer = ""
-        streamingSpeechLastConsumedLength = 0
         streamingSpeechStartedForMessageId = null
         if (clearPlaybackFlag) {
             isStreamingSentencePlaybackActive = false
@@ -3053,6 +2789,8 @@ fun Home(
         armTapGuards: Boolean,
     ) {
         suppressedTtsAssistantMessageId = suppressedMessageId
+        responseSpeechSession.stop()
+        ttsTapGuardEpoch += 1
 
         ttsController.stop()
         viewModel.stopTtsPlayback()
@@ -3579,17 +3317,22 @@ fun Home(
     LaunchedEffect(effectiveChatId, isLocalInferenceRunning, streamingAssistantMessageId) {
         if (!isLocalInferenceRunning) return@LaunchedEffect
         val checkpointChatId = effectiveChatId ?: return@LaunchedEffect
-        if (streamingAssistantMessageId == null) return@LaunchedEffect
+        val checkpointMessageId = streamingAssistantMessageId ?: return@LaunchedEffect
         var lastCheckpointText = lastPersistedStreamingAssistantText.orEmpty()
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
             if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
             val checkpointText = localStreamingResponseText?.trim().orEmpty()
             if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
-            upsertStreamingAssistantPlaceholderSerialized(
-                chatId = checkpointChatId,
-                response = checkpointText,
-            )
+            streamingAssistantPersistMutex.withLock {
+                // Completion releases ownership under this same mutex. A checkpoint
+                // queued before completion must never create a fresh pending row.
+                if (streamingAssistantMessageId != checkpointMessageId) return@withLock
+                assistantMessageLifecycleCoordinator.checkpoint(
+                    existingMessageId = checkpointMessageId,
+                    response = checkpointText,
+                )
+            }
             lastCheckpointText = checkpointText
             logStreamTrace(
                 "STREAM room checkpoint id=$streamingAssistantMessageId len=${checkpointText.length}",
@@ -3731,70 +3474,38 @@ fun Home(
         }
     }
 
-    fun consumeStreamingSentenceAndSpeak(fullText: String) {
-        if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+    fun queueResponseSpeech(fullText: String, final: Boolean) {
+        if (!ttsEnabled || !responseSpeechSession.accepts()) return
+        val targetMessageId = streamingSpeechStartedForMessageId
+        if (targetMessageId != null && isTtsSuppressedForAssistant(targetMessageId)) return
+        if (fullText.contains("```")) {
+            responseSpeechSession.stop()
             isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
+            ttsController.stop()
             viewModel.stopTtsPlayback()
             return
         }
-        val targetMessageId = streamingSpeechStartedForMessageId
-        if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
-        if (fullText.length < streamingSpeechLastConsumedLength) {
-            streamingSpeechLastConsumedLength = 0
+        val unsaid = responseSpeechSession.take(fullText, final) ?: return
+        val normalized = sanitizeStreamingTextForTts(unsaid)
+        if (normalized.isBlank()) return
+        targetMessageId?.let { messageId ->
+            currentSpeakingAssistantMessageId = messageId
+            stopButtonOwnerAssistantMessageId = messageId
+            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
         }
-        streamingSpeechBuffer = fullText
-        if (streamingSpeechLastConsumedLength >= fullText.length) return
-        val remaining = fullText.substring(streamingSpeechLastConsumedLength)
-        val sentenceBreakIndex = findStreamingTtsBreakIndex(remaining)
-        if (sentenceBreakIndex < 0) return
-        val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
-        val normalized = sanitizeStreamingTextForTts(speakTarget)
-        // Streaming sentence TTS uses QUEUE_ADD, so do not drop sentence fragments because
-        // the previous queued utterance just ended and the controller is in auto-speak cooldown.
-        // Dropping here can skip the final short tail such as "お気軽にどうぞ".
-        if (normalized.isNotEmpty()) {
-            streamingSpeechStartedForMessageId?.let { messageId ->
-                currentSpeakingAssistantMessageId = messageId
-                if (!isTtsSuppressedForAssistant(messageId)) {
-                    stopButtonOwnerAssistantMessageId = messageId
-                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-                }
-            }
-            isStreamingSentencePlaybackActive = true
-            ttsController.speakQueued(normalized)
-        }
-        streamingSpeechLastConsumedLength += sentenceBreakIndex + 1
+        isStreamingSentencePlaybackActive = true
+        ttsController.speakQueued(normalized)
     }
 
-    fun speakStreamingTailIfNeeded(fullText: String) {
-        if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
-            isStreamingSentencePlaybackActive = false
-            streamingSpeechLastConsumedLength = fullText.length
-            streamingSpeechStartedForMessageId = null
-            viewModel.stopTtsPlayback()
-            return
-        }
-        val targetMessageId = streamingSpeechStartedForMessageId
-        if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
-        val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
-        val remaining = fullText.substring(safeConsumed)
-        val normalized = sanitizeStreamingTextForTts(remaining)
-        // Tail flush also uses QUEUE_ADD; cooldown must not discard the final unsaid tail.
-        if (normalized.isNotEmpty()) {
-            streamingSpeechStartedForMessageId?.let { messageId ->
-                currentSpeakingAssistantMessageId = messageId
-                if (!isTtsSuppressedForAssistant(messageId)) {
-                    stopButtonOwnerAssistantMessageId = messageId
-                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
-                }
-            }
-            isStreamingSentencePlaybackActive = true
-            ttsController.speakQueued(normalized)
-        }
+    fun consumeStreamingSentenceAndSpeak(fullText: String) = queueResponseSpeech(fullText, final = false)
+
+    fun speakStreamingTailIfNeeded(fullText: String) = queueResponseSpeech(fullText, final = true)
+
+    suspend fun prepareResponseSpeechPlayback(): Boolean {
+        val token = responseSpeechSession.generation
+        if (!responseSpeechSession.accepts(token)) return false
+        maybeReleaseHeldEngineForTtsPlayback()
+        return responseSpeechSession.accepts(token)
     }
 
     val effectiveStreamingSentenceTtsEnabled = shouldEnableStreamingSentenceTts(
@@ -3983,12 +3694,18 @@ fun Home(
             pendingNavigateChatId == null &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
-            isCreatingChat = true
-            val newChatId = viewModel.insertChatAndReturnId(
-                Chat(title = "New chat", titleSource = TitleSource.TEMP)
+            createChatWithProgress(
+                setCreating = { isCreatingChat = it },
+                createChat = {
+                    viewModel.insertChatAndReturnId(
+                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                    )
+                },
+                onCreated = { newChatId ->
+                    effectiveChatId = newChatId
+                    pendingNavigateChatId = newChatId
+                },
             )
-            effectiveChatId = newChatId
-            pendingNavigateChatId = newChatId
         }
 
         if (resolvedChatId != null) {
@@ -4054,8 +3771,7 @@ fun Home(
                     // if this coroutine suspends or is cancelled after that, speech scheduled later can
                     // be skipped intermittently even though the assistant text was displayed and saved.
                     if (effectiveStreamingSentenceTtsEnabled) {
-                        maybeReleaseHeldEngineForTtsPlayback()
-                        speakStreamingTailIfNeeded(response)
+                        if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(response)
                         // Keep the streaming TTS playback flag active after queueing the final tail.
                         // A second unconditional reset here clears ownership while the queued final
                         // utterance is still pending, which can make the last sentence disappear from
@@ -4074,8 +3790,7 @@ fun Home(
                                 stopButtonOwnerAssistantMessageId = assistantId
                                 stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                             }
-                            maybeReleaseHeldEngineForTtsPlayback()
-                            ttsController.speak(speechText)
+                            if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(response)
                         }
                     }
                     if (!streamingSpeechStateResetForQueuedTail) {
@@ -4105,6 +3820,7 @@ fun Home(
                         val assistantId = finalizeStreamingAssistantFailureSerialized(
                             chatId = currentChatId,
                             response = errorText,
+                            latestInferenceStats = latestInferenceStats,
                         )
                         if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                     }
@@ -4143,6 +3859,7 @@ fun Home(
     }
 
     LaunchedEffect(lamiUiState.lastInteractionTimeMs, lamiUiState.state) {
+        if (lamiUiState.state !is LamiState.Speaking) return@LaunchedEffect
         val referenceTime = lamiUiState.lastInteractionTimeMs
         val idleTimeoutMs = 6_000L
         delay(idleTimeoutMs)
@@ -4375,68 +4092,80 @@ fun Home(
                         }
                     ) {
                         HeaderAvatar(
+                            state = LamiHeaderStatusState(
+                                baseUrl = baseUrl,
+                                selectedModel = selectedModel,
+                                lastError = errorMessage,
+                                lamiStatus = effectiveLamiStatusForChatUi,
+                                lamiState = effectiveLamiHeaderStateForChatUi,
+                                availableModels = availableModels,
+                                selectedInferenceTarget = selectedInferenceTarget,
+                                localInferenceEngineState = localInferenceEngineState,
+                                debugOverlayEnabled = false,
+                                syncEpochMs = animationEpochMs,
+                            ),
+                            actions = LamiHeaderStatusActions(
+                                onSelectModel = { modelName ->
+                                    viewModel.onUserInteraction()
+                                    viewModel.updateSelectedModel(modelName)
+                                },
+                                onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                                onSelectInferenceTarget = { target ->
+                                    selectedInferenceTarget = target
+                                    coroutineScope.launch {
+                                        settingsPreferences.saveInferenceTarget(target)
+                                    }
+                                },
+                            ),
+                            avatarPresentation = LamiHeaderAvatarPresentation(
+                                initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
+                                minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                                maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            ),
+                            openControlRequestKey = openLamiControlRequestKey,
+                        )
+                    }
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
+                    LamiHeaderStatus(
+                        state = LamiHeaderStatusState(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
                             lamiStatus = effectiveLamiStatusForChatUi,
                             lamiState = effectiveLamiHeaderStateForChatUi,
                             availableModels = availableModels,
-                            initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
-                            minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                            maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            selectedInferenceTarget = selectedInferenceTarget,
+                            localBaseModelDisplayName = activeLocalModelDisplayName,
+                            localInferenceEngineState = localInferenceEngineState,
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                            statusTitleOverride = headerStatusTitleOverride,
+                        ),
+                        actions = LamiHeaderStatusActions(
                             onSelectModel = { modelName ->
                                 viewModel.onUserInteraction()
                                 viewModel.updateSelectedModel(modelName)
                             },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                            selectedInferenceTarget = selectedInferenceTarget,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                                 coroutineScope.launch {
                                     settingsPreferences.saveInferenceTarget(target)
                                 }
                             },
-                            localInferenceEngineState = localInferenceEngineState,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                            openControlRequestKey = openLamiControlRequestKey,
-                        )
-                    }
-                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
-                    Spacer(modifier = Modifier.size(2.dp))
-                        LamiHeaderStatus(
-                            baseUrl = baseUrl,
-                            selectedModel = selectedModel,
-                            lastError = errorMessage,
-                        lamiStatus = effectiveLamiStatusForChatUi,
-                        lamiState = effectiveLamiHeaderStateForChatUi,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
+                            onOpenControl = {
+                                viewModel.onUserInteraction()
+                                openLamiControlRequestKey += 1
                             },
-                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                            selectedInferenceTarget = selectedInferenceTarget,
-                            localBaseModelDisplayName = activeLocalModelDisplayName,
-                            onSelectInferenceTarget = { target ->
-                                selectedInferenceTarget = target
-                                coroutineScope.launch {
-                                    settingsPreferences.saveInferenceTarget(target)
-                                }
-                            },
-                            localInferenceEngineState = localInferenceEngineState,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
+                        ),
+                        avatarPresentation = LamiHeaderAvatarPresentation(
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
-                        minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                        maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                        // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
-                        showAvatar = false,
-                        onOpenControl = {
-                            viewModel.onUserInteraction()
-                            openLamiControlRequestKey += 1
-                        },
-                        statusTitleOverride = headerStatusTitleOverride,
+                            minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
+                            showAvatar = false,
+                        ),
                     )
                 }
             },
@@ -4752,6 +4481,7 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
@@ -4759,6 +4489,7 @@ fun Home(
                                                                 viewModel.sendPrompt(
                                                                     prompt = requestPrompt,
                                                                     model = selectedModel,
+                                                                    chatId = currentChatId,
                                                                     attachmentUris = requestAttachmentUris,
                                                                     context = context.applicationContext,
                                                                     onRequestPrepared = { savedAttachmentUriStrings ->
@@ -4986,6 +4717,8 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
+                                                        val npuSpeechGeneration = responseSpeechSession.generation
                                                         localInferenceJob = coroutineScope.launch {
                                                             var resolvedNpuChatId: Int? = null
                                                             var npuS1DecodeStartedAtMs: Long? = null
@@ -5089,7 +4822,7 @@ fun Home(
                                                                                 currentUserPrompt = requestPrompt,
                                                                             )
                                                                             if (NpuKotlinConversationProductRoute.enabled) {
-                                                                                npuStandardRouteStreamingSentenceTtsBlocked = true
+                                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                                 val kotlinConversationAttempt = try {
                                                                                     NpuKotlinConversationProductRoute.run(
                                                                                         context = context.applicationContext,
@@ -5100,9 +4833,9 @@ fun Home(
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (!localStopRequested && effectiveChatId == npuChatId) {
+                                                                                            if (!localStopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (localStopRequested || effectiveChatId != npuChatId) return@launch
+                                                                                                    if (localStopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     didReceiveRealLocalPartial = true
                                                                                                     realLocalPartialChunkCount += 1
                                                                                                     localStreamingResponseText = partial
@@ -5494,7 +5227,7 @@ fun Home(
                                                                     latestInferenceStats = fallbackPersistence.inferenceStats,
                                                                     localSourceSummary = fallbackPersistence.localSourceSummary,
                                                                 ) ?: return@launch
-                                                                scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                postResponseTokenStatsUpdater.scheduleNpuFallbackTokenizerStatsUpdate(
                                                                     assistantId = fallbackAssistantId,
                                                                     chatId = currentChatId,
                                                                     persistedResponse = fallbackAssistantResponse,
@@ -5868,8 +5601,9 @@ fun Home(
                                                             ) {
                                                                 npuStandardRouteTtsRequested = true
                                                                 try {
-                                                                    maybeReleaseHeldEngineForTtsPlayback()
-                                                                    ttsController.speak(phase5TtsCandidate.speakText)
+                                                                    if (prepareResponseSpeechPlayback()) {
+                                                                        speakStreamingTailIfNeeded(npuStandardRouteSafeTtsText)
+                                                                    }
                                                                     npuStandardRouteTtsStarted = true
                                                                     npuStandardRouteDeliveryPath =
                                                                         if (npuStandardRouteDbSaveExecuted) {
@@ -6160,7 +5894,7 @@ fun Home(
                                                                             ),
                                                                         )
                                                                             val s5SavedResult = try {
-                                                                                ttsController.speak(ttsCandidate.speakText)
+                                                                                speakStreamingTailIfNeeded(s1Result.ttsText)
                                                                                 buildNpuStandardRouteS5TtsSavedResult(
                                                                                     s1Result = s1Result,
                                                                                     finalAssistantText = s1Result.ttsText,
@@ -6455,7 +6189,7 @@ fun Home(
                                                                         ) ?: return@launch
                                                                     }
                                                                     if (exceptionFallbackPersistence != null && exceptionFallbackResult != null) {
-                                                                        scheduleNpuFallbackTokenizerStatsUpdate(
+                                                                        postResponseTokenStatsUpdater.scheduleNpuFallbackTokenizerStatsUpdate(
                                                                             assistantId = exceptionFallbackAssistantId,
                                                                             chatId = failureChatId,
                                                                             persistedResponse = assistantResponse,
@@ -6511,6 +6245,7 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        responseSpeechSession.begin()
                                                         localInferenceJob = coroutineScope.launch {
                                                             var currentChatId = effectiveChatId
                                                             if (currentChatId == null) {
@@ -6745,6 +6480,7 @@ fun Home(
                                                             ?: streamingSpeechStartedForMessageId,
                                                         armTapGuards = false,
                                                     )
+                                                    responseSpeechSession.begin()
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
@@ -7483,6 +7219,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
                                                                     )
+                                                                    val latestHeldPartialText = AtomicReference<String?>(null)
                                                                     suspend fun runHeldEngineForRun(): HeldEngineRunResult? {
                                                                         lastRouteDiagnosticStage.set("conversation_create_started")
                                                                         return runWithHeldEngine(
@@ -7544,6 +7281,7 @@ fun Home(
                                                                                 normalized = normalizedPartial,
                                                                             )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
+                                                                            latestHeldPartialText.set(normalizedPartial)
                                                                             coroutineScope.launch {
                                                                                 if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
@@ -7620,6 +7358,7 @@ fun Home(
                                                                                     failureStage = failureStage,
                                                                                     staleCallbackIgnored = false,
                                                                                 ),
+                                                                                partialResponse = latestHeldPartialText.get(),
                                                                             )
                                                                         }
                                                                         runOperation.value
@@ -8177,8 +7916,7 @@ fun Home(
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
                                                                         ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                         ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
-                                                                        maybeReleaseHeldEngineForTtsPlayback()
-                                                                        speakStreamingTailIfNeeded(resolvedAssistantResponse)
+                                                                        if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
                                                                         ttsEnabled &&
@@ -8195,8 +7933,7 @@ fun Home(
                                                                                 stopButtonOwnerAssistantMessageId = assistantId
                                                                                 stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                                                                             }
-                                                                            maybeReleaseHeldEngineForTtsPlayback()
-                                                                            ttsController.speak(speechText)
+                                                                            if (prepareResponseSpeechPlayback()) speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         }
                                                                     }
                                                                     if (assistantId != null && localStats != null) {
@@ -8238,6 +7975,18 @@ fun Home(
                                                                         }
                                                                         if (metadataUpdate.accepted) {
                                                                             immediateInferenceStatsByMessageId[assistantId] = finalStats
+                                                                            resolvedTrace?.let { completedTrace ->
+                                                                                postResponseTokenStatsUpdater.scheduleLocalTokenizerStatsUpdate(
+                                                                                    assistantId = assistantId,
+                                                                                    chatId = currentChatId,
+                                                                                    response = resolvedAssistantResponse,
+                                                                                    prompt = requestPrompt,
+                                                                                    trace = completedTrace,
+                                                                                    modelPath = mediaPipeProbeModelPathForRun,
+                                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                                    sourceSummary = finalLocalSourceSummary,
+                                                                                )
+                                                                            }
                                                                         } else {
                                                                             Log.w(
                                                                                 "ChatScreen",
@@ -8259,6 +8008,16 @@ fun Home(
                                                                 ?.takeIf { it.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE }
                                                             val timeoutFailureRunResult = runResultWithUiTrace
                                                                 ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
+                                                            val gpuTimeoutPartialPreserved =
+                                                                runResultWithUiTrace?.let { result ->
+                                                                    isGpuTimeoutPartialPreservedFailure(
+                                                                        isErrorState =
+                                                                            result.state == LocalInferenceEngineState.ERROR,
+                                                                        response = result.response,
+                                                                        preferredBackendApplyResult =
+                                                                            result.trace.preferredBackendApplyResult,
+                                                                    )
+                                                                } == true
                                                             val rawCallbackProbeSucceeded = rawCallbackProbeRunResult != null
                                                             val localFailureStatus = if (rawCallbackProbeSucceeded) {
                                                                 "diagnostic_success"
@@ -8267,7 +8026,10 @@ fun Home(
                                                             }
                                                             val localFailureReason = when {
                                                                 rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
-                                                                recheckedTimedOut -> "local_inference_timeout"
+                                                                gpuTimeoutPartialPreserved ->
+                                                                    "local_inference_timeout_partial_preserved"
+                                                                recheckedTimedOut || timeoutFailureRunResult != null ->
+                                                                    "local_inference_timeout"
                                                                 resolvedState == LocalInferenceEngineState.UNINITIALIZED -> "local_model_uninitialized"
                                                                 resolvedState == LocalInferenceEngineState.READY -> "local_response_blank"
                                                                 else -> "local_inference_failure"
@@ -8282,7 +8044,7 @@ fun Home(
                                                                     reason = localFailureReason,
                                                                     failureStage = when {
                                                                         rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
-                                                                        recheckedTimedOut -> "timeout"
+                                                                        recheckedTimedOut || timeoutFailureRunResult != null -> "timeout"
                                                                         else -> null
                                                                     },
                                                                     routeContext = localRouteDiagnosticContext,
@@ -8343,17 +8105,22 @@ fun Home(
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                             }
                                                             snackbarHostState.showSnackbar(
-                                                                message = when (resolvedState) {
-                                                                    null -> "ローカル推論エンジンの確認がタイムアウトしました"
-                                                                    LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
-                                                                    LocalInferenceEngineState.UNINITIALIZED ->
+                                                                message = when {
+                                                                    gpuTimeoutPartialPreserved ->
+                                                                        "GPU推論がタイムアウトしたため、途中までの応答を保存しました"
+                                                                    resolvedState == null ->
+                                                                        "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                    resolvedState == LocalInferenceEngineState.READY ->
+                                                                        "ローカル推論の応答取得に失敗しました"
+                                                                    resolvedState == LocalInferenceEngineState.UNINITIALIZED ->
                                                                         missingLocalModelMessageForBackend(
                                                                             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             displayName = selectedLocalModelDisplayName,
                                                                             filePath = selectedLocalModelFilePath,
                                                                         )
-                                                                    LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
-                                                                    LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
+                                                                    resolvedState == LocalInferenceEngineState.ERROR ->
+                                                                        "ローカル推論の応答取得に失敗しました"
+                                                                    else -> "ローカル推論エンジンを準備中です"
                                                                 },
                                                                 duration = SnackbarDuration.Short,
                                                             )
@@ -9130,9 +8897,12 @@ fun Home(
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
                                                     stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                    val replayEpoch = ttsTapGuardEpoch
                                                     coroutineScope.launch {
                                                         maybeReleaseHeldEngineForTtsPlayback()
-                                                        ttsController.speak(speechText)
+                                                        if (replayEpoch == ttsTapGuardEpoch && !isTtsSuppressedForAssistant(message.messageID)) {
+                                                            ttsController.speak(speechText)
+                                                        }
                                                     }
                                                 }
                                                 } else {
@@ -10547,21 +10317,22 @@ fun Home(
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
-                    npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
-                    npuPersistentHolderCreateCloseInProgress =
-                        npuPersistentHolderCreateCloseJob?.isActive == true,
-                    isInferenceRunningForHolderCreateClose = isInferenceRunningUi ||
-                        npuS1RepeatedRunJob?.isActive == true ||
-                        npuLongGenerationJob?.isActive == true ||
-                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
-                        npuS1PersistentEngineJob?.isActive == true ||
-                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
-                        npuPersistentHolderRunOnceJob?.isActive == true ||
-                        npuPersistentHolderTwoTurnJob?.isActive == true ||
-                        npuPersistentHolderFiveTurnJob?.isActive == true ||
-                        npuPersistentHolderTenTurnJob?.isActive == true ||
-                        npuS1PersistentCustomJniJob?.isActive == true,
-                    onNpuPersistentHolderCreateCloseStart = ::startNpuPersistentHolderCreateCloseProbe,
+                    holderCreateCloseUi = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderCreateCloseState,
+                        running = npuPersistentHolderCreateCloseJob?.isActive == true,
+                        blockedByGeneration = isInferenceRunningUi ||
+                            npuS1RepeatedRunJob?.isActive == true ||
+                            npuLongGenerationJob?.isActive == true ||
+                            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                            npuS1PersistentEngineJob?.isActive == true ||
+                            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                            npuPersistentHolderRunOnceJob?.isActive == true ||
+                            npuPersistentHolderTwoTurnJob?.isActive == true ||
+                            npuPersistentHolderFiveTurnJob?.isActive == true ||
+                            npuPersistentHolderTenTurnJob?.isActive == true ||
+                            npuS1PersistentCustomJniJob?.isActive == true,
+                    ),
+                    holderCreateCloseActions = NpuHolderDiagnosticActions(onStart = ::startNpuPersistentHolderCreateCloseProbe),
                     npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
                                             npuTrueEngineEntrypointState = npuTrueEngineEntrypointState,
                                             npuTrueEngineEntrypointInProgress =
@@ -10677,66 +10448,70 @@ fun Home(
                         npuPersistentHolderTenTurnJob?.isActive == true ||
                         npuS1PersistentCustomJniJob?.isActive == true,
                     onNpuTrueEngineHolderCreateCloseStart = ::startNpuTrueEngineHolderCreateCloseProbe,
-                    npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
-                    npuPersistentHolderRunOnceInProgress =
-                        npuPersistentHolderRunOnceJob?.isActive == true,
-                    isInferenceRunningForHolderRunOnce = isInferenceRunningUi ||
-                        npuS1RepeatedRunJob?.isActive == true ||
-                        npuLongGenerationJob?.isActive == true ||
-                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
-                        npuS1PersistentEngineJob?.isActive == true ||
-                        npuPersistentHolderCreateCloseJob?.isActive == true ||
-                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
-                        npuPersistentHolderTwoTurnJob?.isActive == true ||
-                        npuPersistentHolderFiveTurnJob?.isActive == true ||
-                        npuPersistentHolderTenTurnJob?.isActive == true ||
-                        npuS1PersistentCustomJniJob?.isActive == true,
-                    onNpuPersistentHolderRunOnceStart = ::startNpuPersistentHolderRunOnceProbe,
-                    npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
-                    npuPersistentHolderTwoTurnInProgress =
-                        npuPersistentHolderTwoTurnJob?.isActive == true,
-                    isInferenceRunningForHolderTwoTurn = isInferenceRunningUi ||
-                        npuS1RepeatedRunJob?.isActive == true ||
-                        npuLongGenerationJob?.isActive == true ||
-                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
-                        npuS1PersistentEngineJob?.isActive == true ||
-                        npuPersistentHolderCreateCloseJob?.isActive == true ||
-                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
-                        npuPersistentHolderRunOnceJob?.isActive == true ||
-                        npuPersistentHolderFiveTurnJob?.isActive == true ||
-                        npuPersistentHolderTenTurnJob?.isActive == true ||
-                        npuS1PersistentCustomJniJob?.isActive == true,
-                    onNpuPersistentHolderTwoTurnStart = ::startNpuPersistentHolderTwoTurnProbe,
-                    npuPersistentHolderFiveTurnState = npuPersistentHolderFiveTurnState,
-                    npuPersistentHolderFiveTurnInProgress =
-                        npuPersistentHolderFiveTurnJob?.isActive == true,
-                    isInferenceRunningForHolderFiveTurn = isInferenceRunningUi ||
-                        npuS1RepeatedRunJob?.isActive == true ||
-                        npuLongGenerationJob?.isActive == true ||
-                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
-                        npuS1PersistentEngineJob?.isActive == true ||
-                        npuPersistentHolderCreateCloseJob?.isActive == true ||
-                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
-                        npuPersistentHolderRunOnceJob?.isActive == true ||
-                        npuPersistentHolderTwoTurnJob?.isActive == true ||
-                        npuPersistentHolderTenTurnJob?.isActive == true ||
-                        npuS1PersistentCustomJniJob?.isActive == true,
-                    onNpuPersistentHolderFiveTurnStart = ::startNpuPersistentHolderFiveTurnProbe,
-                    npuPersistentHolderTenTurnState = npuPersistentHolderTenTurnState,
-                    npuPersistentHolderTenTurnInProgress =
-                        npuPersistentHolderTenTurnJob?.isActive == true,
-                    isInferenceRunningForHolderTenTurn = isInferenceRunningUi ||
-                        npuS1RepeatedRunJob?.isActive == true ||
-                        npuLongGenerationJob?.isActive == true ||
-                        npuNonStreamingRepeatedStabilityJob?.isActive == true ||
-                        npuS1PersistentEngineJob?.isActive == true ||
-                        npuPersistentHolderCreateCloseJob?.isActive == true ||
-                        npuTrueEngineHolderCreateCloseJob?.isActive == true ||
-                        npuPersistentHolderRunOnceJob?.isActive == true ||
-                        npuPersistentHolderTwoTurnJob?.isActive == true ||
-                        npuPersistentHolderFiveTurnJob?.isActive == true ||
-                        npuS1PersistentCustomJniJob?.isActive == true,
-                    onNpuPersistentHolderTenTurnStart = ::startNpuPersistentHolderTenTurnProbe,
+                    holderRunOnceUi = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderRunOnceState,
+                        running = npuPersistentHolderRunOnceJob?.isActive == true,
+                        blockedByGeneration = isInferenceRunningUi ||
+                            npuS1RepeatedRunJob?.isActive == true ||
+                            npuLongGenerationJob?.isActive == true ||
+                            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                            npuS1PersistentEngineJob?.isActive == true ||
+                            npuPersistentHolderCreateCloseJob?.isActive == true ||
+                            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                            npuPersistentHolderTwoTurnJob?.isActive == true ||
+                            npuPersistentHolderFiveTurnJob?.isActive == true ||
+                            npuPersistentHolderTenTurnJob?.isActive == true ||
+                            npuS1PersistentCustomJniJob?.isActive == true,
+                    ),
+                    holderRunOnceActions = NpuHolderDiagnosticActions(onStart = ::startNpuPersistentHolderRunOnceProbe),
+                    holderTwoTurnUi = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderTwoTurnState,
+                        running = npuPersistentHolderTwoTurnJob?.isActive == true,
+                        blockedByGeneration = isInferenceRunningUi ||
+                            npuS1RepeatedRunJob?.isActive == true ||
+                            npuLongGenerationJob?.isActive == true ||
+                            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                            npuS1PersistentEngineJob?.isActive == true ||
+                            npuPersistentHolderCreateCloseJob?.isActive == true ||
+                            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                            npuPersistentHolderRunOnceJob?.isActive == true ||
+                            npuPersistentHolderFiveTurnJob?.isActive == true ||
+                            npuPersistentHolderTenTurnJob?.isActive == true ||
+                            npuS1PersistentCustomJniJob?.isActive == true,
+                    ),
+                    holderTwoTurnActions = NpuHolderDiagnosticActions(onStart = ::startNpuPersistentHolderTwoTurnProbe),
+                    holderFiveTurnUi = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderFiveTurnState,
+                        running = npuPersistentHolderFiveTurnJob?.isActive == true,
+                        blockedByGeneration = isInferenceRunningUi ||
+                            npuS1RepeatedRunJob?.isActive == true ||
+                            npuLongGenerationJob?.isActive == true ||
+                            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                            npuS1PersistentEngineJob?.isActive == true ||
+                            npuPersistentHolderCreateCloseJob?.isActive == true ||
+                            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                            npuPersistentHolderRunOnceJob?.isActive == true ||
+                            npuPersistentHolderTwoTurnJob?.isActive == true ||
+                            npuPersistentHolderTenTurnJob?.isActive == true ||
+                            npuS1PersistentCustomJniJob?.isActive == true,
+                    ),
+                    holderFiveTurnActions = NpuHolderDiagnosticActions(onStart = ::startNpuPersistentHolderFiveTurnProbe),
+                    holderTenTurnUi = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderTenTurnState,
+                        running = npuPersistentHolderTenTurnJob?.isActive == true,
+                        blockedByGeneration = isInferenceRunningUi ||
+                            npuS1RepeatedRunJob?.isActive == true ||
+                            npuLongGenerationJob?.isActive == true ||
+                            npuNonStreamingRepeatedStabilityJob?.isActive == true ||
+                            npuS1PersistentEngineJob?.isActive == true ||
+                            npuPersistentHolderCreateCloseJob?.isActive == true ||
+                            npuTrueEngineHolderCreateCloseJob?.isActive == true ||
+                            npuPersistentHolderRunOnceJob?.isActive == true ||
+                            npuPersistentHolderTwoTurnJob?.isActive == true ||
+                            npuPersistentHolderFiveTurnJob?.isActive == true ||
+                            npuS1PersistentCustomJniJob?.isActive == true,
+                    ),
+                    holderTenTurnActions = NpuHolderDiagnosticActions(onStart = ::startNpuPersistentHolderTenTurnProbe),
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                     npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                     npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
@@ -11522,87 +11297,12 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
     )
 }
 
-private fun normalizeLocalInferenceRunResult(result: LocalInferenceRunResult?): LocalInferenceRunResult? {
-    if (result == null) return null
-    val executionPath = LocalExecutionPath.fromSourceLabel(result.trace.selectedAssistantResponseSource)
-        ?: LocalExecutionPath.fromClosePath(result.closeLifecycleSummary?.path)
-    val usesOfficialApi = executionPath?.usesOfficialConversationApi == true
-    val officialFlowUsed = executionPath?.officialFlowUsed ?: result.trace.officialFlowUsed
-    val officialFlowAttempted = when {
-        executionPath != null -> executionPath.officialFlowAttempted
-        officialFlowUsed -> true
-        else -> result.trace.officialFlowAttempted
-    }
-    val officialFlowFallbackReason = if (officialFlowUsed) {
-        null
-    } else {
-        result.trace.officialFlowFallbackReason
-    }
-    val normalizedTrace = result.trace.copy(
-        selectedAssistantResponseSource = executionPath?.sourceLabel
-            ?: result.trace.selectedAssistantResponseSource,
-        officialFlowAttempted = officialFlowAttempted,
-        officialFlowUsed = officialFlowUsed,
-        officialFlowFallbackReason = officialFlowFallbackReason,
-        officialConversationApiAvailable = when {
-            result.trace.officialConversationApiAvailable != null -> result.trace.officialConversationApiAvailable
-            usesOfficialApi -> true
-            else -> null
-        },
-        outputTokenProbe = normalizeStatsProbeAvailability(
-            probe = result.trace.outputTokenProbe,
-            derivableNow = result.trace.sessionResponseTokens != null,
-            usesOfficialApi = usesOfficialApi,
-        ),
-        evalTimeProbe = normalizeStatsProbeAvailability(
-            probe = result.trace.evalTimeProbe,
-            derivableNow = result.trace.localTraceStartElapsedRealtimeMs != null &&
-                result.trace.localTraceCompletedElapsedRealtimeMs != null,
-            usesOfficialApi = usesOfficialApi,
-        ),
-        firstTokenProbe = normalizeStatsProbeAvailability(
-            probe = result.trace.firstTokenProbe,
-            derivableNow = result.trace.localTraceStartElapsedRealtimeMs != null &&
-                result.trace.localTraceFirstResponseElapsedRealtimeMs != null,
-            usesOfficialApi = usesOfficialApi,
-        ),
-    )
-    return result.copy(trace = normalizedTrace)
-}
-
-private fun normalizeStatsProbeAvailability(
-    probe: LocalStatsCandidateProbe,
-    derivableNow: Boolean,
-    usesOfficialApi: Boolean,
-): LocalStatsCandidateProbe {
-    if (probe.availability != LocalStatsAvailability.NOT_FOUND) return probe
-    return when {
-        derivableNow -> probe.copy(availability = LocalStatsAvailability.DERIVABLE_NOW)
-        usesOfficialApi -> probe.copy(availability = LocalStatsAvailability.API_CANDIDATE_ONLY)
-        else -> probe
-    }
-}
-
 private suspend fun <T> runGpuExperimentalOperationWithTimeout(
     timeoutMs: Long = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
     block: suspend () -> T?,
-): GpuExperimentalTimeoutOperationResult<T> {
-    val deferred = CoroutineScope(Dispatchers.IO).async {
-        block()
-    }
-    val startedAtMs = SystemClock.elapsedRealtime()
-    while (!deferred.isCompleted) {
-        if (SystemClock.elapsedRealtime() - startedAtMs >= timeoutMs) {
-            deferred.cancel()
-            return GpuExperimentalTimeoutOperationResult(value = null, timedOut = true)
-        }
-        delay(100L)
-    }
-    return GpuExperimentalTimeoutOperationResult(
-        value = deferred.await(),
-        timedOut = false,
-    )
-}
+): GpuExperimentalTimeoutOperationResult<T> =
+    runCancellableGpuOperation(timeoutMs = timeoutMs, block = block)
+
 
 private fun buildGpuExperimentalTimeoutDiagnosticsText(
     context: LocalRouteDiagnosticContext,
@@ -11772,7 +11472,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
     failureStage: String,
     elapsedMs: Long,
     progressFlags: LocalRouteDiagnosticFlags? = null,
+    partialResponse: String? = null,
 ): LocalInferenceRunResult {
+    val preservedPartialResponse = partialResponse?.takeIf { it.isNotBlank() }
     val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
         context = context,
         failureStage = failureStage,
@@ -11780,8 +11482,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
         progressFlags = progressFlags,
     )
     return LocalInferenceRunResult(
+        // Preserve useful text, but never classify an incomplete timeout as success.
         state = LocalInferenceEngineState.ERROR,
-        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        response = preservedPartialResponse ?: GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
         trace = LocalInferenceTrace(
             localModelDisplayName = modelResolution.displayName,
             mediaPipeProbeModelPath = modelResolution.modelPath,
@@ -11790,9 +11493,17 @@ private fun buildGpuExperimentalTimeoutRunResult(
             genericFallbackModelConfigured = modelResolution.genericFallbackModelConfigured,
             requestedPreferredBackend = "GPU",
             appliedPreferredBackend = "GPU",
-            preferredBackendApplyResult = "timeout",
+            preferredBackendApplyResult = if (preservedPartialResponse != null) {
+                GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT
+            } else {
+                "timeout"
+            },
             preferredBackendHookReached = false,
-            preferredBackendHookSource = "gpu-experimental-timeout",
+            preferredBackendHookSource = if (preservedPartialResponse != null) {
+                "gpu-experimental-timeout-partial"
+            } else {
+                "gpu-experimental-timeout"
+            },
             localFailureDiagnosticsText = diagnosticsText,
         ),
     )
@@ -12108,15 +11819,6 @@ private fun Map<String, String>.diagnosticInt(key: String): Int? =
 private fun Map<String, String>.diagnosticLong(key: String): Long? =
     diagnosticString(key)?.toLongOrNull()
 
-private fun shouldInsertLocalFailureAssistantMessage(
-    runResult: LocalInferenceRunResult?,
-): Boolean =
-    runResult?.state == LocalInferenceEngineState.ERROR &&
-        (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
-            runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
-            runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE ||
-            runResult.response == GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE)
-
 private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
     text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
         text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING") ||
@@ -12130,36 +11832,6 @@ private fun ensureSuccessCloseLifecycleSummary(
         path = path,
         successReturned = true,
     )
-}
-
-private fun buildCloseLifecycleText(summary: RunCloseLifecycleSummary?): String? {
-    if (summary == null) return null
-    fun formatOutcome(label: String, outcome: RunCloseTargetOutcome?): String {
-        if (outcome == null) return "$label=status=none"
-        return buildString {
-            append(label).append("=status=").append(outcome.status)
-            append(" strategy=").append(outcome.strategy ?: "none")
-            append(" class=").append(outcome.targetClassName ?: "null")
-            if (!outcome.errorClassName.isNullOrBlank()) {
-                append(" error=").append(outcome.errorClassName)
-            }
-            if (!outcome.message.isNullOrBlank()) {
-                append(" message=").append(outcome.message)
-            }
-        }
-    }
-    return buildString {
-        append("CLOSE LIFECYCLE\n")
-        append("path=").append(summary.path).append("\n")
-        append("successReturned=").append(summary.successReturned).append("\n")
-        append(formatOutcome("conversation", summary.conversationOutcome)).append("\n")
-        append(formatOutcome("engine", summary.engineOutcome)).append("\n")
-        append(formatOutcome("session", summary.sessionOutcome)).append("\n")
-        append(formatOutcome("inference", summary.inferenceOutcome))
-        summary.notes?.takeIf { it.isNotBlank() }?.let { note ->
-            append("\nnotes=").append(note)
-        }
-    }
 }
 
 @Suppress("UNUSED_PARAMETER")
@@ -12294,9 +11966,6 @@ private const val GPU_MEMORY_PREFLIGHT_MIN_AVAILABLE_MB = 6_144L
 private const val GPU_MEMORY_PREFLIGHT_MODEL_MULTIPLIER = 2L
 private const val GPU_MEMORY_PREFLIGHT_RESERVE_MB = 1_536L
 private const val GPU_MEMORY_PREFLIGHT_GC_DELAY_MS = 250L
-private const val GPU_MEMORY_PREFLIGHT_BLOCKED_MESSAGE =
-    "GPUを安全に起動できる空きメモリが不足しています。CPUまたはNPUを使用してください。"
-
 private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
 
 private fun buildLocalLiteRtBackendKey(
@@ -13832,45 +13501,6 @@ private fun AssistantStreamingIndicator() {
     }
 }
 
-@Composable
-private fun InferenceStatRow(
-    label: String,
-    value: String,
-    emphasizeValue: Boolean = false,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (emphasizeValue) FontWeight.SemiBold else FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun InferenceStatsSection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        content()
-    }
-}
-
 private fun sanitizeLocalAssistantResponse(
     raw: String,
     prompt: String = "",
@@ -13930,53 +13560,6 @@ private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): Str
     return "len=${raw.length - normalized.length},spaces=${raw.count { it == ' ' } - normalized.count { it == ' ' }},newlines=${raw.count { it == '\n' } - normalized.count { it == '\n' }}"
 }
 
-private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): String? {
-    if (trace == null) return null
-    val measuredSnapshot = trace.measuredTokenSnapshot
-    val inputTokens = measuredSnapshot?.inputTokens
-    val outputTokens = measuredSnapshot?.outputTokens
-    val totalTokens = measuredSnapshot?.totalTokens
-    fun rawValueOrUnavailable(rawValue: String?): String = rawValue?.takeIf { it.isNotBlank() } ?: "unavailable"
-    return buildString {
-        append("in=$inputTokens / out=$outputTokens / total=$totalTokens")
-        measuredSnapshot?.mediaPipeTokenizerSummary
-            ?.takeIf { it.isNotBlank() }
-            ?.let { mediaPipeSummary ->
-                appendLine()
-                append(mediaPipeSummary)
-            }
-        measuredSnapshot?.tokenizerRecountStatus?.takeIf { it.isNotBlank() }?.let { status ->
-            appendLine()
-            append("tokenizer-recount status: $status")
-            measuredSnapshot.tokenizerSourceTraceSummary
-                ?.takeIf { it.isNotBlank() }
-                ?.let { sourceTraceSummary ->
-                    appendLine()
-                    append(sourceTraceSummary)
-                }
-            if (status == "success" || measuredSnapshot.mediaPipeTokenizerStatus == "success") {
-                appendLine()
-                append("tokenizer-recount tokens: in=$inputTokens / out=$outputTokens / total=$totalTokens")
-            }
-        }
-        appendLine()
-        append("[BenchmarkInfo raw]")
-        appendLine()
-        append("prefillTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokenCount)}")
-        appendLine()
-        append("decodeTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokenCount)}")
-        appendLine()
-        append("prefillTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokensPerSecond)}")
-        appendLine()
-        append("decodeTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokensPerSecond)}")
-        appendLine()
-        append("timeToFirstTokenMs: ${rawValueOrUnavailable(measuredSnapshot?.rawTimeToFirstTokenMs)}")
-        appendLine()
-        append("modelInitMs: ${rawValueOrUnavailable(measuredSnapshot?.rawModelInitMs)}")
-    }
-}
-
-
 @Composable
 private fun MemoryRecoveryCheckDevSection(
     state: MemoryRecoveryCheckState,
@@ -14003,381 +13586,6 @@ private fun MemoryRecoveryCheckDevSection(
         InferenceStatRow(
             label = "App/System memory recovery check",
             value = formatMemoryRecoveryCheckForDev(state),
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuS1RepeatedRunDevSection(
-    state: NpuS1RepeatedRunState,
-    preferredBackendSetting: PreferredBackendDryRunSetting,
-    npuStandardRouteMode: NpuStandardRouteMode,
-    selectedMode: NpuS1RepeatedRunMode,
-    selectedPrompt: String,
-    selectedRunCount: Int,
-    selectedWaitMs: Long,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onModeChange: (NpuS1RepeatedRunMode) -> Unit,
-    onPromptChange: (String) -> Unit,
-    onRunCountChange: (Int) -> Unit,
-    onWaitMsChange: (Long) -> Unit,
-    onStart: () -> Unit,
-    onCancel: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val startGate = npuS1RepeatedRunStartGate(
-        preferredBackendSetting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-        mode = selectedMode,
-        runCount = selectedRunCount,
-        waitMs = selectedWaitMs,
-    )
-    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
-        setting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-        backendEvidence = if (
-            isNpuS1RepeatedRunBackendAllowed(
-                npuS1BackendFromPreferredSetting(
-                    setting = preferredBackendSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                ),
-            )
-        ) {
-            NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
-        } else {
-            NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
-        },
-    )
-    val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
-    val controlsEnabled = !running && !blockedByGeneration
-    val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = "NPU ローカル Stability Test") {
-        Text(
-            text = "selected_backend=${backendDiagnostics.selectedBackend} " +
-                "requested_backend=${backendDiagnostics.requestedBackend} " +
-                "effective_backend=${backendDiagnostics.effectiveBackend} " +
-                "route_family=${backendDiagnostics.routeFamily}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (blockedByBackend) {
-            Text(
-                text = "NPU ローカル Stability Test は NPU ローカル / NPU standard route 選択時のみ実行可能",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        } else if (!startGate.allowed) {
-            Text(
-                text = "Safety policy: Reuse or Recreate / 10 runs / wait 500ms以上のみ実行可能",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Text(
-            text = "prompt:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        NPU_S1_REPEATED_RUN_PROMPT_OPTIONS.forEach { prompt ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(
-                    selected = selectedPrompt == prompt,
-                    onClick = { onPromptChange(prompt) },
-                    enabled = controlsEnabled,
-                )
-                Text(
-                    text = prompt,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-        Text(
-            text = "run count:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NPU_S1_REPEATED_RUN_COUNT_OPTIONS.forEach { count ->
-                FilterChip(
-                    selected = selectedRunCount == count,
-                    onClick = { onRunCountChange(count) },
-                    label = { Text(count.toString()) },
-                    enabled = controlsEnabled && count in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS,
-                )
-            }
-        }
-        Text(
-            text = "wait:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS.forEach { waitMs ->
-                FilterChip(
-                    selected = selectedWaitMs == waitMs,
-                    onClick = { onWaitMsChange(waitMs) },
-                    label = { Text("${waitMs}ms") },
-                    enabled = controlsEnabled && waitMs in NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS,
-                )
-            }
-        }
-        Text(
-            text = "実行モード:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        listOf(NpuS1RepeatedRunMode.REUSE, NpuS1RepeatedRunMode.RECREATE).forEach { mode ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = selectedMode == mode,
-                    onClick = { onModeChange(mode) },
-                    enabled = controlsEnabled && mode in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS,
-                )
-                Text(
-                    text = mode.displayLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = startEnabled,
-            ) {
-                Text("NPU ローカル安定性テスト開始")
-            }
-            TextButton(
-                onClick = onCancel,
-                enabled = running,
-            ) {
-                Text("キャンセル")
-            }
-        }
-        if (onCopySummary != null || onCopyFullDump != null) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (onCopySummary != null) {
-                    TextButton(onClick = onCopySummary) {
-                        Text("Copy Stability Summary")
-                    }
-                }
-                if (onCopyFullDump != null) {
-                    TextButton(onClick = onCopyFullDump) {
-                        Text("Copy Stability Full Dump")
-                    }
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "生成完了後に実行してください"
-            } else {
-                "DEV専用の直列テストです。Reuse は既存NPUエンジン再利用の安定性検証用です。失敗時は停止します。通常チャット履歴、TTS、DB保存には使いません。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        InferenceStatRow(
-            label = "NPU ローカル Stability Test",
-            value = formatNpuS1RepeatedRunDiagnosticsForDev(state),
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuLongGenerationDevSection(
-    state: NpuLongGenerationState,
-    preferredBackendSetting: PreferredBackendDryRunSetting,
-    npuStandardRouteMode: NpuStandardRouteMode,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCancel: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val startGate = npuLongGenerationStartGate(
-        preferredBackendSetting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-    )
-    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
-        setting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-        backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
-    )
-    val controlsEnabled = !running && !blockedByGeneration
-    val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = "NPU ローカル Long Generation Test") {
-        Text(
-            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "token_plan=${NPU_LONG_GENERATION_TOKEN_PLAN.joinToString(",")}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (!startGate.allowed) {
-            Text(
-                text = "NPU ローカル Long Generation Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = startEnabled,
-            ) {
-                Text("NPU ローカル長文生成テスト開始")
-            }
-            TextButton(
-                onClick = onCancel,
-                enabled = running,
-            ) {
-                Text("キャンセル")
-            }
-        }
-        if (onCopySummary != null || onCopyFullDump != null) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (onCopySummary != null) {
-                    TextButton(onClick = onCopySummary) {
-                        Text("Copy Long Summary")
-                    }
-                }
-                if (onCopyFullDump != null) {
-                    TextButton(onClick = onCopyFullDump) {
-                        Text("Copy Long Full Dump")
-                    }
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "生成完了後に実行してください"
-            } else {
-                "DEV専用の長文生成比較です。32/128/512 tokens を順に実行し、UI/TTS/DB保存には使いません。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        InferenceStatRow(
-            label = "NPU ローカル Long Generation Test",
-            value = formatNpuLongGenerationDiagnosticsForDev(state),
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuNonStreamingRepeatedStabilityDevSection(
-    state: NpuNonStreamingRepeatedStabilityState,
-    preferredBackendSetting: PreferredBackendDryRunSetting,
-    npuStandardRouteMode: NpuStandardRouteMode,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCancel: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val startGate = npuLongGenerationStartGate(
-        preferredBackendSetting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-    )
-    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
-        setting = preferredBackendSetting,
-        npuStandardRouteMode = npuStandardRouteMode,
-        backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
-    )
-    val controlsEnabled = !running && !blockedByGeneration
-    val startEnabled = controlsEnabled && startGate.allowed
-    InferenceStatsSection(title = NPU_NON_STREAMING_REPEATED_STABILITY_TEST_NAME) {
-        Text(
-            text = "selected_backend=${backendDiagnostics.selectedBackend} " +
-                "requested_backend=${backendDiagnostics.requestedBackend} " +
-                "route_type=$NPU_NON_STREAMING_REPEATED_STABILITY_ROUTE_TYPE",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "streaming=false pseudo_streaming=false tts=false db=false markdown=false fallback_allowed=false",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (!startGate.allowed) {
-            Text(
-                text = "NPU Non-Streaming Repeat Test は NPU ローカル / DEV NPU 選択時のみ実行可能",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = startEnabled,
-            ) {
-                Text(NPU_NON_STREAMING_REPEATED_STABILITY_RUN_LABEL)
-            }
-            TextButton(
-                onClick = onCancel,
-                enabled = running,
-            ) {
-                Text("キャンセル")
-            }
-        }
-        if (onCopySummary != null || onCopyFullDump != null) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (onCopySummary != null) {
-                    TextButton(onClick = onCopySummary) {
-                        Text(NPU_NON_STREAMING_REPEATED_STABILITY_COPY_SUMMARY_LABEL)
-                    }
-                }
-                if (onCopyFullDump != null) {
-                    TextButton(onClick = onCopyFullDump) {
-                        Text(NPU_NON_STREAMING_REPEATED_STABILITY_COPY_FULL_DUMP_LABEL)
-                    }
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "生成完了後に実行してください"
-            } else {
-                "DEV専用の one-shot NPU decode 繰り返しテストです。通常チャット履歴、疑似ストリーミング、TTS、DB保存、markdown には接続しません。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        InferenceStatRow(
-            label = NPU_NON_STREAMING_REPEATED_STABILITY_TEST_NAME,
-            value = formatNpuNonStreamingRepeatedStabilityDiagnosticsForDev(state),
         )
     }
 }
@@ -14507,74 +13715,6 @@ private fun NpuS1PersistentEngineDevSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuPersistentHolderCreateCloseDevSection(
-    state: NpuPersistentHolderCreateCloseProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val diagnostics = state.latestDiagnostics
-    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
-        "holder_fatal_latch=true: アプリ再起動推奨"
-    } else {
-        null
-    }
-    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_CREATE_CLOSE_UI_TITLE) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = !running && !blockedByGeneration,
-            ) {
-                Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_RUN_LABEL)
-            }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (onCopySummary != null) {
-                TextButton(onClick = onCopySummary) {
-                    Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL)
-                }
-            }
-            if (onCopyFullDump != null) {
-                TextButton(onClick = onCopyFullDump) {
-                    Text(NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL)
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "他の生成またはDEV診断完了後に実行してください"
-            } else {
-                "DEV専用診断です。create/close のみを実行し、run/decode/generate は実行しません。通常チャット経路には接続しません。fatal latch が立った場合はアプリ再起動推奨です。npu_decode_called=false / generate_called=false をsummaryで確認してください。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (warningText != null) {
-            Text(
-                text = warningText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        InferenceStatRow(
-            label = "Holder Create/Close Summary",
-            value = formatNpuPersistentHolderCreateCloseSummaryForCopy(state),
-            emphasizeValue = diagnostics?.holderFatalLatch == true,
-        )
-    }
-}
-
-
 internal fun npuTrueEngineModelAssetsUiSummaryText(state: NpuTrueEngineModelAssetsProbeState): String =
     formatNpuTrueEngineModelAssetsSummaryForCopy(state)
 
@@ -14651,274 +13791,6 @@ private fun NpuTrueEngineHolderCreateCloseDevSection(
             label = "True Engine Holder Summary",
             value = summary,
             emphasizeValue = warningText != null,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuPersistentHolderRunOnceDevSection(
-    state: NpuPersistentHolderRunOnceProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val diagnostics = state.latestDiagnostics
-    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
-        "holder_fatal_latch=true: アプリ再起動推奨"
-    } else {
-        null
-    }
-    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_RUN_ONCE_UI_TITLE) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = !running && !blockedByGeneration,
-            ) {
-                Text(NPU_PERSISTENT_HOLDER_RUN_ONCE_RUN_LABEL)
-            }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (onCopySummary != null) {
-                TextButton(onClick = onCopySummary) {
-                    Text(NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL)
-                }
-            }
-            if (onCopyFullDump != null) {
-                TextButton(onClick = onCopyFullDump) {
-                    Text(NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL)
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "他の生成またはDEV診断完了後に実行してください"
-            } else {
-                "DEV専用診断です。holder create → run once → close を1回だけ実行します。multi-turnではなく、通常チャット経路には接続しません。10回連続はまだ禁止で、engine_reuse_observed は unavailable のままです。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (warningText != null) {
-            Text(
-                text = warningText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        InferenceStatRow(
-            label = "Holder Run Once Summary",
-            value = formatNpuPersistentHolderRunOnceSummaryForCopy(state),
-            emphasizeValue = diagnostics?.holderFatalLatch == true,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuPersistentHolderTwoTurnDevSection(
-    state: NpuPersistentHolderTwoTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val diagnostics = state.latestDiagnostics
-    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
-        "holder_fatal_latch=true: アプリ再起動推奨"
-    } else {
-        null
-    }
-    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_TWO_TURN_UI_TITLE) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = !running && !blockedByGeneration,
-            ) {
-                Text(NPU_PERSISTENT_HOLDER_TWO_TURN_RUN_LABEL)
-            }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (onCopySummary != null) {
-                TextButton(onClick = onCopySummary) {
-                    Text(NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL)
-                }
-            }
-            if (onCopyFullDump != null) {
-                TextButton(onClick = onCopyFullDump) {
-                    Text(NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL)
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "他の生成またはDEV診断完了後に実行してください"
-            } else {
-                "DEV専用診断です。create 1回、decode 2回、close 1回だけを確認します。10-turnではなく、通常チャット経路には接続しません。persistent reuse証明ではなく、engine_reuse_observed は unavailable のままです。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (warningText != null) {
-            Text(
-                text = warningText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        InferenceStatRow(
-            label = "Holder Two-Turn Summary",
-            value = formatNpuPersistentHolderTwoTurnSummaryForCopy(state),
-            emphasizeValue = diagnostics?.holderFatalLatch == true,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuPersistentHolderFiveTurnDevSection(
-    state: NpuPersistentHolderFiveTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val diagnostics = state.latestDiagnostics
-    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
-        "holder_fatal_latch=true: アプリ再起動推奨"
-    } else {
-        null
-    }
-    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_FIVE_TURN_UI_TITLE) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = !running && !blockedByGeneration,
-            ) {
-                Text(NPU_PERSISTENT_HOLDER_FIVE_TURN_RUN_LABEL)
-            }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (onCopySummary != null) {
-                TextButton(onClick = onCopySummary) {
-                    Text(NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL)
-                }
-            }
-            if (onCopyFullDump != null) {
-                TextButton(onClick = onCopyFullDump) {
-                    Text(NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL)
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "他の生成またはDEV診断完了後に実行してください"
-            } else {
-                "DEV専用診断です。create 1回、decode 5回、close 1回だけを確認します。10-turnではなく、通常チャット経路には接続しません。persistent reuse証明ではなく、engine_reuse_observed は unavailable のままです。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (warningText != null) {
-            Text(
-                text = warningText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        InferenceStatRow(
-            label = "Holder Five-Turn Summary",
-            value = formatNpuPersistentHolderFiveTurnSummaryForCopy(state),
-            emphasizeValue = diagnostics?.holderFatalLatch == true,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NpuPersistentHolderTenTurnDevSection(
-    state: NpuPersistentHolderTenTurnProbeState,
-    running: Boolean,
-    blockedByGeneration: Boolean,
-    onStart: () -> Unit,
-    onCopySummary: (() -> Unit)? = null,
-    onCopyFullDump: (() -> Unit)? = null,
-) {
-    val diagnostics = state.latestDiagnostics
-    val warningText = if (diagnostics?.holderFatalLatch == true || diagnostics?.restartAppRecommended == true) {
-        "holder_fatal_latch=true: アプリ再起動推奨"
-    } else {
-        null
-    }
-    InferenceStatsSection(title = NPU_PERSISTENT_HOLDER_TEN_TURN_UI_TITLE) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onStart,
-                enabled = !running && !blockedByGeneration,
-            ) {
-                Text(NPU_PERSISTENT_HOLDER_TEN_TURN_RUN_LABEL)
-            }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (onCopySummary != null) {
-                TextButton(onClick = onCopySummary) {
-                    Text(NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_SUMMARY_LABEL)
-                }
-            }
-            if (onCopyFullDump != null) {
-                TextButton(onClick = onCopyFullDump) {
-                    Text(NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_FULL_DUMP_LABEL)
-                }
-            }
-        }
-        Text(
-            text = if (blockedByGeneration) {
-                "他の生成またはDEV診断完了後に実行してください"
-            } else {
-                "DEV専用診断です。create 1回、decode 10回、close 1回だけを確認します。通常チャット経路には接続しません。true Engine persistent reuse証明ではなく、engine_reuse_observed は unavailable のままです。"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (warningText != null) {
-            Text(
-                text = warningText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        InferenceStatRow(
-            label = "Holder Ten-Turn Summary",
-            value = formatNpuPersistentHolderTenTurnSummaryForCopy(state),
-            emphasizeValue = diagnostics?.holderFatalLatch == true,
         )
     }
 }
@@ -15079,11 +13951,9 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForPersistentEngine: Boolean = false,
     onNpuS1PersistentEngineStart: () -> Unit = {},
     onNpuS1PersistentEngineCancel: () -> Unit = {},
-    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState =
-        NpuPersistentHolderCreateCloseProbeState(),
-    npuPersistentHolderCreateCloseInProgress: Boolean = false,
-    isInferenceRunningForHolderCreateClose: Boolean = false,
-    onNpuPersistentHolderCreateCloseStart: () -> Unit = {},
+    holderCreateCloseUi: NpuHolderDiagnosticUi<NpuPersistentHolderCreateCloseProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderCreateCloseProbeState()),
+    holderCreateCloseActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
     npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState =
         NpuTrueEngineHolderCreateCloseProbeState(),
     npuTrueEngineHolderCreateCloseInProgress: Boolean = false,
@@ -15103,26 +13973,18 @@ private fun InferenceStatsSheetContent(
     onNpuTrueEngineModelAssetsStart: () -> Unit = {},
     onCopyTrueEngineModelAssetsSummary: (() -> Unit)? = null,
     onCopyTrueEngineModelAssetsFullDump: (() -> Unit)? = null,
-    npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState =
-        NpuPersistentHolderRunOnceProbeState(),
-    npuPersistentHolderRunOnceInProgress: Boolean = false,
-    isInferenceRunningForHolderRunOnce: Boolean = false,
-    onNpuPersistentHolderRunOnceStart: () -> Unit = {},
-    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState =
-        NpuPersistentHolderTwoTurnProbeState(),
-    npuPersistentHolderTwoTurnInProgress: Boolean = false,
-    isInferenceRunningForHolderTwoTurn: Boolean = false,
-    onNpuPersistentHolderTwoTurnStart: () -> Unit = {},
-    npuPersistentHolderFiveTurnState: NpuPersistentHolderFiveTurnProbeState =
-        NpuPersistentHolderFiveTurnProbeState(),
-    npuPersistentHolderFiveTurnInProgress: Boolean = false,
-    isInferenceRunningForHolderFiveTurn: Boolean = false,
-    onNpuPersistentHolderFiveTurnStart: () -> Unit = {},
-    npuPersistentHolderTenTurnState: NpuPersistentHolderTenTurnProbeState =
-        NpuPersistentHolderTenTurnProbeState(),
-    npuPersistentHolderTenTurnInProgress: Boolean = false,
-    isInferenceRunningForHolderTenTurn: Boolean = false,
-    onNpuPersistentHolderTenTurnStart: () -> Unit = {},
+    holderRunOnceUi: NpuHolderDiagnosticUi<NpuPersistentHolderRunOnceProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderRunOnceProbeState()),
+    holderRunOnceActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    holderTwoTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTwoTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderTwoTurnProbeState()),
+    holderTwoTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    holderFiveTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderFiveTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderFiveTurnProbeState()),
+    holderFiveTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
+    holderTenTurnUi: NpuHolderDiagnosticUi<NpuPersistentHolderTenTurnProbeState> =
+        NpuHolderDiagnosticUi(NpuPersistentHolderTenTurnProbeState()),
+    holderTenTurnActions: NpuHolderDiagnosticActions = NpuHolderDiagnosticActions(onStart = {}),
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
@@ -15279,12 +14141,12 @@ private fun InferenceStatsSheetContent(
                                 npuNonStreamingRepeatedStabilityState =
                                     npuNonStreamingRepeatedStabilityState,
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
-                                npuPersistentHolderCreateCloseState = npuPersistentHolderCreateCloseState,
+                                npuPersistentHolderCreateCloseState = holderCreateCloseUi.state,
                                 npuTrueEngineHolderCreateCloseState = npuTrueEngineHolderCreateCloseState,
-                                npuPersistentHolderRunOnceState = npuPersistentHolderRunOnceState,
-                                npuPersistentHolderTwoTurnState = npuPersistentHolderTwoTurnState,
-                                npuPersistentHolderFiveTurnState = npuPersistentHolderFiveTurnState,
-                                npuPersistentHolderTenTurnState = npuPersistentHolderTenTurnState,
+                                npuPersistentHolderRunOnceState = holderRunOnceUi.state,
+                                npuPersistentHolderTwoTurnState = holderTwoTurnUi.state,
+                                npuPersistentHolderFiveTurnState = holderFiveTurnUi.state,
+                                npuPersistentHolderTenTurnState = holderTenTurnUi.state,
                                 npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                             ),
                         ),
@@ -15292,77 +14154,49 @@ private fun InferenceStatsSheetContent(
                 },
             )
 
-            sections.forEach { section ->
-                InferenceStatsSection(title = section.title) {
-                    section.items.forEach { item ->
-                        InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
-                    }
-                }
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
-                InferenceTimingBreakdownSection(stats)
-                InferenceContextUsageSection(stats)
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE && shouldShowInferenceTimingNote(stats)) {
-                Text(
-                    text = inferenceTimingNoteText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
-                Column(
-                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
-                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                ) {
-            detailSections.forEach { section ->
-                        InferenceStatsSection(title = section.title) {
-                            section.items.forEach { item ->
-                                InferenceStatRow(
-                                    label = item.label,
-                                    value = item.value,
-                                    emphasizeValue = item.emphasizeValue,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            InferenceStatsContent(
+                stats = stats,
+                displayMode = selectedDisplayMode,
+                sections = sections,
+                detailSections = detailSections,
+                sectionSpacing = sectionSpacing,
+            )
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
                 NpuBetaDevPrimaryIntroSection(
                     onCopyNpuDiagnosticKeys = copyNpuDiagnosticKeysAction,
                 )
                 NpuS1RepeatedRunDevSection(
-                    state = npuS1RepeatedRunState,
-                    preferredBackendSetting = preferredBackendDryRunSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    selectedMode = npuS1RepeatedRunMode,
-                    selectedPrompt = npuS1RepeatedRunPrompt,
-                    selectedRunCount = npuS1RepeatedRunCount,
-                    selectedWaitMs = npuS1RepeatedRunWaitMs,
-                    running = npuS1RepeatedRunInProgress,
-                    blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    onModeChange = onNpuS1RepeatedRunModeChange,
-                    onPromptChange = onNpuS1RepeatedRunPromptChange,
-                    onRunCountChange = onNpuS1RepeatedRunCountChange,
-                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
-                    onStart = onNpuS1RepeatedRunStart,
-                    onCancel = onNpuS1RepeatedRunCancel,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
-                            "Copy Stability Summary",
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
-                            "Copy Stability Full Dump",
-                        )
-                    },
+                    ui = NpuS1RepeatedRunUi(
+                        state = npuS1RepeatedRunState,
+                        preferredBackendSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = npuStandardRouteMode,
+                        selectedMode = npuS1RepeatedRunMode,
+                        selectedPrompt = npuS1RepeatedRunPrompt,
+                        selectedRunCount = npuS1RepeatedRunCount,
+                        selectedWaitMs = npuS1RepeatedRunWaitMs,
+                        running = npuS1RepeatedRunInProgress,
+                        blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    ),
+                    actions = NpuS1RepeatedRunActions(
+                        onModeChange = onNpuS1RepeatedRunModeChange,
+                        onPromptChange = onNpuS1RepeatedRunPromptChange,
+                        onRunCountChange = onNpuS1RepeatedRunCountChange,
+                        onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                        onStart = onNpuS1RepeatedRunStart,
+                        onCancel = onNpuS1RepeatedRunCancel,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                buildNpuBetaStabilitySummaryCopyText(npuS1RepeatedRunState),
+                                "Copy Stability Summary",
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                buildNpuBetaStabilityFullDumpCopyText(npuS1RepeatedRunState),
+                                "Copy Stability Full Dump",
+                            )
+                        },
+                    ),
                 )
                 NpuNonStreamingRepeatedStabilityDevSection(
                     state = npuNonStreamingRepeatedStabilityState,
@@ -15409,26 +14243,26 @@ private fun InferenceStatsSheetContent(
                     },
                 )
                 NpuPersistentHolderCreateCloseDevSection(
-                    state = npuPersistentHolderCreateCloseState,
-                    running = npuPersistentHolderCreateCloseInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderCreateClose,
-                    onStart = onNpuPersistentHolderCreateCloseStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderCreateCloseSummaryForCopy(
-                                npuPersistentHolderCreateCloseState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderCreateCloseFullDumpForCopy(
-                                npuPersistentHolderCreateCloseState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
+                    ui = holderCreateCloseUi,
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = holderCreateCloseActions.onStart,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderCreateCloseSummaryForCopy(
+                                    holderCreateCloseUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderCreateCloseFullDumpForCopy(
+                                    holderCreateCloseUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_CREATE_CLOSE_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    ),
                 )
                 if (BuildConfig.TRUE_ENGINE_NPU_PROBE_FLAVOR) {
                     NpuTrueEngineEntrypointDevSection(
@@ -15493,92 +14327,92 @@ private fun InferenceStatsSheetContent(
                     },
                 )
                 NpuPersistentHolderRunOnceDevSection(
-                    state = npuPersistentHolderRunOnceState,
-                    running = npuPersistentHolderRunOnceInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderRunOnce,
-                    onStart = onNpuPersistentHolderRunOnceStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderRunOnceSummaryForCopy(
-                                npuPersistentHolderRunOnceState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderRunOnceFullDumpForCopy(
-                                npuPersistentHolderRunOnceState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
+                    ui = holderRunOnceUi,
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = holderRunOnceActions.onStart,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderRunOnceSummaryForCopy(
+                                    holderRunOnceUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderRunOnceFullDumpForCopy(
+                                    holderRunOnceUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_RUN_ONCE_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    ),
                 )
                 NpuPersistentHolderTwoTurnDevSection(
-                    state = npuPersistentHolderTwoTurnState,
-                    running = npuPersistentHolderTwoTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderTwoTurn,
-                    onStart = onNpuPersistentHolderTwoTurnStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderTwoTurnSummaryForCopy(
-                                npuPersistentHolderTwoTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderTwoTurnFullDumpForCopy(
-                                npuPersistentHolderTwoTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
+                    ui = holderTwoTurnUi,
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = holderTwoTurnActions.onStart,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderTwoTurnSummaryForCopy(
+                                    holderTwoTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderTwoTurnFullDumpForCopy(
+                                    holderTwoTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_TWO_TURN_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    ),
                 )
                 NpuPersistentHolderFiveTurnDevSection(
-                    state = npuPersistentHolderFiveTurnState,
-                    running = npuPersistentHolderFiveTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderFiveTurn,
-                    onStart = onNpuPersistentHolderFiveTurnStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderFiveTurnSummaryForCopy(
-                                npuPersistentHolderFiveTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderFiveTurnFullDumpForCopy(
-                                npuPersistentHolderFiveTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
+                    ui = holderFiveTurnUi,
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = holderFiveTurnActions.onStart,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderFiveTurnSummaryForCopy(
+                                    holderFiveTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderFiveTurnFullDumpForCopy(
+                                    holderFiveTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_FIVE_TURN_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    ),
                 )
                 NpuPersistentHolderTenTurnDevSection(
-                    state = npuPersistentHolderTenTurnState,
-                    running = npuPersistentHolderTenTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderTenTurn,
-                    onStart = onNpuPersistentHolderTenTurnStart,
-                    onCopySummary = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderTenTurnSummaryForCopy(
-                                npuPersistentHolderTenTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_SUMMARY_LABEL,
-                        )
-                    },
-                    onCopyFullDump = {
-                        copyDevDiagnosticText(
-                            formatNpuPersistentHolderTenTurnFullDumpForCopy(
-                                npuPersistentHolderTenTurnState,
-                            ),
-                            NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_FULL_DUMP_LABEL,
-                        )
-                    },
+                    ui = holderTenTurnUi,
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = holderTenTurnActions.onStart,
+                        onCopySummary = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderTenTurnSummaryForCopy(
+                                    holderTenTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_SUMMARY_LABEL,
+                            )
+                        },
+                        onCopyFullDump = {
+                            copyDevDiagnosticText(
+                                formatNpuPersistentHolderTenTurnFullDumpForCopy(
+                                    holderTenTurnUi.state,
+                                ),
+                                NPU_PERSISTENT_HOLDER_TEN_TURN_COPY_FULL_DUMP_LABEL,
+                            )
+                        },
+                    ),
                 )
                 NpuLongGenerationDevSection(
                     state = npuLongGenerationState,
@@ -15685,145 +14519,6 @@ private fun InferenceStatsSheetContent(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun InferenceModelInfoRow(
-    stats: InferenceStats,
-    inferenceTarget: InferenceTarget,
-    onCopyInferenceStats: () -> Unit,
-    onCopyGpuDiagnosticKeys: (() -> Unit)? = null,
-    onCopyGpuInternalSurfaceKeys: (() -> Unit)? = null,
-    onCopyNpuDiagnosticKeys: (() -> Unit)? = null,
-) {
-    val modelName = formatModelName(stats)
-    InferenceStatsSection(title = "モデル情報") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = "使用モデル",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    InferenceTargetIcon(
-                        target = inferenceTarget,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = modelName ?: "—",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-            IconButton(
-                onClick = onCopyInferenceStats,
-                modifier = Modifier.semantics { contentDescription = "推論統計をコピー" },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "推論統計をコピー",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (onCopyGpuDiagnosticKeys != null) {
-            TextButton(
-                onClick = onCopyGpuDiagnosticKeys,
-                modifier = Modifier.semantics { contentDescription = GPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(GPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
-            }
-        }
-        if (onCopyGpuInternalSurfaceKeys != null) {
-            TextButton(
-                onClick = onCopyGpuInternalSurfaceKeys,
-                modifier = Modifier.semantics { contentDescription = GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(GPU_INTERNAL_SURFACE_COPY_BUTTON_LABEL)
-            }
-        }
-        if (onCopyNpuDiagnosticKeys != null) {
-            TextButton(
-                onClick = onCopyNpuDiagnosticKeys,
-                modifier = Modifier.semantics { contentDescription = NPU_DIAGNOSTIC_COPY_BUTTON_LABEL },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(NPU_DIAGNOSTIC_COPY_BUTTON_LABEL)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CopyableDebugBlock(
-    text: String,
-    title: String? = null,
-    onCopy: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (!title.isNullOrBlank()) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Red,
-                )
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Red,
-            )
-        }
-        IconButton(
-            onClick = onCopy,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .semantics { contentDescription = "デバッグテキストをコピー" },
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = "デバッグテキストをコピー",
-                tint = Color.Red,
-            )
         }
     }
 }
@@ -16025,23 +14720,27 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuS1RepeatedRunCancel != null
             ) {
                 NpuS1RepeatedRunDevSection(
-                    state = npuS1RepeatedRunState,
-                    preferredBackendSetting = preferredBackendSetting,
-                    npuStandardRouteMode = npuStandardRouteMode,
-                    selectedMode = npuS1RepeatedRunMode,
-                    selectedPrompt = npuS1RepeatedRunPrompt,
-                    selectedRunCount = npuS1RepeatedRunCount,
-                    selectedWaitMs = npuS1RepeatedRunWaitMs,
-                    running = npuS1RepeatedRunInProgress,
-                    blockedByGeneration = isInferenceRunningForRepeatedRun,
-                    onModeChange = onNpuS1RepeatedRunModeChange,
-                    onPromptChange = onNpuS1RepeatedRunPromptChange,
-                    onRunCountChange = onNpuS1RepeatedRunCountChange,
-                    onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
-                    onStart = onNpuS1RepeatedRunStart,
-                    onCancel = onNpuS1RepeatedRunCancel,
-                    onCopySummary = onCopyStabilitySummary,
-                    onCopyFullDump = onCopyStabilityFullDump,
+                    ui = NpuS1RepeatedRunUi(
+                        state = npuS1RepeatedRunState,
+                        preferredBackendSetting = preferredBackendSetting,
+                        npuStandardRouteMode = npuStandardRouteMode,
+                        selectedMode = npuS1RepeatedRunMode,
+                        selectedPrompt = npuS1RepeatedRunPrompt,
+                        selectedRunCount = npuS1RepeatedRunCount,
+                        selectedWaitMs = npuS1RepeatedRunWaitMs,
+                        running = npuS1RepeatedRunInProgress,
+                        blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    ),
+                    actions = NpuS1RepeatedRunActions(
+                        onModeChange = onNpuS1RepeatedRunModeChange,
+                        onPromptChange = onNpuS1RepeatedRunPromptChange,
+                        onRunCountChange = onNpuS1RepeatedRunCountChange,
+                        onWaitMsChange = onNpuS1RepeatedRunWaitMsChange,
+                        onStart = onNpuS1RepeatedRunStart,
+                        onCancel = onNpuS1RepeatedRunCancel,
+                        onCopySummary = onCopyStabilitySummary,
+                        onCopyFullDump = onCopyStabilityFullDump,
+                    ),
                 )
             }
             if (
@@ -16080,12 +14779,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuPersistentHolderCreateCloseStart != null
             ) {
                 NpuPersistentHolderCreateCloseDevSection(
-                    state = npuPersistentHolderCreateCloseState,
-                    running = npuPersistentHolderCreateCloseInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderCreateClose,
-                    onStart = onNpuPersistentHolderCreateCloseStart,
-                    onCopySummary = onCopyHolderCreateCloseSummary,
-                    onCopyFullDump = onCopyHolderCreateCloseFullDump,
+                    ui = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderCreateCloseState,
+                        running = npuPersistentHolderCreateCloseInProgress,
+                        blockedByGeneration = isInferenceRunningForHolderCreateClose,
+                    ),
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = onNpuPersistentHolderCreateCloseStart,
+                        onCopySummary = onCopyHolderCreateCloseSummary,
+                        onCopyFullDump = onCopyHolderCreateCloseFullDump,
+                    ),
                 )
             }
             if (
@@ -16132,12 +14835,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuPersistentHolderRunOnceStart != null
             ) {
                 NpuPersistentHolderRunOnceDevSection(
-                    state = npuPersistentHolderRunOnceState,
-                    running = npuPersistentHolderRunOnceInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderRunOnce,
-                    onStart = onNpuPersistentHolderRunOnceStart,
-                    onCopySummary = onCopyHolderRunOnceSummary,
-                    onCopyFullDump = onCopyHolderRunOnceFullDump,
+                    ui = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderRunOnceState,
+                        running = npuPersistentHolderRunOnceInProgress,
+                        blockedByGeneration = isInferenceRunningForHolderRunOnce,
+                    ),
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = onNpuPersistentHolderRunOnceStart,
+                        onCopySummary = onCopyHolderRunOnceSummary,
+                        onCopyFullDump = onCopyHolderRunOnceFullDump,
+                    ),
                 )
             }
             if (
@@ -16145,12 +14852,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuPersistentHolderTwoTurnStart != null
             ) {
                 NpuPersistentHolderTwoTurnDevSection(
-                    state = npuPersistentHolderTwoTurnState,
-                    running = npuPersistentHolderTwoTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderTwoTurn,
-                    onStart = onNpuPersistentHolderTwoTurnStart,
-                    onCopySummary = onCopyHolderTwoTurnSummary,
-                    onCopyFullDump = onCopyHolderTwoTurnFullDump,
+                    ui = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderTwoTurnState,
+                        running = npuPersistentHolderTwoTurnInProgress,
+                        blockedByGeneration = isInferenceRunningForHolderTwoTurn,
+                    ),
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = onNpuPersistentHolderTwoTurnStart,
+                        onCopySummary = onCopyHolderTwoTurnSummary,
+                        onCopyFullDump = onCopyHolderTwoTurnFullDump,
+                    ),
                 )
             }
             if (
@@ -16158,12 +14869,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuPersistentHolderFiveTurnStart != null
             ) {
                 NpuPersistentHolderFiveTurnDevSection(
-                    state = npuPersistentHolderFiveTurnState,
-                    running = npuPersistentHolderFiveTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderFiveTurn,
-                    onStart = onNpuPersistentHolderFiveTurnStart,
-                    onCopySummary = onCopyHolderFiveTurnSummary,
-                    onCopyFullDump = onCopyHolderFiveTurnFullDump,
+                    ui = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderFiveTurnState,
+                        running = npuPersistentHolderFiveTurnInProgress,
+                        blockedByGeneration = isInferenceRunningForHolderFiveTurn,
+                    ),
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = onNpuPersistentHolderFiveTurnStart,
+                        onCopySummary = onCopyHolderFiveTurnSummary,
+                        onCopyFullDump = onCopyHolderFiveTurnFullDump,
+                    ),
                 )
             }
             if (
@@ -16171,12 +14886,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 onNpuPersistentHolderTenTurnStart != null
             ) {
                 NpuPersistentHolderTenTurnDevSection(
-                    state = npuPersistentHolderTenTurnState,
-                    running = npuPersistentHolderTenTurnInProgress,
-                    blockedByGeneration = isInferenceRunningForHolderTenTurn,
-                    onStart = onNpuPersistentHolderTenTurnStart,
-                    onCopySummary = onCopyHolderTenTurnSummary,
-                    onCopyFullDump = onCopyHolderTenTurnFullDump,
+                    ui = NpuHolderDiagnosticUi(
+                        state = npuPersistentHolderTenTurnState,
+                        running = npuPersistentHolderTenTurnInProgress,
+                        blockedByGeneration = isInferenceRunningForHolderTenTurn,
+                    ),
+                    actions = NpuHolderDiagnosticActions(
+                        onStart = onNpuPersistentHolderTenTurnStart,
+                        onCopySummary = onCopyHolderTenTurnSummary,
+                        onCopyFullDump = onCopyHolderTenTurnFullDump,
+                    ),
                 )
             }
             if (
@@ -16310,424 +15029,6 @@ private fun resolveInferenceTargetForStats(
     if (localTraceForDev != null) return InferenceTarget.LOCAL
     val localSourceSummary = stats.localSourceSummary?.trim().orEmpty()
     return if (localSourceSummary.isNotBlank()) InferenceTarget.LOCAL else InferenceTarget.SERVER
-}
-
-internal fun buildInferenceStatsFullCopyText(
-    stats: InferenceStats,
-    displayMode: InferenceStatsDisplayMode,
-    sections: List<InferenceStatsSectionUi>,
-    detailSections: List<InferenceStatsSectionUi>,
-    memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
-    npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
-    npuNonStreamingRepeatedStabilityState: NpuNonStreamingRepeatedStabilityState? = null,
-    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
-    npuPersistentHolderCreateCloseState: NpuPersistentHolderCreateCloseProbeState? = null,
-    npuTrueEngineHolderCreateCloseState: NpuTrueEngineHolderCreateCloseProbeState? = null,
-    npuPersistentHolderRunOnceState: NpuPersistentHolderRunOnceProbeState? = null,
-    npuPersistentHolderTwoTurnState: NpuPersistentHolderTwoTurnProbeState? = null,
-    npuPersistentHolderFiveTurnState: NpuPersistentHolderFiveTurnProbeState? = null,
-    npuPersistentHolderTenTurnState: NpuPersistentHolderTenTurnProbeState? = null,
-    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
-): String {
-    return buildString {
-        appendLine("推論統計")
-        appendLine()
-        appendLine("[モデル情報]")
-        appendLine("使用モデル: ${formatModelName(stats) ?: "—"}")
-        appendLine()
-
-        sections.forEachIndexed { index, section ->
-            appendSectionAsPlainText(
-                sectionTitle = section.title,
-                items = section.items,
-            )
-            if (index != sections.lastIndex) appendLine()
-        }
-
-        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
-            appendLine()
-            appendLine("[推論時間内訳]")
-            val breakdown = buildInferenceTimeBreakdown(stats)
-            if (breakdown == null) {
-                appendLine("—")
-            } else {
-                breakdown.segments.forEach { segment ->
-                    appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
-                }
-            }
-            appendLine()
-            appendLine("[コンテキスト使用量]")
-            when (val usage = buildContextUsageUi(stats)) {
-                null -> appendLine("—")
-                is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
-                is ContextUsageUi.Loading -> {
-                    appendLine("使用トークン ${usage.used}")
-                    appendLine("上限取得中…")
-                }
-
-                is ContextUsageUi.WithoutMax -> {
-                    appendLine("使用トークン ${usage.used}")
-                    appendLine("上限未取得")
-                }
-            }
-        }
-
-        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
-            appendLine()
-            appendLine("[追加情報]")
-            if (detailSections.isEmpty()) {
-                appendLine("—")
-            } else {
-                detailSections.forEachIndexed { index, section ->
-                    appendSectionAsPlainText(
-                        sectionTitle = section.title,
-                        items = section.items,
-                    )
-                    if (index != detailSections.lastIndex) appendLine()
-                }
-            }
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && memoryRecoveryCheckState != null) {
-            appendLine()
-            appendLine(formatMemoryRecoveryCheckForDev(memoryRecoveryCheckState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
-            appendLine()
-            appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
-        }
-        if (
-            displayMode == InferenceStatsDisplayMode.DEVELOPER &&
-            npuNonStreamingRepeatedStabilityState != null
-        ) {
-            appendLine()
-            appendLine(
-                buildNpuNonStreamingRepeatedStabilityFullDumpCopyText(
-                    npuNonStreamingRepeatedStabilityState,
-                ),
-            )
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
-            appendLine()
-            appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderCreateCloseState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderCreateCloseFullDumpForCopy(npuPersistentHolderCreateCloseState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuTrueEngineHolderCreateCloseState != null) {
-            appendLine()
-            appendLine(formatNpuTrueEngineHolderCreateCloseFullDumpForCopy(npuTrueEngineHolderCreateCloseState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderRunOnceState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderRunOnceFullDumpForCopy(npuPersistentHolderRunOnceState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderTwoTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderTwoTurnFullDumpForCopy(npuPersistentHolderTwoTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderFiveTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderFiveTurnFullDumpForCopy(npuPersistentHolderFiveTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuPersistentHolderTenTurnState != null) {
-            appendLine()
-            appendLine(formatNpuPersistentHolderTenTurnFullDumpForCopy(npuPersistentHolderTenTurnState))
-        }
-        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
-            appendLine()
-            appendLine(formatNpuS1PersistentCustomJniDiagnosticsForDev(npuS1PersistentCustomJniState))
-        }
-
-    }.trimEnd()
-}
-
-@Composable
-private fun InferenceStatsModeSelector(
-    selectedMode: InferenceStatsDisplayMode,
-    onModeSelected: (InferenceStatsDisplayMode) -> Unit,
-) {
-    val modeButtons = listOf(
-        Triple(
-            InferenceStatsDisplayMode.SIMPLE,
-            Icons.Outlined.ViewAgenda,
-            "シンプル表示",
-        ),
-        Triple(
-            InferenceStatsDisplayMode.DETAILED,
-            Icons.AutoMirrored.Outlined.ViewList,
-            "詳細表示",
-        ),
-        Triple(
-            InferenceStatsDisplayMode.DEVELOPER,
-            Icons.Outlined.Code,
-            "開発者表示",
-        ),
-    )
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        modeButtons.forEach { (mode, icon, description) ->
-            InferenceStatsModeIconButton(
-                icon = icon,
-                contentDescription = description,
-                selected = mode == selectedMode,
-                onClick = { onModeSelected(mode) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun InferenceStatsModeIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            Color.Transparent
-        },
-    ) {
-        Box(
-            modifier = Modifier.size(32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-    }
-}
-
-private fun StringBuilder.appendSectionAsPlainText(
-    sectionTitle: String,
-    items: List<InferenceStatItemUi>,
-) {
-    appendLine("[$sectionTitle]")
-    if (items.isEmpty()) {
-        appendLine("—")
-        return
-    }
-    items.forEach { item ->
-        appendLine("${item.label}: ${item.value}")
-    }
-}
-
-@Composable
-private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
-    val breakdown = buildInferenceTimeBreakdown(stats) ?: return
-    val barColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-
-    InferenceStatsSection(title = "推論時間内訳") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            breakdown.segments.forEach { segment ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    InferenceStatRow(
-                        label = segment.label,
-                        value = "${segment.durationText} / ${segment.percent}%",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .background(
-                                color = trackColor,
-                                shape = RoundedCornerShape(999.dp),
-                            ),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(segment.ratio.toFloat().coerceIn(0f, 1f))
-                                .height(8.dp)
-                                .background(
-                                    color = barColor,
-                                    shape = RoundedCornerShape(999.dp),
-                                ),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InferenceContextUsageSection(stats: InferenceStats) {
-    val usage = buildContextUsageUi(stats) ?: return
-    InferenceStatsSection(title = "コンテキスト使用量") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (usage) {
-                is ContextUsageUi.WithMax -> {
-                    if (usage.ratio in 0.0..1.0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = RoundedCornerShape(999.dp),
-                                ),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(usage.ratio.toFloat().coerceIn(0f, 1f))
-                                    .height(8.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(999.dp),
-                                    ),
-                            )
-                        }
-                    }
-                    Text(
-                        text = "${usage.used} / ${usage.max} tokens (${usage.percent}%)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-
-                is ContextUsageUi.Loading -> {
-                    Text(
-                        text = "使用トークン ${usage.used}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "上限取得中…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                is ContextUsageUi.WithoutMax -> {
-                    Text(
-                        text = "使用トークン ${usage.used}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "上限未取得",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-internal fun inferenceTimingNoteText(): String =
-    "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
-
-internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
-    formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
-
-
-internal data class InferenceTimeSegmentUi(
-    val label: String,
-    val ratio: Double,
-    val percent: Int,
-    val durationText: String,
-)
-
-internal data class InferenceTimeBreakdownUi(
-    val segments: List<InferenceTimeSegmentUi>,
-)
-
-internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
-    val heldOfficialBlocking = stats.localSourceSummary
-        ?.contains("held-official-blocking", ignoreCase = true) == true
-    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L }
-    val prompt = stats.promptEvalDurationNs?.takeIf { !heldOfficialBlocking && it >= 0L }
-    val generation = stats.generationDurationNs?.takeIf { !heldOfficialBlocking && it > 0L }
-
-    val knownSegmentSources = buildList {
-        if (load != null) add("ロード" to load)
-        if (prompt != null) add("入力" to prompt)
-        if (generation != null) add("生成" to generation)
-    }
-    val knownTotal = knownSegmentSources.sumOf { it.second }
-    val displayedTotal = if (heldOfficialBlocking) {
-        stats.totalDurationMs?.takeIf { it > 0L }?.let { it * 1_000_000L }
-    } else {
-        stats.evalDurationNs?.takeIf { it > 0L }
-            ?: stats.totalDurationMs?.takeIf { it > 0L }
-            ?.let { it * 1_000_000L }
-    }
-    val denominator = maxOf(displayedTotal ?: 0L, knownTotal)
-    if (denominator <= 0L) return null
-    val unaccounted = (denominator - knownTotal).coerceAtLeast(0L)
-    val segmentSources = buildList {
-        addAll(knownSegmentSources)
-        if (unaccounted > 0L) add("未計上" to unaccounted)
-    }
-
-    fun ratio(value: Long): Double = value.toDouble() / denominator.toDouble()
-    return InferenceTimeBreakdownUi(
-        segments = segmentSources.map { (label, duration) ->
-            val valueRatio = ratio(duration)
-            InferenceTimeSegmentUi(
-                label = label,
-                ratio = valueRatio,
-                percent = (valueRatio * 100).roundToInt(),
-                durationText = formatDurationNsAsSecondsForSheet(duration),
-            )
-        },
-    )
-}
-
-private fun formatDurationNsAsSecondsForSheet(durationNs: Long): String {
-    val seconds = durationNs / 1_000_000_000.0
-    if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
-    return String.format(Locale.US, "%.1f s", seconds)
-}
-
-internal sealed interface ContextUsageUi {
-    data class WithMax(
-        val used: Int,
-        val max: Int,
-        val ratio: Double,
-        val percent: Int,
-    ) : ContextUsageUi
-
-    data class Loading(val used: Int) : ContextUsageUi
-
-    data class WithoutMax(val used: Int) : ContextUsageUi
-}
-
-internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
-    val used = stats.totalTokens?.takeIf { it >= 0 } ?: return null
-    val max = stats.contextWindow?.takeIf { it > 0 }
-    if (max != null) {
-        val ratio = used.toDouble() / max.toDouble()
-        return ContextUsageUi.WithMax(
-            used = used,
-            max = max,
-            ratio = ratio,
-            percent = (ratio * 100).roundToInt(),
-        )
-    }
-    return when (stats.contextWindowFetchState) {
-        ContextWindowFetchState.LOADING -> ContextUsageUi.Loading(used = used)
-        ContextWindowFetchState.AVAILABLE,
-        ContextWindowFetchState.UNAVAILABLE,
-        -> ContextUsageUi.WithoutMax(used = used)
-    }
 }
 
 @Composable

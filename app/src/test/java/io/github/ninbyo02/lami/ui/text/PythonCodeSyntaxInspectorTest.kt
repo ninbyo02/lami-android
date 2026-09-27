@@ -135,4 +135,80 @@ class PythonCodeSyntaxInspectorTest {
         val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
         assertFalse(result.hasWarnings)
     }
+
+    @Test
+    fun inspect_doesNotFlagColonsInsideFStrings() {
+        val markdown = """
+            ```python
+            score_text = self.font.render(f"SCORE: {self.score}", True, COLOR_SCORE)
+            lives_text = self.font.render(f"LIVES: {'●' * self.lives}", True, (255, 100, 100))
+            msg2 = self.font.render(f"Final Score: {self.score}", True, COLOR_SCORE)
+            formatted = f"{self.score:05d}"
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+
+        assertFalse(result.hasWarnings)
+    }
+
+    @Test
+    fun inspect_doesNotFlagNonSuiteColons() {
+        val markdown = """
+            ```python
+            label = "Score: 100"
+            data = {"name": "LAMI"}
+            value: int = 10
+            square = lambda x: x * x
+            values = items[1:3]
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+
+        assertFalse(result.hasWarnings)
+    }
+
+    @Test
+    fun inspect_ignoresBlankAndCommentLinesBeforeValidBlockBody() {
+        val markdown = """
+            ```python
+            if ready:
+
+                # initialization: safe
+                launch()
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+
+        assertFalse(result.hasWarnings)
+    }
+
+    @Test
+    fun inspect_findsSuiteColonAfterColonInsideString() {
+        val markdown = """
+            ```python
+            if value == "a:b":print(value)
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+
+        assertTrue(result.warnings.any { it.type == PythonCodeWarningType.POSSIBLE_FUSED_CODE })
+    }
+
+    @Test
+    fun inspect_doesNotTreatTrailingCommentAsInlineCode() {
+        val markdown = """
+            ```python
+            if ready:  # condition: launch
+                launch()
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+
+        assertFalse(result.hasWarnings)
+    }
 }

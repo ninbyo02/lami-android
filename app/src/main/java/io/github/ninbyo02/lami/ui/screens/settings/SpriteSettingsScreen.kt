@@ -145,6 +145,8 @@ import io.github.ninbyo02.lami.ui.components.ReadyPreviewLayoutState
 import io.github.ninbyo02.lami.ui.components.ReadyPreviewSlot
 import io.github.ninbyo02.lami.ui.components.SpriteFrameRegion
 import io.github.ninbyo02.lami.ui.components.DevMenuSectionHost
+import io.github.ninbyo02.lami.ui.components.DevMenuTtsCallbacks
+import io.github.ninbyo02.lami.ui.components.DevMenuTtsUiState
 import io.github.ninbyo02.lami.ui.components.drawFramePlaceholder
 import io.github.ninbyo02.lami.ui.components.drawFrameRegion
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -442,6 +444,19 @@ private data class InsertionPreviewValues(
     val exclusiveText: String,
     val pattern1WeightText: String,
     val pattern2WeightText: String,
+)
+
+private data class ReadyAnimationPreviewModel(
+    val imageBitmap: ImageBitmap?,
+    val spriteSheetConfig: SpriteSheetConfig,
+    val baseSummary: AnimationSummary,
+    val insertionSummary: AnimationSummary,
+    val insertionPreviewValues: InsertionPreviewValues,
+    val insertionEnabled: Boolean,
+    val insertionPatterns: List<InsertionPattern>,
+    val insertionDefaultIntervalMs: Int,
+    val shouldShowDefaultInterval: Boolean,
+    val insertionDefaults: InsertionAnimationSettings,
 )
 
 internal data class DevPreviewSettings(
@@ -4961,21 +4976,21 @@ private fun ReadyAnimationTab(
             color = MaterialTheme.colorScheme.background
         ) {
             ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseState.summary,
-                insertionSummary = insertionState.summary,
-                insertionPreviewValues = insertionState.previewValues,
-                insertionEnabled = insertionState.enabled,
-                insertionPatterns = insertionState.patterns,
-                insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
-                shouldShowDefaultInterval = insertionState.shouldShowDefaultInterval,
-                insertionDefaults = insertionState.defaults,
+                model = ReadyAnimationPreviewModel(
+                    imageBitmap = imageBitmap,
+                    spriteSheetConfig = spriteSheetConfig,
+                    baseSummary = baseState.summary,
+                    insertionSummary = insertionState.summary,
+                    insertionPreviewValues = insertionState.previewValues,
+                    insertionEnabled = insertionState.enabled,
+                    insertionPatterns = insertionState.patterns,
+                    insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
+                    shouldShowDefaultInterval = insertionState.shouldShowDefaultInterval,
+                    insertionDefaults = insertionState.defaults,
+                ),
+                previewUiState = readyPreviewUiState,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                previewUiState = readyPreviewUiState,
-                selectedAnimation = selectedAnimation,
-                resolvedErrorKey = resolvedErrorKey,
             )
         }
     }
@@ -5451,56 +5466,60 @@ private fun ReadyAnimationTab(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState,
-                    onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
-                    onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
-                    onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
-                    onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
-                    onStopTts = { ttsController.stop() },
-                    onResetTtsDefaults = { resetTtsToDefaults() },
-                    onApplyTtsPresetDefault = {
-                        applyTtsPreset(TtsPresetDefault)
-                    },
-                    onApplyTtsPresetCalm = {
-                        applyTtsPreset(TtsPresetCalm)
-                    },
-                    onApplyTtsPresetBright = {
-                        applyTtsPreset(TtsPresetBright)
-                    },
-                    isTtsPlaying = isDevMenuTtsPlaying,
-                    ttsSpeechRate = devMenuTtsSpeechRate,
-                    ttsPitch = devMenuTtsPitch,
-                    onIncreaseTtsSpeechRate = {
-                        val updatedRate = (devMenuTtsSpeechRate + 0.02f)
-                            .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
-                        devMenuTtsSpeechRate = updatedRate
-                        scope.launch {
-                            settingsPreferences.setTtsSpeechRate(updatedRate)
-                        }
-                    },
-                    onDecreaseTtsSpeechRate = {
-                        val updatedRate = (devMenuTtsSpeechRate - 0.02f)
-                            .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
-                        devMenuTtsSpeechRate = updatedRate
-                        scope.launch {
-                            settingsPreferences.setTtsSpeechRate(updatedRate)
-                        }
-                    },
-                    onIncreaseTtsPitch = {
-                        val updatedPitch = (devMenuTtsPitch + 0.02f)
-                            .coerceAtMost(AndroidTtsController.MAX_PITCH)
-                        devMenuTtsPitch = updatedPitch
-                        scope.launch {
-                            settingsPreferences.setTtsPitch(updatedPitch)
-                        }
-                    },
-                    onDecreaseTtsPitch = {
-                        val updatedPitch = (devMenuTtsPitch - 0.02f)
-                            .coerceAtLeast(AndroidTtsController.MIN_PITCH)
-                        devMenuTtsPitch = updatedPitch
-                        scope.launch {
-                            settingsPreferences.setTtsPitch(updatedPitch)
-                        }
-                    },
+                    ttsUiState = DevMenuTtsUiState(
+                        isPlaying = isDevMenuTtsPlaying,
+                        speechRate = devMenuTtsSpeechRate,
+                        pitch = devMenuTtsPitch,
+                    ),
+                    ttsCallbacks = DevMenuTtsCallbacks(
+                        onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
+                        onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
+                        onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
+                        onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
+                        onStopTts = { ttsController.stop() },
+                        onResetTtsDefaults = { resetTtsToDefaults() },
+                        onApplyTtsPresetDefault = {
+                            applyTtsPreset(TtsPresetDefault)
+                        },
+                        onApplyTtsPresetCalm = {
+                            applyTtsPreset(TtsPresetCalm)
+                        },
+                        onApplyTtsPresetBright = {
+                            applyTtsPreset(TtsPresetBright)
+                        },
+                        onIncreaseTtsSpeechRate = {
+                            val updatedRate = (devMenuTtsSpeechRate + 0.02f)
+                                .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
+                            devMenuTtsSpeechRate = updatedRate
+                            scope.launch {
+                                settingsPreferences.setTtsSpeechRate(updatedRate)
+                            }
+                        },
+                        onDecreaseTtsSpeechRate = {
+                            val updatedRate = (devMenuTtsSpeechRate - 0.02f)
+                                .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
+                            devMenuTtsSpeechRate = updatedRate
+                            scope.launch {
+                                settingsPreferences.setTtsSpeechRate(updatedRate)
+                            }
+                        },
+                        onIncreaseTtsPitch = {
+                            val updatedPitch = (devMenuTtsPitch + 0.02f)
+                                .coerceAtMost(AndroidTtsController.MAX_PITCH)
+                            devMenuTtsPitch = updatedPitch
+                            scope.launch {
+                                settingsPreferences.setTtsPitch(updatedPitch)
+                            }
+                        },
+                        onDecreaseTtsPitch = {
+                            val updatedPitch = (devMenuTtsPitch - 0.02f)
+                                .coerceAtLeast(AndroidTtsController.MIN_PITCH)
+                            devMenuTtsPitch = updatedPitch
+                            scope.launch {
+                                settingsPreferences.setTtsPitch(updatedPitch)
+                            }
+                        },
+                    ),
                     replacementEnabled = replacementEnabled,
                     onReplacementEnabledChange = { enabled -> replacementEnabled = enabled },
                     blinkEffectEnabled = blinkEffectEnabled,
@@ -5959,23 +5978,22 @@ private fun ReadyAnimationInfo(
 
 @Composable
 private fun ReadyAnimationPreviewPane(
-    imageBitmap: ImageBitmap?,
-    spriteSheetConfig: SpriteSheetConfig,
-    baseSummary: AnimationSummary,
-    insertionSummary: AnimationSummary,
-    insertionPreviewValues: InsertionPreviewValues,
-    insertionEnabled: Boolean,
-    insertionPatterns: List<InsertionPattern>,
-    insertionDefaultIntervalMs: Int,
-    shouldShowDefaultInterval: Boolean,
-    insertionDefaults: InsertionAnimationSettings,
+    model: ReadyAnimationPreviewModel,
+    previewUiState: ReadyPreviewUiState,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
-    previewUiState: ReadyPreviewUiState,
-    selectedAnimation: AnimationType,
-    resolvedErrorKey: String?,
     devMenuContent: (@Composable () -> Unit)? = null,
 ) {
+    val imageBitmap = model.imageBitmap
+    val spriteSheetConfig = model.spriteSheetConfig
+    val baseSummary = model.baseSummary
+    val insertionSummary = model.insertionSummary
+    val insertionPreviewValues = model.insertionPreviewValues
+    val insertionEnabled = model.insertionEnabled
+    val insertionPatterns = model.insertionPatterns
+    val insertionDefaultIntervalMs = model.insertionDefaultIntervalMs
+    val shouldShowDefaultInterval = model.shouldShowDefaultInterval
+    val insertionDefaults = model.insertionDefaults
     Column(modifier = modifier) {
         val outerPaddingColor = if (previewUiState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)

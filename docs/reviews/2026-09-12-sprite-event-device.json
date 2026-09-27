@@ -1,0 +1,15 @@
+{
+  "source_commit": "1acd9fb9fb07dced99b140e1d8ea6871d903bdac",
+  "samples": [],
+  "no_inference": true,
+  "cpu_basis": "one core",
+  "settings_restored": true,
+  "apk_sha256": {
+    "debug": "099a2b3ccca10ddd10a90bad2bdf59c6b029985ab949ddd05df49481e066c41f",
+    "release": "38f566590a7ac90decefa29998439107e756ef1e6e6be1d36fe66cfdb0f24da1"
+  },
+  "status": "blocked_before_first_sample",
+  "reason": "Foreground verification found ChatGPT instead of LAMI after settling, on two attempts. No CPU or visual-animation samples were accepted.",
+  "installed_at_end": "new standardDebug",
+  "release_installed": false
+}

@@ -1,0 +1,57 @@
+name: Refactor Loop Planner
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      max_risk:
+        description: Maximum risk level to include in planning
+        required: false
+        default: '1'
+        type: choice
+        options: ['1', '2', '3']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refactor-loop-planner
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    name: Structural debt inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Test inventory engine
+        run: python3 -m unittest scripts.tests.test_refactor_inventory -v
+
+      - name: Generate refactoring plan
+        id: scan
+        env:
+          MAX_RISK: ${{ inputs.max_risk || '1' }}
+        run: |
+          python3 scripts/refactor_inventory.py \
+            --max-risk "$MAX_RISK" \
+            --json refactor-inventory.json \
+            --markdown refactor-inventory.md \
+            --prompt refactor-next-prompt.txt \
+            --github-output "$GITHUB_OUTPUT"
+          cat refactor-inventory.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload planner evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: refactor-loop-plan
+          path: |
+            refactor-inventory.json
+            refactor-inventory.md
+            refactor-next-prompt.txt
+          retention-days: 14

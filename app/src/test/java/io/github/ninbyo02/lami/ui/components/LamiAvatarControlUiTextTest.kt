@@ -59,6 +59,22 @@ class LamiAvatarControlUiTextTest {
     }
 
     @Test
+    fun `fetched models stay visible while no model is selected and status is offline`() {
+        val text = resolveLamiControlUiText(
+            selectedInferenceTarget = InferenceTarget.SERVER,
+            baseUrl = "http://server.local:13305",
+            lamiStatus = LamiStatus.OFFLINE,
+            availableModels = listOf(ModelInfo("GLM-4.7-Flash-GGUF")),
+        )
+
+        assertEquals("接続OK", text.connectionLabel)
+        assertEquals("http://server.local:13305", text.destinationLabel)
+        assertNull(text.modelListMessage)
+        assertTrue(text.showModelSearch)
+        assertFalse(text.showSettingsButton)
+    }
+
+    @Test
     fun `server mode connection success keeps ok label and model list`() {
         val text = resolveLamiControlUiText(
             selectedInferenceTarget = InferenceTarget.SERVER,
@@ -71,6 +87,21 @@ class LamiAvatarControlUiTextTest {
         assertEquals("http://server.local:11434", text.destinationLabel)
         assertNull(text.modelListMessage)
         assertTrue(text.showModelSearch)
+        assertFalse(text.showSettingsButton)
+    }
+
+    @Test
+    fun `server with no advertised models distinguishes an empty server from fetch failure`() {
+        val text = resolveLamiControlUiText(
+            selectedInferenceTarget = InferenceTarget.SERVER,
+            baseUrl = "http://server.local:13305",
+            lamiStatus = LamiStatus.NO_MODELS,
+            availableModels = emptyList(),
+        )
+
+        assertEquals("接続OK", text.connectionLabel)
+        assertEquals("利用可能なモデルがありません", text.modelListMessage)
+        assertFalse(text.showModelSearch)
         assertFalse(text.showSettingsButton)
     }
 }

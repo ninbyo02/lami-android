@@ -69,6 +69,8 @@ object RetrofitClient {
     private fun normalizeBaseUrl(activeUrl: String?): String {
         val normalizedInput = normalizeUrlInput(activeUrl ?: "")
         val cleanedUrl = normalizedInput.trimEnd('/').takeIf { it.isNotBlank() } ?: return ""
+        // A scheme without a host must not become the hostname "http" or "https".
+        if (cleanedUrl.equals("http:", ignoreCase = true) || cleanedUrl.equals("https:", ignoreCase = true)) return ""
         val withScheme = if (cleanedUrl.startsWith("http://") || cleanedUrl.startsWith("https://")) {
             cleanedUrl
         } else {

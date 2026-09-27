@@ -1,10 +1,51 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatNewChatActionTest {
+    @Test
+    fun cancelledCreationClearsProgressAndAllowsRetry() = runTest {
+        var creating = false
+        var resolved: Int? = null
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job = launch {
+            createChatWithProgress(
+                setCreating = { creating = it },
+                createChat = {
+                    entered.complete(Unit)
+                    kotlinx.coroutines.awaitCancellation()
+                },
+                onCreated = { resolved = it },
+            )
+        }
+        entered.await()
+        assertEquals(true, creating)
+        job.cancel()
+        job.join()
+        assertEquals(false, creating)
+        assertEquals(null, resolved)
+        assertEquals(true, shouldAutoCreateNewChat(false, null, creating))
+        createChatWithProgress({ creating = it }, { 42 }, { resolved = it })
+        assertEquals(42, resolved)
+        assertEquals(false, creating)
+    }
+
+    @Test
+    fun failedCreationClearsProgressWithoutResolvingChat() = runTest {
+        var creating = false
+        var resolved: Int? = null
+        val failure = IllegalStateException("insert failed")
+        val result = runCatching {
+            createChatWithProgress({ creating = it }, { throw failure }, { resolved = it })
+        }
+        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(false, creating)
+        assertEquals(null, resolved)
+    }
+
 
     @Test
     fun shouldAutoCreateNewChat_returnsFalse_whenSuppressedEvenIfUnresolved() {

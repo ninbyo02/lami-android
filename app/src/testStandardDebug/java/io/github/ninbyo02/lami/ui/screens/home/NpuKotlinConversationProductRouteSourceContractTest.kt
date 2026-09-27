@@ -28,7 +28,7 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertTrue(source.contains("currentCoroutineContext().ensureActive()"))
         assertTrue(source.contains("activeConversation.cancelProcess()"))
         assertTrue(source.contains("catch (cancelled: CancellationException)"))
-        assertTrue(source.contains("LocalConversationPolicy.conversationConfig(initialTurns)"))
+        assertTrue(source.contains("LocalConversationPolicy.conversationConfig(budget.initialTurns)"))
         assertTrue(source.contains("conversationApiUsed = true"))
         assertTrue(source.contains("appTemplateUsed = false"))
         assertFalse(source.contains("renderForNativeAdapter"))

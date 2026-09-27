@@ -29,6 +29,17 @@ class LamiAnimationStatusMapperTest {
     }
 
     @Test
+    fun `returns thinking after Ollama reasoning tokens arrive`() {
+        val result = mapToAnimationLamiStatus(
+            lamiState = LamiState.Thinking,
+            uiState = UiState.Thinking(receivedCharacters = 120, receivedChunks = 8),
+            selectedModel = "qwen3.8:27b",
+        )
+
+        assertEquals(LamiStatus.THINKING, result)
+    }
+
+    @Test
     fun `returns error when uiState has non network error`() {
         val result = mapToAnimationLamiStatus(
             lamiState = LamiState.Idle,

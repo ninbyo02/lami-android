@@ -100,27 +100,34 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LamiAvatar(
-    baseUrl: String,
-    selectedModel: String?,
-    lastError: String?,
-    lamiStatus: LamiStatus = LamiStatus.CONNECTING,
-    lamiState: LamiState,
-    availableModels: List<ModelInfo> = emptyList(),
+    state: LamiHeaderStatusState,
+    actions: LamiHeaderStatusActions,
+    avatarPresentation: LamiHeaderAvatarPresentation = LamiHeaderAvatarPresentation(
+        initialAvatarSize = 36.dp,
+        minAvatarSize = 32.dp,
+        maxAvatarSize = 64.dp,
+    ),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
     backgroundColor: Color? = null,
-    initialAvatarSize: Dp = 36.dp,
-    minAvatarSize: Dp = 32.dp,
-    maxAvatarSize: Dp = 64.dp,
-    onSelectModel: (String) -> Unit = {},
-    onNavigateSettings: (() -> Unit)? = null,
-    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
-    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
-    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
-    debugOverlayEnabled: Boolean = true,
-    syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
 ) {
+    val baseUrl = state.baseUrl
+    val selectedModel = state.selectedModel
+    val lastError = state.lastError
+    val lamiStatus = state.lamiStatus
+    val lamiState = state.lamiState
+    val availableModels = state.availableModels
+    val selectedInferenceTarget = state.selectedInferenceTarget
+    val localInferenceEngineState = state.localInferenceEngineState
+    val debugOverlayEnabled = state.debugOverlayEnabled
+    val syncEpochMs = state.syncEpochMs
+    val initialAvatarSize = avatarPresentation.initialAvatarSize
+    val minAvatarSize = avatarPresentation.minAvatarSize
+    val maxAvatarSize = avatarPresentation.maxAvatarSize
+    val onSelectModel = actions.onSelectModel
+    val onNavigateSettings = actions.onNavigateSettings
+    val onSelectInferenceTarget = actions.onSelectInferenceTarget
     val haptic = LocalHapticFeedback.current
     val selectModelAndKeepSheetOpen: (String) -> Unit = { modelName ->
         onSelectModel(modelName)
@@ -252,16 +259,20 @@ fun LamiAvatar(
         LamiStatusSprite(
             status = avatarStatusState,
             lamiState = lamiState,
-            sizeDp = avatarSize.dp,
             modifier = Modifier
                 .offset(x = adjustedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 0.dp,
-            animationsEnabled = animationsEnabled,
-            replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled,
-            debugOverlayEnabled = debugOverlayEnabled,
+            layout = LamiStatusSpriteLayout(
+                sizeDp = avatarSize.dp,
+                contentOffsetDp = 0.dp,
+            ),
+            options = LamiStatusSpriteOptions(
+                animationsEnabled = animationsEnabled,
+                replacementEnabled = replacementEnabled,
+                blinkEffectEnabled = blinkEffectEnabled,
+                debugOverlayEnabled = debugOverlayEnabled,
+            ),
             syncEpochMs = syncEpochMs,
         )
         if (debugEnabled && debugOverlayEnabled) {
@@ -465,7 +476,15 @@ fun LamiAvatar(
                     if (modelListMessage != null) {
                         item { Text(modelListMessage) }
                     } else if (filteredModels.isEmpty()) {
-                        item { Text("モデルを取得できませんでした") }
+                        item {
+                            Text(
+                                if (availableModels.isEmpty()) {
+                                    "モデルを取得できませんでした"
+                                } else {
+                                    "検索条件に一致するモデルがありません"
+                                }
+                            )
+                        }
                     } else {
                         items(filteredModels, key = { model -> model.name }) { model ->
                             Row(
@@ -516,7 +535,7 @@ fun LamiAvatar(
                             TextButton(
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
-                                    onNavigateSettings?.invoke()
+                                    onNavigateSettings()
                                     showSheet = false
                                 }
                             ) {
@@ -580,28 +599,30 @@ internal fun resolveLamiControlUiText(
         )
     }
 
-    val connectionLabel = when (lamiStatus) {
-        LamiStatus.CONNECTING -> "接続中"
-        LamiStatus.READY,
-        LamiStatus.TALKING,
-        LamiStatus.NO_MODELS -> "接続OK"
-        LamiStatus.DEGRADED,
-        LamiStatus.OFFLINE,
-        LamiStatus.ERROR -> "接続失敗"
+    val hasAvailableModels = availableModels.isNotEmpty()
+    val connectionFailed = !hasAvailableModels && (
+        lamiStatus == LamiStatus.DEGRADED ||
+            lamiStatus == LamiStatus.OFFLINE ||
+            lamiStatus == LamiStatus.ERROR
+        )
+    val connectionLabel = when {
+        hasAvailableModels -> "接続OK"
+        lamiStatus == LamiStatus.CONNECTING -> "接続中"
+        lamiStatus == LamiStatus.READY ||
+            lamiStatus == LamiStatus.TALKING ||
+            lamiStatus == LamiStatus.NO_MODELS -> "接続OK"
+        else -> "接続失敗"
     }
-    val connectionFailed = lamiStatus == LamiStatus.DEGRADED ||
-        lamiStatus == LamiStatus.OFFLINE ||
-        lamiStatus == LamiStatus.ERROR
     return LamiControlUiText(
         connectionLabel = connectionLabel,
         destinationLabel = normalizedBaseUrl,
         modelListTitle = "利用可能なモデル",
         modelListMessage = when {
-            connectionFailed -> "モデルを取得できませんでした"
-            availableModels.isEmpty() -> "モデルを取得できませんでした"
-            else -> null
+            hasAvailableModels -> null
+            lamiStatus == LamiStatus.NO_MODELS -> "利用可能なモデルがありません"
+            else -> "モデルを取得できませんでした"
         },
-        showModelSearch = !connectionFailed && availableModels.isNotEmpty(),
+        showModelSearch = hasAvailableModels,
         showSettingsButton = connectionFailed,
     )
 }

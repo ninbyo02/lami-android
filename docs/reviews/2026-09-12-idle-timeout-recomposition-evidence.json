@@ -1,0 +1,1581 @@
+{
+  "protocol": {
+    "order": [
+      "old",
+      "new",
+      "new",
+      "old",
+      "old",
+      "new"
+    ],
+    "runs": [
+      {
+        "label": "1_old",
+        "version": "old",
+        "pid": "20221",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 300",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      },
+      {
+        "label": "2_new",
+        "version": "new",
+        "pid": "20911",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      },
+      {
+        "label": "3_new",
+        "version": "new",
+        "pid": "21460",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      },
+      {
+        "label": "4_old",
+        "version": "old",
+        "pid": "21810",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      },
+      {
+        "label": "5_old",
+        "version": "old",
+        "pid": "22265",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      },
+      {
+        "label": "6_new",
+        "version": "new",
+        "pid": "23281",
+        "before": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        },
+        "focus": [
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "after": {
+          "thermal": [
+            "Thermal Status: 0"
+          ],
+          "battery": [
+            "AC powered: true",
+            "USB powered: false",
+            "level: 80",
+            "temperature: 310",
+            "Capacity level: -1"
+          ]
+        }
+      }
+    ],
+    "samples": [
+      {
+        "label": "1_old",
+        "pid": "20221",
+        "elapsed_s": 30.496312571922317,
+        "cpu_percent": 4.885836595772007,
+        "cpu_seconds": 1.49,
+        "foreground_checks": [
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{73801f3 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   182562            TOTAL RSS:   300712       TOTAL SWAP PSS:      197"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 272",
+          "Janky frames: 25 (9.19%)",
+          "90th percentile: 16ms",
+          "95th percentile: 27ms",
+          "99th percentile: 300ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "2_new",
+        "pid": "20911",
+        "elapsed_s": 30.393660884932615,
+        "cpu_percent": 4.244306090285773,
+        "cpu_seconds": 1.29,
+        "foreground_checks": [
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{df3fae1 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   182327            TOTAL RSS:   300316       TOTAL SWAP PSS:      197"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 265",
+          "Janky frames: 20 (7.55%)",
+          "90th percentile: 16ms",
+          "95th percentile: 20ms",
+          "99th percentile: 150ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "3_new",
+        "pid": "21460",
+        "elapsed_s": 30.489765594014898,
+        "cpu_percent": 4.132534230592237,
+        "cpu_seconds": 1.26,
+        "foreground_checks": [
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{e2aa041 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   179386            TOTAL RSS:   297384       TOTAL SWAP PSS:      197"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 264",
+          "Janky frames: 11 (4.17%)",
+          "90th percentile: 15ms",
+          "95th percentile: 16ms",
+          "99th percentile: 150ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "4_old",
+        "pid": "21810",
+        "elapsed_s": 30.307649175985716,
+        "cpu_percent": 4.784270768017562,
+        "cpu_seconds": 1.45,
+        "foreground_checks": [
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{fa16d7d u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   184423            TOTAL RSS:   302504       TOTAL SWAP PSS:      197"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 269",
+          "Janky frames: 30 (11.15%)",
+          "90th percentile: 19ms",
+          "95th percentile: 27ms",
+          "99th percentile: 250ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "5_old",
+        "pid": "22265",
+        "elapsed_s": 30.296408658032306,
+        "cpu_percent": 4.488980906452856,
+        "cpu_seconds": 1.36,
+        "foreground_checks": [
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{9e578be u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   179988            TOTAL RSS:   298844       TOTAL SWAP PSS:      196"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 258",
+          "Janky frames: 26 (10.08%)",
+          "90th percentile: 16ms",
+          "95th percentile: 23ms",
+          "99th percentile: 150ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "6_new",
+        "pid": "23281",
+        "elapsed_s": 30.4052802240476,
+        "cpu_percent": 4.440018279891668,
+        "cpu_seconds": 1.35,
+        "foreground_checks": [
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}",
+          "mCurrentFocus=Window{449a2c6 u0 io.github.ninbyo02.lami/io.github.ninbyo02.lami.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   180513            TOTAL RSS:   298508       TOTAL SWAP PSS:      197"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 268",
+          "Janky frames: 18 (6.72%)",
+          "90th percentile: 16ms",
+          "95th percentile: 18ms",
+          "99th percentile: 150ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      },
+      {
+        "label": "new_background",
+        "pid": "23281",
+        "elapsed_s": 60.798674654914066,
+        "cpu_percent": 0.0,
+        "cpu_seconds": 0.0,
+        "foreground_checks": [
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+          "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}"
+        ],
+        "memory_summary": [
+          "TOTAL PSS:   115051            TOTAL RSS:   243476       TOTAL SWAP PSS:       92"
+        ],
+        "graphics_summary": [
+          "Total frames rendered: 496",
+          "Janky frames: 38 (7.66%)",
+          "90th percentile: 16ms",
+          "95th percentile: 17ms",
+          "99th percentile: 121ms",
+          "Pipeline=Skia (Vulkan)"
+        ]
+      }
+    ],
+    "visual": {
+      "1_old": {
+        "samples": 24,
+        "distinct": 5,
+        "hashes": [
+          "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+          "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+          "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+          "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79",
+          "eab1542cebd7badab95d73af702845f0981a8d2c3d2a76550e1eb76950fc7adb"
+        ]
+      },
+      "2_new": {
+        "samples": 24,
+        "distinct": 5,
+        "hashes": [
+          "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+          "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+          "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+          "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79",
+          "eab1542cebd7badab95d73af702845f0981a8d2c3d2a76550e1eb76950fc7adb"
+        ]
+      },
+      "new_resumed": {
+        "samples": 24,
+        "distinct": 4,
+        "hashes": [
+          "14466eabf199e46b7619743bb4046e9bad0896acb0415a81ad777c9261d33eca",
+          "23ff0111821faa607dc16b56493fc8326caca551ddc6b18bdba1ac903eddffcb",
+          "30e39af3515aeaa63eaaa96a901fe3d647831d5ecac3ffc873271a7918478a40",
+          "d395a1a71a4c396e3833e44d5fa963d1b1446b2322e82557486faf6dfb9c8f79"
+        ]
+      }
+    },
+    "settings_restored": true,
+    "started_utc": "2026-09-12T06:34:53.409925+00:00",
+    "source_commits": {
+      "old": "f4b60ed927c32d9485bee5ee8a19db5f3ad0e269",
+      "new": "58547342a19633db26e071cf2516b913d6710d23"
+    },
+    "apk_sha256": {
+      "old": "b89330a20780551252fd37f4547e023caace32945142d51cf05ee7d9cbffd625",
+      "new": "05d287505df2c1d8f5e6745c0fac6ad0aa83e40623510e10cd079d222bfab52c",
+      "baseline_debug": "e459f1a51892a7f0d9dc0093ea6ed09f623cd46302a714cf38945147c440ac58",
+      "candidate_debug": "f0ef8fd38fcd15b2f2ac47e16a61a0fdb5d8662aeef74211e6cd6183fbb014bb"
+    },
+    "original_timeout": "600000",
+    "final_timeout": "600000",
+    "final_focus": "mCurrentFocus=Window{3e2fc5 u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+    "ended_utc": "2026-09-12T06:48:33.478092+00:00",
+    "retry_reason": "Foreground changed to ChatGPT before final sample; interrupted sample excluded",
+    "retry_started_utc": "2026-09-12T06:45:23.655212+00:00",
+    "accepted_candidate_installed": true,
+    "final_install_utc": "2026-09-12T06:49:59.321345+00:00"
+  },
+  "analysis": {
+    "runs": [
+      {
+        "label": "1_old",
+        "version": "old",
+        "frames": 229,
+        "late": 31,
+        "app_deadline": 9,
+        "display_hal": 25,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "App Deadline Missed",
+            "n": 6
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 22
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 3
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 198
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 229
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 229,
+            "median_ms": 13.962,
+            "p95_ms": 15.801,
+            "max_ms": 28.3
+          },
+          "app_finish_overrun_ms": {
+            "n": 229,
+            "median_ms": -1.49,
+            "p95_ms": 0.811,
+            "max_ms": 12.754
+          },
+          "app_start_to_present_ms": {
+            "n": 229,
+            "median_ms": 31.316,
+            "p95_ms": 47.865,
+            "max_ms": 48.301
+          },
+          "display_present_overrun_ms": {
+            "n": 229,
+            "median_ms": 0.003,
+            "p95_ms": 16.658,
+            "max_ms": 16.738
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1091.129
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 875.446
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 118.512
+          },
+          {
+            "name": "Jit thread pool",
+            "cpu_ms": 112.995
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 112.552
+          },
+          {
+            "name": "binder:20221_1",
+            "cpu_ms": 84.996
+          }
+        ],
+        "total_cpu_ms": 2542.771,
+        "slices": [
+          {
+            "name": "Recomposer:recompose",
+            "n": 14,
+            "total_ms": 111.056,
+            "max_ms": 21.554
+          },
+          {
+            "name": "Record View#draw()",
+            "n": 230,
+            "total_ms": 150.855,
+            "max_ms": 2.363
+          },
+          {
+            "name": "flush commands",
+            "n": 230,
+            "total_ms": 495.003,
+            "max_ms": 4.188
+          }
+        ],
+        "errors": []
+      },
+      {
+        "label": "2_new",
+        "version": "new",
+        "frames": 223,
+        "late": 22,
+        "app_deadline": 4,
+        "display_hal": 22,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 18
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 4
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 201
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 223
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 223,
+            "median_ms": 13.833,
+            "p95_ms": 15.629,
+            "max_ms": 16.761
+          },
+          "app_finish_overrun_ms": {
+            "n": 223,
+            "median_ms": -1.708,
+            "p95_ms": 0.259,
+            "max_ms": 1.255
+          },
+          "app_start_to_present_ms": {
+            "n": 223,
+            "median_ms": 31.307,
+            "p95_ms": 47.721,
+            "max_ms": 48.489
+          },
+          "display_present_overrun_ms": {
+            "n": 223,
+            "median_ms": 0.006,
+            "p95_ms": 16.628,
+            "max_ms": 16.807
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1080.692
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 707.627
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 106.171
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 102.773
+          },
+          {
+            "name": "binder:20911_4",
+            "cpu_ms": 71.312
+          },
+          {
+            "name": "binder:20911_1",
+            "cpu_ms": 60.16
+          }
+        ],
+        "total_cpu_ms": 2270.142,
+        "slices": [
+          {
+            "name": "Record View#draw()",
+            "n": 225,
+            "total_ms": 144.519,
+            "max_ms": 2.613
+          },
+          {
+            "name": "flush commands",
+            "n": 225,
+            "total_ms": 479.619,
+            "max_ms": 3.789
+          }
+        ],
+        "errors": []
+      },
+      {
+        "label": "3_new",
+        "version": "new",
+        "frames": 222,
+        "late": 30,
+        "app_deadline": 6,
+        "display_hal": 30,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 24
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 6
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 192
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 222
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 222,
+            "median_ms": 14.081,
+            "p95_ms": 15.567,
+            "max_ms": 16.39
+          },
+          "app_finish_overrun_ms": {
+            "n": 222,
+            "median_ms": -1.444,
+            "p95_ms": 0.428,
+            "max_ms": 0.858
+          },
+          "app_start_to_present_ms": {
+            "n": 222,
+            "median_ms": 31.372,
+            "p95_ms": 47.971,
+            "max_ms": 48.359
+          },
+          "display_present_overrun_ms": {
+            "n": 222,
+            "median_ms": 0.009,
+            "p95_ms": 16.684,
+            "max_ms": 16.772
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1095.712
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 762.801
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 123.923
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 116.6
+          },
+          {
+            "name": "binder:21460_1",
+            "cpu_ms": 67.185
+          },
+          {
+            "name": "binder:21460_3",
+            "cpu_ms": 66.877
+          }
+        ],
+        "total_cpu_ms": 2367.709,
+        "slices": [
+          {
+            "name": "Record View#draw()",
+            "n": 223,
+            "total_ms": 143.516,
+            "max_ms": 1.833
+          },
+          {
+            "name": "flush commands",
+            "n": 223,
+            "total_ms": 486.67,
+            "max_ms": 4.507
+          }
+        ],
+        "errors": []
+      },
+      {
+        "label": "4_old",
+        "version": "old",
+        "frames": 228,
+        "late": 34,
+        "app_deadline": 13,
+        "display_hal": 28,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "App Deadline Missed",
+            "n": 6
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 21
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 7
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 194
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 228
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 228,
+            "median_ms": 13.883,
+            "p95_ms": 15.768,
+            "max_ms": 29.983
+          },
+          "app_finish_overrun_ms": {
+            "n": 228,
+            "median_ms": -1.648,
+            "p95_ms": 0.536,
+            "max_ms": 14.156
+          },
+          "app_start_to_present_ms": {
+            "n": 228,
+            "median_ms": 31.338,
+            "p95_ms": 48.013,
+            "max_ms": 48.413
+          },
+          "display_present_overrun_ms": {
+            "n": 228,
+            "median_ms": 0.011,
+            "p95_ms": 16.66,
+            "max_ms": 16.762
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1074.498
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 858.321
+          },
+          {
+            "name": "Jit thread pool",
+            "cpu_ms": 120.655
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 112.917
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 107.021
+          },
+          {
+            "name": "binder:21810_3",
+            "cpu_ms": 67.861
+          }
+        ],
+        "total_cpu_ms": 2499.442,
+        "slices": [
+          {
+            "name": "Recomposer:recompose",
+            "n": 14,
+            "total_ms": 128.307,
+            "max_ms": 24.475
+          },
+          {
+            "name": "Record View#draw()",
+            "n": 229,
+            "total_ms": 142.937,
+            "max_ms": 1.567
+          },
+          {
+            "name": "flush commands",
+            "n": 229,
+            "total_ms": 472.619,
+            "max_ms": 3.489
+          }
+        ],
+        "errors": []
+      },
+      {
+        "label": "5_old",
+        "version": "old",
+        "frames": 227,
+        "late": 28,
+        "app_deadline": 10,
+        "display_hal": 21,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "App Deadline Missed",
+            "n": 7
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 18
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 3
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 199
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 227
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 227,
+            "median_ms": 13.869,
+            "p95_ms": 16.048,
+            "max_ms": 30.392
+          },
+          "app_finish_overrun_ms": {
+            "n": 227,
+            "median_ms": -1.617,
+            "p95_ms": 0.588,
+            "max_ms": 14.883
+          },
+          "app_start_to_present_ms": {
+            "n": 227,
+            "median_ms": 31.317,
+            "p95_ms": 47.822,
+            "max_ms": 48.194
+          },
+          "display_present_overrun_ms": {
+            "n": 227,
+            "median_ms": 0.01,
+            "p95_ms": 16.66,
+            "max_ms": 16.737
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1052.46
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 884.35
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 118.965
+          },
+          {
+            "name": "Jit thread pool",
+            "cpu_ms": 110.917
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 109.76
+          },
+          {
+            "name": "binder:22265_2",
+            "cpu_ms": 74.844
+          }
+        ],
+        "total_cpu_ms": 2506.88,
+        "slices": [
+          {
+            "name": "Recomposer:recompose",
+            "n": 14,
+            "total_ms": 140.25,
+            "max_ms": 22.479
+          },
+          {
+            "name": "Record View#draw()",
+            "n": 228,
+            "total_ms": 139.293,
+            "max_ms": 1.924
+          },
+          {
+            "name": "flush commands",
+            "n": 228,
+            "total_ms": 474.161,
+            "max_ms": 4.442
+          }
+        ],
+        "errors": []
+      },
+      {
+        "label": "6_new",
+        "version": "new",
+        "frames": 222,
+        "late": 18,
+        "app_deadline": 3,
+        "display_hal": 17,
+        "jank_groups": [
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL",
+            "n": 14
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "Display HAL, App Deadline Missed",
+            "n": 3
+          },
+          {
+            "present_type": "Late Present",
+            "jank_type": "SurfaceFlinger Scheduling",
+            "n": 1
+          },
+          {
+            "present_type": "On-time Present",
+            "jank_type": "None",
+            "n": 204
+          }
+        ],
+        "prediction_groups": [
+          {
+            "prediction_type": "Valid Prediction",
+            "n": 222
+          }
+        ],
+        "timing": {
+          "app_ms": {
+            "n": 222,
+            "median_ms": 13.675,
+            "p95_ms": 15.449,
+            "max_ms": 16.28
+          },
+          "app_finish_overrun_ms": {
+            "n": 222,
+            "median_ms": -2.045,
+            "p95_ms": 0.291,
+            "max_ms": 1.253
+          },
+          "app_start_to_present_ms": {
+            "n": 222,
+            "median_ms": 31.369,
+            "p95_ms": 47.831,
+            "max_ms": 48.139
+          },
+          "display_present_overrun_ms": {
+            "n": 222,
+            "median_ms": 0.013,
+            "p95_ms": 16.619,
+            "max_ms": 16.79
+          }
+        },
+        "threads": [
+          {
+            "name": "RenderThread",
+            "cpu_ms": 1031.124
+          },
+          {
+            "name": "b.ninbyo02.lami",
+            "cpu_ms": 688.156
+          },
+          {
+            "name": "jank",
+            "cpu_ms": 110.627
+          },
+          {
+            "name": "DefaultExecutor",
+            "cpu_ms": 101.288
+          },
+          {
+            "name": "binder:23281_4",
+            "cpu_ms": 85.753
+          },
+          {
+            "name": "Jit thread pool",
+            "cpu_ms": 47.052
+          }
+        ],
+        "total_cpu_ms": 2175.206,
+        "slices": [
+          {
+            "name": "Record View#draw()",
+            "n": 223,
+            "total_ms": 128.877,
+            "max_ms": 1.555
+          },
+          {
+            "name": "flush commands",
+            "n": 223,
+            "total_ms": 468.762,
+            "max_ms": 5.02
+          }
+        ],
+        "errors": []
+      }
+    ],
+    "old": {
+      "frames": 684,
+      "late": 93,
+      "app_deadline": 32,
+      "timing": {
+        "app_ms": {
+          "n": 684,
+          "median_ms": 13.903,
+          "p95_ms": 15.801,
+          "max_ms": 30.392
+        },
+        "app_finish_overrun_ms": {
+          "n": 684,
+          "median_ms": -1.62,
+          "p95_ms": 0.634,
+          "max_ms": 14.883
+        },
+        "app_start_to_present_ms": {
+          "n": 684,
+          "median_ms": 31.329,
+          "p95_ms": 47.896,
+          "max_ms": 48.413
+        },
+        "display_present_overrun_ms": {
+          "n": 684,
+          "median_ms": 0.009,
+          "p95_ms": 16.66,
+          "max_ms": 16.762
+        }
+      }
+    },
+    "new": {
+      "frames": 667,
+      "late": 70,
+      "app_deadline": 13,
+      "timing": {
+        "app_ms": {
+          "n": 667,
+          "median_ms": 13.811,
+          "p95_ms": 15.567,
+          "max_ms": 16.761
+        },
+        "app_finish_overrun_ms": {
+          "n": 667,
+          "median_ms": -1.731,
+          "p95_ms": 0.312,
+          "max_ms": 1.255
+        },
+        "app_start_to_present_ms": {
+          "n": 667,
+          "median_ms": 31.352,
+          "p95_ms": 47.853,
+          "max_ms": 48.489
+        },
+        "display_present_overrun_ms": {
+          "n": 667,
+          "median_ms": 0.009,
+          "p95_ms": 16.651,
+          "max_ms": 16.807
+        }
+      }
+    }
+  },
+  "recomposition": [
+    {
+      "label": "1_old",
+      "events": [
+        {
+          "elapsed_s": 4.858857654,
+          "duration_ms": 21.553906
+        },
+        {
+          "elapsed_s": 4.892218956,
+          "duration_ms": 0.235625
+        },
+        {
+          "elapsed_s": 10.893990985,
+          "duration_ms": 14.529531
+        },
+        {
+          "elapsed_s": 10.910116923,
+          "duration_ms": 0.192812
+        },
+        {
+          "elapsed_s": 16.914070098,
+          "duration_ms": 11.214739
+        },
+        {
+          "elapsed_s": 16.927854785,
+          "duration_ms": 0.204688
+        },
+        {
+          "elapsed_s": 22.931901293,
+          "duration_ms": 18.013906
+        },
+        {
+          "elapsed_s": 22.96270197,
+          "duration_ms": 0.465625
+        },
+        {
+          "elapsed_s": 28.963459103,
+          "duration_ms": 7.784427
+        },
+        {
+          "elapsed_s": 28.980579728,
+          "duration_ms": 0.371459
+        },
+        {
+          "elapsed_s": 34.982543997,
+          "duration_ms": 19.022708
+        },
+        {
+          "elapsed_s": 35.01486233,
+          "duration_ms": 0.258698
+        },
+        {
+          "elapsed_s": 41.017900974,
+          "duration_ms": 16.778125
+        },
+        {
+          "elapsed_s": 41.049969359,
+          "duration_ms": 0.43
+        }
+      ],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 221,
+          "late": 25,
+          "app_missed": 3
+        },
+        {
+          "recomp": 1,
+          "frames": 8,
+          "late": 6,
+          "app_missed": 6
+        }
+      ]
+    },
+    {
+      "label": "2_new",
+      "events": [],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 223,
+          "late": 22,
+          "app_missed": 4
+        }
+      ]
+    },
+    {
+      "label": "3_new",
+      "events": [],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 222,
+          "late": 30,
+          "app_missed": 6
+        }
+      ]
+    },
+    {
+      "label": "4_old",
+      "events": [
+        {
+          "elapsed_s": 4.849895311,
+          "duration_ms": 16.385885
+        },
+        {
+          "elapsed_s": 4.868551404,
+          "duration_ms": 0.197136
+        },
+        {
+          "elapsed_s": 10.885109371,
+          "duration_ms": 18.685521
+        },
+        {
+          "elapsed_s": 10.917707704,
+          "duration_ms": 0.218438
+        },
+        {
+          "elapsed_s": 16.920657285,
+          "duration_ms": 14.735625
+        },
+        {
+          "elapsed_s": 16.936908223,
+          "duration_ms": 0.185781
+        },
+        {
+          "elapsed_s": 22.954667283,
+          "duration_ms": 24.475
+        },
+        {
+          "elapsed_s": 22.987046033,
+          "duration_ms": 0.180781
+        },
+        {
+          "elapsed_s": 28.989380458,
+          "duration_ms": 23.052343
+        },
+        {
+          "elapsed_s": 29.02185077,
+          "duration_ms": 0.235625
+        },
+        {
+          "elapsed_s": 35.024313424,
+          "duration_ms": 10.795938
+        },
+        {
+          "elapsed_s": 35.040064882,
+          "duration_ms": 0.214323
+        },
+        {
+          "elapsed_s": 41.042318526,
+          "duration_ms": 18.70151
+        },
+        {
+          "elapsed_s": 41.07497462,
+          "duration_ms": 0.242812
+        }
+      ],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 220,
+          "late": 28,
+          "app_missed": 7
+        },
+        {
+          "recomp": 1,
+          "frames": 8,
+          "late": 6,
+          "app_missed": 6
+        }
+      ]
+    },
+    {
+      "label": "5_old",
+      "events": [
+        {
+          "elapsed_s": 4.826020831,
+          "duration_ms": 16.366094
+        },
+        {
+          "elapsed_s": 4.859354269,
+          "duration_ms": 0.88875
+        },
+        {
+          "elapsed_s": 10.860250204,
+          "duration_ms": 20.338333
+        },
+        {
+          "elapsed_s": 10.892804787,
+          "duration_ms": 0.210104
+        },
+        {
+          "elapsed_s": 16.894424577,
+          "duration_ms": 19.137031
+        },
+        {
+          "elapsed_s": 16.927154108,
+          "duration_ms": 0.408906
+        },
+        {
+          "elapsed_s": 22.928730147,
+          "duration_ms": 22.47875
+        },
+        {
+          "elapsed_s": 22.96145921,
+          "duration_ms": 0.235312
+        },
+        {
+          "elapsed_s": 28.963558947,
+          "duration_ms": 19.130156
+        },
+        {
+          "elapsed_s": 28.996266135,
+          "duration_ms": 0.223072
+        },
+        {
+          "elapsed_s": 34.998720559,
+          "duration_ms": 20.675313
+        },
+        {
+          "elapsed_s": 35.031004778,
+          "duration_ms": 0.267344
+        },
+        {
+          "elapsed_s": 41.033475765,
+          "duration_ms": 19.52974
+        },
+        {
+          "elapsed_s": 41.066051078,
+          "duration_ms": 0.36125
+        }
+      ],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 218,
+          "late": 21,
+          "app_missed": 3
+        },
+        {
+          "recomp": 1,
+          "frames": 9,
+          "late": 7,
+          "app_missed": 7
+        }
+      ]
+    },
+    {
+      "label": "6_new",
+      "events": [],
+      "overlap": [
+        {
+          "recomp": 0,
+          "frames": 222,
+          "late": 18,
+          "app_missed": 3
+        }
+      ]
+    }
+  ],
+  "recording": [
+    {
+      "label": "1_old",
+      "frames": 230,
+      "wall_total_ms": 150.855,
+      "state_ms": {
+        "R+": 0.185,
+        "Running": 130.1,
+        "R": 20.57
+      },
+      "cpu_ms_per_recording": 0.5657
+    },
+    {
+      "label": "2_new",
+      "frames": 225,
+      "wall_total_ms": 144.519,
+      "state_ms": {
+        "R": 20.321,
+        "Running": 123.735,
+        "R+": 0.463
+      },
+      "cpu_ms_per_recording": 0.5499
+    },
+    {
+      "label": "3_new",
+      "frames": 223,
+      "wall_total_ms": 143.516,
+      "state_ms": {
+        "R": 16.167,
+        "Running": 126.466,
+        "R+": 0.883
+      },
+      "cpu_ms_per_recording": 0.5671
+    },
+    {
+      "label": "4_old",
+      "frames": 229,
+      "wall_total_ms": 142.937,
+      "state_ms": {
+        "R": 18.36,
+        "Running": 123.762,
+        "R+": 0.815
+      },
+      "cpu_ms_per_recording": 0.5404
+    },
+    {
+      "label": "5_old",
+      "frames": 228,
+      "wall_total_ms": 139.293,
+      "state_ms": {
+        "Running": 121.419,
+        "R": 17.81,
+        "R+": 0.063
+      },
+      "cpu_ms_per_recording": 0.5325
+    },
+    {
+      "label": "6_new",
+      "frames": 223,
+      "wall_total_ms": 128.877,
+      "state_ms": {
+        "R": 14.084,
+        "Running": 114.399,
+        "R+": 0.394
+      },
+      "cpu_ms_per_recording": 0.513
+    }
+  ],
+  "aggregates": {
+    "old": {
+      "cpu_percent": 4.720068624133291,
+      "cpu_range": [
+        4.488980906452856,
+        4.885836595772007
+      ],
+      "recompose_n": 42,
+      "recompose_ms": 379.613122,
+      "renderthread_cpu_ms": 3218.087,
+      "jank_groups": {
+        "App Deadline Missed": 19,
+        "Display HAL": 61,
+        "Display HAL, App Deadline Missed": 13,
+        "None": 591
+      },
+      "frames": 684,
+      "late": 93,
+      "app_deadline": 32,
+      "timing": {
+        "app_ms": {
+          "n": 684,
+          "median_ms": 13.903,
+          "p95_ms": 15.801,
+          "max_ms": 30.392
+        },
+        "app_finish_overrun_ms": {
+          "n": 684,
+          "median_ms": -1.62,
+          "p95_ms": 0.634,
+          "max_ms": 14.883
+        },
+        "app_start_to_present_ms": {
+          "n": 684,
+          "median_ms": 31.329,
+          "p95_ms": 47.896,
+          "max_ms": 48.413
+        },
+        "display_present_overrun_ms": {
+          "n": 684,
+          "median_ms": 0.009,
+          "p95_ms": 16.66,
+          "max_ms": 16.762
+        }
+      },
+      "late_percent": 13.596491228070175,
+      "app_deadline_percent": 4.678362573099415
+    },
+    "new": {
+      "cpu_percent": 4.272160424715541,
+      "cpu_range": [
+        4.132534230592237,
+        4.440018279891668
+      ],
+      "recompose_n": 0,
+      "recompose_ms": 0,
+      "renderthread_cpu_ms": 3207.5280000000002,
+      "jank_groups": {
+        "Display HAL": 56,
+        "Display HAL, App Deadline Missed": 13,
+        "None": 597,
+        "SurfaceFlinger Scheduling": 1
+      },
+      "frames": 667,
+      "late": 70,
+      "app_deadline": 13,
+      "timing": {
+        "app_ms": {
+          "n": 667,
+          "median_ms": 13.811,
+          "p95_ms": 15.567,
+          "max_ms": 16.761
+        },
+        "app_finish_overrun_ms": {
+          "n": 667,
+          "median_ms": -1.731,
+          "p95_ms": 0.312,
+          "max_ms": 1.255
+        },
+        "app_start_to_present_ms": {
+          "n": 667,
+          "median_ms": 31.352,
+          "p95_ms": 47.853,
+          "max_ms": 48.489
+        },
+        "display_present_overrun_ms": {
+          "n": 667,
+          "median_ms": 0.009,
+          "p95_ms": 16.651,
+          "max_ms": 16.807
+        }
+      },
+      "late_percent": 10.494752623688155,
+      "app_deadline_percent": 1.949025487256372
+    }
+  }
+}

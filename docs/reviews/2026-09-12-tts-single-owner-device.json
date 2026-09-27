@@ -1,0 +1,191 @@
+{
+  "steps": [
+    {
+      "label": "greeting",
+      "observed_elapsed_s": 4.377787351608276,
+      "row": {
+        "messageID": 56,
+        "chatId": 87,
+        "status": "COMPLETED",
+        "message": "佐藤さん、こんにちは。",
+        "generationTimeMs": 153,
+        "finishReason": "success",
+        "errorCode": null,
+        "inferenceNotes": "backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+      }
+    },
+    {
+      "label": "long",
+      "observed_elapsed_s": 15.101989507675171,
+      "row": {
+        "messageID": 58,
+        "chatId": 87,
+        "status": "COMPLETED",
+        "message": "宇宙旅行は、人類の探求心と技術力の結晶であり、想像を絶する可能性を秘めた分野です。単なる夢物語ではなく、科学、工学、そして人間の精神的な限界を押し広げる壮大なプロジェクトとして捉えることができます。\n\n宇宙旅行の基本的な形態は、大きく分けて「宇宙飛行士による探査」と「宇宙居住・定住」の二つに分類されます。前者、宇宙飛行士による探査は、国際宇宙ステーション（ISS）のような国際共同研究施設を利用し、地球外の天体、惑星、あるいは宇宙そのものの物理法則を直接観察・研究することを目的とします。例えば、火星探査ミッションでは、生命の痕跡を探る、惑星の地質を詳細にマッピングする、あるいは太陽系外の天体の組成を分析するなど、科学的な知見の獲得が主眼となります。この種の旅行は、極限の環境下での生命維持システム、放射線対策、そして長期的な心理的安定性をいかに確保するかにかかっています。\n\n一方、より長期的な宇宙旅行や定住を目指すものは、人類を他の天体に送り込み、自立したコロニーを築くことを目指します。これは、地球外生命体の存在可能性を探るだけでなく、人類という種の生存戦略を多様化させるという、究極の保険とも言える目標です。そのためには、閉鎖環境下での資源再利用技術、自己修復可能な構造物、そして何よりも、精神的なレジリエンス（精神的回復力）を支える高度な社会システムが不可欠です。\n\n技術的な側面では、推進システム、生命維持装置、そして宇宙空間での医療技術が極めて重要になります。現在の技術では、地球周回軌道や月面への移動は実現していますが、地球外の惑星への到達には、より効率的でエネルギー効率の高い推進技術、例えば核融合推進などが今後の鍵を握ると期待されています。\n\n宇宙旅行は、科学的発見という明確な",
+        "generationTimeMs": 11552,
+        "finishReason": "success",
+        "errorCode": null,
+        "inferenceNotes": "backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+      }
+    },
+    {
+      "label": "short",
+      "observed_elapsed_s": 2.276073694229126,
+      "row": {
+        "messageID": 60,
+        "chatId": 87,
+        "status": "COMPLETED",
+        "message": "赤",
+        "generationTimeMs": 89,
+        "finishReason": "success",
+        "errorCode": null,
+        "inferenceNotes": "backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+      }
+    },
+    {
+      "label": "cancel",
+      "observed_elapsed_s": 11.688618421554565,
+      "row": {
+        "messageID": 62,
+        "chatId": 87,
+        "status": "CANCELLED",
+        "message": "## 星々の彼方へ：宇宙旅行の物語\n\n夜空を見上げるとき、多くの人は畏敬の念を抱きます。無数の星々が織りなす壮大な宇宙の広がりは、人間の想像力を無限に掻き立てます。そして、",
+        "generationTimeMs": null,
+        "finishReason": null,
+        "errorCode": "USER_CANCELLED",
+        "inferenceNotes": null
+      }
+    },
+    {
+      "label": "resend",
+      "observed_elapsed_s": 4.383177995681763,
+      "row": {
+        "messageID": 64,
+        "chatId": 87,
+        "status": "COMPLETED",
+        "message": "承知いたしました。",
+        "generationTimeMs": 456,
+        "finishReason": "success",
+        "errorCode": null,
+        "inferenceNotes": "backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+      }
+    }
+  ],
+  "device_clock_offset_s": -1.9328346252441406,
+  "baseline_max_id": 54,
+  "greeting_tts": [
+    "1789221274187 [LAMI_TTS] stop generation=1 queued=0",
+    "1789221275782 [LAMI_TTS] request code_points=11 ready=true queue_mode=1",
+    "1789221275783 [LAMI_TTS] speak_accepted utterance_id=lami-tts-1-e959e22c-2816-4309-af22-f5df4374ff99",
+    "1789221275889 [LAMI_TTS] playback_started utterance_id=lami-tts-1-e959e22c-2816-4309-af22-f5df4374ff99",
+    "1789221277924 [LAMI_TTS] playback_done utterance_id=lami-tts-1-e959e22c-2816-4309-af22-f5df4374ff99"
+  ],
+  "long_tts_before_stop": [
+    "1789221290298 [LAMI_TTS] stop generation=2 queued=0",
+    "1789221291311 [LAMI_TTS] request code_points=23 ready=true queue_mode=1",
+    "1789221291312 [LAMI_TTS] speak_accepted utterance_id=lami-tts-2-0af211c8-20f7-46da-80b0-d4f2075cc250",
+    "1789221291365 [LAMI_TTS] playback_started utterance_id=lami-tts-2-0af211c8-20f7-46da-80b0-d4f2075cc250",
+    "1789221291945 [LAMI_TTS] request code_points=18 ready=true queue_mode=1",
+    "1789221291976 [LAMI_TTS] request code_points=17 ready=true queue_mode=1",
+    "1789221292441 [LAMI_TTS] request code_points=41 ready=true queue_mode=1",
+    "1789221293078 [LAMI_TTS] request code_points=13 ready=true queue_mode=1",
+    "1789221293620 [LAMI_TTS] request code_points=39 ready=true queue_mode=1",
+    "1789221293648 [LAMI_TTS] request code_points=15 ready=true queue_mode=1",
+    "1789221294122 [LAMI_TTS] request code_points=32 ready=true queue_mode=1",
+    "1789221294609 [LAMI_TTS] request code_points=10 ready=true queue_mode=1",
+    "1789221295204 [LAMI_TTS] request code_points=35 ready=true queue_mode=1",
+    "1789221295246 [LAMI_TTS] request code_points=25 ready=true queue_mode=1",
+    "1789221295720 [LAMI_TTS] request code_points=17 ready=true queue_mode=1",
+    "1789221296172 [LAMI_TTS] request code_points=40 ready=true queue_mode=1",
+    "1789221296592 [LAMI_TTS] request code_points=31 ready=true queue_mode=1",
+    "1789221297003 [LAMI_TTS] request code_points=31 ready=true queue_mode=1",
+    "1789221297144 [LAMI_TTS] playback_done utterance_id=lami-tts-2-0af211c8-20f7-46da-80b0-d4f2075cc250",
+    "1789221297149 [LAMI_TTS] speak_accepted utterance_id=lami-tts-2-1aa9bb89-31d3-4370-97b1-0852490b04b7",
+    "1789221297208 [LAMI_TTS] playback_started utterance_id=lami-tts-2-1aa9bb89-31d3-4370-97b1-0852490b04b7",
+    "1789221297566 [LAMI_TTS] request code_points=24 ready=true queue_mode=1",
+    "1789221298016 [LAMI_TTS] request code_points=33 ready=true queue_mode=1",
+    "1789221298043 [LAMI_TTS] request code_points=4 ready=true queue_mode=1",
+    "1789221298472 [LAMI_TTS] request code_points=21 ready=true queue_mode=1",
+    "1789221298914 [LAMI_TTS] request code_points=37 ready=true queue_mode=1",
+    "1789221298940 [LAMI_TTS] request code_points=7 ready=true queue_mode=1",
+    "1789221299363 [LAMI_TTS] request code_points=34 ready=true queue_mode=1",
+    "1789221299965 [LAMI_TTS] request code_points=38 ready=true queue_mode=1",
+    "1789221300332 [LAMI_TTS] request code_points=23 ready=true queue_mode=1",
+    "1789221300777 [LAMI_TTS] request code_points=25 ready=true queue_mode=1",
+    "1789221300803 [LAMI_TTS] request code_points=8 ready=true queue_mode=1",
+    "1789221301031 [LAMI_TTS] playback_done utterance_id=lami-tts-2-1aa9bb89-31d3-4370-97b1-0852490b04b7",
+    "1789221301031 [LAMI_TTS] speak_accepted utterance_id=lami-tts-2-88d3235a-693f-42f6-a8b3-2698c2a29c25",
+    "1789221301098 [LAMI_TTS] playback_started utterance_id=lami-tts-2-88d3235a-693f-42f6-a8b3-2698c2a29c25",
+    "1789221301280 [LAMI_TTS] request code_points=36 ready=true queue_mode=1",
+    "1789221301666 [LAMI_TTS] request code_points=21 ready=true queue_mode=1",
+    "1789221301729 [LAMI_TTS] request code_points=28 ready=true queue_mode=1",
+    "1789221302241 [LAMI_TTS] request code_points=6 ready=true queue_mode=1",
+    "1789221302346 [LAMI_TTS] request code_points=11 ready=true queue_mode=1",
+    "1789221305316 [LAMI_TTS] playback_done utterance_id=lami-tts-2-88d3235a-693f-42f6-a8b3-2698c2a29c25",
+    "1789221305317 [LAMI_TTS] speak_accepted utterance_id=lami-tts-2-8b28ea7b-2b3e-44a3-9eeb-1a5a3d3da029",
+    "1789221305449 [LAMI_TTS] playback_started utterance_id=lami-tts-2-8b28ea7b-2b3e-44a3-9eeb-1a5a3d3da029"
+  ],
+  "long_audio_before_stop": [
+    "AudioPlaybackConfiguration piid:22399 deviceIds:[3] type:android.media.AudioTrack u/pid:10375/11559 state:started attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_SPEECH flags=0xA00 tags= bundle=null sessionId:30633 mutedState:none  FormatInfo{isSpatialized=false, channelMask=0x1, sampleRate=24000}"
+  ],
+  "long_response_length": 751,
+  "playback_stop-audio-2s": [],
+  "playback_stop-audio-8s": [],
+  "playback_stop": {
+    "stop_seen": true,
+    "late_speech_events": [],
+    "observation_seconds": 8
+  },
+  "short_tts": [
+    "1789221324792 [LAMI_TTS] stop generation=4 queued=0",
+    "1789221325440 [LAMI_TTS] request code_points=1 ready=true queue_mode=1",
+    "1789221325441 [LAMI_TTS] speak_accepted utterance_id=lami-tts-4-f67cb4c6-cc11-4d6e-824e-db03c723a093",
+    "1789221325467 [LAMI_TTS] playback_started utterance_id=lami-tts-4-f67cb4c6-cc11-4d6e-824e-db03c723a093",
+    "1789221326056 [LAMI_TTS] playback_done utterance_id=lami-tts-4-f67cb4c6-cc11-4d6e-824e-db03c723a093"
+  ],
+  "cancel_tts_before_stop": [
+    "1789221338250 [LAMI_TTS] stop generation=5 queued=0",
+    "1789221338966 [LAMI_TTS] request code_points=14 ready=true queue_mode=1",
+    "1789221338968 [LAMI_TTS] speak_accepted utterance_id=lami-tts-5-c3a94b3e-3cb0-44cd-9076-471d279e862e",
+    "1789221339030 [LAMI_TTS] playback_started utterance_id=lami-tts-5-c3a94b3e-3cb0-44cd-9076-471d279e862e",
+    "1789221339530 [LAMI_TTS] request code_points=25 ready=true queue_mode=1",
+    "1789221340074 [LAMI_TTS] request code_points=38 ready=true queue_mode=1"
+  ],
+  "cancel_audio_before_stop": [
+    "AudioPlaybackConfiguration piid:22415 deviceIds:[3] type:android.media.AudioTrack u/pid:10375/11559 state:started attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_SPEECH flags=0xA00 tags= bundle=null sessionId:30649 mutedState:none  FormatInfo{isSpatialized=false, channelMask=0x1, sampleRate=24000}"
+  ],
+  "generation_stop-audio-2s": [],
+  "generation_stop-audio-8s": [],
+  "generation_stop": {
+    "stop_seen": true,
+    "late_speech_events": [],
+    "observation_seconds": 8
+  },
+  "resend_tts": [
+    "1789221371179 [LAMI_TTS] stop generation=7 queued=0",
+    "1789221373266 [LAMI_TTS] request code_points=9 ready=true queue_mode=1",
+    "1789221373267 [LAMI_TTS] speak_accepted utterance_id=lami-tts-7-e58d0a08-9ea5-4ecf-87e1-f1457bdbe114",
+    "1789221373297 [LAMI_TTS] playback_started utterance_id=lami-tts-7-e58d0a08-9ea5-4ecf-87e1-f1457bdbe114",
+    "1789221374913 [LAMI_TTS] playback_done utterance_id=lami-tts-7-e58d0a08-9ea5-4ecf-87e1-f1457bdbe114"
+  ],
+  "sequence_completed": true,
+  "restored_ime": true,
+  "restored_timeout": true,
+  "focus": "mCurrentFocus=Window{ab3a76f u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}",
+  "main_preferences_unchanged": true,
+  "apk_sha256": "68a5266d1fca320668c3875696403dfcc6abd664d5445054abab7f7bd01eb7fd",
+  "package": "io.github.ninbyo02.lami.gpucontrolled",
+  "native_identical_to_previous_candidate": true,
+  "source_base": "9cf4fb55",
+  "local_tests": {
+    "StandardDebug": 1781,
+    "StandardRelease": 1244,
+    "failures": 0
+  },
+  "source_sha256": {
+    "app/src/main/java/io/github/ninbyo02/lami/tts/AndroidTtsController.kt": "21052e23daafd183843a3ced181fae357132f4843bdcde268611ee79cd5c71b9",
+    "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt": "a59ae86d026f19b25a22a5fc7ab28be48a15f26e122a871f6f6c879d67f09765",
+    "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ResponseSpeechSession.kt": "96ac27b2a80778813a07b29076560d131ecf475080ae2d0f42fe006ca4e52f53"
+  },
+  "long_requested_code_points": 743
+}

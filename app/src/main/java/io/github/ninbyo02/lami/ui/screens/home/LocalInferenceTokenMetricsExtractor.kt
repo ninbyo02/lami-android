@@ -25,10 +25,14 @@ internal data class LocalInferenceTokenMetrics(
 )
 
 internal data class LocalInferenceMeasuredTokenSnapshot(
+    val deferredTokenizerInput: DeferredTokenizerInput? = null,
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val tokenizerRecountStatus: String? = null,
+    val recountProvider: String? = null,
+    val recountFallbackReason: String? = null,
+    val recountCacheHit: Boolean = false,
     val tokenizerSourceTraceSummary: String? = null,
     val mediaPipeTokenizerStatus: String? = null,
     val mediaPipeTokenizerSummary: String? = null,
