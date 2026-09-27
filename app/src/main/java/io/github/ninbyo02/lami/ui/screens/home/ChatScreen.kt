@@ -4771,14 +4771,26 @@ fun Home(
                                                     // Show a Compose-only user row immediately while Room/Flow/Compose warms up.
                                                     // The render guard hides this pending row as soon as the persisted DB row matches,
                                                     // so it avoids the first-send lag without duplicating the message.
-                                                    pendingLocalUserMessageText = requestPrompt
-                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = true
-                                                    prompt = ""
-                                                    userPrompt = ""
-                                                    selectedImageUriStrings = emptyList()
-                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
-                                                    localInferenceEngineState = LocalInferenceEngineState.READY
-                                                    localInferenceRunState = LocalInferenceRunController.clearStopRequest(localInferenceRunState)
+                                                    val startPreparation = LocalInferenceStartPreparationPlanner.prepare(
+                                                        requestPrompt = requestPrompt,
+                                                        streamingUiState = localStreamingUiState,
+                                                        runState = localInferenceRunState,
+                                                    )
+                                                    pendingLocalUserMessageText = startPreparation.pendingUserMessageText
+                                                    suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed =
+                                                        startPreparation.suppressDevDiagnosticsUntilReplyDisplayed
+                                                    if (startPreparation.clearComposer) {
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                    }
+                                                    if (startPreparation.clearSelectedImages) {
+                                                        selectedImageUriStrings = emptyList()
+                                                    }
+                                                    localStreamingUiState = startPreparation.streamingUiState
+                                                    if (startPreparation.resetEngineStateToReady) {
+                                                        localInferenceEngineState = LocalInferenceEngineState.READY
+                                                    }
+                                                    localInferenceRunState = startPreparation.runState
                                                     debugLocalUiTrace(
                                                         label = "COMPOSER_CLEARED",
                                                         extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
