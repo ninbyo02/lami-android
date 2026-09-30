@@ -252,7 +252,9 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         notifyPlaybackState(false)
     }
 
-    fun isInCooldown(nowMs: Long = SystemClock.elapsedRealtime()): Boolean {
+    override fun isInCooldown(): Boolean = isInCooldown(SystemClock.elapsedRealtime())
+
+    fun isInCooldown(nowMs: Long): Boolean {
         return nowMs - lastPlaybackEndedAtMs < AUTO_SPEAK_COOLDOWN_MS
     }
 

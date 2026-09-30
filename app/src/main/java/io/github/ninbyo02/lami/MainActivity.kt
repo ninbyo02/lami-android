@@ -1,5 +1,10 @@
 package io.github.ninbyo02.lami
 
+import io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnostics
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
@@ -31,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -67,7 +71,6 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModelFactory
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -79,6 +82,7 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LamiNeuralVoiceDiagnostics.start(this, savedInstanceState)
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
         val repository =
