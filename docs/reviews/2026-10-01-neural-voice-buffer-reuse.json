@@ -1,0 +1,88 @@
+{
+  "optimization": "Own direct KV input buffers per decoder; output copyDataInto replaces heap extraction and Tensor.fromBlob allocation each step.",
+  "baseline": {
+    "metrics": {
+      "hash_validation": "metric=hash_validation ms=5141 elapsed_ms=5155",
+      "text_prepare": "metric=text_prepare ms=1499 elapsed_ms=6654",
+      "model_load": "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=814 elapsed_ms=24700",
+      "prefill": "metric=prefill ms=4319 elapsed_ms=12437",
+      "codec": "metric=codec frames=28 ms=11449 elapsed_ms=23886",
+      "main_forward": "metric=main_forward calls=46 ms=4761 elapsed_ms=23886",
+      "main_output_copy": "metric=main_output_copy calls=46 ms=3959 elapsed_ms=23886",
+      "main_head": "metric=main_head calls=29 ms=140 elapsed_ms=23886",
+      "cp_forward": "metric=cp_forward calls=448 ms=3745 elapsed_ms=23886",
+      "cp_output_copy": "metric=cp_output_copy calls=448 ms=456 elapsed_ms=23886",
+      "cp_heads": "metric=cp_heads calls=420 ms=1302 elapsed_ms=23886",
+      "pcm_forward": "metric=pcm_forward ms=2724 elapsed_ms=27424"
+    },
+    "synthesis_ms": 27455,
+    "wav_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9"
+  },
+  "optimized_cold": {
+    "metrics": {
+      "hash_validation": "metric=hash_validation ms=4878 elapsed_ms=4896",
+      "text_prepare": "metric=text_prepare ms=1615 elapsed_ms=6512",
+      "model_load": "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=1054 elapsed_ms=20297",
+      "prefill": "metric=prefill ms=1950 elapsed_ms=9868",
+      "codec": "metric=codec frames=28 ms=9373 elapsed_ms=19242",
+      "main_forward": "metric=main_forward calls=46 ms=4674 elapsed_ms=19242",
+      "main_output_copy": "metric=main_output_copy calls=46 ms=164 elapsed_ms=19242",
+      "main_head": "metric=main_head calls=29 ms=136 elapsed_ms=19242",
+      "cp_forward": "metric=cp_forward calls=448 ms=3605 elapsed_ms=19242",
+      "cp_output_copy": "metric=cp_output_copy calls=448 ms=87 elapsed_ms=19242",
+      "cp_heads": "metric=cp_heads calls=420 ms=1296 elapsed_ms=19242",
+      "pcm_forward": "metric=pcm_forward ms=3044 elapsed_ms=23341"
+    },
+    "synthesis_ms": 23376,
+    "wav_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9"
+  },
+  "optimized_warm": {
+    "metrics": {
+      "hash_validation": "metric=hash_validation ms=5618 elapsed_ms=5628",
+      "text_prepare": "metric=text_prepare ms=1065 elapsed_ms=6693",
+      "model_load": "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true ms=0 elapsed_ms=18016",
+      "prefill": "metric=prefill ms=1900 elapsed_ms=8593",
+      "codec": "metric=codec frames=28 ms=9422 elapsed_ms=18016",
+      "main_forward": "metric=main_forward calls=46 ms=4715 elapsed_ms=18016",
+      "main_output_copy": "metric=main_output_copy calls=46 ms=171 elapsed_ms=18016",
+      "main_head": "metric=main_head calls=29 ms=142 elapsed_ms=18016",
+      "cp_forward": "metric=cp_forward calls=448 ms=3686 elapsed_ms=18016",
+      "cp_output_copy": "metric=cp_output_copy calls=448 ms=87 elapsed_ms=18016",
+      "cp_heads": "metric=cp_heads calls=420 ms=1358 elapsed_ms=18016",
+      "pcm_forward": "metric=pcm_forward ms=1594 elapsed_ms=19610"
+    },
+    "synthesis_ms": 19614,
+    "wav_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9"
+  },
+  "greeting": {
+    "metrics": {
+      "hash_validation": "metric=hash_validation ms=5645 elapsed_ms=5651",
+      "text_prepare": "metric=text_prepare ms=2017 elapsed_ms=7668",
+      "model_load": "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=964 elapsed_ms=17350",
+      "prefill": "metric=prefill ms=1411 elapsed_ms=10677",
+      "codec": "metric=codec frames=15 ms=5707 elapsed_ms=16385",
+      "main_forward": "metric=main_forward calls=28 ms=2878 elapsed_ms=16385",
+      "main_output_copy": "metric=main_output_copy calls=28 ms=109 elapsed_ms=16385",
+      "main_head": "metric=main_head calls=16 ms=103 elapsed_ms=16385",
+      "cp_forward": "metric=cp_forward calls=240 ms=2127 elapsed_ms=16385",
+      "cp_output_copy": "metric=cp_output_copy calls=240 ms=52 elapsed_ms=16385",
+      "cp_heads": "metric=cp_heads calls=225 ms=1001 elapsed_ms=16385",
+      "pcm_forward": "metric=pcm_forward ms=2588 elapsed_ms=19939"
+    },
+    "synthesis_ms": 19962,
+    "wav_sha256": "179456aae85a5bfe580e173ed8ea54c123adb889b54a9847f84c5c678f09c4f4"
+  },
+  "approved_bright_baseline_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+  "bright_wavs_identical": true,
+  "greeting_identical_to_approved_fp32": true,
+  "fixed_int4_codes_unchanged": true,
+  "fixed_int4_reference_gate_still_blocked": true,
+  "real_time": false,
+  "overall_latency_is_device_state_dependent": true,
+  "cancellation_recovery": {
+    "cancelled": true,
+    "all_models_reloaded": true,
+    "wav_matches_baseline": true,
+    "synthesis_ms": 11752
+  }
+}

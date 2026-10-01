@@ -120,6 +120,7 @@ internal object LamiPreparedVoiceSynthesizer {
 
     /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
     suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, progress: (String) -> Unit = {}): LamiVoiceCodes {
+        val timing = WorkTiming()
         val started = android.os.SystemClock.elapsedRealtime()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
@@ -143,12 +144,12 @@ internal object LamiPreparedVoiceSynthesizer {
         }
         progress("metric=hash_validation ms=${android.os.SystemClock.elapsedRealtime() - started}")
         val preparationStarted = android.os.SystemClock.elapsedRealtime()
-        val head = Matrix(root.resolve("main.head.f32"), 3072)
+        val head = Matrix(root.resolve("main.head.f32"), 3072, timing, "main_head")
         val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)
         val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
         val frontend = LamiVoiceTextFrontend(LamiQwenTokenizer.load(root.resolve("text_frontend")), projected::row, embedding::row)
         val prepared = frontend.prepare(text)
-        val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048) }
+        val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048, timing, "cp_heads") }
         val cpEmbeddings = (0..14).map { Matrix(root.resolve("cp.embedding.$it.f32"), 2048) }
         val frames = mutableListOf<LongArray>()
         val seen = mutableSetOf<Int>()
@@ -159,7 +160,7 @@ internal object LamiPreparedVoiceSynthesizer {
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
         session.useModule(root.resolve(mainProgram), progress) { main ->
             session.useModule(root.resolve("cp-stateless-fp32-cache32-et14.pte"), progress) { cp ->
-                val mainCache = Decoder(main, 28, 256, 3, ctx)
+                val mainCache = Decoder(main, 28, 256, 3, ctx, timing, "main")
                 var h = FloatArray(WIDTH)
                 val prefillStarted = android.os.SystemClock.elapsedRealtime()
                 prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
@@ -176,7 +177,7 @@ internal object LamiPreparedVoiceSynthesizer {
                     row[0] = token.toLong()
                     val last = embedding.row(token)
                     val sum = last.copyOf()
-                    val cpCache = Decoder(cp, 5, 32, 1, ctx)
+                    val cpCache = Decoder(cp, 5, 32, 1, ctx, timing, "cp")
                     cpCache.step(h, 0)
                     var ch = cpCache.step(last, 1)
                     for (group in 0..14) {
@@ -195,6 +196,7 @@ internal object LamiPreparedVoiceSynthesizer {
                 progress("metric=codec frames=${frames.size} ms=${android.os.SystemClock.elapsedRealtime() - codecStarted}")
             }
         }
+        timing.report(progress)
         check(endedOnEos) { "Speech did not reach EOS within model cache; incomplete audio withheld" }
         require(frames.size in 2..256)
         return LamiVoiceCodes(LongArray(frames.size * 16) { i -> frames[i % frames.size][i / frames.size] }, frames.size)
@@ -205,7 +207,19 @@ internal object LamiPreparedVoiceSynthesizer {
         return FloatArray(WIDTH) { array.getDouble(it).toFloat() }.also { require(it.all(Float::isFinite)) }
     }
 
-    private class Matrix(file: File, private val rows: Int) {
+    private class WorkTiming {
+        private val totals = linkedMapOf<String, Long>()
+        private val calls = linkedMapOf<String, Int>()
+        fun record(name: String, started: Long) {
+            totals[name] = (totals[name] ?: 0L) + (System.nanoTime() - started)
+            calls[name] = (calls[name] ?: 0) + 1
+        }
+        fun report(progress: (String) -> Unit) {
+            totals.forEach { (name, nanos) -> progress("metric=$name calls=${calls[name]} ms=${nanos / 1_000_000}") }
+        }
+    }
+
+    private class Matrix(file: File, private val rows: Int, private val timing: WorkTiming? = null, private val label: String = "head") {
         private val data: FloatBuffer = RandomAccessFile(file, "r").use {
             require(it.length() == rows * WIDTH * 4L) { "Invalid tensor file: ${file.name}" }
             it.channel.map(FileChannel.MapMode.READ_ONLY, 0, it.length()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
@@ -216,7 +230,9 @@ internal object LamiPreparedVoiceSynthesizer {
         }
         suspend fun logits(h: FloatArray): FloatArray {
             currentCoroutineContext().ensureActive()
+            val started = System.nanoTime()
             val scores = LamiVoiceMatrixKernels.logits(data, h, rows)
+            timing?.record(label, started)
             check(scores.size == rows && scores.all(Float::isFinite)) { "Non-finite codec logits" }
             currentCoroutineContext().ensureActive()
             return scores
@@ -237,28 +253,44 @@ internal object LamiPreparedVoiceSynthesizer {
         }
     }
 
-    private class Decoder(private val module: Module, layers: Int, private val capacity: Int, private val axes: Int, private val context: JSONObject) {
+    private class Decoder(private val module: Module, layers: Int, private val capacity: Int, private val axes: Int, private val context: JSONObject, private val timing: WorkTiming? = null, private val label: String = "decoder") {
         private val shape = longArrayOf(layers.toLong(), 1, 8, capacity.toLong(), 128)
-        private var k = Tensor.fromBlob(FloatArray(layers * 8 * capacity * 128), shape)
-        private var v = Tensor.fromBlob(FloatArray(layers * 8 * capacity * 128), shape)
+        // Own input storage: outputs may be overwritten on the next forward.
+        // Copy directly into these buffers instead of allocating heap arrays and
+        // then copying those arrays into newly allocated tensors every step.
+        private val kBuffer = Tensor.allocateFloatBuffer(layers * 8 * capacity * 128)
+        private val vBuffer = Tensor.allocateFloatBuffer(layers * 8 * capacity * 128)
+        private val k = Tensor.fromBlob(kBuffer, shape)
+        private val v = Tensor.fromBlob(vBuffer, shape)
         suspend fun step(h: FloatArray, position: Int): FloatArray {
             currentCoroutineContext().ensureActive()
             require(position in 0 until capacity)
             val c = FloatArray(axes * 128) { i -> context.getJSONArray("rope_cos").getJSONArray(position).getDouble(i % 128).toFloat() }
             val s = FloatArray(axes * 128) { i -> context.getJSONArray("rope_sin").getJSONArray(position).getDouble(i % 128).toFloat() }
             val ropeShape = if (axes == 3) longArrayOf(3, 1, 1, 128) else longArrayOf(1, 1, 128)
+            val forwardStarted = System.nanoTime()
             val out = module.forward(
                 EValue.from(Tensor.fromBlob(h, longArrayOf(1, 1, WIDTH.toLong()))), EValue.from(k), EValue.from(v),
                 EValue.from(Tensor.fromBlob(c, ropeShape)), EValue.from(Tensor.fromBlob(s, ropeShape)),
                 EValue.from(Tensor.fromBlob(FloatArray(capacity) { if (it <= position) 0f else -1e9f }, longArrayOf(1, 1, 1, capacity.toLong()))),
                 EValue.from(Tensor.fromBlob(longArrayOf(position.toLong()), longArrayOf(1))),
             )
+            timing?.record("${label}_forward", forwardStarted)
+            val copyStarted = System.nanoTime()
             require(out.size == 3)
             // Copy outputs: ExecuTorch reuses output storage on the next forward.
             val nextH = out[0].toTensor().dataAsFloatArray
             require(nextH.size == WIDTH && nextH.all(Float::isFinite))
-            k = Tensor.fromBlob(out[1].toTensor().dataAsFloatArray, shape)
-            v = Tensor.fromBlob(out[2].toTensor().dataAsFloatArray, shape)
+            val nextK = out[1].toTensor()
+            val nextV = out[2].toTensor()
+            require(nextK.numel() == kBuffer.capacity().toLong() && nextV.numel() == vBuffer.capacity().toLong())
+            kBuffer.clear()
+            vBuffer.clear()
+            nextK.copyDataInto(kBuffer)
+            nextV.copyDataInto(vBuffer)
+            kBuffer.rewind()
+            vBuffer.rewind()
+            timing?.record("${label}_output_copy", copyStarted)
             currentCoroutineContext().ensureActive()
             return nextH
         }
