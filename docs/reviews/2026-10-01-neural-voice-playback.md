@@ -199,3 +199,13 @@ The red-color sentence exhausted all 239 available frames after approximately
 The foreground-service stop action was exercised during codec generation; the
 report recorded status=cancelled and no service remained. Final debug build and
 lint passed; all eight frontend/sampler test methods passed (20 frontend cases).
+
+## Tail noise and real-time feasibility follow-up
+
+The user reports noise after the greeting. The 6.08-second device WAV contains initial speech energy around 0–1 seconds, a nearly silent interval around 1–2 seconds, then renewed energy from 2 seconds onward. This is present in the WAV itself; EOS/model inference remains unresolved. No fixed-duration clipping or silence-based truncation was adopted, because that could remove valid longer speech.
+
+A four-thread main/CP trial completed in 43,514 ms versus the earlier 49,457 ms; its WAV SHA-256 was exactly unchanged. A subsequent four-thread main/CP/PCM trial took 52,753 ms and produced the same WAV. These sequential trials do not establish a stable speedup. Greedy main/CP selection produced 83 frames (6.64 seconds), taking 52,586 ms, and did not correct excessive duration. All experimental thread and sampling changes were reverted.
+
+The existing codec loop needs roughly 0.4 seconds per 0.08 seconds of audio; preparation and final waveform decoding each cost roughly 8 seconds. Starting playback earlier requires chunked generation/decoding, but uninterrupted real-time playback additionally requires a substantial inference speedup. The present implementation is not real-time. Next engineering gates are device/host intermediate numerical parity and reliable EOS, then cache-copy reduction, accelerator or smaller-model evaluation, and chunk-boundary audio validation.
+
+Raw reports and waveform energy analysis are retained in the ignored artifacts/voice-device-20261001 directory.
