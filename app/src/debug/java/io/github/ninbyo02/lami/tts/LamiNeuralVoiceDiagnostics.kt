@@ -27,7 +27,7 @@ internal object LamiNeuralVoiceDiagnostics {
         try {
             withTimeout(600_000L) {
                 val pcm = if (requestedText == null) LamiVoiceDiagnostic.synthesize(root) { report.appendText("$it elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n") }
-                    else LamiVoiceDiagnostic.synthesizeText(root, requestedText) { report.appendText("$it elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n") }
+                    else LamiVoiceDiagnostic.synthesizeText(context, root, requestedText) { report.appendText("$it elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n") }
                 report.appendText("synthesis=success samples=${pcm.size} elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
                 val wav = context.filesDir.resolve("neural_tts_last.wav")
                 writeWav(wav, pcm)

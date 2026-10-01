@@ -9,21 +9,12 @@ import org.pytorch.executorch.Tensor
 
 /** Bounded fixed-probe and arbitrary-text synthesis; text requires natural EOS. */
 internal object LamiVoiceDiagnostic {
-    suspend fun synthesizeText(root: File, text: String, progress: (String) -> Unit = {}): FloatArray =
+    suspend fun synthesizeText(context: android.content.Context, root: File, text: String, progress: (String) -> Unit = {}): FloatArray =
         LamiVoiceModuleCache.withSession(root) { session ->
             val codes = LamiPreparedVoiceSynthesizer.generateText(root, text, session, progress)
             currentCoroutineContext().ensureActive()
             progress("stage=pcm_decode")
-            session.useModule(root.resolve("speech-decoder-dynamic-et14.pte"), progress) { decoder ->
-                val started = android.os.SystemClock.elapsedRealtime()
-                val pcm = decoder.forward(EValue.from(Tensor.fromBlob(codes.values, longArrayOf(1, 16, codes.frames.toLong()))))
-                    .single().toTensor().dataAsFloatArray
-                progress("metric=pcm_forward ms=${android.os.SystemClock.elapsedRealtime() - started}")
-                currentCoroutineContext().ensureActive()
-                require(pcm.size == codes.frames * 1920) { "Unexpected decoder sample count" }
-                LamiPcmContract.validate(pcm)
-                pcm
-            }
+            LamiVoiceDecoderProcess.decode(context, root, codes, progress)
         }
 
     suspend fun synthesize(root: File, progress: (String) -> Unit = {}): FloatArray {
