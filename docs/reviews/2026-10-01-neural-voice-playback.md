@@ -247,3 +247,12 @@ The seeded sampler now maintains only top-k candidates in primitive reusable arr
 An independent full-sort reference matches 800 sequences across changing allowed sets, tied scores, signed zero, repetition penalties and top-k sizes 1/2/50/80. Device cold/warm bright speech and greeting WAVs exactly match their approved baselines. Warm generation measured 18,738 ms; codec time was 8,345 ms versus 9,422 ms in the earlier warm buffer-reuse run. The new isolated CP sampling metric reports 128 ms across 420 calls. Total elapsed time remains variable and is not a stable hardware throughput guarantee. Standard debug build, six sampler tests, three frontend tests, lint, diff checks and native-binary guard pass.
 
 Further large costs are main/CP execution and per-utterance bundle hashing; neither model numerical precision nor verification was weakened. Real-time generation and the hai EOS limitation remain open.
+
+
+## CPU thread-count experiment after PC restart
+
+PC, ADB, and Voice Lab connectivity recovered. The previous commit `22fff1fb` passed all five GitHub check runs. A temporary debug-only selector compared ExecuTorch CPU thread counts on the FP32 bundle. The approved bright phrase completed with default/2/4 threads in 15,536/25,134/15,141 ms respectively; all three WAVs matched the approved SHA-256 exactly. These sequential measurements do not establish a stable improvement.
+
+The subsequent one-thread trial stopped making progress inside PCM forward. A fresh-process default retry also stopped at PCM forward; the cause has not been established. Both trials were interrupted, the selector source was reverted, and the device selector file removed. No thread-count change is adopted. The prior build is restored and playback recovery is checked separately. Structured completed-trial metrics are in `2026-10-01-neural-voice-cpu-threads.json`; incomplete reports remain in ignored device artifacts.
+
+Recovery: rebuilding and reinstalling the unmodified module loader restored normal synthesis and playback (22,141 ms, 53,760 samples). The recovered WAV matched the approved bright sample exactly (`58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9`). The diagnostic thread flag is absent. Build and lint passed for the experimental source; the reverted stable source build also passed. Only experiment documentation is committed.
