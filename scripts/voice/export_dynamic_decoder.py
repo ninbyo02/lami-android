@@ -10,6 +10,7 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--backend', choices=('xnnpack', 'portable'), default='xnnpack')
     args = p.parse_args()
     torch.set_num_threads(2)
     model = Qwen3TTSModel.from_pretrained(str(args.model), device_map='cpu', dtype=torch.float32, attn_implementation='eager')
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         ep = torch.export.export(decoder, (codes,), dynamic_shapes=({2: torch.export.Dim('frames', min=2, max=256)},), strict=False)
     print('DYNAMIC_EXPORT_OK', ep.range_constraints, flush=True)
-    et = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()]).to_executorch()
+    et = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()] if args.backend == 'xnnpack' else []).to_executorch()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(et.buffer)
     print('DYNAMIC_PTE_OK', len(et.buffer), flush=True)

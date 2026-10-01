@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import time
 from pathlib import Path
 import torch
 from executorch.runtime import Runtime
@@ -12,7 +13,9 @@ if __name__=='__main__':
     parser.add_argument('--model',type=Path,required=True)
     parser.add_argument('--pte',type=Path,required=True)
     parser.add_argument('--report',type=Path,required=True)
+    parser.add_argument('--frames', type=int, nargs='+', default=[2,3,7,16,31,32,64,128,256])
     args=parser.parse_args()
+    assert all(2 <= frames <= 256 for frames in args.frames), 'Frames must be in 2..256'
     torch.set_num_threads(2)
     torch.manual_seed(42)
     model=Qwen3TTSModel.from_pretrained(str(args.model),device_map='cpu',dtype=torch.float32,attn_implementation='eager')
@@ -20,20 +23,22 @@ if __name__=='__main__':
     program=Runtime.get().load_program(args.pte)
     method=program.load_method('forward')
     rows=[]
-    for frames in [2,3,7,16,31,32,64,128,256]:
+    for frames in args.frames:
         codes=torch.randint(0,2048,(1,16,frames))
         with torch.no_grad():
             reference=decoder(codes).clone()
+            started=time.perf_counter()
             actual=method.execute((codes,))[0].clone()
+            elapsed_ms=(time.perf_counter()-started)*1000
         assert actual.shape==reference.shape==(1,1,frames*1920),(frames,actual.shape)
         assert torch.isfinite(actual).all() and actual.abs().max()<=1
         error=(actual-reference).abs()
-        row={'frames':frames,'samples':actual.numel(),'max_abs_error':float(error.max()),'rmse':float(error.square().mean().sqrt())}
+        row={'executor_ms':elapsed_ms,'frames':frames,'samples':actual.numel(),'max_abs_error':float(error.max()),'rmse':float(error.square().mean().sqrt())}
         print(json.dumps(row),flush=True)
         assert row['max_abs_error']<0.002,row
         rows.append(row)
     with args.pte.open('rb') as stream:
         digest=hashlib.file_digest(stream,'sha256').hexdigest()
-    report={'host_validation':'passed','frames_min':2,'frames_max':256,'sample_rate':24000,'samples_per_frame':1920,'model_sha256':digest,'cases':rows,'android_validation':'pending'}
+    report={'host_validation':'passed','frames_min':2,'frames_max':256,'sample_rate':24000,'samples_per_frame':1920,'model_sha256':digest,'tested_frames':args.frames,'cases':rows,'android_validation':'pending'}
     args.report.parent.mkdir(parents=True,exist_ok=True)
     args.report.write_text(json.dumps(report,indent=2)+'\n')
