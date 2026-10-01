@@ -209,3 +209,17 @@ A four-thread main/CP trial completed in 43,514 ms versus the earlier 49,457 ms;
 The existing codec loop needs roughly 0.4 seconds per 0.08 seconds of audio; preparation and final waveform decoding each cost roughly 8 seconds. Starting playback earlier requires chunked generation/decoding, but uninterrupted real-time playback additionally requires a substantial inference speedup. The present implementation is not real-time. Next engineering gates are device/host intermediate numerical parity and reliable EOS, then cache-copy reduction, accelerator or smaller-model evaluation, and chunk-boundary audio validation.
 
 Raw reports and waveform energy analysis are retained in the ignored artifacts/voice-device-20261001 directory.
+
+## Main decoder isolation and FP32 comparison
+
+Opt-in fixed-probe tracing shows main prefill errors rise from less than 0.00021 at positions 0–4 to 0.0559 at position 5 and 1.106 at position 6. CP group 2 then selects a different token. Feeding the host final main hidden into the device CP restores all 15 first-frame CP argmax tokens, with maximum logit error below 0.00010. This isolates the main decoder as the upstream source; it does not prove a single faulty kernel or establish full-sequence parity. Replay is diagnostic-only and cannot release audio. Trace and replay flags were removed from the phone after the experiment.
+
+The exporter now supports original-checkpoint FP32, and the text bundle can select a main_program that must be a simple filename present in the SHA-256 manifest. Existing INT4 remains the default for existing manifests. A 1,762,616,320-byte FP32 main program was exported, validated, and installed in the phone's debug bundle. The original text manifest is backed up in ignored device artifacts. No PTE is committed.
+
+On device, FP32 greeting reaches EOS at 15 frames (1.2 seconds), synthesizes in 20,570 ms, and plays completely. Its final 0.2 seconds are silent. The user confirms tail noise is gone, with a possible small voice change. The color sentence reaches EOS at 23 frames (1.84 seconds), synthesizes in 29,509 ms, and plays completely. The user confirms no noise but imperfect intonation. A comma variant reaches 35 frames (2.8 seconds), synthesizes in 34,941 ms; intonation review is pending. Hiragana was also explored before the user clarified that the concern was intonation, not pronunciation; no input rewrite was adopted.
+
+Host FP32 reaches EOS for greeting and color but fails to reach EOS for hai within 242 frames. This remains a diagnostic comparison, not an arbitrary-text completion claim or production chat integration. Voice Lab exposes greeting and the two color phrasings for listening comparison. Build, focused tokenizer/sampler regression, and lint passed; real-time synthesis and voice/prosody stability remain unresolved.
+
+The user subsequently confirms voice quality and intonation are restored after the comma comparison, and requests a slightly brighter tone. An exclamation variant generated 28 frames (2.24 seconds) in 26,427 ms and played completely; it is exposed as a separate comparison candidate in Voice Lab. Brightness is awaiting user review; no global punctuation rewriting or pitch change was applied.
+
+The user approved the brighter exclamation comparison: no remaining perceived voice unnaturalness. Preserve this listening baseline while evaluating latency changes. This approval covers the tested comparison, not every arbitrary sentence.

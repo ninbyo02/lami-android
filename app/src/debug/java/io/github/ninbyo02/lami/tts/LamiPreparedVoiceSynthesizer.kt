@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import java.io.File
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.channels.FileChannel
@@ -22,6 +23,14 @@ internal object LamiPreparedVoiceSynthesizer {
     private const val FRAMES = 31
     suspend fun generate(root: File, progress: (String) -> Unit = {}): LongArray {
         progress("stage=hash_validation")
+        val trace = root.resolve("device-parity-trace").takeIf { root.resolve("device-parity-trace.enabled").isFile }
+        trace?.mkdirs()
+        fun dump(name: String, values: FloatArray) {
+            if (trace == null) return
+            val bytes = ByteBuffer.allocate(values.size * 4).order(ByteOrder.LITTLE_ENDIAN)
+            values.forEach(bytes::putFloat)
+            trace.resolve("$name.f32").writeBytes(bytes.array())
+        }
         val ctx = JSONObject(root.resolve("prepared-hai.json").readText())
         require(ctx.getInt("version") == 1 && ctx.getString("text") == "はい。")
         val files = ctx.getJSONObject("sha256")
@@ -54,10 +63,24 @@ internal object LamiPreparedVoiceSynthesizer {
             Module.load(root.resolve("cp-stateless-fp32-cache32-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { cp ->
                 val mainCache = Decoder(main, 28, 64, 3, ctx)
                 var h = FloatArray(WIDTH)
-                for (i in 0 until prefill.length()) h = mainCache.step(vector(prefill.getJSONArray(i)), i)
+                for (i in 0 until prefill.length()) {
+                    h = mainCache.step(vector(prefill.getJSONArray(i)), i)
+                    dump("main-prefill-$i", h)
+                }
+                // Explicit fixed-probe counterfactual: replay host main hidden into CP.
+                val replay = root.resolve("device-parity-replay.f32")
+                if (trace != null && replay.isFile) {
+                    val bytes = replay.readBytes()
+                    require(bytes.size == WIDTH * 4)
+                    val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+                    h = FloatArray(WIDTH) { buffer.float }
+                    require(h.all(Float::isFinite))
+                    progress("stage=parity_replay diagnostic_only=true")
+                }
                 for (frame in 0 until FRAMES) {
                     progress("stage=codec frame=$frame limit=$FRAMES")
                     currentCoroutineContext().ensureActive()
+                    if (frame == 0) dump("main-head", head.logits(h))
                     val token = head.argmax(h)
                     check(token in 0..2047) { "EOS/special token before fixed decoder frame count at $frame: $token" }
                     result[frame] = token.toLong()
@@ -68,6 +91,10 @@ internal object LamiPreparedVoiceSynthesizer {
                     var ch = cpCache.step(last, 1)
                     for (group in 0..14) {
                         currentCoroutineContext().ensureActive()
+                        if (frame == 0) {
+                            dump("cp-hidden-$group", ch)
+                            dump("cp-logits-$group", cpHeads[group].logits(ch))
+                        }
                         val q = cpHeads[group].argmax(ch)
                         result[(group + 1) * FRAMES + frame] = q.toLong()
                         val e = cpEmbeddings[group].row(q)
@@ -85,6 +112,7 @@ internal object LamiPreparedVoiceSynthesizer {
         val expected = ctx.getJSONArray("expected_codes_channel_major")
         require(expected.length() == result.size)
         root.resolve("device-fixed-hai-codes.json").writeText(JSONArray(result.toList()).toString())
+        check(!(trace != null && root.resolve("device-parity-replay.f32").isFile)) { "Parity replay is diagnostic only; audio withheld" }
         val mismatches = result.indices.filter { result[it] != expected.getLong(it) }
         check(mismatches.isEmpty()) { "Generated codes differ: ${mismatches.size}/${result.size}, first=${mismatches.first()}; audio withheld" }
         return result
@@ -123,7 +151,9 @@ internal object LamiPreparedVoiceSynthesizer {
         val seen = mutableSetOf<Int>()
         val sampler = LamiVoiceCodecSampler()
         var endedOnEos = false
-        Module.load(root.resolve("stateless-28-int4-cache256-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { main ->
+        val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
+        require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
+        Module.load(root.resolve(mainProgram).absolutePath, Module.LOAD_MODE_MMAP).use { main ->
             Module.load(root.resolve("cp-stateless-fp32-cache32-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { cp ->
                 val mainCache = Decoder(main, 28, 256, 3, ctx)
                 var h = FloatArray(WIDTH)

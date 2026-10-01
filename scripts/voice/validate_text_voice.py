@@ -42,7 +42,9 @@ def validate(root, model_path, texts):
             h,k,v=self.method.execute((torch.from_numpy(np.array(h,dtype=np.float32)).reshape(1,1,1024),self.k,self.v,c,s,mask,torch.tensor([pos])))
             self.k,self.v=k.clone(),v.clone()
             return h.flatten().numpy().copy()
-    main=Decoder('stateless-28-int4-cache256-et14.pte',28,256,3)
+    main_program=cfg.get('main_program','stateless-28-int4-cache256-et14.pte')
+    assert main_program in cfg['sha256'] and Path(main_program).name == main_program
+    main=Decoder(main_program,28,256,3)
     cp=Decoder('cp-stateless-fp32-cache32-et14.pte',5,32,1)
     decoder_program=Runtime.get().load_program(root/'speech-decoder-dynamic-et14.pte')
     audio_decoder=decoder_program.load_method('forward')

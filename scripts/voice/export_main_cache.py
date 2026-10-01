@@ -45,16 +45,23 @@ class StatelessTalker(torch.nn.Module):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model',type=Path,required=True)
-    parser.add_argument('--qat-state',type=Path,required=True)
+    parser.add_argument('--qat-state',type=Path)
+    parser.add_argument('--precision',choices=['int4','fp32'],default='int4')
     parser.add_argument('--capacity',type=int,default=256,choices=[64,128,256])
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
+    if args.precision == "int4" and args.qat_state is None:
+        parser.error("--qat-state is required for int4")
+    if args.precision == "fp32" and args.qat_state is not None:
+        parser.error("fp32 uses original model weights; omit --qat-state")
     torch.set_num_threads(2)
     qwen=Qwen3TTSModel.from_pretrained(str(args.model),device_map='cpu',dtype=torch.float32,attn_implementation='eager')
-    quantizer=Int8DynActInt4WeightQATQuantizer(groupsize=32)
-    model=quantizer.prepare(qwen.model.talker.model.eval())
-    model.load_state_dict(torch.load(args.qat_state,map_location='cpu',weights_only=True))
-    model=quantizer.convert(model).eval()
+    model=qwen.model.talker.model.eval()
+    if args.precision == 'int4':
+        quantizer=Int8DynActInt4WeightQATQuantizer(groupsize=32)
+        model=quantizer.prepare(model)
+        model.load_state_dict(torch.load(args.qat_state,map_location='cpu',weights_only=True))
+        model=quantizer.convert(model).eval()
     for p in model.parameters():p.requires_grad_(False)
     wrapper=StatelessTalker(model).eval()
     hidden=torch.zeros(1,1,1024)

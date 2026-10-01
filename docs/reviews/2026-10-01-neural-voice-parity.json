@@ -1,0 +1,91 @@
+{
+  "diagnosis": "Main decoder divergence precedes CP token divergence; host-hidden replay isolates main from downstream CP.",
+  "main_prefill_errors": {
+    "main-prefill-0": 0.000152587890625,
+    "main-prefill-1": 1.2099742889404297e-05,
+    "main-prefill-10": 1.5801842212677002,
+    "main-prefill-11": 2.2551708221435547,
+    "main-prefill-12": 1.8815956115722656,
+    "main-prefill-2": 7.495284080505371e-05,
+    "main-prefill-3": 5.53131103515625e-05,
+    "main-prefill-4": 0.00020599365234375,
+    "main-prefill-5": 0.055881500244140625,
+    "main-prefill-6": 1.1064558029174805,
+    "main-prefill-7": 3.2176809310913086,
+    "main-prefill-8": 2.1797690391540527,
+    "main-prefill-9": 2.6611833572387695
+  },
+  "cp_replay_argmax_matches": 15,
+  "cp_replay_logit_max_abs_error": 9.918212890625e-05,
+  "host_fp32_cases": [
+    {
+      "text": "はい。",
+      "prefill_tokens": 14,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 242,
+      "eos_reached": false,
+      "audio_withheld": true,
+      "host_elapsed_seconds": 105.612
+    },
+    {
+      "text": "こんにちは。",
+      "prefill_tokens": 13,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 19,
+      "eos_reached": true,
+      "samples": 36480,
+      "duration_seconds": 1.52,
+      "host_elapsed_seconds": 9.953
+    },
+    {
+      "text": "好きな色は赤です。",
+      "prefill_tokens": 17,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 23,
+      "eos_reached": true,
+      "samples": 44160,
+      "duration_seconds": 1.84,
+      "host_elapsed_seconds": 14.52
+    }
+  ],
+  "device_fp32_cases": [
+    {
+      "text": "こんにちは。",
+      "frames": 15,
+      "seconds": 1.2,
+      "synthesis_ms": 20570,
+      "eos_reached": true,
+      "playback_complete": true,
+      "user_feedback": "No tail noise; slight perceived voice difference."
+    },
+    {
+      "text": "好きな色は赤です。",
+      "frames": 23,
+      "seconds": 1.84,
+      "synthesis_ms": 29509,
+      "eos_reached": true,
+      "playback_complete": true,
+      "user_feedback": "No noise; intonation imperfect."
+    },
+    {
+      "text": "好きな色は、赤です。",
+      "frames": 35,
+      "seconds": 2.8,
+      "synthesis_ms": 34941,
+      "eos_reached": true,
+      "playback_complete": true,
+      "intonation_review": "User confirms voice and intonation restored, requests slightly brighter tone."
+    },
+    {
+      "text": "好きな色は、赤です！",
+      "frames": 28,
+      "seconds": 2.24,
+      "synthesis_ms": 26427,
+      "eos_reached": true,
+      "playback_complete": true,
+      "brightness_review": "User approved: no perceived voice unnaturalness."
+    }
+  ],
+  "real_time": false,
+  "promotion": "debug comparison only; host hai still missing EOS; no normal chat promotion"
+}

@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 import numpy as np
@@ -11,6 +12,11 @@ from executorch.runtime import Runtime
 
 def validate(root: Path):
     torch.set_num_threads(2)
+    trace_root = os.environ.get("LAMI_VOICE_TRACE_DIRECTORY")
+    def dump(name, values):
+        if trace_root:
+            destination = Path(trace_root); destination.mkdir(parents=True, exist_ok=True)
+            np.asarray(values, dtype="<f4").tofile(destination / (name + ".f32"))
     ctx = json.loads((root / 'prepared-hai.json').read_text())
     for name, expected in ctx['sha256'].items():
         with (root / name).open('rb') as stream:
@@ -35,19 +41,23 @@ def validate(root: Path):
             h, k, v = self.method.execute((h.reshape(1, 1, 1024), self.k, self.v, c.reshape(shape), s.reshape(shape), mask, torch.tensor([pos])))
             self.k, self.v = k.clone(), v.clone()
             return h.flatten().clone()
-    def scalar_argmax(weights, hidden):
+    def scalar_logits(weights, hidden):
         # Same float32 product and left-to-right accumulation as the Kotlin head.
         products = weights.numpy() * hidden.numpy()[None, :]
         logits = np.cumsum(products, axis=1, dtype=np.float32)[:, -1]
         assert np.isfinite(logits).all()
-        return int(logits.argmax())
+        return logits
+    def scalar_argmax(weights, hidden):
+        return int(scalar_logits(weights, hidden).argmax())
     started = time.monotonic()
     main = Decoder('stateless-28-int4-cache64-et14.pte', 28, 64, 3)
     cp = Decoder('cp-stateless-fp32-cache32-et14.pte', 5, 32, 1)
     for pos, x in enumerate(ctx['prefill']):
         h = main.step(torch.tensor(x), pos)
+        dump(f"main-prefill-{pos}", h.numpy())
     codes = torch.zeros(16, 31, dtype=torch.long)
     for frame in range(31):
+        if frame == 0: dump("main-head", scalar_logits(head, h))
         tok = scalar_argmax(head, h)
         assert 0 <= tok < 2048, (frame, tok)
         codes[0, frame] = tok
@@ -57,6 +67,9 @@ def validate(root: Path):
         cp.step(h, 0)
         ch = cp.step(last, 1)
         for i in range(15):
+            if frame == 0:
+                dump(f"cp-hidden-{i}", ch.numpy())
+                dump(f"cp-logits-{i}", scalar_logits(heads[i], ch))
             q = scalar_argmax(heads[i], ch)
             codes[i + 1, frame] = q
             summed += embeddings[i][q]
