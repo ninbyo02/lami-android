@@ -21,7 +21,8 @@ internal object LamiPcmPlayer {
             .setTransferMode(AudioTrack.MODE_STATIC)
             .setBufferSizeInBytes(samples.size * Float.SIZE_BYTES).build()
         try {
-            check(track.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack initialization failed" }
+            // MODE_STATIC has STATE_NO_STATIC_DATA until the first successful write.
+            check(track.state != AudioTrack.STATE_UNINITIALIZED) { "AudioTrack initialization failed" }
             var offset = 0
             while (offset < samples.size) {
                 currentCoroutineContext().ensureActive()
@@ -30,6 +31,7 @@ internal object LamiPcmPlayer {
                 offset += count
             }
             currentCoroutineContext().ensureActive()
+            check(track.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack data initialization failed" }
             track.play()
             onStarted()
             val deadline = android.os.SystemClock.elapsedRealtime() + samples.size * 1000L / LamiPcmContract.SAMPLE_RATE + 5000

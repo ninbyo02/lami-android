@@ -14,13 +14,14 @@ import org.pytorch.executorch.EValue
 import org.pytorch.executorch.Module
 import org.pytorch.executorch.Tensor
 
-/** Bounded, greedy 0.6B diagnostic. CPU matrix heads prioritize correctness over speed.
- * Prepared embeddings are tied to exactly one phrase. No text is silently substituted.
+/** Bounded 0.6B diagnostic; fixed golden probe and seeded arbitrary-text probe.
+ * CPU matrix heads prioritize correctness over speed.
  */
 internal object LamiPreparedVoiceSynthesizer {
     private const val WIDTH = 1024
     private const val FRAMES = 31
-    suspend fun generate(root: File): LongArray {
+    suspend fun generate(root: File, progress: (String) -> Unit = {}): LongArray {
+        progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("prepared-hai.json").readText())
         require(ctx.getInt("version") == 1 && ctx.getString("text") == "はい。")
         val files = ctx.getJSONObject("sha256")
@@ -39,6 +40,7 @@ internal object LamiPreparedVoiceSynthesizer {
             }
             check(digest.digest().joinToString("") { "%02x".format(it) } == files.getString(name)) { "Model hash mismatch: $name" }
         }
+        progress("stage=prefill")
         val prefill = ctx.getJSONArray("prefill")
         require(prefill.length() in 1..(64 - FRAMES))
         val trailing = ctx.getJSONArray("trailing")
@@ -54,6 +56,7 @@ internal object LamiPreparedVoiceSynthesizer {
                 var h = FloatArray(WIDTH)
                 for (i in 0 until prefill.length()) h = mainCache.step(vector(prefill.getJSONArray(i)), i)
                 for (frame in 0 until FRAMES) {
+                    progress("stage=codec frame=$frame limit=$FRAMES")
                     currentCoroutineContext().ensureActive()
                     val token = head.argmax(h)
                     check(token in 0..2047) { "EOS/special token before fixed decoder frame count at $frame: $token" }
@@ -81,8 +84,82 @@ internal object LamiPreparedVoiceSynthesizer {
         }
         val expected = ctx.getJSONArray("expected_codes_channel_major")
         require(expected.length() == result.size)
-        check(result.indices.all { result[it] == expected.getLong(it) }) { "Generated codes differ from host reference; audio withheld" }
+        root.resolve("device-fixed-hai-codes.json").writeText(JSONArray(result.toList()).toString())
+        val mismatches = result.indices.filter { result[it] != expected.getLong(it) }
+        check(mismatches.isEmpty()) { "Generated codes differ: ${mismatches.size}/${result.size}, first=${mismatches.first()}; audio withheld" }
         return result
+    }
+
+    /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
+    suspend fun generateText(root: File, text: String, progress: (String) -> Unit = {}): LamiVoiceCodes {
+        progress("stage=hash_validation")
+        val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
+        require(ctx.getInt("version") == 2 && ctx.getInt("capacity") == 256)
+        val files = ctx.getJSONObject("sha256")
+        for (name in files.keys()) {
+            currentCoroutineContext().ensureActive()
+            val file = root.resolve(name).canonicalFile
+            require(file.path.startsWith(root.canonicalPath + File.separator)) { "Model path outside bundle" }
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val bytes = ByteArray(1024 * 1024)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val count = input.read(bytes)
+                    if (count < 0) break
+                    digest.update(bytes, 0, count)
+                }
+            }
+            check(digest.digest().joinToString("") { "%02x".format(it) } == files.getString(name)) { "Model hash mismatch: $name" }
+        }
+        val head = Matrix(root.resolve("main.head.f32"), 3072)
+        val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)
+        val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
+        val frontend = LamiVoiceTextFrontend(LamiQwenTokenizer.load(root.resolve("text_frontend")), projected::row, embedding::row)
+        val prepared = frontend.prepare(text)
+        val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048) }
+        val cpEmbeddings = (0..14).map { Matrix(root.resolve("cp.embedding.$it.f32"), 2048) }
+        val frames = mutableListOf<LongArray>()
+        val seen = mutableSetOf<Int>()
+        val sampler = LamiVoiceCodecSampler()
+        var endedOnEos = false
+        Module.load(root.resolve("stateless-28-int4-cache256-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { main ->
+            Module.load(root.resolve("cp-stateless-fp32-cache32-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { cp ->
+                val mainCache = Decoder(main, 28, 256, 3, ctx)
+                var h = FloatArray(WIDTH)
+                prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
+                val limit = 256 - prepared.prefill.size
+                for (frame in 0 until limit) {
+                    progress("stage=codec frame=$frame limit=$limit")
+                    val allowed = (0..2047).toMutableSet().also { if (frame >= 2) it.add(2150) }
+                    val token = sampler.choose(head.logits(h), allowed, seen)
+                    if (token == 2150) { endedOnEos = true; break }
+                    seen += token
+                    val row = LongArray(16)
+                    row[0] = token.toLong()
+                    val last = embedding.row(token)
+                    val sum = last.copyOf()
+                    val cpCache = Decoder(cp, 5, 32, 1, ctx)
+                    cpCache.step(h, 0)
+                    var ch = cpCache.step(last, 1)
+                    for (group in 0..14) {
+                        val q = sampler.choose(cpHeads[group].logits(ch), (0..2047).toSet())
+                        row[group + 1] = q.toLong()
+                        val e = cpEmbeddings[group].row(q)
+                        for (j in 0 until WIDTH) sum[j] += e[j]
+                        if (group < 14) ch = cpCache.step(e, group + 2)
+                    }
+                    frames += row
+                    if (frame < limit - 1) {
+                        for (j in 0 until WIDTH) sum[j] += prepared.pad[j]
+                        h = mainCache.step(sum, prepared.prefill.size + frame)
+                    }
+                }
+            }
+        }
+        check(endedOnEos) { "Speech did not reach EOS within model cache; incomplete audio withheld" }
+        require(frames.size in 2..256)
+        return LamiVoiceCodes(LongArray(frames.size * 16) { i -> frames[i % frames.size][i / frames.size] }, frames.size)
     }
 
     private fun vector(array: JSONArray): FloatArray {
@@ -99,13 +176,22 @@ internal object LamiPreparedVoiceSynthesizer {
             require(index in 0 until rows)
             return FloatArray(WIDTH) { data.get(index * WIDTH + it) }
         }
-        suspend fun argmax(h: FloatArray): Int {
+        suspend fun logits(h: FloatArray): FloatArray {
+            currentCoroutineContext().ensureActive()
+            val scores = LamiVoiceMatrixKernels.logits(data, h, rows)
+            check(scores.size == rows && scores.all(Float::isFinite)) { "Non-finite codec logits" }
+            currentCoroutineContext().ensureActive()
+            return scores
+        }
+        suspend fun argmax(h: FloatArray, allowed: Set<Int>? = null, repeated: Set<Int> = emptySet(), penalty: Float = 1f): Int {
+            val scores = logits(h)
             var best = Float.NEGATIVE_INFINITY
             var token = 0
             for (r in 0 until rows) {
                 if (r % 64 == 0) currentCoroutineContext().ensureActive()
-                var score = 0f
-                for (j in 0 until WIDTH) score += data.get(r * WIDTH + j) * h[j]
+                if (allowed != null && r !in allowed) continue
+                var score = scores[r]
+                if (r in repeated) score = if (score < 0f) score * penalty else score / penalty
                 check(score.isFinite()) { "Non-finite codec logits" }
                 if (score > best) { best = score; token = r }
             }
@@ -140,3 +226,5 @@ internal object LamiPreparedVoiceSynthesizer {
         }
     }
 }
+
+internal data class LamiVoiceCodes(val values: LongArray, val frames: Int)

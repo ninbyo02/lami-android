@@ -1,0 +1,47 @@
+{
+  "device": "NX733J Android 16",
+  "voice_reference_user_approved": true,
+  "generated_voice_listening_review": "pending",
+  "hello": {
+    "text": "こんにちは。",
+    "frames": 76,
+    "samples": 145920,
+    "sample_rate": 24000,
+    "synthesis_ms": 49457,
+    "playback": "complete",
+    "scalar_head_synthesis_ms": 220757
+  },
+  "fixed_hai": {
+    "passed": false,
+    "mismatches": 414,
+    "codes": 496,
+    "first_temporal_mismatch": {
+      "frame": 0,
+      "group": 3,
+      "phone": 636,
+      "host": 1613
+    }
+  },
+  "red_text": {
+    "text": "好きな色は赤です。",
+    "passed": false,
+    "frames": 239,
+    "eos": false,
+    "audio_withheld": true
+  },
+  "chat_neural_tts_enabled": false,
+  "frontend_tests": {
+    "test_methods": 3,
+    "reference_cases": 20,
+    "passed": true
+  },
+  "sampler_tests": {
+    "test_methods": 5,
+    "passed": true
+  },
+  "cancellation": {
+    "passed": true,
+    "report": "status=cancelled",
+    "foreground_service_stopped": true
+  }
+}

@@ -94,5 +94,16 @@
             android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeService"
             android:exported="true"
             android:process=":qairt_npu_probe" />
+        <activity
+            android:name="io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnosticActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Ollama" />
+        <service
+            android:name="io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnosticService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_bounded_on_device_voice_generation" />
+        </service>
     </application>
 </manifest>

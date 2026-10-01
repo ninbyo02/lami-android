@@ -1657,3 +1657,24 @@ tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mer
         inputs.dir(file(tokenizerOnlyArtifactDir.get()).resolve(subdirectory))
     }
 }
+
+
+// Debug-only voice heads. Preserve sequential FP32 accumulation across JVM/ARM.
+val voiceMatrixJniRoot = layout.buildDirectory.dir("generated/lamiVoiceMatrixDebugJniLibs")
+android.sourceSets.getByName("debug").jniLibs.srcDir(voiceMatrixJniRoot)
+tasks.register("buildLamiVoiceMatrixDebugJni") {
+    inputs.file(layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp"))
+    outputs.file(voiceMatrixJniRoot.map { it.file("arm64-v8a/liblami_voice_matrix.so") })
+    doLast {
+        val compiler = requireNotNull(findAndroidNdkClang()) { "Android NDK compiler required for debug voice matrix kernels" }
+        val output = voiceMatrixJniRoot.get().file("arm64-v8a/liblami_voice_matrix.so").asFile
+        output.parentFile.mkdirs()
+        exec {
+            commandLine(compiler.absolutePath, "-shared", "-fPIC", "-std=c++17", "-O3", "-ffp-contract=off", "-fno-fast-math", "-fno-exceptions", "-fno-rtti", "-nostdlib++", "-Wl,--build-id=sha1",
+                layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp").asFile.absolutePath, "-o", output.absolutePath)
+        }
+    }
+}
+tasks.matching { it.name.endsWith("DebugJniLibFolders") || it.name.endsWith("DebugNativeLibs") }.configureEach {
+    dependsOn("buildLamiVoiceMatrixDebugJni")
+}

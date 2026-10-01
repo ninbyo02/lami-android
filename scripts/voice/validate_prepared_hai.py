@@ -76,7 +76,7 @@ def validate(root: Path):
     program = Runtime.get().load_program(root / 'speech-decoder-fp32-et14.pte')
     pcm = program.load_method('forward').execute((codes.unsqueeze(0),))[0].numpy().flatten().copy()
     assert len(pcm) == 59520 and np.isfinite(pcm).all() and np.max(np.abs(pcm)) <= 1 and np.max(np.abs(pcm)) > 1e-5
-    return {'phrase': ctx['text'], 'host_parity': 'passed', 'head_arithmetic': 'sequential_float32_matching_kotlin', 'matching_codes': matches, 'samples': len(pcm), 'sample_rate': 24000, 'duration_seconds': len(pcm)/24000, 'pcm_peak': float(np.max(np.abs(pcm))), 'host_elapsed_seconds': round(time.monotonic()-started, 3), 'android_device_validation': 'pending', 'arbitrary_text_frontend': 'not_implemented'}
+    return {'phrase': ctx['text'], 'host_parity': 'passed', 'head_arithmetic': 'sequential_float32_matching_kotlin', 'matching_codes': matches, 'samples': len(pcm), 'sample_rate': 24000, 'duration_seconds': len(pcm)/24000, 'pcm_peak': float(np.max(np.abs(pcm))), 'host_elapsed_seconds': round(time.monotonic()-started, 3), 'android_device_validation': 'pending', 'arbitrary_text_frontend': 'outside_fixed_probe'}
 
 
 if __name__ == '__main__':
