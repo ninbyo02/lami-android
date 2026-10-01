@@ -152,6 +152,8 @@ internal object LamiPreparedVoiceSynthesizer {
         val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048, timing, "cp_heads") }
         val cpEmbeddings = (0..14).map { Matrix(root.resolve("cp.embedding.$it.f32"), 2048) }
         val frames = mutableListOf<LongArray>()
+        val codecAllowed = (0..2047).toSet()
+        val codecWithEos = codecAllowed + 2150
         val seen = mutableSetOf<Int>()
         val sampler = LamiVoiceCodecSampler()
         var endedOnEos = false
@@ -169,8 +171,11 @@ internal object LamiPreparedVoiceSynthesizer {
                 val limit = 256 - prepared.prefill.size
                 for (frame in 0 until limit) {
                     progress("stage=codec frame=$frame limit=$limit")
-                    val allowed = (0..2047).toMutableSet().also { if (frame >= 2) it.add(2150) }
-                    val token = sampler.choose(head.logits(h), allowed, seen)
+                    val allowed = if (frame >= 2) codecWithEos else codecAllowed
+                    val mainScores = head.logits(h)
+                    val mainSampleStarted = System.nanoTime()
+                    val token = sampler.choose(mainScores, allowed, seen)
+                    timing.record("main_sampling", mainSampleStarted)
                     if (token == 2150) { endedOnEos = true; break }
                     seen += token
                     val row = LongArray(16)
@@ -181,7 +186,10 @@ internal object LamiPreparedVoiceSynthesizer {
                     cpCache.step(h, 0)
                     var ch = cpCache.step(last, 1)
                     for (group in 0..14) {
-                        val q = sampler.choose(cpHeads[group].logits(ch), (0..2047).toSet())
+                        val cpScores = cpHeads[group].logits(ch)
+                        val cpSampleStarted = System.nanoTime()
+                        val q = sampler.choose(cpScores, codecAllowed)
+                        timing.record("cp_sampling", cpSampleStarted)
                         row[group + 1] = q.toLong()
                         val e = cpEmbeddings[group].row(q)
                         for (j in 0 until WIDTH) sum[j] += e[j]

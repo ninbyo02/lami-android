@@ -32,4 +32,31 @@ class LamiVoiceCodecSamplerTest {
             LamiVoiceCodecSampler().choose(floatArrayOf(Float.NaN), setOf(0))
         }
     }
+    @Test fun boundedSelectionMatchesFullSortAcrossTiesAndChangingSets() {
+        for (k in listOf(1, 2, 50, 80)) {
+            val actual = LamiVoiceCodecSampler(seed = 73L, topK = k)
+            val referenceRandom = java.util.Random(73L)
+            val inputs = java.util.Random(91L)
+            repeat(200) { step ->
+                val logits = FloatArray(127) { (inputs.nextInt(17) - 8) / 3f }
+                logits[0] = -0.0f; logits[1] = 0.0f
+                val allowed = logits.indices.shuffled(kotlin.random.Random(step)).take(1 + step % 127).toSet()
+                val repeated = allowed.filter { it % 3 == 0 }.toSet()
+                val sorted = allowed.map { token ->
+                    var score = logits[token]
+                    if (token in repeated) score = if (score < 0f) score * 1.05f else score / 1.05f
+                    token to score.toDouble() / 0.9
+                }.sortedWith(compareByDescending<Pair<Int, Double>> { it.second }.thenBy { it.first }).take(k)
+                val weights = sorted.map { kotlin.math.exp(it.second - sorted.first().second) }
+                val target = referenceRandom.nextDouble() * weights.sum()
+                var cumulative = 0.0
+                var expected = sorted.last().first
+                for (i in sorted.indices) {
+                    cumulative += weights[i]
+                    if (target < cumulative) { expected = sorted[i].first; break }
+                }
+                assertEquals("k=$k step=$step", expected, actual.choose(logits, allowed, repeated))
+            }
+        }
+    }
 }
