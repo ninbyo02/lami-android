@@ -52,6 +52,18 @@ internal object LamiVoiceModuleCache {
 
     internal class Session(val identity: String) {
         private val modules = linkedMapOf<String, Module>()
+        private var tokenizer: Pair<String, LamiQwenTokenizer>? = null
+
+        /** Called only after the current utterance has verified every bundle file hash. */
+        fun tokenizer(root: File, progress: (String) -> Unit): LamiQwenTokenizer {
+            val key = root.canonicalPath
+            val existing = tokenizer?.takeIf { it.first == key }?.second
+            val started = SystemClock.elapsedRealtime()
+            val result = existing ?: LamiQwenTokenizer.load(root).also { tokenizer = key to it }
+            progress("metric=tokenizer_load reused=${existing != null} ms=${SystemClock.elapsedRealtime() - started}")
+            return result
+        }
+
         suspend fun <T> useModule(file: File, progress: (String) -> Unit, block: suspend (Module) -> T): T {
             val key = file.canonicalPath
             val existing = modules[key]
@@ -66,6 +78,7 @@ internal object LamiVoiceModuleCache {
         fun close() {
             modules.values.forEach { runCatching { it.close() } }
             modules.clear()
+            tokenizer = null
         }
     }
 }

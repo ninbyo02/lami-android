@@ -147,7 +147,7 @@ internal object LamiPreparedVoiceSynthesizer {
         val head = Matrix(root.resolve("main.head.f32"), 3072, timing, "main_head")
         val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)
         val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
-        val frontend = LamiVoiceTextFrontend(LamiQwenTokenizer.load(root.resolve("text_frontend")), projected::row, embedding::row)
+        val frontend = LamiVoiceTextFrontend(session.tokenizer(root.resolve("text_frontend"), progress), projected::row, embedding::row)
         val prepared = frontend.prepare(text)
         val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048, timing, "cp_heads") }
         val cpEmbeddings = (0..14).map { Matrix(root.resolve("cp.embedding.$it.f32"), 2048) }

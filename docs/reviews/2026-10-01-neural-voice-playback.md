@@ -256,3 +256,14 @@ PC, ADB, and Voice Lab connectivity recovered. The previous commit `22fff1fb` pa
 The subsequent one-thread trial stopped making progress inside PCM forward. A fresh-process default retry also stopped at PCM forward; the cause has not been established. Both trials were interrupted, the selector source was reverted, and the device selector file removed. No thread-count change is adopted. The prior build is restored and playback recovery is checked separately. Structured completed-trial metrics are in `2026-10-01-neural-voice-cpu-threads.json`; incomplete reports remain in ignored device artifacts.
 
 Recovery: rebuilding and reinstalling the unmodified module loader restored normal synthesis and playback (22,141 ms, 53,760 samples). The recovered WAV matched the approved bright sample exactly (`58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9`). The diagnostic thread flag is absent. Build and lint passed for the experimental source; the reverted stable source build also passed. Only experiment documentation is committed.
+
+
+## Bounded tokenizer reuse
+
+The immutable vocabulary, merge ranks and special-token table are now retained in the existing serialized, manifest-bound module session for at most 45 seconds of inactivity. All asset SHA-256 checks still run for every utterance before the tokenizer is reused. Utterance text context, matrices, decoder KV buffers, random sampler and token history remain fresh. Session expiry, manifest changes and exceptions/cancellation discard the tokenizer with the models.
+
+On the approved bright phrase, first tokenizer load took 1,542 ms and total text preparation 1,564 ms; immediate reuse took 0 ms and text preparation 23 ms. Cold/warm synthesis completed in 23,077/18,157 ms. This sequential total-time difference includes module reuse and device variability; only the eliminated tokenizer load is directly attributable to this change. Bright and greeting WAVs matched their approved hashes exactly; greeting preparation took 4 ms.
+
+A temporary trailing newline in vocab.json was rejected by full SHA-256 validation while the tokenizer was cached, with no playback. The original file was restored; the next utterance reloaded the tokenizer (1,159 ms) and produced the approved WAV. After 47 idle seconds, tokenizer reload was confirmed (287 ms), but PCM forward stopped making progress after model reload. The incomplete trial was interrupted. This resembles the prior thread experiment's decoder stall; it does not establish the root cause or a tokenizer regression. A fresh app restart completed synthesis and playback in 15,680 ms with the exact approved bright WAV. Native decoder reload stability remains a blocker for production and merge.
+
+Standard debug build, lint, six sampler tests and three frontend tests passed. No native binaries are tracked. Detailed metrics and the incomplete-trial limitation are recorded in `2026-10-01-neural-voice-tokenizer-reuse.json`.
