@@ -119,7 +119,8 @@ internal object LamiPreparedVoiceSynthesizer {
     }
 
     /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
-    suspend fun generateText(root: File, text: String, progress: (String) -> Unit = {}): LamiVoiceCodes {
+    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, progress: (String) -> Unit = {}): LamiVoiceCodes {
+        val started = android.os.SystemClock.elapsedRealtime()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
         require(ctx.getInt("version") == 2 && ctx.getInt("capacity") == 256)
@@ -140,6 +141,8 @@ internal object LamiPreparedVoiceSynthesizer {
             }
             check(digest.digest().joinToString("") { "%02x".format(it) } == files.getString(name)) { "Model hash mismatch: $name" }
         }
+        progress("metric=hash_validation ms=${android.os.SystemClock.elapsedRealtime() - started}")
+        val preparationStarted = android.os.SystemClock.elapsedRealtime()
         val head = Matrix(root.resolve("main.head.f32"), 3072)
         val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)
         val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
@@ -153,11 +156,15 @@ internal object LamiPreparedVoiceSynthesizer {
         var endedOnEos = false
         val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
         require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
-        Module.load(root.resolve(mainProgram).absolutePath, Module.LOAD_MODE_MMAP).use { main ->
-            Module.load(root.resolve("cp-stateless-fp32-cache32-et14.pte").absolutePath, Module.LOAD_MODE_MMAP).use { cp ->
+        progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
+        session.useModule(root.resolve(mainProgram), progress) { main ->
+            session.useModule(root.resolve("cp-stateless-fp32-cache32-et14.pte"), progress) { cp ->
                 val mainCache = Decoder(main, 28, 256, 3, ctx)
                 var h = FloatArray(WIDTH)
+                val prefillStarted = android.os.SystemClock.elapsedRealtime()
                 prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
+                progress("metric=prefill ms=${android.os.SystemClock.elapsedRealtime() - prefillStarted}")
+                val codecStarted = android.os.SystemClock.elapsedRealtime()
                 val limit = 256 - prepared.prefill.size
                 for (frame in 0 until limit) {
                     progress("stage=codec frame=$frame limit=$limit")
@@ -185,6 +192,7 @@ internal object LamiPreparedVoiceSynthesizer {
                         h = mainCache.step(sum, prepared.prefill.size + frame)
                     }
                 }
+                progress("metric=codec frames=${frames.size} ms=${android.os.SystemClock.elapsedRealtime() - codecStarted}")
             }
         }
         check(endedOnEos) { "Speech did not reach EOS within model cache; incomplete audio withheld" }

@@ -223,3 +223,11 @@ Host FP32 reaches EOS for greeting and color but fails to reach EOS for hai with
 The user subsequently confirms voice quality and intonation are restored after the comma comparison, and requests a slightly brighter tone. An exclamation variant generated 28 frames (2.24 seconds) in 26,427 ms and played completely; it is exposed as a separate comparison candidate in Voice Lab. Brightness is awaiting user review; no global punctuation rewriting or pitch change was applied.
 
 The user approved the brighter exclamation comparison: no remaining perceived voice unnaturalness. Preserve this listening baseline while evaluating latency changes. This approval covers the tested comparison, not every arbitrary sentence.
+
+## Bounded model reuse and latency breakdown
+
+Debug arbitrary-text synthesis serializes access to one manifest-identified module session. Main, CP and PCM modules are loaded lazily, reused for consecutive utterances, and closed after 45 seconds idle. Every utterance still validates bundle SHA-256 entries and creates fresh decoder KV tensors, token history and sampler. Manifest/root changes invalidate the session; synthesis errors and cancellation close it. No warm session is added to normal chat or release code.
+
+The approved bright color sentence generated in 28,193 ms cold and 25,148 ms warm; all three warm model-load metrics are zero. After idle expiry the modules reload and generation took 17,352 ms. All three WAVs exactly match the approved baseline SHA-256. Overall device latency clearly varies, so the single cold/warm pair is not a stable 11% throughput improvement claim. The warm run spends 5,935 ms validating hashes, 1,015 ms preparing text/tables, 4,010 ms on prefill, 12,531 ms on codec generation, and 1,599 ms converting PCM. Generation still does not keep pace with 2.24 seconds of speech.
+
+Device cancellation during codec generation succeeds. The next utterance loads all three modules anew, completes playback, and produces the exact approved WAV. Idle expiry, cancellation recovery, focused tokenizer/sampler regression, standard debug build, lint, diff checks and native-binary guard pass. This completes latency measurement and bounded model reuse; chunked playback, faster codec inference and the short hai EOS issue remain open.
