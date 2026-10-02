@@ -121,28 +121,11 @@ internal object LamiPreparedVoiceSynthesizer {
     /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
     suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, progress: (String) -> Unit = {}): LamiVoiceCodes {
         val timing = WorkTiming()
-        val started = android.os.SystemClock.elapsedRealtime()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
         require(ctx.getInt("version") == 2 && ctx.getInt("capacity") == 256)
         val files = ctx.getJSONObject("sha256")
-        for (name in files.keys()) {
-            currentCoroutineContext().ensureActive()
-            val file = root.resolve(name).canonicalFile
-            require(file.path.startsWith(root.canonicalPath + File.separator)) { "Model path outside bundle" }
-            val digest = MessageDigest.getInstance("SHA-256")
-            file.inputStream().use { input ->
-                val bytes = ByteArray(1024 * 1024)
-                while (true) {
-                    currentCoroutineContext().ensureActive()
-                    val count = input.read(bytes)
-                    if (count < 0) break
-                    digest.update(bytes, 0, count)
-                }
-            }
-            check(digest.digest().joinToString("") { "%02x".format(it) } == files.getString(name)) { "Model hash mismatch: $name" }
-        }
-        progress("metric=hash_validation ms=${android.os.SystemClock.elapsedRealtime() - started}")
+        session.verifyBundle(root, files, progress)
         val preparationStarted = android.os.SystemClock.elapsedRealtime()
         val head = Matrix(root.resolve("main.head.f32"), 3072, timing, "main_head")
         val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)

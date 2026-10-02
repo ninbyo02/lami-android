@@ -18,6 +18,14 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import org.pytorch.executorch.EValue
@@ -31,7 +39,14 @@ internal object LamiVoiceDecoderProcess {
     const val FAILURE = 3
     const val FORWARD_STARTED = 4
 
-    suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray {
+    private val mutex = Mutex()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var expiry: Job? = null
+    private var retained: Pair<Context, ServiceConnection>? = null
+
+    suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray = mutex.withLock {
+        expiry?.cancel()
+        var successful = false
         val app = context.applicationContext
         val id = UUID.randomUUID().toString()
         val directory = File(app.cacheDir, "voice-decoder/$id").apply { check(mkdirs()) }
@@ -79,26 +94,45 @@ internal object LamiVoiceDecoderProcess {
             val metrics = withTimeout(60_000L) { result.await() }
             val pid = metrics.getInt("pid")
             check(pid > 0 && pid != Process.myPid()) { "Decoder did not run in separate process" }
-            progress("metric=decoder_process pid=$pid model_load_ms=${metrics.getLong("load_ms")} pcm_forward_ms=${metrics.getLong("forward_ms")} total_ms=${SystemClock.elapsedRealtime() - started}")
-            return DataInputStream(directory.resolve("pcm.bin").inputStream().buffered()).use { input ->
+            progress("metric=decoder_process pid=$pid model_load_ms=${metrics.getLong("load_ms")} pcm_forward_ms=${metrics.getLong("forward_ms")} reused=${metrics.getBoolean("reused")} total_ms=${SystemClock.elapsedRealtime() - started}")
+            val pcm = DataInputStream(directory.resolve("pcm.bin").inputStream().buffered()).use { input ->
                 require(input.readInt() == codes.frames * 1920) { "Unexpected decoder sample count" }
                 FloatArray(codes.frames * 1920) { input.readFloat() }.also {
                     require(input.read() == -1) { "Unexpected trailing decoder output" }
                     LamiPcmContract.validate(it)
                 }
             }
+            successful = true
+            pcm
         } finally {
             result.cancel()
-            if (bound) app.unbindService(connection)
+            val previous = retained
+            retained = null
+            // A successful new binding keeps the same service alive before the old one is released.
+            previous?.let { (owner, old) -> runCatching { owner.unbindService(old) } }
+            if (bound && successful) {
+                retained = app to connection
+                expiry = scope.launch {
+                    delay(45_000L)
+                    mutex.withLock {
+                        if (retained?.second === connection) {
+                            retained = null
+                            app.unbindService(connection)
+                        }
+                    }
+                }
+            } else if (bound) app.unbindService(connection)
             directory.deleteRecursively()
         }
     }
 }
 
-/** One fresh native runtime per bind; unbinding also terminates a blocked native forward. */
+/** Short-lived decoder reuse; releasing all bindings terminates a blocked native forward. */
 class LamiVoiceDecoderService : Service() {
     private lateinit var worker: HandlerThread
     private lateinit var messenger: Messenger
+    private var cachedDecoder: Module? = null
+    private var cachedModelIdentity: String? = null
     override fun onCreate() {
         super.onCreate()
         worker = HandlerThread("lami-pcm-decoder").apply { start() }
@@ -133,8 +167,19 @@ class LamiVoiceDecoderService : Service() {
                 count to values
             }
             val started = SystemClock.elapsedRealtime()
-            Module.load(model.path, Module.LOAD_MODE_MMAP).use { decoder ->
-                decoder.loadMethod("forward")
+            val identity = "${model.path}:${model.length()}:${model.lastModified()}"
+            val reused = cachedDecoder != null && cachedModelIdentity == identity
+            if (!reused) {
+                cachedDecoder?.close()
+                cachedDecoder = null
+                val loaded = Module.load(model.path, Module.LOAD_MODE_MMAP)
+                try { loaded.loadMethod("forward") } catch (error: Throwable) { loaded.close(); throw error }
+                cachedDecoder = loaded
+                cachedModelIdentity = identity
+            }
+            val decoder = checkNotNull(cachedDecoder)
+            run {
+                response.putBoolean("reused", reused)
                 response.putLong("load_ms", SystemClock.elapsedRealtime() - started)
                 response.putInt("pid", Process.myPid())
                 reply.send(Message.obtain(null, LamiVoiceDecoderProcess.FORWARD_STARTED).apply { data = Bundle(response) })
@@ -152,6 +197,9 @@ class LamiVoiceDecoderService : Service() {
             response.putInt("pid", Process.myPid())
             status = LamiVoiceDecoderProcess.SUCCESS
         } catch (error: Throwable) {
+            cachedDecoder?.let { runCatching { it.close() } }
+            cachedDecoder = null
+            cachedModelIdentity = null
             response.putString("error", "${error.javaClass.simpleName}: ${error.message}")
         }
         runCatching { reply.send(Message.obtain(null, status).apply { data = response }) }
