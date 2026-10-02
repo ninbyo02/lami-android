@@ -12,7 +12,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 /** Debug chat bridge for the validated local neural voice path. */
 internal class LamiNeuralChatVoiceEngine(
@@ -30,37 +29,54 @@ internal class LamiNeuralChatVoiceEngine(
         this.listener = listener
     }
 
-    private val queue = LamiSpeechQueue(scope, { busy ->
+    private val queue = LamiSpeechPipeline<PreparedClip?>(scope, { busy ->
         if (!busy && speaking.value) lastEndedAtMs = SystemClock.elapsedRealtime()
         setSpeaking(busy)
-    }, ::playUtterance)
+    }, ::prepareUtterance, ::playClip)
 
     override fun speak(text: String) = queue.replace(text)
     override fun speakQueued(text: String) = queue.enqueue(text)
 
-    private suspend fun playUtterance(text: String) {
+    private data class PreparedClip(val pcm: FloatArray, val requestId: Long, val started: Long)
+
+    private fun trace(requestId: Long, started: Long, event: String) {
+        Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+    }
+
+    private suspend fun prepareUtterance(text: String): PreparedClip? {
         val requestId = requestIds.incrementAndGet()
         val started = SystemClock.elapsedRealtime()
-        fun trace(event: String) {
-            Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
-        }
-        trace("status=started text_chars=${text.length}")
-        try {
-            val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text, ::trace)
-            trace("synthesis=complete samples=${pcm.size}")
-            LamiPcmPlayer.play(pcm) { trace("playback=started") }
-            trace("status=complete")
+        trace(requestId, started, "status=started text_chars=${text.length}")
+        return try {
+            val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(requestId, started, it) }
+            trace(requestId, started, "synthesis=complete samples=${pcm.size}")
+            PreparedClip(pcm, requestId, started)
         } catch (cancelled: CancellationException) {
-            trace("status=cancelled")
+            trace(requestId, started, "status=cancelled phase=synthesis")
             throw cancelled
         } catch (failure: Exception) {
-            trace("status=failure class=${failure.javaClass.simpleName}")
-            Log.e("LamiNeuralChatTts", "request=$requestId synthesis or playback failed", failure)
+            trace(requestId, started, "status=failure class=${failure.javaClass.simpleName}")
+            Log.e("LamiNeuralChatTts", "request=$requestId synthesis failed", failure)
+            null
+        }
+    }
+
+    private suspend fun playClip(clip: PreparedClip?) {
+        if (clip == null) return
+        try {
+            LamiPcmPlayer.play(clip.pcm) { trace(clip.requestId, clip.started, "playback=started") }
+            trace(clip.requestId, clip.started, "status=complete")
+        } catch (cancelled: CancellationException) {
+            trace(clip.requestId, clip.started, "status=cancelled phase=playback")
+            throw cancelled
+        } catch (failure: Exception) {
+            trace(clip.requestId, clip.started, "status=failure phase=playback class=${failure.javaClass.simpleName}")
+            Log.e("LamiNeuralChatTts", "request=${clip.requestId} playback failed", failure)
         }
     }
 
     override fun isInCooldown(): Boolean =
-        SystemClock.elapsedRealtime() - lastEndedAtMs < 500L
+        lastEndedAtMs != Long.MIN_VALUE && SystemClock.elapsedRealtime() - lastEndedAtMs < 500L
 
     override fun stop() {
         queue.stop()
