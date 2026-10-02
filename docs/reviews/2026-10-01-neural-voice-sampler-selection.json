@@ -1,0 +1,80 @@
+{
+  "optimization": "Primitive worst-first top-k heap, reusable candidate/weight arrays, utterance-local shared codec allowed sets.",
+  "full_sort_differential_cases": 800,
+  "ordering": "descending Double score, ascending token, including signed zero",
+  "rng_draws": "one nextDouble per choose, original ordered weight sum",
+  "approved_outputs_identical": true,
+  "runs": [
+    {
+      "run": "optimized-cold",
+      "synthesis_ms": 21900,
+      "metrics": [
+        "metric=hash_validation ms=4612 elapsed_ms=4622",
+        "metric=text_prepare ms=1559 elapsed_ms=6181",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=1241 elapsed_ms=7422",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=200 elapsed_ms=7623",
+        "metric=prefill ms=1968 elapsed_ms=9592",
+        "metric=codec frames=28 ms=8507 elapsed_ms=18099",
+        "metric=main_forward calls=46 ms=4686 elapsed_ms=18099",
+        "metric=main_output_copy calls=46 ms=165 elapsed_ms=18099",
+        "metric=main_head calls=29 ms=137 elapsed_ms=18099",
+        "metric=main_sampling calls=29 ms=21 elapsed_ms=18099",
+        "metric=cp_forward calls=448 ms=3600 elapsed_ms=18099",
+        "metric=cp_output_copy calls=448 ms=89 elapsed_ms=18099",
+        "metric=cp_heads calls=420 ms=1295 elapsed_ms=18099",
+        "metric=cp_sampling calls=420 ms=260 elapsed_ms=18100",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=822 elapsed_ms=18922",
+        "metric=pcm_forward ms=2944 elapsed_ms=21866"
+      ],
+      "wav_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9"
+    },
+    {
+      "run": "optimized-warm",
+      "synthesis_ms": 18738,
+      "metrics": [
+        "metric=hash_validation ms=5856 elapsed_ms=5871",
+        "metric=text_prepare ms=1003 elapsed_ms=6875",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=6875",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=6876",
+        "metric=prefill ms=1895 elapsed_ms=8771",
+        "metric=codec frames=28 ms=8345 elapsed_ms=17116",
+        "metric=main_forward calls=46 ms=4637 elapsed_ms=17116",
+        "metric=main_output_copy calls=46 ms=170 elapsed_ms=17116",
+        "metric=main_head calls=29 ms=136 elapsed_ms=17117",
+        "metric=main_sampling calls=29 ms=11 elapsed_ms=17117",
+        "metric=cp_forward calls=448 ms=3599 elapsed_ms=17117",
+        "metric=cp_output_copy calls=448 ms=86 elapsed_ms=17117",
+        "metric=cp_heads calls=420 ms=1302 elapsed_ms=17117",
+        "metric=cp_sampling calls=420 ms=128 elapsed_ms=17117",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true ms=0 elapsed_ms=17117",
+        "metric=pcm_forward ms=1618 elapsed_ms=18735"
+      ],
+      "wav_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9"
+    },
+    {
+      "run": "optimized-greeting",
+      "synthesis_ms": 17302,
+      "metrics": [
+        "metric=hash_validation ms=4990 elapsed_ms=5006",
+        "metric=text_prepare ms=1607 elapsed_ms=6614",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=1289 elapsed_ms=7904",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=207 elapsed_ms=8112",
+        "metric=prefill ms=1345 elapsed_ms=9459",
+        "metric=codec frames=15 ms=4904 elapsed_ms=14363",
+        "metric=main_forward calls=28 ms=2686 elapsed_ms=14363",
+        "metric=main_output_copy calls=28 ms=104 elapsed_ms=14363",
+        "metric=main_head calls=16 ms=102 elapsed_ms=14363",
+        "metric=main_sampling calls=16 ms=16 elapsed_ms=14363",
+        "metric=cp_forward calls=240 ms=2020 elapsed_ms=14363",
+        "metric=cp_output_copy calls=240 ms=56 elapsed_ms=14363",
+        "metric=cp_heads calls=225 ms=913 elapsed_ms=14363",
+        "metric=cp_sampling calls=225 ms=199 elapsed_ms=14363",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=696 elapsed_ms=15060",
+        "metric=pcm_forward ms=2223 elapsed_ms=17283"
+      ],
+      "wav_sha256": "179456aae85a5bfe580e173ed8ea54c123adb889b54a9847f84c5c678f09c4f4"
+    }
+  ],
+  "real_time": false,
+  "elapsed_time_caveat": "Device-state dependent; the isolated sampling metric describes only this run."
+}

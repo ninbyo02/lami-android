@@ -4992,6 +4992,7 @@ fun Home(
                                                                             )
                                                                             if (NpuKotlinConversationProductRoute.enabled) {
                                                                                 npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                                val partialGate = PendingStreamingPartialGate()
                                                                                 val kotlinConversationAttempt = try {
                                                                                     NpuKotlinConversationProductRoute.run(
                                                                                         context = context.applicationContext,
@@ -5002,9 +5003,9 @@ fun Home(
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (!localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
+                                                                                            if (partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
+                                                                                                    if (!partialGate.acceptsUpdates || localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                                                                                                                                         localStreamingUiState = localStreamingUiState.copy(responseText = partial)
                                                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
@@ -5015,6 +5016,8 @@ fun Home(
                                                                                         trace = npuRealPromptTrace,
                                                                                     )
                                                                                 } finally {
+                                                                                    // Delayed UI posts cannot revive the transient reply after provider completion.
+                                                                                    partialGate.close()
                                                                                     npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                                 }
                                                                                 npuProductNativeStreamingUsed = kotlinConversationAttempt.nativeStreamingUsed

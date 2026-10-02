@@ -1,0 +1,65 @@
+{
+  "host_validation": "passed",
+  "frames_min": 2,
+  "frames_max": 256,
+  "sample_rate": 24000,
+  "samples_per_frame": 1920,
+  "model_sha256": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+  "cases": [
+    {
+      "frames": 2,
+      "samples": 3840,
+      "max_abs_error": 1.944601535797119e-06,
+      "rmse": 2.468950981437956e-07
+    },
+    {
+      "frames": 3,
+      "samples": 5760,
+      "max_abs_error": 1.4789402484893799e-06,
+      "rmse": 1.279732799730482e-07
+    },
+    {
+      "frames": 7,
+      "samples": 13440,
+      "max_abs_error": 9.804964065551758e-06,
+      "rmse": 7.460836286554695e-07
+    },
+    {
+      "frames": 16,
+      "samples": 30720,
+      "max_abs_error": 7.502734661102295e-06,
+      "rmse": 7.199083711384446e-07
+    },
+    {
+      "frames": 31,
+      "samples": 59520,
+      "max_abs_error": 1.9103288650512695e-05,
+      "rmse": 7.438848115270957e-07
+    },
+    {
+      "frames": 32,
+      "samples": 61440,
+      "max_abs_error": 1.9609928131103516e-05,
+      "rmse": 8.243982847488951e-07
+    },
+    {
+      "frames": 64,
+      "samples": 122880,
+      "max_abs_error": 2.08243727684021e-05,
+      "rmse": 8.205092285606952e-07
+    },
+    {
+      "frames": 128,
+      "samples": 245760,
+      "max_abs_error": 3.235228359699249e-05,
+      "rmse": 7.302524522856402e-07
+    },
+    {
+      "frames": 256,
+      "samples": 491520,
+      "max_abs_error": 4.375725984573364e-05,
+      "rmse": 8.026864861676586e-07
+    }
+  ],
+  "android_validation": "pending"
+}
