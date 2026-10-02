@@ -151,7 +151,7 @@ import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
-import io.github.ninbyo02.lami.tts.AndroidTtsController
+import io.github.ninbyo02.lami.tts.LamiVoiceEngineFactory
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
@@ -1198,7 +1198,7 @@ fun Home(
         initial = true,
     )
     val clipboardManager = LocalClipboardManager.current
-    val ttsController = remember { AndroidTtsController(context.applicationContext) }
+    val ttsController = remember { LamiVoiceEngineFactory.create(context.applicationContext) }
     val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
     var keepTtsTalkingInHeader by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
