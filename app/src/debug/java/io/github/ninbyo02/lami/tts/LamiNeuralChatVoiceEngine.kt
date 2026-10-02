@@ -8,7 +8,6 @@ import kotlinx.coroutines.CancellationException
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +23,6 @@ internal class LamiNeuralChatVoiceEngine(
     private val speaking = MutableStateFlow(false)
     override val isSpeaking: StateFlow<Boolean> = speaking
     private var listener: (Boolean) -> Unit = {}
-    private var job: Job? = null
     private val requestIds = AtomicLong()
     private var lastEndedAtMs = Long.MIN_VALUE
 
@@ -32,35 +30,32 @@ internal class LamiNeuralChatVoiceEngine(
         this.listener = listener
     }
 
-    override fun speak(text: String) = start(text)
-    override fun speakQueued(text: String) = start(text)
+    private val queue = LamiSpeechQueue(scope, { busy ->
+        if (!busy && speaking.value) lastEndedAtMs = SystemClock.elapsedRealtime()
+        setSpeaking(busy)
+    }, ::playUtterance)
 
-    private fun start(text: String) {
-        if (text.isBlank()) return
-        job?.cancel()
-        job = scope.launch {
-            val requestId = requestIds.incrementAndGet()
-            val started = SystemClock.elapsedRealtime()
-            fun trace(event: String) {
-                Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
-            }
-            setSpeaking(true)
-            trace("status=started text_chars=${text.length}")
-            try {
-                val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text, ::trace)
-                trace("synthesis=complete samples=${pcm.size}")
-                LamiPcmPlayer.play(pcm) { trace("playback=started") }
-                trace("status=complete")
-            } catch (cancelled: CancellationException) {
-                trace("status=cancelled")
-                throw cancelled
-            } catch (failure: Exception) {
-                trace("status=failure class=${failure.javaClass.simpleName}")
-                Log.e("LamiNeuralChatTts", "request=$requestId synthesis or playback failed", failure)
-            } finally {
-                lastEndedAtMs = SystemClock.elapsedRealtime()
-                setSpeaking(false)
-            }
+    override fun speak(text: String) = queue.replace(text)
+    override fun speakQueued(text: String) = queue.enqueue(text)
+
+    private suspend fun playUtterance(text: String) {
+        val requestId = requestIds.incrementAndGet()
+        val started = SystemClock.elapsedRealtime()
+        fun trace(event: String) {
+            Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+        }
+        trace("status=started text_chars=${text.length}")
+        try {
+            val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text, ::trace)
+            trace("synthesis=complete samples=${pcm.size}")
+            LamiPcmPlayer.play(pcm) { trace("playback=started") }
+            trace("status=complete")
+        } catch (cancelled: CancellationException) {
+            trace("status=cancelled")
+            throw cancelled
+        } catch (failure: Exception) {
+            trace("status=failure class=${failure.javaClass.simpleName}")
+            Log.e("LamiNeuralChatTts", "request=$requestId synthesis or playback failed", failure)
         }
     }
 
@@ -68,9 +63,7 @@ internal class LamiNeuralChatVoiceEngine(
         SystemClock.elapsedRealtime() - lastEndedAtMs < 500L
 
     override fun stop() {
-        job?.cancel()
-        job = null
-        setSpeaking(false)
+        queue.stop()
     }
 
     override fun shutdown() {
