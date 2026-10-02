@@ -2,6 +2,9 @@ package io.github.ninbyo02.lami.tts
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +25,7 @@ internal class LamiNeuralChatVoiceEngine(
     override val isSpeaking: StateFlow<Boolean> = speaking
     private var listener: (Boolean) -> Unit = {}
     private var job: Job? = null
+    private val requestIds = AtomicLong()
     private var lastEndedAtMs = Long.MIN_VALUE
 
     override fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
@@ -35,10 +39,24 @@ internal class LamiNeuralChatVoiceEngine(
         if (text.isBlank()) return
         job?.cancel()
         job = scope.launch {
+            val requestId = requestIds.incrementAndGet()
+            val started = SystemClock.elapsedRealtime()
+            fun trace(event: String) {
+                Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+            }
             setSpeaking(true)
+            trace("status=started text_chars=${text.length}")
             try {
-                val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text)
-                LamiPcmPlayer.play(pcm)
+                val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text, ::trace)
+                trace("synthesis=complete samples=${pcm.size}")
+                LamiPcmPlayer.play(pcm) { trace("playback=started") }
+                trace("status=complete")
+            } catch (cancelled: CancellationException) {
+                trace("status=cancelled")
+                throw cancelled
+            } catch (failure: Exception) {
+                trace("status=failure class=${failure.javaClass.simpleName}")
+                Log.e("LamiNeuralChatTts", "request=$requestId synthesis or playback failed", failure)
             } finally {
                 lastEndedAtMs = SystemClock.elapsedRealtime()
                 setSpeaking(false)
