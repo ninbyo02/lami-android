@@ -110,3 +110,23 @@ Exported a separate layer-2 MLP (normalization through residual) and compiled to
 Inference: moving only this MLP to CPU is unlikely to remove the already-propagated error; precision or partition work must include the preceding layers. This is input sensitivity evidence on one synthetic position, not proof of a specific failing kernel, and not production voice evaluation. Next compare higher-precision preceding-layer computation or a CPU prefix/NPU suffix with identical caches before selecting an Android integration.
 
 Validation: source export parity, detailed trace device execution, isolated two-input device execution, Python compilation, whitespace checks. Results are `2026-10-03-neural-tts-npu-mlp-detail.json` and `2026-10-03-neural-tts-npu-mlp-isolated.json`. App and production speech path are unchanged.
+
+## CPU prefix / NPU suffix comparison (2026-10-03 16:37 JST)
+
+Added opt-in `start_layer` (default zero) to the diagnostic backbone, separate suffix exporter, and metadata-ordered device checker. Export source split parity passed exactly at position zero for starts 3 and 4. Each suffix compiled to one dispatch; prefix cache bypass inputs are absent from the QNN graph, so the checker validates and uses the actual context input metadata. Context bytes: start 3 = 63,143,936; start 4 = 31,617,024.
+
+Across the same 17 saved synthetic positions / 255 all-head argmax comparisons:
+
+| Path | CPU/NPU layers | Argmax mismatches against full CPU | Position-8 hidden relative L2 |
+| --- | --- | --- | --- |
+| Full NPU | 0/5 | 7 | 0.181724 |
+| CPU prefix 3 | 3/2 | 3 | 0.009166 |
+| CPU prefix 4 | 4/1 | 2 | 0.003598 |
+
+Both split paths remove all position-8 head mismatches, but leave mismatches elsewhere. Start-3 mismatches: position 4/head 4, position 6/head 5, position 9/head 8. Start-4 mismatches: position 9/head 8, position 14/head 1. These sets differ from the full NPU mismatch set; aggregate reduction does not mean every individual position improves monotonically.
+
+CPU executes on the host and NPU on SM8750; these are numerical experiments, not an Android combined performance benchmark. Every step reuses the saved original NPU cache inputs, so independent split-path rollout/cache drift is still untested. Actual generation sampling, production voice, combined memory, handoff overhead and speed remain unvalidated. Keeping four of five layers on CPU may sacrifice most potential NPU speed benefit; do not claim a speed improvement from this experiment.
+
+Default backbone versus upstream MtpStep exact logit/cache parity passed at saved positions zero and eight after the refactor. Python compilation and whitespace checks passed. Results: `2026-10-03-neural-tts-npu-suffix-3.json` and `2026-10-03-neural-tts-npu-suffix-4.json`. No APK replaced; no production path enabled.
+
+Decision: neither split passes numerical agreement yet. Before Android integration, evaluate actual production inputs and independent cache rollout; only then compare device-resident combined performance. A supported higher-precision/calibrated NPU path remains another investigation, not a completed fix.

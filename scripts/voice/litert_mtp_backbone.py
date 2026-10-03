@@ -54,9 +54,12 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
 class MtpBackbone(nn.Module):
   """One MTP transformer step; the caller computes only its selected head."""
 
-  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False):
+  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False, start_layer: int = 0):
     super().__init__()
     self.trace_layers = trace_layers
+    if not 0 <= start_layer < LAYERS:
+      raise ValueError("start_layer must be between 0 and 4")
+    self.start_layer = start_layer
     for key, tensor in weights.items():
       if key == "heads":
         raise ValueError("Output heads belong to the caller, not the backbone")
@@ -112,8 +115,8 @@ class MtpBackbone(nn.Module):
         kv_cache_v_3,
         kv_cache_v_4,
     ]
-    k_new_list, v_new_list = [], []
-    for i in range(LAYERS):
+    k_new_list, v_new_list = k_in_list.copy(), v_in_list.copy()
+    for i in range(self.start_layer, LAYERS):
       w_norm = getattr(self, f"layers_{i}_input_layernorm_weight")
       w_q = getattr(self, f"layers_{i}_self_attn_q_proj_weight")
       w_k = getattr(self, f"layers_{i}_self_attn_k_proj_weight")
@@ -145,8 +148,8 @@ class MtpBackbone(nn.Module):
       v_cache = dus_utils.dynamic_update_slice(
           v_in_list[i], v_btnh, slice_indices
       )
-      k_new_list.append(k_cache)
-      v_new_list.append(v_cache)
+      k_new_list[i] = k_cache
+      v_new_list[i] = v_cache
 
       # Explicitly expand KV cache heads from 8 to 16 using Rank-4 operations
       # (cat + reshape) to ensure consistent 1:1 Head matching without
