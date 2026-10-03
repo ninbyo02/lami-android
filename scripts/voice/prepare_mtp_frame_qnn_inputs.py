@@ -15,6 +15,8 @@ def main():
     parser.add_argument("--case", type=int, default=0)
     parser.add_argument("--frame", type=int, default=0)
     parser.add_argument("--cache-length", type=int, choices=(16, 32), default=32)
+    parser.add_argument("--start-layer", type=int, choices=range(5), default=0,
+                        help="Profile a suffix beginning at this layer (timing only)")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--device-input-dir", required=True)
     args = parser.parse_args()
@@ -22,7 +24,7 @@ def main():
         parser.error("case and frame must be nonnegative")
     names = ["embeddings", "input_ids", "mask"] + [
         f"kv_cache_{kind}_{layer}"
-        for kind in ("k", "v") for layer in range(5)
+        for kind in ("k", "v") for layer in range(args.start_layer, 5)
     ]
     expected = {"embeddings": (1, 1, 1024), "input_ids": (1,),
                 "mask": (1, 1, 1, 32)}
@@ -55,7 +57,8 @@ def main():
             f"{args.device_input_dir}/pos-{position:02d}/serving_default_{name}.raw"
             for name in names))
     (args.output_dir / "input-list.txt").write_text("\n".join(lines) + "\n")
-    print(json.dumps({"frames": 1, "steps": 16, "cache_length": args.cache_length,
+    print(json.dumps({"frames": 1, "steps": 16, "start_layer": args.start_layer,
+                      "cache_length": args.cache_length,
                       "input_list": str(args.output_dir / "input-list.txt"),
                       "device_input_dir": args.device_input_dir}, indent=2))
 
