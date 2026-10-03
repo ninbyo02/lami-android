@@ -48,7 +48,7 @@ internal object LamiNeuralVoiceDiagnostics {
     }
 
     /** Explicit A/B device diagnostic through the same synthesis, queue and playback primitives. */
-    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true) = withContext(Dispatchers.Default) {
+    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true, prefixDecodeProbe: Boolean = false) = withContext(Dispatchers.Default) {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
@@ -67,7 +67,9 @@ internal object LamiNeuralVoiceDiagnostics {
                         val codeBytes = java.nio.ByteBuffer.allocate(codes.values.size * 8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                         codes.values.forEach(codeBytes::putLong)
                         trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
-                        LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        val full = LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
+                        full
                     }
                     val pcmBytes = java.nio.ByteBuffer.allocate(pcm.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     pcm.forEach(pcmBytes::putFloat)
@@ -101,6 +103,32 @@ internal object LamiNeuralVoiceDiagnostics {
             throw cancelled
         } catch (failure: Exception) {
             trace("status=failure class=${failure.javaClass.simpleName}")
+        }
+    }
+
+    suspend fun runStreamingProbe(context: Context, texts: List<String>) = withContext(Dispatchers.Default) {
+        require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
+        val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
+        val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
+        val started = android.os.SystemClock.elapsedRealtime()
+        val lock = Any()
+        fun trace(event: String) = synchronized(lock) {
+            report.appendText("$event elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
+        }
+        report.writeText("mode=streaming status=started\n")
+        try {
+            withTimeout(600_000L) {
+                texts.forEachIndexed { index, text ->
+                    trace("request=$index synthesis=started")
+                    LamiVoiceStreamingProbe.run(context, root, text) { trace("request=$index $it") }
+                }
+                trace("status=complete")
+            }
+        } catch (cancelled: CancellationException) {
+            trace("status=cancelled")
+            throw cancelled
+        } catch (failure: Exception) {
+            trace("status=failure class=${failure.javaClass.simpleName} message=${failure.message}")
         }
     }
 

@@ -1,0 +1,32 @@
+{
+  "status": "isolated_synthetic_mlp_same_input_device_comparison",
+  "same_input_npu_vs_cpu": [
+    {
+      "input": "cpu_attention",
+      "max_abs": 0.005057811737060547,
+      "relative_l2": 0.002906208299814013
+    },
+    {
+      "input": "npu_attention",
+      "max_abs": 0.007529497146606445,
+      "relative_l2": 0.002922806384057863
+    }
+  ],
+  "cpu_input_sensitivity": {
+    "max_abs": 0.3325498104095459,
+    "relative_l2": 0.034877628387241455
+  },
+  "attention_input_difference": {
+    "max_abs": 0.005657196044921875,
+    "relative_l2": 0.005068323799462234
+  },
+  "cpu_input_matches_full_cpu_mlp": {
+    "max_abs": 0.0,
+    "relative_l2": 0.0
+  },
+  "limitations": [
+    "Diagnostic isolation changes graph fusion.",
+    "Synthetic reference-base input only; not production voice or sampled speech.",
+    "No latency comparison."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "status": "blocked_nonfinite_device_output",
+  "completed_inputs": 0,
+  "case": 0,
+  "text": "こんにちは。",
+  "frame": 0,
+  "position": 0,
+  "hidden_nonfinite": 593,
+  "cache_nonfinite": {
+    "kv_cache_k_3": 512,
+    "kv_cache_k_4": 512,
+    "kv_cache_v_4": 1
+  },
+  "export": {
+    "status": "exported_source_single_input_exact_parity_not_device_tested",
+    "trace_layers": false,
+    "explicit_norm": true,
+    "artifact": "/home/sato/tmp/lami-tts-npu-pilot/explicit-norm/mtp_backbone_explicit_norm_fp16.tflite",
+    "bytes": 157422880,
+    "removed_head_weight_elements": 31457280,
+    "head_projection_location": "caller CPU; one selected original head",
+    "limitations": [
+      "one synthetic position-zero source parity check",
+      "not a generated speech or trained checkpoint test"
+    ]
+  },
+  "compile": {
+    "status": "sm8750_compiled_not_device_tested",
+    "artifact": "/home/sato/tmp/lami-tts-npu-pilot/explicit-norm/aot/mtp_backbone_explicit_norm_fp16_Qualcomm_SM8750_apply_plugin.tflite",
+    "artifact_bytes": 158544080,
+    "artifact_sha256": "2881d5906a3778586807b9e3e3bee1bd3284f72ba2577ef3933f0f795181a793",
+    "dispatch_ops": 1,
+    "remaining_cpu_ops": 0,
+    "context": "/home/sato/tmp/lami-tts-npu-pilot/explicit-norm/aot/mtp-qnn-context.bin",
+    "context_bytes": 158539776,
+    "graph_name": "qnn_partition_0"
+  },
+  "limitations": [
+    "Naive explicit RMS expression rejected on first input; no audio test.",
+    "FP16 range/underflow behavior is a hypothesis, not an isolated-kernel proof."
+  ]
+}

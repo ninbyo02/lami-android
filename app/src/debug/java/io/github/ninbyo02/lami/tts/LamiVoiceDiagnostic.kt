@@ -11,7 +11,7 @@ import org.pytorch.executorch.Tensor
 internal object LamiVoiceDiagnostic {
     suspend fun synthesizeText(context: android.content.Context, root: File, text: String, reuseCpWorkspace: Boolean = true, progress: (String) -> Unit = {}): FloatArray =
         LamiVoiceModuleCache.withSession(root) { session ->
-            val codes = LamiPreparedVoiceSynthesizer.generateText(root, text, session, reuseCpWorkspace, progress)
+            val codes = LamiPreparedVoiceSynthesizer.generateText(root, text, session, reuseCpWorkspace, progress = progress)
             currentCoroutineContext().ensureActive()
             progress("stage=pcm_decode")
             LamiVoiceDecoderProcess.decode(context, root, codes, progress)

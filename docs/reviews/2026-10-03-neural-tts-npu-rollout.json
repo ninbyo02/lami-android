@@ -1,0 +1,289 @@
+{
+  "status": "17_step_actual_npu_cache_carry_pass",
+  "steps": [
+    {
+      "position": 0,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.06798839569091797,
+        "kv_cache_k_0": 0.001682281494140625,
+        "kv_cache_k_1": 0.02059459686279297,
+        "kv_cache_k_2": 0.02111142873764038,
+        "kv_cache_k_3": 0.09197807312011719,
+        "kv_cache_k_4": 0.05082976818084717,
+        "kv_cache_v_0": 0.00030806660652160645,
+        "kv_cache_v_1": 0.004540920257568359,
+        "kv_cache_v_2": 0.005901336669921875,
+        "kv_cache_v_3": 0.01027609407901764,
+        "kv_cache_v_4": 0.019262313842773438
+      }
+    },
+    {
+      "position": 1,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.07104921340942383,
+        "kv_cache_k_0": 0.0024585723876953125,
+        "kv_cache_k_1": 0.011768102645874023,
+        "kv_cache_k_2": 0.01817035675048828,
+        "kv_cache_k_3": 0.20339202880859375,
+        "kv_cache_k_4": 0.05075263977050781,
+        "kv_cache_v_0": 0.0002944469451904297,
+        "kv_cache_v_1": 0.005207836627960205,
+        "kv_cache_v_2": 0.005058377981185913,
+        "kv_cache_v_3": 0.0089949369430542,
+        "kv_cache_v_4": 0.016780555248260498
+      }
+    },
+    {
+      "position": 2,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.24605339765548706,
+        "kv_cache_k_0": 0.0035532116889953613,
+        "kv_cache_k_1": 0.014368683099746704,
+        "kv_cache_k_2": 0.018682003021240234,
+        "kv_cache_k_3": 0.08614730834960938,
+        "kv_cache_k_4": 0.1292867660522461,
+        "kv_cache_v_0": 0.00033462047576904297,
+        "kv_cache_v_1": 0.002773493528366089,
+        "kv_cache_v_2": 0.006420016288757324,
+        "kv_cache_v_3": 0.011839807033538818,
+        "kv_cache_v_4": 0.02748095989227295
+      }
+    },
+    {
+      "position": 3,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.08139181137084961,
+        "kv_cache_k_0": 0.004404976963996887,
+        "kv_cache_k_1": 0.02560877799987793,
+        "kv_cache_k_2": 0.01745021343231201,
+        "kv_cache_k_3": 0.1512279510498047,
+        "kv_cache_k_4": 0.04581904411315918,
+        "kv_cache_v_0": 0.0002981424331665039,
+        "kv_cache_v_1": 0.0033694207668304443,
+        "kv_cache_v_2": 0.00543743371963501,
+        "kv_cache_v_3": 0.008969530463218689,
+        "kv_cache_v_4": 0.015473604202270508
+      }
+    },
+    {
+      "position": 4,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.17270994186401367,
+        "kv_cache_k_0": 0.008761286735534668,
+        "kv_cache_k_1": 0.012391701340675354,
+        "kv_cache_k_2": 0.024047553539276123,
+        "kv_cache_k_3": 0.1150360107421875,
+        "kv_cache_k_4": 0.081634521484375,
+        "kv_cache_v_0": 0.0003025531768798828,
+        "kv_cache_v_1": 0.0038745999336242676,
+        "kv_cache_v_2": 0.0055994391441345215,
+        "kv_cache_v_3": 0.013576686382293701,
+        "kv_cache_v_4": 0.020058102905750275
+      }
+    },
+    {
+      "position": 5,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.0175018310546875,
+        "kv_cache_k_0": 0.005347609519958496,
+        "kv_cache_k_1": 0.015294492244720459,
+        "kv_cache_k_2": 0.009667158126831055,
+        "kv_cache_k_3": 0.017169952392578125,
+        "kv_cache_k_4": 0.00946044921875,
+        "kv_cache_v_0": 0.0003872215747833252,
+        "kv_cache_v_1": 0.004045605659484863,
+        "kv_cache_v_2": 0.007012844085693359,
+        "kv_cache_v_3": 0.0008075237274169922,
+        "kv_cache_v_4": 0.0011162757873535156
+      }
+    },
+    {
+      "position": 6,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.15594005584716797,
+        "kv_cache_k_0": 0.009162425994873047,
+        "kv_cache_k_1": 0.013660848140716553,
+        "kv_cache_k_2": 0.02384352684020996,
+        "kv_cache_k_3": 0.07977294921875,
+        "kv_cache_k_4": 0.04472970962524414,
+        "kv_cache_v_0": 0.0003311038017272949,
+        "kv_cache_v_1": 0.00512048602104187,
+        "kv_cache_v_2": 0.004561528563499451,
+        "kv_cache_v_3": 0.010892197489738464,
+        "kv_cache_v_4": 0.02465824782848358
+      }
+    },
+    {
+      "position": 7,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.2209789752960205,
+        "kv_cache_k_0": 0.005934000015258789,
+        "kv_cache_k_1": 0.015773653984069824,
+        "kv_cache_k_2": 0.026365041732788086,
+        "kv_cache_k_3": 0.0873870849609375,
+        "kv_cache_k_4": 0.2252514362335205,
+        "kv_cache_v_0": 0.0003020167350769043,
+        "kv_cache_v_1": 0.003962516784667969,
+        "kv_cache_v_2": 0.005366437137126923,
+        "kv_cache_v_3": 0.009116291999816895,
+        "kv_cache_v_4": 0.05929473042488098
+      }
+    },
+    {
+      "position": 8,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 3.1223621368408203,
+        "kv_cache_k_0": 0.008533358573913574,
+        "kv_cache_k_1": 0.01736241579055786,
+        "kv_cache_k_2": 0.025288105010986328,
+        "kv_cache_k_3": 2.225830078125,
+        "kv_cache_k_4": 0.8908987045288086,
+        "kv_cache_v_0": 0.0003508329391479492,
+        "kv_cache_v_1": 0.005940496921539307,
+        "kv_cache_v_2": 0.006907850503921509,
+        "kv_cache_v_3": 0.05354917049407959,
+        "kv_cache_v_4": 0.18547889590263367
+      }
+    },
+    {
+      "position": 9,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.11952662467956543,
+        "kv_cache_k_0": 0.012541532516479492,
+        "kv_cache_k_1": 0.01898956298828125,
+        "kv_cache_k_2": 0.017999649047851562,
+        "kv_cache_k_3": 0.0844888687133789,
+        "kv_cache_k_4": 0.051190316677093506,
+        "kv_cache_v_0": 0.000329434871673584,
+        "kv_cache_v_1": 0.004779204726219177,
+        "kv_cache_v_2": 0.005165785551071167,
+        "kv_cache_v_3": 0.010802030563354492,
+        "kv_cache_v_4": 0.021412581205368042
+      }
+    },
+    {
+      "position": 10,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.10457384586334229,
+        "kv_cache_k_0": 0.01506584882736206,
+        "kv_cache_k_1": 0.029840707778930664,
+        "kv_cache_k_2": 0.023722171783447266,
+        "kv_cache_k_3": 0.203033447265625,
+        "kv_cache_k_4": 0.11164999008178711,
+        "kv_cache_v_0": 0.00035136938095092773,
+        "kv_cache_v_1": 0.004918575286865234,
+        "kv_cache_v_2": 0.0064029693603515625,
+        "kv_cache_v_3": 0.010740786790847778,
+        "kv_cache_v_4": 0.03184884786605835
+      }
+    },
+    {
+      "position": 11,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.5147876739501953,
+        "kv_cache_k_0": 0.009647369384765625,
+        "kv_cache_k_1": 0.014807462692260742,
+        "kv_cache_k_2": 0.02412426471710205,
+        "kv_cache_k_3": 2.7894439697265625,
+        "kv_cache_k_4": 0.7597713470458984,
+        "kv_cache_v_0": 0.0003408193588256836,
+        "kv_cache_v_1": 0.004166841506958008,
+        "kv_cache_v_2": 0.007486611604690552,
+        "kv_cache_v_3": 0.027070946991443634,
+        "kv_cache_v_4": 0.054462432861328125
+      }
+    },
+    {
+      "position": 12,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.01982879638671875,
+        "kv_cache_k_0": 0.02356576919555664,
+        "kv_cache_k_1": 0.015392065048217773,
+        "kv_cache_k_2": 0.02023656666278839,
+        "kv_cache_k_3": 0.025957107543945312,
+        "kv_cache_k_4": 0.027344465255737305,
+        "kv_cache_v_0": 0.00031453371047973633,
+        "kv_cache_v_1": 0.0034150779247283936,
+        "kv_cache_v_2": 0.006245940923690796,
+        "kv_cache_v_3": 0.0007383823394775391,
+        "kv_cache_v_4": 0.0010907649993896484
+      }
+    },
+    {
+      "position": 13,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.09753036499023438,
+        "kv_cache_k_0": 0.009999871253967285,
+        "kv_cache_k_1": 0.011781632900238037,
+        "kv_cache_k_2": 0.018314778804779053,
+        "kv_cache_k_3": 0.04427337646484375,
+        "kv_cache_k_4": 0.06523799896240234,
+        "kv_cache_v_0": 0.0003191232681274414,
+        "kv_cache_v_1": 0.0034748315811157227,
+        "kv_cache_v_2": 0.005376338958740234,
+        "kv_cache_v_3": 0.009464740753173828,
+        "kv_cache_v_4": 0.017773330211639404
+      }
+    },
+    {
+      "position": 14,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.17601147294044495,
+        "kv_cache_k_0": 0.01898956298828125,
+        "kv_cache_k_1": 0.02037966251373291,
+        "kv_cache_k_2": 0.048069000244140625,
+        "kv_cache_k_3": 0.5413093566894531,
+        "kv_cache_k_4": 0.08141946792602539,
+        "kv_cache_v_0": 0.0003420114517211914,
+        "kv_cache_v_1": 0.0032587051391601562,
+        "kv_cache_v_2": 0.004654943943023682,
+        "kv_cache_v_3": 0.01048433780670166,
+        "kv_cache_v_4": 0.018347151577472687
+      }
+    },
+    {
+      "position": 15,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.688507080078125,
+        "kv_cache_k_0": 0.025064826011657715,
+        "kv_cache_k_1": 0.029919981956481934,
+        "kv_cache_k_2": 0.033451616764068604,
+        "kv_cache_k_3": 0.056163787841796875,
+        "kv_cache_k_4": 0.04091167449951172,
+        "kv_cache_v_0": 0.0003923773765563965,
+        "kv_cache_v_1": 0.006773650646209717,
+        "kv_cache_v_2": 0.007946759462356567,
+        "kv_cache_v_3": 0.012145459651947021,
+        "kv_cache_v_4": 0.025693655014038086
+      }
+    },
+    {
+      "position": 16,
+      "max_abs_diff_vs_cpu_same_npu_cache_input": {
+        "hidden": 0.02191925048828125,
+        "kv_cache_k_0": 0.023180663585662842,
+        "kv_cache_k_1": 0.011669635772705078,
+        "kv_cache_k_2": 0.013260632753372192,
+        "kv_cache_k_3": 0.021514892578125,
+        "kv_cache_k_4": 0.0149993896484375,
+        "kv_cache_v_0": 0.0002523660659790039,
+        "kv_cache_v_1": 0.006582379341125488,
+        "kv_cache_v_2": 0.0076604001224040985,
+        "kv_cache_v_3": 0.0004583597183227539,
+        "kv_cache_v_4": 0.000858306884765625
+      }
+    }
+  ],
+  "checks": [
+    "finite outputs",
+    "unchanged cache outside written position",
+    "actual NPU cache used as next input"
+  ],
+  "limitations": [
+    "synthetic embeddings, no speech or sampling test",
+    "CPU comparison uses the same NPU-produced cache input, not independent CPU rollout",
+    "context reloaded per step; ADB/file transfer; no latency claim",
+    "no selected-head CPU timing"
+  ],
+  "numerical_accuracy_gate": "unresolved: hidden max absolute difference reaches 3.12236; no accuracy tolerance or voice-quality pass claimed"
+}

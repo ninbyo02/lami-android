@@ -1,0 +1,11 @@
+{
+  "status": "sm8750_compiled_not_device_tested",
+  "artifact": "/home/sato/tmp/lami-tts-npu-pilot/aot-repro/mtp_fp32_Qualcomm_SM8750_apply_plugin.tflite",
+  "artifact_bytes": 220885200,
+  "artifact_sha256": "9cda81d06987de25a59a11ad1abbaece2dd061b56d5fd12b96728ceca2fb0aae",
+  "dispatch_ops": 1,
+  "remaining_cpu_ops": 0,
+  "context": "/home/sato/tmp/lami-tts-npu-pilot/aot-repro/mtp-qnn-context.bin",
+  "context_bytes": 220880896,
+  "graph_name": "qnn_partition_0"
+}
