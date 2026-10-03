@@ -1,0 +1,7 @@
+# Full-utterance SM8750 CP pilot
+
+The trained LAMI bundle generated 「こんにちは。」 through natural EOS in both paths. Both use the same host ExecuTorch FP32 main model, original heads/embeddings, seed 42 sampler and final host speech decoder. The CP backbone is either the original ExecuTorch CPU program or the FP16 LiteRT SM8750 NPU context. Each generated code is fed back into its own path through the remainder of the utterance. The host CPU first 30 CP codes match the prior recorded host capture.
+
+Both paths produced 19 codec frames, 36,480 PCM samples and 1.52-second 24 kHz WAV files. The paths diverged from frame zero: 293 of 304 codec IDs differ (16 main IDs, 277 CP IDs). This is a free-generation result, not a teacher-forced comparison. It establishes neither acceptable nor unacceptable voice quality. The files are available under the `lami-npu-tts-20261003` category in Voice LAB at `http://192.168.52.99:8088/`; labels are `01-hello-cpu-baseline.wav` and `02-hello-sm8750-npu-cp.wav`. A human listening review is pending.
+
+The diagnostic reloads the NPU context and transfers files over ADB for each CP step. Its 184-second elapsed time is not a resident NPU speed measurement. The Android app/APK and normal TTS path were not changed. The source CPU path is a host reproduction and can have low-order sampling differences from the approved device playback. Before enabling this in chat, measure a persistent NPU engine, full main/CP/decoder throughput relative to 80 ms per frame, memory under LLM concurrency, audible quality, and zero-underrun streaming.

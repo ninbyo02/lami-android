@@ -1,0 +1,45 @@
+{
+  "status": "full_utterance_cpu_main_npu_cp_free_generation_review_required",
+  "text": "こんにちは。",
+  "checkpoint_bundle": "/home/sato/tmp/lami-tts-npu-pilot/actual-inputs/manifest.json",
+  "frames": 19,
+  "samples": 36480,
+  "sample_rate": 24000,
+  "code_mismatches": 293,
+  "total_codes": 304,
+  "main_code_mismatches": 16,
+  "cp_code_mismatches": 277,
+  "divergent_frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+  ],
+  "cpu_wav_sha256": "ad10e78aac524ef5ae12900cea451d64dd83de1ea7b942ff9948d48ddae76af5",
+  "npu_wav_sha256": "bd56b736e495c2d8b51f9b03249c5f2b34aac7449ecc5602cf4df63fc4038a41",
+  "voice_lab_paths": [
+    "/home/sato/project/lami-chronicle-voice-lab/samples/lami-npu-tts-20261003/01-hello-cpu-baseline.wav",
+    "/home/sato/project/lami-chronicle-voice-lab/samples/lami-npu-tts-20261003/02-hello-sm8750-npu-cp.wav"
+  ],
+  "limitations": [
+    "CPU main remains on host; only CP backbone runs on SM8750 NPU.",
+    "NPU context is reloaded through ADB every CP step, so 184 seconds is not NPU compute or end-to-end latency.",
+    "Two outputs are host-generated using the same speech decoder; Android native sampling can differ from host low bits.",
+    "Listening review and concurrent LLM execution remain pending."
+  ]
+}
