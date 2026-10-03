@@ -106,6 +106,32 @@ internal object LamiNeuralVoiceDiagnostics {
         }
     }
 
+    suspend fun runStreamingProbe(context: Context, texts: List<String>) = withContext(Dispatchers.Default) {
+        require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
+        val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
+        val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
+        val started = android.os.SystemClock.elapsedRealtime()
+        val lock = Any()
+        fun trace(event: String) = synchronized(lock) {
+            report.appendText("$event elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
+        }
+        report.writeText("mode=streaming status=started\n")
+        try {
+            withTimeout(600_000L) {
+                texts.forEachIndexed { index, text ->
+                    trace("request=$index synthesis=started")
+                    LamiVoiceStreamingProbe.run(context, root, text) { trace("request=$index $it") }
+                }
+                trace("status=complete")
+            }
+        } catch (cancelled: CancellationException) {
+            trace("status=cancelled")
+            throw cancelled
+        } catch (failure: Exception) {
+            trace("status=failure class=${failure.javaClass.simpleName} message=${failure.message}")
+        }
+    }
+
     private fun sha256(bytes: ByteArray): String = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun writeWav(file: java.io.File, pcm: FloatArray) {

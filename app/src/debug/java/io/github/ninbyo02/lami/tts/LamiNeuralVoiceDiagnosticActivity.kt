@@ -61,6 +61,7 @@ class LamiNeuralVoiceDiagnosticActivity : ComponentActivity() {
             value?.let { service.putExtra("lami_neural_tts_text_probe", it) }
             intent.getStringExtra("lami_neural_tts_pipeline_probe")?.let { lines ->
                 service.putStringArrayListExtra("lami_neural_tts_pipeline_texts", ArrayList(lines.split('|')))
+                service.putExtra("lami_neural_tts_streaming_probe", intent.getBooleanExtra("lami_neural_tts_streaming_probe", false))
                 service.putExtra("lami_neural_tts_prefix_decode_probe", intent.getBooleanExtra("lami_neural_tts_prefix_decode_probe", false))
                 service.putExtra("lami_neural_tts_cp_allocation_baseline", intent.getBooleanExtra("lami_neural_tts_cp_allocation_baseline", false))
                 service.putExtra("lami_neural_tts_serial_baseline", intent.getBooleanExtra("lami_neural_tts_serial_baseline", false))

@@ -10,6 +10,14 @@ internal object LamiVoiceChunkProbeMath {
         return LongArray(prefix * 16) { index -> values[(index / prefix) * frames + index % prefix] }
     }
 
+    fun appendedPcm(previous: FloatArray, next: FloatArray): FloatArray {
+        require(next.size > previous.size) { "PCM prefix did not advance" }
+        if (previous.isNotEmpty()) {
+            require(difference(next, previous, previous.size).maxAbsolute == 0.0) { "Provisional PCM changed after more codes" }
+        }
+        return next.copyOfRange(previous.size, next.size)
+    }
+
     data class Difference(val samples: Int, val maxAbsolute: Double, val rms: Double)
     fun difference(full: FloatArray, prefix: FloatArray, samples: Int): Difference {
         require(samples in 1..minOf(full.size, prefix.size))

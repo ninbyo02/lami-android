@@ -22,6 +22,22 @@ class LamiVoiceChunkProbeMathTest {
     @Test fun earlyDifferenceCannotBeHiddenByTrimmingTail() {
         assertEquals(1.0, LamiVoiceChunkProbeMath.difference(floatArrayOf(1f, 0f), floatArrayOf(0f, 0f), 1).maxAbsolute, 0.0)
     }
+    @Test fun appendingPrefixesReconstructsPcmWithoutRepeatingSamples() {
+        val first = floatArrayOf(0f, 0.1f)
+        val next = floatArrayOf(0f, 0.1f, 0.2f, 0.3f)
+        val last = floatArrayOf(0f, 0.1f, 0.2f, 0.3f, 0.4f)
+        val assembled = LamiVoiceChunkProbeMath.appendedPcm(FloatArray(0), first) +
+            LamiVoiceChunkProbeMath.appendedPcm(first, next) + LamiVoiceChunkProbeMath.appendedPcm(next, last)
+        assertArrayEquals(last, assembled, 0f)
+    }
+    @Test(expected = IllegalArgumentException::class)
+    fun changedPrefixCannotBeSubmittedAsNewAudio() {
+        LamiVoiceChunkProbeMath.appendedPcm(floatArrayOf(0.1f), floatArrayOf(0.2f, 0.3f))
+    }
+    @Test(expected = IllegalArgumentException::class)
+    fun duplicateFinalPrefixCannotRepeatAudio() {
+        LamiVoiceChunkProbeMath.appendedPcm(floatArrayOf(0.1f), floatArrayOf(0.1f))
+    }
     @Test fun malformedInputAndEmptyComparisonAreRejected() {
         for (operation in listOf<() -> Unit>(
             { LamiVoiceChunkProbeMath.prefixCodes(LongArray(32), 3, 2) },
