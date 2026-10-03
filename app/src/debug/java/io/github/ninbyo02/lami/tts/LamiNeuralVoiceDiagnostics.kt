@@ -48,7 +48,7 @@ internal object LamiNeuralVoiceDiagnostics {
     }
 
     /** Explicit A/B device diagnostic through the same synthesis, queue and playback primitives. */
-    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true) = withContext(Dispatchers.Default) {
+    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true, prefixDecodeProbe: Boolean = false) = withContext(Dispatchers.Default) {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
@@ -67,7 +67,9 @@ internal object LamiNeuralVoiceDiagnostics {
                         val codeBytes = java.nio.ByteBuffer.allocate(codes.values.size * 8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                         codes.values.forEach(codeBytes::putLong)
                         trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
-                        LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        val full = LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
+                        full
                     }
                     val pcmBytes = java.nio.ByteBuffer.allocate(pcm.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     pcm.forEach(pcmBytes::putFloat)
