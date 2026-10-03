@@ -41,5 +41,37 @@
     "NPU context is reloaded through ADB every CP step, so 184 seconds is not NPU compute or end-to-end latency.",
     "Two outputs are host-generated using the same speech decoder; Android native sampling can differ from host low bits.",
     "Listening review and concurrent LLM execution remain pending."
-  ]
+  ],
+  "voice_lab_review": {
+    "cpu": {
+      "status": "hold",
+      "note": "問題なし。挨拶として「こんにちはー」の伸ばしが気になります。"
+    },
+    "sm8750_npu_cp": {
+      "status": "candidate",
+      "note": "問題なし。落ち着いている感じが良い。"
+    }
+  },
+  "resident_repeated_input_profile": {
+    "inferences": 100,
+    "context_reuse": true,
+    "same_input_each_time": true,
+    "source": "QNN SDK 2.47 profile viewer, trained FP16 CP backbone, SM8750",
+    "default_netrun_mean_us": 13162,
+    "default_netrun_min_us": 7661,
+    "default_netrun_max_us": 29129,
+    "high_performance_netrun_mean_us": 8875,
+    "high_performance_netrun_min_us": 7669,
+    "high_performance_netrun_max_us": 17485,
+    "burst_netrun_mean_us": 8879,
+    "burst_netrun_min_us": 7594,
+    "burst_netrun_max_us": 22331,
+    "high_performance_shared_buffer_mean_us": 12853,
+    "sixteen_steps_at_high_performance_mean_ms": 142.0,
+    "notes": [
+      "Identical input repeated; not a rolling cache speech inference benchmark.",
+      "Does not include head projection, main model, frontend, decoder, runtime scheduling, or LLM concurrency.",
+      "Device clock/thermal/load was not controlled; cross-profile changes are not causal claims."
+    ]
+  }
 }
