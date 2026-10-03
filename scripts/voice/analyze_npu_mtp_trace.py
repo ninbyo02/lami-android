@@ -37,13 +37,26 @@ def main():
         x, y = x.astype(np.float64), y.astype(np.float64)
         d = x - y
         return {'max_abs': float(np.max(np.abs(d))), 'relative_l2': float(np.linalg.norm(d) / max(np.linalg.norm(y), 1e-30))}
-    keys = [key for i in range(5) for key in (f'trace_attention_{i}', f'trace_mlp_{i}')] + ['hidden']
+    keys = [key for i in range(5) for key in (f'trace_attention_{i}', f'trace_mlp_{i}')] + [f'trace_detail_{k}' for k in ('norm', 'gate', 'up', 'silu', 'product', 'down') if f'trace_detail_{k}' in cpu] + ['hidden']
     report = {'status': 'diagnostic_synthetic_layer_trace',
               'position': int(inputs['input_ids'][0]),
               'trace_hidden_vs_original_npu': metrics(npu['hidden'], original),
               'trace_hidden_original_npu_bitwise_equal': bool(np.array_equal(npu['hidden'], original)),
               'layers': [{'output': key, 'cpu_vs_source': metrics(cpu[key], src[key]), 'npu_vs_cpu': metrics(npu[key], cpu[key])} for key in keys],
               'limitations': ['Intermediate outputs can alter fusion; final output comparison records this effect.', 'Same saved synthetic NPU cache inputs, no independent CPU rollout.', 'No sampled speech or audio quality validation.']}
+    if 'trace_detail_norm' in npu:
+        local = {}
+        norm = torch.from_numpy(npu['trace_detail_norm'])
+        for key in ('gate', 'up', 'down'):
+            inp = norm if key != 'down' else torch.from_numpy(npu['trace_detail_product'])
+            expected = torch.nn.functional.linear(inp, weights[f'layers.2.mlp.{key}_proj.weight']).numpy()
+            local[key] = metrics(npu[f'trace_detail_{key}'], expected)
+        expected = torch.nn.functional.silu(torch.from_numpy(npu['trace_detail_gate'])).numpy()
+        local['silu'] = metrics(npu['trace_detail_silu'], expected)
+        local['product'] = metrics(npu['trace_detail_product'], npu['trace_detail_silu'] * npu['trace_detail_up'])
+        report['same_npu_input_cpu_operator_replay'] = local
+        if not report['trace_hidden_original_npu_bitwise_equal']:
+            report['limitations'].append('Detailed outputs changed the final NPU hidden; compare fusion effect before interpreting.')
     a.report.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
 

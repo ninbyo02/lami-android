@@ -98,3 +98,15 @@ Position-zero control, after explicitly pushing matching host inputs to a dedica
 Validation: exact source logit/cache parity during trace export, both device traces, Python compilation and git diff whitespace checks. Saved results: `2026-10-03-neural-tts-npu-trace.json` and `2026-10-03-neural-tts-npu-trace-control.json`. Device execution was isolated under /data/local/tmp; no installed APK was replaced.
 
 Next: isolate layer-2 post-attention normalization and gate/up/SiLU/product/down projection using identical input tensors, then evaluate precision or CPU partition changes. These are synthetic reference-base inputs; no production voice quality or sampled generation equivalence has been established. NPU adoption remains blocked.
+
+## Isolated layer-2 MLP diagnosis (2026-10-03 16:30 JST)
+
+The detailed trace exposes post-attention normalization, gate/up projections, SiLU, product and down projection. Unlike the earlier residual-only trace, this additional instrumentation changes the final NPU hidden (max absolute 0.120117 versus original); its results cannot be treated as a bitwise trace of the original fused graph.
+
+Detailed trace NPU/CPU relative L2: normalized input 0.005122, gate 0.005529, up 0.005328, SiLU 0.006625, product 0.044135, down 0.050070. Replaying each operator on CPU with its actual NPU input instead gives relative errors around 0.00018–0.00030 for gate/up/SiLU/product/down. This does not identify one broken arithmetic operator; it suggests incoming error amplification.
+
+Exported a separate layer-2 MLP (normalization through residual) and compiled to one SM8750 dispatch, context 18,960,384 bytes. Ran two identical-input CPU/NPU comparisons: CPU-attention input max error 0.005058 / relative L2 0.002906, NPU-attention input max error 0.007529 / relative L2 0.002923. Crucially, running both inputs through CPU alone produces max output difference 0.332550 / relative L2 0.034878, from attention input difference max 0.005657 / relative L2 0.005068. The isolated CPU MLP on CPU input matches the full CPU trace exactly.
+
+Inference: moving only this MLP to CPU is unlikely to remove the already-propagated error; precision or partition work must include the preceding layers. This is input sensitivity evidence on one synthetic position, not proof of a specific failing kernel, and not production voice evaluation. Next compare higher-precision preceding-layer computation or a CPU prefix/NPU suffix with identical caches before selecting an Android integration.
+
+Validation: source export parity, detailed trace device execution, isolated two-input device execution, Python compilation, whitespace checks. Results are `2026-10-03-neural-tts-npu-mlp-detail.json` and `2026-10-03-neural-tts-npu-mlp-isolated.json`. App and production speech path are unchanged.

@@ -180,7 +180,18 @@ class MtpBackbone(nn.Module):
       w_up = getattr(self, f"layers_{i}_mlp_up_proj_weight")
       w_down = getattr(self, f"layers_{i}_mlp_down_proj_weight")
 
-      ff = F.linear(F.silu(F.linear(h2, w_gate)) * F.linear(h2, w_up), w_down)
+      gate = F.linear(h2, w_gate)
+      up = F.linear(h2, w_up)
+      activated = F.silu(gate)
+      product = activated * up
+      ff = F.linear(product, w_down)
+      if self.trace_layers and i == 2:
+        traces["trace_detail_norm"] = h2
+        traces["trace_detail_gate"] = gate
+        traces["trace_detail_up"] = up
+        traces["trace_detail_silu"] = activated
+        traces["trace_detail_product"] = product
+        traces["trace_detail_down"] = ff
       x = x + ff
       if self.trace_layers:
         traces[f"trace_mlp_{i}"] = x
