@@ -1,0 +1,56 @@
+{
+  "weight_only_int8_cpu": {
+    "status": "cpu_teacher_forced_weight_only_quantization_check",
+    "fp16_bytes": 157433152,
+    "weight8_bytes": 79527936,
+    "records": 64,
+    "selected_heads": 60,
+    "sample_mismatch_vs_executorch": {
+      "fp16": 0,
+      "weight8": 35
+    },
+    "max_relative_l2": {
+      "fp16": 1.2116261131408698e-05,
+      "weight8": 0.12697243028869792
+    },
+    "limitations": [
+      "Two texts, first two frames each; CPU interpreter, not NPU.",
+      "Teacher-forced main embeddings and codec history; no full utterance audio.",
+      "No resident runtime, latency, or playback measurement."
+    ]
+  },
+  "fp32_npu": {
+    "status": "bounded_actual_voice_teacher_forced_independent_cache_comparison",
+    "source_checkpoint_sha256": "c569a8502034a7aa1c4524f83bd9f0923378a3347e325bccc87ec43f2a4744b9",
+    "selected_head_comparisons": 60,
+    "argmax_mismatches": {
+      "source": 0,
+      "fp16_cpu": 0,
+      "hybrid": 2
+    },
+    "shared_draw_sample_mismatches": {
+      "source": 0,
+      "fp16_cpu": 0,
+      "hybrid": 29
+    },
+    "limitations": [
+      "Two texts, first two codec frames each; not full utterances or long-duration speech.",
+      "CPU frontend and prefix run on host; full source trace extracts prefix, not an optimized CPU partition; no combined Android speed or memory measurement.",
+      "Each path carries its own CP cache within each frame; caches reset for the next frame as production does.",
+      "Embeddings and main-model progression are teacher-forced from original CPU generation; divergent sampled codes are not fed back.",
+      "Context reloaded per step and ADB file transfer; timings are not inference throughput.",
+      "No audio decoded or listened to."
+    ]
+  },
+  "fp32_npu_compile": {
+    "status": "sm8750_compiled_not_device_tested",
+    "artifact": "/home/sato/tmp/lami-tts-npu-pilot/production-fp32/aot/mtp_backbone_fp32_Qualcomm_SM8750_apply_plugin.tflite",
+    "artifact_bytes": 157753696,
+    "artifact_sha256": "a376b0ead758e3daa49d45d3cc9a747f0333363375a512c122364b6464efe14c",
+    "dispatch_ops": 1,
+    "remaining_cpu_ops": 0,
+    "context": "/home/sato/tmp/lami-tts-npu-pilot/production-fp32/aot/mtp-qnn-context.bin",
+    "context_bytes": 157749248,
+    "graph_name": "qnn_partition_0"
+  }
+}
