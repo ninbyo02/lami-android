@@ -31,6 +31,25 @@ class AssistantGenerationSessionControllerTest {
     }
 
     @Test
+    fun `generic backend keeps generic UI persistence ownership`() {
+        val controller = AssistantGenerationSessionController()
+        controller.start(13L, 4)
+        controller.claimMessage(46)
+        assertTrue(controller.session?.genericUiOwnsPersistence == true)
+        assertTrue(controller.acceptsStreamingUpdate(13L))
+    }
+
+    @Test
+    fun `stop cancels an active generic backend session`() {
+        val controller = AssistantGenerationSessionController()
+        controller.start(14L, 4)
+        controller.claimMessage(47)
+        controller.cancel()
+        assertTrue(controller.session?.phase == AssistantGenerationSession.Phase.CANCELLED)
+        assertFalse(controller.acceptsStreamingUpdate(14L))
+    }
+
+    @Test
     fun `terminal session can be cleared after consumers observe completion`() {
         val controller = AssistantGenerationSessionController()
         controller.start(11L, 3)

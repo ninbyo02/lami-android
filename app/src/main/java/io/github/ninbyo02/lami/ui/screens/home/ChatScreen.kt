@@ -3198,6 +3198,7 @@ fun Home(
 
     fun resetStreamingAssistantPlaceholderId(reason: String) {
         streamingGuardEpoch += 1
+        if (reason == "stop") assistantGenerationSessionController.cancel()
         val previousId = streamingAssistantMessageId
         if (previousId != null) {
             logStreamTrace("STREAM reset placeholder id from $previousId to null reason=$reason")
@@ -4045,6 +4046,7 @@ fun Home(
                     var assistantId: Int? = null
                     if (currentChatId != null) {
                         if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
+                        assistantGenerationSessionController.beginFinalizing()
                         assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = response,
@@ -4052,6 +4054,7 @@ fun Home(
                             imageInputCount = pendingAssistantImageInputCount,
                         )
                         if (assistantId != null) {
+                            assistantGenerationSessionController.complete(assistantId)
                             streamingSpeechStartedForMessageId = assistantId
                         }
                     }
@@ -4111,6 +4114,7 @@ fun Home(
                     if (currentChatId != null) {
                         if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
                         val errorText = (uiState as UiState.Error).errorMessage
+                        assistantGenerationSessionController.fail()
                         val assistantId = finalizeStreamingAssistantFailureSerialized(
                             chatId = currentChatId,
                             response = errorText,
@@ -4766,6 +4770,10 @@ fun Home(
                                                         )
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
+                                                        assistantGenerationSessionController.start(
+                                                            requestId = SystemClock.elapsedRealtimeNanos(),
+                                                            chatId = currentChatId,
+                                                        )
                                                         remoteRequestJob = coroutineScope.launch {
                                                             try {
                                                                 viewModel.sendPrompt(
@@ -8201,6 +8209,7 @@ fun Home(
                                                                     }
                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                     bottomSheetUpdateStartedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                    assistantGenerationSessionController.beginFinalizing()
                                                                     val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = currentChatId,
                                                                         response = resolvedAssistantResponse,
@@ -8213,6 +8222,7 @@ fun Home(
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                         ?: latestLocalTraceForDev
                                                                     if (assistantId != null) {
+                                                                        assistantGenerationSessionController.complete(assistantId)
                                                                         streamingSpeechStartedForMessageId = assistantId
                                                                     }
                                                                     localStreamingResponseText = null
