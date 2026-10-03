@@ -86,3 +86,15 @@ Replayed identical position-8 embedding, mask and saved position-7 NPU cache thr
 Current decision: do not adopt this FP16 NPU model in ordinary TTS. Next isolate per-layer errors, then validate using actual prepared voice generation inputs and the actual selected-head schedule. Consider keeping sensitive normalization/attention operations in higher precision or on CPU, or calibrated quantization, only after identifying the affected operator. Fast synthetic throughput is insufficient for adoption.
 
 Evidence: 2026-10-03-neural-tts-npu-accuracy.json. Offline analysis is reproducible with scripts/voice/analyze_npu_mtp_rollout.py using the saved rollout output directory, reference checkpoint and CPU TFLite model.
+
+## Layer trace device diagnosis (2026-10-03 16:15 JST)
+
+Added opt-in `--trace-layers` export; the default backbone outputs and normal chat remain unchanged. The trace model exposes each attention residual, MLP residual and SDPA output. Analysis currently uses the named residual outputs; the QNN SDPA output aliases require metadata mapping before use. SM8750 compile retained one DISPATCH_OP and zero CPU ops.
+
+Exact position-8 replay reproduces the original NPU final hidden bitwise, so tracing did not change the observed final arithmetic for this input. CPU versus source final relative L2 is 0.00001026; NPU versus CPU is 0.181724. The first pronounced jump occurs in layer index 2 (third layer): attention residual max absolute error 0.005657 / relative L2 0.005068, then MLP residual max absolute error 0.325020 / relative L2 0.034171. Subsequent layers amplify this difference; this localizes an amplification boundary, not a proven faulty individual operator.
+
+Position-zero control, after explicitly pushing matching host inputs to a dedicated device directory, also matches the original NPU final hidden bitwise. Final NPU/CPU max absolute error is 0.067988 and relative L2 0.007039. The first control attempt used stale device input files and was discarded; the checked-in control report is the fresh-input rerun.
+
+Validation: exact source logit/cache parity during trace export, both device traces, Python compilation and git diff whitespace checks. Saved results: `2026-10-03-neural-tts-npu-trace.json` and `2026-10-03-neural-tts-npu-trace-control.json`. Device execution was isolated under /data/local/tmp; no installed APK was replaced.
+
+Next: isolate layer-2 post-attention normalization and gate/up/SiLU/product/down projection using identical input tensors, then evaluate precision or CPU partition changes. These are synthetic reference-base inputs; no production voice quality or sampled generation equivalence has been established. NPU adoption remains blocked.

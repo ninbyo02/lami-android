@@ -54,8 +54,9 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
 class MtpBackbone(nn.Module):
   """One MTP transformer step; the caller computes only its selected head."""
 
-  def __init__(self, weights: dict[str, torch.Tensor]):
+  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False):
     super().__init__()
+    self.trace_layers = trace_layers
     for key, tensor in weights.items():
       if key == "heads":
         raise ValueError("Output heads belong to the caller, not the backbone")
@@ -86,6 +87,7 @@ class MtpBackbone(nn.Module):
       kv_cache_v_3: torch.Tensor,
       kv_cache_v_4: torch.Tensor,
   ) -> dict[str, torch.Tensor]:
+    traces = {}
     x = embeddings
     angles = input_ids.float().reshape(1, 1) * self.inv_freq.reshape(1, -1)
     angles = torch.cat((angles, angles), dim=-1)
@@ -168,6 +170,9 @@ class MtpBackbone(nn.Module):
 
       w_o = getattr(self, f"layers_{i}_self_attn_o_proj_weight")
       x = x + F.linear(out, w_o)
+      if self.trace_layers:
+        traces[f"trace_attention_{i}"] = x
+        traces[f"trace_sdpa_{i}"] = out_attn
 
       w_post_norm = getattr(self, f"layers_{i}_post_attention_layernorm_weight")
       h2 = _rms_norm(x, w_post_norm)
@@ -177,12 +182,15 @@ class MtpBackbone(nn.Module):
 
       ff = F.linear(F.silu(F.linear(h2, w_gate)) * F.linear(h2, w_up), w_down)
       x = x + ff
+      if self.trace_layers:
+        traces[f"trace_mlp_{i}"] = x
 
     w_final_norm = getattr(self, "norm_weight")
     x = _rms_norm(x, w_final_norm)
     hidden = x.reshape(1, 1024)
     return {
         "hidden": hidden,
+        **traces,
         **{f"kv_cache_k_{i}": k_new_list[i] for i in range(LAYERS)},
         **{f"kv_cache_v_{i}": v_new_list[i] for i in range(LAYERS)},
     }

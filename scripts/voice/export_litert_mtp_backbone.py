@@ -13,6 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--trace-layers", action="store_true", help="Diagnostic intermediate outputs; can change delegate fusion")
     args = parser.parse_args()
     preflight(args.model)
     import torch
@@ -28,7 +29,7 @@ def main():
             if key.startswith(prefix + "model.layers.") or key == prefix + "model.norm.weight":
                 weights[key[len(prefix + "model."):]] = reader.get_tensor(key).float()
         heads = torch.stack([reader.get_tensor(f"{prefix}lm_head.{i}.weight").float() for i in range(15)])
-    model = MtpBackbone(weights).eval()
+    model = MtpBackbone(weights, trace_layers=args.trace_layers).eval()
     baseline = MtpStep({**weights, "heads": heads}).eval()
     torch.manual_seed(2713)
     inputs = {"embeddings": torch.randn(1, 1, 1024) * .1,
@@ -42,13 +43,14 @@ def main():
         logits = torch.nn.functional.linear(result["hidden"], heads.reshape(-1, 1024)).reshape(15, 2048)
         torch.testing.assert_close(logits, expected["logits"], rtol=0, atol=0)
         for key in result:
-            if key != "hidden":
+            if key != "hidden" and not key.startswith("trace_"):
                 torch.testing.assert_close(result[key], expected[key], rtol=0, atol=0)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / "mtp_backbone_fp16.tflite"
+    output = args.output_dir / ("mtp_backbone_trace_fp16.tflite" if args.trace_layers else "mtp_backbone_fp16.tflite")
     litert_torch.convert(model, sample_kwargs=inputs,
                         quant_config=quant_recipes.full_fp16_recipe()).export(str(output))
     report = {"status": "exported_source_single_input_exact_parity_not_device_tested",
+              "trace_layers": args.trace_layers,
               "artifact": str(output), "bytes": output.stat().st_size,
               "removed_head_weight_elements": heads.numel(),
               "head_projection_location": "caller CPU; one selected original head",
