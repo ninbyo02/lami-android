@@ -34,8 +34,13 @@ class LamiNeuralVoiceDiagnosticService : Service() {
             .build()
         startForeground(2708, notification)
         val text = intent?.getStringExtra("lami_neural_tts_text_probe")
+        val pipelineTexts = intent?.getStringArrayListExtra("lami_neural_tts_pipeline_texts")
+        val serial = intent?.getBooleanExtra("lami_neural_tts_serial_baseline", false) ?: false
         scope.launch {
-            try { LamiNeuralVoiceDiagnostics.runProbe(applicationContext, text) }
+            try {
+                if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial)
+                else LamiNeuralVoiceDiagnostics.runProbe(applicationContext, text)
+            }
             finally { stopSelf() }
         }
         return START_NOT_STICKY
