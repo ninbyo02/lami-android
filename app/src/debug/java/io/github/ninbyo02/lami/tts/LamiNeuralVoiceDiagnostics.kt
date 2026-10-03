@@ -106,8 +106,9 @@ internal object LamiNeuralVoiceDiagnostics {
         }
     }
 
-    suspend fun runStreamingProbe(context: Context, texts: List<String>) = withContext(Dispatchers.Default) {
+    suspend fun runStreamingProbe(context: Context, texts: List<String>, prefixFrames: Int = 8) = withContext(Dispatchers.Default) {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
+        require(prefixFrames in listOf(2, 4, 8))
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
         val started = android.os.SystemClock.elapsedRealtime()
@@ -115,12 +116,12 @@ internal object LamiNeuralVoiceDiagnostics {
         fun trace(event: String) = synchronized(lock) {
             report.appendText("$event elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
         }
-        report.writeText("mode=streaming status=started\n")
+        report.writeText("mode=streaming prefix_frames=$prefixFrames status=started\n")
         try {
             withTimeout(600_000L) {
                 texts.forEachIndexed { index, text ->
                     trace("request=$index synthesis=started")
-                    LamiVoiceStreamingProbe.run(context, root, text) { trace("request=$index $it") }
+                    LamiVoiceStreamingProbe.run(context, root, text, prefixFrames) { trace("request=$index $it") }
                 }
                 trace("status=complete")
             }

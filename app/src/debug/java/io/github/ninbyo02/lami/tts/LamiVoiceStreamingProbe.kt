@@ -9,14 +9,16 @@ import kotlinx.coroutines.channels.Channel
 
 /** Provisional audio is allowed only by the explicit debug probe, never normal chat. */
 internal object LamiVoiceStreamingProbe {
-    suspend fun run(context: Context, root: File, text: String, progress: (String) -> Unit) = coroutineScope {
+    suspend fun run(context: Context, root: File, text: String, prefixFrames: Int, progress: (String) -> Unit) = coroutineScope {
+        require(prefixFrames in listOf(2, 4, 8))
         val started = SystemClock.elapsedRealtime()
+        progress("metric=stream_prefix_cadence frames=$prefixFrames")
         val codes = Channel<LamiVoiceCodes>(1)
         val pcm = Channel<FloatArray>(1)
         val producer = async {
             var sent = 0
             val full = LamiVoiceModuleCache.withSession(root) { session ->
-                LamiPreparedVoiceSynthesizer.generateText(root, text, session, onPrefix = { prefix ->
+                LamiPreparedVoiceSynthesizer.generateText(root, text, session, prefixFrames = prefixFrames, onPrefix = { prefix ->
                     progress("stage=stream_codes frames=${prefix.frames} generated_ms=${SystemClock.elapsedRealtime() - started} audio_ms=${prefix.frames * 80L}")
                     codes.send(prefix)
                     sent = prefix.frames
@@ -33,7 +35,15 @@ internal object LamiVoiceStreamingProbe {
                 val decodeStarted = SystemClock.elapsedRealtime()
                 val next = LamiVoiceDecoderProcess.decode(context, root, prefix, progress)
                 progress("metric=prefix_decode frames=${prefix.frames} ms=${SystemClock.elapsedRealtime() - decodeStarted}")
-                val added = LamiVoiceChunkProbeMath.appendedPcm(previous, next)
+                // Shape-dependent decoder roundoff is tracked, never silently played beyond this bound.
+                val tolerance = if (prefixFrames == 2) 1e-6 else 0.0
+                if (previous.isNotEmpty()) {
+                    val difference = LamiVoiceChunkProbeMath.difference(next, previous, previous.size)
+                    val firstChanged = previous.indices.firstOrNull { previous[it] != next[it] } ?: -1
+                    progress("metric=prefix_stability previous_frames=${previous.size / 1920} frames=${prefix.frames} max_abs=${difference.maxAbsolute} rms=${difference.rms} first_changed_sample=$firstChanged")
+                    check(difference.maxAbsolute <= tolerance) { "Provisional PCM drift exceeded $tolerance: ${difference.maxAbsolute}" }
+                }
+                val added = next.copyOfRange(previous.size, next.size)
                 progress("stage=stream_pcm frames=${prefix.frames} added_samples=${added.size}")
                 pcm.send(added)
                 previous = next
@@ -59,7 +69,8 @@ internal object LamiVoiceStreamingProbe {
             progress("codes_sha256=${hash(codeBytes.array())} frames=${fullCodes.frames}")
             progress("pcm_sha256=${hash(pcmBytes.array())}")
             val difference = LamiVoiceChunkProbeMath.difference(full, assembled, full.size)
-            check(difference.maxAbsolute == 0.0) { "Stream PCM differs from full decode" }
+            val tolerance = if (prefixFrames == 2) 1e-6 else 0.0
+            check(difference.maxAbsolute <= tolerance) { "Stream PCM differs from full decode beyond $tolerance: ${difference.maxAbsolute}" }
             progress("metric=stream_parity max_abs=${difference.maxAbsolute} rms=${difference.rms} frames=${fullCodes.frames}")
         } finally {
             codes.cancel()
