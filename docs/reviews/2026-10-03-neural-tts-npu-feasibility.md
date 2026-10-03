@@ -73,3 +73,16 @@ This uses synthetic embeddings and a causal mask. Each step reloads the QNN cont
 Evidence: 2026-10-03-neural-tts-npu-rollout.json. Reproduce with scripts/voice/check_npu_mtp_rollout.py --help; it requires the compiled backbone context and matching QNN runtime already staged in a dedicated device directory.
 
 Numerical caveat: maximum hidden-state absolute difference versus the same-input LiteRT CPU reference reached 3.12236 during rollout. No acceptance threshold was applied. Cache structural correctness and finite outputs must not be described as a numerical accuracy pass. Before adoption, investigate the position-dependent difference using representative generation inputs and selected-head logits/code comparisons.
+
+
+## Numerical investigation: adoption gate blocked
+
+Analyzed the saved 17-step rollout with three paths receiving exactly the same NPU-produced cache input: original FP32 PyTorch backbone, exported FP16-weight LiteRT CPU backbone, and NPU output. Applied the same original FP32 output heads on the host to each hidden state. LiteRT CPU and FP32 source agreed on all 255 head argmax comparisons; NPU versus CPU disagreed on seven (including five at position 8). These are synthetic inputs and all heads, not the real generation schedule, so seven mismatches must not be reported as a speech error rate.
+
+At position 8 the CPU/source hidden relative L2 error was approximately 0.00001026, versus NPU/CPU 0.181724. NPU/CPU logits relative L2 error was 0.175791. Weight conversion alone does not explain this observed discrepancy; the NPU execution/lowering/precision path needs further isolation. No individual operator has yet been identified as the cause.
+
+Replayed identical position-8 embedding, mask and saved position-7 NPU cache three times on device. The report records repeatability against the original saved output. This distinguishes a reproducible numerical discrepancy from an unverified random or transfer failure.
+
+Current decision: do not adopt this FP16 NPU model in ordinary TTS. Next isolate per-layer errors, then validate using actual prepared voice generation inputs and the actual selected-head schedule. Consider keeping sensitive normalization/attention operations in higher precision or on CPU, or calibrated quantization, only after identifying the affected operator. Fast synthetic throughput is insufficient for adoption.
+
+Evidence: 2026-10-03-neural-tts-npu-accuracy.json. Offline analysis is reproducible with scripts/voice/analyze_npu_mtp_rollout.py using the saved rollout output directory, reference checkpoint and CPU TFLite model.
