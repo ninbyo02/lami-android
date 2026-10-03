@@ -160,6 +160,19 @@ class ChatSendAvailabilityTest {
     }
 
     @Test
+    fun `transient assistant row is hidden when DB finalized text already matches during inference teardown`() {
+        assertFalse(
+            shouldShowTransientAssistantRow(
+                currentChatId = 1,
+                isInferenceRunning = true,
+                streamingAssistantMessageId = null,
+                streamingResponseText = "  こんにちは。何かお手伝いできることはありますか？  ",
+                lastPersistedStreamingAssistantText = "こんにちは。何かお手伝いできることはありますか？",
+            )
+        )
+    }
+
+    @Test
     fun `pending local user message is hidden once persisted user message matches`() {
         assertFalse(
             shouldShowPendingLocalUserMessage(

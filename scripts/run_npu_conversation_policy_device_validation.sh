@@ -180,7 +180,7 @@ assert_common_policy() {
   require_value "$result" selected_path_npu_saved false || check=1
   require_value "$result" app_template_mode raw || check=1
   require_value "$result" prompt_template_owner native_npu_adapter_exception || check=1
-  require_value "$result" prompt_template_evaluator native_adapter_serialization || check=1
+  require_value "$result" prompt_template_evaluator lami_verified_model_template_renderer || check=1
   require_value "$result" conversation_api_used false || check=1
   require_value "$result" app_template_used true || check=1
   require_value "$result" template_ownership_unified false || check=1
@@ -266,7 +266,7 @@ run_turn() {
   local -a args=(
     -a "$ACTION" -p "$APP_ID" -n "$RECEIVER"
     --es user_prompt "$prompt"
-    --es prompt_tail_variant raw_dialog_tail_variant_a
+    --es prompt_tail_variant model_metadata_gemma4_turn_v1
     --ei max_output_tokens 32
   )
   if [[ -n "$context" ]]; then

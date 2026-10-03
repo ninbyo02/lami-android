@@ -4,8 +4,10 @@ import android.content.Context
 import java.io.File
 
 object Qairt244ModelPathResolver {
-    const val CANONICAL_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
-    private val TIMESTAMPED_MODEL_BASENAME = Regex("^\\d+_${Regex.escape(CANONICAL_MODEL_BASENAME)}$")
+    const val CANONICAL_MODEL_BASENAME = "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm"
+    const val LEGACY_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+    private val COMPATIBLE_MODEL_BASENAMES = setOf(CANONICAL_MODEL_BASENAME, LEGACY_MODEL_BASENAME)
+    private val TIMESTAMPED_MODEL_BASENAME = Regex("^\\d+_(?:${COMPATIBLE_MODEL_BASENAMES.joinToString("|") { Regex.escape(it) }})$")
 
     data class RequiredSm8750ModelInfo(
         val resolvedModelBasename: String,
@@ -155,7 +157,7 @@ object Qairt244ModelPathResolver {
             resolvedModelBasename = basename,
             canonicalModelBasename = CANONICAL_MODEL_BASENAME,
             timestampPrefixStripped = timestamped,
-            required = basename == CANONICAL_MODEL_BASENAME || timestamped,
+            required = basename in COMPATIBLE_MODEL_BASENAMES || timestamped,
         )
     }
 

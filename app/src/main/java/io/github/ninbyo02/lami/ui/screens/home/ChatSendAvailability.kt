@@ -133,11 +133,15 @@ internal fun shouldShowTransientAssistantRow(
     isInferenceRunning: Boolean,
     @Suppress("UNUSED_PARAMETER") streamingAssistantMessageId: Int?,
     streamingResponseText: String?,
-    @Suppress("UNUSED_PARAMETER") lastPersistedStreamingAssistantText: String?,
+    lastPersistedStreamingAssistantText: String?,
 ): Boolean {
     if (currentChatId == null) return false
     if (!isInferenceRunning) return false
-    return !streamingResponseText?.trim().isNullOrBlank()
+    val transient = streamingResponseText?.trim().orEmpty()
+    if (transient.isBlank()) return false
+    val persisted = lastPersistedStreamingAssistantText?.trim().orEmpty()
+    if (persisted.isNotBlank() && transient == persisted) return false
+    return true
 }
 
 internal fun shouldShowPendingLocalUserMessage(
