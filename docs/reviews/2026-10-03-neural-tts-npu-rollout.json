@@ -284,5 +284,6 @@
     "CPU comparison uses the same NPU-produced cache input, not independent CPU rollout",
     "context reloaded per step; ADB/file transfer; no latency claim",
     "no selected-head CPU timing"
-  ]
+  ],
+  "numerical_accuracy_gate": "unresolved: hidden max absolute difference reaches 3.12236; no accuracy tolerance or voice-quality pass claimed"
 }
