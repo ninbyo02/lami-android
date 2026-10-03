@@ -54,8 +54,11 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
 class MtpBackbone(nn.Module):
   """One MTP transformer step; the caller computes only its selected head."""
 
-  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False, start_layer: int = 0, explicit_norm: bool = False, stable_norm: bool = False):
+  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False, start_layer: int = 0, explicit_norm: bool = False, stable_norm: bool = False, cache_length: int = CACHE):
     super().__init__()
+    if cache_length not in (16, 32):
+      raise ValueError("CP cache length must be 16 or 32")
+    self.cache_length = cache_length
     self.trace_layers = trace_layers
     self.explicit_norm = explicit_norm
     self.stable_norm = stable_norm
@@ -84,18 +87,14 @@ class MtpBackbone(nn.Module):
       self,
       embeddings: torch.Tensor,  # [1, 1, 1024]
       input_ids: torch.Tensor,  # [1] int32
-      # Note it should be [1, 1, 1, 17] originally, but to ensure static shapes
-      # and broad delegate compatibility, the dimension is padded to a power of
-      # 2 ([1, 1, 1, 32]).
-      mask: torch.Tensor,  # [1, 1, 1, 32]
-      # Same as above, the dimension should be [1, 17, 8, 128] originally, but
-      # we make it [1, 32, 8, 128] here.
-      kv_cache_k_0: torch.Tensor,  # [1, 32, 8, 128]
+      # The diagnostic supports static cache lengths 16 and 32.
+      mask: torch.Tensor,  # [1, 1, 1, cache_length]
+      kv_cache_k_0: torch.Tensor,  # [1, cache_length, 8, 128]
       kv_cache_k_1: torch.Tensor,
       kv_cache_k_2: torch.Tensor,
       kv_cache_k_3: torch.Tensor,
       kv_cache_k_4: torch.Tensor,
-      kv_cache_v_0: torch.Tensor,  # [1, 32, 8, 128]
+      kv_cache_v_0: torch.Tensor,  # [1, cache_length, 8, 128]
       kv_cache_v_1: torch.Tensor,
       kv_cache_v_2: torch.Tensor,
       kv_cache_v_3: torch.Tensor,
@@ -151,7 +150,7 @@ class MtpBackbone(nn.Module):
       k_btnh = k_rot.transpose(1, 2)  # [1, 1, 8, 128]
       v_btnh = v.transpose(1, 2)  # [1, 1, 8, 128]
 
-      # In-place slice update on BTNH cache [1, 17, 8, 128]
+      # In-place slice update on BTNH cache
       # using Dynamic Update Slice HLFB
       k_cache = dus_utils.dynamic_update_slice(
           k_in_list[i], k_btnh, slice_indices
@@ -166,17 +165,17 @@ class MtpBackbone(nn.Module):
       # (cat + reshape) to ensure consistent 1:1 Head matching without
       # 5D tensors
       k_attn = torch.cat([k_cache, k_cache], dim=-1).reshape(
-          1, CACHE, HEADS, HEAD_DIM
+          1, self.cache_length, HEADS, HEAD_DIM
       )
       v_attn = torch.cat([v_cache, v_cache], dim=-1).reshape(
-          1, CACHE, HEADS, HEAD_DIM
+          1, self.cache_length, HEADS, HEAD_DIM
       )
 
       # Fused SDPA evaluation with HLFB annotations for acceleration
       out_attn = sdpa.scaled_dot_product_attention_with_hlfb(
           q_btnh,  # [1, 1, 16, 128]
-          k_attn,  # [1, 17, 16, 128]
-          v_attn,  # [1, 17, 16, 128]
+          k_attn,  # [1, cache_length, 16, 128]
+          v_attn,  # [1, cache_length, 16, 128]
           HEAD_DIM,
           mask=mask,
       )  # [1, 1, 16, 128]
