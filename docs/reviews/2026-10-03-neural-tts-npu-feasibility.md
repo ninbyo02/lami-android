@@ -47,3 +47,18 @@ The next optimization target is avoiding computation of all 15 heads at every st
 Reproduce compilation with python scripts/voice/compile_litert_mtp.py --model MTP_TFLITE --output-dir OUTSIDE_GIT_DIR --report REPORT.json in the LiteRT environment with matching host Qualcomm SDK libraries in LD_LIBRARY_PATH. The script requires one dispatch graph, extracts its context and rejects failed compilation. For direct device tests use the matching qnn-net-run with --retrieve_context, --use_native_input_files, --use_native_output_files, --num_inferences 20 and --profiling_level basic. Input ordering/types come from qnn-context-binary-utility graphInputs metadata. Device runtime library paths must point to the matching SDK, not an arbitrary installed application runtime.
 
 Evidence: 2026-10-03-neural-tts-npu-compile.json, 2026-10-03-neural-tts-npu-device.json and 2026-10-03-neural-tts-npu-profile.txt. Compilation report describes the reproducibility run; the device report separately binds the tested context by SHA256.
+
+
+## Head-free shared backbone optimization
+
+Added a vendored Apache-2.0 adaptation of the installed LiteRT Torch MtpStep. Only the final 15-head projection is removed; hidden state and all ten cache tensors are returned. Head weights are rejected by the backbone constructor. Existing callers must compute the one required original head on CPU. This avoids duplicating the five-layer backbone into 15 separate models. Ordinary Android chat is unchanged.
+
+The export script checks the real checkpoint and verifies exact PyTorch logits (by reapplying the original heads) and all cache outputs against upstream MtpStep for one synthetic input before conversion. The FP16-weight model shrank from 220,385,520 to 157,433,152 bytes, removing 31,457,280 head weight elements. SM8750 compilation again produced one dispatch operation with no remaining CPU graph operations. Direct QNN execution passed 20 repetitions.
+
+Initial average NetRun timings were 24.521 ms for all heads (earlier turn) and 2.968 ms for backbone only. A paired repeat in the same test session measured **4.181 ms all-heads and 3.051 ms backbone**, each over 20 repetitions with identical inputs/runtime/default performance settings. The dramatic change in the all-head baseline means the initial numbers must not be interpreted as an 8x architectural speedup. Paired backbone-only time was 27.03% lower; selected CPU head time is excluded. This is not end-to-end TTS latency or a proven improvement over the existing Android CPU implementation.
+
+Device backbone hidden/cache outputs were finite. Host CPU projection of its hidden state using FP16-rounded heads matched all 15 reference argmax indices for the test input; logits max absolute difference was 0.0873415 and RMS difference 0.0155378. This remains a single synthetic position-zero check, not speech quality or sampled-code equivalence.
+
+Reproduce export with python scripts/voice/export_litert_mtp_backbone.py --model MODEL_DIR --output-dir OUTSIDE_GIT_DIR. Compile using the existing compile_litert_mtp.py command. Device testing uses the same 13 input files as the preceding full-head model; output logits are replaced by a 1x1024 hidden tensor. Reuse of NPU cache between real generation steps and actual caller head latency remain the next gates.
+
+Evidence: 2026-10-03-neural-tts-npu-backbone.json and the paired repeat profile files. No production model or APK was replaced.
