@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--trace-layers", action="store_true", help="Diagnostic intermediate outputs; can change delegate fusion")
     parser.add_argument("--explicit-norm", action="store_true", help="Diagnostic normalization expression without the RMSNorm HLFB boundary")
     parser.add_argument("--stable-norm", action="store_true", help="Diagnostic range-scaled normalization")
+    parser.add_argument("--weight-precision", choices=("fp16", "fp32"), default="fp16", help="FP32 source export for post-export quantization")
     args = parser.parse_args()
     preflight(args.model)
     import torch
@@ -50,12 +51,15 @@ def main():
                 torch.testing.assert_close(result[key], expected[key], **tolerance)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / ("mtp_backbone_trace_fp16.tflite" if args.trace_layers else ("mtp_backbone_stable_norm_fp16.tflite" if args.stable_norm else "mtp_backbone_explicit_norm_fp16.tflite" if args.explicit_norm else "mtp_backbone_fp16.tflite"))
-    litert_torch.convert(model, sample_kwargs=inputs,
-                        quant_config=quant_recipes.full_fp16_recipe()).export(str(output))
+    if args.weight_precision == "fp32":
+        output = args.output_dir / "mtp_backbone_fp32.tflite"
+    config = quant_recipes.full_fp16_recipe() if args.weight_precision == "fp16" else None
+    litert_torch.convert(model, sample_kwargs=inputs, quant_config=config).export(str(output))
     report = {"status": "exported_source_single_input_tolerance_parity_not_device_tested" if args.stable_norm else "exported_source_single_input_exact_parity_not_device_tested",
               "source_parity_tolerance": tolerance,
               "source_logits_max_abs_error": float((logits-expected["logits"]).abs().max()),
               "stable_norm": args.stable_norm,
+              "weight_precision": args.weight_precision,
               "trace_layers": args.trace_layers,
               "explicit_norm": args.explicit_norm,
               "artifact": str(output), "bytes": output.stat().st_size,
