@@ -9,14 +9,16 @@ import kotlinx.coroutines.channels.Channel
 
 /** Provisional audio is allowed only by the explicit debug probe, never normal chat. */
 internal object LamiVoiceStreamingProbe {
-    suspend fun run(context: Context, root: File, text: String, progress: (String) -> Unit) = coroutineScope {
+    suspend fun run(context: Context, root: File, text: String, prefixFrames: Int, progress: (String) -> Unit) = coroutineScope {
+        require(prefixFrames in listOf(2, 4, 8))
         val started = SystemClock.elapsedRealtime()
+        progress("metric=stream_prefix_cadence frames=$prefixFrames")
         val codes = Channel<LamiVoiceCodes>(1)
         val pcm = Channel<FloatArray>(1)
         val producer = async {
             var sent = 0
             val full = LamiVoiceModuleCache.withSession(root) { session ->
-                LamiPreparedVoiceSynthesizer.generateText(root, text, session, onPrefix = { prefix ->
+                LamiPreparedVoiceSynthesizer.generateText(root, text, session, prefixFrames = prefixFrames, onPrefix = { prefix ->
                     progress("stage=stream_codes frames=${prefix.frames} generated_ms=${SystemClock.elapsedRealtime() - started} audio_ms=${prefix.frames * 80L}")
                     codes.send(prefix)
                     sent = prefix.frames

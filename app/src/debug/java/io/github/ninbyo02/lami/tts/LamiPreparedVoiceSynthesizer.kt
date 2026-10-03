@@ -119,7 +119,8 @@ internal object LamiPreparedVoiceSynthesizer {
     }
 
     /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
-    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, progress: (String) -> Unit = {}): LamiVoiceCodes {
+    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, prefixFrames: Int = 8, progress: (String) -> Unit = {}): LamiVoiceCodes {
+        require(prefixFrames in listOf(2, 4, 8))
         val timing = WorkTiming()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
@@ -189,7 +190,7 @@ internal object LamiPreparedVoiceSynthesizer {
                         h = mainCache.step(sum, prepared.prefill.size + frame)
                     }
                     frameMillis += (System.nanoTime() - frameStarted) / 1_000_000
-                    if (onPrefix != null && frames.size % 8 == 0) {
+                    if (onPrefix != null && frames.size % prefixFrames == 0) {
                         onPrefix(LamiVoiceCodes(LongArray(frames.size * 16) { index -> frames[index % frames.size][index / frames.size] }, frames.size))
                     }
                 }
