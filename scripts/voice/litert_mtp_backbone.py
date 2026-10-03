@@ -54,9 +54,11 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
 class MtpBackbone(nn.Module):
   """One MTP transformer step; the caller computes only its selected head."""
 
-  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False, start_layer: int = 0):
+  def __init__(self, weights: dict[str, torch.Tensor], trace_layers: bool = False, start_layer: int = 0, explicit_norm: bool = False, stable_norm: bool = False):
     super().__init__()
     self.trace_layers = trace_layers
+    self.explicit_norm = explicit_norm
+    self.stable_norm = stable_norm
     if not 0 <= start_layer < LAYERS:
       raise ValueError("start_layer must be between 0 and 4")
     self.start_layer = start_layer
@@ -68,6 +70,15 @@ class MtpBackbone(nn.Module):
         THETA ** (torch.arange(0, HEAD_DIM, 2, dtype=torch.float32) / HEAD_DIM)
     )
     self.register_buffer("inv_freq", inv_freq, persistent=False)
+
+  def normalize(self, x, weight):
+    if self.stable_norm:
+      scale = x.float().abs().amax(-1, keepdim=True).clamp(min=1.0)
+      scaled = x.float() / scale
+      return (scaled * torch.rsqrt(scaled.pow(2).mean(-1, keepdim=True) + (EPS / scale) / scale)).type_as(x) * weight
+    if self.explicit_norm:
+      return (x.float() * torch.rsqrt(x.float().pow(2).mean(-1, keepdim=True) + EPS)).type_as(x) * weight
+    return _rms_norm(x, weight)
 
   def forward(
       self,
@@ -124,13 +135,13 @@ class MtpBackbone(nn.Module):
       w_q_norm = getattr(self, f"layers_{i}_self_attn_q_norm_weight")
       w_k_norm = getattr(self, f"layers_{i}_self_attn_k_norm_weight")
 
-      h = _rms_norm(x, w_norm)
+      h = self.normalize(x, w_norm)
       q = F.linear(h, w_q).view(1, 1, HEADS, HEAD_DIM)
       k = F.linear(h, w_k).view(1, 1, KV_HEADS, HEAD_DIM)
       v = F.linear(h, w_v).view(1, 1, KV_HEADS, HEAD_DIM)
 
-      q = _rms_norm(q, w_q_norm).transpose(1, 2)  # [1, 16, 1, 128]
-      k = _rms_norm(k, w_k_norm).transpose(1, 2)  # [1, 8, 1, 128]
+      q = self.normalize(q, w_q_norm).transpose(1, 2)  # [1, 16, 1, 128]
+      k = self.normalize(k, w_k_norm).transpose(1, 2)  # [1, 8, 1, 128]
       v = v.transpose(1, 2)  # [1, 8, 1, 128]
 
       q = q * cos + _rotate_half(q) * sin
@@ -178,7 +189,7 @@ class MtpBackbone(nn.Module):
         traces[f"trace_sdpa_{i}"] = out_attn
 
       w_post_norm = getattr(self, f"layers_{i}_post_attention_layernorm_weight")
-      h2 = _rms_norm(x, w_post_norm)
+      h2 = self.normalize(x, w_post_norm)
       w_gate = getattr(self, f"layers_{i}_mlp_gate_proj_weight")
       w_up = getattr(self, f"layers_{i}_mlp_up_proj_weight")
       w_down = getattr(self, f"layers_{i}_mlp_down_proj_weight")
@@ -200,7 +211,7 @@ class MtpBackbone(nn.Module):
         traces[f"trace_mlp_{i}"] = x
 
     w_final_norm = getattr(self, "norm_weight")
-    x = _rms_norm(x, w_final_norm)
+    x = self.normalize(x, w_final_norm)
     hidden = x.reshape(1, 1024)
     return {
         "hidden": hidden,

@@ -85,7 +85,13 @@ def main():
         hidden=np.fromfile(outdir/'serving_default_hidden_output.raw',np.float32).reshape(1,1024)
         for k in hybrid_cache:
             if int(k[-1])>=a.start_layer:hybrid_cache[k]=np.fromfile(outdir/f'serving_default_{k}_output.raw',np.float32).reshape(1,32,8,128)
-        if not np.isfinite(hidden).all() or not all(np.isfinite(v).all() for v in hybrid_cache.values()):raise RuntimeError('Non-finite output')
+        if not np.isfinite(hidden).all() or not all(np.isfinite(v).all() for v in hybrid_cache.values()):
+            failed = {'status': 'blocked_nonfinite_device_output', 'record': record,
+                      'completed_inputs': len(steps), 'hidden_nonfinite': int(np.sum(~np.isfinite(hidden))),
+                      'cache_nonfinite': {k: int(np.sum(~np.isfinite(v))) for k, v in hybrid_cache.items() if not np.isfinite(v).all()},
+                      'limitations': ['Stopped before sampling comparison; no audio or speed claim.']}
+            a.report.write_text(json.dumps(failed, ensure_ascii=False, indent=2) + '\n')
+            raise RuntimeError('Non-finite output')
         row={**record,'source_vs_executorch_hidden':metrics(s['hidden'],et),'fp16_cpu_vs_executorch_hidden':metrics(c['hidden'],et),'hybrid_vs_executorch_hidden':metrics(hidden,et)}
         head=record['selected_head']
         if head is not None:

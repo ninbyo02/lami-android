@@ -14,6 +14,8 @@ def main():
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--trace-layers", action="store_true", help="Diagnostic intermediate outputs; can change delegate fusion")
+    parser.add_argument("--explicit-norm", action="store_true", help="Diagnostic normalization expression without the RMSNorm HLFB boundary")
+    parser.add_argument("--stable-norm", action="store_true", help="Diagnostic range-scaled normalization")
     args = parser.parse_args()
     preflight(args.model)
     import torch
@@ -29,7 +31,7 @@ def main():
             if key.startswith(prefix + "model.layers.") or key == prefix + "model.norm.weight":
                 weights[key[len(prefix + "model."):]] = reader.get_tensor(key).float()
         heads = torch.stack([reader.get_tensor(f"{prefix}lm_head.{i}.weight").float() for i in range(15)])
-    model = MtpBackbone(weights, trace_layers=args.trace_layers).eval()
+    model = MtpBackbone(weights, trace_layers=args.trace_layers, explicit_norm=args.explicit_norm, stable_norm=args.stable_norm).eval()
     baseline = MtpStep({**weights, "heads": heads}).eval()
     torch.manual_seed(2713)
     inputs = {"embeddings": torch.randn(1, 1, 1024) * .1,
@@ -41,16 +43,21 @@ def main():
     with torch.no_grad():
         result, expected = model(**inputs), baseline(**inputs)
         logits = torch.nn.functional.linear(result["hidden"], heads.reshape(-1, 1024)).reshape(15, 2048)
-        torch.testing.assert_close(logits, expected["logits"], rtol=0, atol=0)
+        tolerance = {"rtol": 1e-5, "atol": 1e-4} if args.stable_norm else {"rtol": 0, "atol": 0}
+        torch.testing.assert_close(logits, expected["logits"], **tolerance)
         for key in result:
             if key != "hidden" and not key.startswith("trace_"):
-                torch.testing.assert_close(result[key], expected[key], rtol=0, atol=0)
+                torch.testing.assert_close(result[key], expected[key], **tolerance)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / ("mtp_backbone_trace_fp16.tflite" if args.trace_layers else "mtp_backbone_fp16.tflite")
+    output = args.output_dir / ("mtp_backbone_trace_fp16.tflite" if args.trace_layers else ("mtp_backbone_stable_norm_fp16.tflite" if args.stable_norm else "mtp_backbone_explicit_norm_fp16.tflite" if args.explicit_norm else "mtp_backbone_fp16.tflite"))
     litert_torch.convert(model, sample_kwargs=inputs,
                         quant_config=quant_recipes.full_fp16_recipe()).export(str(output))
-    report = {"status": "exported_source_single_input_exact_parity_not_device_tested",
+    report = {"status": "exported_source_single_input_tolerance_parity_not_device_tested" if args.stable_norm else "exported_source_single_input_exact_parity_not_device_tested",
+              "source_parity_tolerance": tolerance,
+              "source_logits_max_abs_error": float((logits-expected["logits"]).abs().max()),
+              "stable_norm": args.stable_norm,
               "trace_layers": args.trace_layers,
+              "explicit_norm": args.explicit_norm,
               "artifact": str(output), "bytes": output.stat().st_size,
               "removed_head_weight_elements": heads.numel(),
               "head_projection_location": "caller CPU; one selected original head",
