@@ -208,6 +208,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -1198,6 +1199,9 @@ fun Home(
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    val assistantGenerationSessionController = remember(effectiveChatId) {
+        AssistantGenerationSessionController()
+    }
     var pendingLocalUserMessageText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var lastLocalSendTapElapsedMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
     var lastLocalSendPromptForTrace by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -3463,6 +3467,7 @@ fun Home(
     }
 
     fun bindStreamingAssistantMessageOwnership(messageId: Int, persistedText: String) {
+        assistantGenerationSessionController.claimMessage(messageId)
         lastPersistedStreamingAssistantText = persistedText
         streamingSpeechStartedForMessageId = messageId
         currentSpeakingAssistantMessageId = messageId
@@ -3518,6 +3523,8 @@ fun Home(
     }
 
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
+        val session = assistantGenerationSessionController.session
+        if (!assistantGenerationSessionController.acceptsStreamingUpdate()) return session?.messageId
         val normalizedResponse = response.trim()
         if (normalizedResponse.isBlank()) return streamingAssistantMessageId
 
@@ -3584,6 +3591,8 @@ fun Home(
         while (true) {
             delay(LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS)
             if (!isLocalInferenceRunning || localStopRequested || effectiveChatId != checkpointChatId) break
+            val session = assistantGenerationSessionController.session
+            if (session != null && !session.genericUiOwnsPersistence) break
             val checkpointText = localStreamingResponseText?.trim().orEmpty()
             if (checkpointText.isBlank() || checkpointText == lastCheckpointText) continue
             upsertStreamingAssistantPlaceholderSerialized(
@@ -4130,6 +4139,9 @@ fun Home(
                     }
                     val streamingState = uiState as UiState.Streaming
                     val partialText = streamingState.partialText.trim()
+                    if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
+                    val session = assistantGenerationSessionController.session
+                    if (session != null && !session.genericUiOwnsPersistence) return@LaunchedEffect
                     if (currentChatId != null && partialText.isNotBlank()) {
                         upsertStreamingAssistantPlaceholderSerialized(
                             chatId = currentChatId,
@@ -5009,6 +5021,7 @@ fun Home(
                                                                 val npuRealPromptTrace: (String) -> Unit = { message ->
                                                                     logStreamTrace(message)
                                                                 }
+                                                                var acceptNpuProductPartial = true
                                                                 val immediateNpuRun = runNpuInferenceAfterImmediateUserMessage(
                                                                     requestPrompt = requestPrompt,
                                                                     currentChatId = effectiveChatId,
@@ -5045,18 +5058,24 @@ fun Home(
                                                                         pendingLocalUserMessageText = null
                                                                     },
                                                                     beforeInference = { chatId ->
-                                                                        val lifecycle = startStreamingAssistantLifecycleSerialized(
-                                                                            chatId = chatId,
-                                                                            startFailureMessage = "Failed to start NPU generation",
-                                                                        )
-                                                                        if (!lifecycle.placeholderOwnershipReady) {
-                                                                            error(
-                                                                                "Failed to start NPU message lifecycle: " +
-                                                                                    lifecycle.outcome,
+                                                                        val session = assistantGenerationSessionController.session
+                                                                        if (session?.messageId == null) {
+                                                                            val lifecycle = startStreamingAssistantLifecycleSerialized(
+                                                                                chatId = chatId,
+                                                                                startFailureMessage = "Failed to start NPU generation",
                                                                             )
+                                                                            if (!lifecycle.placeholderOwnershipReady) {
+                                                                                error(
+                                                                                    "Failed to start NPU message lifecycle: " +
+                                                                                        lifecycle.outcome,
+                                                                                )
+                                                                            }
                                                                         }
                                                                     },
                                                                     runInference = { npuChatId ->
+                                                                        assistantGenerationSessionController.setStreamingOwner(
+                                                                            AssistantGenerationSession.StreamingOwner.NPU_NATIVE,
+                                                                        )
                                                                         npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
                                                                         recordNpuS1MemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
                                                                         npuRealPromptTrace(
@@ -5102,7 +5121,11 @@ fun Home(
                                                                                         onPartial = { partial ->
                                                                                             if (!localStopRequested && effectiveChatId == npuChatId) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (localStopRequested || effectiveChatId != npuChatId) return@launch
+                                                                                                    if (
+                                                                                                        localStopRequested ||
+                                                                                                        effectiveChatId != npuChatId ||
+                                                                                                        !acceptNpuProductPartial
+                                                                                                    ) return@launch
                                                                                                     didReceiveRealLocalPartial = true
                                                                                                     realLocalPartialChunkCount += 1
                                                                                                     localStreamingResponseText = partial
@@ -5770,11 +5793,19 @@ fun Home(
                                                                     ] ?: "phase_not_streaming"
                                                             }
                                                         }
+                                                        val mustFinalizeSuccessfulNativeConversation =
+                                                            npuStandardRouteNativeStreamingUsed &&
+                                                                s1Result.successCriteriaMet &&
+                                                                npuStandardRouteAssistantTextForPersist.isNotBlank() &&
+                                                                !localStopRequested
                                                         if (
-                                                            npuStandardRoutePhaseGateActive &&
-                                                            npuStandardRouteDbSaveAllowed &&
-                                                            npuStandardRouteUiAppendAllowed &&
-                                                            !localStopRequested
+                                                            mustFinalizeSuccessfulNativeConversation ||
+                                                            (
+                                                                npuStandardRoutePhaseGateActive &&
+                                                                    npuStandardRouteDbSaveAllowed &&
+                                                                    npuStandardRouteUiAppendAllowed &&
+                                                                    !localStopRequested
+                                                                )
                                                         ) {
                                                             if (npuStandardRouteAssistantTextForPersist.isBlank()) {
                                                                 npuStandardRouteDbSaveBlockReason = "safe_text_empty"
@@ -5786,12 +5817,23 @@ fun Home(
                                                                 try {
                                                                     val sharedInferenceStats = s1Result
                                                                         .toSharedInferenceStats(npuStandardRouteAssistantTextForPersist)
-                                                                    val assistantId = finalizeStreamingAssistantMessageSerialized(
-                                                                        chatId = currentChatId,
-                                                                        response = npuStandardRouteAssistantTextForPersist,
-                                                                        latestInferenceStats = sharedInferenceStats,
-                                                                        localSourceSummary = sharedInferenceStats.localSourceSummary,
-                                                                    ) ?: return@launch
+                                                                    // Transition ownership before final persistence. From this point delayed
+                                                                    // streaming events are invalid for this request and cannot create another row.
+                                                                    assistantGenerationSessionController.beginFinalizing()
+                                                                    acceptNpuProductPartial = false
+                                                                    val assistantId = withContext(NonCancellable + Dispatchers.IO) {
+                                                                        finalizeStreamingAssistantMessageSerialized(
+                                                                            chatId = currentChatId,
+                                                                            response = npuStandardRouteAssistantTextForPersist,
+                                                                            latestInferenceStats = sharedInferenceStats,
+                                                                            localSourceSummary = sharedInferenceStats.localSourceSummary,
+                                                                        )
+                                                                    } ?: return@launch
+                                                                    // Invalidate delayed streaming observers before releasing the transient UI.
+                                                                    // Otherwise a stale UiState.Streaming event can create a duplicate placeholder
+                                                                    // after the native NPU response has already been committed as COMPLETED.
+                                                                    assistantGenerationSessionController.complete(assistantId)
+                                                                    streamingGuardEpoch += 1
                                                                     lastPersistedStreamingAssistantText =
                                                                         npuStandardRouteAssistantTextForPersist
                                                                     localStreamingResponseText = null
@@ -6802,6 +6844,10 @@ fun Home(
                                                             ),
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
+                                                        assistantGenerationSessionController.start(
+                                                            requestId = SystemClock.elapsedRealtimeNanos(),
+                                                            chatId = resolvedChatId,
+                                                        )
                                                         if (streamingAssistantMessageId == null) {
                                                             val lifecycle = startStreamingAssistantLifecycleSerialized(
                                                                 chatId = resolvedChatId,

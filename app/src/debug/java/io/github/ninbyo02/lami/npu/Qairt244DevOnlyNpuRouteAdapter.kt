@@ -1132,7 +1132,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         const val PROMPT_SOURCE_INTERNAL_INTENT = "internal_intent"
         const val PROMPT_SOURCE_DEV_ONLY_CONVERSATION = "dev_only_conversation"
         const val PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX = "dev_only_prompt_template_matrix"
-        const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+        const val REQUIRED_MODEL_BASENAME = Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME
         private const val NATIVE_STAGE_TAIL_LIMIT_CHARS = 800
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"

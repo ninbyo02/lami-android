@@ -43,6 +43,8 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     const val ROUTE_ID = "npu_kotlin_conversation_product_candidate_v1"
     const val NATIVE_PATCH_MARKER = "qairt244_kotlin_npu_conversation_sampler_v1"
     const val NPU_EVIDENCE = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+    private const val PARTIAL_UI_DISPATCH_INTERVAL_MS = 100L
+    private const val GENERATION_TELEMETRY_FILE_NAME = "npu_kotlin_conversation_generation_telemetry.txt"
 
     private val mutex = Mutex()
     private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -143,6 +145,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     var visibleChunkCount = 0
                     var firstNativeChunkMs: Long? = null
                     var firstVisibleChunkMs: Long? = null
+                    var lastVisibleDispatchMs = 0L
                     activeConversation.sendMessageAsync(
                         prompt,
                         LocalConversationPolicy.generationExtraContext,
@@ -155,9 +158,13 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                                 firstNativeChunkMs = (SystemClock.elapsedRealtime() - sendStartedAt)
                                     .coerceAtLeast(0L)
                             }
+                            val appendableChunk = normalizeNpuConversationStreamingChunk(
+                                accumulatedText = builder.toString(),
+                                callbackText = chunk,
+                            )
                             appendMarkdownStreamingChunk(
                                 builder = builder,
-                                extractedRaw = chunk,
+                                extractedRaw = appendableChunk,
                                 context = appendContext,
                                 markdownStreamingMode = markdownStreamingMode,
                                 appendTrace = trace,
@@ -176,12 +183,15 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                                             it.isNotBlank()
                                     }
                                 if (safePartial != null) {
+                                    val nowMs = SystemClock.elapsedRealtime()
                                     if (firstVisibleChunkMs == null) {
-                                        firstVisibleChunkMs = (SystemClock.elapsedRealtime() - sendStartedAt)
-                                            .coerceAtLeast(0L)
+                                        firstVisibleChunkMs = (nowMs - sendStartedAt).coerceAtLeast(0L)
                                     }
-                                    visibleChunkCount += 1
-                                    onPartial(safePartial)
+                                    if (lastVisibleDispatchMs == 0L || nowMs - lastVisibleDispatchMs >= PARTIAL_UI_DISPATCH_INTERVAL_MS) {
+                                        visibleChunkCount += 1
+                                        lastVisibleDispatchMs = nowMs
+                                        onPartial(safePartial)
+                                    }
                                 }
                             }
                         }
@@ -207,6 +217,17 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 }
                 val sendMs = streamingResult.durationMs
                 val response = streamingResult.response
+                writeGenerationTelemetry(
+                    context = context.applicationContext,
+                    modelFile = modelFile,
+                    prompt = prompt,
+                    response = response,
+                    durationMs = sendMs,
+                    nativeChunkCount = streamingResult.nativeStreamingChunkCount,
+                    visibleChunkCount = streamingResult.streamingChunkCount,
+                    nativeTtftMs = streamingResult.timeToFirstNativeChunkMs,
+                    visibleTtftMs = streamingResult.timeToFirstChunkMs,
+                )
                 if (response.isBlank()) {
                     closeLocked("blank_output", trace)
                     return@withLock NpuKotlinConversationProductAttempt(
@@ -429,6 +450,44 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         }
     }
 
+    private fun writeGenerationTelemetry(
+        context: Context,
+        modelFile: File,
+        prompt: String,
+        response: String,
+        durationMs: Long,
+        nativeChunkCount: Int,
+        visibleChunkCount: Int,
+        nativeTtftMs: Long?,
+        visibleTtftMs: Long?,
+    ) {
+        runCatching {
+            val promptTokens = NpuStandardRouteS1Contract.estimateOutputTokensFromText(prompt)
+            val outputTokens = NpuStandardRouteS1Contract.estimateOutputTokensFromText(response)
+            val codeFenceCount = Regex("```", RegexOption.LITERAL).findAll(response).count()
+            context.filesDir.resolve(GENERATION_TELEMETRY_FILE_NAME).writeText(
+                listOf(
+                    "timestamp_ms=${System.currentTimeMillis()}",
+                    "route_id=$ROUTE_ID",
+                    "model_name=${modelFile.name}",
+                    "engine_max_num_tokens=$NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT",
+                    "input_token_estimate_code_points=${promptTokens ?: -1}",
+                    "output_token_estimate_code_points=${outputTokens ?: -1}",
+                    "response_code_points=${response.codePointCount(0, response.length)}",
+                    "native_streaming_chunk_count=$nativeChunkCount",
+                    "visible_streaming_update_count=$visibleChunkCount",
+                    "native_ttft_ms=${nativeTtftMs ?: -1}",
+                    "visible_ttft_ms=${visibleTtftMs ?: -1}",
+                    "generation_duration_ms=$durationMs",
+                    "code_fence_count=$codeFenceCount",
+                    "code_fence_completed=${codeFenceCount > 0 && codeFenceCount % 2 == 0}",
+                    "response_ends_with_code_fence=${response.trimEnd().endsWith("```")}",
+                    "response_length_utf16=${response.length}",
+                ).joinToString("\n") + "\n",
+            )
+        }
+    }
+
     private fun renderStreamingMessageChunk(message: Message): String? =
         message.contents.contents.joinToString(separator = "") { content ->
             when (content) {
@@ -447,5 +506,18 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         return text.takeIf { it.isNotBlank() }
             ?: message.contents.toString().takeIf { it.isNotBlank() }
             ?: message.toString()
+    }
+
+}
+
+internal fun normalizeNpuConversationStreamingChunk(
+    accumulatedText: String,
+    callbackText: String,
+): String {
+    if (callbackText.isEmpty() || accumulatedText.isEmpty()) return callbackText
+    return when {
+        callbackText == accumulatedText -> ""
+        callbackText.startsWith(accumulatedText) -> callbackText.substring(accumulatedText.length)
+        else -> callbackText
     }
 }

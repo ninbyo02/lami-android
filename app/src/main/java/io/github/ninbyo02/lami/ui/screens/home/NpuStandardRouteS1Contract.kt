@@ -141,8 +141,18 @@ internal data class NpuStandardRouteS1Result(
     val preparedOutput: String
         get() = stripLeadingPromptEchoForDisplay(outputQualityCandidate.preparedOutput)
 
+    private val verifiedConversationApiOutput: Boolean
+        get() = conversationApiUsed &&
+            promptTemplateOwner == LocalConversationPolicy.PROMPT_TEMPLATE_OWNER &&
+            promptTemplateEvaluator == LocalConversationPolicy.PROMPT_TEMPLATE_EVALUATOR &&
+            templateOwnershipUnified &&
+            !appTemplateUsed &&
+            sanitizedOutput.isNotBlank()
+
     val usableDisplayOutput: String
-        get() = if (outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+        get() = if (
+            outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS || verifiedConversationApiOutput
+        ) {
             preparedOutput.ifBlank { stripLeadingPromptEchoForDisplay(sanitizedOutput) }
         } else {
             ""
@@ -190,10 +200,11 @@ internal data class NpuStandardRouteS1Result(
                 !timeout &&
                 !freshCrash &&
                 displayText.isNotBlank() &&
-                usableDisplayOutput.isNotBlank() &&
-                outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
+                (verifiedConversationApiOutput || usableDisplayOutput.isNotBlank()) &&
+                (verifiedConversationApiOutput || outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) &&
                 (
-                    qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
+                    verifiedConversationApiOutput ||
+                        qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
                         candidatePassed
                     )
         }

@@ -22,7 +22,7 @@ private const val TTS_REFERENCE_PHRASE_2 = "はい、了解しました。少し
 private const val TTS_REFERENCE_PHRASE_3 = "それでは設定内容を順番に説明しますね。まず最初に、必要な項目を確認しましょう。"
 private const val TTS_REFERENCE_PHRASE_4 = "大丈夫ですよ。落ち着いて進めれば、きっとうまくいきます。"
 
-class AndroidTtsController(context: Context) {
+class AndroidTtsController(context: Context) : LamiVoiceEngine {
     companion object {
         const val DEFAULT_SPEECH_RATE: Float = DEFAULT_TTS_SPEECH_RATE
         const val DEFAULT_PITCH: Float = DEFAULT_TTS_PITCH
@@ -47,7 +47,7 @@ class AndroidTtsController(context: Context) {
     private var lastPlaybackEndedAtMs: Long = 0L
     private var playbackGeneration: Long = 0L
     private val _isSpeaking = MutableStateFlow(false)
-    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+    override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -117,15 +117,15 @@ class AndroidTtsController(context: Context) {
         }
     }
 
-    fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
+    override fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
         onPlaybackStateChanged = listener
     }
 
-    fun speak(text: String) {
+    override fun speak(text: String) {
         speakWithQueueMode(text, TextToSpeech.QUEUE_FLUSH)
     }
 
-    fun speakQueued(text: String) {
+    override fun speakQueued(text: String) {
         speakWithQueueMode(text, TextToSpeech.QUEUE_ADD)
     }
 
@@ -221,7 +221,7 @@ class AndroidTtsController(context: Context) {
         }
     }
 
-    fun stop() {
+    override fun stop() {
         playbackGeneration += 1
         pendingSpeakText = null
         queuedSpeechTexts.clear()
@@ -241,7 +241,7 @@ class AndroidTtsController(context: Context) {
         lastPlaybackEndedAtMs = 0L
     }
 
-    fun shutdown() {
+    override fun shutdown() {
         stop()
         runCatching {
             tts?.shutdown()
