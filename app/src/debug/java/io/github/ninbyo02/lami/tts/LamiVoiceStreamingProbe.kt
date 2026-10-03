@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import android.content.Context
 import java.io.File
+import android.os.SystemClock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -9,13 +10,14 @@ import kotlinx.coroutines.channels.Channel
 /** Provisional audio is allowed only by the explicit debug probe, never normal chat. */
 internal object LamiVoiceStreamingProbe {
     suspend fun run(context: Context, root: File, text: String, progress: (String) -> Unit) = coroutineScope {
+        val started = SystemClock.elapsedRealtime()
         val codes = Channel<LamiVoiceCodes>(1)
         val pcm = Channel<FloatArray>(1)
         val producer = async {
             var sent = 0
             val full = LamiVoiceModuleCache.withSession(root) { session ->
                 LamiPreparedVoiceSynthesizer.generateText(root, text, session, onPrefix = { prefix ->
-                    progress("stage=stream_codes frames=${prefix.frames}")
+                    progress("stage=stream_codes frames=${prefix.frames} generated_ms=${SystemClock.elapsedRealtime() - started} audio_ms=${prefix.frames * 80L}")
                     codes.send(prefix)
                     sent = prefix.frames
                 }, progress = progress)
@@ -28,7 +30,9 @@ internal object LamiVoiceStreamingProbe {
         val decoder = async {
             var previous = FloatArray(0)
             for (prefix in codes) {
+                val decodeStarted = SystemClock.elapsedRealtime()
                 val next = LamiVoiceDecoderProcess.decode(context, root, prefix, progress)
+                progress("metric=prefix_decode frames=${prefix.frames} ms=${SystemClock.elapsedRealtime() - decodeStarted}")
                 val added = LamiVoiceChunkProbeMath.appendedPcm(previous, next)
                 progress("stage=stream_pcm frames=${prefix.frames} added_samples=${added.size}")
                 pcm.send(added)
@@ -38,7 +42,7 @@ internal object LamiVoiceStreamingProbe {
             previous
         }
         val player = async {
-            LamiPcmStreamPlayer.play(pcm) { progress("playback=started") }
+            LamiPcmStreamPlayer.play(pcm) { progress("playback=started start_delay_ms=${SystemClock.elapsedRealtime() - started}") }
         }
         try {
             val fullCodes = producer.await() // Natural EOS remains required for probe success.

@@ -154,9 +154,11 @@ internal object LamiPreparedVoiceSynthesizer {
                 val reusableCp = if (reuseCpWorkspace) Decoder(cp, 5, 32, 1, ctx, timing, "cp") else null
                 progress("metric=cp_workspace reused=$reuseCpWorkspace")
                 val codecStarted = android.os.SystemClock.elapsedRealtime()
+                val frameMillis = mutableListOf<Long>()
                 val limit = 256 - prepared.prefill.size
                 for (frame in 0 until limit) {
                     progress("stage=codec frame=$frame limit=$limit")
+                    val frameStarted = System.nanoTime()
                     val allowed = if (frame >= 2) codecWithEos else codecAllowed
                     val mainScores = head.logits(h)
                     val mainSampleStarted = System.nanoTime()
@@ -182,13 +184,19 @@ internal object LamiPreparedVoiceSynthesizer {
                         if (group < 14) ch = cpCache.step(e, group + 2)
                     }
                     frames += row
-                    if (onPrefix != null && frames.size % 8 == 0) {
-                        onPrefix(LamiVoiceCodes(LongArray(frames.size * 16) { index -> frames[index % frames.size][index / frames.size] }, frames.size))
-                    }
                     if (frame < limit - 1) {
                         for (j in 0 until WIDTH) sum[j] += prepared.pad[j]
                         h = mainCache.step(sum, prepared.prefill.size + frame)
                     }
+                    frameMillis += (System.nanoTime() - frameStarted) / 1_000_000
+                    if (onPrefix != null && frames.size % 8 == 0) {
+                        onPrefix(LamiVoiceCodes(LongArray(frames.size * 16) { index -> frames[index % frames.size][index / frames.size] }, frames.size))
+                    }
+                }
+                if (frameMillis.isNotEmpty()) {
+                    val sorted = frameMillis.sorted()
+                    val overBudget = sorted.count { it > 80L }
+                    progress("metric=frame_budget frames=${sorted.size} p50_ms=${sorted[(sorted.size - 1) / 2]} p95_ms=${sorted[((sorted.size * 95 + 99) / 100 - 1).coerceIn(0, sorted.lastIndex)]} max_ms=${sorted.last()} over_80ms=$overBudget")
                 }
                 progress("metric=codec frames=${frames.size} ms=${android.os.SystemClock.elapsedRealtime() - codecStarted}")
             }
