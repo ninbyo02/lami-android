@@ -1,0 +1,2157 @@
+{
+  "status": "bounded_actual_voice_teacher_forced_independent_cache_comparison",
+  "cpu_prefix_layers": 4,
+  "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+  "source_checkpoint_sha256": "c569a8502034a7aa1c4524f83bd9f0923378a3347e325bccc87ec43f2a4744b9",
+  "selected_head_comparisons": 60,
+  "steps": [
+    {
+      "file": "case-0-frame-0-pos-0.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 0,
+      "selected_head": null,
+      "source_vs_executorch_hidden": {
+        "max_abs": 1.52587890625e-05,
+        "relative_l2": 2.079923683021938e-07
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 8.946750313043594e-06,
+        "relative_l2": 1.807264503545101e-07
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.00698089599609375,
+        "relative_l2": 0.00010476619903925019
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-1.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 1,
+      "selected_head": 0,
+      "selected_code": 117,
+      "sampling_draw": 0.6832234717598454,
+      "source_vs_executorch_hidden": {
+        "max_abs": 4.57763671875e-05,
+        "relative_l2": 2.9532421750793477e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 3.4332275390625e-05,
+        "relative_l2": 3.0720325693153722e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.033329010009765625,
+        "relative_l2": 0.00212911641181226
+      },
+      "argmax": {
+        "executorch": 1159,
+        "source": 1159,
+        "fp16_cpu": 1159,
+        "hybrid": 1159
+      },
+      "sampled_codes": {
+        "executorch": 117,
+        "source": 117,
+        "fp16_cpu": 117,
+        "hybrid": 117
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-2.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 2,
+      "selected_head": 1,
+      "selected_code": 1114,
+      "sampling_draw": 0.30871945533265976,
+      "source_vs_executorch_hidden": {
+        "max_abs": 5.0067901611328125e-05,
+        "relative_l2": 2.7717133099352095e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001678466796875,
+        "relative_l2": 4.659090948477881e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.06652069091796875,
+        "relative_l2": 0.0025224121040672894
+      },
+      "argmax": {
+        "executorch": 1114,
+        "source": 1114,
+        "fp16_cpu": 1114,
+        "hybrid": 1114
+      },
+      "sampled_codes": {
+        "executorch": 1114,
+        "source": 1114,
+        "fp16_cpu": 1114,
+        "hybrid": 1114
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-3.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 3,
+      "selected_head": 2,
+      "selected_code": 1798,
+      "sampling_draw": 0.27707849007413665,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000240325927734375,
+        "relative_l2": 8.724347334158129e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00021839141845703125,
+        "relative_l2": 1.0870733383428863e-05
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.05415153503417969,
+        "relative_l2": 0.0023249787994206626
+      },
+      "argmax": {
+        "executorch": 1209,
+        "source": 1209,
+        "fp16_cpu": 1209,
+        "hybrid": 1209
+      },
+      "sampled_codes": {
+        "executorch": 1798,
+        "source": 1798,
+        "fp16_cpu": 1798,
+        "hybrid": 1798
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-4.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 4,
+      "selected_head": 3,
+      "selected_code": 442,
+      "sampling_draw": 0.6655489517945736,
+      "source_vs_executorch_hidden": {
+        "max_abs": 9.5367431640625e-05,
+        "relative_l2": 3.3862750447767383e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00019073486328125,
+        "relative_l2": 5.8467669705392575e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.06374454498291016,
+        "relative_l2": 0.0023183697853342835
+      },
+      "argmax": {
+        "executorch": 909,
+        "source": 909,
+        "fp16_cpu": 909,
+        "hybrid": 909
+      },
+      "sampled_codes": {
+        "executorch": 442,
+        "source": 442,
+        "fp16_cpu": 442,
+        "hybrid": 442
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-5.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 5,
+      "selected_head": 4,
+      "selected_code": 417,
+      "sampling_draw": 0.9033722646721782,
+      "source_vs_executorch_hidden": {
+        "max_abs": 4.1961669921875e-05,
+        "relative_l2": 2.2774318740223356e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001125335693359375,
+        "relative_l2": 4.998436526158802e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11133003234863281,
+        "relative_l2": 0.004042550245790709
+      },
+      "argmax": {
+        "executorch": 507,
+        "source": 507,
+        "fp16_cpu": 507,
+        "hybrid": 507
+      },
+      "sampled_codes": {
+        "executorch": 417,
+        "source": 417,
+        "fp16_cpu": 417,
+        "hybrid": 1685
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-6.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 6,
+      "selected_head": 5,
+      "selected_code": 1751,
+      "sampling_draw": 0.36878291341130565,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0002956390380859375,
+        "relative_l2": 6.103801787602388e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 8.20159912109375e-05,
+        "relative_l2": 4.042306579606785e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.17175865173339844,
+        "relative_l2": 0.004372621701465953
+      },
+      "argmax": {
+        "executorch": 1751,
+        "source": 1751,
+        "fp16_cpu": 1751,
+        "hybrid": 1751
+      },
+      "sampled_codes": {
+        "executorch": 1751,
+        "source": 1751,
+        "fp16_cpu": 1751,
+        "hybrid": 1751
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-7.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 7,
+      "selected_head": 6,
+      "selected_code": 1495,
+      "sampling_draw": 0.2757480694417024,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000148773193359375,
+        "relative_l2": 4.478861515170613e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000141143798828125,
+        "relative_l2": 5.132328402527659e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.14307451248168945,
+        "relative_l2": 0.003972950008105796
+      },
+      "argmax": {
+        "executorch": 370,
+        "source": 370,
+        "fp16_cpu": 370,
+        "hybrid": 370
+      },
+      "sampled_codes": {
+        "executorch": 1495,
+        "source": 1495,
+        "fp16_cpu": 1495,
+        "hybrid": 1495
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-8.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 8,
+      "selected_head": 7,
+      "selected_code": 1401,
+      "sampling_draw": 0.46365357580915334,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000179290771484375,
+        "relative_l2": 5.107768188625656e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001201629638671875,
+        "relative_l2": 5.451407575125381e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1813344955444336,
+        "relative_l2": 0.0045787273174873674
+      },
+      "argmax": {
+        "executorch": 249,
+        "source": 249,
+        "fp16_cpu": 249,
+        "hybrid": 249
+      },
+      "sampled_codes": {
+        "executorch": 1401,
+        "source": 1401,
+        "fp16_cpu": 1401,
+        "hybrid": 1401
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-9.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 9,
+      "selected_head": 8,
+      "selected_code": 1367,
+      "sampling_draw": 0.7829017787900358,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00020599365234375,
+        "relative_l2": 5.281936160196601e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000209808349609375,
+        "relative_l2": 7.889932895822341e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.09213733673095703,
+        "relative_l2": 0.0036516542381770595
+      },
+      "argmax": {
+        "executorch": 2033,
+        "source": 2033,
+        "fp16_cpu": 2033,
+        "hybrid": 2033
+      },
+      "sampled_codes": {
+        "executorch": 1367,
+        "source": 1367,
+        "fp16_cpu": 1367,
+        "hybrid": 45
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-10.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 10,
+      "selected_head": 9,
+      "selected_code": 1443,
+      "sampling_draw": 0.9193277828687169,
+      "source_vs_executorch_hidden": {
+        "max_abs": 9.72747802734375e-05,
+        "relative_l2": 3.7484038401012174e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001068115234375,
+        "relative_l2": 4.2473134635652245e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.19190216064453125,
+        "relative_l2": 0.004766978739388263
+      },
+      "argmax": {
+        "executorch": 557,
+        "source": 557,
+        "fp16_cpu": 557,
+        "hybrid": 557
+      },
+      "sampled_codes": {
+        "executorch": 1443,
+        "source": 1443,
+        "fp16_cpu": 1443,
+        "hybrid": 1443
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-11.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 11,
+      "selected_head": 10,
+      "selected_code": 1043,
+      "sampling_draw": 0.43649097442328655,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001544952392578125,
+        "relative_l2": 6.5395117372583784e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0003256797790527344,
+        "relative_l2": 8.058997900940982e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11209869384765625,
+        "relative_l2": 0.004271866438126514
+      },
+      "argmax": {
+        "executorch": 1230,
+        "source": 1230,
+        "fp16_cpu": 1230,
+        "hybrid": 1230
+      },
+      "sampled_codes": {
+        "executorch": 1043,
+        "source": 1043,
+        "fp16_cpu": 1043,
+        "hybrid": 1043
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-12.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 12,
+      "selected_head": 11,
+      "selected_code": 1998,
+      "sampling_draw": 0.7499061812554475,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000194549560546875,
+        "relative_l2": 5.423679587552349e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00011444091796875,
+        "relative_l2": 5.3543593254683276e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.12318992614746094,
+        "relative_l2": 0.0035910528797814182
+      },
+      "argmax": {
+        "executorch": 914,
+        "source": 914,
+        "fp16_cpu": 914,
+        "hybrid": 914
+      },
+      "sampled_codes": {
+        "executorch": 1998,
+        "source": 1998,
+        "fp16_cpu": 1998,
+        "hybrid": 1688
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-13.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 13,
+      "selected_head": 12,
+      "selected_code": 321,
+      "sampling_draw": 0.38656687435934867,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0005702972412109375,
+        "relative_l2": 9.873034692569415e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0003509521484375,
+        "relative_l2": 8.454200399299259e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.3894615173339844,
+        "relative_l2": 0.00760085224170466
+      },
+      "argmax": {
+        "executorch": 1218,
+        "source": 1218,
+        "fp16_cpu": 1218,
+        "hybrid": 1218
+      },
+      "sampled_codes": {
+        "executorch": 321,
+        "source": 321,
+        "fp16_cpu": 321,
+        "hybrid": 267
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-14.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 14,
+      "selected_head": 13,
+      "selected_code": 1945,
+      "sampling_draw": 0.17737847790937833,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000240325927734375,
+        "relative_l2": 6.2089099120508376e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00028228759765625,
+        "relative_l2": 8.57164488163993e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.14638900756835938,
+        "relative_l2": 0.0043073540737023665
+      },
+      "argmax": {
+        "executorch": 164,
+        "source": 164,
+        "fp16_cpu": 164,
+        "hybrid": 164
+      },
+      "sampled_codes": {
+        "executorch": 1945,
+        "source": 1945,
+        "fp16_cpu": 1945,
+        "hybrid": 1945
+      }
+    },
+    {
+      "file": "case-0-frame-0-pos-15.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 0,
+      "position": 15,
+      "selected_head": 14,
+      "selected_code": 1297,
+      "sampling_draw": 0.5943499108896841,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000194549560546875,
+        "relative_l2": 4.797598125506545e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001068115234375,
+        "relative_l2": 5.448115518580342e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.08957099914550781,
+        "relative_l2": 0.004653529796409475
+      },
+      "argmax": {
+        "executorch": 1060,
+        "source": 1060,
+        "fp16_cpu": 1060,
+        "hybrid": 1060
+      },
+      "sampled_codes": {
+        "executorch": 1297,
+        "source": 1297,
+        "fp16_cpu": 1297,
+        "hybrid": 1297
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-0.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 0,
+      "selected_head": null,
+      "source_vs_executorch_hidden": {
+        "max_abs": 1.52587890625e-05,
+        "relative_l2": 2.1435268839706855e-07
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 8.947448804974556e-06,
+        "relative_l2": 1.5827663944672785e-07
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.01422119140625,
+        "relative_l2": 0.00017967675685579788
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-1.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 1,
+      "selected_head": 0,
+      "selected_code": 957,
+      "sampling_draw": 0.825965871887821,
+      "source_vs_executorch_hidden": {
+        "max_abs": 3.4332275390625e-05,
+        "relative_l2": 2.20251067333875e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 2.47955322265625e-05,
+        "relative_l2": 1.987092140738519e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.027660369873046875,
+        "relative_l2": 0.0020509731356117447
+      },
+      "argmax": {
+        "executorch": 506,
+        "source": 506,
+        "fp16_cpu": 506,
+        "hybrid": 506
+      },
+      "sampled_codes": {
+        "executorch": 957,
+        "source": 957,
+        "fp16_cpu": 957,
+        "hybrid": 957
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-2.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 2,
+      "selected_head": 1,
+      "selected_code": 1085,
+      "sampling_draw": 0.17221793768785243,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000125885009765625,
+        "relative_l2": 3.3356693448784272e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000118255615234375,
+        "relative_l2": 4.695663888279721e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.0813593864440918,
+        "relative_l2": 0.00238459169282743
+      },
+      "argmax": {
+        "executorch": 1402,
+        "source": 1402,
+        "fp16_cpu": 1402,
+        "hybrid": 1402
+      },
+      "sampled_codes": {
+        "executorch": 1085,
+        "source": 1085,
+        "fp16_cpu": 1085,
+        "hybrid": 1085
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-3.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 3,
+      "selected_head": 2,
+      "selected_code": 893,
+      "sampling_draw": 0.5874273817862956,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001316070556640625,
+        "relative_l2": 6.279984421765801e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 9.5367431640625e-05,
+        "relative_l2": 4.157493277340211e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.06484603881835938,
+        "relative_l2": 0.0026116952440631384
+      },
+      "argmax": {
+        "executorch": 1974,
+        "source": 1974,
+        "fp16_cpu": 1974,
+        "hybrid": 1974
+      },
+      "sampled_codes": {
+        "executorch": 893,
+        "source": 893,
+        "fp16_cpu": 893,
+        "hybrid": 893
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-4.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 4,
+      "selected_head": 3,
+      "selected_code": 1378,
+      "sampling_draw": 0.7512804067674601,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000316619873046875,
+        "relative_l2": 6.459593080160003e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0005321502685546875,
+        "relative_l2": 1.100559244490083e-05
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.09336566925048828,
+        "relative_l2": 0.0033720892580777284
+      },
+      "argmax": {
+        "executorch": 1972,
+        "source": 1972,
+        "fp16_cpu": 1972,
+        "hybrid": 1972
+      },
+      "sampled_codes": {
+        "executorch": 1378,
+        "source": 1378,
+        "fp16_cpu": 1378,
+        "hybrid": 1378
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-5.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 5,
+      "selected_head": 4,
+      "selected_code": 698,
+      "sampling_draw": 0.5710403484148672,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000171661376953125,
+        "relative_l2": 4.5722431221933255e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001316070556640625,
+        "relative_l2": 4.457833332617331e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1410064697265625,
+        "relative_l2": 0.0038398399269331594
+      },
+      "argmax": {
+        "executorch": 1908,
+        "source": 1908,
+        "fp16_cpu": 1908,
+        "hybrid": 1908
+      },
+      "sampled_codes": {
+        "executorch": 698,
+        "source": 698,
+        "fp16_cpu": 698,
+        "hybrid": 278
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-6.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 6,
+      "selected_head": 5,
+      "selected_code": 243,
+      "sampling_draw": 0.5800248845020607,
+      "source_vs_executorch_hidden": {
+        "max_abs": 6.29425048828125e-05,
+        "relative_l2": 2.754085796057606e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000118255615234375,
+        "relative_l2": 4.272891374422027e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.2118511199951172,
+        "relative_l2": 0.004168771680366085
+      },
+      "argmax": {
+        "executorch": 1579,
+        "source": 1579,
+        "fp16_cpu": 1579,
+        "hybrid": 1579
+      },
+      "sampled_codes": {
+        "executorch": 243,
+        "source": 243,
+        "fp16_cpu": 243,
+        "hybrid": 243
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-7.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 7,
+      "selected_head": 6,
+      "selected_code": 812,
+      "sampling_draw": 0.752509948590651,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00043487548828125,
+        "relative_l2": 9.228378807894024e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00034332275390625,
+        "relative_l2": 7.429577858539084e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.18113797158002853,
+        "relative_l2": 0.0053388042867724824
+      },
+      "argmax": {
+        "executorch": 2029,
+        "source": 2029,
+        "fp16_cpu": 2029,
+        "hybrid": 2029
+      },
+      "sampled_codes": {
+        "executorch": 812,
+        "source": 812,
+        "fp16_cpu": 812,
+        "hybrid": 812
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-8.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 8,
+      "selected_head": 7,
+      "selected_code": 1304,
+      "sampling_draw": 0.03141823882658079,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0002079010009765625,
+        "relative_l2": 4.1393574659200445e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000274658203125,
+        "relative_l2": 5.495404901896038e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.135040283203125,
+        "relative_l2": 0.004451594192226888
+      },
+      "argmax": {
+        "executorch": 1304,
+        "source": 1304,
+        "fp16_cpu": 1304,
+        "hybrid": 1304
+      },
+      "sampled_codes": {
+        "executorch": 1304,
+        "source": 1304,
+        "fp16_cpu": 1304,
+        "hybrid": 1304
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-9.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 9,
+      "selected_head": 8,
+      "selected_code": 1446,
+      "sampling_draw": 0.35791991947712865,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00011539459228515625,
+        "relative_l2": 3.889037909079171e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0003528594970703125,
+        "relative_l2": 8.933612833752848e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.15423583984375,
+        "relative_l2": 0.004484356939729832
+      },
+      "argmax": {
+        "executorch": 1124,
+        "source": 1124,
+        "fp16_cpu": 1124,
+        "hybrid": 1124
+      },
+      "sampled_codes": {
+        "executorch": 1446,
+        "source": 1446,
+        "fp16_cpu": 1446,
+        "hybrid": 1446
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-10.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 10,
+      "selected_head": 9,
+      "selected_code": 288,
+      "sampling_draw": 0.8177969308356393,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0002040863037109375,
+        "relative_l2": 6.1375056289563804e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00027370452880859375,
+        "relative_l2": 7.859938085776228e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1797943115234375,
+        "relative_l2": 0.0049489437596501595
+      },
+      "argmax": {
+        "executorch": 743,
+        "source": 743,
+        "fp16_cpu": 743,
+        "hybrid": 743
+      },
+      "sampled_codes": {
+        "executorch": 288,
+        "source": 288,
+        "fp16_cpu": 288,
+        "hybrid": 262
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-11.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 11,
+      "selected_head": 10,
+      "selected_code": 175,
+      "sampling_draw": 0.41768754675291875,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00011920928955078125,
+        "relative_l2": 3.600889234580049e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 9.1552734375e-05,
+        "relative_l2": 4.854465463349288e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.2863731384277344,
+        "relative_l2": 0.006346972253665263
+      },
+      "argmax": {
+        "executorch": 823,
+        "source": 823,
+        "fp16_cpu": 823,
+        "hybrid": 823
+      },
+      "sampled_codes": {
+        "executorch": 175,
+        "source": 175,
+        "fp16_cpu": 175,
+        "hybrid": 175
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-12.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 12,
+      "selected_head": 11,
+      "selected_code": 267,
+      "sampling_draw": 0.9740356814958814,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00014495849609375,
+        "relative_l2": 4.5657424486820496e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000362396240234375,
+        "relative_l2": 8.517678071289477e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.14527559280395508,
+        "relative_l2": 0.004589811403255482
+      },
+      "argmax": {
+        "executorch": 783,
+        "source": 783,
+        "fp16_cpu": 783,
+        "hybrid": 783
+      },
+      "sampled_codes": {
+        "executorch": 267,
+        "source": 267,
+        "fp16_cpu": 267,
+        "hybrid": 267
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-13.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 13,
+      "selected_head": 12,
+      "selected_code": 1208,
+      "sampling_draw": 0.7134062578232291,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001888275146484375,
+        "relative_l2": 5.63943237020812e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000255584716796875,
+        "relative_l2": 6.495850550224709e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.21756458282470703,
+        "relative_l2": 0.0054211460837705365
+      },
+      "argmax": {
+        "executorch": 344,
+        "source": 344,
+        "fp16_cpu": 344,
+        "hybrid": 344
+      },
+      "sampled_codes": {
+        "executorch": 1208,
+        "source": 1208,
+        "fp16_cpu": 1208,
+        "hybrid": 1208
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-14.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 14,
+      "selected_head": 13,
+      "selected_code": 85,
+      "sampling_draw": 0.48057451655643435,
+      "source_vs_executorch_hidden": {
+        "max_abs": 6.866455078125e-05,
+        "relative_l2": 4.1857708892594584e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000225067138671875,
+        "relative_l2": 6.4246384622041996e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.2840232849121094,
+        "relative_l2": 0.009311237946619958
+      },
+      "argmax": {
+        "executorch": 1279,
+        "source": 1279,
+        "fp16_cpu": 1279,
+        "hybrid": 1279
+      },
+      "sampled_codes": {
+        "executorch": 85,
+        "source": 85,
+        "fp16_cpu": 85,
+        "hybrid": 85
+      }
+    },
+    {
+      "file": "case-0-frame-1-pos-15.npz",
+      "case": 0,
+      "text": "こんにちは。",
+      "frame": 1,
+      "position": 15,
+      "selected_head": 14,
+      "selected_code": 534,
+      "sampling_draw": 0.2916564974118041,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0004940032958984375,
+        "relative_l2": 1.09631645299534e-05
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0004367828369140625,
+        "relative_l2": 1.2116261131408698e-05
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.20229721069335938,
+        "relative_l2": 0.0055236063093148345
+      },
+      "argmax": {
+        "executorch": 95,
+        "source": 95,
+        "fp16_cpu": 95,
+        "hybrid": 95
+      },
+      "sampled_codes": {
+        "executorch": 534,
+        "source": 534,
+        "fp16_cpu": 534,
+        "hybrid": 901
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-0.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 0,
+      "selected_head": null,
+      "source_vs_executorch_hidden": {
+        "max_abs": 3.4332275390625e-05,
+        "relative_l2": 3.9295217953153265e-07
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 2.288818359375e-05,
+        "relative_l2": 2.587924979754981e-07
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.018146514892578125,
+        "relative_l2": 0.00016593563284096496
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-1.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 1,
+      "selected_head": 0,
+      "selected_code": 799,
+      "sampling_draw": 0.6832234717598454,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00011444091796875,
+        "relative_l2": 3.1934539740378256e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 9.5367431640625e-05,
+        "relative_l2": 3.389132585970582e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.03727388381958008,
+        "relative_l2": 0.0019918186177445467
+      },
+      "argmax": {
+        "executorch": 1159,
+        "source": 1159,
+        "fp16_cpu": 1159,
+        "hybrid": 1159
+      },
+      "sampled_codes": {
+        "executorch": 799,
+        "source": 799,
+        "fp16_cpu": 799,
+        "hybrid": 799
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-2.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 2,
+      "selected_head": 1,
+      "selected_code": 1534,
+      "sampling_draw": 0.30871945533265976,
+      "source_vs_executorch_hidden": {
+        "max_abs": 4.57763671875e-05,
+        "relative_l2": 2.025526198811943e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.390975952148438e-05,
+        "relative_l2": 3.0281649521728413e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.05256772041320801,
+        "relative_l2": 0.0020646090007608643
+      },
+      "argmax": {
+        "executorch": 1559,
+        "source": 1559,
+        "fp16_cpu": 1559,
+        "hybrid": 1559
+      },
+      "sampled_codes": {
+        "executorch": 1534,
+        "source": 1534,
+        "fp16_cpu": 1534,
+        "hybrid": 1534
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-3.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 3,
+      "selected_head": 2,
+      "selected_code": 854,
+      "sampling_draw": 0.27707849007413665,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000110626220703125,
+        "relative_l2": 2.703221003481551e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0002231597900390625,
+        "relative_l2": 5.747334856931306e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.0543365478515625,
+        "relative_l2": 0.0022418479976395187
+      },
+      "argmax": {
+        "executorch": 589,
+        "source": 589,
+        "fp16_cpu": 589,
+        "hybrid": 589
+      },
+      "sampled_codes": {
+        "executorch": 854,
+        "source": 854,
+        "fp16_cpu": 854,
+        "hybrid": 854
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-4.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 4,
+      "selected_head": 3,
+      "selected_code": 1739,
+      "sampling_draw": 0.6655489517945736,
+      "source_vs_executorch_hidden": {
+        "max_abs": 8.0108642578125e-05,
+        "relative_l2": 3.940070352550717e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000110626220703125,
+        "relative_l2": 4.454715635599098e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.09800195693969727,
+        "relative_l2": 0.0028710605676610353
+      },
+      "argmax": {
+        "executorch": 149,
+        "source": 149,
+        "fp16_cpu": 149,
+        "hybrid": 149
+      },
+      "sampled_codes": {
+        "executorch": 1739,
+        "source": 1739,
+        "fp16_cpu": 1739,
+        "hybrid": 1739
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-5.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 5,
+      "selected_head": 4,
+      "selected_code": 781,
+      "sampling_draw": 0.9033722646721782,
+      "source_vs_executorch_hidden": {
+        "max_abs": 2.9325485229492188e-05,
+        "relative_l2": 2.343686519793227e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.43865966796875e-05,
+        "relative_l2": 2.838306674389928e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.0655517578125,
+        "relative_l2": 0.0026963795712618976
+      },
+      "argmax": {
+        "executorch": 736,
+        "source": 736,
+        "fp16_cpu": 736,
+        "hybrid": 736
+      },
+      "sampled_codes": {
+        "executorch": 781,
+        "source": 781,
+        "fp16_cpu": 781,
+        "hybrid": 781
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-6.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 6,
+      "selected_head": 5,
+      "selected_code": 812,
+      "sampling_draw": 0.36878291341130565,
+      "source_vs_executorch_hidden": {
+        "max_abs": 4.57763671875e-05,
+        "relative_l2": 2.7427659219673774e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 5.340576171875e-05,
+        "relative_l2": 3.3344849133148047e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.10555648803710938,
+        "relative_l2": 0.0035410024124117962
+      },
+      "argmax": {
+        "executorch": 1194,
+        "source": 1194,
+        "fp16_cpu": 1194,
+        "hybrid": 1194
+      },
+      "sampled_codes": {
+        "executorch": 812,
+        "source": 812,
+        "fp16_cpu": 812,
+        "hybrid": 812
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-7.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 7,
+      "selected_head": 6,
+      "selected_code": 280,
+      "sampling_draw": 0.2757480694417024,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000209808349609375,
+        "relative_l2": 5.441699712610581e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000202178955078125,
+        "relative_l2": 9.808228553977776e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11278632283210754,
+        "relative_l2": 0.004109221545753487
+      },
+      "argmax": {
+        "executorch": 2031,
+        "source": 2031,
+        "fp16_cpu": 2031,
+        "hybrid": 2031
+      },
+      "sampled_codes": {
+        "executorch": 280,
+        "source": 280,
+        "fp16_cpu": 280,
+        "hybrid": 280
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-8.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 8,
+      "selected_head": 7,
+      "selected_code": 966,
+      "sampling_draw": 0.46365357580915334,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000133514404296875,
+        "relative_l2": 5.606786496091911e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 8.463859558105469e-05,
+        "relative_l2": 5.19423399509147e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.09413528442382812,
+        "relative_l2": 0.002900708894057138
+      },
+      "argmax": {
+        "executorch": 1401,
+        "source": 1401,
+        "fp16_cpu": 1401,
+        "hybrid": 1401
+      },
+      "sampled_codes": {
+        "executorch": 966,
+        "source": 966,
+        "fp16_cpu": 966,
+        "hybrid": 966
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-9.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 9,
+      "selected_head": 8,
+      "selected_code": 1550,
+      "sampling_draw": 0.7829017787900358,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00012969970703125,
+        "relative_l2": 3.4686222058902415e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001983642578125,
+        "relative_l2": 5.264735616187298e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11462783813476562,
+        "relative_l2": 0.004398631431221401
+      },
+      "argmax": {
+        "executorch": 1065,
+        "source": 1065,
+        "fp16_cpu": 1065,
+        "hybrid": 1065
+      },
+      "sampled_codes": {
+        "executorch": 1550,
+        "source": 1550,
+        "fp16_cpu": 1550,
+        "hybrid": 1550
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-10.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 10,
+      "selected_head": 9,
+      "selected_code": 233,
+      "sampling_draw": 0.9193277828687169,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001926422119140625,
+        "relative_l2": 6.477344370842009e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001621246337890625,
+        "relative_l2": 6.2154324963366845e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.15936660766601562,
+        "relative_l2": 0.00451363055544352
+      },
+      "argmax": {
+        "executorch": 743,
+        "source": 743,
+        "fp16_cpu": 743,
+        "hybrid": 743
+      },
+      "sampled_codes": {
+        "executorch": 233,
+        "source": 233,
+        "fp16_cpu": 233,
+        "hybrid": 1499
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-11.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 11,
+      "selected_head": 10,
+      "selected_code": 1605,
+      "sampling_draw": 0.43649097442328655,
+      "source_vs_executorch_hidden": {
+        "max_abs": 8.7738037109375e-05,
+        "relative_l2": 3.4198871296134055e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.43865966796875e-05,
+        "relative_l2": 3.3537791478444464e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1866016387939453,
+        "relative_l2": 0.004278033094749124
+      },
+      "argmax": {
+        "executorch": 107,
+        "source": 107,
+        "fp16_cpu": 107,
+        "hybrid": 107
+      },
+      "sampled_codes": {
+        "executorch": 1605,
+        "source": 1605,
+        "fp16_cpu": 1605,
+        "hybrid": 34
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-12.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 12,
+      "selected_head": 11,
+      "selected_code": 1314,
+      "sampling_draw": 0.7499061812554475,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00016021728515625,
+        "relative_l2": 3.8241821599591944e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00019073486328125,
+        "relative_l2": 5.542208525140183e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.16994857788085938,
+        "relative_l2": 0.004714407481792035
+      },
+      "argmax": {
+        "executorch": 887,
+        "source": 887,
+        "fp16_cpu": 887,
+        "hybrid": 887
+      },
+      "sampled_codes": {
+        "executorch": 1314,
+        "source": 1314,
+        "fp16_cpu": 1314,
+        "hybrid": 1094
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-13.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 13,
+      "selected_head": 12,
+      "selected_code": 148,
+      "sampling_draw": 0.38656687435934867,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000225067138671875,
+        "relative_l2": 5.747142830164732e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000415802001953125,
+        "relative_l2": 9.539633849586507e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.06777572631835938,
+        "relative_l2": 0.0033079778904050636
+      },
+      "argmax": {
+        "executorch": 292,
+        "source": 292,
+        "fp16_cpu": 292,
+        "hybrid": 292
+      },
+      "sampled_codes": {
+        "executorch": 148,
+        "source": 148,
+        "fp16_cpu": 148,
+        "hybrid": 855
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-14.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 14,
+      "selected_head": 13,
+      "selected_code": 943,
+      "sampling_draw": 0.17737847790937833,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00020313262939453125,
+        "relative_l2": 6.515602068660376e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.2479248046875e-05,
+        "relative_l2": 3.9997924729518135e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.19812774658203125,
+        "relative_l2": 0.004251111648729283
+      },
+      "argmax": {
+        "executorch": 342,
+        "source": 342,
+        "fp16_cpu": 342,
+        "hybrid": 342
+      },
+      "sampled_codes": {
+        "executorch": 943,
+        "source": 943,
+        "fp16_cpu": 943,
+        "hybrid": 943
+      }
+    },
+    {
+      "file": "case-1-frame-0-pos-15.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 0,
+      "position": 15,
+      "selected_head": 14,
+      "selected_code": 843,
+      "sampling_draw": 0.5943499108896841,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00046539306640625,
+        "relative_l2": 9.564518591881928e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0004520416259765625,
+        "relative_l2": 1.1091372609963338e-05
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.20981407165527344,
+        "relative_l2": 0.006102875682201461
+      },
+      "argmax": {
+        "executorch": 593,
+        "source": 593,
+        "fp16_cpu": 593,
+        "hybrid": 593
+      },
+      "sampled_codes": {
+        "executorch": 843,
+        "source": 843,
+        "fp16_cpu": 843,
+        "hybrid": 843
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-0.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 0,
+      "selected_head": null,
+      "source_vs_executorch_hidden": {
+        "max_abs": 7.62939453125e-05,
+        "relative_l2": 6.847169493848752e-07
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 6.103515625e-05,
+        "relative_l2": 5.962363994790834e-07
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.0060787200927734375,
+        "relative_l2": 9.40252110364423e-05
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-1.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 1,
+      "selected_head": 0,
+      "selected_code": 117,
+      "sampling_draw": 0.825965871887821,
+      "source_vs_executorch_hidden": {
+        "max_abs": 3.0517578125e-05,
+        "relative_l2": 1.9163101474476898e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.2479248046875e-05,
+        "relative_l2": 2.6167372152481534e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.02835845947265625,
+        "relative_l2": 0.001794485828273864
+      },
+      "argmax": {
+        "executorch": 506,
+        "source": 506,
+        "fp16_cpu": 506,
+        "hybrid": 506
+      },
+      "sampled_codes": {
+        "executorch": 117,
+        "source": 117,
+        "fp16_cpu": 117,
+        "hybrid": 117
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-2.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 2,
+      "selected_head": 1,
+      "selected_code": 604,
+      "sampling_draw": 0.17221793768785243,
+      "source_vs_executorch_hidden": {
+        "max_abs": 5.7756900787353516e-05,
+        "relative_l2": 2.8150229063960832e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 7.557868957519531e-05,
+        "relative_l2": 3.8217288335398955e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.0841512680053711,
+        "relative_l2": 0.0021098621393622827
+      },
+      "argmax": {
+        "executorch": 467,
+        "source": 467,
+        "fp16_cpu": 467,
+        "hybrid": 467
+      },
+      "sampled_codes": {
+        "executorch": 604,
+        "source": 604,
+        "fp16_cpu": 604,
+        "hybrid": 604
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-3.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 3,
+      "selected_head": 2,
+      "selected_code": 406,
+      "sampling_draw": 0.5874273817862956,
+      "source_vs_executorch_hidden": {
+        "max_abs": 6.29425048828125e-05,
+        "relative_l2": 2.7454525085064176e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00011134147644042969,
+        "relative_l2": 3.702097416450825e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11368179321289062,
+        "relative_l2": 0.0028326707781169435
+      },
+      "argmax": {
+        "executorch": 1188,
+        "source": 1188,
+        "fp16_cpu": 1188,
+        "hybrid": 1188
+      },
+      "sampled_codes": {
+        "executorch": 406,
+        "source": 406,
+        "fp16_cpu": 406,
+        "hybrid": 406
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-4.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 4,
+      "selected_head": 3,
+      "selected_code": 569,
+      "sampling_draw": 0.7512804067674601,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0002231597900390625,
+        "relative_l2": 4.632565923761419e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001277923583984375,
+        "relative_l2": 3.924654513428166e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.09949493408203125,
+        "relative_l2": 0.002930025552126803
+      },
+      "argmax": {
+        "executorch": 1047,
+        "source": 1047,
+        "fp16_cpu": 1047,
+        "hybrid": 1047
+      },
+      "sampled_codes": {
+        "executorch": 569,
+        "source": 569,
+        "fp16_cpu": 569,
+        "hybrid": 569
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-5.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 5,
+      "selected_head": 4,
+      "selected_code": 406,
+      "sampling_draw": 0.5710403484148672,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00013637542724609375,
+        "relative_l2": 4.932264249878328e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00011444091796875,
+        "relative_l2": 4.095368312944338e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.12925148010253906,
+        "relative_l2": 0.003784569196113115
+      },
+      "argmax": {
+        "executorch": 219,
+        "source": 219,
+        "fp16_cpu": 219,
+        "hybrid": 219
+      },
+      "sampled_codes": {
+        "executorch": 406,
+        "source": 406,
+        "fp16_cpu": 406,
+        "hybrid": 406
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-6.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 6,
+      "selected_head": 5,
+      "selected_code": 393,
+      "sampling_draw": 0.5800248845020607,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001163482666015625,
+        "relative_l2": 2.709196066765485e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00020599365234375,
+        "relative_l2": 5.694084688089287e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1671142578125,
+        "relative_l2": 0.004803436002309611
+      },
+      "argmax": {
+        "executorch": 1579,
+        "source": 1579,
+        "fp16_cpu": 1579,
+        "hybrid": 1579
+      },
+      "sampled_codes": {
+        "executorch": 393,
+        "source": 393,
+        "fp16_cpu": 393,
+        "hybrid": 1943
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-7.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 7,
+      "selected_head": 6,
+      "selected_code": 580,
+      "sampling_draw": 0.752509948590651,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000179290771484375,
+        "relative_l2": 3.892087095787182e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00028228759765625,
+        "relative_l2": 6.648837453686799e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1239767074584961,
+        "relative_l2": 0.004171094835747114
+      },
+      "argmax": {
+        "executorch": 1208,
+        "source": 1208,
+        "fp16_cpu": 1208,
+        "hybrid": 1208
+      },
+      "sampled_codes": {
+        "executorch": 580,
+        "source": 580,
+        "fp16_cpu": 580,
+        "hybrid": 580
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-8.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 8,
+      "selected_head": 7,
+      "selected_code": 1401,
+      "sampling_draw": 0.03141823882658079,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000209808349609375,
+        "relative_l2": 6.007616728029779e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0003299713134765625,
+        "relative_l2": 9.4597992406894e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.20273399353027344,
+        "relative_l2": 0.005071389642460166
+      },
+      "argmax": {
+        "executorch": 1401,
+        "source": 1401,
+        "fp16_cpu": 1401,
+        "hybrid": 1401
+      },
+      "sampled_codes": {
+        "executorch": 1401,
+        "source": 1401,
+        "fp16_cpu": 1401,
+        "hybrid": 1401
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-9.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 9,
+      "selected_head": 8,
+      "selected_code": 1766,
+      "sampling_draw": 0.35791991947712865,
+      "source_vs_executorch_hidden": {
+        "max_abs": 5.6743621826171875e-05,
+        "relative_l2": 3.437090393412608e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0001583099365234375,
+        "relative_l2": 6.4967311415275975e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.16128158569335938,
+        "relative_l2": 0.005092538211522662
+      },
+      "argmax": {
+        "executorch": 1471,
+        "source": 1471,
+        "fp16_cpu": 1471,
+        "hybrid": 1471
+      },
+      "sampled_codes": {
+        "executorch": 1766,
+        "source": 1766,
+        "fp16_cpu": 1766,
+        "hybrid": 1766
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-10.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 10,
+      "selected_head": 9,
+      "selected_code": 429,
+      "sampling_draw": 0.8177969308356393,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0002040863037109375,
+        "relative_l2": 3.263379396455108e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0006198883056640625,
+        "relative_l2": 9.815655639134176e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.11710739135742188,
+        "relative_l2": 0.004128077359797353
+      },
+      "argmax": {
+        "executorch": 1414,
+        "source": 1414,
+        "fp16_cpu": 1414,
+        "hybrid": 1414
+      },
+      "sampled_codes": {
+        "executorch": 429,
+        "source": 429,
+        "fp16_cpu": 429,
+        "hybrid": 429
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-11.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 11,
+      "selected_head": 10,
+      "selected_code": 1347,
+      "sampling_draw": 0.41768754675291875,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000240325927734375,
+        "relative_l2": 5.35372302525537e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000255584716796875,
+        "relative_l2": 6.141525819987559e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.06603622436523438,
+        "relative_l2": 0.002601732517489744
+      },
+      "argmax": {
+        "executorch": 1372,
+        "source": 1372,
+        "fp16_cpu": 1372,
+        "hybrid": 1372
+      },
+      "sampled_codes": {
+        "executorch": 1347,
+        "source": 1347,
+        "fp16_cpu": 1347,
+        "hybrid": 1347
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-12.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 12,
+      "selected_head": 11,
+      "selected_code": 1824,
+      "sampling_draw": 0.9740356814958814,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.00018405914306640625,
+        "relative_l2": 4.1342410063509055e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.000240325927734375,
+        "relative_l2": 5.100709791090904e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.2459259033203125,
+        "relative_l2": 0.004549057959134129
+      },
+      "argmax": {
+        "executorch": 601,
+        "source": 601,
+        "fp16_cpu": 601,
+        "hybrid": 601
+      },
+      "sampled_codes": {
+        "executorch": 1824,
+        "source": 1824,
+        "fp16_cpu": 1824,
+        "hybrid": 331
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-13.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 13,
+      "selected_head": 12,
+      "selected_code": 1177,
+      "sampling_draw": 0.7134062578232291,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0001811981201171875,
+        "relative_l2": 3.916344260095518e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0003376007080078125,
+        "relative_l2": 8.785716270340282e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.3159332275390625,
+        "relative_l2": 0.0096429035480675
+      },
+      "argmax": {
+        "executorch": 1072,
+        "source": 1072,
+        "fp16_cpu": 1072,
+        "hybrid": 1072
+      },
+      "sampled_codes": {
+        "executorch": 1177,
+        "source": 1177,
+        "fp16_cpu": 1177,
+        "hybrid": 1177
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-14.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 14,
+      "selected_head": 13,
+      "selected_code": 1787,
+      "sampling_draw": 0.48057451655643435,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.000102996826171875,
+        "relative_l2": 3.9723092152554255e-06
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.0002956390380859375,
+        "relative_l2": 8.439004246094246e-06
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1521434783935547,
+        "relative_l2": 0.005542596944177423
+      },
+      "argmax": {
+        "executorch": 879,
+        "source": 879,
+        "fp16_cpu": 879,
+        "hybrid": 879
+      },
+      "sampled_codes": {
+        "executorch": 1787,
+        "source": 1787,
+        "fp16_cpu": 1787,
+        "hybrid": 1787
+      }
+    },
+    {
+      "file": "case-1-frame-1-pos-15.npz",
+      "case": 1,
+      "text": "好きな色は赤です。",
+      "frame": 1,
+      "position": 15,
+      "selected_head": 14,
+      "selected_code": 677,
+      "sampling_draw": 0.2916564974118041,
+      "source_vs_executorch_hidden": {
+        "max_abs": 0.0006885528564453125,
+        "relative_l2": 1.1785629127882514e-05
+      },
+      "fp16_cpu_vs_executorch_hidden": {
+        "max_abs": 0.00045013427734375,
+        "relative_l2": 1.0609660392481767e-05
+      },
+      "hybrid_vs_executorch_hidden": {
+        "max_abs": 0.1522960662841797,
+        "relative_l2": 0.005088702201185959
+      },
+      "argmax": {
+        "executorch": 1464,
+        "source": 1464,
+        "fp16_cpu": 1464,
+        "hybrid": 1464
+      },
+      "sampled_codes": {
+        "executorch": 677,
+        "source": 677,
+        "fp16_cpu": 677,
+        "hybrid": 677
+      }
+    }
+  ],
+  "argmax_mismatches": {
+    "source": 0,
+    "fp16_cpu": 0,
+    "hybrid": 0
+  },
+  "shared_draw_sample_mismatches": {
+    "source": 0,
+    "fp16_cpu": 0,
+    "hybrid": 13
+  },
+  "limitations": [
+    "Two texts, first two codec frames each; not full utterances or long-duration speech.",
+    "CPU frontend and prefix run on host; no combined Android speed or memory measurement.",
+    "Each path carries its own CP cache within each frame; caches reset for the next frame as production does.",
+    "Embeddings and main-model progression are teacher-forced from original CPU generation; divergent sampled codes are not fed back.",
+    "Context reloaded per step and ADB file transfer; timings are not inference throughput.",
+    "No audio decoded or listened to.",
+    "Host full source trace extracts the CPU prefix; this is not an optimized CPU partition implementation."
+  ],
+  "provenance": {
+    "cpu_model_sha256": "e378d919daf90b270de42e644db369fc0bc5e984b77eaaef10d89082ad4ef816",
+    "context_sha256": "290dc07468ece48dc1c1846e10d1e8ffac5ff49ee0f8d5a6c7a360e66d7ad394",
+    "capture_manifest_sha256": "01861c9afa6dfb1931eb9adcdad4871ca06e6da0ea66880dba2290bf7a3924d9",
+    "device_host_voice_manifest_equal": true,
+    "device_cp_program_sha256": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+    "device_main_program_sha256": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a",
+    "source_bundle_all_15_heads_exact": true
+  }
+}

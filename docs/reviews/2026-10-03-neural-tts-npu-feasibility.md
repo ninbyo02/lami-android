@@ -130,3 +130,26 @@ CPU executes on the host and NPU on SM8750; these are numerical experiments, not
 Default backbone versus upstream MtpStep exact logit/cache parity passed at saved positions zero and eight after the refactor. Python compilation and whitespace checks passed. Results: `2026-10-03-neural-tts-npu-suffix-3.json` and `2026-10-03-neural-tts-npu-suffix-4.json`. No APK replaced; no production path enabled.
 
 Decision: neither split passes numerical agreement yet. Before Android integration, evaluate actual production inputs and independent cache rollout; only then compare device-resident combined performance. A supported higher-precision/calibrated NPU path remains another investigation, not a completed fix.
+
+## Actual trained LAMI inputs and independent CP cache carry (2026-10-03 16:55 JST)
+
+Located the installed FP32 voice bundle. Its complete voice-text manifest equals the host bundle at `/home/sato/project/lami-android-neural-playback/artifacts/voice-device-20261001/fp32-text-bundle`. Device CP and main PTE hashes match the host manifest. All 15 head tensors exactly match RC1 checkpoint weights. The trained RC1 code predictor differs from reference Base in 35 of 56 layer/final-normalization tensors; previous Base results are therefore not production-checkpoint certification.
+
+Re-exported trained RC1 (`model.safetensors` SHA-256 c569a8502034a7aa1c4524f83bd9f0923378a3347e325bccc87ec43f2a4744b9), both full backbone and final-layer suffix; source export parity passed, each SM8750 graph compiled to one dispatch. Captured host reproduction of the current text frontend and FP32 CPU programs for `こんにちは。` and `好きな色は赤です。`, first two codec frames each. 64 transformer inputs yield 60 scheduled CP-head comparisons. This is host capture, not directly recorded phone input.
+
+Within each frame, CPU and hybrid paths carry their own computed caches, and reset caches for the next codec frame as the production generator does. Input embeddings, preceding main-model progression and sampled-code history are teacher-forced from CPU. Therefore this tests cache arithmetic accumulation but not free generation with divergent sampled codes fed back.
+
+| Path | Argmax mismatches / 60 | Same-draw sampled-code mismatches / 60 |
+| --- | --- | --- |
+| Source FP32 on captured CPU caches | 0 | 0 |
+| LiteRT FP16-weight CPU, independent caches | 0 | 0 |
+| Full NPU, ordinary backbone outputs, independent caches | 1 | 28 |
+| CPU prefix 4 / NPU suffix 1, independent caches | 0 | 13 |
+
+The detailed full-backbone trace gave 26 sampled mismatches; repeating without diagnostic intermediate outputs gave 28. Checked-in full report is the ordinary-output result. This reinforces why trace outputs must not be assumed to preserve fusion. Argmax agreement alone does not establish the sampled output agreement needed to preserve identical generation. Sample mismatch counts are not an audio error rate or evidence of perceived quality degradation.
+
+No audio was decoded or listened to; only each phrase's two-frame prefix was tested. No full-utterance or long-duration test, device-resident CPU/NPU handoff, throughput, memory, or chat concurrency benchmark has passed. Host prefix extraction uses a full source trace, not an optimized CPU partition. Context reloads and ADB file transfer make measured wall times unsuitable for speed claims.
+
+Decision: preserve the approved CPU speech path and keep NPU integration disabled. Neither NPU candidate meets sampled-code agreement. Prioritize CPU/streaming improvements for immediate realtime progress; future NPU work needs numerical/quantization calibration and full generated-speech listening evaluation rather than more synthetic argmax-only gates.
+
+Validation: source exports, device/host manifest and CP/main PTE hashes, all 15 source/bundle heads, 64 inputs each for traced full, ordinary full and suffix configurations, capture sampler self-check, finite outputs, Python compilation and whitespace checks. Reports: `2026-10-03-neural-tts-npu-actual-full.json` and `2026-10-03-neural-tts-npu-actual-suffix4.json`. Capture/check scripts are checked in; large captures/models remain outside git. Installed APK was unchanged. Previous commit 49731dfc CI: all four checks passed.
