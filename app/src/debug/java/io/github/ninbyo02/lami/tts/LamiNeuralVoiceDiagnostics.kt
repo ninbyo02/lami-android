@@ -48,7 +48,7 @@ internal object LamiNeuralVoiceDiagnostics {
     }
 
     /** Explicit A/B device diagnostic through the same synthesis, queue and playback primitives. */
-    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean) = withContext(Dispatchers.Default) {
+    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true) = withContext(Dispatchers.Default) {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
@@ -62,7 +62,16 @@ internal object LamiNeuralVoiceDiagnostics {
             withTimeout(600_000L) {
                 suspend fun prepare(index: Int): Pair<Int, FloatArray> {
                     trace("request=$index synthesis=started")
-                    val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, texts[index]) { trace("request=$index $it") }
+                    val pcm = LamiVoiceModuleCache.withSession(root) { session ->
+                        val codes = LamiPreparedVoiceSynthesizer.generateText(root, texts[index], session, reuseCpWorkspace) { trace("request=$index $it") }
+                        val codeBytes = java.nio.ByteBuffer.allocate(codes.values.size * 8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                        codes.values.forEach(codeBytes::putLong)
+                        trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
+                        LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                    }
+                    val pcmBytes = java.nio.ByteBuffer.allocate(pcm.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                    pcm.forEach(pcmBytes::putFloat)
+                    trace("request=$index pcm_sha256=${sha256(pcmBytes.array())}")
                     trace("request=$index synthesis=complete samples=${pcm.size}")
                     return index to pcm
                 }
@@ -94,6 +103,8 @@ internal object LamiNeuralVoiceDiagnostics {
             trace("status=failure class=${failure.javaClass.simpleName}")
         }
     }
+
+    private fun sha256(bytes: ByteArray): String = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun writeWav(file: java.io.File, pcm: FloatArray) {
         val bytes = java.nio.ByteBuffer.allocate(44 + pcm.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)

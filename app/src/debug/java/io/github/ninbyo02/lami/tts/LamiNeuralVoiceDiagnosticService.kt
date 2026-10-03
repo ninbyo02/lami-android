@@ -38,7 +38,7 @@ class LamiNeuralVoiceDiagnosticService : Service() {
         val serial = intent?.getBooleanExtra("lami_neural_tts_serial_baseline", false) ?: false
         scope.launch {
             try {
-                if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial)
+                if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial, !(intent?.getBooleanExtra("lami_neural_tts_cp_allocation_baseline", false) ?: false))
                 else LamiNeuralVoiceDiagnostics.runProbe(applicationContext, text)
             }
             finally { stopSelf() }

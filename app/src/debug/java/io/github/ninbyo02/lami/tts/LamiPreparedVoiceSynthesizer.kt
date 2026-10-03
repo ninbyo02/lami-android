@@ -119,7 +119,7 @@ internal object LamiPreparedVoiceSynthesizer {
     }
 
     /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
-    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, progress: (String) -> Unit = {}): LamiVoiceCodes {
+    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, progress: (String) -> Unit = {}): LamiVoiceCodes {
         val timing = WorkTiming()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
@@ -150,6 +150,9 @@ internal object LamiPreparedVoiceSynthesizer {
                 val prefillStarted = android.os.SystemClock.elapsedRealtime()
                 prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
                 progress("metric=prefill ms=${android.os.SystemClock.elapsedRealtime() - prefillStarted}")
+                // Reuse the CP workspace across frames; reset its state before each frame.
+                val reusableCp = if (reuseCpWorkspace) Decoder(cp, 5, 32, 1, ctx, timing, "cp") else null
+                progress("metric=cp_workspace reused=$reuseCpWorkspace")
                 val codecStarted = android.os.SystemClock.elapsedRealtime()
                 val limit = 256 - prepared.prefill.size
                 for (frame in 0 until limit) {
@@ -165,7 +168,7 @@ internal object LamiPreparedVoiceSynthesizer {
                     row[0] = token.toLong()
                     val last = embedding.row(token)
                     val sum = last.copyOf()
-                    val cpCache = Decoder(cp, 5, 32, 1, ctx, timing, "cp")
+                    val cpCache = reusableCp?.also { it.reset() } ?: Decoder(cp, 5, 32, 1, ctx, timing, "cp")
                     cpCache.step(h, 0)
                     var ch = cpCache.step(last, 1)
                     for (group in 0..14) {
@@ -253,6 +256,18 @@ internal object LamiPreparedVoiceSynthesizer {
         private val vBuffer = Tensor.allocateFloatBuffer(layers * 8 * capacity * 128)
         private val k = Tensor.fromBlob(kBuffer, shape)
         private val v = Tensor.fromBlob(vBuffer, shape)
+        // One zero block per workspace, instead of two new direct buffers per frame.
+        private val zeroCache by lazy { FloatArray(kBuffer.capacity()) }
+        fun reset() {
+            val started = System.nanoTime()
+            kBuffer.clear()
+            vBuffer.clear()
+            kBuffer.put(zeroCache)
+            vBuffer.put(zeroCache)
+            kBuffer.rewind()
+            vBuffer.rewind()
+            timing?.record("${label}_reset", started)
+        }
         suspend fun step(h: FloatArray, position: Int): FloatArray {
             currentCoroutineContext().ensureActive()
             require(position in 0 until capacity)

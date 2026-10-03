@@ -9,9 +9,9 @@ import org.pytorch.executorch.Tensor
 
 /** Bounded fixed-probe and arbitrary-text synthesis; text requires natural EOS. */
 internal object LamiVoiceDiagnostic {
-    suspend fun synthesizeText(context: android.content.Context, root: File, text: String, progress: (String) -> Unit = {}): FloatArray =
+    suspend fun synthesizeText(context: android.content.Context, root: File, text: String, reuseCpWorkspace: Boolean = true, progress: (String) -> Unit = {}): FloatArray =
         LamiVoiceModuleCache.withSession(root) { session ->
-            val codes = LamiPreparedVoiceSynthesizer.generateText(root, text, session, progress)
+            val codes = LamiPreparedVoiceSynthesizer.generateText(root, text, session, reuseCpWorkspace, progress)
             currentCoroutineContext().ensureActive()
             progress("stage=pcm_decode")
             LamiVoiceDecoderProcess.decode(context, root, codes, progress)
