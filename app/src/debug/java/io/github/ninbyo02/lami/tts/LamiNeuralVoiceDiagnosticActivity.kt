@@ -59,6 +59,10 @@ class LamiNeuralVoiceDiagnosticActivity : ComponentActivity() {
             speak.isEnabled = false
             val service = Intent(this, LamiNeuralVoiceDiagnosticService::class.java)
             value?.let { service.putExtra("lami_neural_tts_text_probe", it) }
+            intent.getStringExtra("lami_neural_tts_pipeline_probe")?.let { lines ->
+                service.putStringArrayListExtra("lami_neural_tts_pipeline_texts", ArrayList(lines.split('|')))
+                service.putExtra("lami_neural_tts_serial_baseline", intent.getBooleanExtra("lami_neural_tts_serial_baseline", false))
+            }
             startForegroundService(service)
         }
         speak.setOnClickListener { if (text.text.isNotBlank()) request(text.text.toString()) }
@@ -71,14 +75,14 @@ class LamiNeuralVoiceDiagnosticActivity : ComponentActivity() {
             request(if (intent.getBooleanExtra("lami_neural_tts_hai_probe", false)) null else text.text.toString())
         }
         lifecycleScope.launch {
-            val report = filesDir.resolve("neural_tts_hai_probe.txt")
+            val report = filesDir.resolve(if (intent.hasExtra("lami_neural_tts_pipeline_probe")) "neural_tts_pipeline_probe.txt" else "neural_tts_hai_probe.txt")
             while (true) {
                 val result = if (report.exists()) report.readText() else ""
-                val finished = listOf("playback=complete", "status=failure", "status=cancelled").any(result::contains)
+                val finished = (if (intent.hasExtra("lami_neural_tts_pipeline_probe")) listOf("status=complete", "status=failure", "status=cancelled") else listOf("playback=complete", "status=failure", "status=cancelled")).any(result::contains)
                 speak.isEnabled = finished
                 stop.isEnabled = !finished
                 status.text = when {
-                    "playback=complete" in result -> "発話が完了しました。"
+                    (if (intent.hasExtra("lami_neural_tts_pipeline_probe")) "status=complete" in result else "playback=complete" in result) -> "発話が完了しました。"
                     "status=failure" in result -> "発話できませんでした。\n" + result.lineSequence().lastOrNull { it.startsWith("status=failure") }
                     "status=cancelled" in result -> "停止しました。"
                     "playback=started" in result -> "再生中です。"

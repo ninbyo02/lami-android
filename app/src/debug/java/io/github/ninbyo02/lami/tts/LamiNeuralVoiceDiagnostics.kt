@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +44,54 @@ internal object LamiNeuralVoiceDiagnostics {
             report.appendText("status=failure class=${failure.javaClass.name} message=${failure.cause?.message ?: failure.message}\n")
         } catch (failure: Exception) {
             report.appendText("status=failure class=${failure.javaClass.name} message=${failure.message}\n")
+        }
+    }
+
+    /** Explicit A/B device diagnostic through the same synthesis, queue and playback primitives. */
+    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean) = withContext(Dispatchers.Default) {
+        require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
+        val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
+        val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
+        val started = android.os.SystemClock.elapsedRealtime()
+        val reportLock = Any()
+        fun trace(event: String) = synchronized(reportLock) {
+            report.appendText("$event elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
+        }
+        report.writeText("mode=${if (serial) "serial" else "pipeline"} status=started\n")
+        try {
+            withTimeout(600_000L) {
+                suspend fun prepare(index: Int): Pair<Int, FloatArray> {
+                    trace("request=$index synthesis=started")
+                    val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, texts[index]) { trace("request=$index $it") }
+                    trace("request=$index synthesis=complete samples=${pcm.size}")
+                    return index to pcm
+                }
+                suspend fun play(clip: Pair<Int, FloatArray>) {
+                    LamiPcmPlayer.play(clip.second) { trace("request=${clip.first} playback=started") }
+                    trace("request=${clip.first} playback=complete")
+                }
+                if (serial) {
+                    texts.indices.forEach { play(prepare(it)) }
+                } else coroutineScope {
+                    val complete = CompletableDeferred<Unit>()
+                    val pipeline = LamiSpeechPipeline(this, {},
+                        prepare = { prepare(it.toInt()) },
+                        play = { clip ->
+                            play(clip)
+                            if (clip.first == texts.lastIndex) complete.complete(Unit)
+                        })
+                    try {
+                        texts.indices.forEach { pipeline.enqueue(it.toString()) }
+                        complete.await()
+                    } finally { pipeline.stop() }
+                }
+                trace("status=complete")
+            }
+        } catch (cancelled: CancellationException) {
+            trace("status=cancelled")
+            throw cancelled
+        } catch (failure: Exception) {
+            trace("status=failure class=${failure.javaClass.simpleName}")
         }
     }
 
