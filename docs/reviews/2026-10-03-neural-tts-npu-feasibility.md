@@ -62,3 +62,12 @@ Device backbone hidden/cache outputs were finite. Host CPU projection of its hid
 Reproduce export with python scripts/voice/export_litert_mtp_backbone.py --model MODEL_DIR --output-dir OUTSIDE_GIT_DIR. Compile using the existing compile_litert_mtp.py command. Device testing uses the same 13 input files as the preceding full-head model; output logits are replaced by a 1x1024 hidden tensor. Reuse of NPU cache between real generation steps and actual caller head latency remain the next gates.
 
 Evidence: 2026-10-03-neural-tts-npu-backbone.json and the paired repeat profile files. No production model or APK was replaced.
+
+
+## Actual NPU cache carry verification
+
+The check_npu_mtp_rollout.py probe completed positions 0 through 16, feeding each actual device NPU cache output into the following step. All outputs were finite and all ten caches remained bitwise unchanged outside the current written position. The CPU reference received the same NPU-produced input cache for each comparison; these differences are local step errors, not accumulated divergence between independent CPU/NPU rollouts.
+
+This uses synthetic embeddings and a causal mask. Each step reloads the QNN context and uses ADB/file transfers. It proves the tested cache update/carry behavior, not resident-model throughput, selected CPU head cost, sampling equivalence or voice quality. Neither production assets nor the installed application were replaced. Next gate: a persistent native runner that retains the context and runs the selected CPU head, followed by the matching CPU baseline and real generation inputs.
+
+Evidence: 2026-10-03-neural-tts-npu-rollout.json. Reproduce with scripts/voice/check_npu_mtp_rollout.py --help; it requires the compiled backbone context and matching QNN runtime already staged in a dedicated device directory.
