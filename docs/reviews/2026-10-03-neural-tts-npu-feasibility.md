@@ -30,3 +30,20 @@ No speedup multiplier is claimed. Streaming currently starts earlier but underru
 Run python scripts/voice/probe_litert_mtp.py --model MODEL_DIR --report REPORT.json with safetensors installed. Add --export-dir OUTSIDE_GIT_DIR in the LiteRT Torch environment to export the actual checkpoint. Shape preflight is repeatable and read-only on model files. Large model artifacts are excluded from this PR.
 
 Evidence: 2026-10-03-neural-tts-npu-preflight.json and 2026-10-03-neural-tts-npu-host-smoke.json. Host timing includes Python checks and is not a device benchmark.
+
+
+## SM8750 device pilot update
+
+Compilation and direct QNN inference now succeeded using host and device SDK 2.47.0.260601. The first attempt lacked host QNN libraries; SDK 2.44 then failed its system API version check (1.10 versus required 1.11). SDK 2.47 resolved the toolchain issue without changing the Android app.
+
+The compiled model contains one DISPATCH_OP, with no remaining CPU operations in its TFLite graph. The extracted 220,880,896-byte context loaded and graph retrieval succeeded on SM8750. QNN estimated DSP context memory at 224.31 MiB; this is an estimate, not total app PSS.
+
+qnn-net-run executed the same position-zero synthetic input 20 times with zero caches, all 15 output heads, native float32/int32 files, default performance profile and basic profiling. Mean NetRun graph execution was 24.521 ms, QNN execution 24.486 ms, and accelerator execution 21.389 ms. Init was 48.351 ms in the NetRun profile; this is not Android first-audio latency. No same-device CPU run of the identical graph was performed, so no speedup is claimed.
+
+All 11 device outputs were finite. Against the FP16-weight LiteRT CPU model, logits max absolute difference was 0.0865655 and RMS difference 0.0155463. All 15 argmax indices agreed for this one input. This does not prove sampled-code equivalence or voice quality, and repeated position zero does not validate carried-cache behavior.
+
+The next optimization target is avoiding computation of all 15 heads at every step, then measuring identical graphs on CPU and NPU and testing actual carried-cache inputs. The installed app was not replaced.
+
+Reproduce compilation with python scripts/voice/compile_litert_mtp.py --model MTP_TFLITE --output-dir OUTSIDE_GIT_DIR --report REPORT.json in the LiteRT environment with matching host Qualcomm SDK libraries in LD_LIBRARY_PATH. The script requires one dispatch graph, extracts its context and rejects failed compilation. For direct device tests use the matching qnn-net-run with --retrieve_context, --use_native_input_files, --use_native_output_files, --num_inferences 20 and --profiling_level basic. Input ordering/types come from qnn-context-binary-utility graphInputs metadata. Device runtime library paths must point to the matching SDK, not an arbitrary installed application runtime.
+
+Evidence: 2026-10-03-neural-tts-npu-compile.json, 2026-10-03-neural-tts-npu-device.json and 2026-10-03-neural-tts-npu-profile.txt. Compilation report describes the reproducibility run; the device report separately binds the tested context by SHA256.
