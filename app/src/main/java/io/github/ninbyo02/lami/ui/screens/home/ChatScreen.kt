@@ -3482,7 +3482,9 @@ fun Home(
         chatId: Int,
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
-        val existingId = streamingAssistantMessageId
+        val existingId = assistantGenerationSessionController.ownedMessageId(
+            streamingAssistantMessageId,
+        )
         val placeholderPayload = createAssistantMessage(
             chatId = chatId,
             response = "",
@@ -3493,7 +3495,10 @@ fun Home(
             nowEpochMs = System.currentTimeMillis(),
             startFailureMessage = startFailureMessage,
         )
-        if (shouldRecoverAssistantPlaceholderOwnership(existingId, result)) {
+        if (
+            shouldRecoverAssistantPlaceholderOwnership(existingId, result) &&
+            assistantGenerationSessionController.session?.isTerminal != true
+        ) {
             logStreamTrace(
                 "STREAM lifecycle stale ownership recovered oldId=$existingId " +
                     "oldStatus=${result.existingStatus}",
@@ -3630,7 +3635,9 @@ fun Home(
             return streamingAssistantMessageId
         }
 
-        val existingId = streamingAssistantMessageId
+        val existingId = assistantGenerationSessionController.ownedMessageId(
+            streamingAssistantMessageId,
+        )
         val result = assistantMessageLifecycleCoordinator.complete(
             existingMessageId = existingId,
             finalPayload = createAssistantMessage(
