@@ -1,0 +1,82 @@
+{
+  "status": "two_sentence_complete_pcm_schedule_estimate",
+  "source": "docs/reviews/2026-10-03-neural-tts-pipeline-device-comparison.json",
+  "sample_rate": 24000,
+  "runs": [
+    {
+      "label": "cold_primer",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 10685,
+      "observed_second_start_ms": 22196,
+      "observed_inter_sentence_silence_ms": 10311.0,
+      "earliest_gapless_first_start_ms": 20996.0,
+      "extra_wait_after_first_ready_ms": 10311.0
+    },
+    {
+      "label": "warm_serial",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 6364,
+      "observed_second_start_ms": 18191,
+      "observed_inter_sentence_silence_ms": 10627.0,
+      "earliest_gapless_first_start_ms": 16991.0,
+      "extra_wait_after_first_ready_ms": 10627.0
+    },
+    {
+      "label": "warm_pipeline_1",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 4611,
+      "observed_second_start_ms": 12039,
+      "observed_inter_sentence_silence_ms": 6228.0,
+      "earliest_gapless_first_start_ms": 10839.0,
+      "extra_wait_after_first_ready_ms": 6228.0
+    },
+    {
+      "label": "warm_pipeline_2",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 4617,
+      "observed_second_start_ms": 12565,
+      "observed_inter_sentence_silence_ms": 6748.0,
+      "earliest_gapless_first_start_ms": 11365.0,
+      "extra_wait_after_first_ready_ms": 6748.0
+    },
+    {
+      "label": "reverse_primer",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 15040,
+      "observed_second_start_ms": 24999,
+      "observed_inter_sentence_silence_ms": 8759.0,
+      "earliest_gapless_first_start_ms": 23799.0,
+      "extra_wait_after_first_ready_ms": 8759.0
+    },
+    {
+      "label": "reverse_warm_serial",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 6172,
+      "observed_second_start_ms": 17457,
+      "observed_inter_sentence_silence_ms": 10085.0,
+      "earliest_gapless_first_start_ms": 16257.0,
+      "extra_wait_after_first_ready_ms": 10085.0
+    },
+    {
+      "label": "reverse_warm_pipeline",
+      "first_clip_ms": 1200.0,
+      "second_clip_ms": 2080.0,
+      "observed_first_start_ms": 4566,
+      "observed_second_start_ms": 12355,
+      "observed_inter_sentence_silence_ms": 6589.0,
+      "earliest_gapless_first_start_ms": 11155.0,
+      "extra_wait_after_first_ready_ms": 6589.0
+    }
+  ],
+  "limitations": [
+    "Observed playback start is used as a conservative PCM-ready proxy.",
+    "Two fixed sentences only; no natural text stream, LLM overlap, or NPU CP integration.",
+    "Does not implement frame-level decoding or promise continuous arbitrary speech."
+  ]
+}
