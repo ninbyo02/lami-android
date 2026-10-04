@@ -45,7 +45,7 @@ fun resolveBuildPrNumber(): String {
 }
 
 val liteRtLmAndroidReleaseVersion = "0.11.0"
-val liteRtLmAndroidDebugVersion = "0.11.0"
+val liteRtLmAndroidDebugVersion = "0.17.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"

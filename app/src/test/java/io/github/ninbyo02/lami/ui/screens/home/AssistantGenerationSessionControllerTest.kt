@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -47,6 +48,18 @@ class AssistantGenerationSessionControllerTest {
         controller.cancel()
         assertTrue(controller.session?.phase == AssistantGenerationSession.Phase.CANCELLED)
         assertFalse(controller.acceptsStreamingUpdate(14L))
+    }
+
+    @Test
+    fun `terminal session retains owned message id after UI placeholder is released`() {
+        val controller = AssistantGenerationSessionController()
+        controller.start(15L, 5)
+        controller.claimMessage(48)
+        controller.beginFinalizing()
+        controller.complete(48)
+
+        assertEquals(48, controller.ownedMessageId(null))
+        assertEquals(99, controller.ownedMessageId(99))
     }
 
     @Test
