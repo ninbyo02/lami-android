@@ -23,7 +23,8 @@
 
         <receiver
             android:name="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:process=":generic_benchmark">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
             </intent-filter>

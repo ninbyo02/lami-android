@@ -994,6 +994,9 @@ fun Home(
             OllamaViewModelAssistantMessageLifecycleStore(viewModel),
         )
     }
+    val assistantGenerationSessionController = remember(effectiveChatId) {
+        AssistantGenerationSessionController()
+    }
     val postTerminalAssistantMetadataUpdater = remember(viewModel, effectiveChatId) {
         PostTerminalAssistantMetadataUpdater(
             OllamaViewModelPostTerminalAssistantMetadataStore(viewModel),
@@ -3362,7 +3365,9 @@ fun Home(
         chatId: Int,
         startFailureMessage: String,
     ): AssistantMessageLifecycleExecutionResult = streamingAssistantPersistMutex.withLock {
-        val existingId = streamingPersistenceState.assistantMessageId
+        val existingId = assistantGenerationSessionController.ownedMessageId(
+            streamingPersistenceState.assistantMessageId,
+        )
         val placeholderPayload = createAssistantMessage(
             chatId = chatId,
             response = "",
@@ -3373,7 +3378,10 @@ fun Home(
             nowEpochMs = System.currentTimeMillis(),
             startFailureMessage = startFailureMessage,
         )
-        if (shouldRecoverAssistantPlaceholderOwnership(existingId, result)) {
+        if (
+            shouldRecoverAssistantPlaceholderOwnership(existingId, result) &&
+            assistantGenerationSessionController.session?.isTerminal != true
+        ) {
             logStreamTrace(
                 "STREAM lifecycle stale ownership recovered oldId=$existingId " +
                     "oldStatus=${result.existingStatus}",
@@ -3512,7 +3520,9 @@ fun Home(
             return streamingPersistenceState.assistantMessageId
         }
 
-        val existingId = streamingPersistenceState.assistantMessageId
+        val existingId = assistantGenerationSessionController.ownedMessageId(
+            streamingPersistenceState.assistantMessageId,
+        )
         val result = assistantMessageLifecycleCoordinator.complete(
             existingMessageId = existingId,
             finalPayload = createAssistantMessage(
