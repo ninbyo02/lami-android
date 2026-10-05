@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--captures", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--split", choices=["train", "eval"], help="Evaluate only this declared text split")
     args = parser.parse_args()
     torch.set_num_threads(2)
     manifest = json.loads((args.captures / "manifest.json").read_text())
@@ -49,8 +50,13 @@ def main():
     methods = {name: program.load_method("forward") for name, program in programs.items()}
     samples = []
     for record in manifest["records"]:
+        if args.split and record.get("split") != args.split:
+            continue
         path = args.captures / record["file"]
-        assert path.parent == args.captures and path.suffix == ".npz"
+        if path.parent != args.captures or path.suffix != ".npz":
+            raise ValueError("Invalid capture path")
+        if "sha256" in record and hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
+            raise ValueError("Capture hash mismatch")
         with np.load(path) as capture:
             pos = record["position"]
             keys = torch.stack([torch.from_numpy(capture[f"kv_cache_k_{i}"].transpose(0, 2, 1, 3).copy())
@@ -64,6 +70,8 @@ def main():
                       cosine, sine, mask, torch.tensor([pos]))
             expected = capture["executorch_hidden"].flatten().copy()
         samples.append((record, inputs, expected))
+    if not samples:
+        raise ValueError("No captures in requested split")
     rows = []
     caches = None
     for record, inputs, expected in samples:
@@ -105,6 +113,8 @@ def main():
         candidate_hash = hashlib.file_digest(stream, "sha256").hexdigest()
     result = {
         "status": "host_cp_pilot_checked_not_audio_validated", "records": len(rows),
+        "split": args.split,
+        "capture_manifest_sha256": hashlib.sha256((args.captures / "manifest.json").read_bytes()).hexdigest(),
         "selected_heads": sum("teacher_sample_match" in row for row in rows),
         "bytes": {"baseline": baseline.stat().st_size, "candidate": args.candidate.stat().st_size},
         "candidate_sha256": candidate_hash,
@@ -116,7 +126,7 @@ def main():
                               for mode in ("teacher", "rolling")},
         "top1_mismatches": {mode: sum(row.get(mode + "_top1_match") is False for row in rows)
                             for mode in ("teacher", "rolling")},
-        "limitations": ["Two texts, two frames each; inadequate for training or voice quality approval.",
+        "limitations": ["Bounded prefix captures do not establish voice quality.",
                         "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
                         "Host timings include Python runtime bridge; no device speed or realtime claim."],
         "rows": rows,
