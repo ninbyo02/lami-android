@@ -11,7 +11,19 @@ def main():
     p.add_argument('--root',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--frames',type=int,default=2,choices=range(1,5))
+    p.add_argument('--texts-jsonl',type=Path,help='Optional rows with unique id, text and train/eval split')
     a=p.parse_args()
+    cases=[{'id':'default-'+str(i),'text':text,'split':'eval'} for i,text in enumerate(('こんにちは。','好きな色は赤です。'))]
+    if a.texts_jsonl:
+        import unicodedata
+        cases=[json.loads(line) for line in a.texts_jsonl.read_text().splitlines() if line.strip()]
+        if not cases or len(cases)>128:raise ValueError('Expected 1..128 capture texts')
+        ids=set();texts=set()
+        for case in cases:
+            case['text']=unicodedata.normalize('NFC',case['text'])
+            if not case['id'] or case['id'] in ids or case['text'] in texts:raise ValueError('Duplicate or empty capture id/text')
+            if case['split'] not in ('train','eval') or not 1<=len(case['text'])<=120:raise ValueError('Invalid split/text')
+            ids.add(case['id']);texts.add(case['text'])
     import numpy as np
     import torch
     from executorch.runtime import Runtime
@@ -51,8 +63,10 @@ def main():
             h,k,v=self.method.execute((torch.from_numpy(np.array(h,np.float32)).reshape(1,1,1024),self.k,self.v,cos,sin,mask,torch.tensor([pos])))
             self.k,self.v=k.clone(),v.clone();return h.flatten().numpy().copy()
     main=Decoder(cfg['main_program'],28,256,3);cp=Decoder('cp-stateless-fp32-cache32-et14.pte',5,32,1)
+    if a.output_dir.exists() and any(a.output_dir.iterdir()):raise ValueError('Capture output must be empty')
     a.output_dir.mkdir(parents=True,exist_ok=True);records=[]
-    for case,text in enumerate(('こんにちは。','好きな色は赤です。')):
+    for case,source in enumerate(cases):
+        text=source['text']
         r=Random();ids=tokenizer.encode(f'<|im_start|>assistant\n{text}<|im_end|>\n<|im_start|>assistant\n')
         pad,bos,eos=(projected[i] for i in (151671,151672,151673));tags=[2154,2156,2058,2157,3000,2148,2149]
         prefill=[projected[i].copy() for i in ids[:3]]+[(bos if j==len(tags)-2 else pad)+embedding[i] for j,i in enumerate(tags[:-1])]+[projected[i]+embedding[2148] for i in ids[3:-5]]+[eos+embedding[2148],pad+embedding[2149]]
@@ -67,7 +81,7 @@ def main():
                 name=f'case-{case}-frame-{frame}-pos-{pos}.npz'
                 values={'embeddings':np.array(x,np.float32).reshape(1,1,1024),'input_ids':np.array([pos],np.int32),'mask':np.array([0. if j<=pos else -10000. for j in range(32)],np.float32).reshape(1,1,1,32),**{f'kv_cache_{kind}_{n}':getattr(cp,kind)[n].numpy().transpose(0,2,1,3).copy() for kind in ('k','v') for n in range(5)}}
                 result=cp.step(x,pos);values['executorch_hidden']=result.reshape(1,1024)
-                np.savez_compressed(a.output_dir/name,**values);records.append({'file':name,'case':case,'text':text,'frame':frame,'position':pos,'selected_head':pos-1 if pos>0 else None})
+                np.savez_compressed(a.output_dir/name,**values);records.append({'file':name,'sha256':hashlib.sha256((a.output_dir/name).read_bytes()).hexdigest(),'case':case,'id':source['id'],'split':source['split'],'text':text,'frame':frame,'position':pos,'selected_head':pos-1 if pos>0 else None})
                 return result
             step(h,0);ch=step(embedding[tok],1)
             for group in range(15):

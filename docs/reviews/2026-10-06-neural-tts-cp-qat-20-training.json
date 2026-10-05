@@ -1,0 +1,60 @@
+{
+  "status": "bounded_qat_completed_not_audio_validated",
+  "steps": 20,
+  "learning_rate": 1e-07,
+  "train_texts": [
+    "train-0",
+    "train-1",
+    "train-10",
+    "train-11",
+    "train-12",
+    "train-13",
+    "train-14",
+    "train-15",
+    "train-2",
+    "train-3",
+    "train-4",
+    "train-5",
+    "train-6",
+    "train-7",
+    "train-8",
+    "train-9"
+  ],
+  "eval_texts": [
+    "eval-0",
+    "eval-1",
+    "eval-2",
+    "eval-3"
+  ],
+  "train_records": 512,
+  "eval_records": 128,
+  "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+  "before_fake_quant_eval": {
+    "mean_relative_l2": 0.06168577918288065,
+    "max_relative_l2": 0.11676385998725891
+  },
+  "after_fake_quant_eval": {
+    "mean_relative_l2": 0.06275995907344623,
+    "max_relative_l2": 0.10570255666971207
+  },
+  "int8_weight_constants": 35,
+  "pte_bytes": 79065600,
+  "pte_sha256": "5404c86e195dbaa0db233b6ff10c1b9cb64c760473e5de81d003d7d379183988",
+  "history": [
+    {
+      "step": 10,
+      "loss": 0.02468232437968254,
+      "elapsed_s": 91.1771639730141
+    },
+    {
+      "step": 20,
+      "loss": 0.017466716468334198,
+      "elapsed_s": 100.13056572701316
+    }
+  ],
+  "limitations": [
+    "Small bounded prefix dataset, no full sentence rollout or listening.",
+    "Fake-quant evaluation must be confirmed after ExecuTorch conversion.",
+    "Teacher embeddings/caches supplied; no production promotion."
+  ]
+}
