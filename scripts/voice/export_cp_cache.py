@@ -46,6 +46,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--precision", choices=["fp32", "int8"], required=True)
+    parser.add_argument("--quantize-scope", choices=["all", "mlp"], default="all",
+                        help="INT8 linears: all 35, or only 15 MLP projections")
     parser.add_argument("--capacity", type=int, choices=[16, 32], default=32)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
@@ -74,15 +76,21 @@ def main():
         from executorch.backends.xnnpack.quantizer.xnnpack_quantizer import (
             XNNPACKQuantizer, get_symmetric_quantization_config)
         exported = torch.export.export(wrapper, inputs, strict=False).module()
-        quantizer = XNNPACKQuantizer().set_global(
-            get_symmetric_quantization_config(is_per_channel=True, is_dynamic=True))
+        config = get_symmetric_quantization_config(is_per_channel=True, is_dynamic=True)
+        quantizer = XNNPACKQuantizer()
+        if args.quantize_scope == "all":
+            quantizer.set_global(config)
+        else:
+            for index in range(5):
+                quantizer.set_module_name(f"layers.{index}.mlp", config)
         prepared = prepare_pt2e(exported, quantizer)
         # Dynamic activations need no corpus calibration; observe fixed weights.
         prepared(*inputs)
         wrapper = convert_pt2e(prepared)
         int8_weights = sum(t.dtype == torch.int8 for t in wrapper.state_dict().values())
-        if int8_weights < 35:
-            raise RuntimeError(f"Only {int8_weights} INT8 constants; expected all 35 CP linears")
+        expected = 35 if args.quantize_scope == "all" else 15
+        if int8_weights != expected:
+            raise RuntimeError(f"{int8_weights} INT8 constants; expected exactly {expected}")
     ep = torch.export.export(wrapper, inputs, strict=False)
     print("CP_EXPORT_OK", args.precision, flush=True)
     program = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()]).to_executorch()
@@ -91,6 +99,7 @@ def main():
     report = {
         "status": "isolated_cp_pilot_not_audio_validated",
         "precision": args.precision, "capacity": args.capacity,
+        "quantize_scope": args.quantize_scope if args.precision == "int8" else None,
         "int8_weight_constants": int8_weights, "bytes": args.output.stat().st_size,
         "sha256": hashlib.sha256(program.buffer).hexdigest(),
         "source_model": str(args.model),
