@@ -66,7 +66,7 @@ class GenerationIntegrationTestService : Service() {
 
     private suspend fun runBackgroundIntegration() {
         val started = SystemClock.elapsedRealtime()
-        writeResult("status=running\nphases=npu_lifecycle,npu_endurance4096,gpu\ncpu_background_status=unsupported_receiver_anr_limit\n")
+        writeResult("status=running\nphases=npu_lifecycle,npu_endurance4096,gpu,cpu\n")
         val db = ChatDatabase.getDatabase(applicationContext)
         val repository = ChatRepository(db.messageDao(), db.chatDao())
         val modelPath = SettingsPreferences(applicationContext).getValidLocalBaseModelPathOrNull().orEmpty()
@@ -77,7 +77,8 @@ class GenerationIntegrationTestService : Service() {
         NpuKotlinConversationProductRoute.reset("integration-phase-transition")
         Thread.sleep(1_000L)
         val gpuResult = runGenericBenchmarkPhase("gpu", 128, 120_000L)
-        val overall = lifecycleResult.passed && enduranceResult.infrastructurePassed && gpuResult.passed
+        val cpuResult = runCpuBackgroundPhase(120_000L)
+        val overall = lifecycleResult.passed && enduranceResult.infrastructurePassed && gpuResult.passed && cpuResult.passed
         writeResult(buildString {
             appendLine("status=${if (overall) "success" else "failure"}")
             appendLine("backend=NPU")
@@ -96,8 +97,8 @@ class GenerationIntegrationTestService : Service() {
             appendLine("endurance_max_output_tokens=4096")
             appendLine("gpu_status=${if (gpuResult.passed) "success" else "failure"}")
             appendLine("gpu_reason=${gpuResult.reason}")
-            appendLine("cpu_background_status=unsupported_receiver_anr_limit")
-            appendLine("cpu_validation=fresh_cpu_product_default_passed")
+            appendLine("cpu_status=${if (cpuResult.passed) "success" else "failure"}")
+            appendLine("cpu_reason=${cpuResult.reason}")
             appendLine("elapsed_ms=${SystemClock.elapsedRealtime() - started}")
         })
     }
@@ -203,6 +204,29 @@ class GenerationIntegrationTestService : Service() {
             Thread.sleep(250L)
         }
         return false
+    }
+
+    private fun runCpuBackgroundPhase(timeoutMs: Long): GenericPhaseResult {
+        val resultFile = File(filesDir, CpuBackgroundIntegrationService.RESULT_FILE)
+        resultFile.delete()
+        val intent = Intent(CpuBackgroundIntegrationService.ACTION_RUN).apply {
+            component = ComponentName(
+                this@GenerationIntegrationTestService,
+                CpuBackgroundIntegrationService::class.java,
+            )
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        val deadline = SystemClock.elapsedRealtime() + timeoutMs
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val text = runCatching { resultFile.readText() }.getOrDefault("")
+            val status = Regex("(?m)^status=([^\\n]+)").find(text)?.groupValues?.get(1).orEmpty()
+            if (status == "success" || status == "failure") {
+                val reason = Regex("(?m)^reason=([^\\n]*)").find(text)?.groupValues?.get(1).orEmpty()
+                return GenericPhaseResult(status == "success", reason.ifBlank { status })
+            }
+            Thread.sleep(250L)
+        }
+        return GenericPhaseResult(false, "cpu_service_timeout")
     }
 
     private fun repositoryLifecycleStore(repository: ChatRepository) = object : AssistantMessageLifecycleStore {

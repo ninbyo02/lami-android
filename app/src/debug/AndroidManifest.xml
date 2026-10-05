@@ -6,6 +6,16 @@
 
     <application android:extractNativeLibs="true">
         <service
+            android:name="io.github.ninbyo02.lami.integration.CpuBackgroundIntegrationService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:process=":cpu_integration"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_cpu_background_integration_test" />
+        </service>
+        <service
             android:name="io.github.ninbyo02.lami.integration.GenerationIntegrationTestService"
             android:exported="true"
             android:foregroundServiceType="specialUse"
