@@ -1,0 +1,393 @@
+{
+  "full_feedback": {
+    "fp32": {
+      "host_validation": "passed",
+      "frontend": "model FP32 table, original Qwen custom-voice layout",
+      "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+      "model_sha256": {
+        "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+      },
+      "cases": [
+        {
+          "text": "窓を閉めてから、赤い箱を机に置いてください。",
+          "prefill_tokens": 27,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 47,
+          "eos_reached": true,
+          "samples": 90240,
+          "duration_seconds": 3.76,
+          "host_elapsed_seconds": 25.039
+        },
+        {
+          "text": "午前九時半に、次の予定をお知らせします。",
+          "prefill_tokens": 26,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 56,
+          "eos_reached": true,
+          "samples": 107520,
+          "duration_seconds": 4.48,
+          "host_elapsed_seconds": 28.009
+        }
+      ],
+      "android_validation": "pending",
+      "listening_quality_validation": "pending",
+      "candidate_sha256": null,
+      "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+      "max_frames": 96,
+      "limitations": [
+        "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+        "Host timing includes frontend and decoding, not device realtime evidence."
+      ],
+      "artifacts": {
+        "case-0-codes.npy": "ff10ebff876435416549b66b5d6ac8206d390f4aa18432a8c85df7d3263c0865",
+        "case-0.wav": "89002f622fc6b5eb96e886a9e9a82acddc365a41b74c597d244d2aeca6869486",
+        "case-1-codes.npy": "3bd9403a73a58c2dbe48409bf5ca320363189508b9db0e0a834b16db0e224dbc",
+        "case-1.wav": "5e55d4592d87d53348e5eea5aa8c13be1eb45441d788a1faa95692d87dbe605f"
+      }
+    },
+    "mlp": {
+      "host_validation": "passed",
+      "frontend": "model FP32 table, original Qwen custom-voice layout",
+      "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+      "model_sha256": {
+        "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+      },
+      "cases": [
+        {
+          "text": "窓を閉めてから、赤い箱を机に置いてください。",
+          "prefill_tokens": 27,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 55,
+          "eos_reached": true,
+          "samples": 105600,
+          "duration_seconds": 4.4,
+          "host_elapsed_seconds": 26.342
+        },
+        {
+          "text": "午前九時半に、次の予定をお知らせします。",
+          "prefill_tokens": 26,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 48,
+          "eos_reached": true,
+          "samples": 92160,
+          "duration_seconds": 3.84,
+          "host_elapsed_seconds": 27.635
+        }
+      ],
+      "android_validation": "pending",
+      "listening_quality_validation": "pending",
+      "candidate_sha256": "4d0cd5464070f9c8c4b7708c310048b809792a84b24d4b7f1954411f3b1f3338",
+      "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+      "max_frames": 96,
+      "limitations": [
+        "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+        "Host timing includes frontend and decoding, not device realtime evidence."
+      ],
+      "artifacts": {
+        "case-0-codes.npy": "c0028caaa3f60c209863d4bc44f340b3687f94a595b72992a657d3b00f52e088",
+        "case-0.wav": "d7eb5aecaa4dddad17fe052eb4fe572549e69ade9956ba990b34fedee1c84961",
+        "case-1-codes.npy": "6cb2f637b7624b6b91e33ffbdfef267d309469c06437cc83ba8d712cc5f4a6c6",
+        "case-1.wav": "40838ff721991fcead0f4c98355ed8d84362f1efece1473dab6ea82a8a2e3b2b"
+      }
+    },
+    "ptq": {
+      "host_validation": "passed",
+      "frontend": "model FP32 table, original Qwen custom-voice layout",
+      "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+      "model_sha256": {
+        "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+      },
+      "cases": [
+        {
+          "text": "窓を閉めてから、赤い箱を机に置いてください。",
+          "prefill_tokens": 27,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 49,
+          "eos_reached": true,
+          "samples": 94080,
+          "duration_seconds": 3.92,
+          "host_elapsed_seconds": 26.255
+        },
+        {
+          "text": "午前九時半に、次の予定をお知らせします。",
+          "prefill_tokens": 26,
+          "preparation_max_abs_error": 2.384185791015625e-07,
+          "codec_frames": 45,
+          "eos_reached": true,
+          "samples": 86400,
+          "duration_seconds": 3.6,
+          "host_elapsed_seconds": 35.532
+        }
+      ],
+      "android_validation": "pending",
+      "listening_quality_validation": "pending",
+      "candidate_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+      "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+      "max_frames": 96,
+      "limitations": [
+        "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+        "Host timing includes frontend and decoding, not device realtime evidence."
+      ],
+      "artifacts": {
+        "case-0-codes.npy": "4ede961b1e5946c257a63ceac5a59f73daf2cadb48c896efb4a870da63b10edf",
+        "case-0.wav": "a82ea0a125ffbbdfb5cf3d14d3a6518a698b7fe11dfcc024aaf42f44bc24b00d",
+        "case-1-codes.npy": "eb6bdf5792b5cbc69d9fdddae19311e644a9d6fac3271926cfac217895dea1b2",
+        "case-1.wav": "0470b66a2806695524d0e46370e12e10dae555fc52c926eee214a5746f57bf81"
+      }
+    }
+  },
+  "later_frame_validation": {
+    "mlp": {
+      "status": "host_cp_pilot_checked_not_audio_validated",
+      "records": 256,
+      "split": "eval",
+      "capture_manifest_sha256": "bad60aa2decc5a9815a94087f494308bc71757fe1b5bcdb2a8994b63c5d7e29e",
+      "selected_heads": 240,
+      "bytes": {
+        "baseline": 314730112,
+        "candidate": 173325312
+      },
+      "candidate_sha256": "4d0cd5464070f9c8c4b7708c310048b809792a84b24d4b7f1954411f3b1f3338",
+      "host_median_ms_per_step": {
+        "baseline": 14.403222578152963,
+        "candidate": 9.552784523407354
+      },
+      "host_trial_ms_per_step": {
+        "baseline": [
+          12.499387988214039,
+          14.403222578152963,
+          17.722817585990924,
+          16.68246430858744,
+          17.527253636671958,
+          13.069396613332174,
+          12.725035339826718
+        ],
+        "candidate": [
+          8.551777457000753,
+          8.940696769514034,
+          12.497629285235234,
+          12.292437449218596,
+          9.983044867112767,
+          9.552784523407354,
+          8.318630347616818
+        ]
+      },
+      "max_relative_l2": {
+        "teacher": 0.1412082016468048,
+        "rolling": 0.13850143551826477
+      },
+      "sample_mismatches": {
+        "teacher": 142,
+        "rolling": 145
+      },
+      "top1_mismatches": {
+        "teacher": 28,
+        "rolling": 31
+      },
+      "limitations": [
+        "Bounded prefix captures do not establish voice quality.",
+        "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+        "Host timings include Python runtime bridge; no device speed or realtime claim."
+      ],
+      "mean_relative_l2": {
+        "teacher": 0.05840975411410909,
+        "rolling": 0.06214747953345068
+      }
+    },
+    "ptq": {
+      "status": "host_cp_pilot_checked_not_audio_validated",
+      "records": 256,
+      "split": "eval",
+      "capture_manifest_sha256": "bad60aa2decc5a9815a94087f494308bc71757fe1b5bcdb2a8994b63c5d7e29e",
+      "selected_heads": 240,
+      "bytes": {
+        "baseline": 314730112,
+        "candidate": 79064960
+      },
+      "candidate_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+      "host_median_ms_per_step": {
+        "baseline": 11.06720273821793,
+        "candidate": 4.801191242222558
+      },
+      "host_trial_ms_per_step": {
+        "baseline": [
+          9.80710399619511,
+          9.554128535114614,
+          9.560850847606162,
+          11.06720273821793,
+          11.710800796890908,
+          11.700103148427843,
+          11.885264277339047
+        ],
+        "candidate": [
+          4.801191242222558,
+          4.688671371127384,
+          4.7351302343940915,
+          4.702822500007642,
+          5.7986882968634745,
+          5.828392558555606,
+          5.905542750042514
+        ]
+      },
+      "max_relative_l2": {
+        "teacher": 0.15816867351531982,
+        "rolling": 0.1650623083114624
+      },
+      "sample_mismatches": {
+        "teacher": 155,
+        "rolling": 174
+      },
+      "top1_mismatches": {
+        "teacher": 36,
+        "rolling": 42
+      },
+      "limitations": [
+        "Bounded prefix captures do not establish voice quality.",
+        "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+        "Host timings include Python runtime bridge; no device speed or realtime claim."
+      ],
+      "mean_relative_l2": {
+        "teacher": 0.06118436128963367,
+        "rolling": 0.07736627236954519
+      }
+    }
+  },
+  "later_capture_rows": 256,
+  "later_frame_range": [
+    16,
+    23
+  ],
+  "later_selected_code_parity_with_full_fp32": "passed",
+  "limitations": [
+    "Host jobs overlapped; elapsed times are not a speed comparison.",
+    "Finite PCM and EOS do not validate intelligibility or cute voice quality.",
+    "The two new sentences are now validation examples, not future untouched acceptance samples."
+  ],
+  "tail_frame_validation": {
+    "mlp": {
+      "status": "host_cp_pilot_checked_not_audio_validated",
+      "records": 256,
+      "split": "eval",
+      "capture_manifest_sha256": "a107b9c86c74826d27ae63da53f9f6dec4beef9ac051175d1e65160c4af33388",
+      "selected_heads": 240,
+      "bytes": {
+        "baseline": 314730112,
+        "candidate": 173325312
+      },
+      "candidate_sha256": "4d0cd5464070f9c8c4b7708c310048b809792a84b24d4b7f1954411f3b1f3338",
+      "host_median_ms_per_step": {
+        "baseline": 9.281703007786746,
+        "candidate": 6.475295550785631
+      },
+      "host_trial_ms_per_step": {
+        "baseline": [
+          9.248783570228625,
+          9.283169792979606,
+          9.23579711718503,
+          9.290737246033132,
+          9.30162169538562,
+          9.281703007786746,
+          9.281424816435901
+        ],
+        "candidate": [
+          6.484711656298714,
+          6.4925062188194715,
+          6.472656562550583,
+          6.475295550785631,
+          6.466596156315063,
+          6.503428773498854,
+          6.464852878934835
+        ]
+      },
+      "max_relative_l2": {
+        "teacher": 0.12915931642055511,
+        "rolling": 0.18993082642555237
+      },
+      "sample_mismatches": {
+        "teacher": 142,
+        "rolling": 138
+      },
+      "top1_mismatches": {
+        "teacher": 21,
+        "rolling": 23
+      },
+      "limitations": [
+        "Bounded prefix captures do not establish voice quality.",
+        "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+        "Host timings include Python runtime bridge; no device speed or realtime claim."
+      ],
+      "mean_relative_l2": {
+        "teacher": 0.056926837631181115,
+        "rolling": 0.06297208971591317
+      }
+    },
+    "ptq": {
+      "status": "host_cp_pilot_checked_not_audio_validated",
+      "records": 256,
+      "split": "eval",
+      "capture_manifest_sha256": "a107b9c86c74826d27ae63da53f9f6dec4beef9ac051175d1e65160c4af33388",
+      "selected_heads": 240,
+      "bytes": {
+        "baseline": 314730112,
+        "candidate": 79064960
+      },
+      "candidate_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+      "host_median_ms_per_step": {
+        "baseline": 9.294866589812045,
+        "candidate": 4.409094543007086
+      },
+      "host_trial_ms_per_step": {
+        "baseline": [
+          9.299183726625415,
+          9.281391585886922,
+          9.320774242155494,
+          9.294866589812045,
+          9.285614167993117,
+          9.313219710975318,
+          9.257962730430336
+        ],
+        "candidate": [
+          4.433122410205215,
+          4.436981914068383,
+          4.409094543007086,
+          4.380336800750229,
+          4.502516562524761,
+          4.383725257753213,
+          4.381320726565718
+        ]
+      },
+      "max_relative_l2": {
+        "teacher": 0.14212512969970703,
+        "rolling": 0.15517552196979523
+      },
+      "sample_mismatches": {
+        "teacher": 135,
+        "rolling": 155
+      },
+      "top1_mismatches": {
+        "teacher": 21,
+        "rolling": 36
+      },
+      "limitations": [
+        "Bounded prefix captures do not establish voice quality.",
+        "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+        "Host timings include Python runtime bridge; no device speed or realtime claim."
+      ],
+      "mean_relative_l2": {
+        "teacher": 0.061452993537386646,
+        "rolling": 0.07861777786092716
+      }
+    }
+  },
+  "tail_frame_range": [
+    32,
+    39
+  ],
+  "tail_selected_code_parity_with_full_fp32": "passed"
+}

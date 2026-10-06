@@ -10,9 +10,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--root',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,required=True)
-    p.add_argument('--frames',type=int,default=2,choices=range(1,5))
+    p.add_argument('--frames',type=int,default=2,choices=range(1,65))
+    p.add_argument('--capture-frame-start',type=int,default=0,help='Generate earlier frames without saving their CP inputs')
     p.add_argument('--texts-jsonl',type=Path,help='Optional rows with unique id, text and train/eval split')
     a=p.parse_args()
+    if not 0 <= a.capture_frame_start < a.frames:
+        p.error('capture-frame-start must be less than frames and nonnegative')
     cases=[{'id':'default-'+str(i),'text':text,'split':'eval'} for i,text in enumerate(('こんにちは。','好きな色は赤です。'))]
     if a.texts_jsonl:
         import unicodedata
@@ -70,6 +73,8 @@ def main():
         r=Random();ids=tokenizer.encode(f'<|im_start|>assistant\n{text}<|im_end|>\n<|im_start|>assistant\n')
         pad,bos,eos=(projected[i] for i in (151671,151672,151673));tags=[2154,2156,2058,2157,3000,2148,2149]
         prefill=[projected[i].copy() for i in ids[:3]]+[(bos if j==len(tags)-2 else pad)+embedding[i] for j,i in enumerate(tags[:-1])]+[projected[i]+embedding[2148] for i in ids[3:-5]]+[eos+embedding[2148],pad+embedding[2149]]
+        if len(prefill) + a.frames > 256:
+            raise ValueError('Requested frames exceed main cache capacity')
         main.reset()
         for pos,x in enumerate(prefill):h=main.step(x,pos)
         seen=set()
@@ -78,6 +83,8 @@ def main():
             if tok==2150:break
             seen.add(tok);summed=embedding[tok].copy();cp.reset()
             def step(x,pos):
+                if frame < a.capture_frame_start:
+                    return cp.step(x,pos)
                 name=f'case-{case}-frame-{frame}-pos-{pos}.npz'
                 values={'embeddings':np.array(x,np.float32).reshape(1,1,1024),'input_ids':np.array([pos],np.int32),'mask':np.array([0. if j<=pos else -10000. for j in range(32)],np.float32).reshape(1,1,1,32),**{f'kv_cache_{kind}_{n}':getattr(cp,kind)[n].numpy().transpose(0,2,1,3).copy() for kind in ('k','v') for n in range(5)}}
                 result=cp.step(x,pos);values['executorch_hidden']=result.reshape(1,1024)
@@ -86,12 +93,13 @@ def main():
             step(h,0);ch=step(embedding[tok],1)
             for group in range(15):
                 q=sample(heads[group],ch,r)
-                records[-1]["selected_code"]=q;records[-1]["sampling_draw"]=r.last_draw
+                if frame >= a.capture_frame_start:
+                    records[-1]["selected_code"]=q;records[-1]["sampling_draw"]=r.last_draw
                 summed+=embeds[group][q]
                 if group<14:ch=step(embeds[group][q],group+2)
             if frame+1<a.frames:h=main.step(summed+pad,len(prefill)+frame)
         print('captured',text,flush=True)
-    report={'status':'bounded_actual_voice_inputs_captured','bundle':str(a.root),'sha256':cfg['sha256'],'frames_per_text_limit':a.frames,'records':records,'limitations':['Host reproduction of current frontend/CPU programs; not phone input recording.','Bounded prefix only, no audio decoding or listening test.','Sampling follows seed42 JavaRandom reference; Android native head arithmetic may differ in low-order bits.']}
+    report={'status':'bounded_actual_voice_inputs_captured','bundle':str(a.root),'sha256':cfg['sha256'],'frames_per_text_limit':a.frames,'capture_frame_start':a.capture_frame_start,'records':records,'limitations':['Host reproduction of current frontend/CPU programs; not phone input recording.','Bounded prefix only, no audio decoding or listening test.','Sampling follows seed42 JavaRandom reference; Android native head arithmetic may differ in low-order bits.']}
     (a.output_dir/'manifest.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n');print('records',len(records),flush=True)
 
 
