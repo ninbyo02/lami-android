@@ -13,7 +13,7 @@ from transformers import AutoTokenizer
 from qwen_tts import Qwen3TTSModel
 
 
-def validate(root, model_path, texts, candidate, output_dir, max_frames):
+def validate(root, model_path, texts, candidate, output_dir, max_frames, main_candidate=None):
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError("Output directory must be empty")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -37,17 +37,20 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames):
             self.method=self.program.load_method('forward')
             self.k=torch.zeros(layers,1,8,capacity,128);self.v=torch.zeros_like(self.k)
             self.capacity,self.axes=capacity,axes
+            self.forward_ms=[]
         def step(self,h,pos):
             shape=(3,1,1,128) if self.axes==3 else (1,1,128)
             c=torch.tensor(cfg['rope_cos'][pos]).repeat(self.axes).reshape(shape)
             s=torch.tensor(cfg['rope_sin'][pos]).repeat(self.axes).reshape(shape)
             mask=torch.tensor([0. if i<=pos else -1e9 for i in range(self.capacity)]).reshape(1,1,1,-1)
+            started=time.perf_counter()
             h,k,v=self.method.execute((torch.from_numpy(np.array(h,dtype=np.float32)).reshape(1,1,1024),self.k,self.v,c,s,mask,torch.tensor([pos])))
+            self.forward_ms.append((time.perf_counter()-started)*1000)
             self.k,self.v=k.clone(),v.clone()
             return h.flatten().numpy().copy()
     main_program=cfg.get('main_program','stateless-28-int4-cache256-et14.pte')
     assert main_program in cfg['sha256'] and Path(main_program).name == main_program
-    main=Decoder(main_program,28,256,3)
+    main=Decoder(main_candidate if main_candidate else main_program,28,256,3)
     cp=Decoder(candidate if candidate else 'cp-stateless-fp32-cache32-et14.pte',5,32,1)
     decoder_program=Runtime.get().load_program(root/'speech-decoder-dynamic-et14.pte')
     audio_decoder=decoder_program.load_method('forward')
@@ -123,7 +126,7 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames):
             audio.writeframes((pcm.numpy() * 32767).round().astype('<i2').tobytes())
         row={'text':text,'prefill_tokens':len(prefill),'preparation_max_abs_error':preparation_error,'codec_frames':len(frames),'eos_reached':True,'samples':pcm.numel(),'duration_seconds':pcm.numel()/24000,'host_elapsed_seconds':round(time.monotonic()-start,3)}
         print(json.dumps(row,ensure_ascii=False),flush=True);results.append(row)
-    return {'host_validation':'passed' if all(r['eos_reached'] for r in results) else 'blocked_missing_eos','frontend':'model FP32 table, original Qwen custom-voice layout','sampling':'seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames','model_sha256':{k:v for k,v in cfg['sha256'].items() if k.endswith('.pte')},'cases':results,'android_validation':'pending','listening_quality_validation':'pending'}
+    return {'host_validation':'passed' if all(r['eos_reached'] for r in results) else 'blocked_missing_eos','frontend':'model FP32 table, original Qwen custom-voice layout','sampling':'seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames','model_sha256':{k:v for k,v in cfg['sha256'].items() if k.endswith('.pte')},'cases':results,'host_forward_timing':{name:{'calls':len(module.forward_ms),'mean_ms':float(np.mean(module.forward_ms)),'p50_ms':float(np.percentile(module.forward_ms,50)),'p95_ms':float(np.percentile(module.forward_ms,95))} for name,module in [('main',main),('cp',cp)]},'android_validation':'pending','listening_quality_validation':'pending'}
 
 
 if __name__=='__main__':
@@ -132,6 +135,7 @@ if __name__=='__main__':
     p.add_argument('--model',type=Path,required=True)
     p.add_argument('--report',type=Path,required=True)
     p.add_argument('--candidate',type=Path)
+    p.add_argument('--main-candidate',type=Path,help='Isolated main candidate; original bundle remains verified and unchanged')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--max-frames',type=int,choices=range(2,257),default=96)
     p.add_argument('--texts-jsonl',type=Path,default=Path(__file__).with_name('cp_later_frame_texts.jsonl'))
@@ -139,8 +143,9 @@ if __name__=='__main__':
     texts=[json.loads(line)['text'] for line in args.texts_jsonl.read_text().splitlines() if line.strip()]
     if not texts or len(texts)>128 or any(not 1<=len(text)<=120 for text in texts):
         p.error('Expected 1..128 nonempty texts of at most 120 characters')
-    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames)
+    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames,args.main_candidate)
     report['candidate_sha256']=hashlib.sha256(args.candidate.read_bytes()).hexdigest() if args.candidate else None
+    report['main_candidate_sha256']=hashlib.sha256(args.main_candidate.read_bytes()).hexdigest() if args.main_candidate else None
     report['feedback']='Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.'
     report['max_frames']=args.max_frames
     report['limitations']=['Two new sentences with a bounded generation limit, not broad voice quality acceptance.', 'Host timing includes frontend and decoding, not device realtime evidence.']
