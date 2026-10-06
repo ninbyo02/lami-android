@@ -10,7 +10,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "voice/capture_mtp_voice_inputs.p
 
 
 class CaptureGuardTests(unittest.TestCase):
-    def rejected(self, rows, message):
+    def rejected(self, rows, message, extra_args=()):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
             texts = folder / "texts.jsonl"
@@ -18,7 +18,7 @@ class CaptureGuardTests(unittest.TestCase):
             output = folder / "captures"
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), "--root", str(folder / "absent-model"),
-                 "--output-dir", str(output), "--texts-jsonl", str(texts)],
+                 "--output-dir", str(output), "--texts-jsonl", str(texts), *extra_args],
                 capture_output=True, text=True, timeout=10)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(message, result.stderr)
@@ -38,6 +38,13 @@ class CaptureGuardTests(unittest.TestCase):
         self.rejected([{"id": "same", "text": "おはよう。", "split": "train"},
                        {"id": "same", "text": "こんにちは。", "split": "eval"}],
                       "Duplicate or empty")
+
+    def test_invalid_capture_start(self):
+        rows = [{"id": "a", "text": "こんにちは。", "split": "eval"}]
+        for start in ("-1", "2", "3"):
+            with self.subTest(start=start):
+                self.rejected(rows, "capture-frame-start must",
+                              ("--frames", "2", "--capture-frame-start", start))
 
     def test_undeclared_split(self):
         self.rejected([{"id": "a", "text": "こんにちは。", "split": "validation"}],
