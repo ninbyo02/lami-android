@@ -8,6 +8,8 @@ from qwen_tts import Qwen3TTSModel
 from torchao.quantization.qat import Int8DynActInt4WeightQATQuantizer
 from executorch.exir import to_edge_transform_and_lower
 from executorch.backends.xnnpack.partition.xnnpack_partitioner import XnnpackPartitioner
+from executorch.backends.xnnpack.partition.config.gemm_configs import LinearConfig
+from executorch.backends.xnnpack.partition.config.generic_node_configs import BMMConfig, SoftmaxConfig
 from qwen_tts.core.models.modeling_qwen3_tts import apply_multimodal_rotary_pos_emb, repeat_kv
 
 class StatelessTalker(torch.nn.Module):
@@ -100,7 +102,9 @@ if __name__ == '__main__':
             raise RuntimeError(f'{int8_weights} INT8 weights; expected 196')
     ep=torch.export.export(wrapper,inputs,strict=False)
     print('MAIN_EXPORT_OK',args.capacity,flush=True)
-    et=to_edge_transform_and_lower(ep,partitioner=[XnnpackPartitioner(per_op_mode=args.precision == "int8")]).to_executorch()
+    partitioner=(XnnpackPartitioner(configs=[LinearConfig,BMMConfig,SoftmaxConfig],per_op_mode=True)
+                 if args.precision == 'int8' else XnnpackPartitioner())
+    et=to_edge_transform_and_lower(ep,partitioner=[partitioner]).to_executorch()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(et.buffer)
     print('MAIN_PTE_OK',len(et.buffer),flush=True)
@@ -112,6 +116,7 @@ if __name__ == '__main__':
             'precision':args.precision,'capacity':args.capacity,
             'int8_weight_constants':int8_weights,'bytes':len(et.buffer),
             'per_op_partition':args.precision == 'int8',
+            'partition_scope':'linear_bmm_softmax' if args.precision == 'int8' else 'default',
             'sha256':hashlib.sha256(et.buffer).hexdigest(),
             'source_model':str(args.model),
             'limitations':['No Android bundle changes','No realtime or voice quality acceptance']
