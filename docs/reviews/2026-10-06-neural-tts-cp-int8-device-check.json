@@ -1,0 +1,808 @@
+{
+  "status": "four_alternating_device_runs_complete",
+  "serial": "192.168.52.52:46849",
+  "rows": [
+    {
+      "run": 0,
+      "variant": "fp32",
+      "request": 0,
+      "report_sha256": "353b179b52cce16982a5dc631ae42f45ad5ddeb9a12f2cdc74fbff4c42ed2d32",
+      "hash_validation": {
+        "reused": "false",
+        "ms": 5629
+      },
+      "tokenizer_load": {
+        "reused": "false",
+        "ms": 1466
+      },
+      "text_prepare": {
+        "ms": 1514
+      },
+      "cp_program": {
+        "name": "cp-stateless-fp32-cache32-et14.pte"
+      },
+      "model_load": {
+        "name": "cp-stateless-fp32-cache32-et14.pte",
+        "reused": "false",
+        "ms": 353
+      },
+      "prefill": {
+        "ms": 2746
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 47,
+        "p50_ms": 296,
+        "p95_ms": 368,
+        "max_ms": 558,
+        "over_80ms": 47
+      },
+      "codec": {
+        "frames": 47,
+        "ms": 14597
+      },
+      "main_forward": {
+        "calls": 74,
+        "ms": 7487
+      },
+      "main_output_copy": {
+        "calls": 74,
+        "ms": 236
+      },
+      "main_head": {
+        "calls": 48,
+        "ms": 148
+      },
+      "main_sampling": {
+        "calls": 48,
+        "ms": 27
+      },
+      "cp_reset": {
+        "calls": 47,
+        "ms": 4
+      },
+      "cp_forward": {
+        "calls": 752,
+        "ms": 6556
+      },
+      "cp_output_copy": {
+        "calls": 752,
+        "ms": 131
+      },
+      "cp_heads": {
+        "calls": 705,
+        "ms": 1023
+      },
+      "cp_sampling": {
+        "calls": 705,
+        "ms": 370
+      },
+      "codes_sha256": "669de2aae99624b669305dec71f927ad5b6f33ad5682cb84553e96fa56ea3a63",
+      "decoder_process": {
+        "pid": 10054,
+        "model_load_ms": 1539,
+        "pcm_forward_ms": 4588,
+        "reused": "false",
+        "total_ms": 6742
+      },
+      "pcm_sha256": "c844f4983258ff50c20f235ca7aa5ad9b3700b4576973575b0ac4deda3d8e610",
+      "playback_started_ms": 34524,
+      "playback_complete_ms": 38257,
+      "host_code_sha256": "669de2aae99624b669305dec71f927ad5b6f33ad5682cb84553e96fa56ea3a63",
+      "codes_match_host": true
+    },
+    {
+      "run": 0,
+      "variant": "fp32",
+      "request": 1,
+      "report_sha256": "353b179b52cce16982a5dc631ae42f45ad5ddeb9a12f2cdc74fbff4c42ed2d32",
+      "hash_validation": {
+        "reused": "true",
+        "ms": 1
+      },
+      "tokenizer_load": {
+        "reused": "true",
+        "ms": 0
+      },
+      "text_prepare": {
+        "ms": 18
+      },
+      "cp_program": {
+        "name": "cp-stateless-fp32-cache32-et14.pte"
+      },
+      "model_load": {
+        "name": "cp-stateless-fp32-cache32-et14.pte",
+        "reused": "true",
+        "ms": 0
+      },
+      "prefill": {
+        "ms": 2106
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 55,
+        "p50_ms": 214,
+        "p95_ms": 223,
+        "max_ms": 249,
+        "over_80ms": 55
+      },
+      "codec": {
+        "frames": 55,
+        "ms": 11882
+      },
+      "main_forward": {
+        "calls": 81,
+        "ms": 6358
+      },
+      "main_output_copy": {
+        "calls": 81,
+        "ms": 189
+      },
+      "main_head": {
+        "calls": 56,
+        "ms": 60
+      },
+      "main_sampling": {
+        "calls": 56,
+        "ms": 9
+      },
+      "cp_reset": {
+        "calls": 55,
+        "ms": 2
+      },
+      "cp_forward": {
+        "calls": 880,
+        "ms": 6250
+      },
+      "cp_output_copy": {
+        "calls": 880,
+        "ms": 82
+      },
+      "cp_heads": {
+        "calls": 825,
+        "ms": 607
+      },
+      "cp_sampling": {
+        "calls": 825,
+        "ms": 123
+      },
+      "codes_sha256": "357cea2c451f9e35415978f85bc566e43a58b238e2ac812bb6f7ebe79e535c49",
+      "decoder_process": {
+        "pid": 10054,
+        "model_load_ms": 0,
+        "pcm_forward_ms": 2123,
+        "reused": "true",
+        "total_ms": 2143
+      },
+      "pcm_sha256": "bcaa0be5ba1860a41ac94c2f511b68513262bc8f68025b1b6f594216d5659248",
+      "playback_started_ms": 54633,
+      "playback_complete_ms": 58967,
+      "host_code_sha256": "ab70b07511b561de37548a08adc303c5cf3fc312f52205f833b6aa1a1cdb67ce",
+      "codes_match_host": false
+    },
+    {
+      "run": 1,
+      "variant": "int8",
+      "request": 0,
+      "report_sha256": "95f2bef0f8715b04952193fb1a3e027f0dfbd432e85b0a6180325e81f6340ae5",
+      "hash_validation": {
+        "reused": "false",
+        "ms": 5310
+      },
+      "tokenizer_load": {
+        "reused": "false",
+        "ms": 1870
+      },
+      "text_prepare": {
+        "ms": 1911
+      },
+      "cp_program": {
+        "name": "cp-int8-cache32.pte"
+      },
+      "model_load": {
+        "name": "cp-int8-cache32.pte",
+        "reused": "false",
+        "ms": 195
+      },
+      "prefill": {
+        "ms": 2886
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 57,
+        "p50_ms": 212,
+        "p95_ms": 231,
+        "max_ms": 343,
+        "over_80ms": 57
+      },
+      "codec": {
+        "frames": 57,
+        "ms": 12378
+      },
+      "main_forward": {
+        "calls": 84,
+        "ms": 8507
+      },
+      "main_output_copy": {
+        "calls": 84,
+        "ms": 273
+      },
+      "main_head": {
+        "calls": 58,
+        "ms": 134
+      },
+      "main_sampling": {
+        "calls": 58,
+        "ms": 33
+      },
+      "cp_reset": {
+        "calls": 57,
+        "ms": 5
+      },
+      "cp_forward": {
+        "calls": 912,
+        "ms": 4085
+      },
+      "cp_output_copy": {
+        "calls": 912,
+        "ms": 161
+      },
+      "cp_heads": {
+        "calls": 855,
+        "ms": 1197
+      },
+      "cp_sampling": {
+        "calls": 855,
+        "ms": 421
+      },
+      "codes_sha256": "83f05c45c373e8da0d77b64823ce703b089e09de285db6e4a074bdf45062b301",
+      "decoder_process": {
+        "pid": 11545,
+        "model_load_ms": 1009,
+        "pcm_forward_ms": 5243,
+        "reused": "false",
+        "total_ms": 6807
+      },
+      "pcm_sha256": "375d83d43cbb5963556cb0022ddfdf0ce4bdcd0ef95807f2d427e8d3e48afe08",
+      "playback_started_ms": 32192,
+      "playback_complete_ms": 36685,
+      "host_code_sha256": "c8b7771656152a250fa5ea1c2d063afe65e7a1ad3eff4621ef6a20a7895605d1",
+      "codes_match_host": false
+    },
+    {
+      "run": 1,
+      "variant": "int8",
+      "request": 1,
+      "report_sha256": "95f2bef0f8715b04952193fb1a3e027f0dfbd432e85b0a6180325e81f6340ae5",
+      "hash_validation": {
+        "reused": "true",
+        "ms": 5
+      },
+      "tokenizer_load": {
+        "reused": "true",
+        "ms": 0
+      },
+      "text_prepare": {
+        "ms": 47
+      },
+      "cp_program": {
+        "name": "cp-int8-cache32.pte"
+      },
+      "model_load": {
+        "name": "cp-int8-cache32.pte",
+        "reused": "true",
+        "ms": 0
+      },
+      "prefill": {
+        "ms": 3110
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 54,
+        "p50_ms": 243,
+        "p95_ms": 296,
+        "max_ms": 380,
+        "over_80ms": 54
+      },
+      "codec": {
+        "frames": 54,
+        "ms": 13485
+      },
+      "main_forward": {
+        "calls": 80,
+        "ms": 8858
+      },
+      "main_output_copy": {
+        "calls": 80,
+        "ms": 286
+      },
+      "main_head": {
+        "calls": 55,
+        "ms": 153
+      },
+      "main_sampling": {
+        "calls": 55,
+        "ms": 23
+      },
+      "cp_reset": {
+        "calls": 54,
+        "ms": 6
+      },
+      "cp_forward": {
+        "calls": 864,
+        "ms": 4290
+      },
+      "cp_output_copy": {
+        "calls": 864,
+        "ms": 161
+      },
+      "cp_heads": {
+        "calls": 810,
+        "ms": 1328
+      },
+      "cp_sampling": {
+        "calls": 810,
+        "ms": 291
+      },
+      "codes_sha256": "4711ca68ca239bf7a829321d00e52b2f57ef1e3cba8dd9b83f97e957d4c8d42d",
+      "decoder_process": {
+        "pid": 11545,
+        "model_load_ms": 0,
+        "pcm_forward_ms": 2654,
+        "reused": "true",
+        "total_ms": 2702
+      },
+      "pcm_sha256": "37215ec66ea659f8345c63edf68a2239e985a881f5b14932cebf9ea0612fb272",
+      "playback_started_ms": 56411,
+      "playback_complete_ms": 60679,
+      "host_code_sha256": "3a7e8f3b14ec302caefc097f2ab068731281d729bbfcdc2234da8b7775fe5a05",
+      "codes_match_host": false
+    },
+    {
+      "run": 2,
+      "variant": "int8",
+      "request": 0,
+      "report_sha256": "3bae777d120461fa87efa3e02d39f1a9721a302cfbc0f59ce91428108a7c166a",
+      "hash_validation": {
+        "reused": "false",
+        "ms": 5285
+      },
+      "tokenizer_load": {
+        "reused": "false",
+        "ms": 1625
+      },
+      "text_prepare": {
+        "ms": 1667
+      },
+      "cp_program": {
+        "name": "cp-int8-cache32.pte"
+      },
+      "model_load": {
+        "name": "cp-int8-cache32.pte",
+        "reused": "false",
+        "ms": 174
+      },
+      "prefill": {
+        "ms": 3346
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 57,
+        "p50_ms": 217,
+        "p95_ms": 268,
+        "max_ms": 387,
+        "over_80ms": 57
+      },
+      "codec": {
+        "frames": 57,
+        "ms": 13329
+      },
+      "main_forward": {
+        "calls": 84,
+        "ms": 9484
+      },
+      "main_output_copy": {
+        "calls": 84,
+        "ms": 315
+      },
+      "main_head": {
+        "calls": 58,
+        "ms": 132
+      },
+      "main_sampling": {
+        "calls": 58,
+        "ms": 37
+      },
+      "cp_reset": {
+        "calls": 57,
+        "ms": 5
+      },
+      "cp_forward": {
+        "calls": 912,
+        "ms": 4350
+      },
+      "cp_output_copy": {
+        "calls": 912,
+        "ms": 167
+      },
+      "cp_heads": {
+        "calls": 855,
+        "ms": 1264
+      },
+      "cp_sampling": {
+        "calls": 855,
+        "ms": 456
+      },
+      "codes_sha256": "83f05c45c373e8da0d77b64823ce703b089e09de285db6e4a074bdf45062b301",
+      "decoder_process": {
+        "pid": 12765,
+        "model_load_ms": 926,
+        "pcm_forward_ms": 5601,
+        "reused": "false",
+        "total_ms": 7104
+      },
+      "pcm_sha256": "375d83d43cbb5963556cb0022ddfdf0ce4bdcd0ef95807f2d427e8d3e48afe08",
+      "playback_started_ms": 33389,
+      "playback_complete_ms": 37925,
+      "host_code_sha256": "c8b7771656152a250fa5ea1c2d063afe65e7a1ad3eff4621ef6a20a7895605d1",
+      "codes_match_host": false
+    },
+    {
+      "run": 2,
+      "variant": "int8",
+      "request": 1,
+      "report_sha256": "3bae777d120461fa87efa3e02d39f1a9721a302cfbc0f59ce91428108a7c166a",
+      "hash_validation": {
+        "reused": "true",
+        "ms": 2
+      },
+      "tokenizer_load": {
+        "reused": "true",
+        "ms": 0
+      },
+      "text_prepare": {
+        "ms": 19
+      },
+      "cp_program": {
+        "name": "cp-int8-cache32.pte"
+      },
+      "model_load": {
+        "name": "cp-int8-cache32.pte",
+        "reused": "true",
+        "ms": 0
+      },
+      "prefill": {
+        "ms": 3148
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 54,
+        "p50_ms": 225,
+        "p95_ms": 266,
+        "max_ms": 269,
+        "over_80ms": 54
+      },
+      "codec": {
+        "frames": 54,
+        "ms": 12537
+      },
+      "main_forward": {
+        "calls": 80,
+        "ms": 9060
+      },
+      "main_output_copy": {
+        "calls": 80,
+        "ms": 297
+      },
+      "main_head": {
+        "calls": 55,
+        "ms": 122
+      },
+      "main_sampling": {
+        "calls": 55,
+        "ms": 23
+      },
+      "cp_reset": {
+        "calls": 54,
+        "ms": 5
+      },
+      "cp_forward": {
+        "calls": 864,
+        "ms": 4139
+      },
+      "cp_output_copy": {
+        "calls": 864,
+        "ms": 155
+      },
+      "cp_heads": {
+        "calls": 810,
+        "ms": 1195
+      },
+      "cp_sampling": {
+        "calls": 810,
+        "ms": 281
+      },
+      "codes_sha256": "4711ca68ca239bf7a829321d00e52b2f57ef1e3cba8dd9b83f97e957d4c8d42d",
+      "decoder_process": {
+        "pid": 12765,
+        "model_load_ms": 0,
+        "pcm_forward_ms": 3831,
+        "reused": "true",
+        "total_ms": 3864
+      },
+      "pcm_sha256": "37215ec66ea659f8345c63edf68a2239e985a881f5b14932cebf9ea0612fb272",
+      "playback_started_ms": 58100,
+      "playback_complete_ms": 62409,
+      "host_code_sha256": "3a7e8f3b14ec302caefc097f2ab068731281d729bbfcdc2234da8b7775fe5a05",
+      "codes_match_host": false
+    },
+    {
+      "run": 3,
+      "variant": "fp32",
+      "request": 0,
+      "report_sha256": "8bb204a0fdf48c7ce5fb7d4e117348b518707505dada5811c619487e7da0b3f9",
+      "hash_validation": {
+        "reused": "false",
+        "ms": 6047
+      },
+      "tokenizer_load": {
+        "reused": "false",
+        "ms": 1897
+      },
+      "text_prepare": {
+        "ms": 1938
+      },
+      "cp_program": {
+        "name": "cp-stateless-fp32-cache32-et14.pte"
+      },
+      "model_load": {
+        "name": "cp-stateless-fp32-cache32-et14.pte",
+        "reused": "false",
+        "ms": 245
+      },
+      "prefill": {
+        "ms": 2807
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 47,
+        "p50_ms": 262,
+        "p95_ms": 291,
+        "max_ms": 386,
+        "over_80ms": 47
+      },
+      "codec": {
+        "frames": 47,
+        "ms": 12622
+      },
+      "main_forward": {
+        "calls": 74,
+        "ms": 7233
+      },
+      "main_output_copy": {
+        "calls": 74,
+        "ms": 236
+      },
+      "main_head": {
+        "calls": 48,
+        "ms": 103
+      },
+      "main_sampling": {
+        "calls": 48,
+        "ms": 27
+      },
+      "cp_reset": {
+        "calls": 47,
+        "ms": 4
+      },
+      "cp_forward": {
+        "calls": 752,
+        "ms": 5958
+      },
+      "cp_output_copy": {
+        "calls": 752,
+        "ms": 135
+      },
+      "cp_heads": {
+        "calls": 705,
+        "ms": 978
+      },
+      "cp_sampling": {
+        "calls": 705,
+        "ms": 373
+      },
+      "codes_sha256": "669de2aae99624b669305dec71f927ad5b6f33ad5682cb84553e96fa56ea3a63",
+      "decoder_process": {
+        "pid": 13142,
+        "model_load_ms": 931,
+        "pcm_forward_ms": 4906,
+        "reused": "false",
+        "total_ms": 6382
+      },
+      "pcm_sha256": "c844f4983258ff50c20f235ca7aa5ad9b3700b4576973575b0ac4deda3d8e610",
+      "playback_started_ms": 32459,
+      "playback_complete_ms": 36201,
+      "host_code_sha256": "669de2aae99624b669305dec71f927ad5b6f33ad5682cb84553e96fa56ea3a63",
+      "codes_match_host": true
+    },
+    {
+      "run": 3,
+      "variant": "fp32",
+      "request": 1,
+      "report_sha256": "8bb204a0fdf48c7ce5fb7d4e117348b518707505dada5811c619487e7da0b3f9",
+      "hash_validation": {
+        "reused": "true",
+        "ms": 2
+      },
+      "tokenizer_load": {
+        "reused": "true",
+        "ms": 0
+      },
+      "text_prepare": {
+        "ms": 19
+      },
+      "cp_program": {
+        "name": "cp-stateless-fp32-cache32-et14.pte"
+      },
+      "model_load": {
+        "name": "cp-stateless-fp32-cache32-et14.pte",
+        "reused": "true",
+        "ms": 0
+      },
+      "prefill": {
+        "ms": 3144
+      },
+      "cp_workspace": {
+        "reused": "true"
+      },
+      "frame_budget": {
+        "frames": 55,
+        "p50_ms": 298,
+        "p95_ms": 307,
+        "max_ms": 313,
+        "over_80ms": 55
+      },
+      "codec": {
+        "frames": 55,
+        "ms": 16499
+      },
+      "main_forward": {
+        "calls": 81,
+        "ms": 9334
+      },
+      "main_output_copy": {
+        "calls": 81,
+        "ms": 340
+      },
+      "main_head": {
+        "calls": 56,
+        "ms": 128
+      },
+      "main_sampling": {
+        "calls": 56,
+        "ms": 27
+      },
+      "cp_reset": {
+        "calls": 55,
+        "ms": 6
+      },
+      "cp_forward": {
+        "calls": 880,
+        "ms": 7714
+      },
+      "cp_output_copy": {
+        "calls": 880,
+        "ms": 167
+      },
+      "cp_heads": {
+        "calls": 825,
+        "ms": 1227
+      },
+      "cp_sampling": {
+        "calls": 825,
+        "ms": 306
+      },
+      "codes_sha256": "357cea2c451f9e35415978f85bc566e43a58b238e2ac812bb6f7ebe79e535c49",
+      "decoder_process": {
+        "pid": 13142,
+        "model_load_ms": 0,
+        "pcm_forward_ms": 3918,
+        "reused": "true",
+        "total_ms": 3952
+      },
+      "pcm_sha256": "bcaa0be5ba1860a41ac94c2f511b68513262bc8f68025b1b6f594216d5659248",
+      "playback_started_ms": 60444,
+      "playback_complete_ms": 64801,
+      "host_code_sha256": "ab70b07511b561de37548a08adc303c5cf3fc312f52205f833b6aa1a1cdb67ce",
+      "codes_match_host": false
+    }
+  ],
+  "within_variant_code_pcm_repeatability": {
+    "fp32-0": true,
+    "fp32-1": true,
+    "int8-0": true,
+    "int8-1": true
+  },
+  "all_codes_match_host": false,
+  "weighted_ms_per_call": {
+    "fp32": {
+      "cp_forward": 8.112132352941176,
+      "main_forward": 98.10322580645162,
+      "cp_heads": 1.2532679738562091
+    },
+    "int8": {
+      "cp_forward": 4.747747747747748,
+      "main_forward": 109.47865853658537,
+      "cp_heads": 1.4966966966966968
+    }
+  },
+  "cp_forward_speed_ratio": 1.708627497488559,
+  "restore": {
+    "apk_sha256": "a5fb5f7e25a17078eae1954f9d793307351f4a43f1965e3bd1faa13876144ad4",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "status": "restored_and_hash_verified"
+  },
+  "limitations": [
+    "Serial whole-sentence diagnostic; playback start is not streaming first-chunk latency.",
+    "FP32/INT8 generate different frame counts; compare normalized per-call and frame-budget metrics.",
+    "Two sentences, two repetitions per model; not broad quality or sustained realtime acceptance."
+  ],
+  "candidate_apk_sha256": "854483b2716f92ede5f0a90ae8d7457e2d2c0a5265e6561d64ba1569bd508b0e",
+  "candidate_cp_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+  "capture_restore": {
+    "status": "restored_and_hash_verified",
+    "apk_sha256": "a5fb5f7e25a17078eae1954f9d793307351f4a43f1965e3bd1faa13876144ad4",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "serial": "192.168.52.52:46849"
+  },
+  "run_battery_temperature_tenths_c": {
+    "0": 330,
+    "1": 360,
+    "2": 360,
+    "3": 360
+  },
+  "device_review_clips": [
+    {
+      "variant": "fp32",
+      "case": 0,
+      "path": "01-窓と赤い箱-FP32-実機.wav",
+      "duration_seconds": 3.76,
+      "sha256": "e76d2cfef9a59aabb1811382001c89caf5de767b5e8ef906df2051169892269c"
+    },
+    {
+      "variant": "int8",
+      "case": 0,
+      "path": "02-窓と赤い箱-INT8-実機.wav",
+      "duration_seconds": 4.56,
+      "sha256": "d29b9a1c54b83237a005ee925d32742b1c734bff582d3ee9f4879f06d87128a4"
+    },
+    {
+      "variant": "fp32",
+      "case": 1,
+      "path": "03-午前九時半の予定-FP32-実機.wav",
+      "duration_seconds": 4.4,
+      "sha256": "6c32685eb3d9efab375efd961f42f8cf097affdce5758f21ab9547b630406a4e"
+    },
+    {
+      "variant": "int8",
+      "case": 1,
+      "path": "04-午前九時半の予定-INT8-実機.wav",
+      "duration_seconds": 4.32,
+      "sha256": "a19190efb7dd1cdb805dd2c07fd337427fde939cd2451fa0ca777a20ab10d4de"
+    }
+  ]
+}

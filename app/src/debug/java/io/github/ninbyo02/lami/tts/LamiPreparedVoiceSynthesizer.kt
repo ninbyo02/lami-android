@@ -143,8 +143,14 @@ internal object LamiPreparedVoiceSynthesizer {
         val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
         require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
+        val cpProgram = ctx.optString("cp_program", "cp-stateless-fp32-cache32-et14.pte")
+        require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
+        if (cpProgram == "cp-int8-cache32.pte") {
+            require(files.getString(cpProgram) == "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87") { "Unreviewed CP INT8 pilot" }
+        }
+        progress("metric=cp_program name=$cpProgram")
         session.useModule(root.resolve(mainProgram), progress) { main ->
-            session.useModule(root.resolve("cp-stateless-fp32-cache32-et14.pte"), progress) { cp ->
+            session.useModule(root.resolve(cpProgram), progress) { cp ->
                 val mainCache = Decoder(main, 28, 256, 3, ctx, timing, "main")
                 var h = FloatArray(WIDTH)
                 val prefillStarted = android.os.SystemClock.elapsedRealtime()
