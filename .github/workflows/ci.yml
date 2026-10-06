@@ -72,6 +72,11 @@ jobs:
       - name: Verify exact voice matrix arithmetic
         run: python3 scripts/check_voice_matrix_kernel.py
 
+      - name: Verify TTS export and profiling helper syntax
+        run: |
+          python3 -m py_compile scripts/voice/export_main_cache.py
+          bash -n scripts/voice/build_profile_runtime.sh
+
       - name: Verify CP teacher capture split guards
         run: python3 -m unittest scripts.tests.test_cp_capture_guards -v
 
