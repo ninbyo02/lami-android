@@ -1,0 +1,136 @@
+{
+  "input": "identical synthetic hidden seed42, zero caches, position32; not voice quality evidence",
+  "trials": [
+    {
+      "trial": 0,
+      "precision": "fp32",
+      "mean_ms": 87.53717637409864,
+      "p50_ms": 87.39870099816471,
+      "p95_ms": 89.05869749723934
+    },
+    {
+      "trial": 0,
+      "precision": "int8",
+      "mean_ms": 78.64188012717932,
+      "p50_ms": 78.47158100048546,
+      "p95_ms": 80.19907260131731
+    },
+    {
+      "trial": 1,
+      "precision": "int8",
+      "mean_ms": 78.53749687456002,
+      "p50_ms": 78.51619649954955,
+      "p95_ms": 79.62989745137747
+    },
+    {
+      "trial": 1,
+      "precision": "fp32",
+      "mean_ms": 87.34073050072766,
+      "p50_ms": 87.40445550211007,
+      "p95_ms": 88.21128264826257
+    },
+    {
+      "trial": 2,
+      "precision": "fp32",
+      "mean_ms": 87.58938637674873,
+      "p50_ms": 87.27918500153464,
+      "p95_ms": 88.69895280367928
+    },
+    {
+      "trial": 2,
+      "precision": "int8",
+      "mean_ms": 79.54539137244865,
+      "p50_ms": 79.15690949812415,
+      "p95_ms": 81.18804109508346
+    },
+    {
+      "trial": 3,
+      "precision": "int8",
+      "mean_ms": 79.43845325007715,
+      "p50_ms": 78.9057785004843,
+      "p95_ms": 81.6666498012637
+    },
+    {
+      "trial": 3,
+      "precision": "fp32",
+      "mean_ms": 88.30275937361876,
+      "p50_ms": 88.1855089974124,
+      "p95_ms": 89.65310570019938
+    },
+    {
+      "trial": 4,
+      "precision": "fp32",
+      "mean_ms": 87.50567850074731,
+      "p50_ms": 87.36751049946179,
+      "p95_ms": 88.68402525076817
+    },
+    {
+      "trial": 4,
+      "precision": "int8",
+      "mean_ms": 79.11103424976318,
+      "p50_ms": 78.99274900046294,
+      "p95_ms": 80.51942270103609
+    },
+    {
+      "trial": 5,
+      "precision": "int8",
+      "mean_ms": 79.28754650220071,
+      "p50_ms": 79.06138449834543,
+      "p95_ms": 80.78097645593516
+    },
+    {
+      "trial": 5,
+      "precision": "fp32",
+      "mean_ms": 87.51846362611104,
+      "p50_ms": 87.6332360021479,
+      "p95_ms": 88.53507410349266
+    },
+    {
+      "trial": 6,
+      "precision": "fp32",
+      "mean_ms": 87.37832050155703,
+      "p50_ms": 87.1630695037311,
+      "p95_ms": 88.7987314050406
+    },
+    {
+      "trial": 6,
+      "precision": "int8",
+      "mean_ms": 79.38457912678132,
+      "p50_ms": 79.04200400298578,
+      "p95_ms": 80.80830915132537
+    }
+  ],
+  "limitations": [
+    "PC CPU only",
+    "No device speed claim",
+    "Synthetic inputs and warm loaded methods",
+    "Concurrent host workloads not controlled"
+  ],
+  "summary": {
+    "fp32": {
+      "median_trial_mean_ms": 87.51846362611104
+    },
+    "int8": {
+      "median_trial_mean_ms": 79.28754650220071
+    }
+  },
+  "operator_profile": {
+    "status": "blocked_runtime_trace_disabled",
+    "evidence": "Runtime reports no ETDump data and requests EXECUTORCH_ENABLE_EVENT_TRACER=ON. No operator timings were obtained."
+  },
+  "candidate": {
+    "status": "isolated_main_pilot_not_voice_validated",
+    "precision": "int8",
+    "capacity": 256,
+    "int8_weight_constants": 196,
+    "bytes": 442873216,
+    "per_op_partition": true,
+    "partition_scope": "linear_bmm_softmax",
+    "sha256": "6a00b9912080e057db86fe29e0c67bb3a8fa6c0851c8f5daea04175578d5c338",
+    "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+    "limitations": [
+      "No Android bundle changes",
+      "No realtime or voice quality acceptance"
+    ]
+  }
+}

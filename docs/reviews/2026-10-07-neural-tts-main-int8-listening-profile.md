@@ -1,0 +1,9 @@
+# Main INT8 listening and fixed-input host comparison
+
+All four PC clips in Voice Lab group `lami-main-int8-review-20261007` were marked candidate with comment 「問題なし。」. This covers both FP32 main and INT8 main with full INT8 CP for two sentences. The exact review snapshot is retained in the adjacent JSON. Use main INT8 as the next experimental device candidate; production promotion and device listening/performance remain pending.
+
+The first full-feedback run used different trajectories. A follow-up loads both main programs and uses identical synthetic hidden input (seed 42), zero KV caches, capacity 256 and position 32. Seven trials alternate model order, each with three warmups and eight measured calls. Median trial mean is 87.518 ms for FP32 and 79.288 ms for INT8. Per-trial FP32/INT8 ratios are 1.101–1.113. This supports about 1.10x on this host workload, not a phone or voice-generation speed claim. Concurrent host workloads are not controlled; synthetic zero caches are not sustained speech.
+
+ETDump collection was attempted after the fixed-input benchmark. The installed runtime reports tracing disabled and writes no ETDump file. The profiling stage therefore failed; the timing benchmark completed and its JSON was retained. No operator-level timing or bottleneck attribution is claimed. Profiling requires a separate runtime built with `EXECUTORCH_ENABLE_EVENT_TRACER=ON`; the installed inference environment should remain intact.
+
+The total target is still 50–60 ms per 80 ms audio frame. CP alone needs 16 serial calls, and the main host latency remains above that target. Main INT8 alone is insufficient. Next: prepare isolated event-tracing runtime, inspect main operator/delegate/cache costs, then use a backed-up phone comparison. Current implementation/evidence is PR #2733; its CI was still running at the review snapshot. Raw profile script, logs and benchmark data are retained in `voice-dataset/qat/main-int8-pilot-20261007` on the host.
