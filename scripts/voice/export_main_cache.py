@@ -9,7 +9,7 @@ from torchao.quantization.qat import Int8DynActInt4WeightQATQuantizer
 from executorch.exir import to_edge_transform_and_lower
 from executorch.backends.xnnpack.partition.xnnpack_partitioner import XnnpackPartitioner
 from executorch.backends.xnnpack.partition.config.gemm_configs import LinearConfig
-from executorch.backends.xnnpack.partition.config.generic_node_configs import BMMConfig, SoftmaxConfig
+from executorch.backends.xnnpack.partition.config.generic_node_configs import BMMConfig, SoftmaxConfig, PermuteConfig
 from qwen_tts.core.models.modeling_qwen3_tts import apply_multimodal_rotary_pos_emb, repeat_kv
 
 class StatelessTalker(torch.nn.Module):
@@ -54,7 +54,10 @@ if __name__ == '__main__':
     parser.add_argument('--capacity',type=int,default=256,choices=[64,128,256])
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--report',type=Path)
+    parser.add_argument('--int8-permute-delegate',action='store_true',help='Isolated pilot: delegate layout copies to XNNPACK')
     args=parser.parse_args()
+    if args.int8_permute_delegate and args.precision != 'int8':
+        parser.error('--int8-permute-delegate requires int8')
     if args.precision == 'int8':
         if args.qat_state is not None:
             parser.error('int8 pilot uses original weights; omit --qat-state')
@@ -102,7 +105,10 @@ if __name__ == '__main__':
             raise RuntimeError(f'{int8_weights} INT8 weights; expected 196')
     ep=torch.export.export(wrapper,inputs,strict=False)
     print('MAIN_EXPORT_OK',args.capacity,flush=True)
-    partitioner=(XnnpackPartitioner(configs=[LinearConfig,BMMConfig,SoftmaxConfig],per_op_mode=True)
+    configs=[LinearConfig,BMMConfig,SoftmaxConfig]
+    if args.int8_permute_delegate:
+        configs.append(PermuteConfig)
+    partitioner=(XnnpackPartitioner(configs=configs,per_op_mode=True)
                  if args.precision == 'int8' else XnnpackPartitioner())
     et=to_edge_transform_and_lower(ep,partitioner=[partitioner]).to_executorch()
     args.output.parent.mkdir(parents=True,exist_ok=True)
@@ -116,7 +122,7 @@ if __name__ == '__main__':
             'precision':args.precision,'capacity':args.capacity,
             'int8_weight_constants':int8_weights,'bytes':len(et.buffer),
             'per_op_partition':args.precision == 'int8',
-            'partition_scope':'linear_bmm_softmax' if args.precision == 'int8' else 'default',
+            'partition_scope':('linear_bmm_softmax_permute' if args.int8_permute_delegate else 'linear_bmm_softmax') if args.precision == 'int8' else 'default',
             'sha256':hashlib.sha256(et.buffer).hexdigest(),
             'source_model':str(args.model),
             'limitations':['No Android bundle changes','No realtime or voice quality acceptance']

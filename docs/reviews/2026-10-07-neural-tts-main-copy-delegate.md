@@ -1,0 +1,19 @@
+# Main INT8 layout-copy delegation
+
+A dedicated ExecuTorch v1.4.0 Release runner was built with event tracing, optimized/quantized CPU kernels and XNNPACK. Source is pinned to `3dd7ccd1d863fad22639dd2d918ae34a41ce45f0`; the existing Python environment and installed phone app remain intact. The reproducible build helper uses a separate root containing a directory named exactly `executorch`, initializes the required CPU/devtools submodules, and enables both DEVTOOLS and EVENT_TRACER. It preserves the virtual-environment Python executable path rather than resolving its symlink outside the environment.
+
+Seven raw tensor inputs match the previous synthetic benchmark: seed42 hidden, zero capacity256 KV caches, RoPE/mask at position32. Profiling runs six method executions at two CPU threads. Full events remain in the dataset runtime-profile directory; the adjacent JSON records input shapes/hashes, runner hash and native operator groups.
+
+The initial INT8 trace takes 65.099 ms: native CPU operators sum to 53.180 ms and delegate calls 11.045 ms. Native `permute_copy` accounts for 27.478 ms across 140 instructions. FP32 takes 75.926 ms, with native CPU 18.261 ms and delegates 57.163 ms. These are scoped host measurements, not the earlier Python or Android timings. Nested delegate events, method initialization and OPERATOR_CALL wrapper events are excluded from exclusive operator totals to avoid double-counting.
+
+Add opt-in `--int8-permute-delegate` to the isolated exporter. It extends the existing Linear/BMM/Softmax per-op configuration with PermuteConfig; the default export path is unchanged. All 196 INT8 constants remain required. The model is a separate pilot file, not a bundle replacement.
+
+A fresh paired synthetic trace observes control INT8 62.415 ms versus permutation-delegated INT8 38.521 ms (1.62x). Native permutation calls disappear; total native CPU drops from 50.781 to 25.996 ms, while delegate calls are 10.756/11.729 ms. Hidden/K/V outputs match bit-for-bit for the fixed input. Full-feedback EOS/audio equivalence is validated separately before acceptance. Source/model/report and raw event CSV/ETDump paths are retained under the voice dataset `qat/main-int8-pilot-20261007` directory.
+
+Limitations: synthetic zero-cache workload; six traced executions with profiling overhead; other host workloads are not controlled; no Android performance evidence. CP still performs 16 serial calls and the total 50–60 ms target is not demonstrated. Next: backed-up phone main A/B comparison after the candidate completes full-utterance validation, followed by reducing serial CP work.
+
+Full-feedback validation completes both sentences at 49/50 frames. All codec arrays and the two WAV SHA256 hashes are identical to the reviewed main INT8 baseline, with finite bounded PCM and EOS. Voice Lab group `lami-main-int8-review-20261007` remains the listening reference; no duplicate review clips are needed for these identical WAVs. This does not replace device validation or broad quality acceptance.
+
+A separate untraced original-Python-runtime benchmark alternates model order for seven trials, with three warmups and eight measured calls per model/trial. Median trial mean is 81.705 ms control versus 50.616 ms permutation delegate (1.614x). Inputs are the same synthetic tensors; torch threads are two and the XNNPACK runtime pool retains its default. This is host evidence only.
+
+Completed checks: dedicated runner built and reproduced with the same binary SHA256; exact 196 INT8 constant count and successful PTE execution; fixed-input output equality and full-feedback EOS/PCM/WAV equality; seven untraced alternating trials; five capture-guard tests; wrong-precision copy flag rejection; Python/shell syntax and `git diff --check`. CI adds static syntax checks for the exporter and build helper without requiring Torch or rebuilding ExecuTorch.
