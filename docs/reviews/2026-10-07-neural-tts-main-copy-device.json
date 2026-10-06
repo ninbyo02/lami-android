@@ -1,0 +1,1375 @@
+{
+  "device": {
+    "phone": "192.168.52.52:42715",
+    "model": "NX733J",
+    "soc": "SM8750",
+    "original_apk_sha256": "a5fb5f7e25a17078eae1954f9d793307351f4a43f1965e3bd1faa13876144ad4",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "test_apk_sha256": "854483b2716f92ede5f0a90ae8d7457e2d2c0a5265e6561d64ba1569bd508b0e",
+    "original_main_program": "stateless-28-fp32-cache256-et14.pte",
+    "backups": {
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true
+    }
+  },
+  "model_manifests": {
+    "fp32": {
+      "version": 2,
+      "capacity": 256,
+      "language": "Japanese",
+      "speaker": "lami_cute",
+      "codec_eos": 2150,
+      "repetition_penalty": 1.05,
+      "top_k": 50,
+      "temperature": 0.9,
+      "seed": 42,
+      "decoder_frames_min": 2,
+      "decoder_frames_max": 256,
+      "samples_per_frame": 1920,
+      "sample_rate": 24000,
+      "sha256": {
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "main.head.f32": "05a497040cc657fb9fd4a970d24d3342a05e25183e4011baf0c51f5be23f257a",
+        "main.embedding.f32": "d746e3d302034eb7d83bc4f242df4eff01eb30ec0bc74dfdf72b4bb1bb4ac85c",
+        "cp.head.0.f32": "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af",
+        "cp.head.1.f32": "015daf05a9e60be772c865e423b2f903b22e98d1c1d20bfc2ebe3b401626238b",
+        "cp.head.2.f32": "b1b4660b6975e4130d4878e9323566b210c14bdd2e7e6ecfa9e78527a6518aac",
+        "cp.head.3.f32": "9a20fec4fdef4e0317cfbc4fef6e736812c6de75875e2f336a10d6e426609878",
+        "cp.head.4.f32": "6f07d4789b96f39011924bdfc32b3e1cf3e41b502efc690d29e68078f472befe",
+        "cp.head.5.f32": "86808556d53bfe7a5a3da62492e3ca9f3f9fdced4e438e8e21fd602449a57506",
+        "cp.head.6.f32": "58889a06e1e91e9d6c08ec9cd224d54be3363a11cd05e34de8484fba4dbcd39f",
+        "cp.head.7.f32": "8bb49e3c4434cdc6d1b968524e41672a2ae5624b899ac8fb5f8bcd68488543ab",
+        "cp.head.8.f32": "b4e9b9e7689d7bd74663e71dd6f5c97841f41f9e1075acd367218fa9762ab242",
+        "cp.head.9.f32": "5f4e98e3864ee341fe3d2fcf1266944fce0eae59285d6d161656b5358d450a6b",
+        "cp.head.10.f32": "271ccef7dfe42a74515817096b13eacb400e744934765824a257f853204df00b",
+        "cp.head.11.f32": "b536e679f40dea3bd1b3aee276e3704ed307334c002c45efbd52feda36d198f6",
+        "cp.head.12.f32": "af889f8088b716eb51e43ae056347c6530694a837c3681df7eccf6039eeff380",
+        "cp.head.13.f32": "5d08aec3d28704a295fad1c32e6a14bb621b5b2b04064f7b416b259b1560d1f0",
+        "cp.head.14.f32": "3901f952c52f1c8c4668f78ebce0bad3b521adb2a2ca5d871db3f4953efa53d2",
+        "cp.embedding.0.f32": "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958",
+        "cp.embedding.1.f32": "3f805eba88af414983720ab7e90fad87074614e552d74bd58783a222efc7ab21",
+        "cp.embedding.2.f32": "d3de46125ecbe8624cfd159587753634f7bb30f6136b6162185760ac6b9e1e4e",
+        "cp.embedding.3.f32": "188634910a0ffcb98fd90fe63246b6e1961280d786fc225640b71ff9b08006d1",
+        "cp.embedding.4.f32": "915337d209cbf2efbd380dee0c785948571e131aca4df233fe0727b6ba34f658",
+        "cp.embedding.5.f32": "437eb01f5d05906b2b6c89c0245bddc1d080ea987c36c60c1e89ce3339a2c8fd",
+        "cp.embedding.6.f32": "7fcfd7610dc51330ac1f4ee1326d143e8daf59fe097b61690e7aed8c27430202",
+        "cp.embedding.7.f32": "670b16ea75a4ab3dabaf2e3681512c57c7a2d6bc85fb24d2e97422937ea9be97",
+        "cp.embedding.8.f32": "45e103633da1d6f1e62a233f345d6409705e3d555b717e77860521bd56b3295c",
+        "cp.embedding.9.f32": "193bcae6756d3d86663a257a6c4246e2a7ad4debfff4c8a739184197ab8b8ac6",
+        "cp.embedding.10.f32": "5a438b167776acc5754ca923e89341c300d29386b85ce398f1df09bb26bb67f3",
+        "cp.embedding.11.f32": "a506fa70fc083728c2886c10bc69a8a65105f9220a3b1c6c12a1509700d8af3d",
+        "cp.embedding.12.f32": "e85f0af4651547c0924be15cecb0aba3a25a579ecdbcc5d3519546fecd7d87ce",
+        "cp.embedding.13.f32": "9dc5a7b67f31ce2dff7186b22d7a1a33c65cd8d28daa8534099b3576098d7d4f",
+        "cp.embedding.14.f32": "752e18c97f38a509f619e0809a3bb23c89b42b328b7ec9b771ee8281838c55fe",
+        "text_frontend/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "text_frontend/merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "text_frontend/tokenizer_config.json": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "text_frontend/projected-text.f32": "753e271513ae6235bc5ecd99ab5084cf348f05d47c0a069aadb8634b863e205e",
+        "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a",
+        "cp-int8-cache32.pte": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87"
+      },
+      "main_program": "stateless-28-fp32-cache256-et14.pte",
+      "cp_program": "cp-int8-cache32.pte"
+    },
+    "int8": {
+      "version": 2,
+      "capacity": 256,
+      "language": "Japanese",
+      "speaker": "lami_cute",
+      "codec_eos": 2150,
+      "repetition_penalty": 1.05,
+      "top_k": 50,
+      "temperature": 0.9,
+      "seed": 42,
+      "decoder_frames_min": 2,
+      "decoder_frames_max": 256,
+      "samples_per_frame": 1920,
+      "sample_rate": 24000,
+      "sha256": {
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "main.head.f32": "05a497040cc657fb9fd4a970d24d3342a05e25183e4011baf0c51f5be23f257a",
+        "main.embedding.f32": "d746e3d302034eb7d83bc4f242df4eff01eb30ec0bc74dfdf72b4bb1bb4ac85c",
+        "cp.head.0.f32": "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af",
+        "cp.head.1.f32": "015daf05a9e60be772c865e423b2f903b22e98d1c1d20bfc2ebe3b401626238b",
+        "cp.head.2.f32": "b1b4660b6975e4130d4878e9323566b210c14bdd2e7e6ecfa9e78527a6518aac",
+        "cp.head.3.f32": "9a20fec4fdef4e0317cfbc4fef6e736812c6de75875e2f336a10d6e426609878",
+        "cp.head.4.f32": "6f07d4789b96f39011924bdfc32b3e1cf3e41b502efc690d29e68078f472befe",
+        "cp.head.5.f32": "86808556d53bfe7a5a3da62492e3ca9f3f9fdced4e438e8e21fd602449a57506",
+        "cp.head.6.f32": "58889a06e1e91e9d6c08ec9cd224d54be3363a11cd05e34de8484fba4dbcd39f",
+        "cp.head.7.f32": "8bb49e3c4434cdc6d1b968524e41672a2ae5624b899ac8fb5f8bcd68488543ab",
+        "cp.head.8.f32": "b4e9b9e7689d7bd74663e71dd6f5c97841f41f9e1075acd367218fa9762ab242",
+        "cp.head.9.f32": "5f4e98e3864ee341fe3d2fcf1266944fce0eae59285d6d161656b5358d450a6b",
+        "cp.head.10.f32": "271ccef7dfe42a74515817096b13eacb400e744934765824a257f853204df00b",
+        "cp.head.11.f32": "b536e679f40dea3bd1b3aee276e3704ed307334c002c45efbd52feda36d198f6",
+        "cp.head.12.f32": "af889f8088b716eb51e43ae056347c6530694a837c3681df7eccf6039eeff380",
+        "cp.head.13.f32": "5d08aec3d28704a295fad1c32e6a14bb621b5b2b04064f7b416b259b1560d1f0",
+        "cp.head.14.f32": "3901f952c52f1c8c4668f78ebce0bad3b521adb2a2ca5d871db3f4953efa53d2",
+        "cp.embedding.0.f32": "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958",
+        "cp.embedding.1.f32": "3f805eba88af414983720ab7e90fad87074614e552d74bd58783a222efc7ab21",
+        "cp.embedding.2.f32": "d3de46125ecbe8624cfd159587753634f7bb30f6136b6162185760ac6b9e1e4e",
+        "cp.embedding.3.f32": "188634910a0ffcb98fd90fe63246b6e1961280d786fc225640b71ff9b08006d1",
+        "cp.embedding.4.f32": "915337d209cbf2efbd380dee0c785948571e131aca4df233fe0727b6ba34f658",
+        "cp.embedding.5.f32": "437eb01f5d05906b2b6c89c0245bddc1d080ea987c36c60c1e89ce3339a2c8fd",
+        "cp.embedding.6.f32": "7fcfd7610dc51330ac1f4ee1326d143e8daf59fe097b61690e7aed8c27430202",
+        "cp.embedding.7.f32": "670b16ea75a4ab3dabaf2e3681512c57c7a2d6bc85fb24d2e97422937ea9be97",
+        "cp.embedding.8.f32": "45e103633da1d6f1e62a233f345d6409705e3d555b717e77860521bd56b3295c",
+        "cp.embedding.9.f32": "193bcae6756d3d86663a257a6c4246e2a7ad4debfff4c8a739184197ab8b8ac6",
+        "cp.embedding.10.f32": "5a438b167776acc5754ca923e89341c300d29386b85ce398f1df09bb26bb67f3",
+        "cp.embedding.11.f32": "a506fa70fc083728c2886c10bc69a8a65105f9220a3b1c6c12a1509700d8af3d",
+        "cp.embedding.12.f32": "e85f0af4651547c0924be15cecb0aba3a25a579ecdbcc5d3519546fecd7d87ce",
+        "cp.embedding.13.f32": "9dc5a7b67f31ce2dff7186b22d7a1a33c65cd8d28daa8534099b3576098d7d4f",
+        "cp.embedding.14.f32": "752e18c97f38a509f619e0809a3bb23c89b42b328b7ec9b771ee8281838c55fe",
+        "text_frontend/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "text_frontend/merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "text_frontend/tokenizer_config.json": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "text_frontend/projected-text.f32": "753e271513ae6235bc5ecd99ab5084cf348f05d47c0a069aadb8634b863e205e",
+        "cp-int8-cache32.pte": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+        "main-int8-cache256.pte": "6a00b9912080e057db86fe29e0c67bb3a8fa6c0851c8f5daea04175578d5c338"
+      },
+      "main_program": "main-int8-cache256.pte",
+      "cp_program": "cp-int8-cache32.pte"
+    },
+    "permute": {
+      "version": 2,
+      "capacity": 256,
+      "language": "Japanese",
+      "speaker": "lami_cute",
+      "codec_eos": 2150,
+      "repetition_penalty": 1.05,
+      "top_k": 50,
+      "temperature": 0.9,
+      "seed": 42,
+      "decoder_frames_min": 2,
+      "decoder_frames_max": 256,
+      "samples_per_frame": 1920,
+      "sample_rate": 24000,
+      "sha256": {
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "main.head.f32": "05a497040cc657fb9fd4a970d24d3342a05e25183e4011baf0c51f5be23f257a",
+        "main.embedding.f32": "d746e3d302034eb7d83bc4f242df4eff01eb30ec0bc74dfdf72b4bb1bb4ac85c",
+        "cp.head.0.f32": "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af",
+        "cp.head.1.f32": "015daf05a9e60be772c865e423b2f903b22e98d1c1d20bfc2ebe3b401626238b",
+        "cp.head.2.f32": "b1b4660b6975e4130d4878e9323566b210c14bdd2e7e6ecfa9e78527a6518aac",
+        "cp.head.3.f32": "9a20fec4fdef4e0317cfbc4fef6e736812c6de75875e2f336a10d6e426609878",
+        "cp.head.4.f32": "6f07d4789b96f39011924bdfc32b3e1cf3e41b502efc690d29e68078f472befe",
+        "cp.head.5.f32": "86808556d53bfe7a5a3da62492e3ca9f3f9fdced4e438e8e21fd602449a57506",
+        "cp.head.6.f32": "58889a06e1e91e9d6c08ec9cd224d54be3363a11cd05e34de8484fba4dbcd39f",
+        "cp.head.7.f32": "8bb49e3c4434cdc6d1b968524e41672a2ae5624b899ac8fb5f8bcd68488543ab",
+        "cp.head.8.f32": "b4e9b9e7689d7bd74663e71dd6f5c97841f41f9e1075acd367218fa9762ab242",
+        "cp.head.9.f32": "5f4e98e3864ee341fe3d2fcf1266944fce0eae59285d6d161656b5358d450a6b",
+        "cp.head.10.f32": "271ccef7dfe42a74515817096b13eacb400e744934765824a257f853204df00b",
+        "cp.head.11.f32": "b536e679f40dea3bd1b3aee276e3704ed307334c002c45efbd52feda36d198f6",
+        "cp.head.12.f32": "af889f8088b716eb51e43ae056347c6530694a837c3681df7eccf6039eeff380",
+        "cp.head.13.f32": "5d08aec3d28704a295fad1c32e6a14bb621b5b2b04064f7b416b259b1560d1f0",
+        "cp.head.14.f32": "3901f952c52f1c8c4668f78ebce0bad3b521adb2a2ca5d871db3f4953efa53d2",
+        "cp.embedding.0.f32": "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958",
+        "cp.embedding.1.f32": "3f805eba88af414983720ab7e90fad87074614e552d74bd58783a222efc7ab21",
+        "cp.embedding.2.f32": "d3de46125ecbe8624cfd159587753634f7bb30f6136b6162185760ac6b9e1e4e",
+        "cp.embedding.3.f32": "188634910a0ffcb98fd90fe63246b6e1961280d786fc225640b71ff9b08006d1",
+        "cp.embedding.4.f32": "915337d209cbf2efbd380dee0c785948571e131aca4df233fe0727b6ba34f658",
+        "cp.embedding.5.f32": "437eb01f5d05906b2b6c89c0245bddc1d080ea987c36c60c1e89ce3339a2c8fd",
+        "cp.embedding.6.f32": "7fcfd7610dc51330ac1f4ee1326d143e8daf59fe097b61690e7aed8c27430202",
+        "cp.embedding.7.f32": "670b16ea75a4ab3dabaf2e3681512c57c7a2d6bc85fb24d2e97422937ea9be97",
+        "cp.embedding.8.f32": "45e103633da1d6f1e62a233f345d6409705e3d555b717e77860521bd56b3295c",
+        "cp.embedding.9.f32": "193bcae6756d3d86663a257a6c4246e2a7ad4debfff4c8a739184197ab8b8ac6",
+        "cp.embedding.10.f32": "5a438b167776acc5754ca923e89341c300d29386b85ce398f1df09bb26bb67f3",
+        "cp.embedding.11.f32": "a506fa70fc083728c2886c10bc69a8a65105f9220a3b1c6c12a1509700d8af3d",
+        "cp.embedding.12.f32": "e85f0af4651547c0924be15cecb0aba3a25a579ecdbcc5d3519546fecd7d87ce",
+        "cp.embedding.13.f32": "9dc5a7b67f31ce2dff7186b22d7a1a33c65cd8d28daa8534099b3576098d7d4f",
+        "cp.embedding.14.f32": "752e18c97f38a509f619e0809a3bb23c89b42b328b7ec9b771ee8281838c55fe",
+        "text_frontend/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "text_frontend/merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "text_frontend/tokenizer_config.json": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "text_frontend/projected-text.f32": "753e271513ae6235bc5ecd99ab5084cf348f05d47c0a069aadb8634b863e205e",
+        "cp-int8-cache32.pte": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+        "main-int8-permute-cache256.pte": "5a03abc2481cc050ea37950247b73450fd3be64d6a4b7854dee4251b39db9bba"
+      },
+      "main_program": "main-int8-permute-cache256.pte",
+      "cp_program": "cp-int8-cache32.pte"
+    }
+  },
+  "order": [
+    "fp32",
+    "int8",
+    "permute",
+    "permute",
+    "int8",
+    "fp32"
+  ],
+  "cp_program": "cp-int8-cache32.pte",
+  "texts": [
+    "窓を閉めてから、赤い箱を机に置いてください。",
+    "午前九時半に、次の予定をお知らせします。"
+  ],
+  "rows": [
+    {
+      "trial": 0,
+      "variant": "fp32",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 4015
+        },
+        "tokenizer_load": {
+          "ms": 1065
+        },
+        "text_prepare": {
+          "ms": 1095
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 208
+        },
+        "prefill": {
+          "ms": 2418
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 57,
+          "p50_ms": 188,
+          "p95_ms": 221,
+          "max_ms": 460,
+          "over_80ms": 57
+        },
+        "codec": {
+          "frames": 57,
+          "ms": 11181
+        },
+        "main_forward": {
+          "calls": 84,
+          "ms": 7159,
+          "mean_ms_per_call": 85.22619047619048
+        },
+        "main_output_copy": {
+          "calls": 84,
+          "ms": 201
+        },
+        "main_head": {
+          "calls": 58,
+          "ms": 152
+        },
+        "main_sampling": {
+          "calls": 58,
+          "ms": 25
+        },
+        "cp_reset": {
+          "calls": 57,
+          "ms": 3
+        },
+        "cp_forward": {
+          "calls": 912,
+          "ms": 3334,
+          "mean_ms_per_call": 3.655701754385965
+        },
+        "cp_output_copy": {
+          "calls": 912,
+          "ms": 121
+        },
+        "cp_heads": {
+          "calls": 855,
+          "ms": 1040
+        },
+        "cp_sampling": {
+          "calls": 855,
+          "ms": 314
+        },
+        "decoder_process": {
+          "pid": 15465,
+          "model_load_ms": 1066,
+          "pcm_forward_ms": 4188,
+          "total_ms": 5777
+        }
+      },
+      "codes_sha256": "83f05c45c373e8da0d77b64823ce703b089e09de285db6e4a074bdf45062b301",
+      "pcm_sha256": "375d83d43cbb5963556cb0022ddfdf0ce4bdcd0ef95807f2d427e8d3e48afe08"
+    },
+    {
+      "trial": 0,
+      "variant": "fp32",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 3
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 16
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2715
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 54,
+          "p50_ms": 172,
+          "p95_ms": 180,
+          "max_ms": 198,
+          "over_80ms": 54
+        },
+        "codec": {
+          "frames": 54,
+          "ms": 9384
+        },
+        "main_forward": {
+          "calls": 80,
+          "ms": 7170,
+          "mean_ms_per_call": 89.625
+        },
+        "main_output_copy": {
+          "calls": 80,
+          "ms": 215
+        },
+        "main_head": {
+          "calls": 55,
+          "ms": 88
+        },
+        "main_sampling": {
+          "calls": 55,
+          "ms": 15
+        },
+        "cp_reset": {
+          "calls": 54,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 864,
+          "ms": 3059,
+          "mean_ms_per_call": 3.540509259259259
+        },
+        "cp_output_copy": {
+          "calls": 864,
+          "ms": 108
+        },
+        "cp_heads": {
+          "calls": 810,
+          "ms": 857
+        },
+        "cp_sampling": {
+          "calls": 810,
+          "ms": 188
+        },
+        "decoder_process": {
+          "pid": 15465,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2820,
+          "total_ms": 2853
+        }
+      },
+      "codes_sha256": "4711ca68ca239bf7a829321d00e52b2f57ef1e3cba8dd9b83f97e957d4c8d42d",
+      "pcm_sha256": "37215ec66ea659f8345c63edf68a2239e985a881f5b14932cebf9ea0612fb272"
+    },
+    {
+      "trial": 1,
+      "variant": "int8",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1813
+        },
+        "tokenizer_load": {
+          "ms": 1043
+        },
+        "text_prepare": {
+          "ms": 1073
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 130
+        },
+        "prefill": {
+          "ms": 4329
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 301,
+          "p95_ms": 325,
+          "max_ms": 406,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 17114
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 14857,
+          "mean_ms_per_call": 179.0
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 294
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 117
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 31
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 4118,
+          "mean_ms_per_call": 4.595982142857143
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 145
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 1103
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 387
+        },
+        "decoder_process": {
+          "pid": 15753,
+          "model_load_ms": 635,
+          "pcm_forward_ms": 3875,
+          "total_ms": 5022
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 1,
+      "variant": "int8",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 16
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 5041
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 300,
+          "p95_ms": 309,
+          "max_ms": 312,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 12640
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 12883,
+          "mean_ms_per_call": 189.4558823529412
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 246
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 86
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 16
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 3085,
+          "mean_ms_per_call": 4.590773809523809
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 105
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 819
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 186
+        },
+        "decoder_process": {
+          "pid": 15753,
+          "model_load_ms": 1,
+          "pcm_forward_ms": 2169,
+          "total_ms": 2192
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 2,
+      "variant": "permute",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2110
+        },
+        "tokenizer_load": {
+          "ms": 1024
+        },
+        "text_prepare": {
+          "ms": 1054
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 126
+        },
+        "prefill": {
+          "ms": 1924
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 155,
+          "p95_ms": 166,
+          "max_ms": 249,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8890
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 5425,
+          "mean_ms_per_call": 65.36144578313252
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 198
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 95
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 24
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3421,
+          "mean_ms_per_call": 3.818080357142857
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 116
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 901
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 304
+        },
+        "decoder_process": {
+          "pid": 16117,
+          "model_load_ms": 675,
+          "pcm_forward_ms": 3919,
+          "total_ms": 5095
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 2,
+      "variant": "permute",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 15
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2218
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 187,
+          "p95_ms": 196,
+          "max_ms": 206,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 7880
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 5548,
+          "mean_ms_per_call": 81.58823529411765
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 242
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 82
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 16
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2887,
+          "mean_ms_per_call": 4.2961309523809526
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 101
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 786
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 185
+        },
+        "decoder_process": {
+          "pid": 16117,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2017,
+          "total_ms": 2037
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 3,
+      "variant": "permute",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1958
+        },
+        "tokenizer_load": {
+          "ms": 1036
+        },
+        "text_prepare": {
+          "ms": 1066
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 124
+        },
+        "prefill": {
+          "ms": 1916
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 155,
+          "p95_ms": 169,
+          "max_ms": 242,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8879
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 5421,
+          "mean_ms_per_call": 65.3132530120482
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 196
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 95
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 24
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3414,
+          "mean_ms_per_call": 3.810267857142857
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 116
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 901
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 302
+        },
+        "decoder_process": {
+          "pid": 16368,
+          "model_load_ms": 680,
+          "pcm_forward_ms": 3859,
+          "total_ms": 5042
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 3,
+      "variant": "permute",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 3
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 15
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2181
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 190,
+          "p95_ms": 198,
+          "max_ms": 201,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 7985
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 5566,
+          "mean_ms_per_call": 81.8529411764706
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 236
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 83
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 16
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2923,
+          "mean_ms_per_call": 4.349702380952381
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 102
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 800
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 187
+        },
+        "decoder_process": {
+          "pid": 16368,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2171,
+          "total_ms": 2192
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 4,
+      "variant": "int8",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1680
+        },
+        "tokenizer_load": {
+          "ms": 1039
+        },
+        "text_prepare": {
+          "ms": 1070
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 126
+        },
+        "prefill": {
+          "ms": 3971
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 236,
+          "p95_ms": 250,
+          "max_ms": 335,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 13402
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 11934,
+          "mean_ms_per_call": 143.78313253012047
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 200
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 95
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 23
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3473,
+          "mean_ms_per_call": 3.8761160714285716
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 117
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 900
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 302
+        },
+        "decoder_process": {
+          "pid": 16632,
+          "model_load_ms": 672,
+          "pcm_forward_ms": 4164,
+          "total_ms": 5336
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 4,
+      "variant": "int8",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 15
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 4974
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 298,
+          "p95_ms": 305,
+          "max_ms": 315,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 12563
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 12739,
+          "mean_ms_per_call": 187.33823529411765
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 245
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 85
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 16
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 3075,
+          "mean_ms_per_call": 4.575892857142857
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 105
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 829
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 189
+        },
+        "decoder_process": {
+          "pid": 16632,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2232,
+          "total_ms": 2254
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 5,
+      "variant": "fp32",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 3255
+        },
+        "tokenizer_load": {
+          "ms": 1041
+        },
+        "text_prepare": {
+          "ms": 1071
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 131
+        },
+        "prefill": {
+          "ms": 2457
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 57,
+          "p50_ms": 170,
+          "p95_ms": 183,
+          "max_ms": 260,
+          "over_80ms": 57
+        },
+        "codec": {
+          "frames": 57,
+          "ms": 9983
+        },
+        "main_forward": {
+          "calls": 84,
+          "ms": 7196,
+          "mean_ms_per_call": 85.66666666666667
+        },
+        "main_output_copy": {
+          "calls": 84,
+          "ms": 201
+        },
+        "main_head": {
+          "calls": 58,
+          "ms": 98
+        },
+        "main_sampling": {
+          "calls": 58,
+          "ms": 24
+        },
+        "cp_reset": {
+          "calls": 57,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 912,
+          "ms": 3237,
+          "mean_ms_per_call": 3.549342105263158
+        },
+        "cp_output_copy": {
+          "calls": 912,
+          "ms": 118
+        },
+        "cp_heads": {
+          "calls": 855,
+          "ms": 919
+        },
+        "cp_sampling": {
+          "calls": 855,
+          "ms": 311
+        },
+        "decoder_process": {
+          "pid": 16921,
+          "model_load_ms": 805,
+          "pcm_forward_ms": 4191,
+          "total_ms": 5502
+        }
+      },
+      "codes_sha256": "83f05c45c373e8da0d77b64823ce703b089e09de285db6e4a074bdf45062b301",
+      "pcm_sha256": "375d83d43cbb5963556cb0022ddfdf0ce4bdcd0ef95807f2d427e8d3e48afe08"
+    },
+    {
+      "trial": 5,
+      "variant": "fp32",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 23
+        },
+        "cp_program": {},
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2231
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 54,
+          "p50_ms": 169,
+          "p95_ms": 173,
+          "max_ms": 186,
+          "over_80ms": 54
+        },
+        "codec": {
+          "frames": 54,
+          "ms": 9200
+        },
+        "main_forward": {
+          "calls": 80,
+          "ms": 6705,
+          "mean_ms_per_call": 83.8125
+        },
+        "main_output_copy": {
+          "calls": 80,
+          "ms": 181
+        },
+        "main_head": {
+          "calls": 55,
+          "ms": 89
+        },
+        "main_sampling": {
+          "calls": 55,
+          "ms": 15
+        },
+        "cp_reset": {
+          "calls": 54,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 864,
+          "ms": 3012,
+          "mean_ms_per_call": 3.486111111111111
+        },
+        "cp_output_copy": {
+          "calls": 864,
+          "ms": 107
+        },
+        "cp_heads": {
+          "calls": 810,
+          "ms": 868
+        },
+        "cp_sampling": {
+          "calls": 810,
+          "ms": 184
+        },
+        "decoder_process": {
+          "pid": 16921,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2789,
+          "total_ms": 2818
+        }
+      },
+      "codes_sha256": "4711ca68ca239bf7a829321d00e52b2f57ef1e3cba8dd9b83f97e957d4c8d42d",
+      "pcm_sha256": "37215ec66ea659f8345c63edf68a2239e985a881f5b14932cebf9ea0612fb272"
+    }
+  ],
+  "aggregates": {
+    "fp32": {
+      "main_forward": {
+        "calls": 328,
+        "ms": 28230,
+        "weighted_mean_ms_per_call": 86.0670731707317
+      },
+      "cp_forward": {
+        "calls": 3552,
+        "ms": 12642,
+        "weighted_mean_ms_per_call": 3.5591216216216215
+      },
+      "frame_p50_ms_range": [
+        169,
+        188
+      ],
+      "frames": 222,
+      "frames_over_80ms": 222
+    },
+    "int8": {
+      "main_forward": {
+        "calls": 302,
+        "ms": 52413,
+        "weighted_mean_ms_per_call": 173.55298013245033
+      },
+      "cp_forward": {
+        "calls": 3136,
+        "ms": 13751,
+        "weighted_mean_ms_per_call": 4.384885204081633
+      },
+      "frame_p50_ms_range": [
+        236,
+        301
+      ],
+      "frames": 196,
+      "frames_over_80ms": 196
+    },
+    "permute": {
+      "main_forward": {
+        "calls": 302,
+        "ms": 21960,
+        "weighted_mean_ms_per_call": 72.71523178807946
+      },
+      "cp_forward": {
+        "calls": 3136,
+        "ms": 12645,
+        "weighted_mean_ms_per_call": 4.032206632653061
+      },
+      "frame_p50_ms_range": [
+        155,
+        190
+      ],
+      "frames": 196,
+      "frames_over_80ms": 196
+    }
+  },
+  "hash_checks": [
+    {
+      "request": 0,
+      "hash": "codes_sha256",
+      "values": {
+        "fp32": [
+          "83f05c45c373e8da0d77b64823ce703b089e09de285db6e4a074bdf45062b301"
+        ],
+        "int8": [
+          "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39"
+        ],
+        "permute": [
+          "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39"
+        ]
+      },
+      "int8_and_permute_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 0,
+      "hash": "pcm_sha256",
+      "values": {
+        "fp32": [
+          "375d83d43cbb5963556cb0022ddfdf0ce4bdcd0ef95807f2d427e8d3e48afe08"
+        ],
+        "int8": [
+          "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+        ],
+        "permute": [
+          "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+        ]
+      },
+      "int8_and_permute_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 1,
+      "hash": "codes_sha256",
+      "values": {
+        "fp32": [
+          "4711ca68ca239bf7a829321d00e52b2f57ef1e3cba8dd9b83f97e957d4c8d42d"
+        ],
+        "int8": [
+          "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943"
+        ],
+        "permute": [
+          "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943"
+        ]
+      },
+      "int8_and_permute_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 1,
+      "hash": "pcm_sha256",
+      "values": {
+        "fp32": [
+          "37215ec66ea659f8345c63edf68a2239e985a881f5b14932cebf9ea0612fb272"
+        ],
+        "int8": [
+          "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+        ],
+        "permute": [
+          "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+        ]
+      },
+      "int8_and_permute_identical": true,
+      "repeat_stable": true
+    }
+  ],
+  "restore": {
+    "status": "restored_and_hash_verified",
+    "verified": {
+      "apk": true,
+      "manifest": true,
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true,
+      "removed_cp-int8-cache32.pte": true,
+      "removed_main-int8-cache256.pte": true,
+      "removed_main-int8-permute-cache256.pte": true
+    },
+    "errors": []
+  },
+  "limits": [
+    "Serial whole-sentence diagnostic; timings are not streaming first-chunk latency.",
+    "Different FP32 and INT8 generated lengths; per-call means and frame medians are diagnostic comparisons, not identical fixed-input benchmarking.",
+    "Only two texts, two fresh-process trials per variant; no thermal or scheduling control.",
+    "Main forward aggregate includes prefill and generated-token calls; it is not steady-state frame latency.",
+    "Main INT8 is CPU/XNNPACK PTQ, not NPU or QAT."
+  ],
+  "voice_lab": {
+    "voice_lab_group": "lami-main-copy-device-review-20261007",
+    "url": "http://192.168.52.99:8088/#main-copy-device-review",
+    "clips": [
+      {
+        "path": "lami-main-copy-device-review-20261007/01-窓と赤い箱-メインFP32-CP全層INT8-実機.wav",
+        "sha256": "d29b9a1c54b83237a005ee925d32742b1c734bff582d3ee9f4879f06d87128a4",
+        "bytes": 218924,
+        "variant": "fp32",
+        "case": 0
+      },
+      {
+        "path": "lami-main-copy-device-review-20261007/02-窓と赤い箱-メインINT8コピー改善-CP全層INT8-実機.wav",
+        "sha256": "39acf480c3c0f572e36a36d0a1751af1900a6b02a3d8266320fc8adbe2c2f550",
+        "bytes": 215084,
+        "variant": "permute",
+        "case": 0
+      },
+      {
+        "path": "lami-main-copy-device-review-20261007/03-午前九時半の予定-メインFP32-CP全層INT8-実機.wav",
+        "sha256": "a19190efb7dd1cdb805dd2c07fd337427fde939cd2451fa0ca777a20ab10d4de",
+        "bytes": 207404,
+        "variant": "fp32",
+        "case": 1
+      },
+      {
+        "path": "lami-main-copy-device-review-20261007/04-午前九時半の予定-メインINT8コピー改善-CP全層INT8-実機.wav",
+        "sha256": "bfdbac9200e944a96ccfdeb115efb1e4aa761f0feb76e31d1e9754dc52de5a94",
+        "bytes": 161324,
+        "variant": "permute",
+        "case": 1
+      }
+    ],
+    "review": "pending",
+    "capture_restore": {
+      "status": "restored_and_hash_verified",
+      "verified": {
+        "apk": true,
+        "manifest": true,
+        "neural_tts_last.wav": true,
+        "neural_tts_pipeline_probe.txt": true,
+        "neural_tts_hai_probe.txt": true,
+        "removed_cp-int8-cache32.pte": true,
+        "removed_main-int8-cache256.pte": true,
+        "removed_main-int8-permute-cache256.pte": true
+      },
+      "errors": []
+    }
+  }
+}
