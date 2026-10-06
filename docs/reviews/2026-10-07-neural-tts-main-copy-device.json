@@ -1356,7 +1356,7 @@
         "case": 1
       }
     ],
-    "review": "pending",
+    "review": "all_four_candidate",
     "capture_restore": {
       "status": "restored_and_hash_verified",
       "verified": {
@@ -1370,6 +1370,24 @@
         "removed_main-int8-permute-cache256.pte": true
       },
       "errors": []
+    },
+    "reviews": {
+      "lami-main-copy-device-review-20261007/01-窓と赤い箱-メインFP32-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/02-窓と赤い箱-メインINT8コピー改善-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/03-午前九時半の予定-メインFP32-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/04-午前九時半の予定-メインINT8コピー改善-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      }
     }
   }
 }
