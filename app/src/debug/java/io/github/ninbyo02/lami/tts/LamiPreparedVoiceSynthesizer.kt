@@ -118,7 +118,7 @@ internal object LamiPreparedVoiceSynthesizer {
         return result
     }
 
-    /** Arbitrary Japanese sentence, bounded by the exported 256-slot main cache. */
+    /** Arbitrary Japanese sentence, bounded by the selected diagnostic main cache. */
     suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, progress: (String) -> Unit = {}): LamiVoiceCodes {
         val timing = WorkTiming()
         progress("stage=hash_validation")
@@ -142,6 +142,12 @@ internal object LamiPreparedVoiceSynthesizer {
         var endedOnEos = false
         val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
         require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
+        val mainCapacity = if (mainProgram == "main-int8-permute-cache128.pte") {
+            require(files.getString(mainProgram) == "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c") { "Unverified main cache128 pilot" }
+            128
+        } else 256
+        require(prepared.prefill.size < mainCapacity) { "Text leaves no generation space in selected main cache" }
+        progress("metric=main_program name=$mainProgram capacity=$mainCapacity")
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
         val cpProgram = ctx.optString("cp_program", "cp-stateless-fp32-cache32-et14.pte")
         require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte", "cp-int8-cache16.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
@@ -156,7 +162,7 @@ internal object LamiPreparedVoiceSynthesizer {
         progress("metric=cp_program name=$cpProgram capacity=$cpCapacity")
         session.useModule(root.resolve(mainProgram), progress) { main ->
             session.useModule(root.resolve(cpProgram), progress) { cp ->
-                val mainCache = Decoder(main, 28, 256, 3, ctx, timing, "main")
+                val mainCache = Decoder(main, 28, mainCapacity, 3, ctx, timing, "main")
                 var h = FloatArray(WIDTH)
                 val prefillStarted = android.os.SystemClock.elapsedRealtime()
                 prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
@@ -166,7 +172,7 @@ internal object LamiPreparedVoiceSynthesizer {
                 progress("metric=cp_workspace reused=$reuseCpWorkspace")
                 val codecStarted = android.os.SystemClock.elapsedRealtime()
                 val frameMillis = mutableListOf<Long>()
-                val limit = 256 - prepared.prefill.size
+                val limit = mainCapacity - prepared.prefill.size
                 for (frame in 0 until limit) {
                     progress("stage=codec frame=$frame limit=$limit")
                     val frameStarted = System.nanoTime()
