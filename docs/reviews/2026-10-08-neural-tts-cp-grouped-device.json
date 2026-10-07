@@ -1,0 +1,875 @@
+{
+  "rows": [
+    {
+      "index": 0,
+      "variant": "baseline",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "reused": "false",
+          "ms": "2191"
+        },
+        "tokenizer_load": {
+          "reused": "false",
+          "ms": "1055"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "1082"
+        },
+        "cp_program": {
+          "name": "cp-int8-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-cache16.pte",
+          "reused": "false",
+          "ms": "120"
+        },
+        "prefill": {
+          "ms": "1056"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "56",
+          "p50_ms": "109",
+          "p95_ms": "120",
+          "max_ms": "201",
+          "over_80ms": "56"
+        },
+        "codec": {
+          "frames": "56",
+          "ms": "6285"
+        },
+        "main_input_prepare": {
+          "calls": "83",
+          "ms": "14"
+        },
+        "main_forward": {
+          "calls": "83",
+          "ms": "3055"
+        },
+        "main_output_copy": {
+          "calls": "83",
+          "ms": "101"
+        },
+        "main_head": {
+          "calls": "57",
+          "ms": "83"
+        },
+        "main_sampling": {
+          "calls": "57",
+          "ms": "21"
+        },
+        "cp_reset": {
+          "calls": "56",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "896",
+          "ms": "3"
+        },
+        "cp_forward": {
+          "calls": "896",
+          "ms": "2710"
+        },
+        "cp_output_copy": {
+          "calls": "896",
+          "ms": "90"
+        },
+        "cp_heads": {
+          "calls": "840",
+          "ms": "773"
+        },
+        "cp_sampling": {
+          "calls": "840",
+          "ms": "267"
+        },
+        "decoder_process": {
+          "pid": "27564",
+          "model_load_ms": "793",
+          "pcm_forward_ms": "4363",
+          "reused": "false",
+          "total_ms": "5619"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      }
+    },
+    {
+      "index": 0,
+      "variant": "baseline",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "reused": "true",
+          "ms": "2"
+        },
+        "tokenizer_load": {
+          "reused": "true",
+          "ms": "0"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "15"
+        },
+        "cp_program": {
+          "name": "cp-int8-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-cache16.pte",
+          "reused": "true",
+          "ms": "0"
+        },
+        "prefill": {
+          "ms": "1201"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "42",
+          "p50_ms": "127",
+          "p95_ms": "139",
+          "max_ms": "154",
+          "over_80ms": "42"
+        },
+        "codec": {
+          "frames": "42",
+          "ms": "5356"
+        },
+        "main_input_prepare": {
+          "calls": "68",
+          "ms": "8"
+        },
+        "main_forward": {
+          "calls": "68",
+          "ms": "2713"
+        },
+        "main_output_copy": {
+          "calls": "68",
+          "ms": "91"
+        },
+        "main_head": {
+          "calls": "43",
+          "ms": "63"
+        },
+        "main_sampling": {
+          "calls": "43",
+          "ms": "10"
+        },
+        "cp_reset": {
+          "calls": "42",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "672",
+          "ms": "3"
+        },
+        "cp_forward": {
+          "calls": "672",
+          "ms": "2085"
+        },
+        "cp_output_copy": {
+          "calls": "672",
+          "ms": "65"
+        },
+        "cp_heads": {
+          "calls": "630",
+          "ms": "617"
+        },
+        "cp_sampling": {
+          "calls": "630",
+          "ms": "131"
+        },
+        "decoder_process": {
+          "pid": "27564",
+          "model_load_ms": "0",
+          "pcm_forward_ms": "2011",
+          "reused": "true",
+          "total_ms": "2030"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      }
+    },
+    {
+      "index": 1,
+      "variant": "grouped",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "reused": "false",
+          "ms": "2055"
+        },
+        "tokenizer_load": {
+          "reused": "false",
+          "ms": "1050"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "1077"
+        },
+        "cp_program": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "reused": "false",
+          "ms": "118"
+        },
+        "prefill": {
+          "ms": "1064"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "56",
+          "p50_ms": "117",
+          "p95_ms": "135",
+          "max_ms": "187",
+          "over_80ms": "56"
+        },
+        "codec": {
+          "frames": "56",
+          "ms": "6797"
+        },
+        "main_input_prepare": {
+          "calls": "83",
+          "ms": "17"
+        },
+        "main_forward": {
+          "calls": "83",
+          "ms": "3517"
+        },
+        "main_output_copy": {
+          "calls": "83",
+          "ms": "128"
+        },
+        "main_head": {
+          "calls": "57",
+          "ms": "102"
+        },
+        "main_sampling": {
+          "calls": "57",
+          "ms": "26"
+        },
+        "cp_reset": {
+          "calls": "56",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "896",
+          "ms": "4"
+        },
+        "cp_forward": {
+          "calls": "896",
+          "ms": "2471"
+        },
+        "cp_output_copy": {
+          "calls": "896",
+          "ms": "100"
+        },
+        "cp_heads": {
+          "calls": "840",
+          "ms": "934"
+        },
+        "cp_sampling": {
+          "calls": "840",
+          "ms": "324"
+        },
+        "decoder_process": {
+          "pid": "27920",
+          "model_load_ms": "742",
+          "pcm_forward_ms": "3487",
+          "reused": "false",
+          "total_ms": "4678"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      }
+    },
+    {
+      "index": 1,
+      "variant": "grouped",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "reused": "true",
+          "ms": "2"
+        },
+        "tokenizer_load": {
+          "reused": "true",
+          "ms": "0"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "13"
+        },
+        "cp_program": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "reused": "true",
+          "ms": "0"
+        },
+        "prefill": {
+          "ms": "1227"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "42",
+          "p50_ms": "118",
+          "p95_ms": "127",
+          "max_ms": "132",
+          "over_80ms": "42"
+        },
+        "codec": {
+          "frames": "42",
+          "ms": "5064"
+        },
+        "main_input_prepare": {
+          "calls": "68",
+          "ms": "8"
+        },
+        "main_forward": {
+          "calls": "68",
+          "ms": "3074"
+        },
+        "main_output_copy": {
+          "calls": "68",
+          "ms": "109"
+        },
+        "main_head": {
+          "calls": "43",
+          "ms": "73"
+        },
+        "main_sampling": {
+          "calls": "43",
+          "ms": "14"
+        },
+        "cp_reset": {
+          "calls": "42",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "672",
+          "ms": "2"
+        },
+        "cp_forward": {
+          "calls": "672",
+          "ms": "1906"
+        },
+        "cp_output_copy": {
+          "calls": "672",
+          "ms": "72"
+        },
+        "cp_heads": {
+          "calls": "630",
+          "ms": "710"
+        },
+        "cp_sampling": {
+          "calls": "630",
+          "ms": "170"
+        },
+        "decoder_process": {
+          "pid": "27920",
+          "model_load_ms": "0",
+          "pcm_forward_ms": "1794",
+          "reused": "true",
+          "total_ms": "1819"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      }
+    },
+    {
+      "index": 2,
+      "variant": "grouped",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "reused": "false",
+          "ms": "1415"
+        },
+        "tokenizer_load": {
+          "reused": "false",
+          "ms": "1206"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "1246"
+        },
+        "cp_program": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "reused": "false",
+          "ms": "138"
+        },
+        "prefill": {
+          "ms": "1180"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "56",
+          "p50_ms": "114",
+          "p95_ms": "128",
+          "max_ms": "208",
+          "over_80ms": "56"
+        },
+        "codec": {
+          "frames": "56",
+          "ms": "6589"
+        },
+        "main_input_prepare": {
+          "calls": "83",
+          "ms": "15"
+        },
+        "main_forward": {
+          "calls": "83",
+          "ms": "3406"
+        },
+        "main_output_copy": {
+          "calls": "83",
+          "ms": "112"
+        },
+        "main_head": {
+          "calls": "57",
+          "ms": "95"
+        },
+        "main_sampling": {
+          "calls": "57",
+          "ms": "24"
+        },
+        "cp_reset": {
+          "calls": "56",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "896",
+          "ms": "3"
+        },
+        "cp_forward": {
+          "calls": "896",
+          "ms": "2547"
+        },
+        "cp_output_copy": {
+          "calls": "896",
+          "ms": "103"
+        },
+        "cp_heads": {
+          "calls": "840",
+          "ms": "896"
+        },
+        "cp_sampling": {
+          "calls": "840",
+          "ms": "309"
+        },
+        "decoder_process": {
+          "pid": "28272",
+          "model_load_ms": "808",
+          "pcm_forward_ms": "4041",
+          "reused": "false",
+          "total_ms": "5374"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      }
+    },
+    {
+      "index": 2,
+      "variant": "grouped",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "reused": "true",
+          "ms": "3"
+        },
+        "tokenizer_load": {
+          "reused": "true",
+          "ms": "0"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "16"
+        },
+        "cp_program": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-grouped-cache16.pte",
+          "reused": "true",
+          "ms": "0"
+        },
+        "prefill": {
+          "ms": "1353"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "42",
+          "p50_ms": "126",
+          "p95_ms": "135",
+          "max_ms": "147",
+          "over_80ms": "42"
+        },
+        "codec": {
+          "frames": "42",
+          "ms": "5329"
+        },
+        "main_input_prepare": {
+          "calls": "68",
+          "ms": "7"
+        },
+        "main_forward": {
+          "calls": "68",
+          "ms": "3026"
+        },
+        "main_output_copy": {
+          "calls": "68",
+          "ms": "99"
+        },
+        "main_head": {
+          "calls": "43",
+          "ms": "71"
+        },
+        "main_sampling": {
+          "calls": "43",
+          "ms": "12"
+        },
+        "cp_reset": {
+          "calls": "42",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "672",
+          "ms": "4"
+        },
+        "cp_forward": {
+          "calls": "672",
+          "ms": "1964"
+        },
+        "cp_output_copy": {
+          "calls": "672",
+          "ms": "75"
+        },
+        "cp_heads": {
+          "calls": "630",
+          "ms": "698"
+        },
+        "cp_sampling": {
+          "calls": "630",
+          "ms": "154"
+        },
+        "decoder_process": {
+          "pid": "28272",
+          "model_load_ms": "0",
+          "pcm_forward_ms": "2012",
+          "reused": "true",
+          "total_ms": "2034"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      }
+    },
+    {
+      "index": 3,
+      "variant": "baseline",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "reused": "false",
+          "ms": "1568"
+        },
+        "tokenizer_load": {
+          "reused": "false",
+          "ms": "1200"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "1228"
+        },
+        "cp_program": {
+          "name": "cp-int8-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-cache16.pte",
+          "reused": "false",
+          "ms": "133"
+        },
+        "prefill": {
+          "ms": "1126"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "56",
+          "p50_ms": "122",
+          "p95_ms": "151",
+          "max_ms": "215",
+          "over_80ms": "56"
+        },
+        "codec": {
+          "frames": "56",
+          "ms": "7336"
+        },
+        "main_input_prepare": {
+          "calls": "83",
+          "ms": "16"
+        },
+        "main_forward": {
+          "calls": "83",
+          "ms": "3521"
+        },
+        "main_output_copy": {
+          "calls": "83",
+          "ms": "119"
+        },
+        "main_head": {
+          "calls": "57",
+          "ms": "100"
+        },
+        "main_sampling": {
+          "calls": "57",
+          "ms": "26"
+        },
+        "cp_reset": {
+          "calls": "56",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "896",
+          "ms": "4"
+        },
+        "cp_forward": {
+          "calls": "896",
+          "ms": "3039"
+        },
+        "cp_output_copy": {
+          "calls": "896",
+          "ms": "106"
+        },
+        "cp_heads": {
+          "calls": "840",
+          "ms": "944"
+        },
+        "cp_sampling": {
+          "calls": "840",
+          "ms": "326"
+        },
+        "decoder_process": {
+          "pid": "28576",
+          "model_load_ms": "754",
+          "pcm_forward_ms": "3979",
+          "reused": "false",
+          "total_ms": "5241"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      }
+    },
+    {
+      "index": 3,
+      "variant": "baseline",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "reused": "true",
+          "ms": "2"
+        },
+        "tokenizer_load": {
+          "reused": "true",
+          "ms": "0"
+        },
+        "main_program": {
+          "name": "main-int8-permute-cache128.pte",
+          "capacity": "128"
+        },
+        "text_prepare": {
+          "ms": "16"
+        },
+        "cp_program": {
+          "name": "cp-int8-cache16.pte",
+          "capacity": "16"
+        },
+        "model_load": {
+          "name": "cp-int8-cache16.pte",
+          "reused": "true",
+          "ms": "0"
+        },
+        "prefill": {
+          "ms": "1321"
+        },
+        "cp_workspace": {
+          "reused": "true"
+        },
+        "frame_budget": {
+          "frames": "42",
+          "p50_ms": "143",
+          "p95_ms": "149",
+          "max_ms": "152",
+          "over_80ms": "42"
+        },
+        "codec": {
+          "frames": "42",
+          "ms": "6032"
+        },
+        "main_input_prepare": {
+          "calls": "68",
+          "ms": "8"
+        },
+        "main_forward": {
+          "calls": "68",
+          "ms": "3413"
+        },
+        "main_output_copy": {
+          "calls": "68",
+          "ms": "119"
+        },
+        "main_head": {
+          "calls": "43",
+          "ms": "82"
+        },
+        "main_sampling": {
+          "calls": "43",
+          "ms": "16"
+        },
+        "cp_reset": {
+          "calls": "42",
+          "ms": "2"
+        },
+        "cp_input_prepare": {
+          "calls": "672",
+          "ms": "3"
+        },
+        "cp_forward": {
+          "calls": "672",
+          "ms": "2462"
+        },
+        "cp_output_copy": {
+          "calls": "672",
+          "ms": "81"
+        },
+        "cp_heads": {
+          "calls": "630",
+          "ms": "806"
+        },
+        "cp_sampling": {
+          "calls": "630",
+          "ms": "191"
+        },
+        "decoder_process": {
+          "pid": "28576",
+          "model_load_ms": "0",
+          "pcm_forward_ms": "2175",
+          "reused": "true",
+          "total_ms": "2201"
+        }
+      },
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      }
+    }
+  ],
+  "output_hashes_identical": {
+    "0": true,
+    "1": true
+  },
+  "summary": {
+    "baseline": {
+      "frame_p50_ms": [
+        109,
+        127,
+        122,
+        143
+      ],
+      "main_prepare_plus_forward_mean_ms": 42.211920529801326,
+      "cp_prepare_plus_forward_mean_ms": 3.2873086734693877
+    },
+    "grouped": {
+      "frame_p50_ms": [
+        117,
+        118,
+        114,
+        126
+      ],
+      "main_prepare_plus_forward_mean_ms": 43.27814569536424,
+      "cp_prepare_plus_forward_mean_ms": 2.838329081632653
+    }
+  },
+  "restoration": {
+    "status": "restored_and_hash_verified",
+    "verified": {
+      "apk": true,
+      "manifest": true,
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true,
+      "removed_cp-int8-grouped-cache16.pte": true,
+      "removed_main-int8-permute-cache128.pte": true,
+      "removed_cp-int8-cache16.pte": true,
+      "removed_main-int8-permute-cache256.pte": true
+    },
+    "errors": []
+  },
+  "limitations": [
+    "Two short sentences",
+    "Temperature/frequency not controlled",
+    "Same APK and input preparation implementation for both variants",
+    "Full frame comparison is primary; PCM decode excluded"
+  ]
+}
