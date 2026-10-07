@@ -296,18 +296,39 @@ internal object LamiPreparedVoiceSynthesizer {
             vBuffer.rewind()
             timing?.record("${label}_reset", started)
         }
+        // CP visits the same positions 0..15 for every codec frame.
+        // Keep immutable position inputs and own mutable hidden storage per decoder.
+        private data class PositionInputs(val cosine: EValue, val sine: EValue, val mask: EValue, val position: EValue)
+        private val positionInputs = arrayOfNulls<PositionInputs>(capacity)
+        private val hiddenBuffer = Tensor.allocateFloatBuffer(WIDTH)
+        private val hiddenInput = EValue.from(Tensor.fromBlob(hiddenBuffer, longArrayOf(1, 1, WIDTH.toLong())))
+        private fun inputsAt(position: Int): PositionInputs = positionInputs[position] ?: run {
+            val cosine = context.getJSONArray("rope_cos").getJSONArray(position)
+            val sine = context.getJSONArray("rope_sin").getJSONArray(position)
+            val c = FloatArray(axes * 128) { cosine.getDouble(it % 128).toFloat() }
+            val s = FloatArray(axes * 128) { sine.getDouble(it % 128).toFloat() }
+            val ropeShape = if (axes == 3) longArrayOf(3, 1, 1, 128) else longArrayOf(1, 1, 128)
+            PositionInputs(
+                EValue.from(Tensor.fromBlob(c, ropeShape)),
+                EValue.from(Tensor.fromBlob(s, ropeShape)),
+                EValue.from(Tensor.fromBlob(FloatArray(capacity) { if (it <= position) 0f else -1e9f }, longArrayOf(1, 1, 1, capacity.toLong()))),
+                EValue.from(Tensor.fromBlob(longArrayOf(position.toLong()), longArrayOf(1))),
+            ).also { positionInputs[position] = it }
+        }
         suspend fun step(h: FloatArray, position: Int): FloatArray {
             currentCoroutineContext().ensureActive()
             require(position in 0 until capacity)
-            val c = FloatArray(axes * 128) { i -> context.getJSONArray("rope_cos").getJSONArray(position).getDouble(i % 128).toFloat() }
-            val s = FloatArray(axes * 128) { i -> context.getJSONArray("rope_sin").getJSONArray(position).getDouble(i % 128).toFloat() }
-            val ropeShape = if (axes == 3) longArrayOf(3, 1, 1, 128) else longArrayOf(1, 1, 128)
+            val preparationStarted = System.nanoTime()
+            require(h.size == WIDTH)
+            val inputs = inputsAt(position)
+            hiddenBuffer.clear()
+            hiddenBuffer.put(h)
+            hiddenBuffer.rewind()
+            timing?.record("${label}_input_prepare", preparationStarted)
             val forwardStarted = System.nanoTime()
             val out = module.forward(
-                EValue.from(Tensor.fromBlob(h, longArrayOf(1, 1, WIDTH.toLong()))), EValue.from(k), EValue.from(v),
-                EValue.from(Tensor.fromBlob(c, ropeShape)), EValue.from(Tensor.fromBlob(s, ropeShape)),
-                EValue.from(Tensor.fromBlob(FloatArray(capacity) { if (it <= position) 0f else -1e9f }, longArrayOf(1, 1, 1, capacity.toLong()))),
-                EValue.from(Tensor.fromBlob(longArrayOf(position.toLong()), longArrayOf(1))),
+                hiddenInput, EValue.from(k), EValue.from(v),
+                inputs.cosine, inputs.sine, inputs.mask, inputs.position,
             )
             timing?.record("${label}_forward", forwardStarted)
             val copyStarted = System.nanoTime()
