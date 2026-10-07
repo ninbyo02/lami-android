@@ -51,7 +51,10 @@ def main():
     parser.add_argument("--capacity", type=int, choices=[16, 32], default=32)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--int8-permute-delegate", action="store_true", help="Isolated all-INT8 per-op linear/BMM/softmax/permute pilot")
     args = parser.parse_args()
+    if args.int8_permute_delegate and (args.precision != "int8" or args.quantize_scope != "all"):
+        parser.error("--int8-permute-delegate requires --precision int8 --quantize-scope all")
     if args.output.exists():
         parser.error("Refusing to overwrite an existing model")
     if args.output.name == "cp-stateless-fp32-cache32-et14.pte":
@@ -93,12 +96,19 @@ def main():
             raise RuntimeError(f"{int8_weights} INT8 constants; expected exactly {expected}")
     ep = torch.export.export(wrapper, inputs, strict=False)
     print("CP_EXPORT_OK", args.precision, flush=True)
-    program = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()]).to_executorch()
+    if args.int8_permute_delegate:
+        from executorch.backends.xnnpack.partition.config.gemm_configs import LinearConfig
+        from executorch.backends.xnnpack.partition.config.generic_node_configs import BMMConfig, SoftmaxConfig, PermuteConfig
+        partitioner = XnnpackPartitioner(per_op_mode=True, configs=[LinearConfig, BMMConfig, SoftmaxConfig, PermuteConfig])
+    else:
+        partitioner = XnnpackPartitioner()
+    program = to_edge_transform_and_lower(ep, partitioner=[partitioner]).to_executorch()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(program.buffer)
     report = {
         "status": "isolated_cp_pilot_not_audio_validated",
         "precision": args.precision, "capacity": args.capacity,
+        "partition_scope": "linear_bmm_softmax_permute" if args.int8_permute_delegate else "default",
         "quantize_scope": args.quantize_scope if args.precision == "int8" else None,
         "int8_weight_constants": int8_weights, "bytes": args.output.stat().st_size,
         "sha256": hashlib.sha256(program.buffer).hexdigest(),
