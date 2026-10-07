@@ -150,15 +150,18 @@ internal object LamiPreparedVoiceSynthesizer {
         progress("metric=main_program name=$mainProgram capacity=$mainCapacity")
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
         val cpProgram = ctx.optString("cp_program", "cp-stateless-fp32-cache32-et14.pte")
-        require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte", "cp-int8-cache16.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
+        require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte", "cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
         if (cpProgram == "cp-int8-cache32.pte") {
             require(files.getString(cpProgram) == "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87") { "Unreviewed CP INT8 pilot" }
         }
         if (cpProgram == "cp-int8-cache16.pte") {
             require(files.getString(cpProgram) == "43d29ccbd80d8f9c6e0e2cf57d84c5939a772d31262301088b73f7613e22e22c") { "Unverified CP cache16 pilot" }
         }
+        if (cpProgram == "cp-int8-grouped-cache16.pte") {
+            require(files.getString(cpProgram) == "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01") { "Unverified grouped CP pilot" }
+        }
         // Each codec frame uses CP positions 0..15, including the initial hidden step.
-        val cpCapacity = if (cpProgram == "cp-int8-cache16.pte") 16 else 32
+        val cpCapacity = if (cpProgram in setOf("cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte")) 16 else 32
         progress("metric=cp_program name=$cpProgram capacity=$cpCapacity")
         session.useModule(root.resolve(mainProgram), progress) { main ->
             session.useModule(root.resolve(cpProgram), progress) { cp ->
