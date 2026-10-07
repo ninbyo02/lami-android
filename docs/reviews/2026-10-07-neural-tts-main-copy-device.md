@@ -22,7 +22,7 @@ Copy delegation improves weighted main-forward time by 2.39× versus the INT8 co
 
 ## Listening and restoration
 
-Four new actual-device clips are available in [lami-main-copy-device-review-20261007](http://192.168.52.99:8088/#main-copy-device-review), in FP32 / copy-delegated INT8 order for each text. Their listening review is pending; the earlier accepted PC clips do not establish device audio acceptance.
+Four new actual-device clips are available in [lami-main-copy-device-review-20261007](http://192.168.52.99:8088/#main-copy-device-review), in FP32 / copy-delegated INT8 order for each text. All four actual-device clips were marked candidate with “問題なし。” by the user; this acceptance covers these two texts only. See the accompanying listening JSON.
 
 Before each phase, the installed APK, manifest, last WAV, and both diagnostic reports were backed up. Both phases restored and verified their original hashes and confirmed pilot model removal. APK and manifest hashes, individual timings, output hashes, and restoration checks are in the accompanying JSON.
 

@@ -13,7 +13,9 @@ from transformers import AutoTokenizer
 from qwen_tts import Qwen3TTSModel
 
 
-def validate(root, model_path, texts, candidate, output_dir, max_frames, main_candidate=None):
+def validate(root, model_path, texts, candidate, output_dir, max_frames, main_candidate=None, cp_capacity=32):
+    if cp_capacity not in (16, 32) or (cp_capacity != 32 and candidate is None):
+        raise ValueError("A 16-slot CP cache requires an isolated candidate")
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError("Output directory must be empty")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -51,7 +53,7 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames, main_ca
     main_program=cfg.get('main_program','stateless-28-int4-cache256-et14.pte')
     assert main_program in cfg['sha256'] and Path(main_program).name == main_program
     main=Decoder(main_candidate if main_candidate else main_program,28,256,3)
-    cp=Decoder(candidate if candidate else 'cp-stateless-fp32-cache32-et14.pte',5,32,1)
+    cp=Decoder(candidate if candidate else 'cp-stateless-fp32-cache32-et14.pte',5,cp_capacity,1)
     decoder_program=Runtime.get().load_program(root/'speech-decoder-dynamic-et14.pte')
     audio_decoder=decoder_program.load_method('forward')
     # java.util.Random-compatible stream: same seed, token ordering and draws as Android.
@@ -126,7 +128,7 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames, main_ca
             audio.writeframes((pcm.numpy() * 32767).round().astype('<i2').tobytes())
         row={'text':text,'prefill_tokens':len(prefill),'preparation_max_abs_error':preparation_error,'codec_frames':len(frames),'eos_reached':True,'samples':pcm.numel(),'duration_seconds':pcm.numel()/24000,'host_elapsed_seconds':round(time.monotonic()-start,3)}
         print(json.dumps(row,ensure_ascii=False),flush=True);results.append(row)
-    return {'host_validation':'passed' if all(r['eos_reached'] for r in results) else 'blocked_missing_eos','frontend':'model FP32 table, original Qwen custom-voice layout','sampling':'seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames','model_sha256':{k:v for k,v in cfg['sha256'].items() if k.endswith('.pte')},'cases':results,'host_forward_timing':{name:{'calls':len(module.forward_ms),'mean_ms':float(np.mean(module.forward_ms)),'p50_ms':float(np.percentile(module.forward_ms,50)),'p95_ms':float(np.percentile(module.forward_ms,95))} for name,module in [('main',main),('cp',cp)]},'android_validation':'pending','listening_quality_validation':'pending'}
+    return {'cp_capacity':cp_capacity,'host_validation':'passed' if all(r['eos_reached'] for r in results) else 'blocked_missing_eos','frontend':'model FP32 table, original Qwen custom-voice layout','sampling':'seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames','model_sha256':{k:v for k,v in cfg['sha256'].items() if k.endswith('.pte')},'cases':results,'host_forward_timing':{name:{'calls':len(module.forward_ms),'mean_ms':float(np.mean(module.forward_ms)),'p50_ms':float(np.percentile(module.forward_ms,50)),'p95_ms':float(np.percentile(module.forward_ms,95))} for name,module in [('main',main),('cp',cp)]},'android_validation':'pending','listening_quality_validation':'pending'}
 
 
 if __name__=='__main__':
@@ -135,15 +137,18 @@ if __name__=='__main__':
     p.add_argument('--model',type=Path,required=True)
     p.add_argument('--report',type=Path,required=True)
     p.add_argument('--candidate',type=Path)
+    p.add_argument('--cp-capacity',type=int,choices=[16,32],default=32,help='Cache capacity of the isolated CP candidate; original CP remains 32')
     p.add_argument('--main-candidate',type=Path,help='Isolated main candidate; original bundle remains verified and unchanged')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--max-frames',type=int,choices=range(2,257),default=96)
     p.add_argument('--texts-jsonl',type=Path,default=Path(__file__).with_name('cp_later_frame_texts.jsonl'))
     args=p.parse_args()
+    if args.cp_capacity != 32 and args.candidate is None:
+        p.error("--cp-capacity 16 requires --candidate")
     texts=[json.loads(line)['text'] for line in args.texts_jsonl.read_text().splitlines() if line.strip()]
     if not texts or len(texts)>128 or any(not 1<=len(text)<=120 for text in texts):
         p.error('Expected 1..128 nonempty texts of at most 120 characters')
-    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames,args.main_candidate)
+    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames,args.main_candidate,args.cp_capacity)
     report['candidate_sha256']=hashlib.sha256(args.candidate.read_bytes()).hexdigest() if args.candidate else None
     report['main_candidate_sha256']=hashlib.sha256(args.main_candidate.read_bytes()).hexdigest() if args.main_candidate else None
     report['feedback']='Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.'
