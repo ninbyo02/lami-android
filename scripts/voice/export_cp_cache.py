@@ -12,9 +12,10 @@ from executorch.backends.xnnpack.partition.xnnpack_partitioner import XnnpackPar
 
 
 class StatelessCodePredictor(torch.nn.Module):
-    def __init__(self, model, grouped_attention=False):
+    def __init__(self, model, grouped_attention=False, delta_outputs=False):
         super().__init__()
         self.grouped_attention = grouped_attention
+        self.delta_outputs = delta_outputs
         self.layers = model.layers
         self.norm = model.norm
 
@@ -45,8 +46,8 @@ class StatelessCodePredictor(torch.nn.Module):
                 attended = torch.matmul(weights, repeated_value).transpose(1, 2).contiguous()
             hidden = residual + attention.o_proj(attended.reshape(*normalized.shape[:-1], -1))
             hidden = hidden + layer.mlp(layer.post_attention_layernorm(hidden))
-            next_keys.append(updated_key)
-            next_values.append(updated_value)
+            next_keys.append(key if self.delta_outputs else updated_key)
+            next_values.append(value if self.delta_outputs else updated_value)
         return self.norm(hidden), torch.stack(next_keys), torch.stack(next_values)
 
 
@@ -60,6 +61,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--grouped-attention", action="store_true", help="Single-token grouped query pilot without repeated KV heads")
+    parser.add_argument("--delta-outputs", action="store_true", help="Return current K/V only; caller must update owned caches")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Refusing to overwrite an existing model")
@@ -69,7 +71,7 @@ def main():
     qwen = Qwen3TTSModel.from_pretrained(
         str(args.model), device_map="cpu", dtype=torch.float32, attn_implementation="eager")
     model = qwen.model.talker.code_predictor.model.eval()
-    wrapper = StatelessCodePredictor(model, grouped_attention=args.grouped_attention).eval()
+    wrapper = StatelessCodePredictor(model, grouped_attention=args.grouped_attention, delta_outputs=args.delta_outputs).eval()
     for parameter in wrapper.parameters():
         parameter.requires_grad_(False)
     assert len(model.layers) == 5 and model.config.hidden_size == 1024
@@ -109,6 +111,7 @@ def main():
         "status": "isolated_cp_pilot_not_audio_validated",
         "precision": args.precision, "capacity": args.capacity,
         "grouped_attention": args.grouped_attention,
+        "delta_outputs": args.delta_outputs,
         "quantize_scope": args.quantize_scope if args.precision == "int8" else None,
         "int8_weight_constants": int8_weights, "bytes": args.output.stat().st_size,
         "sha256": hashlib.sha256(program.buffer).hexdigest(),
