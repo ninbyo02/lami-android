@@ -19,3 +19,15 @@ The actual cached Android AAR 1.4.0 has Module.load(String,int,int). AAR SHA256:
 a4a836b9fadd5b9afdf07b8533b2c3326695d04a58dd37e2cdfe709e804854fb.
 Native shared-pool configuration is unresolved for this packaged binary;
 no per-CP thread override is introduced.
+
+## Full feedback gate
+
+Two host sentences reached EOS at 49/50 frames. Codes NPY and PCM WAV files
+were byte-identical to the grouped main cache128 feedback reference. See
+2026-10-09-neural-tts-cp-delta-feedback.json. No duplicate audio is published.
+Android debug support pins the delta model hash, checks output shapes and
+copies each layer/head delta into owned full cache buffers with absolute
+indexing. It does not alias ExecuTorch outputs. Normal full-cache copying is
+unchanged. Local CPU smoke build is running; a guarded device comparison
+starts only after build success and restores original APK/config/probes/WAV
+in finally. Device results and latest CI are still pending.

@@ -13,7 +13,9 @@ from transformers import AutoTokenizer
 from qwen_tts import Qwen3TTSModel
 
 
-def validate(root, model_path, texts, candidate, output_dir, max_frames, main_candidate=None, cp_capacity=32, main_capacity=256):
+def validate(root, model_path, texts, candidate, output_dir, max_frames, main_candidate=None, cp_capacity=32, main_capacity=256, cp_delta_outputs=False):
+    if cp_delta_outputs and (candidate is None or cp_capacity != 16):
+        raise ValueError("Delta outputs require isolated cache16 candidate")
     if cp_capacity not in (16, 32) or (cp_capacity != 32 and candidate is None):
         raise ValueError("A 16-slot CP cache requires an isolated candidate")
     if main_capacity not in (64, 128, 256) or (main_capacity != 256 and main_candidate is None):
@@ -36,11 +38,12 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames, main_ca
     tokenizer=AutoTokenizer.from_pretrained(root/'text_frontend')
     reference_model=Qwen3TTSModel.from_pretrained(str(model_path),device_map='cpu',dtype=torch.float32,attn_implementation='eager')
     class Decoder:
-        def __init__(self,file,layers,capacity,axes):
+        def __init__(self,file,layers,capacity,axes,delta=False):
             self.program=Runtime.get().load_program(root/file)
             self.method=self.program.load_method('forward')
             self.k=torch.zeros(layers,1,8,capacity,128);self.v=torch.zeros_like(self.k)
             self.capacity,self.axes=capacity,axes
+            self.delta=delta
             self.forward_ms=[]
         def step(self,h,pos):
             shape=(3,1,1,128) if self.axes==3 else (1,1,128)
@@ -50,12 +53,18 @@ def validate(root, model_path, texts, candidate, output_dir, max_frames, main_ca
             started=time.perf_counter()
             h,k,v=self.method.execute((torch.from_numpy(np.array(h,dtype=np.float32)).reshape(1,1,1024),self.k,self.v,c,s,mask,torch.tensor([pos])))
             self.forward_ms.append((time.perf_counter()-started)*1000)
-            self.k,self.v=k.clone(),v.clone()
+            if self.delta:
+                if tuple(k.shape) != (5,1,8,1,128) or tuple(v.shape) != tuple(k.shape):
+                    raise ValueError("Invalid CP delta output shape")
+                self.k[:,:,:,pos:pos+1,:].copy_(k)
+                self.v[:,:,:,pos:pos+1,:].copy_(v)
+            else:
+                self.k,self.v=k.clone(),v.clone()
             return h.flatten().numpy().copy()
     main_program=cfg.get('main_program','stateless-28-int4-cache256-et14.pte')
     assert main_program in cfg['sha256'] and Path(main_program).name == main_program
     main=Decoder(main_candidate if main_candidate else main_program,28,main_capacity,3)
-    cp=Decoder(candidate if candidate else 'cp-stateless-fp32-cache32-et14.pte',5,cp_capacity,1)
+    cp=Decoder(candidate if candidate else 'cp-stateless-fp32-cache32-et14.pte',5,cp_capacity,1,delta=cp_delta_outputs)
     decoder_program=Runtime.get().load_program(root/'speech-decoder-dynamic-et14.pte')
     audio_decoder=decoder_program.load_method('forward')
     # java.util.Random-compatible stream: same seed, token ordering and draws as Android.
@@ -147,6 +156,7 @@ if __name__=='__main__':
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--max-frames',type=int,choices=range(2,257),default=96)
     p.add_argument('--texts-jsonl',type=Path,default=Path(__file__).with_name('cp_later_frame_texts.jsonl'))
+    p.add_argument('--cp-delta-outputs',action='store_true',help='Reconstruct owned CP caches from current-position outputs')
     args=p.parse_args()
     if args.cp_capacity != 32 and args.candidate is None:
         p.error("--cp-capacity 16 requires --candidate")
@@ -155,9 +165,10 @@ if __name__=='__main__':
     texts=[json.loads(line)['text'] for line in args.texts_jsonl.read_text().splitlines() if line.strip()]
     if not texts or len(texts)>128 or any(not 1<=len(text)<=120 for text in texts):
         p.error('Expected 1..128 nonempty texts of at most 120 characters')
-    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames,args.main_candidate,args.cp_capacity,args.main_capacity)
+    report=validate(args.root,args.model,texts,args.candidate,args.output_dir,args.max_frames,args.main_candidate,args.cp_capacity,args.main_capacity,args.cp_delta_outputs)
     report['candidate_sha256']=hashlib.sha256(args.candidate.read_bytes()).hexdigest() if args.candidate else None
     report['main_candidate_sha256']=hashlib.sha256(args.main_candidate.read_bytes()).hexdigest() if args.main_candidate else None
+    report['cp_delta_outputs']=args.cp_delta_outputs
     report['feedback']='Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.'
     report['max_frames']=args.max_frames
     report['limitations']=['Two new sentences with a bounded generation limit, not broad voice quality acceptance.', 'Host timing includes frontend and decoding, not device realtime evidence.']
