@@ -65,3 +65,18 @@ path. Its total output-copy budget is only 0.1601*16 = 2.56 ms/frame, which
 bounds improvement from eliminating that measured copy alone. The isolated
 native scatter experiment therefore targets roughly 0–3 ms/frame improvement
 against the old full-cache path; it cannot by itself establish realtime.
+
+## Native scatter device result
+
+All eight requests completed with accepted code/PCM hashes, startup scatter
+checks passed, and original APK/manifest/WAV/probes were restored and hash
+verified. Same CPU APK, full/delta/delta/full order. Frame p50 full: 144,148,
+132,129 ms; native delta: 130,131,129,130 ms. Weighted milliseconds/call:
+{"baseline": {"cp_output_copy": 0.16135204081632654, "cp_forward": 3.664859693877551}, "grouped": {"cp_output_copy": 0.12340561224489796, "cp_forward": 3.5216836734693877}}
+
+Copy improvement relative to full output: 0.6071428571428572 ms/frame.
+The large Kotlin scatter regression is removed. Full-frame distributions
+overlap and CP forward also varies; frequency/cache/thermals uncontrolled.
+Do not attribute the entire frame difference to scatter. Output copying is
+now a small budget; codec still misses 80 ms/frame, excluding PCM decode.
+No duplicate Voice Lab clips because hashes are identical.
