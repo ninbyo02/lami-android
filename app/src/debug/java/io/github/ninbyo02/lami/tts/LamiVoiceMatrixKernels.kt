@@ -19,6 +19,15 @@ internal object LamiVoiceMatrixKernels {
         check(logits(weights, hidden, 7).map(Float::toBits) == expected.map(Float::toBits)) {
             "Native voice head arithmetic differs from sequential float32"
         }
+        val rowMajor = ByteBuffer.allocateDirect(8 * 1024 * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val packed = ByteBuffer.allocateDirect(8 * 1024 * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        for (i in 0 until rowMajor.capacity()) rowMajor.put(i, (i % 31 - 15) / 23f)
+        pack4(rowMajor, packed, 8)
+        check(logitsPacked4(packed, hidden, 8).map(Float::toBits) == logits(rowMajor, hidden, 8).map(Float::toBits)) {
+            "Packed voice head arithmetic differs from row-major float32"
+        }
     }
+    external fun pack4(source: Buffer, destination: Buffer, rows: Int)
+    external fun logitsPacked4(weights: Buffer, hidden: FloatArray, rows: Int): FloatArray
     external fun logits(weights: Buffer, hidden: FloatArray, rows: Int): FloatArray
 }
