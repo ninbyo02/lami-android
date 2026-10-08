@@ -10,8 +10,11 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--fixed-frames', type=int, choices=(8,16), help='Export a fixed-shape CPU graph for later NPU feasibility work; not a QNN model')
     p.add_argument('--backend', choices=('xnnpack', 'portable'), default='xnnpack')
     args = p.parse_args()
+    if args.output.exists():
+        raise FileExistsError('Refusing to overwrite an existing decoder')
     torch.set_num_threads(2)
     model = Qwen3TTSModel.from_pretrained(str(args.model), device_map='cpu', dtype=torch.float32, attn_implementation='eager')
     decoder = model.model.speech_tokenizer.model.decoder.eval()
@@ -25,11 +28,12 @@ if __name__ == '__main__':
                 length = hidden_state.shape[-1]
                 return ((length + self.stride - 1) // self.stride) * self.stride - length
             layer._get_extra_padding_for_conv1d = types.MethodType(integer_padding, layer)
-    codes = torch.zeros((1, 16, 256), dtype=torch.long)
+    codes = torch.zeros((1, 16, args.fixed_frames or 256), dtype=torch.long)
     with torch.no_grad():
-        ep = torch.export.export(decoder, (codes,), dynamic_shapes=({2: torch.export.Dim('frames', min=2, max=256)},), strict=False)
-    print('DYNAMIC_EXPORT_OK', ep.range_constraints, flush=True)
+        shapes = None if args.fixed_frames else ({2: torch.export.Dim('frames', min=2, max=256)},)
+        ep = torch.export.export(decoder, (codes,), dynamic_shapes=shapes, strict=False)
+    print('FIXED_EXPORT_OK' if args.fixed_frames else 'DYNAMIC_EXPORT_OK', ep.range_constraints, flush=True)
     et = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()] if args.backend == 'xnnpack' else []).to_executorch()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(et.buffer)
-    print('DYNAMIC_PTE_OK', len(et.buffer), flush=True)
+    print('FIXED_PTE_OK' if args.fixed_frames else 'DYNAMIC_PTE_OK', len(et.buffer), flush=True)

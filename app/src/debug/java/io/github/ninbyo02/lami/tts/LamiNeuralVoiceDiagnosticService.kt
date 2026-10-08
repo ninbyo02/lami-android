@@ -39,7 +39,7 @@ class LamiNeuralVoiceDiagnosticService : Service() {
         scope.launch {
             try {
                 if (pipelineTexts != null && intent.getBooleanExtra("lami_neural_tts_streaming_probe", false)) LamiNeuralVoiceDiagnostics.runStreamingProbe(applicationContext, pipelineTexts)
-                else if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial, !(intent?.getBooleanExtra("lami_neural_tts_cp_allocation_baseline", false) ?: false), intent?.getBooleanExtra("lami_neural_tts_prefix_decode_probe", false) ?: false)
+                else if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial, !(intent?.getBooleanExtra("lami_neural_tts_cp_allocation_baseline", false) ?: false), intent?.getBooleanExtra("lami_neural_tts_prefix_decode_probe", false) ?: false, intent?.getBooleanExtra("lami_neural_tts_pcm_thread_probe", false) ?: false)
                 else LamiNeuralVoiceDiagnostics.runProbe(applicationContext, text)
             }
             finally { stopSelf() }

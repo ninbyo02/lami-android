@@ -44,7 +44,11 @@ internal object LamiVoiceDecoderProcess {
     private var expiry: Job? = null
     private var retained: Pair<Context, ServiceConnection>? = null
 
-    suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray = mutex.withLock {
+    suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray =
+        decodeWithThreads(context, root, codes, 0, progress)
+
+    suspend fun decodeWithThreads(context: Context, root: File, codes: LamiVoiceCodes, threads: Int, progress: (String) -> Unit): FloatArray = mutex.withLock {
+        require(threads in setOf(0, 1, 2, 4)) { "Invalid decoder thread count" }
         expiry?.cancel()
         var successful = false
         val app = context.applicationContext
@@ -67,6 +71,7 @@ internal object LamiVoiceDecoderProcess {
                         replyTo = reply
                         data = Bundle().apply {
                             putString("id", id)
+                            putInt("threads", threads)
                             putString("model", root.resolve("speech-decoder-dynamic-et14.pte").canonicalPath)
                         }
                     })
@@ -94,7 +99,7 @@ internal object LamiVoiceDecoderProcess {
             val metrics = withTimeout(60_000L) { result.await() }
             val pid = metrics.getInt("pid")
             check(pid > 0 && pid != Process.myPid()) { "Decoder did not run in separate process" }
-            progress("metric=decoder_process pid=$pid model_load_ms=${metrics.getLong("load_ms")} pcm_forward_ms=${metrics.getLong("forward_ms")} reused=${metrics.getBoolean("reused")} total_ms=${SystemClock.elapsedRealtime() - started}")
+            progress("metric=decoder_process pid=$pid threads=$threads model_load_ms=${metrics.getLong("load_ms")} pcm_forward_ms=${metrics.getLong("forward_ms")} reused=${metrics.getBoolean("reused")} total_ms=${SystemClock.elapsedRealtime() - started}")
             val pcm = DataInputStream(directory.resolve("pcm.bin").inputStream().buffered()).use { input ->
                 require(input.readInt() == codes.frames * 1920) { "Unexpected decoder sample count" }
                 FloatArray(codes.frames * 1920) { input.readFloat() }.also {
@@ -167,12 +172,15 @@ class LamiVoiceDecoderService : Service() {
                 count to values
             }
             val started = SystemClock.elapsedRealtime()
-            val identity = "${model.path}:${model.length()}:${model.lastModified()}"
+            val threads = message.data.getInt("threads", 0)
+            require(threads in setOf(0, 1, 2, 4))
+            val identity = "${model.path}:${model.length()}:${model.lastModified()}:$threads"
             val reused = cachedDecoder != null && cachedModelIdentity == identity
             if (!reused) {
                 cachedDecoder?.close()
                 cachedDecoder = null
-                val loaded = Module.load(model.path, Module.LOAD_MODE_MMAP)
+                val loaded = if (threads == 0) Module.load(model.path, Module.LOAD_MODE_MMAP)
+                    else Module.load(model.path, Module.LOAD_MODE_MMAP, threads)
                 try { loaded.loadMethod("forward") } catch (error: Throwable) { loaded.close(); throw error }
                 cachedDecoder = loaded
                 cachedModelIdentity = identity

@@ -48,7 +48,7 @@ internal object LamiNeuralVoiceDiagnostics {
     }
 
     /** Explicit A/B device diagnostic through the same synthesis, queue and playback primitives. */
-    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true, prefixDecodeProbe: Boolean = false) = withContext(Dispatchers.Default) {
+    suspend fun runPipelineProbe(context: Context, texts: List<String>, serial: Boolean, reuseCpWorkspace: Boolean = true, prefixDecodeProbe: Boolean = false, pcmThreadProbe: Boolean = false) = withContext(Dispatchers.Default) {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
@@ -68,6 +68,7 @@ internal object LamiNeuralVoiceDiagnostics {
                         codes.values.forEach(codeBytes::putLong)
                         trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
                         val full = LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        if (pcmThreadProbe) LamiVoicePcmThreadProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         full
                     }
