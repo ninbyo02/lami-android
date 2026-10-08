@@ -47,7 +47,12 @@ internal object LamiVoiceDecoderProcess {
     suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray =
         decodeWithThreads(context, root, codes, 0, progress)
 
-    suspend fun decodeWithThreads(context: Context, root: File, codes: LamiVoiceCodes, threads: Int, progress: (String) -> Unit): FloatArray = mutex.withLock {
+    suspend fun decodeWithThreads(context: Context, root: File, codes: LamiVoiceCodes, threads: Int, progress: (String) -> Unit): FloatArray =
+        decodeModel(context, root, codes, "speech-decoder-dynamic-et14.pte", threads, progress)
+
+    suspend fun decodeModel(context: Context, root: File, codes: LamiVoiceCodes, modelName: String, threads: Int, progress: (String) -> Unit): FloatArray = mutex.withLock {
+        require(modelName in setOf("speech-decoder-dynamic-et14.pte", "speech-decoder-fixed16-xnnpack.pte", "speech-decoder-fixed16-vulkan.pte"))
+        if (modelName != "speech-decoder-dynamic-et14.pte") require(codes.frames == 16)
         require(threads in setOf(0, 1, 2, 4)) { "Invalid decoder thread count" }
         expiry?.cancel()
         var successful = false
@@ -72,7 +77,7 @@ internal object LamiVoiceDecoderProcess {
                         data = Bundle().apply {
                             putString("id", id)
                             putInt("threads", threads)
-                            putString("model", root.resolve("speech-decoder-dynamic-et14.pte").canonicalPath)
+                            putString("model", root.resolve(modelName).canonicalPath)
                         }
                     })
                 } catch (error: Exception) { result.completeExceptionally(error) }
