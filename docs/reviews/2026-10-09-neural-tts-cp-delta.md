@@ -31,3 +31,21 @@ indexing. It does not alias ExecuTorch outputs. Normal full-cache copying is
 unchanged. Local CPU smoke build is running; a guarded device comparison
 starts only after build success and restores original APK/config/probes/WAV
 in finally. Device results and latest CI are still pending.
+
+## Device result: reject Kotlin delta scatter for promotion
+
+All eight serial requests completed with code/PCM hashes matching reviewed
+clips. Original APK, manifest, WAV and two probes were restored and hash
+verified; temporary models removed. No duplicate Voice Lab audio is needed.
+Same CPU smoke APK and grouped main/packed heads throughout, full/delta/delta/full.
+Full-cache frame p50: 141,150,123,130 ms; delta: 147,157,157,174 ms.
+Weighted CP output-copy means: full 0.1601 ms/call, delta 1.5867 ms/call.
+Weighted forward means: full 3.6518 ms, delta 3.6594 ms. This implementation
+has materially higher output-update cost and must not be promoted for speed.
+Frequency/cache/thermals were uncontrolled; realtime remains unmet.
+
+Likely cause: absolute FloatBuffer get/put for every delta element in Kotlin,
+instead of native bulk copy. This attribution needs a native-copy control to
+isolate. Next candidate: JNI scatter of contiguous 128-float blocks into owned
+cache storage, preserving validation and alias protections. Do not expand the
+model pilot until that copy path has been measured. Keep PR draft.
