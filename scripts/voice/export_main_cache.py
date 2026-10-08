@@ -13,10 +13,11 @@ from executorch.backends.xnnpack.partition.config.generic_node_configs import BM
 from qwen_tts.core.models.modeling_qwen3_tts import apply_multimodal_rotary_pos_emb, repeat_kv
 
 class StatelessTalker(torch.nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, grouped_attention=False):
         super().__init__()
         self.layers = model.layers
         self.norm = model.norm
+        self.grouped_attention = grouped_attention
 
     def forward(self, hidden, keys, values, cosine, sine, mask, position):
         next_keys, next_values = [], []
@@ -33,12 +34,22 @@ class StatelessTalker(torch.nn.Module):
                 attention.rope_scaling['interleaved'])
             updated_key = keys[index].index_copy(2, position, key)
             updated_value = values[index].index_copy(2, position, value)
-            repeated_key = repeat_kv(updated_key, attention.num_key_value_groups)
-            repeated_value = repeat_kv(updated_value, attention.num_key_value_groups)
-            weights = torch.matmul(query, repeated_key.transpose(2, 3)) * attention.scaling
-            weights = torch.softmax(weights + mask[:, :, :, :repeated_key.shape[-2]], -1,
-                                    dtype=torch.float32).to(query.dtype)
-            attended = torch.matmul(weights, repeated_value).transpose(1, 2).contiguous()
+            if self.grouped_attention:
+                # Exported decode has one token; group queries instead of copying K/V heads.
+                assert query.shape[2] == 1, 'Grouped pilot supports single-token decode only'
+                grouped_query = query.reshape(query.shape[0], updated_key.shape[1],
+                                              attention.num_key_value_groups, attention.head_dim)
+                weights = torch.matmul(grouped_query, updated_key.transpose(2, 3)) * attention.scaling
+                weights = torch.softmax(weights + mask, -1, dtype=torch.float32).to(query.dtype)
+                attended = torch.matmul(weights, updated_value).reshape(query.shape)
+                attended = attended.transpose(1, 2).contiguous()
+            else:
+                repeated_key = repeat_kv(updated_key, attention.num_key_value_groups)
+                repeated_value = repeat_kv(updated_value, attention.num_key_value_groups)
+                weights = torch.matmul(query, repeated_key.transpose(2, 3)) * attention.scaling
+                weights = torch.softmax(weights + mask[:, :, :, :repeated_key.shape[-2]], -1,
+                                        dtype=torch.float32).to(query.dtype)
+                attended = torch.matmul(weights, repeated_value).transpose(1, 2).contiguous()
             projected = attention.o_proj(attended.reshape(*normalized.shape[:-1], -1))
             hidden = residual + projected
             hidden = hidden + layer.mlp(layer.post_attention_layernorm(hidden))
@@ -55,7 +66,10 @@ if __name__ == '__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--report',type=Path)
     parser.add_argument('--int8-permute-delegate',action='store_true',help='Isolated pilot: delegate layout copies to XNNPACK')
+    parser.add_argument('--grouped-attention',action='store_true',help='Isolated single-token pilot without repeated K/V heads')
     args=parser.parse_args()
+    if args.grouped_attention and args.precision != 'int8':
+        parser.error('--grouped-attention is restricted to isolated int8 pilots')
     if args.int8_permute_delegate and args.precision != 'int8':
         parser.error('--int8-permute-delegate requires int8')
     if args.precision == 'int8':
@@ -80,7 +94,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(args.qat_state,map_location='cpu',weights_only=True))
         model=quantizer.convert(model).eval()
     for p in model.parameters():p.requires_grad_(False)
-    wrapper=StatelessTalker(model).eval()
+    wrapper=StatelessTalker(model,grouped_attention=args.grouped_attention).eval()
     hidden=torch.zeros(1,1,1024)
     k=torch.zeros(28,1,8,args.capacity,128)
     v=torch.zeros_like(k)
@@ -120,6 +134,7 @@ if __name__ == '__main__':
         args.report.write_text(json.dumps({
             'status':'isolated_main_pilot_not_voice_validated',
             'precision':args.precision,'capacity':args.capacity,
+            'grouped_attention':args.grouped_attention,
             'int8_weight_constants':int8_weights,'bytes':len(et.buffer),
             'per_op_partition':args.precision == 'int8',
             'partition_scope':('linear_bmm_softmax_permute' if args.int8_permute_delegate else 'linear_bmm_softmax') if args.precision == 'int8' else 'default',

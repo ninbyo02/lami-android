@@ -1,0 +1,68 @@
+{
+  "benchmark_checks": [
+    {
+      "position": 0,
+      "hidden_and_cache_prefix_bit_exact": [
+        true,
+        true,
+        true
+      ],
+      "max_abs_diff": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "position": 32,
+      "hidden_and_cache_prefix_bit_exact": [
+        true,
+        true,
+        true
+      ],
+      "max_abs_diff": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "position": 127,
+      "hidden_and_cache_prefix_bit_exact": [
+        true,
+        true,
+        true
+      ],
+      "max_abs_diff": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "host_median_ms": {
+    "0": {
+      "baseline": 34.43742312538234,
+      "grouped": 27.877664000243385
+    },
+    "32": {
+      "baseline": 33.50445425030557,
+      "grouped": 27.08765587567541
+    },
+    "127": {
+      "baseline": 33.682446124203125,
+      "grouped": 27.098981999643
+    }
+  },
+  "feedback_file_identical": {
+    "case-0-codes.npy": true,
+    "case-0.wav": true,
+    "case-1-codes.npy": true,
+    "case-1.wav": true
+  },
+  "limitations": [
+    "CPU host only; concurrent workload uncontrolled",
+    "Two short feedback texts",
+    "Not Android or realtime acceptance"
+  ]
+}
