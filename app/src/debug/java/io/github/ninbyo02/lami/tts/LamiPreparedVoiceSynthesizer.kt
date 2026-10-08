@@ -413,15 +413,9 @@ internal object LamiPreparedVoiceSynthesizer {
                 require(nextK.shape().contentEquals(deltaShape) && nextV.shape().contentEquals(deltaShape))
                 dk.clear(); dv.clear()
                 nextK.copyDataInto(dk); nextV.copyDataInto(dv)
-                // Own full cache storage; copy only each layer/head's current position.
-                for (block in 0 until dk.capacity() / 128) {
-                    for (column in 0 until 128) {
-                        val source = block * 128 + column
-                        val destination = (block * capacity + position) * 128 + column
-                        kBuffer.put(destination, dk.get(source))
-                        vBuffer.put(destination, dv.get(source))
-                    }
-                }
+                // Native contiguous block copies into separately owned full cache storage.
+                LamiVoiceMatrixKernels.scatterKvDelta(dk, kBuffer, capacity, position)
+                LamiVoiceMatrixKernels.scatterKvDelta(dv, vBuffer, capacity, position)
             } else {
                 require(nextK.numel() == kBuffer.capacity().toLong() && nextV.numel() == vBuffer.capacity().toLong())
                 kBuffer.clear()

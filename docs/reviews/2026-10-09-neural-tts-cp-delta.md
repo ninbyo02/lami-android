@@ -49,3 +49,19 @@ instead of native bulk copy. This attribution needs a native-copy control to
 isolate. Next candidate: JNI scatter of contiguous 128-float blocks into owned
 cache storage, preserving validation and alias protections. Do not expand the
 model pilot until that copy path has been measured. Keep PR draft.
+
+## Native block scatter follow-up (pending)
+
+Replaces per-element Kotlin absolute get/put with JNI memcpy of each contiguous
+128-float layer/head block. Direct-buffer dimensions, position and disjoint
+address ranges are validated. Startup diagnostic checks copied and untouched
+slots at positions 0 and 15, and rejects an invalid position. Runtime model
+and sampling remain identical. CPU smoke build and fresh guarded device
+comparison are pending; no native scatter speed claim yet.
+
+Budget: the observed Kotlin regression is (1.5867 - 0.1601)*16 = 22.83 ms/frame.
+Recovering that regression does not imply beating the original full-cache
+path. Its total output-copy budget is only 0.1601*16 = 2.56 ms/frame, which
+bounds improvement from eliminating that measured copy alone. The isolated
+native scatter experiment therefore targets roughly 0–3 ms/frame improvement
+against the old full-cache path; it cannot by itself establish realtime.

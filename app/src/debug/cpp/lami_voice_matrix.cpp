@@ -1,5 +1,7 @@
 #include <arm_neon.h>
 #include <jni.h>
+#include <cstring>
+#include <cstdint>
 
 extern "C" JNIEXPORT jfloatArray JNICALL
 Java_io_github_ninbyo02_lami_tts_LamiVoiceMatrixKernels_logits(
@@ -90,4 +92,26 @@ Java_io_github_ninbyo02_lami_tts_LamiVoiceMatrixKernels_logitsPacked4(
     env->ReleaseFloatArrayElements(hidden, input, JNI_ABORT);
     env->ReleaseFloatArrayElements(result, scores, 0);
     return result;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_ninbyo02_lami_tts_LamiVoiceMatrixKernels_scatterKvDelta(
+    JNIEnv* env, jobject, jobject source, jobject destination, jint capacity, jint position) {
+    auto* src = static_cast<const float*>(env->GetDirectBufferAddress(source));
+    auto* dst = static_cast<float*>(env->GetDirectBufferAddress(destination));
+    const jlong count = env->GetDirectBufferCapacity(source);
+    const jlong full = env->GetDirectBufferCapacity(destination);
+    if (!src || !dst || capacity <= 0 || capacity > 256 || position < 0 || position >= capacity ||
+        count <= 0 || count % 128 != 0 || full != count * capacity) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Invalid KV delta buffers"); return;
+    }
+    // Separate owned buffers are required: copying a block must not overwrite later input.
+    const auto srcStart = reinterpret_cast<uintptr_t>(src);
+    const auto dstStart = reinterpret_cast<uintptr_t>(dst);
+    if (srcStart < dstStart + full * sizeof(float) && dstStart < srcStart + count * sizeof(float)) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Overlapping KV delta buffers"); return;
+    }
+    for (jlong block = 0; block < count / 128; ++block) {
+        std::memcpy(dst + (block * capacity + position) * 128, src + block * 128, 128 * sizeof(float));
+    }
 }
