@@ -132,7 +132,13 @@ internal object LamiPreparedVoiceSynthesizer {
         val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
         val frontend = LamiVoiceTextFrontend(session.tokenizer(root.resolve("text_frontend"), progress), projected::row, embedding::row)
         val prepared = frontend.prepare(text)
-        val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048, timing, "cp_heads", packed4 = ctx.optBoolean("cp_head_packed4", false)) }
+        val prepacked = ctx.optBoolean("cp_head_prepacked4", false)
+        require(!prepacked || !ctx.optBoolean("cp_head_fixed_benchmark", false)) { "Fixed benchmark requires row-major heads" }
+        val cpHeads = (0..14).map {
+            val name = if (prepacked) "cp.head.$it.packed4.f32" else "cp.head.$it.f32"
+            require(!prepacked || files.has(name)) { "Unverified packed head: $name" }
+            Matrix(root.resolve(name), 2048, timing, "cp_heads", packed4 = ctx.optBoolean("cp_head_packed4", false), prepacked4 = prepacked)
+        }
         if (ctx.optBoolean("cp_head_fixed_benchmark", false)) {
             cpHeads[0].benchmarkPacked4(progress)
         }
@@ -254,13 +260,16 @@ internal object LamiPreparedVoiceSynthesizer {
         }
     }
 
-    private class Matrix(file: File, private val rows: Int, private val timing: WorkTiming? = null, private val label: String = "head", private val packed4: Boolean = false) {
+    private class Matrix(file: File, private val rows: Int, private val timing: WorkTiming? = null, private val label: String = "head", private val packed4: Boolean = false, private val prepacked4: Boolean = false) {
         private val data: FloatBuffer = RandomAccessFile(file, "r").use {
             require(it.length() == rows * WIDTH * 4L) { "Invalid tensor file: ${file.name}" }
             it.channel.map(FileChannel.MapMode.READ_ONLY, 0, it.length()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
         }
         // Diagnostic opt-in: packing costs extra memory and is performed once per request.
-        private val packedData = if (packed4) {
+        private val packedData = if (prepacked4) {
+            require(rows % 4 == 0)
+            data
+        } else if (packed4) {
             require(rows % 4 == 0)
             val started = System.nanoTime()
             val buffer = ByteBuffer.allocateDirect(rows * WIDTH * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
@@ -269,6 +278,7 @@ internal object LamiPreparedVoiceSynthesizer {
             buffer
         } else null
         fun row(index: Int): FloatArray {
+            check(!prepacked4) { "Packed heads do not expose embedding rows" }
             require(index in 0 until rows)
             return FloatArray(WIDTH) { data.get(index * WIDTH + it) }
         }
@@ -283,6 +293,7 @@ internal object LamiPreparedVoiceSynthesizer {
             return scores
         }
         suspend fun benchmarkPacked4(progress: (String) -> Unit) {
+            check(!prepacked4)
             require(rows % 4 == 0)
             val packed = packedData ?: ByteBuffer.allocateDirect(rows * WIDTH * 4)
                 .order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().also {
