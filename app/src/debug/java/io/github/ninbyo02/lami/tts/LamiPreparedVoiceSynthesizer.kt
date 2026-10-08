@@ -133,6 +133,9 @@ internal object LamiPreparedVoiceSynthesizer {
         val frontend = LamiVoiceTextFrontend(session.tokenizer(root.resolve("text_frontend"), progress), projected::row, embedding::row)
         val prepared = frontend.prepare(text)
         val cpHeads = (0..14).map { Matrix(root.resolve("cp.head.$it.f32"), 2048, timing, "cp_heads", packed4 = ctx.optBoolean("cp_head_packed4", false)) }
+        if (ctx.optBoolean("cp_head_fixed_benchmark", false)) {
+            cpHeads[0].benchmarkPacked4(progress)
+        }
         val cpEmbeddings = (0..14).map { Matrix(root.resolve("cp.embedding.$it.f32"), 2048) }
         val frames = mutableListOf<LongArray>()
         val codecAllowed = (0..2047).toSet()
@@ -278,6 +281,34 @@ internal object LamiPreparedVoiceSynthesizer {
             check(scores.size == rows && scores.all(Float::isFinite)) { "Non-finite codec logits" }
             currentCoroutineContext().ensureActive()
             return scores
+        }
+        suspend fun benchmarkPacked4(progress: (String) -> Unit) {
+            require(rows % 4 == 0)
+            val packed = packedData ?: ByteBuffer.allocateDirect(rows * WIDTH * 4)
+                .order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().also {
+                    LamiVoiceMatrixKernels.pack4(data, it, rows)
+                }
+            // Fixed inputs and one real CP head; alternate adjacent trial order.
+            for (inputIndex in 0..2) {
+                val h = FloatArray(WIDTH) { j -> ((j * (inputIndex + 3) % 101) - 50) / 37f }
+                val expected = LamiVoiceMatrixKernels.logits(data, h, rows)
+                for (trial in 0..6) {
+                    for (usePacked in if (trial % 2 == 0) listOf(false, true) else listOf(true, false)) {
+                        currentCoroutineContext().ensureActive()
+                        fun calculate() = if (usePacked) LamiVoiceMatrixKernels.logitsPacked4(packed, h, rows)
+                            else LamiVoiceMatrixKernels.logits(data, h, rows)
+                        repeat(3) { calculate() }
+                        val outputs = arrayOfNulls<FloatArray>(16)
+                        val started = System.nanoTime()
+                        repeat(outputs.size) { outputs[it] = calculate() }
+                        val elapsed = System.nanoTime() - started
+                        check(outputs.all { output -> output != null && output.indices.all { output[it].toBits() == expected[it].toBits() } }) {
+                            "Fixed-input CP head mismatch; diagnostic audio withheld"
+                        }
+                        progress("metric=cp_head_fixed input=$inputIndex trial=$trial packed=$usePacked calls=16 total_ns=$elapsed bit_exact=true")
+                    }
+                }
+            }
         }
         suspend fun argmax(h: FloatArray, allowed: Set<Int>? = null, repeated: Set<Int> = emptySet(), penalty: Float = 1f): Int {
             val scores = logits(h)
