@@ -1,0 +1,338 @@
+{
+  "rows": [
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 11542,
+      "total_ms": 11569
+    },
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 10536,
+      "total_ms": 10577
+    },
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 5748,
+      "total_ms": 5780
+    },
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 5845,
+      "total_ms": 5871
+    },
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 3175,
+      "total_ms": 3204
+    },
+    {
+      "request": 0,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 3193,
+      "total_ms": 3220
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 3201,
+      "total_ms": 3227
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 3180,
+      "total_ms": 3206
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 5888,
+      "total_ms": 5916
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 5907,
+      "total_ms": 5933
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 11492,
+      "total_ms": 11520
+    },
+    {
+      "request": 0,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 11570,
+      "total_ms": 11597
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 11604,
+      "total_ms": 11631
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 11603,
+      "total_ms": 11629
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 5856,
+      "total_ms": 5883
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 5849,
+      "total_ms": 5879
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 3202,
+      "total_ms": 3247
+    },
+    {
+      "request": 0,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 3132,
+      "total_ms": 3163
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 8563,
+      "total_ms": 8585
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 8545,
+      "total_ms": 8566
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 4456,
+      "total_ms": 4478
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 4488,
+      "total_ms": 4507
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 2404,
+      "total_ms": 2426
+    },
+    {
+      "request": 1,
+      "pcm_trial": 0,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 2404,
+      "total_ms": 2425
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 2344,
+      "total_ms": 2365
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 2367,
+      "total_ms": 2387
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 4425,
+      "total_ms": 4446
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 4417,
+      "total_ms": 4437
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 8628,
+      "total_ms": 8649
+    },
+    {
+      "request": 1,
+      "pcm_trial": 1,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 8543,
+      "total_ms": 8563
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 1,
+      "pcm_forward_ms": 8576,
+      "total_ms": 8597
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 1,
+      "pcm_forward_ms": 8564,
+      "total_ms": 8585
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 2,
+      "pcm_forward_ms": 4412,
+      "total_ms": 4433
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 2,
+      "pcm_forward_ms": 4427,
+      "total_ms": 4446
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 0,
+      "threads": 4,
+      "pcm_forward_ms": 2379,
+      "total_ms": 2399
+    },
+    {
+      "request": 1,
+      "pcm_trial": 2,
+      "repeat": 1,
+      "threads": 4,
+      "pcm_forward_ms": 2355,
+      "total_ms": 2375
+    }
+  ],
+  "median_pcm_forward_ms": {
+    "0": {
+      "1": 11556.0,
+      "2": 5852.5,
+      "4": 3186.5
+    },
+    "1": {
+      "1": 8563.5,
+      "2": 4426.0,
+      "4": 2373.0
+    }
+  },
+  "restore": {
+    "status": "restored_and_hash_verified",
+    "verified": {
+      "apk": true,
+      "manifest": true,
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true,
+      "removed_main-int8-grouped-cache128.pte": true,
+      "removed_cp-int8-grouped-cache16.pte": true
+    },
+    "errors": []
+  },
+  "all_36_bit_equal_to_default": true,
+  "capture_sha256": "7fde58e820baf795932c2fb84396829d6b35bc47d043473aba8279165f2df964",
+  "backup": {
+    "phone": "192.168.52.52:34431",
+    "model": "NX733J",
+    "soc": "SM8750",
+    "original_apk_sha256": "f9a3da2b8d83dad7fa2f28699431a319c99c89d763506badea388021b176d746",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "test_apk_sha256": "944c73fbde02b0bca4c1ee9cea16e7f5c32a8052bae2c7bd6d53db1c49ecc3dd",
+    "original_main_program": "stateless-28-fp32-cache256-et14.pte",
+    "backups": {
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true
+    }
+  },
+  "limitations": [
+    "Requested thread count is reported; actual scheduling/cores are not measured.",
+    "Same captured codes reused per sentence; frequency/cache/thermals uncontrolled.",
+    "CPU only; no NPU result or default behavior promotion."
+  ]
+}

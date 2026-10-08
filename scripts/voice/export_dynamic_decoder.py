@@ -1,5 +1,7 @@
 """Export a decoder accepting 2..256 codec frames with ExecuTorch 1.4."""
 import argparse
+import json
+from collections import Counter
 from pathlib import Path
 import torch
 from qwen_tts import Qwen3TTSModel
@@ -10,9 +12,12 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--operator-report', type=Path, help='Save pre-lowering operator inventory; not a QNN support report')
     p.add_argument('--fixed-frames', type=int, choices=(8,16), help='Export a fixed-shape CPU graph for later NPU feasibility work; not a QNN model')
     p.add_argument('--backend', choices=('xnnpack', 'portable'), default='xnnpack')
     args = p.parse_args()
+    if args.operator_report and args.operator_report.exists():
+        raise FileExistsError('Refusing to overwrite operator report')
     if args.output.exists():
         raise FileExistsError('Refusing to overwrite an existing decoder')
     torch.set_num_threads(2)
@@ -32,6 +37,10 @@ if __name__ == '__main__':
     with torch.no_grad():
         shapes = None if args.fixed_frames else ({2: torch.export.Dim('frames', min=2, max=256)},)
         ep = torch.export.export(decoder, (codes,), dynamic_shapes=shapes, strict=False)
+    if args.operator_report:
+        args.operator_report.parent.mkdir(parents=True, exist_ok=True)
+        counts = Counter(str(n.target) for n in ep.graph.nodes if n.op == 'call_function')
+        args.operator_report.write_text(json.dumps({'fixed_frames': args.fixed_frames, 'operators': dict(sorted(counts.items())), 'limitations': ['Pre-lowering graph only; no QNN support or NPU placement claim.']}, indent=2) + '\n')
     print('FIXED_EXPORT_OK' if args.fixed_frames else 'DYNAMIC_EXPORT_OK', ep.range_constraints, flush=True)
     et = to_edge_transform_and_lower(ep, partitioner=[XnnpackPartitioner()] if args.backend == 'xnnpack' else []).to_executorch()
     args.output.parent.mkdir(parents=True, exist_ok=True)

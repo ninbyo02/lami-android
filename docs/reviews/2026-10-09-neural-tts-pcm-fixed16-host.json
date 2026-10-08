@@ -1,0 +1,26 @@
+{
+  "fixed_frames": 16,
+  "backend": "xnnpack_cpu",
+  "model_sha256": "9a458b1029bd3d515f8febfc2b6114f9a7cb1a51dffea004e82173a3124f7dff",
+  "reference_sha256": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+  "cases": [
+    {
+      "case": 0,
+      "max_abs": 0.0,
+      "rmse": 0.0,
+      "bit_equal": true,
+      "input_sha256": "657fe30928f9a2f62a01050f0064e66a9020b56482097d683468f8e4913da6ae"
+    },
+    {
+      "case": 1,
+      "max_abs": 0.0,
+      "rmse": 0.0,
+      "bit_equal": true,
+      "input_sha256": "754c7b2051bf85bdd769cff3493d0e51511de6f65ffc4b2eb8478d4728a383f0"
+    }
+  ],
+  "limitations": [
+    "Host CPU equivalence only; no NPU conversion or speed evidence.",
+    "Only prefix shape tested; independent chunks need boundary/state validation."
+  ]
+}
