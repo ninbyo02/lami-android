@@ -142,10 +142,17 @@ internal object LamiPreparedVoiceSynthesizer {
         var endedOnEos = false
         val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
         require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
-        val mainCapacity = if (mainProgram == "main-int8-permute-cache128.pte") {
-            require(files.getString(mainProgram) == "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c") { "Unverified main cache128 pilot" }
-            128
-        } else 256
+        val mainCapacity = when (mainProgram) {
+            "main-int8-permute-cache128.pte" -> {
+                require(files.getString(mainProgram) == "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c") { "Unverified main cache128 pilot" }
+                128
+            }
+            "main-int8-grouped-cache128.pte" -> {
+                require(files.getString(mainProgram) == "83ef62e9ac80c6db43d532b43c7e85d0586e5860e6718c552054f321d8da5dca") { "Unverified main grouped pilot" }
+                128
+            }
+            else -> 256
+        }
         require(prepared.prefill.size < mainCapacity) { "Text leaves no generation space in selected main cache" }
         progress("metric=main_program name=$mainProgram capacity=$mainCapacity")
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
