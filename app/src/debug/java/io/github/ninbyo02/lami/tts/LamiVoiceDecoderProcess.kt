@@ -65,7 +65,11 @@ internal object LamiVoiceDecoderProcess {
             if (message.data.getString("id") == id) {
                 if (message.what == FORWARD_STARTED) progress("stage=pcm_process_forward pid=${message.data.getInt("pid")}")
                 else if (message.what == SUCCESS) result.complete(message.data)
-                else result.completeExceptionally(IllegalStateException(message.data.getString("error")))
+                else {
+                    val error = message.data.getString("error") ?: "Unknown decoder error"
+                    progress("stage=pcm_process_failure model=$modelName error=${error.replace('\n', ' ').replace('\r', ' ')}")
+                    result.completeExceptionally(IllegalStateException(error))
+                }
             }
             true
         })

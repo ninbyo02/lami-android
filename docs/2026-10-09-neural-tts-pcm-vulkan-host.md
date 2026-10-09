@@ -26,3 +26,7 @@ Host artifacts: `/home/sato/project/lami-android-voice-dataset/qat/pcm-vulkan-20
 Use the pinned ExecuTorch1.4 environment and Qwen3-TTS on PYTHONPATH. Export with `scripts/voice/export_dynamic_decoder.py --model MODEL --output OUTPUT --fixed-frames 16 --backend vulkan --vulkan-quote-nonfinite --vulkan-xnnpack-fallback --operator-report REPORT`. Output paths must be new.
 
 Build with JDK21: `./gradlew :app:assembleStandardDebug -Plami.allowMissingQairt244Jni=true -Plami.voiceVulkan=true --no-daemon`. This build provides no NPU evidence. Restore and verify the original APK, manifest, WAV, and probes after eventual device testing.
+
+## Evening device follow-up
+
+Connection recovered; two attempts confirmed native SIGABRT during GPU loadMethod. No GPU forward measurement. Both attempts restored and hash-verified original phone state. See `2026-10-09-neural-tts-pcm-vulkan-device.md`.
