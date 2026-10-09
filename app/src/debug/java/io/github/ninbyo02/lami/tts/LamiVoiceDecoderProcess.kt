@@ -38,6 +38,42 @@ internal object LamiVoiceDecoderProcess {
     const val SUCCESS = 2
     const val FAILURE = 3
     const val FORWARD_STARTED = 4
+    const val MINIMAL_VULKAN = 5
+
+    /** Debug-only minimal Vulkan smoke test, isolated in the decoder process. */
+    suspend fun probeMinimalVulkan(context: Context, model: File, progress: (String) -> Unit) = mutex.withLock {
+        val app = context.applicationContext
+        require(model.canonicalPath.startsWith(app.filesDir.canonicalPath + File.separator))
+        val id = UUID.randomUUID().toString()
+        val result = CompletableDeferred<Bundle>()
+        val reply = Messenger(Handler(Looper.getMainLooper()) { msg ->
+            if (msg.data.getString("id") == id) {
+                if (msg.what == SUCCESS) result.complete(msg.data)
+                else result.completeExceptionally(IllegalStateException(msg.data.getString("error") ?: "Vulkan probe failed"))
+            }
+            true
+        })
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                runCatching {
+                    Messenger(binder).send(Message.obtain(null, MINIMAL_VULKAN).apply {
+                        replyTo = reply
+                        data = Bundle().apply { putString("id", id); putString("model", model.canonicalPath) }
+                    })
+                }.onFailure { result.completeExceptionally(it) }
+            }
+            override fun onServiceDisconnected(name: ComponentName) { result.completeExceptionally(IllegalStateException("Vulkan decoder process disconnected")) }
+            override fun onBindingDied(name: ComponentName) { result.completeExceptionally(IllegalStateException("Vulkan decoder binding died")) }
+            override fun onNullBinding(name: ComponentName) { result.completeExceptionally(IllegalStateException("Vulkan decoder null binding")) }
+        }
+        val bound = app.bindService(Intent(app, LamiVoiceDecoderService::class.java), connection, Context.BIND_AUTO_CREATE)
+        check(bound) { "Unable to bind Vulkan probe" }
+        try {
+            val metrics = withTimeout(30_000L) { result.await() }
+            progress("metric=minimal_vulkan load_ms=${metrics.getLong("load_ms")} forward_ms=${metrics.getLong("forward_ms")} sum=${metrics.getDouble("sum")} pid=${metrics.getInt("pid")}")
+            check(kotlin.math.abs(metrics.getDouble("sum") - 768.0) < 0.01) { "Minimal Vulkan numeric mismatch" }
+        } finally { app.unbindService(connection) }
+    }
 
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -151,7 +187,8 @@ class LamiVoiceDecoderService : Service() {
         super.onCreate()
         worker = HandlerThread("lami-pcm-decoder").apply { start() }
         messenger = Messenger(Handler(worker.looper) { message ->
-            if (message.what == LamiVoiceDecoderProcess.DECODE) decode(message)
+            if (message.what == LamiVoiceDecoderProcess.MINIMAL_VULKAN) minimalVulkan(message)
+            else if (message.what == LamiVoiceDecoderProcess.DECODE) decode(message)
             true
         })
     }
@@ -163,6 +200,35 @@ class LamiVoiceDecoderService : Service() {
         }
         return false
     }
+    private fun minimalVulkan(message: Message) {
+        val reply = message.replyTo ?: return
+        val id = message.data.getString("id") ?: return
+        val response = Bundle().apply { putString("id", id) }
+        var status = LamiVoiceDecoderProcess.FAILURE
+        try {
+            val model = File(requireNotNull(message.data.getString("model"))).canonicalFile
+            require(model.path.startsWith(filesDir.canonicalPath + File.separator))
+            val start = SystemClock.elapsedRealtime()
+            Module.load(model.path, Module.LOAD_MODE_MMAP).use { module ->
+                module.loadMethod("forward")
+                response.putLong("load_ms", SystemClock.elapsedRealtime() - start)
+                val input = FloatArray(256) { 1f }
+                val second = FloatArray(256) { 2f }
+                val shape = longArrayOf(1, 4, 8, 8)
+                val forwardStart = SystemClock.elapsedRealtime()
+                val values = module.forward(EValue.from(Tensor.fromBlob(input, shape)), EValue.from(Tensor.fromBlob(second, shape))).single().toTensor().dataAsFloatArray
+                response.putLong("forward_ms", SystemClock.elapsedRealtime() - forwardStart)
+                require(values.size == 256)
+                response.putDouble("sum", values.sumOf { it.toDouble() })
+            }
+            response.putInt("pid", Process.myPid())
+            status = LamiVoiceDecoderProcess.SUCCESS
+        } catch (error: Throwable) {
+            response.putString("error", "${error.javaClass.simpleName}: ${error.message}")
+        }
+        runCatching { reply.send(Message.obtain(null, status).apply { data = response }) }
+    }
+
     private fun decode(message: Message) {
         val reply = message.replyTo ?: return
         val id = message.data.getString("id") ?: return

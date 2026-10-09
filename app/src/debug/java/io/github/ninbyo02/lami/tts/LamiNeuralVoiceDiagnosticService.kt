@@ -38,7 +38,17 @@ class LamiNeuralVoiceDiagnosticService : Service() {
         val serial = intent?.getBooleanExtra("lami_neural_tts_serial_baseline", false) ?: false
         scope.launch {
             try {
-                if (pipelineTexts != null && intent.getBooleanExtra("lami_neural_tts_streaming_probe", false)) LamiNeuralVoiceDiagnostics.runStreamingProbe(applicationContext, pipelineTexts)
+                if (intent?.getBooleanExtra("lami_neural_tts_minimal_vulkan_probe", false) == true) {
+                    val report = filesDir.resolve("neural_tts_minimal_vulkan_probe.txt")
+                    report.writeText("status=running\n")
+                    try {
+                        LamiVoiceDecoderProcess.probeMinimalVulkan(applicationContext, filesDir.resolve("local_models/lami_tts/prepared_hai/minimal-add-relu-vulkan.pte")) { line -> report.appendText(line + "\n") }
+                        report.appendText("status=complete\n")
+                    } catch (error: Throwable) {
+                        report.appendText("status=failure error=${error.javaClass.simpleName}: ${error.message}\n")
+                    }
+                }
+                else if (pipelineTexts != null && intent.getBooleanExtra("lami_neural_tts_streaming_probe", false)) LamiNeuralVoiceDiagnostics.runStreamingProbe(applicationContext, pipelineTexts)
                 else if (pipelineTexts != null) LamiNeuralVoiceDiagnostics.runPipelineProbe(applicationContext, pipelineTexts, serial, !(intent?.getBooleanExtra("lami_neural_tts_cp_allocation_baseline", false) ?: false), intent?.getBooleanExtra("lami_neural_tts_prefix_decode_probe", false) ?: false, intent?.getBooleanExtra("lami_neural_tts_pcm_thread_probe", false) ?: false, intent?.getBooleanExtra("lami_neural_tts_gpu_decoder_probe", false) ?: false)
                 else LamiNeuralVoiceDiagnostics.runProbe(applicationContext, text)
             }
