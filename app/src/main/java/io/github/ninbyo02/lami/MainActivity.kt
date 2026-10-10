@@ -37,6 +37,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import io.github.ninbyo02.lami.assistant.AssistantMediaButtonProbe
 import io.github.ninbyo02.lami.api.RetrofitClient
 import io.github.ninbyo02.lami.db.AppDatabase
 import io.github.ninbyo02.lami.db.ChatDatabase
@@ -71,6 +72,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+    private val assistantButtonProbe by lazy {
+        if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) AssistantMediaButtonProbe(this) else null
+    }
     private lateinit var viewModel: OllamaViewModel
     private val heldEngineLifecycleBridge by lazy {
         HeldEngineLifecycleBridge(holder = LocalInferenceEngineHolder.getInstance(applicationContext))
@@ -277,10 +281,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        assistantButtonProbe?.start()
         heldEngineLifecycleBridge.onStart(scope = lifecycleScope)
     }
 
     override fun onStop() {
+        assistantButtonProbe?.stop()
         heldEngineLifecycleBridge.onStop(scope = lifecycleScope)
         super.onStop()
     }
