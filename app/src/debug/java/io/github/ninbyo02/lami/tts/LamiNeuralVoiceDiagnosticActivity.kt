@@ -60,6 +60,7 @@ class LamiNeuralVoiceDiagnosticActivity : ComponentActivity() {
             val service = Intent(this, LamiNeuralVoiceDiagnosticService::class.java)
             value?.let { service.putExtra("lami_neural_tts_text_probe", it) }
             service.putExtra("lami_neural_tts_minimal_vulkan_probe", intent.getBooleanExtra("lami_neural_tts_minimal_vulkan_probe", false))
+            service.putExtra("lami_neural_tts_mixed_probe", intent.getBooleanExtra("lami_neural_tts_mixed_probe", false))
             intent.getStringExtra("lami_neural_tts_pipeline_probe")?.let { lines ->
                 service.putStringArrayListExtra("lami_neural_tts_pipeline_texts", ArrayList(lines.split('|')))
                 service.putExtra("lami_neural_tts_streaming_probe", intent.getBooleanExtra("lami_neural_tts_streaming_probe", false))

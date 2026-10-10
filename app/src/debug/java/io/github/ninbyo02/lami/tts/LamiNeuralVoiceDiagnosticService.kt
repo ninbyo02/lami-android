@@ -42,7 +42,7 @@ class LamiNeuralVoiceDiagnosticService : Service() {
                     val report = filesDir.resolve("neural_tts_minimal_vulkan_probe.txt")
                     report.writeText("status=running\n")
                     try {
-                        LamiVoiceDecoderProcess.probeMinimalVulkan(applicationContext, filesDir.resolve("local_models/lami_tts/prepared_hai/minimal-add-relu-vulkan.pte")) { line -> report.appendText(line + "\n") }
+                        LamiVoiceDecoderProcess.probeMinimalVulkan(applicationContext, filesDir.resolve("local_models/lami_tts/prepared_hai/" + if (intent.getBooleanExtra("lami_neural_tts_mixed_probe", false)) "minimal-mixed.pte" else "minimal-add-relu-vulkan.pte")) { line -> report.appendText(line + "\n") }
                         report.appendText("status=complete\n")
                     } catch (error: Throwable) {
                         report.appendText("status=failure error=${error.javaClass.simpleName}: ${error.message}\n")

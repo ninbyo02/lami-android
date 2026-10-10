@@ -71,7 +71,7 @@ internal object LamiVoiceDecoderProcess {
         try {
             val metrics = withTimeout(30_000L) { result.await() }
             progress("metric=minimal_vulkan load_ms=${metrics.getLong("load_ms")} forward_ms=${metrics.getLong("forward_ms")} sum=${metrics.getDouble("sum")} pid=${metrics.getInt("pid")}")
-            check(kotlin.math.abs(metrics.getDouble("sum") - 768.0) < 0.01) { "Minimal Vulkan numeric mismatch" }
+            check(kotlin.math.abs(metrics.getDouble("sum") - (if (model.name == "minimal-mixed.pte") 589.4400024414062 else 768.0)) < 0.01) { "Minimal Vulkan numeric mismatch" }
         } finally { app.unbindService(connection) }
     }
 

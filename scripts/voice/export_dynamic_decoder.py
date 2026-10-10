@@ -15,6 +15,7 @@ if __name__ == '__main__':
     p.add_argument('--vulkan-xnnpack-fallback', action='store_true', help='Lower remaining CPU operators with XNNPACK after Vulkan')
     p.add_argument('--vulkan-quote-nonfinite', action='store_true', help='Preserve infinity scalars using FlatBuffers quoted float syntax')
     p.add_argument('--vulkan-cpu-full', action='store_true', help='Diagnostic: keep full tensor construction on CPU; this alone does not resolve serialization')
+    p.add_argument('--vulkan-block-convolution', action='store_true', help='Debug-only isolate Vulkan convolution delegation and send it to XNNPACK')
     p.add_argument('--operator-report', type=Path, help='Save graph operator and delegate inventories; not device timing')
     p.add_argument('--fixed-frames', type=int, choices=(8,16), help='Export a fixed-shape graph for accelerator feasibility work')
     p.add_argument('--backend', choices=('xnnpack', 'portable', 'vulkan'), default='xnnpack')
@@ -51,7 +52,7 @@ if __name__ == '__main__':
             from vulkan_nonfinite_serializer import install_quoted_nonfinite_serializer
             install_quoted_nonfinite_serializer()
         from executorch.exir.dialects._ops import ops as exir_ops
-        blocked = [exir_ops.edge.aten.full.default] if args.vulkan_cpu_full else None
+        blocked = ([exir_ops.edge.aten.full.default] if args.vulkan_cpu_full else []) + ([exir_ops.edge.aten.convolution.default] if args.vulkan_block_convolution else [])
         partitioners = [VulkanPartitioner(operator_blocklist=blocked)]
         if args.vulkan_xnnpack_fallback:
             partitioners.append(XnnpackPartitioner())
