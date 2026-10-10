@@ -1,0 +1,824 @@
+{
+  "requests": [
+    {
+      "run": 0,
+      "variant": "baseline",
+      "request": 0,
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3217
+        },
+        "tokenizer_load": {
+          "ms": 1680
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 1895
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 179
+        },
+        "prefill": {
+          "ms": 1123
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 141,
+          "p95_ms": 216,
+          "max_ms": 291,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8218
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 160
+        },
+        "main_input_prepare": {
+          "calls": 83,
+          "ms": 26
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 3207
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 165
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 144
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 35
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 4
+        },
+        "cp_input_prepare": {
+          "calls": 896,
+          "ms": 7
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3400
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 153
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 1052
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 480
+        },
+        "decoder_process": {
+          "pid": 18733,
+          "model_load_ms": 995,
+          "pcm_forward_ms": 5619,
+          "total_ms": 7249
+        }
+      }
+    },
+    {
+      "run": 0,
+      "variant": "baseline",
+      "request": 1,
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 147
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 1140
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 150,
+          "p95_ms": 168,
+          "max_ms": 170,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 6279
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 95
+        },
+        "main_input_prepare": {
+          "calls": 68,
+          "ms": 10
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 2715
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 139
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 100
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 19
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 3
+        },
+        "cp_input_prepare": {
+          "calls": 672,
+          "ms": 6
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2533
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 110
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 758
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 235
+        },
+        "decoder_process": {
+          "pid": 18733,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2533,
+          "total_ms": 2560
+        }
+      }
+    },
+    {
+      "run": 1,
+      "variant": "grouped",
+      "request": 0,
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3010
+        },
+        "tokenizer_load": {
+          "ms": 1975
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 2113
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 211
+        },
+        "prefill": {
+          "ms": 1192
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 147,
+          "p95_ms": 177,
+          "max_ms": 285,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8517
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 95
+        },
+        "main_input_prepare": {
+          "calls": 83,
+          "ms": 22
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 3160
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 162
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 122
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 33
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 3
+        },
+        "cp_input_prepare": {
+          "calls": 896,
+          "ms": 5
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3178
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 1250
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 991
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 440
+        },
+        "decoder_process": {
+          "pid": 19154,
+          "model_load_ms": 973,
+          "pcm_forward_ms": 5425,
+          "total_ms": 6984
+        }
+      }
+    },
+    {
+      "run": 1,
+      "variant": "grouped",
+      "request": 1,
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 119
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 1148
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 157,
+          "p95_ms": 162,
+          "max_ms": 163,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 6643
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 91
+        },
+        "main_input_prepare": {
+          "calls": 68,
+          "ms": 10
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 2826
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 151
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 102
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 21
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 2
+        },
+        "cp_input_prepare": {
+          "calls": 672,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2464
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 1136
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 627
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 239
+        },
+        "decoder_process": {
+          "pid": 19154,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 2938,
+          "total_ms": 2965
+        }
+      }
+    },
+    {
+      "run": 2,
+      "variant": "grouped",
+      "request": 0,
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3253
+        },
+        "tokenizer_load": {
+          "ms": 2008
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 2162
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 210
+        },
+        "prefill": {
+          "ms": 1213
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 157,
+          "p95_ms": 182,
+          "max_ms": 283,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 9108
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 109
+        },
+        "main_input_prepare": {
+          "calls": 83,
+          "ms": 25
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 3469
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 193
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 136
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 40
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 3
+        },
+        "cp_input_prepare": {
+          "calls": 896,
+          "ms": 6
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3251
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 1529
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 840
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 491
+        },
+        "decoder_process": {
+          "pid": 19447,
+          "model_load_ms": 977,
+          "pcm_forward_ms": 5561,
+          "total_ms": 7130
+        }
+      }
+    },
+    {
+      "run": 2,
+      "variant": "grouped",
+      "request": 1,
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 130
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 1113
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 174,
+          "p95_ms": 188,
+          "max_ms": 191,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 7236
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 93
+        },
+        "main_input_prepare": {
+          "calls": 68,
+          "ms": 10
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 2735
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 142
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 102
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 19
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 2
+        },
+        "cp_input_prepare": {
+          "calls": 672,
+          "ms": 6
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2583
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 1061
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 752
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 232
+        },
+        "decoder_process": {
+          "pid": 19447,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 3012,
+          "total_ms": 3039
+        }
+      }
+    },
+    {
+      "run": 3,
+      "variant": "baseline",
+      "request": 0,
+      "hashes": {
+        "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+        "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 3231
+        },
+        "tokenizer_load": {
+          "ms": 2009
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 2152
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 180
+        },
+        "prefill": {
+          "ms": 1052
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 123,
+          "p95_ms": 148,
+          "max_ms": 253,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 7180
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 99
+        },
+        "main_input_prepare": {
+          "calls": 83,
+          "ms": 19
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 2891
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 142
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 118
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 31
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_input_prepare": {
+          "calls": 896,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3092
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 139
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 1022
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 425
+        },
+        "decoder_process": {
+          "pid": 19776,
+          "model_load_ms": 1004,
+          "pcm_forward_ms": 5527,
+          "total_ms": 7128
+        }
+      }
+    },
+    {
+      "run": 3,
+      "variant": "baseline",
+      "request": 1,
+      "hashes": {
+        "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+        "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+      },
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "main_program": {
+          "capacity": 128
+        },
+        "text_prepare": {
+          "ms": 125
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 1122
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 130,
+          "p95_ms": 135,
+          "max_ms": 138,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 5538
+        },
+        "cp_heads_pack": {
+          "calls": 15,
+          "ms": 100
+        },
+        "main_input_prepare": {
+          "calls": 68,
+          "ms": 9
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 2780
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 149
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 102
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 21
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 2
+        },
+        "cp_input_prepare": {
+          "calls": 672,
+          "ms": 4
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2427
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 100
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 622
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 235
+        },
+        "decoder_process": {
+          "pid": 19776,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 3027,
+          "total_ms": 3051
+        }
+      }
+    }
+  ],
+  "restore": {
+    "status": "restored_and_hash_verified",
+    "verified": {
+      "apk": true,
+      "manifest": true,
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true,
+      "removed_main-int8-grouped-cache128.pte": true,
+      "removed_cp-int8-grouped-cache16.pte": true,
+      "removed_main-int8-permute-cache128.pte": true,
+      "removed_cp-int8-cache16.pte": true,
+      "removed_main-int8-permute-cache256.pte": true,
+      "removed_cp-int8-grouped-delta-cache16.pte": true
+    },
+    "errors": []
+  },
+  "backup": {
+    "phone": "192.168.52.52:34431",
+    "model": "NX733J",
+    "soc": "SM8750",
+    "original_apk_sha256": "f9a3da2b8d83dad7fa2f28699431a319c99c89d763506badea388021b176d746",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "test_apk_sha256": "7438a303b0be0e5581c2eff97e2182f6adfbff177edd1339f35f2a08112eb495",
+    "original_main_program": "stateless-28-fp32-cache256-et14.pte",
+    "backups": {
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true
+    }
+  },
+  "all_outputs_match": true,
+  "limits": [
+    "Uncontrolled device frequency/cache/thermals.",
+    "CPU smoke only; no NPU or realtime claim."
+  ]
+}

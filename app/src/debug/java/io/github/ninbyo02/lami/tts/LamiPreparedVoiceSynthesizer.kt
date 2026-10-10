@@ -166,7 +166,7 @@ internal object LamiPreparedVoiceSynthesizer {
         progress("metric=main_program name=$mainProgram capacity=$mainCapacity")
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
         val cpProgram = ctx.optString("cp_program", "cp-stateless-fp32-cache32-et14.pte")
-        require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte", "cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
+        require(cpProgram in setOf("cp-stateless-fp32-cache32-et14.pte", "cp-int8-cache32.pte", "cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte", "cp-int8-grouped-delta-cache16.pte") && files.has(cpProgram)) { "CP program absent from verified diagnostic bundle" }
         if (cpProgram == "cp-int8-cache32.pte") {
             require(files.getString(cpProgram) == "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87") { "Unreviewed CP INT8 pilot" }
         }
@@ -176,8 +176,12 @@ internal object LamiPreparedVoiceSynthesizer {
         if (cpProgram == "cp-int8-grouped-cache16.pte") {
             require(files.getString(cpProgram) == "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01") { "Unverified grouped CP pilot" }
         }
+        val cpDelta = cpProgram == "cp-int8-grouped-delta-cache16.pte"
+        if (cpDelta) {
+            require(files.getString(cpProgram) == "0f801eac3fbdd26db5e972d95b79e57362e75582ff09efe24a249da62ee046cf") { "Unverified CP delta pilot" }
+        }
         // Each codec frame uses CP positions 0..15, including the initial hidden step.
-        val cpCapacity = if (cpProgram in setOf("cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte")) 16 else 32
+        val cpCapacity = if (cpProgram in setOf("cp-int8-cache16.pte", "cp-int8-grouped-cache16.pte", "cp-int8-grouped-delta-cache16.pte")) 16 else 32
         progress("metric=cp_program name=$cpProgram capacity=$cpCapacity")
         session.useModule(root.resolve(mainProgram), progress) { main ->
             session.useModule(root.resolve(cpProgram), progress) { cp ->
@@ -187,7 +191,7 @@ internal object LamiPreparedVoiceSynthesizer {
                 prepared.prefill.forEachIndexed { position, input -> h = mainCache.step(input, position) }
                 progress("metric=prefill ms=${android.os.SystemClock.elapsedRealtime() - prefillStarted}")
                 // Reuse the CP workspace across frames; reset its state before each frame.
-                val reusableCp = if (reuseCpWorkspace) Decoder(cp, 5, cpCapacity, 1, ctx, timing, "cp") else null
+                val reusableCp = if (reuseCpWorkspace) Decoder(cp, 5, cpCapacity, 1, ctx, timing, "cp", deltaOutputs = cpDelta) else null
                 progress("metric=cp_workspace reused=$reuseCpWorkspace")
                 val codecStarted = android.os.SystemClock.elapsedRealtime()
                 val frameMillis = mutableListOf<Long>()
@@ -206,7 +210,7 @@ internal object LamiPreparedVoiceSynthesizer {
                     row[0] = token.toLong()
                     val last = embedding.row(token)
                     val sum = last.copyOf()
-                    val cpCache = reusableCp?.also { it.reset() } ?: Decoder(cp, 5, cpCapacity, 1, ctx, timing, "cp")
+                    val cpCache = reusableCp?.also { it.reset() } ?: Decoder(cp, 5, cpCapacity, 1, ctx, timing, "cp", deltaOutputs = cpDelta)
                     cpCache.step(h, 0)
                     var ch = cpCache.step(last, 1)
                     for (group in 0..14) {
@@ -337,7 +341,9 @@ internal object LamiPreparedVoiceSynthesizer {
         }
     }
 
-    private class Decoder(private val module: Module, layers: Int, private val capacity: Int, private val axes: Int, private val context: JSONObject, private val timing: WorkTiming? = null, private val label: String = "decoder") {
+    private class Decoder(private val module: Module, layers: Int, private val capacity: Int, private val axes: Int, private val context: JSONObject, private val timing: WorkTiming? = null, private val label: String = "decoder", private val deltaOutputs: Boolean = false) {
+        private val deltaK = if (deltaOutputs) Tensor.allocateFloatBuffer(layers * 8 * 128) else null
+        private val deltaV = if (deltaOutputs) Tensor.allocateFloatBuffer(layers * 8 * 128) else null
         private val shape = longArrayOf(layers.toLong(), 1, 8, capacity.toLong(), 128)
         // Own input storage: outputs may be overwritten on the next forward.
         // Copy directly into these buffers instead of allocating heap arrays and
@@ -400,11 +406,23 @@ internal object LamiPreparedVoiceSynthesizer {
             require(nextH.size == WIDTH && nextH.all(Float::isFinite))
             val nextK = out[1].toTensor()
             val nextV = out[2].toTensor()
-            require(nextK.numel() == kBuffer.capacity().toLong() && nextV.numel() == vBuffer.capacity().toLong())
-            kBuffer.clear()
-            vBuffer.clear()
-            nextK.copyDataInto(kBuffer)
-            nextV.copyDataInto(vBuffer)
+            if (deltaOutputs) {
+                val dk = checkNotNull(deltaK)
+                val dv = checkNotNull(deltaV)
+                val deltaShape = longArrayOf(shape[0], 1, 8, 1, 128)
+                require(nextK.shape().contentEquals(deltaShape) && nextV.shape().contentEquals(deltaShape))
+                dk.clear(); dv.clear()
+                nextK.copyDataInto(dk); nextV.copyDataInto(dv)
+                // Native contiguous block copies into separately owned full cache storage.
+                LamiVoiceMatrixKernels.scatterKvDelta(dk, kBuffer, capacity, position)
+                LamiVoiceMatrixKernels.scatterKvDelta(dv, vBuffer, capacity, position)
+            } else {
+                require(nextK.numel() == kBuffer.capacity().toLong() && nextV.numel() == vBuffer.capacity().toLong())
+                kBuffer.clear()
+                vBuffer.clear()
+                nextK.copyDataInto(kBuffer)
+                nextV.copyDataInto(vBuffer)
+            }
             kBuffer.rewind()
             vBuffer.rewind()
             timing?.record("${label}_output_copy", copyStarted)

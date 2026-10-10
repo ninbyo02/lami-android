@@ -1584,7 +1584,7 @@ dependencies {
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
-    debugImplementation("org.pytorch:executorch-android:1.4.0")
+    debugImplementation(if (providers.gradleProperty("lami.voiceVulkan").orNull == "true") "org.pytorch:executorch-android-vulkan:1.4.0" else "org.pytorch:executorch-android:1.4.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
     
 
