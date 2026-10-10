@@ -306,6 +306,8 @@ android {
 
     buildTypes {
         debug {
+            // Isolated assistant verification APK: never overwrite the main LAMI/TTS app.
+            applicationIdSuffix = ".assistantprobe"
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
         }
         release {
