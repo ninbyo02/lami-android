@@ -291,6 +291,13 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
+            assistantButtonProbe?.observeActivityKey(event)
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         heldEngineLifecycleBridge.onTrimMemory(scope = lifecycleScope, level = level)

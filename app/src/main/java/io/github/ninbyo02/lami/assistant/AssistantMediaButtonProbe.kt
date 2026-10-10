@@ -12,10 +12,16 @@ class AssistantMediaButtonProbe(private val context: Context) {
     private var session: MediaSession? = null
     private var downAt: Long? = null
 
+    fun observeActivityKey(event: KeyEvent) {
+        if (event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+            event.keyCode == KeyEvent.KEYCODE_HEADSETHOOK) {
+            Log.i("LamiAssistantButton", "activityKey=${event.keyCode} action=${event.action} repeat=${event.repeatCount}")
+        }
+    }
+
     fun start() {
         if (session != null) return
         session = MediaSession(context, "LAMI-Assistant-Button-Probe").apply {
-            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS)
             setCallback(object : MediaSession.Callback() {
                 override fun onMediaButtonEvent(mediaButtonIntent: Intent): Boolean {
                     @Suppress("DEPRECATION")
