@@ -13,8 +13,8 @@ class LamiPcmContractTest {
         }
     }
 
-    @Test fun startupPrebufferUsesAboutOneHundredMillisecondsOrPlatformMinimum() {
-        assertEquals(2_400, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 128))
+    @Test fun startupPrebufferUsesAboutFiftyMillisecondsOrPlatformMinimum() {
+        assertEquals(1_200, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 128))
         assertEquals(4_096, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 4_096 * Float.SIZE_BYTES))
         assertEquals(1_000, LamiPcmContract.startupPrebufferSamples(totalSamples = 1_000, minBufferBytes = 4_096 * Float.SIZE_BYTES))
     }
