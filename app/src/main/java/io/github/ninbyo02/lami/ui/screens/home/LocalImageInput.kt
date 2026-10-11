@@ -27,6 +27,7 @@ private const val GEMMA_4_E2B_GENERIC_VISION_MODEL_SHA256 =
 private const val LOCAL_IMAGE_MAX_LONG_EDGE_PX = 1280
 private const val LOCAL_IMAGE_JPEG_QUALITY = 85
 private const val LOCAL_IMAGE_MAX_SOURCE_BYTES = 48L * 1024L * 1024L
+private const val LOCAL_IMAGE_PERSISTENT_DIR = "chat_attachments"
 
 internal sealed interface LocalImageInputCapability {
     data object NotChecked : LocalImageInputCapability
@@ -104,64 +105,77 @@ internal suspend fun resolveLocalImageInputCapability(
             note = "generic-gemma-vision-dev-only-cpu-vision-backend",
         )
     }
-    if (!isKnownGemmaVisionModelFingerprint(sizeBytes = size, sha256 = sha256)) {
-        return@withContext LocalImageInputCapability.Unsupported(
-            userMessage = "このローカルモデルは確認済みの画像対応Gemmaではありません",
+    if (isKnownQualcommGemmaVisionModelFingerprint(sizeBytes = size, sha256 = sha256)) {
+        if (!allowUnverifiedGenericVision) {
+            return@withContext LocalImageInputCapability.Unsupported(
+                userMessage = "このGemma画像モデルは未実機検証です。Developer accessを有効にすると試験送信できます",
+                sha256 = sha256,
+            )
+        }
+        return@withContext LocalImageInputCapability.Supported(
             sha256 = sha256,
+            visionBackend = LocalVisionBackend.CPU,
+            verifiedForNormalUse = false,
+            note = "sm8750-gemma-vision-dev-only-cpu-vision-npu-language",
         )
     }
-    if (hasKnownQnnCompiledVisionConstraint(sha256 = sha256)) {
-        return@withContext LocalImageInputCapability.Unsupported(
-            userMessage = "このGemma画像モデルはQualcomm SM8750/QNN向けです。現在のビルドではvision backend未検証のため送信できません",
-            sha256 = sha256,
-        )
-    }
-    LocalImageInputCapability.Supported(
+    LocalImageInputCapability.Unsupported(
+        userMessage = "このローカルモデルは確認済みの画像対応Gemmaではありません",
         sha256 = sha256,
-        visionBackend = LocalVisionBackend.CPU,
-        verifiedForNormalUse = true,
-        note = "verified",
     )
 }
 
 internal suspend fun prepareLocalImageInputs(
     context: Context,
     attachmentUris: List<Uri>,
+    persistent: Boolean = false,
 ): List<LocalImageInput> = withContext(Dispatchers.IO) {
-    val attachmentsDir = File(context.cacheDir, "attachments").apply { mkdirs() }
-    attachmentUris.mapIndexed { index, attachmentUri ->
-        val bytes = readImageBytesForLocalInput(context, attachmentUri)
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "attachment decode failed" }
-        val longEdge = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
-        var sampleSize = 1
-        while (longEdge / sampleSize > LOCAL_IMAGE_MAX_LONG_EDGE_PX) {
-            sampleSize *= 2
+    require(attachmentUris.size <= NpuImageInputPolicy.MAX_IMAGES) { "too many attachment images" }
+    val attachmentsDir = if (persistent) {
+        File(context.filesDir, LOCAL_IMAGE_PERSISTENT_DIR)
+    } else {
+        File(context.cacheDir, "attachments")
+    }.apply { mkdirs() }
+    val prepared = mutableListOf<File>()
+    try {
+        attachmentUris.mapIndexed { index, attachmentUri ->
+            val bytes = readImageBytesForLocalInput(context, attachmentUri)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "attachment decode failed" }
+            val longEdge = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+            var sampleSize = 1
+            while (longEdge / sampleSize > LOCAL_IMAGE_MAX_LONG_EDGE_PX) {
+                sampleSize *= 2
+            }
+            val bitmap = BitmapFactory.decodeByteArray(
+                bytes,
+                0,
+                bytes.size,
+                BitmapFactory.Options().apply { inSampleSize = sampleSize },
+            ) ?: error("attachment decode failed")
+            val normalizedBitmap = normalizeBitmapForLocalImageInput(bitmap, bytes)
+            val jpegBytes = ByteArrayOutputStream().use { output ->
+                normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, LOCAL_IMAGE_JPEG_QUALITY, output)
+                normalizedBitmap.recycle()
+                if (normalizedBitmap !== bitmap) bitmap.recycle()
+                output.toByteArray()
+            }
+            val attachmentFile = File(
+                attachmentsDir,
+                "local_att_${System.currentTimeMillis()}_$index.jpg",
+            )
+            attachmentFile.writeBytes(jpegBytes)
+            prepared += attachmentFile
+            Log.d("LocalImageInput", "Prepared local image input path=${attachmentFile.absolutePath} bytes=${jpegBytes.size}")
+            LocalImageInput(
+                absolutePath = attachmentFile.absolutePath,
+                savedUriString = attachmentFile.toURI().toString(),
+            )
         }
-        val bitmap = BitmapFactory.decodeByteArray(
-            bytes,
-            0,
-            bytes.size,
-            BitmapFactory.Options().apply { inSampleSize = sampleSize },
-        ) ?: error("attachment decode failed")
-        val normalizedBitmap = normalizeBitmapForLocalImageInput(bitmap, bytes)
-        val jpegBytes = ByteArrayOutputStream().use { output ->
-            normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, LOCAL_IMAGE_JPEG_QUALITY, output)
-            normalizedBitmap.recycle()
-            if (normalizedBitmap !== bitmap) bitmap.recycle()
-            output.toByteArray()
-        }
-        val attachmentFile = File(
-            attachmentsDir,
-            "local_att_${System.currentTimeMillis()}_$index.jpg",
-        )
-        attachmentFile.writeBytes(jpegBytes)
-        Log.d("LocalImageInput", "Prepared local image input path=${attachmentFile.absolutePath} bytes=${jpegBytes.size}")
-        LocalImageInput(
-            absolutePath = attachmentFile.absolutePath,
-            savedUriString = attachmentFile.toURI().toString(),
-        )
+    } catch (failure: Throwable) {
+        prepared.forEach(File::delete)
+        throw failure
     }
 }
 
@@ -232,9 +246,6 @@ private fun normalizeBitmapForLocalImageInput(
     if (oriented !== bitmap) oriented.recycle()
     return flattened
 }
-
-private fun hasKnownQnnCompiledVisionConstraint(sha256: String): Boolean =
-    sha256.equals(GEMMA_4_E2B_VISION_MODEL_SHA256, ignoreCase = true)
 
 private object LocalVisionModelSha256Cache {
     private data class Key(

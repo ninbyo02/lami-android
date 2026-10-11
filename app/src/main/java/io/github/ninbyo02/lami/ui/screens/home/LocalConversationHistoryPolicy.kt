@@ -8,6 +8,7 @@ internal enum class LocalConversationRole {
 internal data class LocalConversationTurn(
     val role: LocalConversationRole,
     val text: String,
+    val imageFilePaths: List<String> = emptyList(),
 )
 
 internal object LocalConversationHistoryPolicy {
@@ -17,7 +18,8 @@ internal object LocalConversationHistoryPolicy {
     fun bounded(initialTurns: List<LocalConversationTurn>): List<LocalConversationTurn> =
         initialTurns
             .mapNotNull { turn ->
-                turn.text.trim().takeIf(String::isNotBlank)?.let { text -> turn.copy(text = text) }
+                val text = NpuImageInputPolicy.effectivePrompt(turn.text, turn.imageFilePaths.isNotEmpty())
+                text.takeIf(String::isNotBlank)?.let { turn.copy(text = it) }
             }
             .takeLast(MAX_HISTORY_MESSAGES)
 

@@ -5064,9 +5064,10 @@ fun Home(
                                                             is LocalImageInputCapability.Supported -> Unit
                                                         }
                                                     }
-                                                    val requestPrompt = userPrompt.ifBlank {
-                                                        if (localImagesRequested) "この画像について説明して。" else ""
-                                                    }
+                                                    val requestPrompt = NpuImageInputPolicy.effectivePrompt(
+                                                        prompt = userPrompt,
+                                                        hasImages = localImagesRequested,
+                                                    )
                                                     if (requestPrompt.isBlank()) return@composerAction
                                                     val localImagePreparation = if (localImagesRequested) {
                                                         coroutineScope.async {
@@ -5074,6 +5075,7 @@ fun Home(
                                                                 prepareLocalImageInputs(
                                                                     context = context.applicationContext,
                                                                     attachmentUris = requestAttachmentUris,
+                                                                    persistent = true,
                                                                 )
                                                             }
                                                         }
@@ -5082,8 +5084,14 @@ fun Home(
                                                     }
                                                     val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
                                                         .mapNotNull { message ->
-                                                            val text = message.message.trim().takeIf(String::isNotBlank)
-                                                                ?: return@mapNotNull null
+                                                            val images = if (message.isSendbyMe) {
+                                                                message.localConversationImageFilePaths()
+                                                            } else {
+                                                                emptyList()
+                                                            }
+                                                            val text = NpuImageInputPolicy
+                                                                .effectivePrompt(message.message, images.isNotEmpty())
+                                                                .takeIf(String::isNotBlank) ?: return@mapNotNull null
                                                             LocalConversationTurn(
                                                                 role = if (message.isSendbyMe) {
                                                                     LocalConversationRole.USER
@@ -5091,9 +5099,12 @@ fun Home(
                                                                     LocalConversationRole.MODEL
                                                                 },
                                                                 text = text,
+                                                                imageFilePaths = images,
                                                             )
                                                         }
                                                         .takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
+                                                    val requestHasImageContext = localImagesRequested ||
+                                                        localConversationHistorySnapshot.any { it.imageFilePaths.isNotEmpty() }
                                                     val localSendTapElapsedMs = SystemClock.elapsedRealtime()
                                                     lastLocalSendTapElapsedMs = localSendTapElapsedMs
                                                     lastLocalSendPromptForTrace = requestPrompt
@@ -5121,7 +5132,9 @@ fun Home(
                                                     }
                                                     val immediateLocalChatId = effectiveChatId
                                                     immediateLocalChatId?.let(::beginAssistantResponse)
-                                                    val immediateLocalUserInsertJob = immediateLocalChatId?.let { chatId ->
+                                                    val immediateLocalUserInsertJob = immediateLocalChatId
+                                                        ?.takeIf { !requestHasImageContext }
+                                                        ?.let { chatId ->
                                                         coroutineScope.launch(Dispatchers.IO) {
                                                             Log.i(
                                                                 "ChatScreen",
@@ -5195,6 +5208,39 @@ fun Home(
                                                             }
                                                             .orEmpty()
                                                         val requestLocalImageFilePaths = requestLocalImageInputs.map(LocalImageInput::absolutePath)
+                                                        val requestSavedAttachmentUriStrings = requestLocalImageInputs
+                                                            .map(LocalImageInput::savedUriString)
+                                                            .ifEmpty { requestAttachmentUriStrings }
+                                                        val localImageCapabilityForRequest = if (requestHasImageContext) {
+                                                            when (val currentCapability = localImageInputCapability) {
+                                                                is LocalImageInputCapability.Supported -> currentCapability
+                                                                else -> resolveLocalImageInputCapability(
+                                                                    selectedModelPath = localBaseModelFilePath,
+                                                                    selectedModelDisplayName = localBaseModelDisplayName ?: selectedModel,
+                                                                    allowUnverifiedGenericVision = developerAccessEnabled,
+                                                                )
+                                                            }
+                                                        } else {
+                                                            null
+                                                        }
+                                                        val localImageRouteSupported =
+                                                            localImageCapabilityForRequest is LocalImageInputCapability.Supported
+                                                        if (requestHasImageContext && !localImageRouteSupported) {
+                                                            pendingLocalUserMessageText = null
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                            localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = (localImageCapabilityForRequest as? LocalImageInputCapability.Unsupported)
+                                                                    ?.userMessage ?: "画像入力にはDeveloper accessで確認済みのGemma画像モデルを選択してください。",
+                                                                duration = SnackbarDuration.Long,
+                                                            )
+                                                            return@localSendLaunch
+                                                        }
+                                                        val shouldUseNpuImageRoute = requestHasImageContext &&
+                                                            localImageCapabilityForRequest is LocalImageInputCapability.Supported &&
+                                                            localImageCapabilityForRequest.note.contains("npu-language")
                                                         debugLocalUiTrace(
                                                             label = "ROUTE_DEFERRED_START",
                                                             extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
@@ -5212,15 +5258,20 @@ fun Home(
                                                             "none"
                                                         }
                                                     val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
-                                                        enabled = effectiveNpuStandardRouteRequested,
+                                                        enabled = if (requestHasImageContext) {
+                                                            effectiveNpuStandardRouteRequested && shouldUseNpuImageRoute
+                                                        } else {
+                                                            effectiveNpuStandardRouteRequested
+                                                        },
                                                         selectedInferenceTarget = selectedInferenceTarget,
-                                                        hasImageInput = localImagesRequested,
+                                                        hasImageInput = requestHasImageContext,
                                                         requestPrompt = requestPrompt,
+                                                        imageInputSupported = shouldUseNpuImageRoute,
                                                     )
                                                     val localRouteEnteredAfterNpuDecision = shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
                                                         shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
                                                         selectedInferenceTarget = selectedInferenceTarget,
-                                                        hasImageInput = localImagesRequested,
+                                                        hasImageInput = requestHasImageContext,
                                                         requestPrompt = requestPrompt,
                                                     )
                                                     val localRouteDiagnosticContext = buildLocalRouteDiagnosticContext(
@@ -5336,6 +5387,10 @@ fun Home(
                                                                                         chatId = chatId,
                                                                                         message = promptText,
                                                                                         isSendbyMe = true,
+                                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                                            .takeIf { it.isNotEmpty() }
+                                                                                            ?.toAttachmentUriStringsJson(),
                                                                                     )
                                                                                 )
                                                                             }
@@ -5403,6 +5458,7 @@ fun Home(
                                                                                         initialTurns = prefacePlan.initialTurns,
                                                                                         selectedModelFile = localBaseModelFilePath,
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                        imageFilePaths = requestLocalImageFilePaths,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
                                                                                             if (partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
@@ -5431,7 +5487,7 @@ fun Home(
                                                                                     requireNotNull(kotlinConversationAttempt.result)
                                                                                 } else {
                                                                                     npuRealPromptTrace(
-                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API_FALLBACK_LOCAL reason=${kotlinConversationAttempt.failureReason}",
+                                                                                        "npu_product_route=${if (requestHasImageContext) "KOTLIN_CONVERSATION_API_IMAGE_FAILURE" else "KOTLIN_CONVERSATION_API_FALLBACK_LOCAL"} reason=${kotlinConversationAttempt.failureReason}",
                                                                                     )
                                                                                     NpuStandardRouteS1Mapper.map(
                                                                                         NpuStandardRouteS1RawResult(
@@ -5444,6 +5500,17 @@ fun Home(
                                                                                         ),
                                                                                     )
                                                                                 }
+                                                                            } else if (requestHasImageContext) {
+                                                                                NpuStandardRouteS1Mapper.map(
+                                                                                    NpuStandardRouteS1RawResult(
+                                                                                        status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                                                                                        reason = "adapter_failure:kotlin_conversation_product_route:image_route_disabled",
+                                                                                        selectedModelName = npuModelEligibility.selectedModelName,
+                                                                                        selectedModelFile = localBaseModelFilePath.orEmpty(),
+                                                                                        npuModelEligible = npuModelEligibility.npuModelEligible,
+                                                                                        inputPrompt = requestPrompt,
+                                                                                    ),
+                                                                                )
                                                                             } else {
                                                                                 withContext(Dispatchers.Default) {
                                                                                     NpuStandardRouteS1Bridge(
@@ -5552,11 +5619,19 @@ fun Home(
                                                         } else {
                                                             s1Result.displayText
                                                         }
-                                                        val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
+                                                        val imageInputDiagnostics = if (requestHasImageContext) {
+                                                            "\nimage_input_count=${requestLocalImageFilePaths.size}\nvision_backend=CPU\nvision_adapter_backend=CPU\nlanguage_backend=NPU"
+                                                        } else {
+                                                            ""
+                                                        }
+                                                        val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(
+                                                            s1RouteDisplayText + imageInputDiagnostics,
+                                                        )
                                                         val npuOutputDecision = LocalInferenceOutputPolicy.evaluateNpu(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
                                                             localStopRequested = localInferenceRunState.stopRequested,
+                                                            hasImageInput = requestHasImageContext,
                                                         )
                                                         val s1Fallback = npuOutputDecision.transientFallback
                                                         val shouldFallbackNpuFailure =
@@ -6676,6 +6751,25 @@ fun Home(
                                                                     prompt = requestPrompt,
                                                                     throwable = exception,
                                                                 )
+                                                                if (requestHasImageContext) {
+                                                                    pendingLocalUserMessageText = null
+                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                                    streamingResponseTextForRender = null
+                                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                                    val failureChatId = resolvedNpuChatId
+                                                                    if (failureChatId != null && streamingPersistenceState.assistantMessageId != null) {
+                                                                        finalizeStreamingAssistantFailureSerialized(
+                                                                            chatId = failureChatId,
+                                                                            response = NpuImageInputPolicy.FAILURE_MESSAGE,
+                                                                        )
+                                                                    } else {
+                                                                        userPrompt = requestPrompt
+                                                                        selectedImageUriStrings = requestAttachmentUriStrings
+                                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                                        snackbarHostState.showSnackbar(NpuImageInputPolicy.FAILURE_MESSAGE)
+                                                                    }
+                                                                    return@launch
+                                                                }
                                                                 suspend fun runExceptionFallback(
                                                                     backend: PreferredBackendDryRunSetting,
                                                                 ): LocalInferenceRunResult = runLocalInferenceOnceEntry(
@@ -6864,6 +6958,10 @@ fun Home(
                                                                         chatId = resolvedChatId,
                                                                         message = requestPrompt,
                                                                         isSendbyMe = true,
+                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                            .takeIf { it.isNotEmpty() }
+                                                                            ?.toAttachmentUriStringsJson(),
                                                                     )
                                                                 )
                                                             }
@@ -7096,8 +7194,10 @@ fun Home(
                                                                 isCreatingChat = false
                                                             }
                                                         } else {
-                                                            immediateLocalUserInsertJob?.join()
-                                                            localUserMessageAlreadyInserted = true
+                                                            if (immediateLocalUserInsertJob != null) {
+                                                                immediateLocalUserInsertJob.join()
+                                                                localUserMessageAlreadyInserted = true
+                                                            }
                                                         }
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
@@ -7111,6 +7211,10 @@ fun Home(
                                                                         chatId = resolvedChatId,
                                                                         message = requestPrompt,
                                                                         isSendbyMe = true,
+                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                            .takeIf { it.isNotEmpty() }
+                                                                            ?.toAttachmentUriStringsJson(),
                                                                     )
                                                                 )
                                                             }
@@ -16347,10 +16451,11 @@ internal fun shouldEnterNpuStandardRouteS1(
     selectedInferenceTarget: InferenceTarget,
     hasImageInput: Boolean,
     requestPrompt: String,
+    imageInputSupported: Boolean = false,
 ): Boolean =
     enabled &&
         selectedInferenceTarget == InferenceTarget.LOCAL &&
-        !hasImageInput &&
+        (!hasImageInput || imageInputSupported) &&
         requestPrompt.isNotBlank()
 
 internal fun shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
@@ -17086,3 +17191,17 @@ private fun escapeDevQairt244DiagnosticValue(value: String): String =
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()
+
+private fun Message.localConversationImageFilePaths(): List<String> {
+    val uris = attachmentUriStringsJson?.let { json ->
+        runCatching {
+            val array = JSONArray(json)
+            List(array.length()) { index -> array.getString(index) }
+        }.getOrElse { listOf(json) }
+    }.orEmpty().ifEmpty { listOfNotNull(attachmentUriString) }
+    return uris.map { value ->
+        // Keep malformed or missing attachments in the request so the image route fails
+        // instead of silently degrading into a text-only follow-up.
+        runCatching { File(java.net.URI(value)).absolutePath }.getOrDefault(value)
+    }
+}

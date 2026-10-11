@@ -5854,12 +5854,7 @@ internal fun invokeBlockingSend(
 internal fun buildLiteRtLmContents(
     prompt: String,
     localImageFilePaths: List<String>,
-): Contents {
-    val contents = localImageFilePaths.map { path ->
-        Content.ImageFile(path)
-    } + Content.Text(prompt)
-    return Contents.of(contents)
-}
+): Contents = NpuImageInputPolicy.contents(prompt, localImageFilePaths)
 
 internal suspend fun runOfficialFlowStreamingSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
