@@ -1,0 +1,23 @@
+{
+  "group": "lami-main-copy-device-review-20261007",
+  "review_checked_at": "2026-10-07T07:24:22.857581+09:00",
+  "reviews": {
+    "lami-main-copy-device-review-20261007/01-窓と赤い箱-メインFP32-CP全層INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-copy-device-review-20261007/02-窓と赤い箱-メインINT8コピー改善-CP全層INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-copy-device-review-20261007/03-午前九時半の予定-メインFP32-CP全層INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-copy-device-review-20261007/04-午前九時半の予定-メインINT8コピー改善-CP全層INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    }
+  },
+  "scope": "Two actual-device texts; not general quality acceptance."
+}

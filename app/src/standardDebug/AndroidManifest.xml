@@ -23,7 +23,8 @@
 
         <receiver
             android:name="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:process=":generic_benchmark">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
             </intent-filter>
@@ -35,6 +36,28 @@
             android:process=":conversation_ab_gpu">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.action.CONVERSATION_AB_GPU" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name="io.github.ninbyo02.lami.gpu.GpuIdlePrewarmDiagnosticActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:process=":gpu_idle_prewarm"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Ollama">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.GPU_IDLE_PREWARM_DIAGNOSTIC" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.gpu.GpuIdlePrewarmDiagnosticReceiver"
+            android:exported="true"
+            android:process=":gpu_idle_prewarm">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.CANCEL_GPU_IDLE_PREWARM_DIAGNOSTIC" />
             </intent-filter>
         </receiver>
     </application>

@@ -1,0 +1,176 @@
+{
+  "ptq": {
+    "status": "host_cp_pilot_checked_not_audio_validated",
+    "records": 128,
+    "split": "eval",
+    "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+    "selected_heads": 120,
+    "bytes": {
+      "baseline": 314730112,
+      "candidate": 79064960
+    },
+    "candidate_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+    "host_median_ms_per_step": {
+      "baseline": 13.307199390510505,
+      "candidate": 7.156436304512681
+    },
+    "host_trial_ms_per_step": {
+      "baseline": [
+        13.19919755474075,
+        13.650482781258688,
+        12.84414126575939,
+        13.736647468704177,
+        13.061842070328566,
+        13.307199390510505,
+        13.438714086078107
+      ],
+      "candidate": [
+        6.958285335940673,
+        7.156436304512681,
+        7.4583137500212615,
+        7.5933012108180264,
+        7.1961584451400995,
+        7.080332499981523,
+        6.912511765449381
+      ]
+    },
+    "max_relative_l2": {
+      "teacher": 0.1758822649717331,
+      "rolling": 0.14072762429714203
+    },
+    "sample_mismatches": {
+      "teacher": 85,
+      "rolling": 90
+    },
+    "top1_mismatches": {
+      "teacher": 18,
+      "rolling": 21
+    },
+    "limitations": [
+      "Bounded prefix captures do not establish voice quality.",
+      "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+      "Host timings include Python runtime bridge; no device speed or realtime claim."
+    ],
+    "mean_relative_l2": {
+      "teacher": 0.06830164415441686,
+      "rolling": 0.08365446393872844
+    },
+    "raw_report_sha256": "fc7f8ad2fb072d2ef311f1d821d57739ad511ca14f45eaa33914b941a7f6218e"
+  },
+  "qat80": {
+    "status": "host_cp_pilot_checked_not_audio_validated",
+    "records": 128,
+    "split": "eval",
+    "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+    "selected_heads": 120,
+    "bytes": {
+      "baseline": 314730112,
+      "candidate": 79065600
+    },
+    "candidate_sha256": "fd1bdc0fc722889dc909fec8776844f5a9286743500f952ef0e427c5dadd46cc",
+    "host_median_ms_per_step": {
+      "baseline": 13.548120937457497,
+      "candidate": 6.965414851492824
+    },
+    "host_trial_ms_per_step": {
+      "baseline": [
+        13.692966515691296,
+        13.313167374917612,
+        13.440291562574203,
+        13.752503195291865,
+        13.706319062521288,
+        13.148693609537077,
+        13.548120937457497
+      ],
+      "candidate": [
+        7.134236179808795,
+        6.443217359446862,
+        6.965414851492824,
+        6.898977171886145,
+        6.909344710948062,
+        7.417645687610275,
+        7.261469710783786
+      ]
+    },
+    "max_relative_l2": {
+      "teacher": 1.698414921760559,
+      "rolling": 1.7902157306671143
+    },
+    "sample_mismatches": {
+      "teacher": 103,
+      "rolling": 112
+    },
+    "top1_mismatches": {
+      "teacher": 62,
+      "rolling": 75
+    },
+    "limitations": [
+      "Bounded prefix captures do not establish voice quality.",
+      "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+      "Host timings include Python runtime bridge; no device speed or realtime claim."
+    ],
+    "mean_relative_l2": {
+      "teacher": 0.38472563815594185,
+      "rolling": 0.4958281333820196
+    },
+    "raw_report_sha256": "f6638ccfa870a412f9d13c6a83d8d1a2c998e16d7aa163f4fe6ab2926bf2cdda"
+  },
+  "qat20_low_rate": {
+    "status": "host_cp_pilot_checked_not_audio_validated",
+    "records": 128,
+    "split": "eval",
+    "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+    "selected_heads": 120,
+    "bytes": {
+      "baseline": 314730112,
+      "candidate": 79065600
+    },
+    "candidate_sha256": "5404c86e195dbaa0db233b6ff10c1b9cb64c760473e5de81d003d7d379183988",
+    "host_median_ms_per_step": {
+      "baseline": 12.982154234350674,
+      "candidate": 7.191484624854638
+    },
+    "host_trial_ms_per_step": {
+      "baseline": [
+        13.824423570213185,
+        12.982154234350674,
+        13.134268773455915,
+        13.565265390752757,
+        12.877986718876855,
+        12.591073156272614,
+        12.971990327969252
+      ],
+      "candidate": [
+        7.191484624854638,
+        7.106568335984775,
+        7.640696695261795,
+        6.96287678920271,
+        7.449954187450203,
+        7.2114134061394,
+        7.060193437609996
+      ]
+    },
+    "max_relative_l2": {
+      "teacher": 0.11803130805492401,
+      "rolling": 0.16123078763484955
+    },
+    "sample_mismatches": {
+      "teacher": 87,
+      "rolling": 85
+    },
+    "top1_mismatches": {
+      "teacher": 16,
+      "rolling": 20
+    },
+    "limitations": [
+      "Bounded prefix captures do not establish voice quality.",
+      "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+      "Host timings include Python runtime bridge; no device speed or realtime claim."
+    ],
+    "mean_relative_l2": {
+      "teacher": 0.06672808489383897,
+      "rolling": 0.0834513561494532
+    },
+    "raw_report_sha256": "c805f0e32e86b73f1d7300c397b960081ef6d7afdff5a40852e60f5b47368a47"
+  }
+}

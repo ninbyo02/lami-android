@@ -105,6 +105,35 @@ internal data class DevMenuCallbacks(
     val onBodySpacerChange: (Int) -> Unit,
 )
 
+internal data class DevMenuTtsUiState(
+    val isPlaying: Boolean,
+    val speechRate: Float,
+    val pitch: Float,
+)
+
+internal data class DevMenuTtsCallbacks(
+    val onSpeakReferencePhrase: () -> Unit,
+    val onSpeakReferencePhrase2: () -> Unit,
+    val onSpeakReferencePhrase3: () -> Unit,
+    val onSpeakReferencePhrase4: () -> Unit,
+    val onStopTts: () -> Unit,
+    val onResetTtsDefaults: () -> Unit,
+    val onApplyTtsPresetDefault: () -> Unit,
+    val onApplyTtsPresetCalm: () -> Unit,
+    val onApplyTtsPresetBright: () -> Unit,
+    val onIncreaseTtsSpeechRate: () -> Unit,
+    val onDecreaseTtsSpeechRate: () -> Unit,
+    val onIncreaseTtsPitch: () -> Unit,
+    val onDecreaseTtsPitch: () -> Unit,
+)
+
+internal data class DevMenuToggleControls(
+    val replacementEnabled: Boolean = true,
+    val onReplacementEnabledChange: (Boolean) -> Unit = {},
+    val blinkEffectEnabled: Boolean = true,
+    val onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
+)
+
 @Composable
 internal fun DebugDevMenuSection(
     devUnlocked: Boolean,
@@ -120,22 +149,26 @@ internal fun DebugDevMenuSection(
         devUnlocked = devUnlocked,
         layoutState = layoutState,
         previewUiState = previewUiState,
-        onSpeakReferencePhrase = {},
-        onSpeakReferencePhrase2 = {},
-        onSpeakReferencePhrase3 = {},
-        onSpeakReferencePhrase4 = {},
-        onStopTts = {},
-        onResetTtsDefaults = {},
-        onApplyTtsPresetDefault = {},
-        onApplyTtsPresetCalm = {},
-        onApplyTtsPresetBright = {},
-        isTtsPlaying = false,
-        ttsSpeechRate = 0.92f,
-        ttsPitch = 1.18f,
-        onIncreaseTtsSpeechRate = {},
-        onDecreaseTtsSpeechRate = {},
-        onIncreaseTtsPitch = {},
-        onDecreaseTtsPitch = {},
+        ttsUiState = DevMenuTtsUiState(
+            isPlaying = false,
+            speechRate = 0.92f,
+            pitch = 1.18f,
+        ),
+        ttsCallbacks = DevMenuTtsCallbacks(
+            onSpeakReferencePhrase = {},
+            onSpeakReferencePhrase2 = {},
+            onSpeakReferencePhrase3 = {},
+            onSpeakReferencePhrase4 = {},
+            onStopTts = {},
+            onResetTtsDefaults = {},
+            onApplyTtsPresetDefault = {},
+            onApplyTtsPresetCalm = {},
+            onApplyTtsPresetBright = {},
+            onIncreaseTtsSpeechRate = {},
+            onDecreaseTtsSpeechRate = {},
+            onIncreaseTtsPitch = {},
+            onDecreaseTtsPitch = {},
+        ),
         replacementEnabled = replacementEnabled,
         onReplacementEnabledChange = onReplacementEnabledChange,
         blinkEffectEnabled = blinkEffectEnabled,
@@ -149,22 +182,8 @@ internal fun DevMenuSectionHost(
     devUnlocked: Boolean,
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
-    onSpeakReferencePhrase: () -> Unit,
-    onSpeakReferencePhrase2: () -> Unit,
-    onSpeakReferencePhrase3: () -> Unit,
-    onSpeakReferencePhrase4: () -> Unit,
-    onStopTts: () -> Unit,
-    onResetTtsDefaults: () -> Unit,
-    onApplyTtsPresetDefault: () -> Unit,
-    onApplyTtsPresetCalm: () -> Unit,
-    onApplyTtsPresetBright: () -> Unit,
-    isTtsPlaying: Boolean,
-    ttsSpeechRate: Float,
-    ttsPitch: Float,
-    onIncreaseTtsSpeechRate: () -> Unit,
-    onDecreaseTtsSpeechRate: () -> Unit,
-    onIncreaseTtsPitch: () -> Unit,
-    onDecreaseTtsPitch: () -> Unit,
+    ttsUiState: DevMenuTtsUiState,
+    ttsCallbacks: DevMenuTtsCallbacks,
     replacementEnabled: Boolean = true,
     onReplacementEnabledChange: (Boolean) -> Unit = {},
     blinkEffectEnabled: Boolean = true,
@@ -187,26 +206,14 @@ internal fun DevMenuSectionHost(
         layoutState = layoutState,
         previewUiState = previewUiState,
         onCopyDevJson = onCopyDevJson,
-        onSpeakReferencePhrase = onSpeakReferencePhrase,
-        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
-        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
-        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
-        onStopTts = onStopTts,
-        onResetTtsDefaults = onResetTtsDefaults,
-        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
-        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
-        onApplyTtsPresetBright = onApplyTtsPresetBright,
-        isTtsPlaying = isTtsPlaying,
-        ttsSpeechRate = ttsSpeechRate,
-        ttsPitch = ttsPitch,
-        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
-        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
-        onIncreaseTtsPitch = onIncreaseTtsPitch,
-        onDecreaseTtsPitch = onDecreaseTtsPitch,
-        replacementEnabled = replacementEnabled,
-        onReplacementEnabledChange = onReplacementEnabledChange,
-        blinkEffectEnabled = blinkEffectEnabled,
-        onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
+        ttsUiState = ttsUiState,
+        ttsCallbacks = ttsCallbacks,
+        toggleControls = DevMenuToggleControls(
+            replacementEnabled = replacementEnabled,
+            onReplacementEnabledChange = onReplacementEnabledChange,
+            blinkEffectEnabled = blinkEffectEnabled,
+            onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
+        ),
         modifier = modifier,
     )
 }
@@ -217,26 +224,9 @@ internal fun DevMenuSection(
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
     onCopyDevJson: () -> Unit,
-    onSpeakReferencePhrase: () -> Unit,
-    onSpeakReferencePhrase2: () -> Unit,
-    onSpeakReferencePhrase3: () -> Unit,
-    onSpeakReferencePhrase4: () -> Unit,
-    onStopTts: () -> Unit,
-    onResetTtsDefaults: () -> Unit,
-    onApplyTtsPresetDefault: () -> Unit,
-    onApplyTtsPresetCalm: () -> Unit,
-    onApplyTtsPresetBright: () -> Unit,
-    isTtsPlaying: Boolean,
-    ttsSpeechRate: Float,
-    ttsPitch: Float,
-    onIncreaseTtsSpeechRate: () -> Unit,
-    onDecreaseTtsSpeechRate: () -> Unit,
-    onIncreaseTtsPitch: () -> Unit,
-    onDecreaseTtsPitch: () -> Unit,
-    replacementEnabled: Boolean = true,
-    onReplacementEnabledChange: (Boolean) -> Unit = {},
-    blinkEffectEnabled: Boolean = true,
-    onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
+    ttsUiState: DevMenuTtsUiState,
+    ttsCallbacks: DevMenuTtsCallbacks,
+    toggleControls: DevMenuToggleControls = DevMenuToggleControls(),
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -273,19 +263,19 @@ internal fun DevMenuSection(
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
-        onSpeakReferencePhrase = onSpeakReferencePhrase,
-        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
-        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
-        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
-        onStopTts = onStopTts,
-        onResetTtsDefaults = onResetTtsDefaults,
-        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
-        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
-        onApplyTtsPresetBright = onApplyTtsPresetBright,
-        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
-        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
-        onIncreaseTtsPitch = onIncreaseTtsPitch,
-        onDecreaseTtsPitch = onDecreaseTtsPitch,
+        onSpeakReferencePhrase = ttsCallbacks.onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = ttsCallbacks.onSpeakReferencePhrase2,
+        onSpeakReferencePhrase3 = ttsCallbacks.onSpeakReferencePhrase3,
+        onSpeakReferencePhrase4 = ttsCallbacks.onSpeakReferencePhrase4,
+        onStopTts = ttsCallbacks.onStopTts,
+        onResetTtsDefaults = ttsCallbacks.onResetTtsDefaults,
+        onApplyTtsPresetDefault = ttsCallbacks.onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = ttsCallbacks.onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = ttsCallbacks.onApplyTtsPresetBright,
+        onIncreaseTtsSpeechRate = ttsCallbacks.onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = ttsCallbacks.onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = ttsCallbacks.onIncreaseTtsPitch,
+        onDecreaseTtsPitch = ttsCallbacks.onDecreaseTtsPitch,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -383,20 +373,18 @@ internal fun DevMenuSection(
             Spacer(modifier = Modifier.height(4.dp))
             DevToggleRow(
                 label = "置換",
-                checked = replacementEnabled,
-                onCheckedChange = onReplacementEnabledChange,
+                checked = toggleControls.replacementEnabled,
+                onCheckedChange = toggleControls.onReplacementEnabledChange,
             )
             DevToggleRow(
                 label = "点滅エフェクト",
-                checked = blinkEffectEnabled,
-                onCheckedChange = onBlinkEffectEnabledChange,
+                checked = toggleControls.blinkEffectEnabled,
+                onCheckedChange = toggleControls.onBlinkEffectEnabledChange,
             )
             DevMenuBlock(
                 uiState = devMenuUiState,
                 callbacks = devMenuCallbacks,
-                isTtsPlaying = isTtsPlaying,
-                ttsSpeechRate = ttsSpeechRate,
-                ttsPitch = ttsPitch,
+                ttsUiState = ttsUiState,
             )
         }
     }
@@ -457,12 +445,227 @@ private fun buildDevJson(devSettings: DevPreviewSettings): String {
 }
 
 @Composable
+private fun DevLayoutPositionControls(
+    uiState: DevMenuUiState,
+    callbacks: DevMenuCallbacks,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Offsets",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "CharX:${uiState.charXOffsetDp}dp",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onCharXOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onCharXOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "CharY:${uiState.charYOffsetDp}dp",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onCharYOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onCharYOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "InfoX:${uiState.infoXOffsetDp}dp / 情報ブロックX",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onInfoXOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onInfoXOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "InfoY:${uiState.infoYOffsetDp}dp / 情報ブロックY",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onInfoYOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onInfoYOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "HeaderLimit:${uiState.headerOffsetLimitDp}dp / 見出し移動限界",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onHeaderOffsetLimitChange(10) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onHeaderOffsetLimitChange(-10) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "HeaderLeftX:${uiState.headerLeftXOffsetDp}dp / 見出し左X",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onHeaderLeftXOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onHeaderLeftXOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "HeaderLeftY:${uiState.headerLeftYOffsetDp}dp / 見出し左Y",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onHeaderLeftYOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onHeaderLeftYOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "HeaderRightX:${uiState.headerRightXOffsetDp}dp / 見出し右X",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onHeaderRightXOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onHeaderRightXOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "HeaderRightY:${uiState.headerRightYOffsetDp}dp / 見出し右Y",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onHeaderRightYOffsetChange(-1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onHeaderRightYOffsetChange(1) }) {
+                Text("▼")
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Padding",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "OuterBottom:${abs(uiState.outerBottomDp)}dp / カード下余白",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onOuterBottomChange(1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onOuterBottomChange(-1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "InnerBottom:${abs(uiState.innerBottomDp)}dp / 情報ブロック下余白",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onInnerBottomChange(1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onInnerBottomChange(-1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "InnerVPad:${abs(uiState.innerVPadDp)}dp",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onInnerVPadChange(1) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onInnerVPadChange(-1) }) {
+                Text("▼")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "DetailsMaxH:${uiState.effectiveDetailsMaxH}dp / DEV:${uiState.detailsMaxHeightDp}dp",
+                style = MaterialTheme.typography.labelSmall
+            )
+            IconButton(onClick = { callbacks.onDetailsMaxHeightChange(10) }) {
+                Text("▲")
+            }
+            IconButton(onClick = { callbacks.onDetailsMaxHeightChange(-10) }) {
+                Text("▼")
+            }
+        }
+    }
+}
+
+@Composable
 private fun DevMenuBlock(
     uiState: DevMenuUiState,
     callbacks: DevMenuCallbacks,
-    isTtsPlaying: Boolean,
-    ttsSpeechRate: Float,
-    ttsPitch: Float,
+    ttsUiState: DevMenuTtsUiState,
 ) {
     Column {
         Surface(
@@ -592,7 +795,7 @@ private fun DevMenuBlock(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "TTS Rate: ${formatTtsValue(ttsSpeechRate)}",
+                                text = "TTS Rate: ${formatTtsValue(ttsUiState.speechRate)}",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(onClick = callbacks.onDecreaseTtsSpeechRate) {
@@ -607,7 +810,7 @@ private fun DevMenuBlock(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "TTS Pitch: ${formatTtsValue(ttsPitch)}",
+                                text = "TTS Pitch: ${formatTtsValue(ttsUiState.pitch)}",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(onClick = callbacks.onDecreaseTtsPitch) {
@@ -618,220 +821,14 @@ private fun DevMenuBlock(
                             }
                         }
                         Text(
-                            text = if (isTtsPlaying) "TTS: 再生中" else "TTS: 停止中",
+                            text = if (ttsUiState.isPlaying) "TTS: 再生中" else "TTS: 停止中",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = "Offsets",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "CharX:${uiState.charXOffsetDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onCharXOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onCharXOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "CharY:${uiState.charYOffsetDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onCharYOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onCharYOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InfoX:${uiState.infoXOffsetDp}dp / 情報ブロックX",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onInfoXOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onInfoXOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InfoY:${uiState.infoYOffsetDp}dp / 情報ブロックY",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onInfoYOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onInfoYOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "HeaderLimit:${uiState.headerOffsetLimitDp}dp / 見出し移動限界",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onHeaderOffsetLimitChange(10) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onHeaderOffsetLimitChange(-10) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "HeaderLeftX:${uiState.headerLeftXOffsetDp}dp / 見出し左X",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onHeaderLeftXOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onHeaderLeftXOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "HeaderLeftY:${uiState.headerLeftYOffsetDp}dp / 見出し左Y",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onHeaderLeftYOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onHeaderLeftYOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "HeaderRightX:${uiState.headerRightXOffsetDp}dp / 見出し右X",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onHeaderRightXOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onHeaderRightXOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "HeaderRightY:${uiState.headerRightYOffsetDp}dp / 見出し右Y",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onHeaderRightYOffsetChange(-1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onHeaderRightYOffsetChange(1) }) {
-                                    Text("▼")
-                                }
-                            }
-                        }
-
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = "Padding",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "OuterBottom:${abs(uiState.outerBottomDp)}dp / カード下余白",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onOuterBottomChange(1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onOuterBottomChange(-1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InnerBottom:${abs(uiState.innerBottomDp)}dp / 情報ブロック下余白",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onInnerBottomChange(1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onInnerBottomChange(-1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InnerVPad:${abs(uiState.innerVPadDp)}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onInnerVPadChange(1) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onInnerVPadChange(-1) }) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "DetailsMaxH:${uiState.effectiveDetailsMaxH}dp / DEV:${uiState.detailsMaxHeightDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(onClick = { callbacks.onDetailsMaxHeightChange(10) }) {
-                                    Text("▲")
-                                }
-                                IconButton(onClick = { callbacks.onDetailsMaxHeightChange(-10) }) {
-                                    Text("▼")
-                                }
-                            }
-                        }
+                        DevLayoutPositionControls(
+                            uiState = uiState,
+                            callbacks = callbacks,
+                        )
 
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(

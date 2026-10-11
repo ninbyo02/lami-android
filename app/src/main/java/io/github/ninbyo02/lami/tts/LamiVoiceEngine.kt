@@ -13,6 +13,7 @@ interface LamiVoiceEngine {
     fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit)
     fun speak(text: String)
     fun speakQueued(text: String)
+    fun isInCooldown(): Boolean = false
     fun stop()
     fun shutdown()
 }

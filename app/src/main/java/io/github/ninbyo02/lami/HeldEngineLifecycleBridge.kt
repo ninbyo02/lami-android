@@ -6,13 +6,19 @@ import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.home.NpuConversationLifecycle
 import io.github.ninbyo02.lami.ui.screens.home.NpuKotlinConversationProductRoute
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal class HeldEngineLifecycleBridge(
     private val holder: LocalInferenceEngineHolder,
     private val npuLifecycle: NpuConversationLifecycle = NpuKotlinConversationProductRoute,
 ) {
+    private var pendingBackgroundJob: Job? = null
+
     fun onStart(scope: CoroutineScope) {
+        pendingBackgroundJob?.cancel()
+        pendingBackgroundJob = null
         val nowElapsedMs = SystemClock.elapsedRealtime()
         scope.launch { holder.notifyAppForegrounded(nowElapsedMs = nowElapsedMs) }
         scope.launch { npuLifecycle.notifyAppForegrounded(nowElapsedMs = nowElapsedMs) }
@@ -20,8 +26,13 @@ internal class HeldEngineLifecycleBridge(
 
     fun onStop(scope: CoroutineScope) {
         val nowElapsedMs = SystemClock.elapsedRealtime()
-        scope.launch { holder.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
         scope.launch { npuLifecycle.notifyAppBackgrounded(nowElapsedMs = nowElapsedMs) }
+        pendingBackgroundJob?.cancel()
+        pendingBackgroundJob = scope.launch {
+            delay(GPU_HELD_ENGINE_ONSTOP_GRACE_MS)
+            holder.notifyAppBackgrounded(nowElapsedMs = SystemClock.elapsedRealtime())
+            pendingBackgroundJob = null
+        }
     }
 
     fun onTrimMemory(scope: CoroutineScope, level: Int) {
@@ -46,5 +57,6 @@ internal class HeldEngineLifecycleBridge(
 
     private companion object {
         const val LOW_MEMORY_REASON = "low-memory"
+        const val GPU_HELD_ENGINE_ONSTOP_GRACE_MS = 3_000L
     }
 }

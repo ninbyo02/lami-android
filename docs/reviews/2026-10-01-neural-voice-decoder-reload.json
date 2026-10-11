@@ -1,0 +1,252 @@
+{
+  "status": "unresolved; no Android runtime change adopted",
+  "single_thread": {
+    "completed_trials": [
+      {
+        "trial": "cold",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=4951 elapsed_ms=4984",
+          "metric=tokenizer_load reused=false thread=lami-voice-native ms=1335 elapsed_ms=6320",
+          "metric=text_prepare ms=1357 elapsed_ms=6341",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false thread=lami-voice-native ms=1213 elapsed_ms=7555",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false thread=lami-voice-native ms=199 elapsed_ms=7755",
+          "metric=prefill ms=1791 elapsed_ms=9547",
+          "metric=codec frames=28 ms=8908 elapsed_ms=18455",
+          "metric=main_forward calls=46 ms=4422 elapsed_ms=18455",
+          "metric=main_output_copy calls=46 ms=148 elapsed_ms=18455",
+          "metric=main_head calls=29 ms=186 elapsed_ms=18456",
+          "metric=main_sampling calls=29 ms=21 elapsed_ms=18456",
+          "metric=cp_forward calls=448 ms=3670 elapsed_ms=18456",
+          "metric=cp_output_copy calls=448 ms=91 elapsed_ms=18456",
+          "metric=cp_heads calls=420 ms=1681 elapsed_ms=18456",
+          "metric=cp_sampling calls=420 ms=255 elapsed_ms=18456",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false thread=lami-voice-native ms=897 elapsed_ms=19353",
+          "metric=pcm_forward ms=3013 elapsed_ms=22366",
+          "synthesis=success samples=53760 elapsed_ms=22414"
+        ]
+      },
+      {
+        "trial": "warm",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=5960 elapsed_ms=5972",
+          "metric=tokenizer_load reused=true thread=lami-voice-native ms=0 elapsed_ms=5973",
+          "metric=text_prepare ms=16 elapsed_ms=5988",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=5988",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=5989",
+          "metric=prefill ms=1862 elapsed_ms=7851",
+          "metric=codec frames=28 ms=8199 elapsed_ms=16050",
+          "metric=main_forward calls=46 ms=4547 elapsed_ms=16050",
+          "metric=main_output_copy calls=46 ms=161 elapsed_ms=16050",
+          "metric=main_head calls=29 ms=134 elapsed_ms=16050",
+          "metric=main_sampling calls=29 ms=10 elapsed_ms=16050",
+          "metric=cp_forward calls=448 ms=3541 elapsed_ms=16050",
+          "metric=cp_output_copy calls=448 ms=81 elapsed_ms=16050",
+          "metric=cp_heads calls=420 ms=1293 elapsed_ms=16050",
+          "metric=cp_sampling calls=420 ms=125 elapsed_ms=16050",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=16051",
+          "metric=pcm_forward ms=1609 elapsed_ms=17660",
+          "synthesis=success samples=53760 elapsed_ms=17664"
+        ]
+      },
+      {
+        "trial": "greeting",
+        "sha256": "179456aae85a5bfe580e173ed8ea54c123adb889b54a9847f84c5c678f09c4f4",
+        "metrics": [
+          "metric=hash_validation ms=2591 elapsed_ms=2604",
+          "metric=tokenizer_load reused=true thread=lami-voice-native ms=0 elapsed_ms=2605",
+          "metric=text_prepare ms=4 elapsed_ms=2608",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=2608",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=2608",
+          "metric=prefill ms=884 elapsed_ms=3492",
+          "metric=codec frames=15 ms=3018 elapsed_ms=6510",
+          "metric=main_forward calls=28 ms=1856 elapsed_ms=6510",
+          "metric=main_output_copy calls=28 ms=64 elapsed_ms=6510",
+          "metric=main_head calls=16 ms=31 elapsed_ms=6510",
+          "metric=main_sampling calls=16 ms=1 elapsed_ms=6510",
+          "metric=cp_forward calls=240 ms=1479 elapsed_ms=6510",
+          "metric=cp_output_copy calls=240 ms=20 elapsed_ms=6510",
+          "metric=cp_heads calls=225 ms=303 elapsed_ms=6510",
+          "metric=cp_sampling calls=225 ms=21 elapsed_ms=6510",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=6510",
+          "metric=pcm_forward ms=694 elapsed_ms=7204",
+          "synthesis=success samples=28800 elapsed_ms=7205"
+        ]
+      },
+      {
+        "trial": "expired-1",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=2008 elapsed_ms=2019",
+          "metric=tokenizer_load reused=false thread=lami-voice-native ms=294 elapsed_ms=2314",
+          "metric=text_prepare ms=297 elapsed_ms=2317",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false thread=lami-voice-native ms=504 elapsed_ms=2821",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false thread=lami-voice-native ms=91 elapsed_ms=2912",
+          "metric=prefill ms=1315 elapsed_ms=4227",
+          "metric=codec frames=28 ms=5563 elapsed_ms=9790",
+          "metric=main_forward calls=46 ms=3215 elapsed_ms=9790",
+          "metric=main_output_copy calls=46 ms=104 elapsed_ms=9790",
+          "metric=main_head calls=29 ms=57 elapsed_ms=9790",
+          "metric=main_sampling calls=29 ms=3 elapsed_ms=9790",
+          "metric=cp_forward calls=448 ms=2795 elapsed_ms=9790",
+          "metric=cp_output_copy calls=448 ms=40 elapsed_ms=9790",
+          "metric=cp_heads calls=420 ms=560 elapsed_ms=9790",
+          "metric=cp_sampling calls=420 ms=40 elapsed_ms=9790",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false thread=lami-voice-native ms=295 elapsed_ms=10086",
+          "metric=pcm_forward ms=2065 elapsed_ms=12151",
+          "synthesis=success samples=53760 elapsed_ms=12153"
+        ]
+      },
+      {
+        "trial": "rewarm-1",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=2323 elapsed_ms=2328",
+          "metric=tokenizer_load reused=true thread=lami-voice-native ms=0 elapsed_ms=2328",
+          "metric=text_prepare ms=3 elapsed_ms=2331",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=2331",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=2331",
+          "metric=prefill ms=1297 elapsed_ms=3628",
+          "metric=codec frames=28 ms=8578 elapsed_ms=12206",
+          "metric=main_forward calls=46 ms=3906 elapsed_ms=12206",
+          "metric=main_output_copy calls=46 ms=116 elapsed_ms=12206",
+          "metric=main_head calls=29 ms=170 elapsed_ms=12206",
+          "metric=main_sampling calls=29 ms=9 elapsed_ms=12206",
+          "metric=cp_forward calls=448 ms=3667 elapsed_ms=12206",
+          "metric=cp_output_copy calls=448 ms=87 elapsed_ms=12206",
+          "metric=cp_heads calls=420 ms=1639 elapsed_ms=12206",
+          "metric=cp_sampling calls=420 ms=116 elapsed_ms=12206",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true thread=lami-voice-native ms=1 elapsed_ms=12207",
+          "metric=pcm_forward ms=1857 elapsed_ms=14064",
+          "synthesis=success samples=53760 elapsed_ms=14069"
+        ]
+      },
+      {
+        "trial": "expired-2",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=4974 elapsed_ms=4979",
+          "metric=tokenizer_load reused=false thread=lami-voice-native ms=932 elapsed_ms=5911",
+          "metric=text_prepare ms=947 elapsed_ms=5926",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false thread=lami-voice-native ms=1394 elapsed_ms=7321",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false thread=lami-voice-native ms=241 elapsed_ms=7563",
+          "metric=prefill ms=2085 elapsed_ms=9648",
+          "metric=codec frames=28 ms=9411 elapsed_ms=19059",
+          "metric=main_forward calls=46 ms=4827 elapsed_ms=19059",
+          "metric=main_output_copy calls=46 ms=156 elapsed_ms=19059",
+          "metric=main_head calls=29 ms=198 elapsed_ms=19059",
+          "metric=main_sampling calls=29 ms=11 elapsed_ms=19059",
+          "metric=cp_forward calls=448 ms=3932 elapsed_ms=19059",
+          "metric=cp_output_copy calls=448 ms=98 elapsed_ms=19059",
+          "metric=cp_heads calls=420 ms=1944 elapsed_ms=19059",
+          "metric=cp_sampling calls=420 ms=136 elapsed_ms=19059",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false thread=lami-voice-native ms=819 elapsed_ms=19878",
+          "metric=pcm_forward ms=3648 elapsed_ms=23526",
+          "synthesis=success samples=53760 elapsed_ms=23531"
+        ]
+      },
+      {
+        "trial": "rewarm-2",
+        "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+        "metrics": [
+          "metric=hash_validation ms=5080 elapsed_ms=5085",
+          "metric=tokenizer_load reused=true thread=lami-voice-native ms=0 elapsed_ms=5086",
+          "metric=text_prepare ms=10 elapsed_ms=5095",
+          "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=5095",
+          "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=5095",
+          "metric=prefill ms=2069 elapsed_ms=7165",
+          "metric=codec frames=28 ms=9230 elapsed_ms=16395",
+          "metric=main_forward calls=46 ms=4971 elapsed_ms=16395",
+          "metric=main_output_copy calls=46 ms=178 elapsed_ms=16395",
+          "metric=main_head calls=29 ms=179 elapsed_ms=16395",
+          "metric=main_sampling calls=29 ms=12 elapsed_ms=16395",
+          "metric=cp_forward calls=448 ms=3865 elapsed_ms=16395",
+          "metric=cp_output_copy calls=448 ms=94 elapsed_ms=16395",
+          "metric=cp_heads calls=420 ms=1670 elapsed_ms=16395",
+          "metric=cp_sampling calls=420 ms=141 elapsed_ms=16395",
+          "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true thread=lami-voice-native ms=0 elapsed_ms=16395",
+          "metric=pcm_forward ms=1784 elapsed_ms=18179",
+          "synthesis=success samples=53760 elapsed_ms=18183"
+        ]
+      }
+    ],
+    "third_expiry_trial": "stalled inside PCM forward; interrupted",
+    "incomplete_metrics": [
+      "metric=hash_validation ms=4835 elapsed_ms=4842",
+      "metric=tokenizer_load reused=false thread=lami-voice-native ms=1142 elapsed_ms=5984",
+      "metric=text_prepare ms=1151 elapsed_ms=5993",
+      "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false thread=lami-voice-native ms=1359 elapsed_ms=7352",
+      "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false thread=lami-voice-native ms=244 elapsed_ms=7596",
+      "metric=prefill ms=2245 elapsed_ms=9841",
+      "metric=codec frames=28 ms=9036 elapsed_ms=18877",
+      "metric=main_forward calls=46 ms=4880 elapsed_ms=18877",
+      "metric=main_output_copy calls=46 ms=164 elapsed_ms=18877",
+      "metric=main_head calls=29 ms=184 elapsed_ms=18877",
+      "metric=main_sampling calls=29 ms=10 elapsed_ms=18877",
+      "metric=cp_forward calls=448 ms=3861 elapsed_ms=18877",
+      "metric=cp_output_copy calls=448 ms=92 elapsed_ms=18877",
+      "metric=cp_heads calls=420 ms=1785 elapsed_ms=18877",
+      "metric=cp_sampling calls=420 ms=125 elapsed_ms=18877",
+      "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false thread=lami-voice-native ms=812 elapsed_ms=19689"
+    ],
+    "native_stack": "debuggerd rejected capture: root is required",
+    "adopted": false
+  },
+  "portable_decoder": {
+    "host_validation": "passed",
+    "frames_min": 2,
+    "frames_max": 256,
+    "sample_rate": 24000,
+    "samples_per_frame": 1920,
+    "model_sha256": "4d8d4a28166e6cacb0e0c649ff6d409be5b61bf06a24f68c72f74b8a156c211b",
+    "tested_frames": [
+      2,
+      3
+    ],
+    "cases": [
+      {
+        "executor_ms": 9229.755021999154,
+        "frames": 2,
+        "samples": 3840,
+        "max_abs_error": 1.5348196029663086e-06,
+        "rmse": 1.761379024856069e-07
+      },
+      {
+        "executor_ms": 13740.070895000827,
+        "frames": 3,
+        "samples": 5760,
+        "max_abs_error": 9.98377799987793e-07,
+        "rmse": 1.1273902345010356e-07
+      }
+    ],
+    "android_validation": "pending"
+  },
+  "portable_adopted": false,
+  "portable_limitation": "Only 2 and 3 frames completed in bounded validation. Full nine-case validation interrupted after 2,3,7 completed because portable execution was too slow. No Android deployment.",
+  "recovery": {
+    "trial": "restart-recovery",
+    "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+    "metrics": [
+      "metric=hash_validation ms=4094 elapsed_ms=4113",
+      "metric=tokenizer_load reused=false ms=1891 elapsed_ms=6005",
+      "metric=text_prepare ms=1917 elapsed_ms=6030",
+      "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=1064 elapsed_ms=7094",
+      "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=191 elapsed_ms=7286",
+      "metric=prefill ms=1674 elapsed_ms=8961",
+      "metric=codec frames=28 ms=7834 elapsed_ms=16795",
+      "metric=main_forward calls=46 ms=3997 elapsed_ms=16795",
+      "metric=main_output_copy calls=46 ms=126 elapsed_ms=16795",
+      "metric=main_head calls=29 ms=146 elapsed_ms=16795",
+      "metric=main_sampling calls=29 ms=16 elapsed_ms=16795",
+      "metric=cp_forward calls=448 ms=3350 elapsed_ms=16795",
+      "metric=cp_output_copy calls=448 ms=80 elapsed_ms=16795",
+      "metric=cp_heads calls=420 ms=1391 elapsed_ms=16795",
+      "metric=cp_sampling calls=420 ms=210 elapsed_ms=16795",
+      "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=588 elapsed_ms=17384",
+      "metric=pcm_forward ms=3298 elapsed_ms=20682",
+      "synthesis=success samples=53760 elapsed_ms=20726"
+    ]
+  },
+  "changes": "Diagnostic export backend option (default XNNPACK unchanged), selected frame validation and timing; stable Android source retained."
+}

@@ -3393,6 +3393,46 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             ),
         )
 
+    @Test
+    fun `GPU timeout with partial output remains a failure`() {
+        assertTrue(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = "途中まで生成された応答",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU timeout partial marker cannot turn READY into a failure result`() {
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = false,
+                response = "complete-looking but timed-out response",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU timeout partial failure requires non-blank output and marker`() {
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = " ",
+                preferredBackendApplyResult = GPU_TIMEOUT_PARTIAL_PRESERVED_APPLY_RESULT,
+            ),
+        )
+        assertFalse(
+            isGpuTimeoutPartialPreservedFailure(
+                isErrorState = true,
+                response = "partial",
+                preferredBackendApplyResult = "timeout",
+            ),
+        )
+    }
+
     private fun assertQairt244GpuNativeMarkerBridgeFieldsPresent(text: String) {
         assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_marker_expected=qairt244_gpu_prefill_preinvoke_v1"))
         assertTrue(text.contains("qairt244_gpu_prefill_preinvoke_kotlin_bridge_call_result="))

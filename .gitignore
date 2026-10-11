@@ -79,3 +79,7 @@ scripts/logs/
 # Generated/staged native libraries for the trueEngineNpuProbe debug flavor.
 # Recreate via the QAIRT/LiteRT staging scripts; do not commit large .so files.
 app/src/trueEngineNpuProbeDebug/jniLibs/
+
+# Python tooling caches
+__pycache__/
+*.pyc

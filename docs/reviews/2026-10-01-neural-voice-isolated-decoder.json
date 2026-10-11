@@ -1,0 +1,300 @@
+{
+  "change": "Debug text synthesis executes PCM in a private fresh :voice_decoder process per utterance. Bound-process death isolates native state; unbinding terminates native forward on cancellation/timeout. Codec generation retains the existing serialized manifest-bound cache.",
+  "scope": "debug text path only; normal chat TTS integration unchanged",
+  "root_cause": "Native root cause remains unproven; avoids the in-process PCM reload path implicated by prior incomplete trials.",
+  "timeout_ms": 60000,
+  "full_sha256_validation_each_utterance": true,
+  "successful_lifecycle_trials": [
+    {
+      "trial": "cold",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=2437 elapsed_ms=2452",
+        "metric=tokenizer_load reused=false ms=410 elapsed_ms=2863",
+        "metric=text_prepare ms=422 elapsed_ms=2874",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=508 elapsed_ms=3382",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=96 elapsed_ms=3478",
+        "metric=prefill ms=1365 elapsed_ms=4843",
+        "metric=codec frames=28 ms=5670 elapsed_ms=10513",
+        "metric=main_forward calls=46 ms=3272 elapsed_ms=10513",
+        "metric=main_output_copy calls=46 ms=105 elapsed_ms=10513",
+        "metric=main_head calls=29 ms=60 elapsed_ms=10513",
+        "metric=main_sampling calls=29 ms=7 elapsed_ms=10513",
+        "metric=cp_forward calls=448 ms=2801 elapsed_ms=10513",
+        "metric=cp_output_copy calls=448 ms=43 elapsed_ms=10513",
+        "metric=cp_heads calls=420 ms=562 elapsed_ms=10513",
+        "metric=cp_sampling calls=420 ms=95 elapsed_ms=10513",
+        "metric=decoder_process pid=31215 model_load_ms=307 pcm_forward_ms=1730 total_ms=2574 elapsed_ms=13088",
+        "synthesis=success samples=53760 elapsed_ms=13138"
+      ]
+    },
+    {
+      "trial": "warm",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=5659 elapsed_ms=5670",
+        "metric=tokenizer_load reused=true ms=0 elapsed_ms=5671",
+        "metric=text_prepare ms=16 elapsed_ms=5687",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=5687",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=5687",
+        "metric=prefill ms=1969 elapsed_ms=7657",
+        "metric=codec frames=28 ms=8216 elapsed_ms=15874",
+        "metric=main_forward calls=46 ms=4663 elapsed_ms=15874",
+        "metric=main_output_copy calls=46 ms=169 elapsed_ms=15874",
+        "metric=main_head calls=29 ms=134 elapsed_ms=15874",
+        "metric=main_sampling calls=29 ms=11 elapsed_ms=15874",
+        "metric=cp_forward calls=448 ms=3540 elapsed_ms=15874",
+        "metric=cp_output_copy calls=448 ms=81 elapsed_ms=15874",
+        "metric=cp_heads calls=420 ms=1292 elapsed_ms=15874",
+        "metric=cp_sampling calls=420 ms=127 elapsed_ms=15874",
+        "metric=decoder_process pid=31359 model_load_ms=896 pcm_forward_ms=2801 total_ms=4281 elapsed_ms=20156",
+        "synthesis=success samples=53760 elapsed_ms=20179"
+      ]
+    },
+    {
+      "trial": "greeting",
+      "sha256": "179456aae85a5bfe580e173ed8ea54c123adb889b54a9847f84c5c678f09c4f4",
+      "metrics": [
+        "metric=hash_validation ms=5395 elapsed_ms=5404",
+        "metric=tokenizer_load reused=true ms=0 elapsed_ms=5405",
+        "metric=text_prepare ms=9 elapsed_ms=5413",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=5413",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=5413",
+        "metric=prefill ms=1562 elapsed_ms=6976",
+        "metric=codec frames=15 ms=3620 elapsed_ms=10597",
+        "metric=main_forward calls=28 ms=2708 elapsed_ms=10597",
+        "metric=main_output_copy calls=28 ms=111 elapsed_ms=10597",
+        "metric=main_head calls=16 ms=51 elapsed_ms=10597",
+        "metric=main_sampling calls=16 ms=3 elapsed_ms=10597",
+        "metric=cp_forward calls=240 ms=1687 elapsed_ms=10597",
+        "metric=cp_output_copy calls=240 ms=32 elapsed_ms=10597",
+        "metric=cp_heads calls=225 ms=484 elapsed_ms=10597",
+        "metric=cp_sampling calls=225 ms=42 elapsed_ms=10597",
+        "metric=decoder_process pid=31426 model_load_ms=301 pcm_forward_ms=1199 total_ms=1805 elapsed_ms=12402",
+        "synthesis=success samples=28800 elapsed_ms=12404"
+      ]
+    },
+    {
+      "trial": "expired-1",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=2084 elapsed_ms=2088",
+        "metric=tokenizer_load reused=false ms=283 elapsed_ms=2372",
+        "metric=text_prepare ms=286 elapsed_ms=2374",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=523 elapsed_ms=2898",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=91 elapsed_ms=2990",
+        "metric=prefill ms=1315 elapsed_ms=4305",
+        "metric=codec frames=28 ms=5560 elapsed_ms=9865",
+        "metric=main_forward calls=46 ms=3208 elapsed_ms=9865",
+        "metric=main_output_copy calls=46 ms=103 elapsed_ms=9865",
+        "metric=main_head calls=29 ms=57 elapsed_ms=9865",
+        "metric=main_sampling calls=29 ms=3 elapsed_ms=9865",
+        "metric=cp_forward calls=448 ms=2804 elapsed_ms=9865",
+        "metric=cp_output_copy calls=448 ms=41 elapsed_ms=9865",
+        "metric=cp_heads calls=420 ms=554 elapsed_ms=9865",
+        "metric=cp_sampling calls=420 ms=40 elapsed_ms=9865",
+        "metric=decoder_process pid=31502 model_load_ms=301 pcm_forward_ms=1656 total_ms=2304 elapsed_ms=12169",
+        "synthesis=success samples=53760 elapsed_ms=12173"
+      ]
+    },
+    {
+      "trial": "rewarm-1",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=4574 elapsed_ms=4578",
+        "metric=tokenizer_load reused=true ms=0 elapsed_ms=4578",
+        "metric=text_prepare ms=8 elapsed_ms=4586",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=4586",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=4587",
+        "metric=prefill ms=1859 elapsed_ms=6446",
+        "metric=codec frames=28 ms=9477 elapsed_ms=15923",
+        "metric=main_forward calls=46 ms=4624 elapsed_ms=15923",
+        "metric=main_output_copy calls=46 ms=141 elapsed_ms=15923",
+        "metric=main_head calls=29 ms=201 elapsed_ms=15923",
+        "metric=main_sampling calls=29 ms=11 elapsed_ms=15923",
+        "metric=cp_forward calls=448 ms=3991 elapsed_ms=15923",
+        "metric=cp_output_copy calls=448 ms=99 elapsed_ms=15923",
+        "metric=cp_heads calls=420 ms=1940 elapsed_ms=15923",
+        "metric=cp_sampling calls=420 ms=136 elapsed_ms=15923",
+        "metric=decoder_process pid=31568 model_load_ms=565 pcm_forward_ms=3537 total_ms=4596 elapsed_ms=20520",
+        "synthesis=success samples=53760 elapsed_ms=20534"
+      ]
+    },
+    {
+      "trial": "expired-2",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=5604 elapsed_ms=5608",
+        "metric=tokenizer_load reused=false ms=1022 elapsed_ms=6631",
+        "metric=text_prepare ms=1031 elapsed_ms=6639",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=609 elapsed_ms=7248",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=102 elapsed_ms=7350",
+        "metric=prefill ms=1931 elapsed_ms=9281",
+        "metric=codec frames=28 ms=8471 elapsed_ms=17752",
+        "metric=main_forward calls=46 ms=4449 elapsed_ms=17752",
+        "metric=main_output_copy calls=46 ms=134 elapsed_ms=17752",
+        "metric=main_head calls=29 ms=174 elapsed_ms=17752",
+        "metric=main_sampling calls=29 ms=9 elapsed_ms=17752",
+        "metric=cp_forward calls=448 ms=3568 elapsed_ms=17752",
+        "metric=cp_output_copy calls=448 ms=87 elapsed_ms=17752",
+        "metric=cp_heads calls=420 ms=1692 elapsed_ms=17752",
+        "metric=cp_sampling calls=420 ms=120 elapsed_ms=17752",
+        "metric=decoder_process pid=31746 model_load_ms=936 pcm_forward_ms=3214 total_ms=4775 elapsed_ms=22528",
+        "synthesis=success samples=53760 elapsed_ms=22544"
+      ]
+    },
+    {
+      "trial": "rewarm-2",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=5120 elapsed_ms=5124",
+        "metric=tokenizer_load reused=true ms=0 elapsed_ms=5125",
+        "metric=text_prepare ms=9 elapsed_ms=5133",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=5133",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=5133",
+        "metric=prefill ms=1893 elapsed_ms=7026",
+        "metric=codec frames=28 ms=8234 elapsed_ms=15260",
+        "metric=main_forward calls=46 ms=4628 elapsed_ms=15260",
+        "metric=main_output_copy calls=46 ms=160 elapsed_ms=15260",
+        "metric=main_head calls=29 ms=134 elapsed_ms=15260",
+        "metric=main_sampling calls=29 ms=11 elapsed_ms=15260",
+        "metric=cp_forward calls=448 ms=3530 elapsed_ms=15260",
+        "metric=cp_output_copy calls=448 ms=81 elapsed_ms=15260",
+        "metric=cp_heads calls=420 ms=1295 elapsed_ms=15261",
+        "metric=cp_sampling calls=420 ms=126 elapsed_ms=15261",
+        "metric=decoder_process pid=31867 model_load_ms=940 pcm_forward_ms=3098 total_ms=4658 elapsed_ms=19919",
+        "synthesis=success samples=53760 elapsed_ms=19937"
+      ]
+    },
+    {
+      "trial": "expired-3",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "decoder_pid": 32691,
+      "metrics": [
+        "metric=hash_validation ms=5291 elapsed_ms=5297",
+        "metric=tokenizer_load reused=false ms=675 elapsed_ms=5973",
+        "metric=text_prepare ms=684 elapsed_ms=5981",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=1383 elapsed_ms=7365",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=221 elapsed_ms=7586",
+        "metric=prefill ms=2249 elapsed_ms=9836",
+        "metric=codec frames=28 ms=9055 elapsed_ms=18891",
+        "metric=main_forward calls=46 ms=5199 elapsed_ms=18891",
+        "metric=main_output_copy calls=46 ms=198 elapsed_ms=18891",
+        "metric=main_head calls=29 ms=166 elapsed_ms=18891",
+        "metric=main_sampling calls=29 ms=12 elapsed_ms=18891",
+        "metric=cp_forward calls=448 ms=3807 elapsed_ms=18891",
+        "metric=cp_output_copy calls=448 ms=93 elapsed_ms=18891",
+        "metric=cp_heads calls=420 ms=1503 elapsed_ms=18891",
+        "metric=cp_sampling calls=420 ms=142 elapsed_ms=18891",
+        "metric=decoder_process pid=32691 model_load_ms=644 pcm_forward_ms=1922 total_ms=2886 elapsed_ms=21778",
+        "synthesis=success samples=53760 elapsed_ms=21789"
+      ]
+    },
+    {
+      "trial": "rewarm-3",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "decoder_pid": 410,
+      "metrics": [
+        "metric=hash_validation ms=5580 elapsed_ms=5588",
+        "metric=tokenizer_load reused=true ms=0 elapsed_ms=5588",
+        "metric=text_prepare ms=5 elapsed_ms=5593",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=5593",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=5593",
+        "metric=prefill ms=1583 elapsed_ms=7177",
+        "metric=codec frames=28 ms=5978 elapsed_ms=13155",
+        "metric=main_forward calls=46 ms=3598 elapsed_ms=13155",
+        "metric=main_output_copy calls=46 ms=130 elapsed_ms=13155",
+        "metric=main_head calls=29 ms=61 elapsed_ms=13155",
+        "metric=main_sampling calls=29 ms=3 elapsed_ms=13155",
+        "metric=cp_forward calls=448 ms=2976 elapsed_ms=13155",
+        "metric=cp_output_copy calls=448 ms=46 elapsed_ms=13155",
+        "metric=cp_heads calls=420 ms=627 elapsed_ms=13155",
+        "metric=cp_sampling calls=420 ms=46 elapsed_ms=13155",
+        "metric=decoder_process pid=410 model_load_ms=308 pcm_forward_ms=1509 total_ms=2146 elapsed_ms=15301",
+        "synthesis=success samples=53760 elapsed_ms=15306"
+      ]
+    },
+    {
+      "trial": "cancel-recovered",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "decoder_pid": 776,
+      "metrics": [
+        "metric=hash_validation ms=2005 elapsed_ms=2009",
+        "metric=tokenizer_load reused=false ms=287 elapsed_ms=2296",
+        "metric=text_prepare ms=290 elapsed_ms=2299",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=255 elapsed_ms=2554",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=46 elapsed_ms=2600",
+        "metric=prefill ms=1324 elapsed_ms=3924",
+        "metric=codec frames=28 ms=5584 elapsed_ms=9509",
+        "metric=main_forward calls=46 ms=3229 elapsed_ms=9509",
+        "metric=main_output_copy calls=46 ms=99 elapsed_ms=9509",
+        "metric=main_head calls=29 ms=57 elapsed_ms=9509",
+        "metric=main_sampling calls=29 ms=3 elapsed_ms=9509",
+        "metric=cp_forward calls=448 ms=2817 elapsed_ms=9509",
+        "metric=cp_output_copy calls=448 ms=40 elapsed_ms=9509",
+        "metric=cp_heads calls=420 ms=560 elapsed_ms=9509",
+        "metric=cp_sampling calls=420 ms=40 elapsed_ms=9509",
+        "metric=decoder_process pid=776 model_load_ms=327 pcm_forward_ms=1485 total_ms=2155 elapsed_ms=11664",
+        "synthesis=success samples=53760 elapsed_ms=11671"
+      ]
+    }
+  ],
+  "unique_decoder_pids": [
+    31215,
+    31359,
+    31426,
+    31502,
+    31568,
+    31746,
+    31867,
+    32691,
+    410,
+    776
+  ],
+  "cancellation": {
+    "stop_to_cancelled_ms": 218.6922070000037
+  },
+  "cancelled_report": "mode=arbitrary_text status=started\nstage=hash_validation elapsed_ms=8\nmetric=hash_validation ms=5179 elapsed_ms=5187\nmetric=tokenizer_load reused=true ms=0 elapsed_ms=5187\nmetric=text_prepare ms=10 elapsed_ms=5197\nmetric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=5197\nmetric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=5197\nmetric=prefill ms=2025 elapsed_ms=7222\nstage=codec frame=0 limit=238 elapsed_ms=7223\nstage=codec frame=1 limit=238 elapsed_ms=7558\nstage=codec frame=2 limit=238 elapsed_ms=7888\nstage=codec frame=3 limit=238 elapsed_ms=8217\nstage=codec frame=4 limit=238 elapsed_ms=8545\nstage=codec frame=5 limit=238 elapsed_ms=8869\nstage=codec frame=6 limit=238 elapsed_ms=9194\nstage=codec frame=7 limit=238 elapsed_ms=9522\nstage=codec frame=8 limit=238 elapsed_ms=9848\nstage=codec frame=9 limit=238 elapsed_ms=10171\nstage=codec frame=10 limit=238 elapsed_ms=10503\nstage=codec frame=11 limit=238 elapsed_ms=10831\nstage=codec frame=12 limit=238 elapsed_ms=11161\nstage=codec frame=13 limit=238 elapsed_ms=11484\nstage=codec frame=14 limit=238 elapsed_ms=11812\nstage=codec frame=15 limit=238 elapsed_ms=12138\nstage=codec frame=16 limit=238 elapsed_ms=12467\nstage=codec frame=17 limit=238 elapsed_ms=12797\nstage=codec frame=18 limit=238 elapsed_ms=13135\nstage=codec frame=19 limit=238 elapsed_ms=13468\nstage=codec frame=20 limit=238 elapsed_ms=13795\nstage=codec frame=21 limit=238 elapsed_ms=14153\nstage=codec frame=22 limit=238 elapsed_ms=14512\nstage=codec frame=23 limit=238 elapsed_ms=14856\nstage=codec frame=24 limit=238 elapsed_ms=15180\nstage=codec frame=25 limit=238 elapsed_ms=15503\nstage=codec frame=26 limit=238 elapsed_ms=15843\nstage=codec frame=27 limit=238 elapsed_ms=16175\nstage=codec frame=28 limit=238 elapsed_ms=16493\nmetric=codec frames=28 ms=9276 elapsed_ms=16499\nmetric=main_forward calls=46 ms=4895 elapsed_ms=16499\nmetric=main_output_copy calls=46 ms=168 elapsed_ms=16499\nmetric=main_head calls=29 ms=192 elapsed_ms=16499\nmetric=main_sampling calls=29 ms=11 elapsed_ms=16499\nmetric=cp_forward calls=448 ms=3794 elapsed_ms=16499\nmetric=cp_output_copy calls=448 ms=96 elapsed_ms=16499\nmetric=cp_heads calls=420 ms=1818 elapsed_ms=16499\nmetric=cp_sampling calls=420 ms=139 elapsed_ms=16500\nstage=pcm_decode elapsed_ms=16500\nstage=pcm_process_forward pid=690 elapsed_ms=17016\nstatus=cancelled\n",
+  "process_and_temporary_file_cleanup": "passed after successful calls and native-forward cancellation",
+  "final_apk_smoke": [
+    {
+      "trial": "cold",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "decoder_pid": 1782,
+      "metrics": [
+        "metric=hash_validation ms=4288 elapsed_ms=4299",
+        "metric=tokenizer_load reused=false ms=596 elapsed_ms=4896",
+        "metric=text_prepare ms=609 elapsed_ms=4908",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=992 elapsed_ms=5900",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=246 elapsed_ms=6147",
+        "metric=prefill ms=1417 elapsed_ms=7565",
+        "metric=codec frames=28 ms=8136 elapsed_ms=15701",
+        "metric=main_forward calls=46 ms=3961 elapsed_ms=15701",
+        "metric=main_output_copy calls=46 ms=126 elapsed_ms=15701",
+        "metric=main_head calls=29 ms=140 elapsed_ms=15701",
+        "metric=main_sampling calls=29 ms=17 elapsed_ms=15701",
+        "metric=cp_forward calls=448 ms=3503 elapsed_ms=15701",
+        "metric=cp_output_copy calls=448 ms=83 elapsed_ms=15701",
+        "metric=cp_heads calls=420 ms=1346 elapsed_ms=15701",
+        "metric=cp_sampling calls=420 ms=185 elapsed_ms=15701",
+        "metric=decoder_process pid=1782 model_load_ms=933 pcm_forward_ms=3109 total_ms=4737 elapsed_ms=20441",
+        "synthesis=success samples=53760 elapsed_ms=20509"
+      ]
+    }
+  ],
+  "checks": {
+    "standard_debug_build": "passed",
+    "lint": "passed",
+    "frontend_tests": 3,
+    "sampler_tests": 6,
+    "test_failures": 0,
+    "tracked_native_binaries": "none",
+    "python_compile": "passed"
+  },
+  "limitations": [
+    "Adds fresh decoder model load and process startup for each utterance.",
+    "Native bug is avoided rather than precisely identified.",
+    "Not real-time synthesis, and arbitrary-short-text EOS remains unresolved."
+  ],
+  "interruption": "PC reboot interrupted the external driver after rewarm-2; saved device evidence retained, driver resumed and completed expired-3/rewarm-3 and native cancellation recovery."
+}

@@ -1,0 +1,87 @@
+{
+  "status": "host_cpu_smoke_pass_not_npu_execution",
+  "artifact": "/home/sato/tmp/lami-tts-npu-pilot/mtp_fp32.tflite",
+  "artifact_bytes": 220385520,
+  "artifact_sha256": "4879f6b310fe32099c83ca0ec6fdb9aff492cf165e683206c16b624ac58ec667",
+  "steps": [
+    {
+      "position": 0,
+      "host_cpu_ms": 28.997
+    },
+    {
+      "position": 1,
+      "host_cpu_ms": 9.718
+    },
+    {
+      "position": 2,
+      "host_cpu_ms": 10.552
+    },
+    {
+      "position": 3,
+      "host_cpu_ms": 10.515
+    },
+    {
+      "position": 4,
+      "host_cpu_ms": 9.704
+    },
+    {
+      "position": 5,
+      "host_cpu_ms": 10.742
+    },
+    {
+      "position": 6,
+      "host_cpu_ms": 9.799
+    },
+    {
+      "position": 7,
+      "host_cpu_ms": 10.18
+    },
+    {
+      "position": 8,
+      "host_cpu_ms": 10.659
+    },
+    {
+      "position": 9,
+      "host_cpu_ms": 9.567
+    },
+    {
+      "position": 10,
+      "host_cpu_ms": 10.865
+    },
+    {
+      "position": 11,
+      "host_cpu_ms": 10.103
+    },
+    {
+      "position": 12,
+      "host_cpu_ms": 9.565
+    },
+    {
+      "position": 13,
+      "host_cpu_ms": 10.48
+    },
+    {
+      "position": 14,
+      "host_cpu_ms": 9.368
+    },
+    {
+      "position": 15,
+      "host_cpu_ms": 10.681
+    },
+    {
+      "position": 16,
+      "host_cpu_ms": 9.298
+    }
+  ],
+  "checks": [
+    "finite outputs",
+    "logits shape 15x2048",
+    "cache unchanged outside written position"
+  ],
+  "limitations": [
+    "synthetic inputs, not generated speech",
+    "no source parity or voice quality validation",
+    "host CPU timings cannot predict device NPU speed",
+    "base checkpoint, not proof of production trained checkpoint provenance"
+  ]
+}

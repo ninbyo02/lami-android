@@ -1,0 +1,43 @@
+{
+  "host_validation": "blocked_missing_eos",
+  "frontend": "model FP32 table, original Qwen custom-voice layout",
+  "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+  "model_sha256": {
+    "stateless-28-int4-cache256-et14.pte": "3feda3e5abeee83c02fd027ad2202e1dc45027d21108d278b497267cff90dc90",
+    "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+    "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5"
+  },
+  "cases": [
+    {
+      "text": "はい。",
+      "prefill_tokens": 14,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 242,
+      "eos_reached": false,
+      "audio_withheld": true,
+      "host_elapsed_seconds": 117.166
+    },
+    {
+      "text": "こんにちは。",
+      "prefill_tokens": 13,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 15,
+      "eos_reached": true,
+      "samples": 28800,
+      "duration_seconds": 1.2,
+      "host_elapsed_seconds": 12.445
+    },
+    {
+      "text": "好きな色は赤です。",
+      "prefill_tokens": 17,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 26,
+      "eos_reached": true,
+      "samples": 49920,
+      "duration_seconds": 2.08,
+      "host_elapsed_seconds": 17.103
+    }
+  ],
+  "android_validation": "pending",
+  "listening_quality_validation": "pending"
+}

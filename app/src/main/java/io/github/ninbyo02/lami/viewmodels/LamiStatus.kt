@@ -11,6 +11,7 @@ data class GatewayStatusState(
 
 enum class LamiStatus {
     CONNECTING,
+    THINKING,
     READY,
     DEGRADED,
     NO_MODELS,

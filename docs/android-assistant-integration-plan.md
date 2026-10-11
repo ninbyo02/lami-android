@@ -912,3 +912,32 @@ Allow the app to appear as an Android default assistant candidate and accept a u
   right and accepted the 80-percent setting. Jabra device logs confirm an accepted
   plus press applied target=120, actual=120, percent=80 (device maximum 150).
   This is Jabra physical verification; Pioneer has not been retested at this cap.
+
+### Common Assistant Reply Display and Main Integration (2026-10-12)
+
+- Checkpoint 65c6bcd5 preserves the accepted headset conversation work. Current
+  main (92dc042b) was integrated in the assistant checkout; the separate cute-TTS
+  worktree was not edited. Main's generation ownership, TTS callback locking,
+  diagnostics, and refactoring remain in place alongside assistant integration.
+- Room rows, transient streaming text, and the NPU final/phase text now feed one
+  message-list display path. A request-scoped response uses its owned message ID;
+  completing or failing updates that ID and bridges delayed Room emissions with
+  a terminal snapshot. Late partials cannot replace a terminal row. The separate
+  NPU answer append surfaces and text-equality reply suppression are removed.
+  Equal answers in separate turns remain separate legitimate messages.
+- Seven focused tests cover placeholder replacement, terminal precedence,
+  delayed Room updates, equal answers with different IDs, foreign chats/stale
+  requests, cancellation, and failure. Full standard-debug unit tests and APK
+  assembly passed. The original intermittent report does not establish whether
+  historical duplicates were persisted; no conversation-database copy was made.
+- Updated assistantprobe installed successfully on 192.168.52.52:35121. Launcher
+  opened CHAT (cold launch 625 ms). Manual submissions 1+1, 2+2, and 2+2 in chat
+  75 produced exactly one reply per submission (2, 4, 4); screenshot and UI tree
+  agree. Completion traces for the later turns each update a single owned row.
+  Headsets were unplugged for this check, so headset button/ASR regression on
+  this merged build is not physically established. Earlier accepted Jabra and
+  Pioneer results above remain evidence for their corresponding builds only.
+- The pinned Sherpa AAR remains model-free. Upstream Sherpa and ONNX Runtime
+  license texts are recorded with its checksum and also bundled in APK/AAB
+  assets. Required main debug/release checks must pass before normal PR merge;
+  no branch-protection bypass is intended.

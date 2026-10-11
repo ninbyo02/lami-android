@@ -1,0 +1,77 @@
+{
+  "model": "/srv/ai/models/qwen3-tts/Qwen3-TTS-12Hz-0.6B-Base",
+  "architecture": {
+    "hidden_size": 1024,
+    "intermediate_size": 3072,
+    "num_hidden_layers": 5,
+    "num_attention_heads": 16,
+    "num_key_value_heads": 8,
+    "head_dim": 128,
+    "vocab_size": 2048,
+    "rms_norm_eps": 1e-06,
+    "rope_theta": 1000000
+  },
+  "cp_head_shapes": [
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      2048,
+      1024
+    ]
+  ],
+  "status": "source_shape_preflight_only_not_npu_execution"
+}

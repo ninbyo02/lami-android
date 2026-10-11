@@ -295,109 +295,6 @@ private data class GpuAlignmentHolderDiagnostics(
     val previousTurnFailureStage: String,
 )
 
-private data class GpuOutputQualityDiagnostics(
-    val rawLength: String,
-    val rawHead: String,
-    val rawTail: String,
-    val promotedLength: String,
-    val promotedHead: String,
-    val promotedTail: String,
-    val finalLength: String,
-    val finalHead: String,
-    val finalTail: String,
-    val chunkCount: String,
-    val emptyChunkCount: String,
-    val nonEmptyChunkCount: String,
-    val suspiciousDetected: String,
-    val suspiciousReason: String,
-    val suspiciousPosition: String,
-    val suspiciousTailRatio: String,
-    val repeatedMarkdownFragmentDetected: String,
-    val mixedJapaneseFragmentDetected: String,
-    val mixedLanguageFragmentDetected: String,
-    val chunkJoinStrategy: String,
-    val chunkBoundarySuspected: String,
-    val lastChunksSummary: String,
-    val chunkLengthHistogram: String,
-    val matrixMode: String,
-    val samplerMode: String,
-    val streamingMode: String,
-    val effectiveMaxTokens: String,
-    val collectOnlyEnabled: String,
-    val uiIncrementalAppendEnabled: String,
-    val candidateResult: String,
-    val failureBlockReason: String,
-    val recommendation: String,
-    val actualUiAppendedLength: String,
-    val actualUiAppendedHead: String,
-    val actualUiAppendedTail: String,
-    val uiAppendChangedText: String,
-    val sourceCorruptionStage: String,
-    val callbackAverageChunkLength: String,
-    val callbackMedianChunkLength: String,
-    val callbackP50ChunkLength: String,
-    val callbackP90ChunkLength: String,
-    val callbackP95ChunkLength: String,
-    val callbackOneCharChunkCount: String,
-    val callbackTwoCharOrLessChunkCount: String,
-    val callbackOneCharChunkRatio: String,
-    val callbackTwoCharOrLessChunkRatio: String,
-    val callbackLongestChunkLength: String,
-    val callbackShortestNonEmptyChunkLength: String,
-    val callbackFirstChunksArtifact: String,
-    val callbackLastChunksArtifact: String,
-    val fragmentationScore: String,
-    val fragmentationPercentile: String,
-    val fragmentationTailScore: String,
-    val fragmentationMiddleScore: String,
-    val fragmentationHeadScore: String,
-    val chunkSizeDistribution: String,
-    val chunkLengthSequence: String,
-    val fragmentationClusterCount: String,
-    val fragmentationClusterMaxLength: String,
-    val fragmentationClusterAvgLength: String,
-    val callbackQualityClassification: String,
-    val callbackCorruptionEarliestStage: String,
-    val cpuCompareRequested: String,
-    val cpuCompareEnabled: String,
-    val cpuCompareStarted: String,
-    val cpuCompareFinished: String,
-    val cpuCompareSkippedReason: String,
-    val cpuCompareFailureStage: String,
-    val cpuCompareElapsedMs: String,
-    val cpuAverageChunkLength: String,
-    val cpuMedianChunkLength: String,
-    val cpuP90ChunkLength: String,
-    val cpuP95ChunkLength: String,
-    val cpuOneCharChunkCount: String,
-    val cpuTwoCharOrLessChunkCount: String,
-    val cpuOneCharChunkRatio: String,
-    val gpuAverageChunkLength: String,
-    val cpuCallbackCount: String,
-    val cpuEmptyTextCount: String,
-    val cpuNonEmptyTextCount: String,
-    val gpuCallbackCount: String,
-    val cpuTwoCharOrLessRatio: String,
-    val cpuChunkLengthHistogram: String,
-    val cpuCallbackFirstChunks: String,
-    val cpuCallbackLastChunks: String,
-    val cpuCallbackQualityClassification: String,
-    val cpuOutputSuspiciousFragmentDetected: String,
-    val cpuOutputSuspiciousFragmentReason: String,
-    val cpuOutputSourceCorruptionStage: String,
-    val gpuTwoCharOrLessRatio: String,
-    val callbackQualityCompareResult: String,
-    val callbackQualityCompareReason: String,
-    val cpuGpuAvgChunkLengthRatio: String,
-    val cpuGpuTwoCharOrLessRatioDelta: String,
-    val cpuGpuCallbackCountDelta: String,
-    val cpuGpuRawTextSimilarityHint: String,
-    val cpuGpuSamePrompt: String,
-    val cpuGpuSameMaxTokens: String,
-    val cpuGpuSameSamplerConfigHint: String,
-    val samplerRootCauseCandidate: String,
-)
-
 private data class GpuPerformanceDiagnostics(
     val engineAcquireElapsedMs: String,
     val engineCreateOrReuse: String,
@@ -1067,605 +964,6 @@ private fun classifyGpuAlignmentHolderReuseBlockReason(
         else -> "unknown"
     }
 
-private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): GpuOutputQualityDiagnostics {
-    val suspiciousReason = flags.gpuOutputSuspiciousFragmentReason
-        ?: classifyGpuOutputSuspiciousFragmentReason(
-            rawSample = listOfNotNull(flags.gpuOutputRawCallbackTextHead, flags.gpuOutputRawCallbackTextTail)
-                .joinToString(" "),
-            promotedSample = listOfNotNull(flags.gpuOutputPromotedTextHead, flags.gpuOutputPromotedTextTail)
-                .joinToString(" "),
-            finalSample = listOfNotNull(flags.gpuOutputFinalAssistantTextHead, flags.gpuOutputFinalAssistantTextTail)
-                .joinToString(" "),
-            rawLength = flags.gpuOutputRawCallbackTextLength,
-            finalLength = flags.gpuOutputFinalAssistantTextLength,
-            nonEmptyChunkCount = flags.gpuOutputNonEmptyChunkCount,
-        )
-    val suspiciousDetected = flags.gpuOutputSuspiciousFragmentDetected
-        ?: (suspiciousReason != "none" && suspiciousReason != "unavailable")
-    val repeatedMarkdown = flags.gpuOutputRepeatedMarkdownFragmentDetected
-        ?: detectRepeatedMarkdownFragment(
-            samples = listOf(
-                flags.gpuOutputRawCallbackTextTail,
-                flags.gpuOutputPromotedTextTail,
-                flags.gpuOutputFinalAssistantTextTail,
-            ),
-        )
-    val mixedJapanese = flags.gpuOutputMixedJapaneseFragmentDetected
-        ?: detectMixedJapaneseFragment(
-            samples = listOf(
-                flags.gpuOutputRawCallbackTextTail,
-                flags.gpuOutputPromotedTextTail,
-                flags.gpuOutputFinalAssistantTextTail,
-            ),
-        )
-    val mixedLanguage = flags.gpuOutputMixedLanguageFragmentDetected
-        ?: (mixedJapanese || detectMixedLanguageFragment(
-            samples = listOf(
-                flags.gpuOutputRawCallbackTextTail,
-                flags.gpuOutputPromotedTextTail,
-                flags.gpuOutputFinalAssistantTextTail,
-            ),
-        ))
-    val chunkBoundarySuspected = flags.gpuOutputChunkBoundarySuspected
-        ?: (suspiciousReason in setOf(
-            "many_tiny_fragments",
-            "tail_tiny_chunk_run",
-            "tail_markdown_fragment_bias",
-            "japanese_particle_or_punctuation_fragment_run",
-            "repeated_markdown_or_word_pattern",
-            "promoted_text_suspicious_after_stream_join",
-            "final_text_only_suspicious_after_ui_or_markdown",
-        ))
-    val matrixMode = flags.gpuOutputQualityMatrixMode ?: flags.gpuConfigDiagnostics?.outputQualityMatrixMode ?: "unavailable"
-    val samplerMode = flags.gpuOutputQualitySamplerMode ?: flags.gpuConfigDiagnostics?.outputQualitySamplerMode ?: "unavailable"
-    val streamingMode = flags.gpuOutputQualityStreamingMode
-        ?: flags.gpuConfigDiagnostics?.outputQualityStreamingMode
-        ?: "unavailable"
-    val collectOnlyEnabled = flags.gpuOutputQualityCollectOnlyEnabled
-        ?: flags.gpuConfigDiagnostics?.outputQualityCollectOnlyEnabled?.toBooleanStrictOrNull()
-    val uiIncrementalAppendEnabled = flags.gpuOutputQualityUiIncrementalAppendEnabled
-        ?: flags.gpuConfigDiagnostics?.outputQualityUiIncrementalAppendEnabled?.toBooleanStrictOrNull()
-    val candidateResult = flags.gpuOutputQualityCandidateResult
-        ?: classifyGpuOutputQualityCandidateResult(
-            suspiciousDetected = suspiciousDetected,
-            finalLength = flags.gpuOutputFinalAssistantTextLength,
-            callbackNonEmptyCount = flags.gpuOutputNonEmptyChunkCount,
-        )
-    val failureBlockReason = flags.gpuOutputQualityFailureBlockReason
-        ?: classifyGpuOutputQualityFailureBlockReason(
-            suspiciousDetected = suspiciousDetected,
-            suspiciousReason = suspiciousReason,
-            collectOnlyEnabled = collectOnlyEnabled == true,
-            uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
-            sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage,
-        )
-    return GpuOutputQualityDiagnostics(
-        rawLength = flags.gpuOutputRawCallbackTextLength?.toString() ?: "unavailable",
-        rawHead = flags.gpuOutputRawCallbackTextHead.toDiagnosticValue(),
-        rawTail = flags.gpuOutputRawCallbackTextTail.toDiagnosticValue(),
-        promotedLength = flags.gpuOutputPromotedTextLength?.toString() ?: "unavailable",
-        promotedHead = flags.gpuOutputPromotedTextHead.toDiagnosticValue(),
-        promotedTail = flags.gpuOutputPromotedTextTail.toDiagnosticValue(),
-        finalLength = flags.gpuOutputFinalAssistantTextLength?.toString() ?: "unavailable",
-        finalHead = flags.gpuOutputFinalAssistantTextHead.toDiagnosticValue(),
-        finalTail = flags.gpuOutputFinalAssistantTextTail.toDiagnosticValue(),
-        chunkCount = flags.gpuOutputCallbackChunkCount?.toString() ?: "unavailable",
-        emptyChunkCount = flags.gpuOutputEmptyChunkCount?.toString() ?: "unavailable",
-        nonEmptyChunkCount = flags.gpuOutputNonEmptyChunkCount?.toString() ?: "unavailable",
-        suspiciousDetected = suspiciousDetected.toString(),
-        suspiciousReason = suspiciousReason,
-        suspiciousPosition = flags.gpuOutputSuspiciousFragmentPosition
-            ?: classifyGpuOutputSuspiciousFragmentPosition(
-                reason = suspiciousReason,
-                headSample = listOfNotNull(
-                    flags.gpuOutputRawCallbackTextHead,
-                    flags.gpuOutputPromotedTextHead,
-                    flags.gpuOutputFinalAssistantTextHead,
-                ).joinToString(" "),
-                tailSample = listOfNotNull(
-                    flags.gpuOutputRawCallbackTextTail,
-                    flags.gpuOutputPromotedTextTail,
-                    flags.gpuOutputFinalAssistantTextTail,
-                ).joinToString(" "),
-            ),
-        suspiciousTailRatio = flags.gpuOutputSuspiciousFragmentTailRatio
-            ?: calculateGpuOutputSuspiciousTailRatio(
-                tailSample = listOfNotNull(
-                    flags.gpuOutputRawCallbackTextTail,
-                    flags.gpuOutputPromotedTextTail,
-                    flags.gpuOutputFinalAssistantTextTail,
-                ).joinToString(" "),
-            ),
-        repeatedMarkdownFragmentDetected = repeatedMarkdown.toString(),
-        mixedJapaneseFragmentDetected = mixedJapanese.toString(),
-        mixedLanguageFragmentDetected = mixedLanguage.toString(),
-        chunkJoinStrategy = flags.gpuOutputChunkJoinStrategy ?: "unavailable",
-        chunkBoundarySuspected = chunkBoundarySuspected.toString(),
-        lastChunksSummary = flags.gpuOutputLastChunksSummary.toDiagnosticValue(),
-        chunkLengthHistogram = flags.gpuOutputChunkLengthHistogram.toDiagnosticValue(),
-        matrixMode = matrixMode,
-        samplerMode = samplerMode,
-        streamingMode = streamingMode,
-        effectiveMaxTokens = flags.gpuOutputQualityEffectiveMaxTokens
-            ?: flags.gpuConfigDiagnostics?.outputQualityEffectiveMaxTokens
-            ?: flags.gpuConfigDiagnostics?.maxTokens
-            ?: "unavailable",
-        collectOnlyEnabled = collectOnlyEnabled.toDiagnosticValue(),
-        uiIncrementalAppendEnabled = uiIncrementalAppendEnabled.toDiagnosticValue(),
-        candidateResult = candidateResult,
-        failureBlockReason = failureBlockReason,
-        recommendation = flags.gpuOutputQualityRecommendation
-            ?: resolveGpuOutputQualityRecommendation(
-                candidateResult = candidateResult,
-                failureBlockReason = failureBlockReason,
-                collectOnlyEnabled = collectOnlyEnabled == true,
-            ),
-        actualUiAppendedLength = flags.gpuOutputActualUiAppendedTextLength?.toString() ?: "unavailable",
-        actualUiAppendedHead = flags.gpuOutputActualUiAppendedTextHead.toDiagnosticValue(),
-        actualUiAppendedTail = flags.gpuOutputActualUiAppendedTextTail.toDiagnosticValue(),
-        uiAppendChangedText = flags.gpuOutputUiAppendChangedText.toDiagnosticValue(),
-        sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage
-            ?: classifyGpuOutputSourceCorruptionStage(
-                suspiciousReason = suspiciousReason,
-                uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
-            ),
-        callbackAverageChunkLength = flags.gpuCallbackAverageChunkLength ?: "unavailable",
-        callbackMedianChunkLength = flags.gpuCallbackMedianChunkLength ?: "unavailable",
-        callbackP50ChunkLength = flags.gpuCallbackP50ChunkLength ?: "unavailable",
-        callbackP90ChunkLength = flags.gpuCallbackP90ChunkLength ?: "unavailable",
-        callbackP95ChunkLength = flags.gpuCallbackP95ChunkLength ?: "unavailable",
-        callbackOneCharChunkCount = flags.gpuCallbackOneCharChunkCount?.toString() ?: "unavailable",
-        callbackTwoCharOrLessChunkCount = flags.gpuCallbackTwoCharOrLessChunkCount?.toString() ?: "unavailable",
-        callbackOneCharChunkRatio = flags.gpuCallbackOneCharChunkRatio ?: "unavailable",
-        callbackTwoCharOrLessChunkRatio = flags.gpuCallbackTwoCharOrLessChunkRatio ?: "unavailable",
-        callbackLongestChunkLength = flags.gpuCallbackLongestChunkLength?.toString() ?: "unavailable",
-        callbackShortestNonEmptyChunkLength = flags.gpuCallbackShortestNonEmptyChunkLength?.toString() ?: "unavailable",
-        callbackFirstChunksArtifact = flags.gpuCallbackFirstChunksArtifact.toDiagnosticValue(),
-        callbackLastChunksArtifact = flags.gpuCallbackLastChunksArtifact.toDiagnosticValue(),
-        fragmentationScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_score"] ?: "unavailable",
-        fragmentationPercentile = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_percentile"] ?: "unavailable",
-        fragmentationTailScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_tail_score"] ?: "unavailable",
-        fragmentationMiddleScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_middle_score"] ?: "unavailable",
-        fragmentationHeadScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_head_score"] ?: "unavailable",
-        chunkSizeDistribution = flags.gpuPrefillProbeDiagnostics["gpu_chunk_size_distribution"]
-            ?: flags.gpuOutputChunkLengthHistogram
-            ?: "unavailable",
-        chunkLengthSequence = flags.gpuPrefillProbeDiagnostics["gpu_chunk_length_sequence"] ?: "unavailable",
-        fragmentationClusterCount = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_count"] ?: "unavailable",
-        fragmentationClusterMaxLength = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_max_length"] ?: "unavailable",
-        fragmentationClusterAvgLength = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_avg_length"]
-            ?: "unavailable",
-        callbackQualityClassification = flags.callbackQualityClassification
-            ?: classifyCallbackQuality(
-                callbackCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
-                twoCharOrLessRatio = flags.gpuCallbackTwoCharOrLessChunkRatio,
-                averageChunkLength = flags.gpuCallbackAverageChunkLength,
-            ),
-        callbackCorruptionEarliestStage = flags.callbackCorruptionEarliestStage
-            ?: classifyGpuOutputSourceCorruptionStage(
-                suspiciousReason = suspiciousReason,
-                uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
-            ),
-        cpuCompareRequested = flags.cpuCompareRequested.toDiagnosticValue(),
-        cpuCompareEnabled = flags.cpuCompareEnabled.toDiagnosticValue(),
-        cpuCompareStarted = flags.cpuCompareStarted.toDiagnosticValue(),
-        cpuCompareFinished = flags.cpuCompareFinished.toDiagnosticValue(),
-        cpuCompareSkippedReason = flags.cpuCompareSkippedReason.toDiagnosticValue(),
-        cpuCompareFailureStage = flags.cpuCompareFailureStage.toDiagnosticValue(),
-        cpuCompareElapsedMs = flags.cpuCompareElapsedMs?.toString() ?: "unavailable",
-        cpuAverageChunkLength = flags.cpuCallbackAverageChunkLength ?: "unavailable",
-        cpuMedianChunkLength = flags.cpuCallbackMedianChunkLength ?: "unavailable",
-        cpuP90ChunkLength = flags.cpuCallbackP90ChunkLength ?: "unavailable",
-        cpuP95ChunkLength = flags.cpuCallbackP95ChunkLength ?: "unavailable",
-        cpuOneCharChunkCount = flags.cpuCallbackOneCharChunkCount?.toString() ?: "unavailable",
-        cpuTwoCharOrLessChunkCount = flags.cpuCallbackTwoCharOrLessChunkCount?.toString() ?: "unavailable",
-        cpuOneCharChunkRatio = flags.cpuCallbackOneCharChunkRatio ?: "unavailable",
-        gpuAverageChunkLength = flags.gpuCallbackAverageChunkLength ?: "unavailable",
-        cpuCallbackCount = flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable",
-        cpuEmptyTextCount = flags.cpuCompareEmptyTextCount?.toString() ?: "unavailable",
-        cpuNonEmptyTextCount = flags.cpuCompareNonEmptyTextCount?.toString() ?: "unavailable",
-        gpuCallbackCount = (flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount)?.toString()
-            ?: "unavailable",
-        cpuTwoCharOrLessRatio = flags.cpuCallbackTwoCharOrLessRatio ?: "unavailable",
-        cpuChunkLengthHistogram = flags.cpuCallbackChunkLengthHistogram.toDiagnosticValue(),
-        cpuCallbackFirstChunks = flags.cpuCallbackFirstChunksArtifact.toDiagnosticValue(),
-        cpuCallbackLastChunks = flags.cpuCallbackLastChunksArtifact.toDiagnosticValue(),
-        cpuCallbackQualityClassification = flags.cpuCallbackQualityClassification.toDiagnosticValue(),
-        cpuOutputSuspiciousFragmentDetected = flags.cpuOutputSuspiciousFragmentDetected.toDiagnosticValue(),
-        cpuOutputSuspiciousFragmentReason = flags.cpuOutputSuspiciousFragmentReason.toDiagnosticValue(),
-        cpuOutputSourceCorruptionStage = flags.cpuOutputSourceCorruptionStage.toDiagnosticValue(),
-        gpuTwoCharOrLessRatio = flags.gpuCallbackTwoCharOrLessChunkRatio ?: "unavailable",
-        callbackQualityCompareResult = flags.callbackQualityCompareResult
-            ?: classifyCallbackQualityCompareResult(
-                gpuCandidateResult = candidateResult,
-                gpuSuspiciousDetected = suspiciousDetected,
-                cpuSuspiciousDetected = flags.cpuOutputSuspiciousFragmentDetected,
-                cpuFinished = flags.cpuCompareFinished,
-                cpuSkippedReason = flags.cpuCompareSkippedReason,
-                cpuExceptionClass = flags.cpuCompareExceptionClass,
-                cpuFailureStage = flags.cpuCompareFailureStage,
-                cpuCallbackCount = flags.cpuCompareCallbackInvokedCount,
-            ),
-        callbackQualityCompareReason = flags.callbackQualityCompareReason
-            ?: classifyCallbackQualityCompareReason(
-                cpuAvg = flags.cpuCallbackAverageChunkLength,
-                gpuAvg = flags.gpuCallbackAverageChunkLength,
-                cpuTwoCharRatio = flags.cpuCallbackTwoCharOrLessRatio,
-                gpuTwoCharRatio = flags.gpuCallbackTwoCharOrLessChunkRatio,
-                cpuCount = flags.cpuCompareCallbackInvokedCount,
-                gpuCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
-                cpuSkippedReason = flags.cpuCompareSkippedReason,
-            ),
-        cpuGpuAvgChunkLengthRatio = flags.cpuGpuAvgChunkLengthRatio
-            ?: calculateDoubleRatio(
-                numerator = flags.gpuCallbackAverageChunkLength,
-                denominator = flags.cpuCallbackAverageChunkLength,
-            ),
-        cpuGpuTwoCharOrLessRatioDelta = flags.cpuGpuTwoCharOrLessRatioDelta
-            ?: calculateDoubleDelta(
-                lhs = flags.gpuCallbackTwoCharOrLessChunkRatio,
-                rhs = flags.cpuCallbackTwoCharOrLessRatio,
-            ),
-        cpuGpuCallbackCountDelta = flags.cpuGpuCallbackCountDelta
-            ?: calculateIntDelta(
-                lhs = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
-                rhs = flags.cpuCompareCallbackInvokedCount,
-            ),
-        cpuGpuRawTextSimilarityHint = flags.cpuGpuRawTextSimilarityHint
-            ?: classifyCpuGpuRawTextSimilarityHint(
-                cpuCount = flags.cpuCompareCallbackInvokedCount,
-                gpuCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
-                cpuSuspiciousDetected = flags.cpuOutputSuspiciousFragmentDetected,
-                gpuSuspiciousDetected = suspiciousDetected,
-                cpuAverageChunkLength = flags.cpuCallbackAverageChunkLength,
-                gpuAverageChunkLength = flags.gpuCallbackAverageChunkLength,
-            ),
-        cpuGpuSamePrompt = flags.cpuGpuSamePrompt.toDiagnosticValue(),
-        cpuGpuSameMaxTokens = flags.cpuGpuSameMaxTokens.toDiagnosticValue(),
-        cpuGpuSameSamplerConfigHint = flags.cpuGpuSameSamplerConfigHint.toDiagnosticValue(),
-        samplerRootCauseCandidate = flags.gpuPrefillProbeDiagnostics["gpu_sampler_root_cause_candidate"]
-            ?: classifyGpuSamplerRootCauseCandidate(
-                suspiciousDetected = suspiciousDetected,
-                sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage
-                    ?: classifyGpuOutputSourceCorruptionStage(
-                        suspiciousReason = suspiciousReason,
-                        uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
-                    ),
-                uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
-                matrixMode = matrixMode,
-                callbackQualityClassification = flags.callbackQualityClassification
-                    ?: classifyCallbackQuality(
-                        callbackCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
-                        twoCharOrLessRatio = flags.gpuCallbackTwoCharOrLessChunkRatio,
-                        averageChunkLength = flags.gpuCallbackAverageChunkLength,
-                    ),
-            ),
-    )
-}
-
-internal fun classifyGpuOutputSuspiciousFragmentReason(
-    rawSample: String,
-    promotedSample: String,
-    finalSample: String,
-    rawLength: Int?,
-    finalLength: Int?,
-    nonEmptyChunkCount: Int?,
-): String {
-    val samplePattern = Regex(":\\*\\*|ml2|g）に）：：|[：:]{3,}|[)）]{4,}|[*＊]{4,}|[{}\\[\\]]{8,}")
-    val tailPattern = Regex("([：:）。、・*_＊#`\\-]){5,}|([ぁ-んァ-ヶ一-龠][：:）)]){3,}|([はがをにでとへもやの、。]){7,}")
-    val markdownTailBias = Regex("(\\*\\*|###|__|[_*＊#`\\-]).*(\\*\\*|###|__|[_*＊#`\\-])")
-    val repeatedPattern = Regex("([*＊#`_\\-]{2,}|[A-Za-z]{2,8}\\W?).*\\1.*\\1")
-    val rawSuspicious = samplePattern.containsMatchIn(rawSample)
-    val promotedSuspicious = samplePattern.containsMatchIn(promotedSample)
-    val finalSuspicious = samplePattern.containsMatchIn(finalSample)
-    val tailSample = listOf(rawSample.takeLast(80), promotedSample.takeLast(80), finalSample.takeLast(80)).joinToString(" ")
-    val repeatedSuspicious = repeatedPattern.containsMatchIn(tailSample)
-    val safeNonEmptyChunkCount = nonEmptyChunkCount ?: 0
-    val averageRawChunkLength = if (safeNonEmptyChunkCount > 0 && rawLength != null) {
-        rawLength.toDouble() / safeNonEmptyChunkCount
-    } else {
-        null
-    }
-    return when {
-        safeNonEmptyChunkCount >= 24 && averageRawChunkLength != null && averageRawChunkLength <= 2.0 ->
-            "many_tiny_fragments"
-        safeNonEmptyChunkCount >= 16 && averageRawChunkLength != null && averageRawChunkLength <= 2.5 ->
-            "tail_tiny_chunk_run"
-        finalSuspicious && !rawSuspicious && !promotedSuspicious -> "final_text_only_suspicious_after_ui_or_markdown"
-        promotedSuspicious && !rawSuspicious -> "promoted_text_suspicious_after_stream_join"
-        rawSuspicious -> "raw_callback_suspicious_fragment"
-        markdownTailBias.containsMatchIn(tailSample) -> "tail_markdown_fragment_bias"
-        tailPattern.containsMatchIn(tailSample) -> "japanese_particle_or_punctuation_fragment_run"
-        repeatedSuspicious -> "repeated_markdown_or_word_pattern"
-        finalLength != null && rawLength != null && finalLength > rawLength * 3 && rawLength > 0 ->
-            "final_text_expanded_unexpectedly"
-        else -> "none"
-    }
-}
-
-private fun classifyGpuOutputSuspiciousFragmentPosition(
-    reason: String,
-    headSample: String,
-    tailSample: String,
-): String {
-    if (reason == "none" || reason == "unavailable") return "none"
-    val samplePattern = Regex(":\\*\\*|ml2|g）に）：：|[：:]{3,}|[)）]{4,}|[*＊]{4,}|[{}\\[\\]]{8,}")
-    val headSuspicious = samplePattern.containsMatchIn(headSample)
-    val tailSuspicious = samplePattern.containsMatchIn(tailSample)
-    return when {
-        tailSuspicious && !headSuspicious -> "tail"
-        headSuspicious && !tailSuspicious -> "head"
-        tailSuspicious && headSuspicious -> "middle"
-        reason == "many_tiny_fragments" -> "tail"
-        else -> "middle"
-    }
-}
-
-private fun calculateGpuOutputSuspiciousTailRatio(
-    tailSample: String,
-): String {
-    if (tailSample.isBlank()) return "unavailable"
-    val suspiciousChars = tailSample.count { ch ->
-        ch in listOf('*', '＊', ':', '：', ')', '）', '(', '（', '}', '{', '[', ']') ||
-            ch.isDigit() ||
-            ch.code in 0x3040..0x309F && tailSample.contains("ml", ignoreCase = true)
-    }
-    return "%.3f".format(java.util.Locale.US, suspiciousChars.toDouble() / tailSample.length.coerceAtLeast(1))
-}
-
-private fun detectRepeatedMarkdownFragment(samples: List<String?>): Boolean {
-    val combined = samples.joinToString(" ")
-    if (combined.isBlank()) return false
-    return Regex("([*＊#`_\\-]{2,}).*\\1").containsMatchIn(combined) ||
-        Regex("(:\\*\\*|\\*\\*)").findAll(combined).count() >= 2
-}
-
-private fun detectMixedJapaneseFragment(samples: List<String?>): Boolean {
-    val combined = samples.joinToString(" ")
-    if (combined.isBlank()) return false
-    val hasJapanese = combined.any { ch ->
-        ch.code in 0x3040..0x30FF || ch.code in 0x4E00..0x9FFF
-    }
-    val hasAsciiNoise = Regex("(ml\\d+|[a-zA-Z]\\)|[a-zA-Z]）|\\d+[ぁ-んァ-ヶ一-龠])").containsMatchIn(combined)
-    val manyJapanesePunctuation = Regex("[：）。、]{4,}").containsMatchIn(combined)
-    return hasJapanese && (hasAsciiNoise || manyJapanesePunctuation)
-}
-
-private fun detectMixedLanguageFragment(samples: List<String?>): Boolean {
-    val combined = samples.joinToString(" ")
-    if (combined.isBlank()) return false
-    val hasJapanese = combined.any { ch ->
-        ch.code in 0x3040..0x30FF || ch.code in 0x4E00..0x9FFF
-    }
-    val hasDevanagari = combined.any { ch -> ch.code in 0x0900..0x097F }
-    val hasArabic = combined.any { ch -> ch.code in 0x0600..0x06FF }
-    val hasLatinNoiseNearJapanese = Regex("[ぁ-んァ-ヶ一-龠][A-Za-z]{2,}|[A-Za-z]{2,}[ぁ-んァ-ヶ一-龠]").containsMatchIn(combined)
-    return hasJapanese && (hasDevanagari || hasArabic || hasLatinNoiseNearJapanese)
-}
-
-private fun classifyGpuOutputQualityCandidateResult(
-    suspiciousDetected: Boolean,
-    finalLength: Int?,
-    callbackNonEmptyCount: Int?,
-): String =
-    when {
-        suspiciousDetected -> "quality_candidate_fail"
-        (finalLength ?: 0) > 0 && (callbackNonEmptyCount ?: 0) > 0 -> "quality_candidate_pass"
-        else -> "quality_candidate_unknown"
-    }
-
-private fun classifyGpuOutputQualityFailureBlockReason(
-    suspiciousDetected: Boolean,
-    suspiciousReason: String,
-    collectOnlyEnabled: Boolean,
-    uiAppendChangedText: Boolean?,
-    sourceCorruptionStage: String?,
-): String =
-    when {
-        !suspiciousDetected -> "none"
-        uiAppendChangedText == true -> "ui_append_changed_callback_text"
-        sourceCorruptionStage == "raw_callback" -> "callback_source_already_suspicious"
-        collectOnlyEnabled -> "collect_only_still_suspicious"
-        suspiciousReason in setOf("many_tiny_fragments", "tail_tiny_chunk_run") -> "chunk_boundary_or_sampler_fragmentation"
-        else -> suspiciousReason
-    }
-
-private fun resolveGpuOutputQualityRecommendation(
-    candidateResult: String,
-    failureBlockReason: String,
-    collectOnlyEnabled: Boolean,
-): String =
-    when {
-        candidateResult == "quality_candidate_pass" -> "none"
-        failureBlockReason == "ui_append_changed_callback_text" -> "inspect_ui_append_or_markdown_path"
-        failureBlockReason == "callback_source_already_suspicious" -> "compare_sampler_modes_and_max_tokens"
-        collectOnlyEnabled -> "compare_sampler_modes_or_runtime_stack"
-        else -> "run_collect_only_and_sampler_matrix"
-    }
-
-private fun classifyGpuOutputSourceCorruptionStage(
-    suspiciousReason: String,
-    uiAppendChangedText: Boolean?,
-): String =
-    when {
-        suspiciousReason == "none" -> "none"
-        uiAppendChangedText == true -> "ui_append_or_final_commit"
-        suspiciousReason == "final_text_only_suspicious_after_ui_or_markdown" -> "final_assistant_text"
-        suspiciousReason == "promoted_text_suspicious_after_stream_join" -> "promoted_or_chunk_join"
-        else -> "raw_callback"
-    }
-
-internal fun classifyCallbackQuality(
-    callbackCount: Int?,
-    twoCharOrLessRatio: String?,
-    averageChunkLength: String?,
-): String {
-    val count = callbackCount ?: 0
-    val smallRatio = twoCharOrLessRatio?.toDoubleOrNull()
-    val average = averageChunkLength?.toDoubleOrNull()
-    return when {
-        count == 0 -> "unavailable"
-        smallRatio != null && smallRatio >= 0.85 && count >= 20 -> "pathological_single_char_stream"
-        smallRatio != null && smallRatio >= 0.65 && count >= 16 -> "severe_fragmentation"
-        average != null && average < 4.0 && count >= 12 -> "moderate_fragmentation"
-        average != null && average >= 8.0 -> "healthy_large_chunks"
-        else -> "moderate_fragmentation"
-    }
-}
-
-internal fun classifyCallbackQualityCompareResult(
-    gpuCandidateResult: String?,
-    gpuSuspiciousDetected: Boolean?,
-    cpuSuspiciousDetected: Boolean?,
-    cpuFinished: Boolean?,
-    cpuSkippedReason: String?,
-    cpuExceptionClass: String? = null,
-    cpuFailureStage: String? = null,
-    cpuCallbackCount: Int? = null,
-): String {
-    val gpuCorrupt = gpuCandidateResult == "quality_candidate_fail" || gpuSuspiciousDetected == true
-    if (
-        isCpuCallbackCompareUnavailable(
-            cpuFinished = cpuFinished,
-            cpuSkippedReason = cpuSkippedReason,
-            cpuExceptionClass = cpuExceptionClass,
-            cpuFailureStage = cpuFailureStage,
-            cpuCallbackCount = cpuCallbackCount,
-        )
-    ) {
-        return if (gpuCorrupt) "gpu_corrupt_cpu_unavailable" else "comparison_unavailable"
-    }
-    val cpuCorrupt = cpuSuspiciousDetected == true
-    return when {
-        gpuCorrupt && cpuCorrupt -> "cpu_and_gpu_corrupt"
-        gpuCorrupt -> "gpu_only_corrupt"
-        cpuCorrupt -> "cpu_only_corrupt"
-        else -> "both_pass"
-    }
-}
-
-private fun isCpuCallbackCompareUnavailable(
-    cpuFinished: Boolean?,
-    cpuSkippedReason: String?,
-    cpuExceptionClass: String?,
-    cpuFailureStage: String?,
-    cpuCallbackCount: Int?,
-): Boolean {
-    if (cpuFinished != true) return true
-    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") return true
-    if (!cpuExceptionClass.isNullOrBlank() && cpuExceptionClass !in setOf("none", "unavailable")) return true
-    if (cpuFailureStage in setOf("timeout", "engine_initialize", "conversation_create", "generate_start", "generate_collect")) {
-        return true
-    }
-    if (cpuCallbackCount == null || cpuCallbackCount <= 0) return true
-    return false
-}
-
-private fun classifyCallbackQualityCompareReason(
-    cpuAvg: String?,
-    gpuAvg: String?,
-    cpuTwoCharRatio: String?,
-    gpuTwoCharRatio: String?,
-    cpuCount: Int?,
-    gpuCount: Int?,
-    cpuSkippedReason: String?,
-): String {
-    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") {
-        return "cpu_compare_skipped:$cpuSkippedReason"
-    }
-    val cpuAverage = cpuAvg?.toDoubleOrNull()
-    val gpuAverage = gpuAvg?.toDoubleOrNull()
-    val cpuSmall = cpuTwoCharRatio?.toDoubleOrNull()
-    val gpuSmall = gpuTwoCharRatio?.toDoubleOrNull()
-    return when {
-        cpuCount == null || gpuCount == null || cpuCount <= 0 || gpuCount <= 0 -> "comparison_unavailable"
-        cpuAverage != null && gpuAverage != null &&
-            cpuAverage >= 6.0 && gpuAverage <= 3.0 -> "gpu_chunks_much_smaller_than_cpu"
-        cpuSmall != null && gpuSmall != null &&
-            gpuSmall - cpuSmall >= 0.40 -> "gpu_two_char_ratio_much_higher_than_cpu"
-        cpuAverage != null && gpuAverage != null &&
-            kotlin.math.abs(cpuAverage - gpuAverage) <= 2.0 -> "cpu_gpu_callback_chunks_similar"
-        else -> "cpu_gpu_callback_quality_recorded"
-    }
-}
-
-private fun calculateDoubleRatio(
-    numerator: String?,
-    denominator: String?,
-): String {
-    val n = numerator?.toDoubleOrNull()
-    val d = denominator?.toDoubleOrNull()
-    if (n == null || d == null || d == 0.0) return "unavailable"
-    return "%.3f".format(java.util.Locale.US, n / d)
-}
-
-private fun calculateDoubleDelta(
-    lhs: String?,
-    rhs: String?,
-): String {
-    val left = lhs?.toDoubleOrNull()
-    val right = rhs?.toDoubleOrNull()
-    if (left == null || right == null) return "unavailable"
-    return "%.3f".format(java.util.Locale.US, left - right)
-}
-
-private fun calculateIntDelta(
-    lhs: Int?,
-    rhs: Int?,
-): String =
-    if (lhs == null || rhs == null) {
-        "unavailable"
-    } else {
-        (lhs - rhs).toString()
-    }
-
-private fun classifyCpuGpuRawTextSimilarityHint(
-    cpuCount: Int?,
-    gpuCount: Int?,
-    cpuSuspiciousDetected: Boolean?,
-    gpuSuspiciousDetected: Boolean?,
-    cpuAverageChunkLength: String?,
-    gpuAverageChunkLength: String?,
-): String {
-    if (cpuCount == null || gpuCount == null || cpuCount <= 0 || gpuCount <= 0) return "comparison_unavailable"
-    if (gpuSuspiciousDetected == true && cpuSuspiciousDetected != true) return "gpu_raw_callback_suspicious_cpu_clean"
-    if (gpuSuspiciousDetected == true && cpuSuspiciousDetected == true) return "both_raw_callbacks_suspicious"
-    val cpuAverage = cpuAverageChunkLength?.toDoubleOrNull()
-    val gpuAverage = gpuAverageChunkLength?.toDoubleOrNull()
-    return when {
-        cpuAverage != null && gpuAverage != null && kotlin.math.abs(cpuAverage - gpuAverage) <= 2.0 ->
-            "chunk_shape_similar"
-        cpuAverage != null && gpuAverage != null && gpuAverage < cpuAverage ->
-            "gpu_chunks_smaller"
-        cpuAverage != null && gpuAverage != null && gpuAverage > cpuAverage ->
-            "gpu_chunks_larger"
-        else -> "raw_text_not_directly_compared"
-    }
-}
-
-internal fun classifyGpuSamplerRootCauseCandidate(
-    suspiciousDetected: Boolean,
-    sourceCorruptionStage: String?,
-    uiAppendChangedText: Boolean?,
-    matrixMode: String?,
-    callbackQualityClassification: String?,
-): String =
-    when {
-        !suspiciousDetected -> "unknown"
-        uiAppendChangedText == true -> "streaming_join_issue"
-        sourceCorruptionStage == "raw_callback" &&
-            matrixMode in setOf(
-                GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
-                GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE,
-            ) -> "not_sampler_related"
-        sourceCorruptionStage == "raw_callback" &&
-            callbackQualityClassification in setOf("severe_fragmentation", "pathological_single_char_stream") ->
-            "runtime_decode_fragmentation"
-        sourceCorruptionStage == "raw_callback" -> "callback_source_corruption"
-        matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL -> "sampler_related"
-        else -> "unknown"
-    }
-
 private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): GpuPerformanceDiagnostics {
     val engineCreateOrReuse = flags.gpuPerfEngineCreateOrReuse ?: when (flags.heldEngineReused) {
         true -> "reuse"
@@ -1701,35 +999,6 @@ private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): Gp
         slowPathDetected = slowDetected.toString(),
         slowPathReason = slowReason,
     )
-}
-
-private fun estimateVisibleTokensPerSecond(
-    charLength: Int?,
-    elapsedMs: Long?,
-): String {
-    if (charLength == null || elapsedMs == null || elapsedMs <= 0L) return "unavailable"
-    val estimatedTokens = (charLength / 4.0).coerceAtLeast(1.0)
-    return "%.1f".format(java.util.Locale.US, estimatedTokens * 1000.0 / elapsedMs)
-}
-
-internal fun classifyGpuPerfSlowPathReason(
-    engineCreateOrReuse: String,
-    engineAcquireElapsedMs: Long?,
-    generateToFirstTokenMs: Long?,
-    callbackTotalElapsedMs: Long?,
-    visibleTokensPerSecond: String,
-    tokenizerCountDurationMs: Long?,
-): String {
-    val visibleTps = visibleTokensPerSecond.toDoubleOrNull()
-    return when {
-        generateToFirstTokenMs != null && generateToFirstTokenMs > 2_000L -> "slow_first_token"
-        tokenizerCountDurationMs != null && tokenizerCountDurationMs > 1_000L -> "slow_tokenizer_count"
-        engineCreateOrReuse == "create" && engineAcquireElapsedMs != null && engineAcquireElapsedMs > 2_000L ->
-            "cold_engine_load"
-        callbackTotalElapsedMs != null && visibleTps != null && visibleTps < 8.0 -> "slow_callback_stream"
-        engineCreateOrReuse == "reuse" && visibleTps != null && visibleTps < 8.0 -> "runtime_or_backend_slow"
-        else -> "none"
-    }
 }
 
 private fun buildGpuHolderLifecycleDiagnostics(flags: LocalRouteDiagnosticFlags): GpuHolderLifecycleDiagnostics {
@@ -1969,41 +1238,13 @@ internal fun buildLocalRouteDiagnosticTrace(
     val finalResponseProbeDiagnostics = flags.gpuPrefillProbeDiagnostics
     val npuStandardRouteDevGateDiagnostics = buildNpuStandardRoutePhase1Diagnostics(context = context)
     return (
-        listOf(
-        "LOCAL_ROUTE_DIAG",
-        "stage=$stage",
-        "selected_model_name=${context.selectedModelName}",
-        "selected_model_file=${context.selectedModelFile}",
-        "selected_model_path=${context.selectedModelPath}",
-        "selected_model_slot=${context.selectedModelSlot}",
-        "generic_fallback_model_configured=${context.genericFallbackModelConfigured}",
-        "npu_preview_model_configured=${context.npuPreviewModelConfigured}",
-        "model_kind=${context.modelKind}",
-        "preferred_backend=${context.preferredBackend}",
-        "baseline_role=${context.baselineRole}",
-        "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
-        "npu_standard_route_mode=${context.npuStandardRouteMode}",
-        "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
-        "should_enter_npu_s1=${context.shouldEnterNpuS1}",
-        "local_route_entered=${context.localRouteEntered}",
-        "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
-        "blocked_reason=${context.blockedReason}",
-        "guard_recommendation=$guardRecommendation",
-        "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
-        "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
-        "holder_created=${flags.holderCreated.toDiagnosticValue()}",
-        "holder_acquired=${flags.holderAcquired.toDiagnosticValue()}",
-        "holder_reused=${flags.holderReused.toDiagnosticValue()}",
-        "holder_invalidated=${flags.holderInvalidated.toDiagnosticValue()}",
-        "holder_closed=${flags.holderClosed.toDiagnosticValue()}",
-        "holder_timeout_cleanup=${flags.holderTimeoutCleanup.toDiagnosticValue()}",
-        "holder_failure_cleanup=${flags.holderFailureCleanup.toDiagnosticValue()}",
-        "holder_process_restart=${flags.holderProcessRestart.toDiagnosticValue()}",
-        "held_engine_lifecycle_history=${flags.heldEngineLifecycleHistory.toDiagnosticValue()}",
-        "held_engine_destroy_reason=${flags.heldEngineDestroyReason.toDiagnosticValue()}",
-        "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
-        "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
-        "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
+        buildLocalRouteContextDiagnosticLines(
+            stage = stage,
+            context = context,
+            guardRecommendation = guardRecommendation,
+        ) +
+            buildHeldEngineLifecycleRouteDiagnosticLines(flags) +
+            listOf(
         "gpu_alignment_holder_present_before_acquire=${gpuAlignmentHolder.presentBeforeAcquire}",
         "gpu_alignment_holder_acquire_result=${gpuAlignmentHolder.acquireResult}",
         "gpu_alignment_holder_reused=${gpuAlignmentHolder.reused}",
@@ -2099,296 +1340,24 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_options_source=${gpuConfig.gpuOptionsSource}",
         "gpu_thinking_enabled=${gpuConfig.thinkingEnabled}",
         "gpu_speculative_decoding_enabled=${gpuConfig.speculativeDecodingEnabled}",
-        "executor_selection_fingerprint=${runtimeFingerprints.executorSelectionFingerprint}",
-        "runtime_backend_fingerprint=${runtimeFingerprints.runtimeBackendFingerprint}",
-        "runtime_executor_fingerprint=${runtimeFingerprints.runtimeExecutorFingerprint}",
-        "runtime_dispatch_fingerprint=${runtimeFingerprints.runtimeDispatchFingerprint}",
-        "runtime_compiled_model_fingerprint=${runtimeFingerprints.runtimeCompiledModelFingerprint}",
-        "engine_config_fingerprint=${runtimeFingerprints.engineConfigFingerprint}",
-        "conversation_config_fingerprint=${runtimeFingerprints.conversationConfigFingerprint}",
-        "sampler_config_fingerprint=${runtimeFingerprints.samplerConfigFingerprint}",
-        "gpu_output_quality_matrix_mode=${gpuOutputQuality.matrixMode}",
-        "gpu_output_quality_sampler_mode=${gpuOutputQuality.samplerMode}",
-        "gpu_output_quality_streaming_mode=${gpuOutputQuality.streamingMode}",
-        "gpu_output_quality_effective_max_tokens=${gpuOutputQuality.effectiveMaxTokens}",
-        "gpu_output_quality_collect_only_enabled=${gpuOutputQuality.collectOnlyEnabled}",
-        "gpu_output_quality_ui_incremental_append_enabled=${gpuOutputQuality.uiIncrementalAppendEnabled}",
-        "gpu_output_quality_probe_short_max_tokens=${gpuConfig.outputQualityProbeShortMaxTokensEnabled}",
-        "gpu_output_quality_probe_effective_max_tokens=${gpuConfig.outputQualityProbeEffectiveMaxTokens}",
-        "edge_gallery_parity_mode=${resolveEdgeGalleryParityModeForMatrixMode(gpuOutputQuality.matrixMode)}",
-        "edge_gallery_parity_engine_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuEngineConfigProfileForBackend(context.preferredBackend) else "unavailable"}",
-        "edge_gallery_parity_conversation_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigProfile else "unavailable"}",
-        "edge_gallery_parity_callback_mode=${resolveEdgeGalleryParityCallbackModeForMatrixMode(gpuOutputQuality.matrixMode, gpuOutputQuality.streamingMode)}",
-        "edge_gallery_parity_holder_reuse=${resolveEdgeGalleryParityHolderReuseForMatrixMode(gpuOutputQuality.matrixMode, flags.gpuCallbackStreamingReusedHeldEngine ?: flags.heldEngineReused)}",
-        "edge_gallery_parity_cache_dir_mode=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode) else "unavailable"}",
-        "edge_gallery_parity_sampler_present=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigSamplerPresent else "unavailable"}",
-        "edge_gallery_parity_candidate_result=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuOutputQuality.candidateResult else "unavailable"}",
-        "edge_gallery_parity_difference_summary=${resolveEdgeGalleryParityDifferenceSummary(gpuOutputQuality.matrixMode, gpuOutputQuality.sourceCorruptionStage, gpuOutputQuality.candidateResult, gpuOutputQuality.samplerRootCauseCandidate)}",
-        "edge_gallery_executor_probe_result=${runtimeFingerprints.edgeGalleryExecutorProbeResult}",
-        "gpu_internal_surface_probe_enabled=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_enabled"]?.toDiagnosticValue() ?: "unavailable"}",
-        "gpu_internal_surface_probe_result=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_result"]?.toDiagnosticValue() ?: "unavailable"}",
-        "gpu_internal_surface_probe_disabled_reason=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_disabled_reason"]?.toDiagnosticValue() ?: "unavailable"}",
-        "edge_gallery_executor_difference_summary=${runtimeFingerprints.edgeGalleryExecutorDifferenceSummary}",
-        "edge_gallery_generate_api_candidate=${finalResponseProbeDiagnostics["edge_gallery_generate_api_candidate"] ?: "unavailable"}",
-        "edge_gallery_callback_text_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_text_semantics_candidate"] ?: "unavailable"}",
-        "edge_gallery_callback_done_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_done_semantics_candidate"] ?: "unavailable"}",
-        "lami_callback_join_strategy_candidate=${finalResponseProbeDiagnostics["lami_callback_join_strategy_candidate"] ?: "unavailable"}",
-        "gpu_callback_last_non_empty_text_length=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_length"] ?: "unavailable"}",
-        "gpu_callback_last_non_empty_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_sha256"] ?: "unavailable"}",
-        "gpu_callback_accumulated_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_accumulated_text_sha256"] ?: "unavailable"}",
-        "gpu_callback_final_candidate_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_text_sha256"] ?: "unavailable"}",
-        "gpu_callback_final_candidate_source=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_source"] ?: "unavailable"}",
-        "edge_gallery_final_response_probe_result=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_result"] ?: "unavailable"}",
-        "edge_gallery_final_response_probe_difference_summary=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_difference_summary"] ?: "unavailable"}",
-        "gpu_max_tokens=${gpuConfig.maxTokens}",
-        "gpu_top_k=${gpuConfig.samplerTopK}",
-        "gpu_top_p=${gpuConfig.samplerTopP}",
-        "gpu_temperature=${gpuConfig.samplerTemperature}",
-        "gpu_dispatcher=Dispatchers.IO",
-        "gpu_engine_initialize_api=Engine.initialize",
-        "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
-        "gpu_route_divergence_point=${resolveGpuRouteDivergencePoint(flags, gpuTimeoutStage)}",
-        "debug_lami_gpu_generate_probe_mode=${flags.gpuGenerateProbeMode.toDiagnosticValue()}",
-        "gpu_generate_call_entered=${flags.gpuGenerateCallEntered.toDiagnosticValue()}",
-        "gpu_generate_call_returned=${flags.gpuGenerateCallReturned.toDiagnosticValue()}",
-        "gpu_callback_invoked_count=${flags.gpuCallbackInvokedCount?.toString() ?: "unavailable"}",
-        "gpu_callback_first_invoked_at_elapsed_ms=${flags.gpuCallbackFirstInvokedAtElapsedMs?.toString() ?: "unavailable"}",
-        "gpu_callback_last_invoked_at_elapsed_ms=${flags.gpuCallbackLastInvokedAtElapsedMs?.toString() ?: "unavailable"}",
-        "gpu_callback_thread_name=${flags.gpuCallbackThreadName.toDiagnosticValue()}",
-        "gpu_callback_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
-        "gpu_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
-        "gpu_callback_error_seen=${flags.gpuCallbackErrorSeen.toDiagnosticValue()}",
-        "gpu_callback_empty_text_count=${flags.gpuCallbackEmptyTextCount?.toString() ?: "unavailable"}",
-        "gpu_callback_non_empty_text_count=${flags.gpuCallbackNonEmptyTextCount?.toString() ?: "unavailable"}",
-        "gpu_callback_last_text_length=${flags.gpuCallbackLastTextLength?.toString() ?: "unavailable"}",
-        "gpu_callback_last_text_head=${flags.gpuCallbackLastTextHead.toDiagnosticValue()}",
-        "gpu_first_non_empty_text_elapsed_ms=${flags.gpuFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
-        "gpu_first_token_classification_reason=${flags.gpuFirstTokenClassificationReason.toDiagnosticValue()}",
-        "gpu_callback_exception_class=${flags.gpuCallbackExceptionClass.toDiagnosticValue()}",
-        "gpu_callback_exception_message=${flags.gpuCallbackExceptionMessage.toDiagnosticValue()}",
-        "gpu_callback_exception_chain=${flags.gpuCallbackExceptionChain.toDiagnosticValue()}",
-        "gpu_callback_exception_stage=${flags.gpuCallbackExceptionStage.toDiagnosticValue()}",
-        "gpu_generate_stall_interpretation=${flags.gpuGenerateStallInterpretation ?: resolveGpuGenerateStallInterpretation(flags)}",
-        "cpu_callback_invoked_count=${resolveCpuCallbackValue(context, flags.gpuCallbackInvokedCount?.toString())}",
-        "cpu_done_true_seen=${resolveCpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
-        "cpu_first_non_empty_text_elapsed_ms=${resolveCpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
-        "gpu_done_true_seen_compare=${resolveGpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
-        "gpu_first_non_empty_text_elapsed_ms_compare=${resolveGpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
-        "callback_route_diff=${resolveCallbackRouteDiff(context, flags)}",
-        "gpu_generate_actual_prompt=${flags.gpuGeneratePrompt.toDiagnosticValue()}",
-        "gpu_generate_prompt_length_chars=${flags.gpuGeneratePromptLengthChars?.toString() ?: "unavailable"}",
-        "gpu_generate_input_token_estimate=${flags.gpuGenerateInputTokenEstimate.toDiagnosticValue()}",
-        "gpu_generate_exception_seen=${flags.gpuGenerateExceptionSeen.toDiagnosticValue()}",
-        "gpu_generate_exception_class=${flags.gpuGenerateExceptionClass.toDiagnosticValue()}",
-        "gpu_generate_exception_message_raw=${flags.gpuGenerateExceptionMessageRaw.toDiagnosticValue()}",
-        "gpu_generate_exception_message_sanitized=${flags.gpuGenerateExceptionMessageSanitized.toDiagnosticValue()}",
-        "gpu_generate_exception_status_code=${flags.gpuGenerateExceptionStatusCode ?: liteRtLmError.statusCode}",
-        "gpu_generate_exception_error_file=${flags.gpuGenerateExceptionErrorFile ?: liteRtLmError.primaryFile}",
-        "gpu_generate_exception_error_line=${flags.gpuGenerateExceptionErrorLine ?: liteRtLmError.primaryLine}",
-        "gpu_generate_exception_summary=${flags.gpuGenerateExceptionSummary ?: liteRtLmError.summary}",
-        "gpu_generate_failed_before_first_token=${flags.gpuGenerateFailedBeforeFirstToken.toDiagnosticValue()}",
-        "gpu_watchdog_bypassed_due_to_generate_exception=${flags.gpuWatchdogBypassedDueToGenerateException.toDiagnosticValue()}",
-        "litert_lm_error_kind=${flags.liteRtLmErrorKind ?: liteRtLmError.kind}",
-        "litert_lm_error_status_code=${flags.liteRtLmErrorStatusCode ?: liteRtLmError.statusCode}",
-        "litert_lm_error_primary_file=${flags.liteRtLmErrorPrimaryFile ?: liteRtLmError.primaryFile}",
-        "litert_lm_error_primary_line=${flags.liteRtLmErrorPrimaryLine ?: liteRtLmError.primaryLine}",
-        "litert_lm_error_secondary_file=${flags.liteRtLmErrorSecondaryFile ?: liteRtLmError.secondaryFile}",
-        "litert_lm_error_secondary_line=${flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine}",
-        "litert_lm_error_recoverability_hint=${flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint}",
-        "litert_compiled_model_executor_failure_category=$compiledModelExecutorFailureCategory",
-        "cpu_compare_requested=${gpuOutputQuality.cpuCompareRequested}",
-        "cpu_compare_enabled=${gpuOutputQuality.cpuCompareEnabled}",
-        "cpu_compare_started=${flags.cpuCompareStarted.toDiagnosticValue()}",
-        "cpu_compare_finished=${gpuOutputQuality.cpuCompareFinished}",
-        "cpu_compare_skipped_reason=${gpuOutputQuality.cpuCompareSkippedReason}",
-        "cpu_compare_failure_stage=${gpuOutputQuality.cpuCompareFailureStage}",
-        "cpu_compare_elapsed_ms=${gpuOutputQuality.cpuCompareElapsedMs}",
-        "cpu_compare_engine_initialize_finished=${flags.cpuCompareEngineInitializeFinished.toDiagnosticValue()}",
-        "cpu_compare_conversation_create_finished=${flags.cpuCompareConversationCreateFinished.toDiagnosticValue()}",
-        "cpu_compare_generate_started=${flags.cpuCompareGenerateStarted.toDiagnosticValue()}",
-        "cpu_compare_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
-        "cpu_compare_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
-        "cpu_compare_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
-        "cpu_compare_first_non_empty_text_elapsed_ms=${flags.cpuCompareFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
-        "cpu_compare_done_true_seen=${flags.cpuCompareDoneTrueSeen.toDiagnosticValue()}",
-        "cpu_compare_exception_class=${flags.cpuCompareExceptionClass.toDiagnosticValue()}",
-        "cpu_compare_exception_message=${flags.cpuCompareExceptionMessage.toDiagnosticValue()}",
-        "cpu_gpu_generate_diff=${flags.cpuGpuGenerateDiff.toDiagnosticValue()}",
-        "cpu_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
-        "cpu_callback_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
-        "cpu_callback_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
-        "cpu_avg_chunk_length=${gpuOutputQuality.cpuAverageChunkLength}",
-        "cpu_median_chunk_length=${gpuOutputQuality.cpuMedianChunkLength}",
-        "cpu_p90_chunk_length=${gpuOutputQuality.cpuP90ChunkLength}",
-        "cpu_p95_chunk_length=${gpuOutputQuality.cpuP95ChunkLength}",
-        "cpu_one_char_chunk_count=${gpuOutputQuality.cpuOneCharChunkCount}",
-        "cpu_two_char_or_less_chunk_count=${gpuOutputQuality.cpuTwoCharOrLessChunkCount}",
-        "cpu_one_char_chunk_ratio=${gpuOutputQuality.cpuOneCharChunkRatio}",
-        "gpu_avg_chunk_length=${gpuOutputQuality.gpuAverageChunkLength}",
-        "cpu_callback_count=${gpuOutputQuality.cpuCallbackCount}",
-        "gpu_callback_count=${gpuOutputQuality.gpuCallbackCount}",
-        "cpu_two_char_or_less_ratio=${gpuOutputQuality.cpuTwoCharOrLessRatio}",
-        "cpu_chunk_length_histogram=${gpuOutputQuality.cpuChunkLengthHistogram}",
-        "cpu_callback_first_30_chunks=${gpuOutputQuality.cpuCallbackFirstChunks}",
-        "cpu_callback_last_30_chunks=${gpuOutputQuality.cpuCallbackLastChunks}",
-        "cpu_callback_quality_classification=${gpuOutputQuality.cpuCallbackQualityClassification}",
-        "cpu_output_suspicious_fragment_detected=${gpuOutputQuality.cpuOutputSuspiciousFragmentDetected}",
-        "cpu_output_suspicious_fragment_reason=${gpuOutputQuality.cpuOutputSuspiciousFragmentReason}",
-        "cpu_output_source_corruption_stage=${gpuOutputQuality.cpuOutputSourceCorruptionStage}",
-        "gpu_two_char_or_less_ratio=${gpuOutputQuality.gpuTwoCharOrLessRatio}",
-        "callback_quality_compare_result=${gpuOutputQuality.callbackQualityCompareResult}",
-        "callback_quality_compare_reason=${gpuOutputQuality.callbackQualityCompareReason}",
-        "cpu_gpu_avg_chunk_length_ratio=${gpuOutputQuality.cpuGpuAvgChunkLengthRatio}",
-        "cpu_gpu_two_char_or_less_ratio_delta=${gpuOutputQuality.cpuGpuTwoCharOrLessRatioDelta}",
-        "cpu_gpu_callback_count_delta=${gpuOutputQuality.cpuGpuCallbackCountDelta}",
-        "cpu_gpu_raw_text_similarity_hint=${gpuOutputQuality.cpuGpuRawTextSimilarityHint}",
-        "cpu_gpu_same_prompt=${gpuOutputQuality.cpuGpuSamePrompt}",
-        "cpu_gpu_same_max_tokens=${gpuOutputQuality.cpuGpuSameMaxTokens}",
-        "cpu_gpu_same_sampler_config_hint=${gpuOutputQuality.cpuGpuSameSamplerConfigHint}",
-        "gpu_callback_to_ui_enabled=${flags.gpuCallbackToUiEnabled.toDiagnosticValue()}",
-        "gpu_callback_text_promoted_to_ui=${flags.gpuCallbackTextPromotedToUi.toDiagnosticValue()}",
-        "gpu_callback_promoted_text_length=${flags.gpuCallbackPromotedTextLength?.toString() ?: "unavailable"}",
-        "gpu_callback_promoted_non_empty_count=${flags.gpuCallbackPromotedNonEmptyCount?.toString() ?: "unavailable"}",
-        "gpu_callback_success_classification=${(flags.gpuCallbackSuccessClassification ?: resolveGpuCallbackSuccessClassification(flags)).toDiagnosticValue()}",
-        "gpu_raw_callback_probe_status=${(flags.gpuRawCallbackProbeStatus ?: resolveGpuRawCallbackProbeStatus(flags)).toDiagnosticValue()}",
-        "gpu_ui_append_started=${flags.gpuUiAppendStarted.toDiagnosticValue()}",
-        "gpu_ui_append_finished=${flags.gpuUiAppendFinished.toDiagnosticValue()}",
-        "gpu_ui_first_visible_text_elapsed_ms=${flags.gpuUiFirstVisibleTextElapsedMs?.toString() ?: "unavailable"}",
-        "gpu_streaming_completion_reason=${flags.gpuStreamingCompletionReason.toDiagnosticValue()}",
-        "gpu_normal_route_use_callback_streaming=${flags.gpuNormalRouteUseCallbackStreaming.toDiagnosticValue()}",
-        "gpu_callback_streaming_path_selected=${flags.gpuCallbackStreamingPathSelected.toDiagnosticValue()}",
-        "gpu_callback_streaming_path_reason=${flags.gpuCallbackStreamingPathReason.toDiagnosticValue()}",
-        "gpu_callback_streaming_success_count=${flags.gpuCallbackStreamingSuccessCount?.toString() ?: "unavailable"}",
-        "gpu_callback_streaming_empty_callback_count=${flags.gpuCallbackStreamingEmptyCallbackCount?.toString() ?: "unavailable"}",
-        "gpu_callback_streaming_non_empty_callback_count=${flags.gpuCallbackStreamingNonEmptyCallbackCount?.toString() ?: "unavailable"}",
-        "gpu_callback_streaming_done_true_seen=${flags.gpuCallbackStreamingDoneTrueSeen.toDiagnosticValue()}",
-        "gpu_callback_streaming_final_text_length=${flags.gpuCallbackStreamingFinalTextLength?.toString() ?: "unavailable"}",
-        "gpu_callback_streaming_reused_held_engine=${flags.gpuCallbackStreamingReusedHeldEngine.toDiagnosticValue()}",
-        "gpu_callback_streaming_completion_reason=${flags.gpuCallbackStreamingCompletionReason.toDiagnosticValue()}",
-        "gpu_callback_streaming_failure_reason=${flags.gpuCallbackStreamingFailureReason.toDiagnosticValue()}",
-        "gpu_output_raw_callback_text_length=${gpuOutputQuality.rawLength}",
-        "gpu_output_raw_callback_text_head=${gpuOutputQuality.rawHead}",
-        "gpu_output_raw_callback_text_tail=${gpuOutputQuality.rawTail}",
-        "gpu_output_promoted_text_length=${gpuOutputQuality.promotedLength}",
-        "gpu_output_promoted_text_head=${gpuOutputQuality.promotedHead}",
-        "gpu_output_promoted_text_tail=${gpuOutputQuality.promotedTail}",
-        "gpu_output_final_assistant_text_length=${gpuOutputQuality.finalLength}",
-        "gpu_output_final_assistant_text_head=${gpuOutputQuality.finalHead}",
-        "gpu_output_final_assistant_text_tail=${gpuOutputQuality.finalTail}",
-        "gpu_output_callback_chunk_count=${gpuOutputQuality.chunkCount}",
-        "gpu_output_empty_chunk_count=${gpuOutputQuality.emptyChunkCount}",
-        "gpu_output_non_empty_chunk_count=${gpuOutputQuality.nonEmptyChunkCount}",
-        "callback_count=${gpuOutputQuality.chunkCount}",
-        "non_empty_callback_count=${gpuOutputQuality.nonEmptyChunkCount}",
-        "empty_callback_count=${gpuOutputQuality.emptyChunkCount}",
-        "average_chunk_length=${gpuOutputQuality.callbackAverageChunkLength}",
-        "median_chunk_length=${gpuOutputQuality.callbackMedianChunkLength}",
-        "p50_chunk_length=${gpuOutputQuality.callbackP50ChunkLength}",
-        "p90_chunk_length=${gpuOutputQuality.callbackP90ChunkLength}",
-        "p95_chunk_length=${gpuOutputQuality.callbackP95ChunkLength}",
-        "one_char_chunk_count=${gpuOutputQuality.callbackOneCharChunkCount}",
-        "two_char_or_less_chunk_count=${gpuOutputQuality.callbackTwoCharOrLessChunkCount}",
-        "one_char_chunk_ratio=${gpuOutputQuality.callbackOneCharChunkRatio}",
-        "two_char_or_less_chunk_ratio=${gpuOutputQuality.callbackTwoCharOrLessChunkRatio}",
-        "longest_chunk_length=${gpuOutputQuality.callbackLongestChunkLength}",
-        "shortest_non_empty_chunk_length=${gpuOutputQuality.callbackShortestNonEmptyChunkLength}",
-        "callback_first_30_chunks=${gpuOutputQuality.callbackFirstChunksArtifact}",
-        "callback_last_30_chunks=${gpuOutputQuality.callbackLastChunksArtifact}",
-        "callback_quality_classification=${gpuOutputQuality.callbackQualityClassification}",
-        "callback_corruption_earliest_stage=${gpuOutputQuality.callbackCorruptionEarliestStage}",
-        "gpu_fragmentation_score=${gpuOutputQuality.fragmentationScore}",
-        "gpu_fragmentation_percentile=${gpuOutputQuality.fragmentationPercentile}",
-        "gpu_fragmentation_tail_score=${gpuOutputQuality.fragmentationTailScore}",
-        "gpu_fragmentation_middle_score=${gpuOutputQuality.fragmentationMiddleScore}",
-        "gpu_fragmentation_head_score=${gpuOutputQuality.fragmentationHeadScore}",
-        "gpu_chunk_size_distribution=${gpuOutputQuality.chunkSizeDistribution}",
-        "gpu_chunk_length_sequence=${gpuOutputQuality.chunkLengthSequence}",
-        "gpu_fragmentation_cluster_count=${gpuOutputQuality.fragmentationClusterCount}",
-        "gpu_fragmentation_cluster_max_length=${gpuOutputQuality.fragmentationClusterMaxLength}",
-        "gpu_fragmentation_cluster_avg_length=${gpuOutputQuality.fragmentationClusterAvgLength}",
-        "gpu_output_suspicious_fragment_detected=${gpuOutputQuality.suspiciousDetected}",
-        "gpu_output_suspicious_fragment_reason=${gpuOutputQuality.suspiciousReason}",
-        "gpu_output_suspicious_fragment_position=${gpuOutputQuality.suspiciousPosition}",
-        "gpu_output_suspicious_fragment_tail_ratio=${gpuOutputQuality.suspiciousTailRatio}",
-        "gpu_output_repeated_markdown_fragment_detected=${gpuOutputQuality.repeatedMarkdownFragmentDetected}",
-        "gpu_output_mixed_japanese_fragment_detected=${gpuOutputQuality.mixedJapaneseFragmentDetected}",
-        "gpu_output_mixed_language_fragment_detected=${gpuOutputQuality.mixedLanguageFragmentDetected}",
-        "gpu_output_chunk_join_strategy=${gpuOutputQuality.chunkJoinStrategy}",
-        "gpu_output_chunk_boundary_suspected=${gpuOutputQuality.chunkBoundarySuspected}",
-        "gpu_output_last_chunks_summary=${gpuOutputQuality.lastChunksSummary}",
-        "gpu_output_chunk_length_histogram=${gpuOutputQuality.chunkLengthHistogram}",
-        "gpu_output_quality_candidate_result=${gpuOutputQuality.candidateResult}",
-        "gpu_output_quality_failure_block_reason=${gpuOutputQuality.failureBlockReason}",
-        "gpu_output_quality_recommendation=${gpuOutputQuality.recommendation}",
-        "gpu_output_quality_gate_status=${resolveGpuOutputQualityGateStatus(gpuOutputQuality)}",
-        "gpu_output_quality_promotion_blocker=${resolveGpuOutputQualityPromotionBlocker(gpuOutputQuality)}",
-        "gpu_output_quality_summary=${resolveGpuOutputQualitySummary(gpuOutputQuality)}",
-        "gpu_sampler_root_cause_candidate=${gpuOutputQuality.samplerRootCauseCandidate}",
-        "gpu_output_actual_ui_appended_text_length=${gpuOutputQuality.actualUiAppendedLength}",
-        "gpu_output_actual_ui_appended_text_head=${gpuOutputQuality.actualUiAppendedHead}",
-        "gpu_output_actual_ui_appended_text_tail=${gpuOutputQuality.actualUiAppendedTail}",
-        "gpu_output_ui_append_changed_text=${gpuOutputQuality.uiAppendChangedText}",
-        "gpu_output_source_corruption_stage=${gpuOutputQuality.sourceCorruptionStage}",
-        "gpu_perf_engine_acquire_elapsed_ms=${gpuPerformance.engineAcquireElapsedMs}",
-        "gpu_perf_engine_create_or_reuse=${gpuPerformance.engineCreateOrReuse}",
-        "gpu_perf_conversation_create_elapsed_ms=${gpuPerformance.conversationCreateElapsedMs}",
-        "gpu_perf_generate_to_first_token_ms=${gpuPerformance.generateToFirstTokenMs}",
-        "gpu_perf_first_to_last_callback_ms=${gpuPerformance.firstToLastCallbackMs}",
-        "gpu_perf_callback_total_elapsed_ms=${gpuPerformance.callbackTotalElapsedMs}",
-        "gpu_perf_backend_tokens_per_second=${gpuPerformance.backendTokensPerSecond}",
-        "gpu_perf_lami_visible_tokens_per_second=${gpuPerformance.lamiVisibleTokensPerSecond}",
-        "gpu_perf_tokenizer_count_duration_ms=${gpuPerformance.tokenizerCountDurationMs}",
-        "gpu_perf_slow_path_detected=${gpuPerformance.slowPathDetected}",
-        "gpu_perf_slow_path_reason=${gpuPerformance.slowPathReason}",
-        "gpu_holder_lifecycle_event_after_success=${gpuHolderLifecycle.eventAfterSuccess}",
-        "gpu_holder_lifecycle_last_activity_state=${gpuHolderLifecycle.lastActivityState}",
-        "gpu_holder_lifecycle_last_app_visibility=${gpuHolderLifecycle.lastAppVisibility}",
-        "gpu_holder_lifecycle_clear_trigger_elapsed_ms=${gpuHolderLifecycle.clearTriggerElapsedMs}",
-        "gpu_holder_lifecycle_clear_after_success_ms=${gpuHolderLifecycle.clearAfterSuccessMs}",
-        "gpu_holder_lifecycle_clear_during_active_generate=${gpuHolderLifecycle.clearDuringActiveGenerate}",
-        "gpu_holder_lifecycle_clear_after_ui_append=${gpuHolderLifecycle.clearAfterUiAppend}",
-        "gpu_holder_lifecycle_clear_reason_detail=${gpuHolderLifecycle.clearReasonDetail}",
-        "gpu_holder_lifecycle_background_detection_source=${gpuHolderLifecycle.backgroundDetectionSource}",
-        "gpu_holder_lifecycle_onstop_deferred=${gpuHolderLifecycle.onStopDeferred}",
-        "gpu_holder_lifecycle_onstop_defer_reason=${gpuHolderLifecycle.onStopDeferReason}",
-        "gpu_holder_lifecycle_clear_suppressed_after_success=${gpuHolderLifecycle.clearSuppressedAfterSuccess}",
-        "gpu_holder_lifecycle_clear_suppressed_reason=${gpuHolderLifecycle.clearSuppressedReason}",
-        "gpu_holder_lifecycle_actual_background_confirmed=${gpuHolderLifecycle.actualBackgroundConfirmed}",
-        "gpu_holder_lifecycle_reuse_expected_next_turn=${gpuHolderLifecycle.reuseExpectedNextTurn}",
-        "gpu_prefill_probe_enabled=${gpuPrefillProbe.enabled}",
-        "gpu_prefill_probe_requested=${gpuPrefillProbe.requested}",
-        "gpu_prefill_probe_blocks_normal_generate=${gpuPrefillProbe.blocksNormalGenerate}",
-        "gpu_prefill_probe_block_reason=${gpuPrefillProbe.blockReason}",
-        "gpu_prefill_probe_requires_held_engine=${gpuPrefillProbe.requiresHeldEngine}",
-        "gpu_prefill_probe_held_engine_present=${gpuPrefillProbe.heldEnginePresent}",
-        "gpu_prefill_probe_disable_recommendation=${gpuPrefillProbe.disableRecommendation}",
-        "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
-        "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
-        "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
-        "gpu_litert_compiled_model_error_line=${gpuFailureClassification.compiledModelErrorLine}",
-        "gpu_engine_initialize_internal_error_detected=${gpuFailureClassification.engineInitializeInternalErrorDetected}",
-        "gpu_compiled_model_creation_failed=${gpuFailureClassification.compiledModelCreationFailed}",
-        "gpu_failure_interpretation=${gpuFailureClassification.interpretation}",
-        "litert_lm_backend_candidates=${artisanApi.backendCandidates}",
-        "litert_lm_backend_gpu_artisan_available=${artisanApi.gpuArtisanAvailable}",
-        "litert_lm_backend_cpu_artisan_available=${artisanApi.cpuArtisanAvailable}",
-        "litert_lm_backend_google_tensor_artisan_available=${artisanApi.googleTensorArtisanAvailable}",
-        "litert_lm_engine_config_artisan_api_available=${artisanApi.engineConfigArtisanApiAvailable}",
-        "litert_lm_runtime_config_available=${artisanApi.runtimeConfigAvailable}",
-        "litert_lm_backend_constraint_api_available=${artisanApi.backendConstraintApiAvailable}",
-        "litert_lm_preferred_engine_type_api_available=${artisanApi.preferredEngineTypeApiAvailable}",
-        "selected_model_backend_constraint_hint=${artisanApi.selectedModelBackendConstraintHint}",
-        "selected_model_artisan_hint=${artisanApi.selectedModelArtisanHint}",
-        "edge_gallery_artisan_static_evidence=${artisanApi.edgeGalleryArtisanStaticEvidence}",
-        "litert_runtime_executor_candidates=${artisanApi.runtimeExecutorCandidates}",
-        "litert_runtime_executor_selection_hint=${artisanApi.runtimeExecutorSelectionHint}",
-        "litert_runtime_backend_constraint_hint=${artisanApi.runtimeBackendConstraintHint}",
-        "litert_runtime_compiled_model_executor_hint=${artisanApi.runtimeCompiledModelExecutorHint}",
-        "litert_runtime_gpu_executor_hint=${artisanApi.runtimeGpuExecutorHint}",
-        "litert_runtime_artisan_evidence=${artisanApi.runtimeArtisanEvidence}",
-        "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
-        "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         ) +
+            buildGpuExecutionDiagnosticLines(
+                context = context,
+                flags = flags,
+                gpuConfig = gpuConfig,
+                runtimeFingerprints = runtimeFingerprints,
+                gpuInternalSurfaceProbe = gpuInternalSurfaceProbe,
+                finalResponseProbeDiagnostics = finalResponseProbeDiagnostics,
+                gpuOutputQuality = gpuOutputQuality,
+                gpuPerformance = gpuPerformance,
+                gpuHolderLifecycle = gpuHolderLifecycle,
+                gpuPrefillProbe = gpuPrefillProbe,
+                gpuFailureClassification = gpuFailureClassification,
+                gpuTimeoutStage = gpuTimeoutStage,
+                liteRtLmError = liteRtLmError,
+                compiledModelExecutorFailureCategory = compiledModelExecutorFailureCategory,
+                artisanApi = artisanApi,
+            ) +
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
             buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
             buildStandardGpuMinimalRuntimeCandidateRouteDiagnosticLines(standardGpuMinimalRuntimeCandidate) +
@@ -2408,6 +1377,360 @@ internal fun buildLocalRouteDiagnosticTrace(
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
+
+private fun buildGpuExecutionDiagnosticLines(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+    gpuConfig: GpuRouteConfigDiagnostics,
+    runtimeFingerprints: RuntimeExecutorFingerprintDiagnostics,
+    gpuInternalSurfaceProbe: Map<String, String>,
+    finalResponseProbeDiagnostics: Map<String, String>,
+    gpuOutputQuality: GpuOutputQualityDiagnostics,
+    gpuPerformance: GpuPerformanceDiagnostics,
+    gpuHolderLifecycle: GpuHolderLifecycleDiagnostics,
+    gpuPrefillProbe: GpuPrefillProbeClarityDiagnostics,
+    gpuFailureClassification: GpuLiteRtFailureClassification,
+    gpuTimeoutStage: String,
+    liteRtLmError: LiteRtLmErrorClassification,
+    compiledModelExecutorFailureCategory: String,
+    artisanApi: LiteRtLmBackendArtisanApiDiagnostics,
+): List<String> = listOf(
+    "executor_selection_fingerprint=${runtimeFingerprints.executorSelectionFingerprint}",
+    "runtime_backend_fingerprint=${runtimeFingerprints.runtimeBackendFingerprint}",
+    "runtime_executor_fingerprint=${runtimeFingerprints.runtimeExecutorFingerprint}",
+    "runtime_dispatch_fingerprint=${runtimeFingerprints.runtimeDispatchFingerprint}",
+    "runtime_compiled_model_fingerprint=${runtimeFingerprints.runtimeCompiledModelFingerprint}",
+    "engine_config_fingerprint=${runtimeFingerprints.engineConfigFingerprint}",
+    "conversation_config_fingerprint=${runtimeFingerprints.conversationConfigFingerprint}",
+    "sampler_config_fingerprint=${runtimeFingerprints.samplerConfigFingerprint}",
+    "gpu_output_quality_matrix_mode=${gpuOutputQuality.matrixMode}",
+    "gpu_output_quality_sampler_mode=${gpuOutputQuality.samplerMode}",
+    "gpu_output_quality_streaming_mode=${gpuOutputQuality.streamingMode}",
+    "gpu_output_quality_effective_max_tokens=${gpuOutputQuality.effectiveMaxTokens}",
+    "gpu_output_quality_collect_only_enabled=${gpuOutputQuality.collectOnlyEnabled}",
+    "gpu_output_quality_ui_incremental_append_enabled=${gpuOutputQuality.uiIncrementalAppendEnabled}",
+    "gpu_output_quality_probe_short_max_tokens=${gpuConfig.outputQualityProbeShortMaxTokensEnabled}",
+    "gpu_output_quality_probe_effective_max_tokens=${gpuConfig.outputQualityProbeEffectiveMaxTokens}",
+    "edge_gallery_parity_mode=${resolveEdgeGalleryParityModeForMatrixMode(gpuOutputQuality.matrixMode)}",
+    "edge_gallery_parity_engine_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuEngineConfigProfileForBackend(context.preferredBackend) else "unavailable"}",
+    "edge_gallery_parity_conversation_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigProfile else "unavailable"}",
+    "edge_gallery_parity_callback_mode=${resolveEdgeGalleryParityCallbackModeForMatrixMode(gpuOutputQuality.matrixMode, gpuOutputQuality.streamingMode)}",
+    "edge_gallery_parity_holder_reuse=${resolveEdgeGalleryParityHolderReuseForMatrixMode(gpuOutputQuality.matrixMode, flags.gpuCallbackStreamingReusedHeldEngine ?: flags.heldEngineReused)}",
+    "edge_gallery_parity_cache_dir_mode=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode) else "unavailable"}",
+    "edge_gallery_parity_sampler_present=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigSamplerPresent else "unavailable"}",
+    "edge_gallery_parity_candidate_result=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuOutputQuality.candidateResult else "unavailable"}",
+    "edge_gallery_parity_difference_summary=${resolveEdgeGalleryParityDifferenceSummary(gpuOutputQuality.matrixMode, gpuOutputQuality.sourceCorruptionStage, gpuOutputQuality.candidateResult, gpuOutputQuality.samplerRootCauseCandidate)}",
+    "edge_gallery_executor_probe_result=${runtimeFingerprints.edgeGalleryExecutorProbeResult}",
+    "gpu_internal_surface_probe_enabled=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_enabled"]?.toDiagnosticValue() ?: "unavailable"}",
+    "gpu_internal_surface_probe_result=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_result"]?.toDiagnosticValue() ?: "unavailable"}",
+    "gpu_internal_surface_probe_disabled_reason=${gpuInternalSurfaceProbe["gpu_internal_surface_probe_disabled_reason"]?.toDiagnosticValue() ?: "unavailable"}",
+    "edge_gallery_executor_difference_summary=${runtimeFingerprints.edgeGalleryExecutorDifferenceSummary}",
+    "edge_gallery_generate_api_candidate=${finalResponseProbeDiagnostics["edge_gallery_generate_api_candidate"] ?: "unavailable"}",
+    "edge_gallery_callback_text_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_text_semantics_candidate"] ?: "unavailable"}",
+    "edge_gallery_callback_done_semantics_candidate=${finalResponseProbeDiagnostics["edge_gallery_callback_done_semantics_candidate"] ?: "unavailable"}",
+    "lami_callback_join_strategy_candidate=${finalResponseProbeDiagnostics["lami_callback_join_strategy_candidate"] ?: "unavailable"}",
+    "gpu_callback_last_non_empty_text_length=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_length"] ?: "unavailable"}",
+    "gpu_callback_last_non_empty_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_last_non_empty_text_sha256"] ?: "unavailable"}",
+    "gpu_callback_accumulated_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_accumulated_text_sha256"] ?: "unavailable"}",
+    "gpu_callback_final_candidate_text_sha256=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_text_sha256"] ?: "unavailable"}",
+    "gpu_callback_final_candidate_source=${finalResponseProbeDiagnostics["gpu_callback_final_candidate_source"] ?: "unavailable"}",
+    "edge_gallery_final_response_probe_result=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_result"] ?: "unavailable"}",
+    "edge_gallery_final_response_probe_difference_summary=${finalResponseProbeDiagnostics["edge_gallery_final_response_probe_difference_summary"] ?: "unavailable"}",
+    "gpu_max_tokens=${gpuConfig.maxTokens}",
+    "gpu_top_k=${gpuConfig.samplerTopK}",
+    "gpu_top_p=${gpuConfig.samplerTopP}",
+    "gpu_temperature=${gpuConfig.samplerTemperature}",
+    "gpu_dispatcher=Dispatchers.IO",
+    "gpu_engine_initialize_api=Engine.initialize",
+    "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
+    "gpu_route_divergence_point=${resolveGpuRouteDivergencePoint(flags, gpuTimeoutStage)}",
+    "debug_lami_gpu_generate_probe_mode=${flags.gpuGenerateProbeMode.toDiagnosticValue()}",
+    "gpu_generate_call_entered=${flags.gpuGenerateCallEntered.toDiagnosticValue()}",
+    "gpu_generate_call_returned=${flags.gpuGenerateCallReturned.toDiagnosticValue()}",
+    "gpu_callback_invoked_count=${flags.gpuCallbackInvokedCount?.toString() ?: "unavailable"}",
+    "gpu_callback_first_invoked_at_elapsed_ms=${flags.gpuCallbackFirstInvokedAtElapsedMs?.toString() ?: "unavailable"}",
+    "gpu_callback_last_invoked_at_elapsed_ms=${flags.gpuCallbackLastInvokedAtElapsedMs?.toString() ?: "unavailable"}",
+    "gpu_callback_thread_name=${flags.gpuCallbackThreadName.toDiagnosticValue()}",
+    "gpu_callback_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
+    "gpu_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
+    "gpu_callback_error_seen=${flags.gpuCallbackErrorSeen.toDiagnosticValue()}",
+    "gpu_callback_empty_text_count=${flags.gpuCallbackEmptyTextCount?.toString() ?: "unavailable"}",
+    "gpu_callback_non_empty_text_count=${flags.gpuCallbackNonEmptyTextCount?.toString() ?: "unavailable"}",
+    "gpu_callback_last_text_length=${flags.gpuCallbackLastTextLength?.toString() ?: "unavailable"}",
+    "gpu_callback_last_text_head=${flags.gpuCallbackLastTextHead.toDiagnosticValue()}",
+    "gpu_first_non_empty_text_elapsed_ms=${flags.gpuFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
+    "gpu_first_token_classification_reason=${flags.gpuFirstTokenClassificationReason.toDiagnosticValue()}",
+    "gpu_callback_exception_class=${flags.gpuCallbackExceptionClass.toDiagnosticValue()}",
+    "gpu_callback_exception_message=${flags.gpuCallbackExceptionMessage.toDiagnosticValue()}",
+    "gpu_callback_exception_chain=${flags.gpuCallbackExceptionChain.toDiagnosticValue()}",
+    "gpu_callback_exception_stage=${flags.gpuCallbackExceptionStage.toDiagnosticValue()}",
+    "gpu_generate_stall_interpretation=${flags.gpuGenerateStallInterpretation ?: resolveGpuGenerateStallInterpretation(flags)}",
+    "cpu_callback_invoked_count=${resolveCpuCallbackValue(context, flags.gpuCallbackInvokedCount?.toString())}",
+    "cpu_done_true_seen=${resolveCpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
+    "cpu_first_non_empty_text_elapsed_ms=${resolveCpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
+    "gpu_done_true_seen_compare=${resolveGpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
+    "gpu_first_non_empty_text_elapsed_ms_compare=${resolveGpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
+    "callback_route_diff=${resolveCallbackRouteDiff(context, flags)}",
+    "gpu_generate_actual_prompt=${flags.gpuGeneratePrompt.toDiagnosticValue()}",
+    "gpu_generate_prompt_length_chars=${flags.gpuGeneratePromptLengthChars?.toString() ?: "unavailable"}",
+    "gpu_generate_input_token_estimate=${flags.gpuGenerateInputTokenEstimate.toDiagnosticValue()}",
+    "gpu_generate_exception_seen=${flags.gpuGenerateExceptionSeen.toDiagnosticValue()}",
+    "gpu_generate_exception_class=${flags.gpuGenerateExceptionClass.toDiagnosticValue()}",
+    "gpu_generate_exception_message_raw=${flags.gpuGenerateExceptionMessageRaw.toDiagnosticValue()}",
+    "gpu_generate_exception_message_sanitized=${flags.gpuGenerateExceptionMessageSanitized.toDiagnosticValue()}",
+    "gpu_generate_exception_status_code=${flags.gpuGenerateExceptionStatusCode ?: liteRtLmError.statusCode}",
+    "gpu_generate_exception_error_file=${flags.gpuGenerateExceptionErrorFile ?: liteRtLmError.primaryFile}",
+    "gpu_generate_exception_error_line=${flags.gpuGenerateExceptionErrorLine ?: liteRtLmError.primaryLine}",
+    "gpu_generate_exception_summary=${flags.gpuGenerateExceptionSummary ?: liteRtLmError.summary}",
+    "gpu_generate_failed_before_first_token=${flags.gpuGenerateFailedBeforeFirstToken.toDiagnosticValue()}",
+    "gpu_watchdog_bypassed_due_to_generate_exception=${flags.gpuWatchdogBypassedDueToGenerateException.toDiagnosticValue()}",
+    "litert_lm_error_kind=${flags.liteRtLmErrorKind ?: liteRtLmError.kind}",
+    "litert_lm_error_status_code=${flags.liteRtLmErrorStatusCode ?: liteRtLmError.statusCode}",
+    "litert_lm_error_primary_file=${flags.liteRtLmErrorPrimaryFile ?: liteRtLmError.primaryFile}",
+    "litert_lm_error_primary_line=${flags.liteRtLmErrorPrimaryLine ?: liteRtLmError.primaryLine}",
+    "litert_lm_error_secondary_file=${flags.liteRtLmErrorSecondaryFile ?: liteRtLmError.secondaryFile}",
+    "litert_lm_error_secondary_line=${flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine}",
+    "litert_lm_error_recoverability_hint=${flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint}",
+    "litert_compiled_model_executor_failure_category=$compiledModelExecutorFailureCategory",
+    "cpu_compare_requested=${gpuOutputQuality.cpuCompareRequested}",
+    "cpu_compare_enabled=${gpuOutputQuality.cpuCompareEnabled}",
+    "cpu_compare_started=${flags.cpuCompareStarted.toDiagnosticValue()}",
+    "cpu_compare_finished=${gpuOutputQuality.cpuCompareFinished}",
+    "cpu_compare_skipped_reason=${gpuOutputQuality.cpuCompareSkippedReason}",
+    "cpu_compare_failure_stage=${gpuOutputQuality.cpuCompareFailureStage}",
+    "cpu_compare_elapsed_ms=${gpuOutputQuality.cpuCompareElapsedMs}",
+    "cpu_compare_engine_initialize_finished=${flags.cpuCompareEngineInitializeFinished.toDiagnosticValue()}",
+    "cpu_compare_conversation_create_finished=${flags.cpuCompareConversationCreateFinished.toDiagnosticValue()}",
+    "cpu_compare_generate_started=${flags.cpuCompareGenerateStarted.toDiagnosticValue()}",
+    "cpu_compare_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
+    "cpu_compare_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
+    "cpu_compare_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
+    "cpu_compare_first_non_empty_text_elapsed_ms=${flags.cpuCompareFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
+    "cpu_compare_done_true_seen=${flags.cpuCompareDoneTrueSeen.toDiagnosticValue()}",
+    "cpu_compare_exception_class=${flags.cpuCompareExceptionClass.toDiagnosticValue()}",
+    "cpu_compare_exception_message=${flags.cpuCompareExceptionMessage.toDiagnosticValue()}",
+    "cpu_gpu_generate_diff=${flags.cpuGpuGenerateDiff.toDiagnosticValue()}",
+    "cpu_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
+    "cpu_callback_empty_text_count=${gpuOutputQuality.cpuEmptyTextCount}",
+    "cpu_callback_non_empty_text_count=${gpuOutputQuality.cpuNonEmptyTextCount}",
+    "cpu_avg_chunk_length=${gpuOutputQuality.cpuAverageChunkLength}",
+    "cpu_median_chunk_length=${gpuOutputQuality.cpuMedianChunkLength}",
+    "cpu_p90_chunk_length=${gpuOutputQuality.cpuP90ChunkLength}",
+    "cpu_p95_chunk_length=${gpuOutputQuality.cpuP95ChunkLength}",
+    "cpu_one_char_chunk_count=${gpuOutputQuality.cpuOneCharChunkCount}",
+    "cpu_two_char_or_less_chunk_count=${gpuOutputQuality.cpuTwoCharOrLessChunkCount}",
+    "cpu_one_char_chunk_ratio=${gpuOutputQuality.cpuOneCharChunkRatio}",
+    "gpu_avg_chunk_length=${gpuOutputQuality.gpuAverageChunkLength}",
+    "cpu_callback_count=${gpuOutputQuality.cpuCallbackCount}",
+    "gpu_callback_count=${gpuOutputQuality.gpuCallbackCount}",
+    "cpu_two_char_or_less_ratio=${gpuOutputQuality.cpuTwoCharOrLessRatio}",
+    "cpu_chunk_length_histogram=${gpuOutputQuality.cpuChunkLengthHistogram}",
+    "cpu_callback_first_30_chunks=${gpuOutputQuality.cpuCallbackFirstChunks}",
+    "cpu_callback_last_30_chunks=${gpuOutputQuality.cpuCallbackLastChunks}",
+    "cpu_callback_quality_classification=${gpuOutputQuality.cpuCallbackQualityClassification}",
+    "cpu_output_suspicious_fragment_detected=${gpuOutputQuality.cpuOutputSuspiciousFragmentDetected}",
+    "cpu_output_suspicious_fragment_reason=${gpuOutputQuality.cpuOutputSuspiciousFragmentReason}",
+    "cpu_output_source_corruption_stage=${gpuOutputQuality.cpuOutputSourceCorruptionStage}",
+    "gpu_two_char_or_less_ratio=${gpuOutputQuality.gpuTwoCharOrLessRatio}",
+    "callback_quality_compare_result=${gpuOutputQuality.callbackQualityCompareResult}",
+    "callback_quality_compare_reason=${gpuOutputQuality.callbackQualityCompareReason}",
+    "cpu_gpu_avg_chunk_length_ratio=${gpuOutputQuality.cpuGpuAvgChunkLengthRatio}",
+    "cpu_gpu_two_char_or_less_ratio_delta=${gpuOutputQuality.cpuGpuTwoCharOrLessRatioDelta}",
+    "cpu_gpu_callback_count_delta=${gpuOutputQuality.cpuGpuCallbackCountDelta}",
+    "cpu_gpu_raw_text_similarity_hint=${gpuOutputQuality.cpuGpuRawTextSimilarityHint}",
+    "cpu_gpu_same_prompt=${gpuOutputQuality.cpuGpuSamePrompt}",
+    "cpu_gpu_same_max_tokens=${gpuOutputQuality.cpuGpuSameMaxTokens}",
+    "cpu_gpu_same_sampler_config_hint=${gpuOutputQuality.cpuGpuSameSamplerConfigHint}",
+    "gpu_callback_to_ui_enabled=${flags.gpuCallbackToUiEnabled.toDiagnosticValue()}",
+    "gpu_callback_text_promoted_to_ui=${flags.gpuCallbackTextPromotedToUi.toDiagnosticValue()}",
+    "gpu_callback_promoted_text_length=${flags.gpuCallbackPromotedTextLength?.toString() ?: "unavailable"}",
+    "gpu_callback_promoted_non_empty_count=${flags.gpuCallbackPromotedNonEmptyCount?.toString() ?: "unavailable"}",
+    "gpu_callback_success_classification=${(flags.gpuCallbackSuccessClassification ?: resolveGpuCallbackSuccessClassification(flags)).toDiagnosticValue()}",
+    "gpu_raw_callback_probe_status=${(flags.gpuRawCallbackProbeStatus ?: resolveGpuRawCallbackProbeStatus(flags)).toDiagnosticValue()}",
+    "gpu_ui_append_started=${flags.gpuUiAppendStarted.toDiagnosticValue()}",
+    "gpu_ui_append_finished=${flags.gpuUiAppendFinished.toDiagnosticValue()}",
+    "gpu_ui_first_visible_text_elapsed_ms=${flags.gpuUiFirstVisibleTextElapsedMs?.toString() ?: "unavailable"}",
+    "gpu_streaming_completion_reason=${flags.gpuStreamingCompletionReason.toDiagnosticValue()}",
+    "gpu_normal_route_use_callback_streaming=${flags.gpuNormalRouteUseCallbackStreaming.toDiagnosticValue()}",
+    "gpu_callback_streaming_path_selected=${flags.gpuCallbackStreamingPathSelected.toDiagnosticValue()}",
+    "gpu_callback_streaming_path_reason=${flags.gpuCallbackStreamingPathReason.toDiagnosticValue()}",
+    "gpu_callback_streaming_success_count=${flags.gpuCallbackStreamingSuccessCount?.toString() ?: "unavailable"}",
+    "gpu_callback_streaming_empty_callback_count=${flags.gpuCallbackStreamingEmptyCallbackCount?.toString() ?: "unavailable"}",
+    "gpu_callback_streaming_non_empty_callback_count=${flags.gpuCallbackStreamingNonEmptyCallbackCount?.toString() ?: "unavailable"}",
+    "gpu_callback_streaming_done_true_seen=${flags.gpuCallbackStreamingDoneTrueSeen.toDiagnosticValue()}",
+    "gpu_callback_streaming_final_text_length=${flags.gpuCallbackStreamingFinalTextLength?.toString() ?: "unavailable"}",
+    "gpu_callback_streaming_reused_held_engine=${flags.gpuCallbackStreamingReusedHeldEngine.toDiagnosticValue()}",
+    "gpu_callback_streaming_completion_reason=${flags.gpuCallbackStreamingCompletionReason.toDiagnosticValue()}",
+    "gpu_callback_streaming_failure_reason=${flags.gpuCallbackStreamingFailureReason.toDiagnosticValue()}",
+    "gpu_output_raw_callback_text_length=${gpuOutputQuality.rawLength}",
+    "gpu_output_raw_callback_text_head=${gpuOutputQuality.rawHead}",
+    "gpu_output_raw_callback_text_tail=${gpuOutputQuality.rawTail}",
+    "gpu_output_promoted_text_length=${gpuOutputQuality.promotedLength}",
+    "gpu_output_promoted_text_head=${gpuOutputQuality.promotedHead}",
+    "gpu_output_promoted_text_tail=${gpuOutputQuality.promotedTail}",
+    "gpu_output_final_assistant_text_length=${gpuOutputQuality.finalLength}",
+    "gpu_output_final_assistant_text_head=${gpuOutputQuality.finalHead}",
+    "gpu_output_final_assistant_text_tail=${gpuOutputQuality.finalTail}",
+    "gpu_output_callback_chunk_count=${gpuOutputQuality.chunkCount}",
+    "gpu_output_empty_chunk_count=${gpuOutputQuality.emptyChunkCount}",
+    "gpu_output_non_empty_chunk_count=${gpuOutputQuality.nonEmptyChunkCount}",
+    "callback_count=${gpuOutputQuality.chunkCount}",
+    "non_empty_callback_count=${gpuOutputQuality.nonEmptyChunkCount}",
+    "empty_callback_count=${gpuOutputQuality.emptyChunkCount}",
+    "average_chunk_length=${gpuOutputQuality.callbackAverageChunkLength}",
+    "median_chunk_length=${gpuOutputQuality.callbackMedianChunkLength}",
+    "p50_chunk_length=${gpuOutputQuality.callbackP50ChunkLength}",
+    "p90_chunk_length=${gpuOutputQuality.callbackP90ChunkLength}",
+    "p95_chunk_length=${gpuOutputQuality.callbackP95ChunkLength}",
+    "one_char_chunk_count=${gpuOutputQuality.callbackOneCharChunkCount}",
+    "two_char_or_less_chunk_count=${gpuOutputQuality.callbackTwoCharOrLessChunkCount}",
+    "one_char_chunk_ratio=${gpuOutputQuality.callbackOneCharChunkRatio}",
+    "two_char_or_less_chunk_ratio=${gpuOutputQuality.callbackTwoCharOrLessChunkRatio}",
+    "longest_chunk_length=${gpuOutputQuality.callbackLongestChunkLength}",
+    "shortest_non_empty_chunk_length=${gpuOutputQuality.callbackShortestNonEmptyChunkLength}",
+    "callback_first_30_chunks=${gpuOutputQuality.callbackFirstChunksArtifact}",
+    "callback_last_30_chunks=${gpuOutputQuality.callbackLastChunksArtifact}",
+    "callback_quality_classification=${gpuOutputQuality.callbackQualityClassification}",
+    "callback_corruption_earliest_stage=${gpuOutputQuality.callbackCorruptionEarliestStage}",
+    "gpu_fragmentation_score=${gpuOutputQuality.fragmentationScore}",
+    "gpu_fragmentation_percentile=${gpuOutputQuality.fragmentationPercentile}",
+    "gpu_fragmentation_tail_score=${gpuOutputQuality.fragmentationTailScore}",
+    "gpu_fragmentation_middle_score=${gpuOutputQuality.fragmentationMiddleScore}",
+    "gpu_fragmentation_head_score=${gpuOutputQuality.fragmentationHeadScore}",
+    "gpu_chunk_size_distribution=${gpuOutputQuality.chunkSizeDistribution}",
+    "gpu_chunk_length_sequence=${gpuOutputQuality.chunkLengthSequence}",
+    "gpu_fragmentation_cluster_count=${gpuOutputQuality.fragmentationClusterCount}",
+    "gpu_fragmentation_cluster_max_length=${gpuOutputQuality.fragmentationClusterMaxLength}",
+    "gpu_fragmentation_cluster_avg_length=${gpuOutputQuality.fragmentationClusterAvgLength}",
+    "gpu_output_suspicious_fragment_detected=${gpuOutputQuality.suspiciousDetected}",
+    "gpu_output_suspicious_fragment_reason=${gpuOutputQuality.suspiciousReason}",
+    "gpu_output_suspicious_fragment_position=${gpuOutputQuality.suspiciousPosition}",
+    "gpu_output_suspicious_fragment_tail_ratio=${gpuOutputQuality.suspiciousTailRatio}",
+    "gpu_output_repeated_markdown_fragment_detected=${gpuOutputQuality.repeatedMarkdownFragmentDetected}",
+    "gpu_output_mixed_japanese_fragment_detected=${gpuOutputQuality.mixedJapaneseFragmentDetected}",
+    "gpu_output_mixed_language_fragment_detected=${gpuOutputQuality.mixedLanguageFragmentDetected}",
+    "gpu_output_chunk_join_strategy=${gpuOutputQuality.chunkJoinStrategy}",
+    "gpu_output_chunk_boundary_suspected=${gpuOutputQuality.chunkBoundarySuspected}",
+    "gpu_output_last_chunks_summary=${gpuOutputQuality.lastChunksSummary}",
+    "gpu_output_chunk_length_histogram=${gpuOutputQuality.chunkLengthHistogram}",
+    "gpu_output_quality_candidate_result=${gpuOutputQuality.candidateResult}",
+    "gpu_output_quality_failure_block_reason=${gpuOutputQuality.failureBlockReason}",
+    "gpu_output_quality_recommendation=${gpuOutputQuality.recommendation}",
+    "gpu_output_quality_gate_status=${resolveGpuOutputQualityGateStatus(gpuOutputQuality)}",
+    "gpu_output_quality_promotion_blocker=${resolveGpuOutputQualityPromotionBlocker(gpuOutputQuality)}",
+    "gpu_output_quality_summary=${resolveGpuOutputQualitySummary(gpuOutputQuality)}",
+    "gpu_sampler_root_cause_candidate=${gpuOutputQuality.samplerRootCauseCandidate}",
+    "gpu_output_actual_ui_appended_text_length=${gpuOutputQuality.actualUiAppendedLength}",
+    "gpu_output_actual_ui_appended_text_head=${gpuOutputQuality.actualUiAppendedHead}",
+    "gpu_output_actual_ui_appended_text_tail=${gpuOutputQuality.actualUiAppendedTail}",
+    "gpu_output_ui_append_changed_text=${gpuOutputQuality.uiAppendChangedText}",
+    "gpu_output_source_corruption_stage=${gpuOutputQuality.sourceCorruptionStage}",
+    "gpu_perf_engine_acquire_elapsed_ms=${gpuPerformance.engineAcquireElapsedMs}",
+    "gpu_perf_engine_create_or_reuse=${gpuPerformance.engineCreateOrReuse}",
+    "gpu_perf_conversation_create_elapsed_ms=${gpuPerformance.conversationCreateElapsedMs}",
+    "gpu_perf_generate_to_first_token_ms=${gpuPerformance.generateToFirstTokenMs}",
+    "gpu_perf_first_to_last_callback_ms=${gpuPerformance.firstToLastCallbackMs}",
+    "gpu_perf_callback_total_elapsed_ms=${gpuPerformance.callbackTotalElapsedMs}",
+    "gpu_perf_backend_tokens_per_second=${gpuPerformance.backendTokensPerSecond}",
+    "gpu_perf_lami_visible_tokens_per_second=${gpuPerformance.lamiVisibleTokensPerSecond}",
+    "gpu_perf_tokenizer_count_duration_ms=${gpuPerformance.tokenizerCountDurationMs}",
+    "gpu_perf_slow_path_detected=${gpuPerformance.slowPathDetected}",
+    "gpu_perf_slow_path_reason=${gpuPerformance.slowPathReason}",
+    "gpu_holder_lifecycle_event_after_success=${gpuHolderLifecycle.eventAfterSuccess}",
+    "gpu_holder_lifecycle_last_activity_state=${gpuHolderLifecycle.lastActivityState}",
+    "gpu_holder_lifecycle_last_app_visibility=${gpuHolderLifecycle.lastAppVisibility}",
+    "gpu_holder_lifecycle_clear_trigger_elapsed_ms=${gpuHolderLifecycle.clearTriggerElapsedMs}",
+    "gpu_holder_lifecycle_clear_after_success_ms=${gpuHolderLifecycle.clearAfterSuccessMs}",
+    "gpu_holder_lifecycle_clear_during_active_generate=${gpuHolderLifecycle.clearDuringActiveGenerate}",
+    "gpu_holder_lifecycle_clear_after_ui_append=${gpuHolderLifecycle.clearAfterUiAppend}",
+    "gpu_holder_lifecycle_clear_reason_detail=${gpuHolderLifecycle.clearReasonDetail}",
+    "gpu_holder_lifecycle_background_detection_source=${gpuHolderLifecycle.backgroundDetectionSource}",
+    "gpu_holder_lifecycle_onstop_deferred=${gpuHolderLifecycle.onStopDeferred}",
+    "gpu_holder_lifecycle_onstop_defer_reason=${gpuHolderLifecycle.onStopDeferReason}",
+    "gpu_holder_lifecycle_clear_suppressed_after_success=${gpuHolderLifecycle.clearSuppressedAfterSuccess}",
+    "gpu_holder_lifecycle_clear_suppressed_reason=${gpuHolderLifecycle.clearSuppressedReason}",
+    "gpu_holder_lifecycle_actual_background_confirmed=${gpuHolderLifecycle.actualBackgroundConfirmed}",
+    "gpu_holder_lifecycle_reuse_expected_next_turn=${gpuHolderLifecycle.reuseExpectedNextTurn}",
+    "gpu_prefill_probe_enabled=${gpuPrefillProbe.enabled}",
+    "gpu_prefill_probe_requested=${gpuPrefillProbe.requested}",
+    "gpu_prefill_probe_blocks_normal_generate=${gpuPrefillProbe.blocksNormalGenerate}",
+    "gpu_prefill_probe_block_reason=${gpuPrefillProbe.blockReason}",
+    "gpu_prefill_probe_requires_held_engine=${gpuPrefillProbe.requiresHeldEngine}",
+    "gpu_prefill_probe_held_engine_present=${gpuPrefillProbe.heldEnginePresent}",
+    "gpu_prefill_probe_disable_recommendation=${gpuPrefillProbe.disableRecommendation}",
+    "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
+    "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
+    "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
+    "gpu_litert_compiled_model_error_line=${gpuFailureClassification.compiledModelErrorLine}",
+    "gpu_engine_initialize_internal_error_detected=${gpuFailureClassification.engineInitializeInternalErrorDetected}",
+    "gpu_compiled_model_creation_failed=${gpuFailureClassification.compiledModelCreationFailed}",
+    "gpu_failure_interpretation=${gpuFailureClassification.interpretation}",
+    "litert_lm_backend_candidates=${artisanApi.backendCandidates}",
+    "litert_lm_backend_gpu_artisan_available=${artisanApi.gpuArtisanAvailable}",
+    "litert_lm_backend_cpu_artisan_available=${artisanApi.cpuArtisanAvailable}",
+    "litert_lm_backend_google_tensor_artisan_available=${artisanApi.googleTensorArtisanAvailable}",
+    "litert_lm_engine_config_artisan_api_available=${artisanApi.engineConfigArtisanApiAvailable}",
+    "litert_lm_runtime_config_available=${artisanApi.runtimeConfigAvailable}",
+    "litert_lm_backend_constraint_api_available=${artisanApi.backendConstraintApiAvailable}",
+    "litert_lm_preferred_engine_type_api_available=${artisanApi.preferredEngineTypeApiAvailable}",
+    "selected_model_backend_constraint_hint=${artisanApi.selectedModelBackendConstraintHint}",
+    "selected_model_artisan_hint=${artisanApi.selectedModelArtisanHint}",
+    "edge_gallery_artisan_static_evidence=${artisanApi.edgeGalleryArtisanStaticEvidence}",
+    "litert_runtime_executor_candidates=${artisanApi.runtimeExecutorCandidates}",
+    "litert_runtime_executor_selection_hint=${artisanApi.runtimeExecutorSelectionHint}",
+    "litert_runtime_backend_constraint_hint=${artisanApi.runtimeBackendConstraintHint}",
+    "litert_runtime_compiled_model_executor_hint=${artisanApi.runtimeCompiledModelExecutorHint}",
+    "litert_runtime_gpu_executor_hint=${artisanApi.runtimeGpuExecutorHint}",
+    "litert_runtime_artisan_evidence=${artisanApi.runtimeArtisanEvidence}",
+    "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
+    "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
+)
+
+private fun buildLocalRouteContextDiagnosticLines(
+    stage: String,
+    context: LocalRouteDiagnosticContext,
+    guardRecommendation: String,
+): List<String> = listOf(
+    "LOCAL_ROUTE_DIAG",
+    "stage=$stage",
+    "selected_model_name=${context.selectedModelName}",
+    "selected_model_file=${context.selectedModelFile}",
+    "selected_model_path=${context.selectedModelPath}",
+    "selected_model_slot=${context.selectedModelSlot}",
+    "generic_fallback_model_configured=${context.genericFallbackModelConfigured}",
+    "npu_preview_model_configured=${context.npuPreviewModelConfigured}",
+    "model_kind=${context.modelKind}",
+    "preferred_backend=${context.preferredBackend}",
+    "baseline_role=${context.baselineRole}",
+    "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
+    "npu_standard_route_mode=${context.npuStandardRouteMode}",
+    "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
+    "should_enter_npu_s1=${context.shouldEnterNpuS1}",
+    "local_route_entered=${context.localRouteEntered}",
+    "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
+    "blocked_reason=${context.blockedReason}",
+    "guard_recommendation=$guardRecommendation",
+)
+
+private fun buildHeldEngineLifecycleRouteDiagnosticLines(
+    flags: LocalRouteDiagnosticFlags,
+): List<String> = listOf(
+    "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
+    "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
+    "holder_created=${flags.holderCreated.toDiagnosticValue()}",
+    "holder_acquired=${flags.holderAcquired.toDiagnosticValue()}",
+    "holder_reused=${flags.holderReused.toDiagnosticValue()}",
+    "holder_invalidated=${flags.holderInvalidated.toDiagnosticValue()}",
+    "holder_closed=${flags.holderClosed.toDiagnosticValue()}",
+    "holder_timeout_cleanup=${flags.holderTimeoutCleanup.toDiagnosticValue()}",
+    "holder_failure_cleanup=${flags.holderFailureCleanup.toDiagnosticValue()}",
+    "holder_process_restart=${flags.holderProcessRestart.toDiagnosticValue()}",
+    "held_engine_lifecycle_history=${flags.heldEngineLifecycleHistory.toDiagnosticValue()}",
+    "held_engine_destroy_reason=${flags.heldEngineDestroyReason.toDiagnosticValue()}",
+    "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
+    "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
+    "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
+)
 
 private fun resolveGpuOutputQualityGateStatus(diagnostics: GpuOutputQualityDiagnostics): String =
     when (diagnostics.candidateResult) {
@@ -2920,9 +2243,9 @@ private fun resolveMinimalRuntimeProbeSuccessGate(
             (flags.gpuNormalRouteUseCallbackStreaming == true || flags.gpuCallbackStreamingPathSelected == true)
         ).toString()
 
-private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
+internal fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
 
-private fun String?.toDiagnosticValue(): String =
+internal fun String?.toDiagnosticValue(): String =
     this
         ?.replace('\n', ' ')
         ?.replace('\r', ' ')
@@ -4411,10 +3734,12 @@ internal fun shouldUseHeldOfficialBlockingFastPath(
     preferredBackend: PreferredBackendDryRunSetting,
     gpuGenerateProbeMode: String,
     callbackStreamingDebugPropertyEnabled: Boolean,
+    verifiedOpenClRuntime: Boolean = false,
 ): Boolean =
     currentFlavor == "standard" &&
         preferredBackend == PreferredBackendDryRunSetting.GPU &&
-        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL
+        gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_NORMAL &&
+        !(verifiedOpenClRuntime && callbackStreamingDebugPropertyEnabled)
 
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,

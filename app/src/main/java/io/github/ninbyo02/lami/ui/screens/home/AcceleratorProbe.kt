@@ -8,19 +8,17 @@ import android.os.SystemClock
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.QnnDelegateProbe
+import io.github.ninbyo02.lami.local.QnnDelegateProbeResult
 import java.io.File
 import java.lang.reflect.Constructor
-import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
-import java.security.MessageDigest
 import java.util.Locale
 import java.util.zip.ZipFile
 
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
     private const val MAX_DELEGATE_CANDIDATE_COUNT = 12
-    private const val MAX_ELF_NOTE_SCAN_BYTES = 1024 * 1024
     private const val EXTERNAL_QAIRT_STAGE_PATH = "/data/local/tmp/qairt"
     private const val EXTERNAL_QAIRT_QNN_NET_RUN_PATH = "/data/local/tmp/qairt/bin/qnn-net-run"
     private const val EXTERNAL_QAIRT_QNN_PLATFORM_VALIDATOR_PATH = "/data/local/tmp/qairt/bin/qnn-platform-validator"
@@ -57,53 +55,6 @@ internal object AcceleratorProbe {
     private const val ENGINE_INITIALIZE_DRY_RUN_FILE_NAME = "npu_engine_initialize_dry_run.txt"
     private const val ENGINE_INITIALIZE_LAST_STAGE_FILE_NAME = "npu_engine_initialize_last_stage.txt"
     private const val ENGINE_INITIALIZE_CRASH_MARKER_FILE_NAME = "npu_engine_initialize_crash_marker.txt"
-    private val dispatchApiLibraryNames = setOf(
-        "libLiteRtDispatch_Qualcomm.so",
-        "libLiteRtDispatchQualcomm.so",
-        "libLiteRtDispatch.so",
-        "liblitert_dispatch_qualcomm.so",
-        "liblitert_dispatch.so",
-    )
-    private val qnnRuntimeLibraryNames = setOf(
-        "libQnnSystem.so",
-        "libQnnHtp.so",
-        "libQnnHtpPrepare.so",
-        "libQnnGpu.so",
-        "libQnnDsp.so",
-    )
-    private val htpSkelStubLibraryNames = setOf(
-        "libQnnHtpV79Skel.so",
-        "libQnnHtpV79Stub.so",
-        "libQnnHtpV75Skel.so",
-        "libQnnHtpV75Stub.so",
-        "libQnnHtpV73Skel.so",
-        "libQnnHtpV73Stub.so",
-        "libQnnHtpV69Skel.so",
-        "libQnnHtpV69Stub.so",
-        "libQnnHtpV68Skel.so",
-        "libQnnHtpV68Stub.so",
-        "libQnnDspV66Skel.so",
-        "libQnnDspV66Stub.so",
-    )
-    private val DELEGATE_KEYWORDS = listOf(
-        "delegate",
-        "backend",
-        "gpu",
-        "cpu",
-        "nnapi",
-        "npu",
-        "accelerator",
-        "acceleration",
-        "preferred",
-        "hardware",
-        "qnn",
-        "htp",
-        "dsp",
-        "hexagon",
-        "neural",
-        "qualcomm",
-    )
-
     @Volatile
     private var hasLogged = false
 
@@ -214,81 +165,33 @@ internal object AcceleratorProbe {
             emptyList()
         }
 
-        val gpuProbeResult = probeGpuInfoSafely()
-        val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
-        val npuStageProbeResult = probeBackendNpuStageSafely()
-        val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
-        val npuPackagedLibraryProbeResult = probePackagedNpuLibrariesSafely(
+        val probeResults = collectUncachedProbeResults(
             context = context,
-            officialVendor = npuRequirementsProbeResult.officialVendor,
-        )
-        val externalQairtStageProbeResult = probeExternalQairtStageSafely()
-        val dispatchRuntimeCompatibility = probeDispatchRuntimeCompatibilitySafely(npuPackagedLibraryProbeResult)
-        val backendNpuInstantiateProbeResult = probeBackendNpuInstantiateOnlySafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-        )
-        val backendNpuAttachDryRunProbeResult = probeBackendNpuAttachDryRunSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            delegateApiProbeResult = delegateApiProbeResult,
-        )
-        val liteRtLmNpuApiInventoryProbeResult = probeLiteRtLmNpuApiInventorySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-        )
-        val engineConfigNpuDryBuildProbeResult = probeEngineConfigNpuDryBuildSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            requestedVariantName = engineConfigVariant,
-        )
-        val galleryStackJavaNativeApiCompatibilityProbeResult = probeGalleryStackJavaNativeApiCompatibilitySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
-        )
-        val galleryStackGpuProbeDiagnostics = buildGalleryStackGpuProbeRuntimeDiagnostics(
-            selectedModelPath = GALLERY_STACK_GPU_PROBE_DEFAULT_MODEL_PATH,
-            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
-            preferredBackend = "GPU",
-        )
-        val runtimeAlignmentProbeDiagnostics = buildRuntimeAlignmentProbeDiagnostics(
-            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
-            resultCandidate = "unavailable",
-            successGate = "unavailable",
-        )
-        val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
-            apiInventory = liteRtLmNpuApiInventoryProbeResult,
-            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
-        )
-        val engineApiInventoryProbeResult = probeEngineApiInventorySafely(
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
-        )
-        val engineInitializeDryRunProbeResult = probeEngineInitializeDryRunSafely(
-            context = context,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
-            instantiateProbeResult = backendNpuInstantiateProbeResult,
-            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
             explicitOptIn = engineInitializeDryRunOptIn,
             requestedModelPath = engineInitializeDryRunModelPath,
             requestedRunId = engineInitializeDryRunRunId,
             requestedEngineConfigVariant = engineConfigVariant,
             diagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
-            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
         )
-        val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
-            requirements = npuRequirementsProbeResult,
-            packagedLibraries = npuPackagedLibraryProbeResult,
-            delegateApiProbeResult = delegateApiProbeResult,
-        )
-        val qnnDelegateProbeResult = context?.let { QnnDelegateProbe.probe(it) }
+        val gpuProbeResult = probeResults.gpuProbeResult
+        val delegateApiProbeResult = probeResults.delegateApiProbeResult
+        val npuStageProbeResult = probeResults.npuStageProbeResult
+        val npuRequirementsProbeResult = probeResults.npuRequirementsProbeResult
+        val npuPackagedLibraryProbeResult = probeResults.npuPackagedLibraryProbeResult
+        val externalQairtStageProbeResult = probeResults.externalQairtStageProbeResult
+        val dispatchRuntimeCompatibility = probeResults.dispatchRuntimeCompatibility
+        val backendNpuInstantiateProbeResult = probeResults.backendNpuInstantiateProbeResult
+        val backendNpuAttachDryRunProbeResult = probeResults.backendNpuAttachDryRunProbeResult
+        val liteRtLmNpuApiInventoryProbeResult = probeResults.liteRtLmNpuApiInventoryProbeResult
+        val engineConfigNpuDryBuildProbeResult = probeResults.engineConfigNpuDryBuildProbeResult
+        val galleryStackJavaNativeApiCompatibilityProbeResult = probeResults.galleryStackJavaNativeApiCompatibilityProbeResult
+        val galleryStackGpuProbeDiagnostics = probeResults.galleryStackGpuProbeDiagnostics
+        val runtimeAlignmentProbeDiagnostics = probeResults.runtimeAlignmentProbeDiagnostics
+        val backendNpuConnectionCandidateProbeResult = probeResults.backendNpuConnectionCandidateProbeResult
+        val engineApiInventoryProbeResult = probeResults.engineApiInventoryProbeResult
+        val engineInitializeDryRunProbeResult = probeResults.engineInitializeDryRunProbeResult
+        val qnnNpuAttemptSnapshot = probeResults.qnnNpuAttemptSnapshot
+        val qnnDelegateProbeResult = probeResults.qnnDelegateProbeResult
 
         val snapshot = AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -543,6 +446,113 @@ internal object AcceleratorProbe {
             detail = "engine_initialize_dry_run_result=${engineInitializeDryRunProbeResult.initializeResult}",
         )
         return snapshot
+    }
+
+    private fun collectUncachedProbeResults(
+        context: Context?,
+        explicitOptIn: Boolean,
+        requestedModelPath: String?,
+        requestedRunId: String?,
+        requestedEngineConfigVariant: String?,
+        diagnosticFilesClearedBeforeRun: Boolean,
+    ): UncachedProbeResults {
+        val gpuProbeResult = probeGpuInfoSafely()
+        val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
+        val npuStageProbeResult = probeBackendNpuStageSafely()
+        val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
+        val npuPackagedLibraryProbeResult = probePackagedNpuLibrariesSafely(
+            context = context,
+            officialVendor = npuRequirementsProbeResult.officialVendor,
+        )
+        val externalQairtStageProbeResult = probeExternalQairtStageSafely()
+        val dispatchRuntimeCompatibility = probeDispatchRuntimeCompatibilitySafely(npuPackagedLibraryProbeResult)
+        val backendNpuInstantiateProbeResult = probeBackendNpuInstantiateOnlySafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+        )
+        val backendNpuAttachDryRunProbeResult = probeBackendNpuAttachDryRunSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+        )
+        val liteRtLmNpuApiInventoryProbeResult = probeLiteRtLmNpuApiInventorySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+        )
+        val engineConfigNpuDryBuildProbeResult = probeEngineConfigNpuDryBuildSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            requestedVariantName = requestedEngineConfigVariant,
+        )
+        val galleryStackJavaNativeApiCompatibilityProbeResult = probeGalleryStackJavaNativeApiCompatibilitySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
+        )
+        val galleryStackGpuProbeDiagnostics = buildGalleryStackGpuProbeRuntimeDiagnostics(
+            selectedModelPath = GALLERY_STACK_GPU_PROBE_DEFAULT_MODEL_PATH,
+            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            preferredBackend = "GPU",
+        )
+        val runtimeAlignmentProbeDiagnostics = buildRuntimeAlignmentProbeDiagnostics(
+            nativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            resultCandidate = "unavailable",
+            successGate = "unavailable",
+        )
+        val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
+            apiInventory = liteRtLmNpuApiInventoryProbeResult,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
+        )
+        val engineApiInventoryProbeResult = probeEngineApiInventorySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+        )
+        val engineInitializeDryRunProbeResult = probeEngineInitializeDryRunSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+            explicitOptIn = explicitOptIn,
+            requestedModelPath = requestedModelPath,
+            requestedRunId = requestedRunId,
+            requestedEngineConfigVariant = requestedEngineConfigVariant,
+            diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
+            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
+        )
+        val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
+            requirements = npuRequirementsProbeResult,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+        )
+        val qnnDelegateProbeResult = context?.let { QnnDelegateProbe.probe(it) }
+
+        return UncachedProbeResults(
+            gpuProbeResult = gpuProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+            npuStageProbeResult = npuStageProbeResult,
+            npuRequirementsProbeResult = npuRequirementsProbeResult,
+            npuPackagedLibraryProbeResult = npuPackagedLibraryProbeResult,
+            externalQairtStageProbeResult = externalQairtStageProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            backendNpuInstantiateProbeResult = backendNpuInstantiateProbeResult,
+            backendNpuAttachDryRunProbeResult = backendNpuAttachDryRunProbeResult,
+            liteRtLmNpuApiInventoryProbeResult = liteRtLmNpuApiInventoryProbeResult,
+            engineConfigNpuDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
+            galleryStackJavaNativeApiCompatibilityProbeResult = galleryStackJavaNativeApiCompatibilityProbeResult,
+            galleryStackGpuProbeDiagnostics = galleryStackGpuProbeDiagnostics,
+            runtimeAlignmentProbeDiagnostics = runtimeAlignmentProbeDiagnostics,
+            backendNpuConnectionCandidateProbeResult = backendNpuConnectionCandidateProbeResult,
+            engineApiInventoryProbeResult = engineApiInventoryProbeResult,
+            engineInitializeDryRunProbeResult = engineInitializeDryRunProbeResult,
+            qnnNpuAttemptSnapshot = qnnNpuAttemptSnapshot,
+            qnnDelegateProbeResult = qnnDelegateProbeResult,
+        )
     }
 
     private fun probeDispatchRuntimeCompatibilitySafely(
@@ -1364,6 +1374,24 @@ internal object AcceleratorProbe {
         var constructorReturned = "no"
         var initializeInvoked = "no"
         var initializeReturned = "no"
+        val resultBase = createEngineInitializeDryRunResultBase(
+            runId = runId,
+            explicitOptIn = explicitOptIn,
+            modelPath = modelPath,
+            modelKind = modelKind,
+            modelCanonicalPath = modelCanonicalPath,
+            modelPathVariant = modelPathVariant,
+            modelFileProbe = modelFileProbe,
+            nativeLibraryDir = nativeLibraryDir,
+            nativeLibraryDirVariant = nativeLibraryDirVariant,
+            applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
+            contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
+            hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
+            engineConfigVariant = engineConfigVariant,
+            diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
+            diagnosticFile = diagnosticFile,
+            warning = warning,
+        )
         NpuEngineLogcatDiagnostics.i(
             event = "engine_initialize_dry_run_start",
             route = "AcceleratorProbe.probeEngineInitializeDryRunSafely",
@@ -1433,44 +1461,16 @@ internal object AcceleratorProbe {
         }
         if (skipReason != null) {
             stage("skipped reason=$skipReason explicitOptIn=$explicitOptIn modelPath=${modelPath ?: "-"}", reset = !explicitOptIn)
-            return EngineInitializeDryRunProbeResult(
+            return resultBase.copy(
                 enabled = false,
-                runId = runId,
                 skipReason = skipReason,
-                explicitOptIn = explicitOptIn,
-                modelPath = modelPath,
                 modelKind = modelKind ?: "unknown",
-                modelCanonicalPath = modelCanonicalPath,
-                modelPathVariant = modelPathVariant,
-                modelFileExists = modelFileProbe?.exists,
-                modelFileLength = modelFileProbe?.length,
-                modelFileCanRead = modelFileProbe?.canRead,
-                modelFileParentExists = modelFileProbe?.parentExists,
-                modelFileParentListCount = modelFileProbe?.parentListCount,
-                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
-                nativeLibraryDir = nativeLibraryDir,
-                nativeLibraryDirVariant = nativeLibraryDirVariant,
-                applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
-                contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
-                hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
-                engineConfigVariant = engineConfigVariant.name,
-                engineConfigCacheDir = engineConfigVariant.cacheDir,
-                engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
-                engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
                 lastStage = lastStage,
                 constructorInvoked = constructorInvoked,
                 constructorReturned = constructorReturned,
-                initializeInvoked = "no",
                 initializeReturned = initializeReturned,
-                initializeResult = "skipped",
                 crashSuspected = false,
-                processAliveAfterProbe = "unknown-script-checks-pidof",
                 staleSnapshotSuspected = false,
-                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
-                closeInvoked = "no",
-                closeResult = "skipped",
-                diagnosticFilePath = diagnosticFile?.absolutePath,
-                warning = warning,
             )
         }
 
@@ -1484,45 +1484,15 @@ internal object AcceleratorProbe {
 
             val engineConfigClass = Class.forName("com.google.ai.edge.litertlm.EngineConfig")
             val constructor = selectEngineConfigDryBuildConstructor(engineConfigClass, npuHandle.npuClass, engineConfigVariant)
-                ?: return@runCatching EngineInitializeDryRunProbeResult(
-                    enabled = true,
-                    runId = runId,
+                ?: return@runCatching resultBase.copy(
                     skipReason = "engineconfig-backend-constructor-not-found",
-                    explicitOptIn = true,
-                    modelPath = resolvedModelPath,
-                    modelKind = modelKind,
-                    modelCanonicalPath = modelCanonicalPath,
-                    modelPathVariant = modelPathVariant,
-                    modelFileExists = modelFileProbe?.exists,
-                    modelFileLength = modelFileProbe?.length,
-                    modelFileCanRead = modelFileProbe?.canRead,
-                    modelFileParentExists = modelFileProbe?.parentExists,
-                    modelFileParentListCount = modelFileProbe?.parentListCount,
-                    modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
-                    nativeLibraryDir = nativeLibraryDirArgument,
-                    nativeLibraryDirVariant = nativeLibraryDirVariant,
-                    applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
-                    contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
-                    hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
-                    engineConfigVariant = engineConfigVariant.name,
-                    engineConfigCacheDir = engineConfigVariant.cacheDir,
-                    engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
-                    engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
                     backendNpuObjectClass = npuHandle.instance.javaClass.name,
                     lastStage = lastStage,
                     constructorInvoked = constructorInvoked,
                     constructorReturned = constructorReturned,
-                    initializeInvoked = "no",
                     initializeReturned = initializeReturned,
-                    initializeResult = "skipped",
                     crashSuspected = false,
-                    processAliveAfterProbe = "unknown-script-checks-pidof",
                     staleSnapshotSuspected = false,
-                    diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
-                    closeInvoked = "no",
-                    closeResult = "skipped",
-                    diagnosticFilePath = diagnosticFile?.absolutePath,
-                    warning = warning,
                 )
             val args = buildEngineConfigDryBuildArgs(
                 constructor = constructor,
@@ -1539,27 +1509,8 @@ internal object AcceleratorProbe {
 
             val engineClass = Class.forName("com.google.ai.edge.litertlm.Engine")
             val operation = selectEngineInitializeOperation(engineClass, engineConfigClass)
-                ?: return@runCatching EngineInitializeDryRunProbeResult(
-                    enabled = true,
-                    runId = runId,
+                ?: return@runCatching resultBase.copy(
                     skipReason = "engine-initialize-operation-not-found",
-                    explicitOptIn = true,
-                    modelPath = resolvedModelPath,
-                    modelKind = modelKind,
-                    modelCanonicalPath = modelCanonicalPath,
-                    modelPathVariant = modelPathVariant,
-                    modelFileExists = modelFileProbe?.exists,
-                    modelFileLength = modelFileProbe?.length,
-                    modelFileCanRead = modelFileProbe?.canRead,
-                    modelFileParentExists = modelFileProbe?.parentExists,
-                    modelFileParentListCount = modelFileProbe?.parentListCount,
-                    modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
-                    nativeLibraryDir = nativeLibraryDirArgument,
-                    nativeLibraryDirVariant = nativeLibraryDirVariant,
-                    applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
-                    contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
-                    hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
-                    engineConfigVariant = engineConfigVariant.name,
                     engineConfigCacheDir = args.cacheDir,
                     engineConfigMaxNumTokens = args.maxNumTokens,
                     engineConfigMaxNumImages = args.maxNumImages,
@@ -1568,17 +1519,9 @@ internal object AcceleratorProbe {
                     lastStage = lastStage,
                     constructorInvoked = constructorInvoked,
                     constructorReturned = constructorReturned,
-                    initializeInvoked = "no",
                     initializeReturned = initializeReturned,
-                    initializeResult = "skipped",
                     crashSuspected = false,
-                    processAliveAfterProbe = "unknown-script-checks-pidof",
                     staleSnapshotSuspected = false,
-                    diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
-                    closeInvoked = "no",
-                    closeResult = "skipped",
-                    diagnosticFilePath = diagnosticFile?.absolutePath,
-                    warning = warning,
                 )
 
             val beforeInitializeMemory = context?.let {
@@ -1649,26 +1592,7 @@ internal object AcceleratorProbe {
                 pid = android.os.Process.myPid(),
                 completed = true,
             )
-            EngineInitializeDryRunProbeResult(
-                enabled = true,
-                runId = runId,
-                explicitOptIn = true,
-                modelPath = resolvedModelPath,
-                modelKind = modelKind,
-                modelCanonicalPath = modelCanonicalPath,
-                modelPathVariant = modelPathVariant,
-                modelFileExists = modelFileProbe?.exists,
-                modelFileLength = modelFileProbe?.length,
-                modelFileCanRead = modelFileProbe?.canRead,
-                modelFileParentExists = modelFileProbe?.parentExists,
-                modelFileParentListCount = modelFileProbe?.parentListCount,
-                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
-                nativeLibraryDir = nativeLibraryDirArgument,
-                nativeLibraryDirVariant = nativeLibraryDirVariant,
-                applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
-                contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
-                hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
-                engineConfigVariant = engineConfigVariant.name,
+            resultBase.copy(
                 engineConfigCacheDir = args.cacheDir,
                 engineConfigMaxNumTokens = args.maxNumTokens,
                 engineConfigMaxNumImages = args.maxNumImages,
@@ -1684,13 +1608,9 @@ internal object AcceleratorProbe {
                 initializeResult = "success",
                 elapsedMs = SystemClock.elapsedRealtime() - startMs,
                 crashSuspected = false,
-                processAliveAfterProbe = "unknown-script-checks-pidof",
                 staleSnapshotSuspected = false,
-                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                 closeInvoked = closeResult.invoked,
                 closeResult = closeResult.result,
-                diagnosticFilePath = diagnosticFile?.absolutePath,
-                warning = warning,
             )
         }.getOrElse { throwable ->
             val unwrapped = unwrapInvocationTarget(throwable)
@@ -1699,95 +1619,159 @@ internal object AcceleratorProbe {
                 .joinToString(" ") { "${it.javaClass.name} ${it.message.orEmpty()}" }
             val failedResult = classifyEngineInitializeFailure(text)
             stage("failed exception captured class=${throwable.javaClass.name} root=${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}")
-            NpuEngineLogcatDiagnostics.e(
-                event = "engine_initialize_operation_failure",
-                route = "AcceleratorProbe.invokeEngineInitializeOperation",
-                throwable = unwrapped,
-                probeName = "engine_initialize_operation",
-                modelPath = resolvedModelPath,
-                modelFileSizeBytes = modelFileProbe?.length,
-                backendRequested = "NPU",
-                maxOutputTokens = engineConfigVariant.maxNumTokens,
-                memorySnapshot = context?.let {
-                    captureLocalMemorySnapshot(
-                        context = it.applicationContext,
-                        stage = "engine_initialize_operation_failure",
-                    )
-                },
-                detail = "run_id=$runId failed_result=$failedResult wrapper=${throwable.javaClass.name}",
-            )
-            NpuEngineLogcatDiagnostics.e(
-                event = "engine_initialize_dry_run_failure",
-                route = "AcceleratorProbe.probeEngineInitializeDryRunSafely",
-                throwable = unwrapped,
-                probeName = "engine_initialize_dry_run",
-                modelPath = resolvedModelPath,
-                modelFileSizeBytes = modelFileProbe?.length,
-                backendRequested = "NPU",
-                maxOutputTokens = engineConfigVariant.maxNumTokens,
-                memorySnapshot = context?.let {
-                    captureLocalMemorySnapshot(
-                        context = it.applicationContext,
-                        stage = "engine_initialize_dry_run_failure",
-                    )
-                },
-                detail = "run_id=$runId failed_result=$failedResult wrapper=${throwable.javaClass.name}",
-            )
-            EngineInitializeDryRunProbeResult(
-                enabled = true,
+            createEngineInitializeDryRunFailureResult(
+                resultBase = resultBase,
+                context = context,
+                throwable = throwable,
+                unwrapped = unwrapped,
+                chain = chain,
+                failureText = text,
+                failedResult = failedResult,
                 runId = runId,
-                explicitOptIn = true,
-                modelPath = resolvedModelPath,
-                modelKind = modelKind,
-                modelCanonicalPath = modelCanonicalPath,
-                modelPathVariant = modelPathVariant,
-                modelFileExists = modelFileProbe?.exists,
-                modelFileLength = modelFileProbe?.length,
-                modelFileCanRead = modelFileProbe?.canRead,
-                modelFileParentExists = modelFileProbe?.parentExists,
-                modelFileParentListCount = modelFileProbe?.parentListCount,
-                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
-                nativeLibraryDir = nativeLibraryDirArgument,
-                nativeLibraryDirVariant = nativeLibraryDirVariant,
-                applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
-                contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
-                hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
-                engineConfigVariant = engineConfigVariant.name,
-                engineConfigCacheDir = engineConfigVariant.cacheDir,
-                engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
-                engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
-                backendNpuObjectClass = instantiateProbeResult.objectClass,
+                resolvedModelPath = resolvedModelPath,
+                modelFileSizeBytes = modelFileProbe?.length,
+                maxOutputTokens = engineConfigVariant.maxNumTokens,
+                instantiateProbeResult = instantiateProbeResult,
                 lastStage = lastStage,
                 constructorInvoked = constructorInvoked,
                 constructorReturned = constructorReturned,
                 initializeInvoked = initializeInvoked,
                 initializeReturned = initializeReturned,
-                initializeResult = failedResult,
-                elapsedMs = SystemClock.elapsedRealtime() - startMs,
-                exceptionClass = throwable.javaClass.name,
-                exceptionMessage = throwable.message?.take(240),
-                rootCause = "${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
-                causeChain = chain.joinToString(" -> ") { cause ->
-                    "${cause.javaClass.simpleName}:${cause.message.orEmpty().take(120)}"
-                }.ifBlank { throwable.javaClass.simpleName },
-                unsatisfiedLinkErrorDetected = text.contains("UnsatisfiedLinkError", ignoreCase = true),
-                noUsableDispatchRuntimeDetected = text.contains("No usable Dispatch runtime", ignoreCase = true),
-                failedToInitializeDispatchApiDetected = text.contains("Failed to initialize Dispatch API", ignoreCase = true),
-                insufficientCapabilitiesDetected = text.contains("insufficient capabilities", ignoreCase = true),
-                versionMismatchDetected = text.contains("version mismatch", ignoreCase = true) || text.contains("unsupported version", ignoreCase = true),
-                symbolMismatchDetected = text.contains("symbol", ignoreCase = true) && text.contains("mismatch", ignoreCase = true),
-                sigabrtSuspected = text.contains("SIGABRT", ignoreCase = true) || text.contains("abort", ignoreCase = true),
-                crashSuspected = failedResult == "crash-suspected",
-                processAliveAfterProbe = "unknown-script-checks-pidof",
-                staleSnapshotSuspected = false,
-                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
-                closeInvoked = "no",
-                closeResult = "skipped-after-failure",
-                diagnosticFilePath = diagnosticFile?.absolutePath,
-                warning = warning,
+                startMs = startMs,
             )
         }
     }
+
+    private fun createEngineInitializeDryRunFailureResult(
+        resultBase: EngineInitializeDryRunProbeResult,
+        context: Context?,
+        throwable: Throwable,
+        unwrapped: Throwable,
+        chain: List<Throwable>,
+        failureText: String,
+        failedResult: String,
+        runId: String,
+        resolvedModelPath: String,
+        modelFileSizeBytes: Long?,
+        maxOutputTokens: Int?,
+        instantiateProbeResult: BackendNpuInstantiateProbeResult,
+        lastStage: String,
+        constructorInvoked: String,
+        constructorReturned: String,
+        initializeInvoked: String,
+        initializeReturned: String,
+        startMs: Long,
+    ): EngineInitializeDryRunProbeResult {
+        NpuEngineLogcatDiagnostics.e(
+            event = "engine_initialize_operation_failure",
+            route = "AcceleratorProbe.invokeEngineInitializeOperation",
+            throwable = unwrapped,
+            probeName = "engine_initialize_operation",
+            modelPath = resolvedModelPath,
+            modelFileSizeBytes = modelFileSizeBytes,
+            backendRequested = "NPU",
+            maxOutputTokens = maxOutputTokens,
+            memorySnapshot = context?.let {
+                captureLocalMemorySnapshot(
+                    context = it.applicationContext,
+                    stage = "engine_initialize_operation_failure",
+                )
+            },
+            detail = "run_id=$runId failed_result=$failedResult wrapper=${throwable.javaClass.name}",
+        )
+        NpuEngineLogcatDiagnostics.e(
+            event = "engine_initialize_dry_run_failure",
+            route = "AcceleratorProbe.probeEngineInitializeDryRunSafely",
+            throwable = unwrapped,
+            probeName = "engine_initialize_dry_run",
+            modelPath = resolvedModelPath,
+            modelFileSizeBytes = modelFileSizeBytes,
+            backendRequested = "NPU",
+            maxOutputTokens = maxOutputTokens,
+            memorySnapshot = context?.let {
+                captureLocalMemorySnapshot(
+                    context = it.applicationContext,
+                    stage = "engine_initialize_dry_run_failure",
+                )
+            },
+            detail = "run_id=$runId failed_result=$failedResult wrapper=${throwable.javaClass.name}",
+        )
+        return resultBase.copy(
+            explicitOptIn = true,
+            modelPath = resolvedModelPath,
+            backendNpuObjectClass = instantiateProbeResult.objectClass,
+            lastStage = lastStage,
+            constructorInvoked = constructorInvoked,
+            constructorReturned = constructorReturned,
+            initializeInvoked = initializeInvoked,
+            initializeReturned = initializeReturned,
+            initializeResult = failedResult,
+            elapsedMs = SystemClock.elapsedRealtime() - startMs,
+            exceptionClass = throwable.javaClass.name,
+            exceptionMessage = throwable.message?.take(240),
+            rootCause = "${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
+            causeChain = chain.joinToString(" -> ") { cause ->
+                "${cause.javaClass.simpleName}:${cause.message.orEmpty().take(120)}"
+            }.ifBlank { throwable.javaClass.simpleName },
+            unsatisfiedLinkErrorDetected = failureText.contains("UnsatisfiedLinkError", ignoreCase = true),
+            noUsableDispatchRuntimeDetected = failureText.contains("No usable Dispatch runtime", ignoreCase = true),
+            failedToInitializeDispatchApiDetected = failureText.contains("Failed to initialize Dispatch API", ignoreCase = true),
+            insufficientCapabilitiesDetected = failureText.contains("insufficient capabilities", ignoreCase = true),
+            versionMismatchDetected = failureText.contains("version mismatch", ignoreCase = true) ||
+                failureText.contains("unsupported version", ignoreCase = true),
+            symbolMismatchDetected = failureText.contains("symbol", ignoreCase = true) && failureText.contains("mismatch", ignoreCase = true),
+            sigabrtSuspected = failureText.contains("SIGABRT", ignoreCase = true) || failureText.contains("abort", ignoreCase = true),
+            crashSuspected = failedResult == "crash-suspected",
+            staleSnapshotSuspected = false,
+            closeResult = "skipped-after-failure",
+        )
+    }
+
+    private fun createEngineInitializeDryRunResultBase(
+        runId: String,
+        explicitOptIn: Boolean,
+        modelPath: String?,
+        modelKind: String?,
+        modelCanonicalPath: String?,
+        modelPathVariant: String?,
+        modelFileProbe: EngineInitializeModelFileProbe?,
+        nativeLibraryDir: String?,
+        nativeLibraryDirVariant: String?,
+        applicationInfoNativeLibraryDir: String?,
+        contextApplicationInfoNativeLibraryDir: String?,
+        hardResolvedNativeLibraryDir: String?,
+        engineConfigVariant: EngineConfigProbeVariant,
+        diagnosticFilesClearedBeforeRun: Boolean,
+        diagnosticFile: File?,
+        warning: String,
+    ) = EngineInitializeDryRunProbeResult(
+        enabled = true,
+        runId = runId,
+        explicitOptIn = explicitOptIn,
+        modelPath = modelPath,
+        modelKind = modelKind,
+        modelCanonicalPath = modelCanonicalPath,
+        modelPathVariant = modelPathVariant,
+        modelFileExists = modelFileProbe?.exists,
+        modelFileLength = modelFileProbe?.length,
+        modelFileCanRead = modelFileProbe?.canRead,
+        modelFileParentExists = modelFileProbe?.parentExists,
+        modelFileParentListCount = modelFileProbe?.parentListCount,
+        modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
+        nativeLibraryDir = nativeLibraryDir,
+        nativeLibraryDirVariant = nativeLibraryDirVariant,
+        applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir,
+        contextApplicationInfoNativeLibraryDir = contextApplicationInfoNativeLibraryDir,
+        hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir,
+        engineConfigVariant = engineConfigVariant.name,
+        engineConfigCacheDir = engineConfigVariant.cacheDir,
+        engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
+        engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
+        processAliveAfterProbe = "unknown-script-checks-pidof",
+        diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
+        diagnosticFilePath = diagnosticFile?.absolutePath,
+        warning = warning,
+    )
 
     private fun classifyEngineInitializeDryRunModelKind(modelPath: String): String {
         val lower = modelPath.substringAfterLast('/').lowercase(Locale.US)
@@ -2138,34 +2122,6 @@ internal object AcceleratorProbe {
         return lower == "close" || lower == "dispose" || lower == "release" || lower == "destroy" || lower == "shutdown"
     }
 
-    private fun closeDisposeMethodRank(name: String): Int {
-        return when (name.lowercase(Locale.US)) {
-            "close" -> 0
-            "dispose" -> 1
-            "release" -> 2
-            "destroy" -> 3
-            "shutdown" -> 4
-            else -> 5
-        }
-    }
-
-    private fun liteRtLmNpuApiInventoryClassNames(): List<String> {
-        return listOf(
-            "com.google.ai.edge.litertlm.Backend",
-            "com.google.ai.edge.litertlm.Backend\$NPU",
-            "com.google.ai.edge.litertlm.Backend\$GPU",
-            "com.google.ai.edge.litertlm.Backend\$CPU",
-            "com.google.ai.edge.litertlm.EngineConfig",
-            "com.google.ai.edge.litertlm.Engine",
-            "com.google.ai.edge.litertlm.LlmInference",
-            "com.google.ai.edge.litertlm.LlmInferenceOptions",
-            "com.google.ai.edge.litertlm.LlmInferenceOptions\$Builder",
-            "com.google.mediapipe.tasks.genai.llminference.LlmInference",
-            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions",
-            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder",
-        )
-    }
-
     private fun buildEngineConfigConstructorDetail(
         constructor: Constructor<*>,
         npuClass: Class<*>,
@@ -2452,114 +2408,6 @@ internal object AcceleratorProbe {
             constructor.newInstance()
         }.getOrNull()
     }
-
-    private fun isAttachDryRunBackendSetterCandidate(method: Method): Boolean {
-        if (method.isSynthetic || method.name.indexOf('$') >= 0) return false
-        if (method.parameterTypes.size != 1) return false
-        val lowerName = method.name.lowercase(Locale.US)
-        return lowerName == "setbackend" ||
-            lowerName == "setpreferredbackend" ||
-            lowerName == "backend" ||
-            lowerName == "preferredbackend" ||
-            lowerName.contains("backend")
-    }
-
-    private fun attachDryRunSetterRank(methodName: String): Int {
-        return when (methodName) {
-            "setBackend" -> 0
-            "setPreferredBackend" -> 1
-            "backend" -> 2
-            "preferredBackend" -> 3
-            else -> 4
-        }
-    }
-
-    private fun unwrapInvocationTarget(throwable: Throwable): Throwable {
-        var current = throwable
-        while (current is InvocationTargetException && current.targetException != null) {
-            current = current.targetException
-        }
-        return current
-    }
-
-    private fun throwableCauseChain(throwable: Throwable): List<Throwable> {
-        val chain = mutableListOf<Throwable>()
-        var current: Throwable? = throwable
-        while (current != null && chain.size < 8 && current !in chain) {
-            chain += current
-            current = if (current is InvocationTargetException && current.targetException != null) {
-                current.targetException
-            } else {
-                current.cause
-            }
-        }
-        return chain
-    }
-
-    private fun sha256ForFileSafely(file: File): String? {
-        return runCatching {
-            if (!file.isFile || file.length() <= 0L) return null
-            val digest = MessageDigest.getInstance("SHA-256")
-            file.inputStream().use { input ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read <= 0) break
-                    digest.update(buffer, 0, read)
-                }
-            }
-            digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
-        }.getOrNull()
-    }
-
-    private fun readElfBuildIdSafely(file: File): String? {
-        return runCatching {
-            if (!file.isFile || file.length() <= 0L) return null
-            val bytes = file.inputStream().use { input ->
-                input.readBytes().let { data ->
-                    if (data.size <= MAX_ELF_NOTE_SCAN_BYTES) data else data.copyOf(MAX_ELF_NOTE_SCAN_BYTES)
-                }
-            }
-            extractGnuBuildId(bytes)
-        }.getOrNull()
-    }
-
-    private fun extractGnuBuildId(bytes: ByteArray): String? {
-        val gnuName = byteArrayOf('G'.code.toByte(), 'N'.code.toByte(), 'U'.code.toByte(), 0)
-        var index = 12
-        while (index <= bytes.size - gnuName.size) {
-            if (matchesBytes(bytes, index, gnuName)) {
-                val headerOffset = index - 12
-                val nameSize = readLittleEndianInt(bytes, headerOffset)
-                val descSize = readLittleEndianInt(bytes, headerOffset + 4)
-                val type = readLittleEndianInt(bytes, headerOffset + 8)
-                if (nameSize == 4 && type == 3 && descSize in 4..64) {
-                    val descOffset = index + align4(nameSize)
-                    if (descOffset >= 0 && descOffset + descSize <= bytes.size) {
-                        return bytes.copyOfRange(descOffset, descOffset + descSize)
-                            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
-                    }
-                }
-            }
-            index += 1
-        }
-        return null
-    }
-
-    private fun matchesBytes(bytes: ByteArray, offset: Int, expected: ByteArray): Boolean {
-        if (offset < 0 || offset + expected.size > bytes.size) return false
-        return expected.indices.all { index -> bytes[offset + index] == expected[index] }
-    }
-
-    private fun readLittleEndianInt(bytes: ByteArray, offset: Int): Int {
-        if (offset < 0 || offset + 4 > bytes.size) return -1
-        return (bytes[offset].toInt() and 0xff) or
-            ((bytes[offset + 1].toInt() and 0xff) shl 8) or
-            ((bytes[offset + 2].toInt() and 0xff) shl 16) or
-            ((bytes[offset + 3].toInt() and 0xff) shl 24)
-    }
-
-    private fun align4(value: Int): Int = (value + 3) and -4
 
     private fun probeExternalQairtStageSafely(): ExternalQairtStageProbeResult {
         return runCatching {
@@ -3056,39 +2904,6 @@ internal object AcceleratorProbe {
         }
     }
 
-    private fun matchesNpuLibraryKeyword(name: String): Boolean {
-        return listOf(
-            "qnn",
-            "htp",
-            "hexagon",
-            "skel",
-            "dispatch",
-            "neuro",
-            "mediatek",
-            "mtk",
-        ).any { keyword -> name.contains(keyword, ignoreCase = true) }
-    }
-
-    private fun isDispatchApiLibraryCandidate(name: String): Boolean {
-        if (!name.endsWith(".so")) return false
-        val lower = name.lowercase(Locale.US)
-        return dispatchApiLibraryNames.any { it.equals(name, ignoreCase = true) } ||
-            "dispatch" in lower ||
-            "litertdispatch" in lower ||
-            (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
-    }
-
-    private fun isQnnRuntimeLibraryCandidate(name: String): Boolean {
-        return qnnRuntimeLibraryNames.any { it.equals(name, ignoreCase = true) }
-    }
-
-    private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
-        if (!name.endsWith(".so")) return false
-        return htpSkelStubLibraryNames.any { it.equals(name, ignoreCase = true) } ||
-            ((name.contains("Skel", ignoreCase = true) || name.contains("Stub", ignoreCase = true)) &&
-                (name.contains("QnnHtp", ignoreCase = true) || name.contains("QnnDsp", ignoreCase = true)))
-    }
-
     private fun buildRequiredLibraryStatus(
         nativeLibraryFiles: List<String>,
         requiredExactNames: List<String>,
@@ -3240,11 +3055,6 @@ internal object AcceleratorProbe {
         }
     }
 
-    private fun containsDelegateKeyword(name: String): Boolean {
-        val lowerName = name.lowercase(Locale.US)
-        return DELEGATE_KEYWORDS.any(lowerName::contains)
-    }
-
     private fun probeBackendEnumValues(
         classCandidates: List<String>,
         backendCandidates: List<String>,
@@ -3281,17 +3091,6 @@ internal object AcceleratorProbe {
             }
         }
         return BackendEnumProbeResult(error = lastError)
-    }
-
-    private fun toLikelyFqcnVariants(candidate: String): List<String> {
-        val trimmed = candidate.trim()
-        if (trimmed.isEmpty()) return emptyList()
-        val suffix = trimmed.removePrefix("LlmInference.")
-        if (suffix == trimmed) return emptyList()
-        return listOf(
-            "com.google.mediapipe.tasks.genai.llminference.LlmInference.$suffix",
-            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$${suffix.replace('.', '$')}",
-        )
     }
 
     private fun probePreferredBackendSignatures(
@@ -3331,30 +3130,6 @@ internal object AcceleratorProbe {
         )
     }
 
-    private fun matchesPreferredBackendMethod(method: java.lang.reflect.Method): Boolean {
-        val name = method.name
-        if (name == "setPreferredBackend") return true
-        if (name.contains("preferredBackend", ignoreCase = true)) return true
-        if (!name.contains("backend", ignoreCase = true)) return false
-        return method.parameterTypes.any { parameterType ->
-            parameterType.simpleName.contains("Backend", ignoreCase = true) ||
-                parameterType.canonicalName.orEmpty().contains("Backend", ignoreCase = true)
-        }
-    }
-
-    private fun formatMethodSignature(clazz: Class<*>, method: java.lang.reflect.Method): String {
-        val params = method.parameterTypes.joinToString(", ") { it.simpleName.ifBlank { "Unknown" } }
-        val returnType = method.returnType.simpleName.ifBlank { "Unknown" }
-        return "${clazz.simpleName}.${method.name}($params): $returnType"
-    }
-
-    private fun formatConstructorSignature(clazz: Class<*>, constructor: Constructor<*>): String {
-        val params = constructor.parameterTypes.joinToString(", ") { type ->
-            type.simpleName.ifBlank { type.name.substringAfterLast('.') }
-        }
-        return "${clazz.simpleName}($params)"
-    }
-
     private fun inferDelegateHint(
         optionCandidates: List<String>,
         backendCandidates: List<String>,
@@ -3391,6 +3166,28 @@ internal object AcceleratorProbe {
         if (nnapiCandidates.isNotEmpty()) return "nnapi-only-candidate"
         return "not-detected"
     }
+
+    private data class UncachedProbeResults(
+        val gpuProbeResult: GpuProbeResult,
+        val delegateApiProbeResult: DelegateApiProbeResult,
+        val npuStageProbeResult: BackendNpuStageProbeResult,
+        val npuRequirementsProbeResult: LiteRtLmNpuRequirementsProbeResult,
+        val npuPackagedLibraryProbeResult: PackagedNpuLibraryProbeResult,
+        val externalQairtStageProbeResult: ExternalQairtStageProbeResult,
+        val dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        val backendNpuInstantiateProbeResult: BackendNpuInstantiateProbeResult,
+        val backendNpuAttachDryRunProbeResult: BackendNpuAttachDryRunProbeResult,
+        val liteRtLmNpuApiInventoryProbeResult: LiteRtLmNpuApiInventoryProbeResult,
+        val engineConfigNpuDryBuildProbeResult: EngineConfigNpuDryBuildProbeResult,
+        val galleryStackJavaNativeApiCompatibilityProbeResult: GalleryStackJavaNativeApiCompatibilityProbeResult,
+        val galleryStackGpuProbeDiagnostics: GalleryStackGpuProbeRuntimeDiagnostics,
+        val runtimeAlignmentProbeDiagnostics: RuntimeAlignmentProbeDiagnostics,
+        val backendNpuConnectionCandidateProbeResult: BackendNpuConnectionCandidateProbeResult,
+        val engineApiInventoryProbeResult: EngineApiInventoryProbeResult,
+        val engineInitializeDryRunProbeResult: EngineInitializeDryRunProbeResult,
+        val qnnNpuAttemptSnapshot: LocalAcceleratorAttemptSnapshot,
+        val qnnDelegateProbeResult: QnnDelegateProbeResult?,
+    )
 
     private data class DelegateApiProbeResult(
         val error: String? = null,

@@ -1,0 +1,22 @@
+package io.github.ninbyo02.lami.ui.screens.settings
+
+internal const val ALL_ANIMATIONS_JSON_VERSION = 1
+internal const val JSON_VERSION_KEY = "version"
+internal const val JSON_ANIMATIONS_KEY = "animations"
+internal const val JSON_ANIMATION_KEY = "animationKey"
+internal const val JSON_BASE_KEY = "base"
+internal const val JSON_INSERTION_KEY = "insertion"
+internal const val JSON_META_KEY = "meta"
+internal const val JSON_ENABLED_KEY = "enabled"
+internal const val JSON_PATTERNS_KEY = "patterns"
+internal const val JSON_FRAMES_KEY = "frames"
+internal const val JSON_WEIGHT_KEY = "weight"
+internal const val JSON_INTERVAL_MS_KEY = "intervalMs"
+internal const val JSON_PATTERN_INTERVAL_MS_KEY = "intervalMs"
+internal const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
+internal const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
+internal const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
+internal const val JSON_EXCLUSIVE_KEY = "exclusive"
+internal const val META_DEFAULT_VERSION_KEY = "defaultVersion"
+internal const val META_USER_MODIFIED_KEY = "userModified"
+internal const val READY_LEGACY_LABEL = "ReadyBlink"

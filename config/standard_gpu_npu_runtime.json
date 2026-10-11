@@ -1,0 +1,21 @@
+{
+  "abi": "arm64-v8a",
+  "reference_apk_sha256": "68a5266d1fca320668c3875696403dfcc6abd664d5445054abab7f7bd01eb7fd",
+  "provenance": "Combined GPU OpenCL + preserved NPU candidate validated on NX733J, 2026-09-12; binary-input reproducibility, not a source build recipe.",
+  "libraries": {
+    "libLiteRt.so": "84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553",
+    "libLiteRtDispatch_Qualcomm.so": "7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f",
+    "libLiteRtCompilerPlugin_Qualcomm.so": "c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c",
+    "libGemmaModelConstraintProvider.so": "45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6",
+    "libQnnSystem.so": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8",
+    "libQnnHtp.so": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a",
+    "libQnnHtpPrepare.so": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298",
+    "libQnnHtpV79Stub.so": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1",
+    "libQnnHtpV79Skel.so": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
+    "libQnnDsp.so": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
+    "libQnnGpu.so": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694",
+    "liblitertlm_jni.so": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca",
+    "liblami_qairt244_npu_jni.so": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea",
+    "libLiteRtOpenClAccelerator.so": "e3386a53095e13c37ea0b0f63ebcf5ec1698404e63baf606558664ebe8c5dcf1"
+  }
+}

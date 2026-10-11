@@ -1,0 +1,137 @@
+{
+  "status": "diagnostic_synthetic_layer_trace",
+  "position": 0,
+  "trace_hidden_vs_original_npu": {
+    "max_abs": 0.0,
+    "relative_l2": 0.0
+  },
+  "trace_hidden_original_npu_bitwise_equal": true,
+  "layers": [
+    {
+      "output": "trace_attention_0",
+      "cpu_vs_source": {
+        "max_abs": 8.940696716308594e-07,
+        "relative_l2": 9.415269730921379e-07
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0008594393730163574,
+        "relative_l2": 0.0012636344310885332
+      }
+    },
+    {
+      "output": "trace_mlp_0",
+      "cpu_vs_source": {
+        "max_abs": 8.940696716308594e-07,
+        "relative_l2": 1.4769518105466042e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0017030984163284302,
+        "relative_l2": 0.0027767060955999805
+      }
+    },
+    {
+      "output": "trace_attention_1",
+      "cpu_vs_source": {
+        "max_abs": 1.4007091522216797e-06,
+        "relative_l2": 1.7505181578074455e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.002605527639389038,
+        "relative_l2": 0.0029625914892120204
+      }
+    },
+    {
+      "output": "trace_mlp_1",
+      "cpu_vs_source": {
+        "max_abs": 2.294778823852539e-06,
+        "relative_l2": 2.189762966123401e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.00437559187412262,
+        "relative_l2": 0.004319226239287715
+      }
+    },
+    {
+      "output": "trace_attention_2",
+      "cpu_vs_source": {
+        "max_abs": 2.4884939193725586e-06,
+        "relative_l2": 2.217695529528886e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.004757337272167206,
+        "relative_l2": 0.004254811974388609
+      }
+    },
+    {
+      "output": "trace_mlp_2",
+      "cpu_vs_source": {
+        "max_abs": 3.159046173095703e-06,
+        "relative_l2": 2.5934972867492755e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0062531232833862305,
+        "relative_l2": 0.005448045251227733
+      }
+    },
+    {
+      "output": "trace_attention_3",
+      "cpu_vs_source": {
+        "max_abs": 3.248453140258789e-06,
+        "relative_l2": 2.5807186520667517e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.006356179714202881,
+        "relative_l2": 0.005267542054403879
+      }
+    },
+    {
+      "output": "trace_mlp_3",
+      "cpu_vs_source": {
+        "max_abs": 6.4373016357421875e-06,
+        "relative_l2": 3.3303444988527783e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.00927191972732544,
+        "relative_l2": 0.006221136236860977
+      }
+    },
+    {
+      "output": "trace_attention_4",
+      "cpu_vs_source": {
+        "max_abs": 1.1563301086425781e-05,
+        "relative_l2": 3.1750672533516987e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.017247915267944336,
+        "relative_l2": 0.005743296917779277
+      }
+    },
+    {
+      "output": "trace_mlp_4",
+      "cpu_vs_source": {
+        "max_abs": 1.2814998626708984e-05,
+        "relative_l2": 4.1705742574212105e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.021326661109924316,
+        "relative_l2": 0.007042203524257166
+      }
+    },
+    {
+      "output": "hidden",
+      "cpu_vs_source": {
+        "max_abs": 4.8607587814331055e-05,
+        "relative_l2": 4.144830614125564e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.06798839569091797,
+        "relative_l2": 0.0070390425213444005
+      }
+    }
+  ],
+  "limitations": [
+    "Intermediate outputs can alter fusion; final output comparison records this effect.",
+    "Same saved synthetic NPU cache inputs, no independent CPU rollout.",
+    "No sampled speech or audio quality validation."
+  ]
+}

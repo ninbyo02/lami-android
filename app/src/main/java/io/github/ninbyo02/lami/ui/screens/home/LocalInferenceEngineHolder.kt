@@ -8,49 +8,10 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
-private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
 private const val HELD_ENGINE_BACKGROUND_TIMEOUT_MS = 5 * 60 * 1000L
 private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
 private const val HELD_ENGINE_LIFECYCLE_HISTORY_MAX = 24
 private const val GPU_TRANSIENT_ONSTOP_AFTER_SUCCESS_SUPPRESS_MS = 5_000L
-
-internal enum class GpuOnStopLifecycleAction {
-    DEFER_ACTIVE_GENERATE,
-    KEEP_FOREGROUND_REUSE,
-    RELEASE_CONFIRMED_BACKGROUND,
-}
-
-internal fun resolveGpuOnStopLifecycleAction(
-    gpuGenerateActive: Boolean,
-    preferredBackend: PreferredBackendDryRunSetting,
-    transientProtectionEnabled: Boolean,
-    recentSuccess: Boolean,
-): GpuOnStopLifecycleAction = when {
-    preferredBackend != PreferredBackendDryRunSetting.GPU ->
-        GpuOnStopLifecycleAction.RELEASE_CONFIRMED_BACKGROUND
-    gpuGenerateActive -> GpuOnStopLifecycleAction.DEFER_ACTIVE_GENERATE
-    transientProtectionEnabled && recentSuccess -> GpuOnStopLifecycleAction.KEEP_FOREGROUND_REUSE
-    else -> GpuOnStopLifecycleAction.RELEASE_CONFIRMED_BACKGROUND
-}
-
-internal fun resolveGpuLifecycleRaceSequenceForTest(
-    preferredBackend: PreferredBackendDryRunSetting,
-): List<GpuOnStopLifecycleAction> = listOf(
-    resolveGpuOnStopLifecycleAction(
-        gpuGenerateActive = true,
-        preferredBackend = preferredBackend,
-        transientProtectionEnabled = false,
-        recentSuccess = false,
-    ),
-    GpuOnStopLifecycleAction.KEEP_FOREGROUND_REUSE,
-    resolveGpuOnStopLifecycleAction(
-        gpuGenerateActive = false,
-        preferredBackend = preferredBackend,
-        transientProtectionEnabled = false,
-        recentSuccess = false,
-    ),
-)
 
 internal data class HeldLocalEngine(
     val engineKey: HeldEngineKey,
@@ -135,32 +96,6 @@ internal class LocalInferenceEngineHolder(
     private val appContext: Context,
     private val gpuTransientOnStopProtectionOverrideForTest: Boolean? = null,
 ) {
-    private enum class HeldEngineLifecycleReason {
-        MODEL_CHANGED,
-        BACKEND_CHANGED,
-        EXPLICIT_RESET,
-        FATAL_ERROR,
-        LOW_MEMORY,
-        APP_BACKGROUNDED,
-        TTS_PLAYBACK,
-        BACKGROUND_TIMEOUT,
-        IDLE_TIMEOUT,
-        KEEP_HELD,
-    }
-
-    private enum class HeldEngineLifecycleAction {
-        KEEP_HELD,
-        CLOSE_AND_RECREATE,
-        CLEAR_ONLY,
-        NO_OP,
-    }
-
-    private data class HeldEngineLifecycleDecision(
-        val reason: HeldEngineLifecycleReason,
-        val action: HeldEngineLifecycleAction,
-        val clearReason: String,
-    )
-
     private data class HeldConversation(
         val chatId: Int,
         val engineModelPath: String,
@@ -257,7 +192,12 @@ internal class LocalInferenceEngineHolder(
         maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
         val modelPath = engineKey.modelPath
         val current = held
-        val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+        val decision = decideHeldEngineAcquireLifecycle(
+            currentEngineKey = current?.engineKey,
+            currentModelPath = current?.modelPath,
+            currentUseCount = current?.useCount ?: 0,
+            requested = engineKey,
+        )
         applyLifecycleDecisionLocked(
             current = current,
             decision = decision,
@@ -344,7 +284,12 @@ internal class LocalInferenceEngineHolder(
         var failureStage: String? = null
         try {
             val current = held
-            val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+            val decision = decideHeldEngineAcquireLifecycle(
+                currentEngineKey = current?.engineKey,
+                currentModelPath = current?.modelPath,
+                currentUseCount = current?.useCount ?: 0,
+                requested = engineKey,
+            )
             if (decision.action == HeldEngineLifecycleAction.CLOSE_AND_RECREATE) {
                 failureStage = "recycle-close"
             }
@@ -643,7 +588,7 @@ internal class LocalInferenceEngineHolder(
             ) {
                 applyLifecycleDecisionLocked(
                     current = current,
-                    decision = resolveLifecycleDecision(reason = "app-backgrounded"),
+                    decision = resolveHeldEngineLifecycleDecision(reason = "app-backgrounded"),
                     nowElapsedMs = nowElapsedMs,
                 )
             }
@@ -773,7 +718,7 @@ internal class LocalInferenceEngineHolder(
             val nowElapsedMs = SystemClock.elapsedRealtime()
             maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
             maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
-            val decision = resolveLifecycleDecision(reason = reason)
+            val decision = resolveHeldEngineLifecycleDecision(reason = reason)
             lastLifecycleEventReason = reason
             lastLifecycleDecisionAction = decision.action.name
             applyLifecycleDecisionLocked(
@@ -816,7 +761,7 @@ internal class LocalInferenceEngineHolder(
         mutex.withLock {
             appInForeground = false
             appBackgroundedAtElapsedMs = nowElapsedMs
-            val decision = resolveLifecycleDecision(reason = "app-backgrounded")
+            val decision = resolveHeldEngineLifecycleDecision(reason = "app-backgrounded")
             lastLifecycleEventReason = decision.clearReason
             lastLifecycleDecisionAction = decision.action.name
             val current = held
@@ -870,102 +815,6 @@ internal class LocalInferenceEngineHolder(
         }
     }
 
-    private fun decideAcquireLifecycle(
-        current: HeldLocalEngine?,
-        requested: HeldEngineKey,
-    ): HeldEngineLifecycleDecision {
-        if (current == null) {
-            return HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.KEEP_HELD,
-                action = HeldEngineLifecycleAction.NO_OP,
-                clearReason = "keep-held",
-            )
-        }
-        if (current.engineKey == requested) {
-            if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
-                return HeldEngineLifecycleDecision(
-                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
-                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                    clearReason = "reuse-limit",
-                )
-            }
-            return HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.KEEP_HELD,
-                action = HeldEngineLifecycleAction.KEEP_HELD,
-                clearReason = "keep-held",
-            )
-        }
-        val reason = if (current.modelPath != requested.modelPath) {
-            HeldEngineLifecycleReason.MODEL_CHANGED
-        } else {
-            HeldEngineLifecycleReason.BACKEND_CHANGED
-        }
-        val clearReason = if (reason == HeldEngineLifecycleReason.MODEL_CHANGED) "model-changed" else "backend-changed"
-        return HeldEngineLifecycleDecision(
-            reason = reason,
-            action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-            clearReason = clearReason,
-        )
-    }
-
-    private fun resolveLifecycleDecision(reason: String): HeldEngineLifecycleDecision {
-        return when (reason) {
-            "backend-changed" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.BACKEND_CHANGED,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "explicit-reset" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "fatal-error" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.FATAL_ERROR,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "low-memory" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.LOW_MEMORY,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "app-backgrounded" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.APP_BACKGROUNDED,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "tts-playback" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.TTS_PLAYBACK,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "background-timeout" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.BACKGROUND_TIMEOUT,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            "idle-timeout" -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.IDLE_TIMEOUT,
-                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                clearReason = reason,
-            )
-
-            else -> HeldEngineLifecycleDecision(
-                reason = HeldEngineLifecycleReason.KEEP_HELD,
-                action = HeldEngineLifecycleAction.CLEAR_ONLY,
-                clearReason = reason,
-            )
-        }
-    }
-
     private fun maybeReleaseIdleEngineLocked(
         nowElapsedMs: Long,
         appendTrace: ((String) -> Unit)? = null,
@@ -983,7 +832,7 @@ internal class LocalInferenceEngineHolder(
         }
             applyLifecycleDecisionLocked(
                 current = current,
-                decision = resolveLifecycleDecision(reason = "idle-timeout"),
+                decision = resolveHeldEngineLifecycleDecision(reason = "idle-timeout"),
                 nowElapsedMs = nowElapsedMs,
                 appendTrace = appendTrace,
             )
@@ -1006,7 +855,7 @@ internal class LocalInferenceEngineHolder(
         }
         applyLifecycleDecisionLocked(
             current = current,
-            decision = resolveLifecycleDecision(reason = "background-timeout"),
+            decision = resolveHeldEngineLifecycleDecision(reason = "background-timeout"),
             nowElapsedMs = nowElapsedMs,
             appendTrace = appendTrace,
         )

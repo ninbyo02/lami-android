@@ -1,0 +1,79 @@
+{
+  "baseline_sha256": "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01",
+  "candidate_sha256": "0f801eac3fbdd26db5e972d95b79e57362e75582ff09efe24a249da62ee046cf",
+  "rows": [
+    {
+      "position": 0,
+      "capture_sha256": "ca0d165bfb544b67595225e5d69f4c5917c063024d22d95bcfe486847abed851",
+      "hidden_and_reconstructed_kv_bit_exact": [
+        true,
+        true,
+        true
+      ],
+      "trial_ms": [
+        [
+          3.4213224375,
+          3.013132625,
+          2.9657868125,
+          2.9182240625,
+          2.8237005625,
+          2.75246025,
+          2.87127825
+        ],
+        [
+          3.108797375,
+          3.138999375,
+          2.929050375,
+          2.7632596875,
+          2.71888075,
+          3.10602175,
+          2.8500100625
+        ]
+      ],
+      "median_ms": [
+        2.9182240625,
+        2.929050375
+      ]
+    },
+    {
+      "position": 15,
+      "capture_sha256": "e3187d0e8f696b6721c6d202c70213a2794e8aa72f4e6ff5c6ba1cda39c0e96f",
+      "hidden_and_reconstructed_kv_bit_exact": [
+        true,
+        true,
+        true
+      ],
+      "trial_ms": [
+        [
+          2.744424,
+          2.863072625,
+          2.9653305625,
+          3.226191,
+          2.933116625,
+          2.9129715625,
+          2.93002225
+        ],
+        [
+          2.7656135,
+          2.7318445625,
+          3.011373875,
+          2.93289725,
+          2.9630105,
+          2.83911125,
+          2.8201461875
+        ]
+      ],
+      "median_ms": [
+        2.93002225,
+        2.83911125
+      ]
+    }
+  ],
+  "kv_output_bytes_before": 655360,
+  "kv_output_bytes_after": 40960,
+  "limitations": [
+    "Host fixed-input only; no device or audio claim.",
+    "Internal full-cache update remains; only output cache shape changes.",
+    "Timing excludes caller reconstruction; uncontrolled scheduling."
+  ]
+}

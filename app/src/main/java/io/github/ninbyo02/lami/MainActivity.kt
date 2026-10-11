@@ -2,6 +2,8 @@ package io.github.ninbyo02.lami
 
 import android.Manifest
 import android.content.Intent
+import io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnostics
+import kotlinx.coroutines.Dispatchers
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -141,6 +143,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureAssistantWindow(intent)
+        LamiNeuralVoiceDiagnostics.start(this, savedInstanceState)
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
         val repository =
@@ -461,6 +464,8 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    // Public Activity callback; AndroidX's inherited bridge has a library-only annotation.
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
             assistantButtonProbe?.observeActivityKey(event)

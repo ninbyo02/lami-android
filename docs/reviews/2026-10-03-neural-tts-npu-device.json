@@ -1,0 +1,96 @@
+{
+  "status": "device_npu_synthetic_inference_pass_not_speech_validated",
+  "device": "NX733J / SM8750",
+  "sdk": "2.47.0.260601",
+  "graph": "qnn_partition_0",
+  "iterations": 20,
+  "input_case": "same seed2713 normal(0,0.1) embedding; position0; zero caches; causal mask; repeated independent inference",
+  "profile_average_us": {
+    "netrun_execute": 24521,
+    "qnn_execute": 24486,
+    "rpc_execute": 23452,
+    "accelerator_execute": 21389,
+    "accelerator_execute_excluding_wait": 21117
+  },
+  "profile_init_us": {
+    "netrun": 48351
+  },
+  "dsp_context_estimated_mib": 224.31,
+  "context_sha256": "4a7edaecde161bc56e955bf8251fd6632108b54853c3e0e9695b2a73cae50219",
+  "numerical_comparison": [
+    {
+      "output": "kv_cache_k_0",
+      "max_abs_diff": 0.001682281494140625,
+      "rms_diff": 8.579527380355311e-05,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_k_1",
+      "max_abs_diff": 0.02059459686279297,
+      "rms_diff": 0.0007144278163457117,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_k_2",
+      "max_abs_diff": 0.02111142873764038,
+      "rms_diff": 0.0008335488801105297,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_k_3",
+      "max_abs_diff": 0.09197807312011719,
+      "rms_diff": 0.0022255766010366483,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_k_4",
+      "max_abs_diff": 0.05082976818084717,
+      "rms_diff": 0.002099301932703604,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_v_0",
+      "max_abs_diff": 0.00030806660652160645,
+      "rms_diff": 1.4404880138356747e-05,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_v_1",
+      "max_abs_diff": 0.004540920257568359,
+      "rms_diff": 0.00019299304440780713,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_v_2",
+      "max_abs_diff": 0.005901336669921875,
+      "rms_diff": 0.0002709085998798549,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_v_3",
+      "max_abs_diff": 0.01027609407901764,
+      "rms_diff": 0.0004612326503041816,
+      "same_argmax": null
+    },
+    {
+      "output": "kv_cache_v_4",
+      "max_abs_diff": 0.019262313842773438,
+      "rms_diff": 0.0008817809180223104,
+      "same_argmax": null
+    },
+    {
+      "output": "logits",
+      "max_abs_diff": 0.08656549453735352,
+      "rms_diff": 0.01554632091053565,
+      "same_argmax": true
+    }
+  ],
+  "limitations": [
+    "No same-device CPU baseline for the identical graph",
+    "Twenty repetitions of position0, not a carried-cache rollout",
+    "Only one synthetic embedding, not generated speech",
+    "No production trained-checkpoint provenance established",
+    "Float16 arithmetic is not bitwise CPU parity",
+    "Average timings include first inference; default performance profile; no LLM concurrency test"
+  ]
+}

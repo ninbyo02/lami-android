@@ -1,0 +1,67 @@
+{
+  "text": "はい。",
+  "max_new_tokens": 256,
+  "seed": 42,
+  "reference": "original FP32 eager RC1",
+  "model_sha256": {
+    "config.json": "9309a5ec37dd3c02788d3934b40bb496a6f2f1364ecfce372d412912b300ab57",
+    "model.safetensors": "c569a8502034a7aa1c4524f83bd9f0923378a3347e325bccc87ec43f2a4744b9"
+  },
+  "cases": [
+    {
+      "language": "Auto",
+      "sample": false,
+      "samples": 489600,
+      "tokens": 256,
+      "tail": [
+        668,
+        668,
+        617,
+        617,
+        617,
+        617,
+        617,
+        617
+      ],
+      "eos": false,
+      "sample_rate": 24000
+    },
+    {
+      "language": "Japanese",
+      "sample": false,
+      "samples": 489600,
+      "tokens": 256,
+      "tail": [
+        617,
+        617,
+        617,
+        617,
+        617,
+        617,
+        617,
+        617
+      ],
+      "eos": false,
+      "sample_rate": 24000
+    },
+    {
+      "language": "Japanese",
+      "sample": true,
+      "samples": 489600,
+      "tokens": 256,
+      "tail": [
+        1354,
+        1354,
+        1354,
+        1354,
+        1354,
+        1354,
+        1892,
+        125
+      ],
+      "eos": false,
+      "sample_rate": 24000
+    }
+  ],
+  "conclusion": "Missing EOS reproduces in original model; not solely caused by INT4 or Android frontend"
+}

@@ -25,28 +25,40 @@ import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.ModelInfo
 
+data class LamiHeaderStatusState(
+    val baseUrl: String,
+    val selectedModel: String?,
+    val lastError: String?,
+    val lamiStatus: LamiStatus,
+    val lamiState: LamiState,
+    val availableModels: List<ModelInfo>,
+    val selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
+    val localBaseModelDisplayName: String? = null,
+    val localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
+    val debugOverlayEnabled: Boolean = true,
+    val syncEpochMs: Long = 0L,
+    val statusTitleOverride: String? = null,
+)
+
+data class LamiHeaderStatusActions(
+    val onSelectModel: (String) -> Unit,
+    val onNavigateSettings: () -> Unit,
+    val onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
+    val onOpenControl: () -> Unit = {},
+)
+
+data class LamiHeaderAvatarPresentation(
+    val initialAvatarSize: Dp = 64.dp,
+    val minAvatarSize: Dp = 48.dp,
+    val maxAvatarSize: Dp = 64.dp,
+    val showAvatar: Boolean = true,
+)
+
 @Composable
 fun LamiHeaderStatus(
-    baseUrl: String,
-    selectedModel: String?,
-    lastError: String?,
-    lamiStatus: LamiStatus,
-    lamiState: LamiState,
-    availableModels: List<ModelInfo>,
-    onSelectModel: (String) -> Unit,
-    onNavigateSettings: () -> Unit,
-    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
-    localBaseModelDisplayName: String? = null,
-    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
-    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
-    debugOverlayEnabled: Boolean = true,
-    syncEpochMs: Long = 0L,
-    initialAvatarSize: Dp = 64.dp,
-    minAvatarSize: Dp = 48.dp,
-    maxAvatarSize: Dp = 64.dp,
-    showAvatar: Boolean = true,
-    onOpenControl: () -> Unit = {},
-    statusTitleOverride: String? = null,
+    state: LamiHeaderStatusState,
+    actions: LamiHeaderStatusActions,
+    avatarPresentation: LamiHeaderAvatarPresentation = LamiHeaderAvatarPresentation(),
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -56,56 +68,30 @@ fun LamiHeaderStatus(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (showAvatar) {
+        if (avatarPresentation.showAvatar) {
             HeaderAvatar(
-                baseUrl = baseUrl,
-                selectedModel = selectedModel,
-                lastError = lastError,
-                lamiStatus = lamiStatus,
-                lamiState = lamiState,
-                availableModels = availableModels,
-                onSelectModel = onSelectModel,
-                onNavigateSettings = onNavigateSettings,
-                selectedInferenceTarget = selectedInferenceTarget,
-                onSelectInferenceTarget = onSelectInferenceTarget,
-                localInferenceEngineState = localInferenceEngineState,
-                debugOverlayEnabled = debugOverlayEnabled,
-                syncEpochMs = syncEpochMs,
-                initialAvatarSize = initialAvatarSize,
-                minAvatarSize = minAvatarSize,
-                maxAvatarSize = maxAvatarSize,
+                state = state,
+                actions = actions,
+                avatarPresentation = avatarPresentation,
             )
         }
         HeaderStatusText(
-            selectedModel = selectedModel,
-            selectedInferenceTarget = selectedInferenceTarget,
-            localBaseModelDisplayName = localBaseModelDisplayName,
-            lamiStatus = lamiStatus,
-            lamiState = lamiState,
-            onOpenControl = onOpenControl,
-            statusTitleOverride = statusTitleOverride,
+            selectedModel = state.selectedModel,
+            selectedInferenceTarget = state.selectedInferenceTarget,
+            localBaseModelDisplayName = state.localBaseModelDisplayName,
+            lamiStatus = state.lamiStatus,
+            lamiState = state.lamiState,
+            onOpenControl = actions.onOpenControl,
+            statusTitleOverride = state.statusTitleOverride,
         )
     }
 }
 
 @Composable
 fun HeaderAvatar(
-    baseUrl: String,
-    selectedModel: String?,
-    lastError: String?,
-    lamiStatus: LamiStatus,
-    lamiState: LamiState,
-    availableModels: List<ModelInfo>,
-    onSelectModel: (String) -> Unit,
-    onNavigateSettings: () -> Unit,
-    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
-    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
-    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
-    debugOverlayEnabled: Boolean = true,
-    syncEpochMs: Long = 0L,
-    initialAvatarSize: Dp = 64.dp,
-    minAvatarSize: Dp = 48.dp,
-    maxAvatarSize: Dp = 64.dp,
+    state: LamiHeaderStatusState,
+    actions: LamiHeaderStatusActions,
+    avatarPresentation: LamiHeaderAvatarPresentation = LamiHeaderAvatarPresentation(),
     applyHeaderAvatarModifier: Boolean = true,
     openControlRequestKey: Int = 0,
     modifier: Modifier = Modifier,
@@ -117,22 +103,9 @@ fun HeaderAvatar(
     }
 
     LamiAvatar(
-        baseUrl = baseUrl,
-        selectedModel = selectedModel,
-        lastError = lastError,
-        lamiStatus = lamiStatus,
-        lamiState = lamiState,
-        availableModels = availableModels,
-        initialAvatarSize = initialAvatarSize,
-        minAvatarSize = minAvatarSize,
-        maxAvatarSize = maxAvatarSize,
-        onSelectModel = onSelectModel,
-        onNavigateSettings = onNavigateSettings,
-        selectedInferenceTarget = selectedInferenceTarget,
-        onSelectInferenceTarget = onSelectInferenceTarget,
-        localInferenceEngineState = localInferenceEngineState,
-        debugOverlayEnabled = debugOverlayEnabled,
-        syncEpochMs = syncEpochMs,
+        state = state,
+        actions = actions,
+        avatarPresentation = avatarPresentation,
         openControlRequestKey = openControlRequestKey,
         modifier = avatarModifier
             // 上端見切れを抑えるため、アバター側で安全マージンを追加確保

@@ -1,0 +1,22 @@
+{
+  "reviews": {
+    "lami-main-int8-review-20261007/01-窓と赤い箱-メインFP32-CP全層INT8-PC.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-int8-review-20261007/02-窓と赤い箱-メインINT8-CP全層INT8-PC.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-int8-review-20261007/03-午前九時半の予定-メインFP32-CP全層INT8-PC.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-main-int8-review-20261007/04-午前九時半の予定-メインINT8-CP全層INT8-PC.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    }
+  },
+  "decision": "All four PC clips accepted as candidates; proceed to runtime profiling and backed-up device comparison.",
+  "device_validation": "pending"
+}

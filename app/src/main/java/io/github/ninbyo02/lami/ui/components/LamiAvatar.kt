@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -100,27 +101,34 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LamiAvatar(
-    baseUrl: String,
-    selectedModel: String?,
-    lastError: String?,
-    lamiStatus: LamiStatus = LamiStatus.CONNECTING,
-    lamiState: LamiState,
-    availableModels: List<ModelInfo> = emptyList(),
+    state: LamiHeaderStatusState,
+    actions: LamiHeaderStatusActions,
+    avatarPresentation: LamiHeaderAvatarPresentation = LamiHeaderAvatarPresentation(
+        initialAvatarSize = 36.dp,
+        minAvatarSize = 32.dp,
+        maxAvatarSize = 64.dp,
+    ),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
     backgroundColor: Color? = null,
-    initialAvatarSize: Dp = 36.dp,
-    minAvatarSize: Dp = 32.dp,
-    maxAvatarSize: Dp = 64.dp,
-    onSelectModel: (String) -> Unit = {},
-    onNavigateSettings: (() -> Unit)? = null,
-    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
-    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
-    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
-    debugOverlayEnabled: Boolean = true,
-    syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
 ) {
+    val baseUrl = state.baseUrl
+    val selectedModel = state.selectedModel
+    val lastError = state.lastError
+    val lamiStatus = state.lamiStatus
+    val lamiState = state.lamiState
+    val availableModels = state.availableModels
+    val selectedInferenceTarget = state.selectedInferenceTarget
+    val localInferenceEngineState = state.localInferenceEngineState
+    val debugOverlayEnabled = state.debugOverlayEnabled
+    val syncEpochMs = state.syncEpochMs
+    val initialAvatarSize = avatarPresentation.initialAvatarSize
+    val minAvatarSize = avatarPresentation.minAvatarSize
+    val maxAvatarSize = avatarPresentation.maxAvatarSize
+    val onSelectModel = actions.onSelectModel
+    val onNavigateSettings = actions.onNavigateSettings
+    val onSelectInferenceTarget = actions.onSelectInferenceTarget
     val haptic = LocalHapticFeedback.current
     val selectModelAndKeepSheetOpen: (String) -> Unit = { modelName ->
         onSelectModel(modelName)
@@ -252,16 +260,20 @@ fun LamiAvatar(
         LamiStatusSprite(
             status = avatarStatusState,
             lamiState = lamiState,
-            sizeDp = avatarSize.dp,
             modifier = Modifier
                 .offset(x = adjustedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 0.dp,
-            animationsEnabled = animationsEnabled,
-            replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled,
-            debugOverlayEnabled = debugOverlayEnabled,
+            layout = LamiStatusSpriteLayout(
+                sizeDp = avatarSize.dp,
+                contentOffsetDp = 0.dp,
+            ),
+            options = LamiStatusSpriteOptions(
+                animationsEnabled = animationsEnabled,
+                replacementEnabled = replacementEnabled,
+                blinkEffectEnabled = blinkEffectEnabled,
+                debugOverlayEnabled = debugOverlayEnabled,
+            ),
             syncEpochMs = syncEpochMs,
         )
         if (debugEnabled && debugOverlayEnabled) {
@@ -292,238 +304,284 @@ fun LamiAvatar(
             }
         }
         if (showSheet) {
-            ModalBottomSheet(
+            LamiControlSheet(
                 sheetState = sheetState,
-                onDismissRequest = { showSheet = false }
+                state = LamiControlSheetState(
+                    selectedInferenceTarget = selectedInferenceTarget,
+                    selectedModel = selectedModel,
+                    availableModels = availableModels,
+                    localInferenceEngineState = localInferenceEngineState,
+                    isLocalBaseModelAvailable = isLocalBaseModelAvailable,
+                    controlUiText = controlUiText,
+                    latencyText = latencyText,
+                    latencyQualityLevel = latencyQualityLevel,
+                    baseUrl = baseUrl,
+                    lastUpdated = lastUpdated,
+                ),
+                actions = LamiControlSheetActions(
+                    onDismiss = { showSheet = false },
+                    onSelectInferenceTarget = onSelectInferenceTarget,
+                    onSelectModel = selectModelAndKeepSheetOpen,
+                    onNavigateSettings = {
+                        onNavigateSettings()
+                        showSheet = false
+                    },
+                ),
+            )
+        }
+    }
+}
+
+private data class LamiControlSheetState(
+    val selectedInferenceTarget: InferenceTarget,
+    val selectedModel: String?,
+    val availableModels: List<ModelInfo>,
+    val localInferenceEngineState: LocalInferenceEngineState,
+    val isLocalBaseModelAvailable: Boolean?,
+    val controlUiText: LamiControlUiText,
+    val latencyText: String,
+    val latencyQualityLevel: Int,
+    val baseUrl: String,
+    val lastUpdated: String,
+)
+
+private data class LamiControlSheetActions(
+    val onDismiss: () -> Unit,
+    val onSelectInferenceTarget: (InferenceTarget) -> Unit,
+    val onSelectModel: (String) -> Unit,
+    val onNavigateSettings: () -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun LamiControlSheet(
+    sheetState: SheetState,
+    state: LamiControlSheetState,
+    actions: LamiControlSheetActions,
+) {
+    ModalBottomSheet(
+        sheetState = sheetState,
+        onDismissRequest = actions.onDismiss,
+    ) {
+        val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.94f
+        val listState: LazyListState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        var searchQuery by rememberSaveable { mutableStateOf("") }
+        val lamiSheetBg = MaterialTheme.colorScheme.surface
+        val filteredModels by remember(state.availableModels, searchQuery) {
+            derivedStateOf {
+                state.availableModels.filter { model ->
+                    searchQuery.isBlank() || model.name.contains(searchQuery, ignoreCase = true)
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = sheetMaxHeight),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                state = listState,
+                // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
+                contentPadding = PaddingValues(start = 24.dp, top = 0.dp, end = 24.dp, bottom = 14.dp),
             ) {
-                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.94f
-                val listState: LazyListState = rememberLazyListState()
-                val scope = rememberCoroutineScope()
-                var searchQuery by rememberSaveable { mutableStateOf("") }
-                val lamiSheetBg = MaterialTheme.colorScheme.surface
-                val filteredModels by remember(availableModels, searchQuery) {
-                    derivedStateOf {
-                        availableModels.filter { model ->
-                            searchQuery.isBlank() || model.name.contains(searchQuery, ignoreCase = true)
+                stickyHeader {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(lamiSheetBg)
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Lami コントロール",
+                                modifier = Modifier.padding(start = 20.dp),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Text(
+                            text = when (state.selectedInferenceTarget) {
+                                InferenceTarget.LOCAL -> "ローカル推論"
+                                InferenceTarget.SERVER -> state.selectedModel ?: "未選択"
+                            },
+                            modifier = Modifier.padding(start = 20.dp),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 18.sp,
+                                letterSpacing = 0.sp,
+                            ),
+                            minLines = 2,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+                item {
+                    ConnectionSummaryStatusRow(
+                        label = "接続状態",
+                        value = state.controlUiText.connectionLabel,
+                        valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.sp,
+                        ),
+                        latencyText = state.latencyText,
+                        qualityLevel = state.latencyQualityLevel,
+                        showLatency = state.selectedInferenceTarget == InferenceTarget.SERVER && state.baseUrl.isNotBlank(),
+                    )
+                }
+                item {
+                    StatusInfoItem(
+                        label = "接続先",
+                        value = state.controlUiText.destinationLabel,
+                        valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.sp,
+                        ),
+                    )
+                }
+                item {
+                    StatusInfoItem(
+                        label = "最終更新",
+                        value = state.lastUpdated,
+                        valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.sp,
+                        ),
+                    )
+                }
+                item {
+                    StatusInfoItem(
+                        label = "ローカル基本モデル",
+                        value = if (state.isLocalBaseModelAvailable == true) "利用可能" else "未設定",
+                        valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.sp,
+                        ),
+                    )
+                }
+                item {
+                    StatusInfoItem(
+                        label = "ローカル推論エンジン",
+                        value = when (state.localInferenceEngineState) {
+                            LocalInferenceEngineState.UNINITIALIZED -> "未初期化"
+                            LocalInferenceEngineState.PREPARING -> "準備中"
+                            LocalInferenceEngineState.READY -> "利用可能"
+                            LocalInferenceEngineState.ERROR -> "エラー"
+                        },
+                        valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.sp,
+                        ),
+                    )
+                }
+                item {
+                    InferenceTargetSelectorRow(
+                        selectedTarget = state.selectedInferenceTarget,
+                        isLocalTargetEnabled = state.isLocalBaseModelAvailable == true,
+                        onSelectTarget = actions.onSelectInferenceTarget,
+                    )
+                }
+                item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = state.controlUiText.modelListTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        if (state.controlUiText.showModelSearch) {
+                            LamiControlSearchPill(
+                                value = searchQuery,
+                                lamiSheetBg = lamiSheetBg,
+                                onValueChange = { query -> searchQuery = query },
+                                onClear = { searchQuery = "" },
+                                onSearch = { scope.launch { listState.animateScrollToItem(0) } },
+                            )
                         }
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = sheetMaxHeight),
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        state = listState,
-                        // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
-                        contentPadding = PaddingValues(start = 24.dp, top = 0.dp, end = 24.dp, bottom = 14.dp)
-                    ) {
-                        stickyHeader {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(lamiSheetBg)
-                                    .padding(top = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = "Lami コントロール",
-                                        modifier = Modifier.padding(start = 20.dp),
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Text(
-                                    text = when (selectedInferenceTarget) {
-                                        InferenceTarget.LOCAL -> "ローカル推論"
-                                        InferenceTarget.SERVER -> selectedModel ?: "未選択"
-                                    },
-                                    modifier = Modifier.padding(start = 20.dp),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Medium,
-                                        lineHeight = 18.sp,
-                                        letterSpacing = 0.sp,
-                                    ),
-                                    minLines = 2,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant
-                                )
-                        }
-                        }
+                val modelListMessage = state.controlUiText.modelListMessage
+                if (modelListMessage != null) {
+                    item { Text(modelListMessage) }
+                } else if (filteredModels.isEmpty()) {
                     item {
-                        ConnectionSummaryStatusRow(
-                            label = "接続状態",
-                            value = controlUiText.connectionLabel,
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.sp,
-                            ),
-                            latencyText = latencyText,
-                            qualityLevel = latencyQualityLevel,
-                            showLatency = selectedInferenceTarget == InferenceTarget.SERVER && baseUrl.isNotBlank(),
-                        )
-                    }
-                    item {
-                        StatusInfoItem(
-                            label = "接続先",
-                            value = controlUiText.destinationLabel,
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                letterSpacing = 0.sp,
-                            ),
-                        )
-                    }
-                    item {
-                        StatusInfoItem(
-                            label = "最終更新",
-                            value = lastUpdated,
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                letterSpacing = 0.sp,
-                            ),
-                        )
-                    }
-                    item {
-                        StatusInfoItem(
-                            label = "ローカル基本モデル",
-                            value = if (isLocalBaseModelAvailable == true) "利用可能" else "未設定",
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                letterSpacing = 0.sp,
-                            ),
-                        )
-                    }
-                    item {
-                        StatusInfoItem(
-                            label = "ローカル推論エンジン",
-                            value = when (localInferenceEngineState) {
-                                LocalInferenceEngineState.UNINITIALIZED -> "未初期化"
-                                LocalInferenceEngineState.PREPARING -> "準備中"
-                                LocalInferenceEngineState.READY -> "利用可能"
-                                LocalInferenceEngineState.ERROR -> "エラー"
-                            },
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                letterSpacing = 0.sp,
-                            ),
-                        )
-                    }
-                    item {
-                        InferenceTargetSelectorRow(
-                            selectedTarget = selectedInferenceTarget,
-                            isLocalTargetEnabled = isLocalBaseModelAvailable == true,
-                            onSelectTarget = { target ->
-                                onSelectInferenceTarget(target)
-                            },
-                        )
-                    }
-                    item {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = controlUiText.modelListTitle,
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            )
-                            if (controlUiText.showModelSearch) {
-                                LamiControlSearchPill(
-                                    value = searchQuery,
-                                    lamiSheetBg = lamiSheetBg,
-                                    onValueChange = { query -> searchQuery = query },
-                                    onClear = { searchQuery = "" },
-                                    onSearch = { scope.launch { listState.animateScrollToItem(0) } },
-                                )
+                        Text(
+                            if (state.availableModels.isEmpty()) {
+                                "モデルを取得できませんでした"
+                            } else {
+                                "検索条件に一致するモデルがありません"
                             }
-                        }
+                        )
                     }
-                    val modelListMessage = controlUiText.modelListMessage
-                    if (modelListMessage != null) {
-                        item { Text(modelListMessage) }
-                    } else if (filteredModels.isEmpty()) {
-                        item { Text("モデルを取得できませんでした") }
-                    } else {
-                        items(filteredModels, key = { model -> model.name }) { model ->
+                } else {
+                    items(filteredModels, key = { model -> model.name }) { model ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 行の圧迫感を避けながら縦密度を半歩だけ上げる
+                                .padding(vertical = 1.dp)
+                                .selectable(
+                                    selected = state.selectedModel == model.name,
+                                    onClick = { actions.onSelectModel(model.name) },
+                                    role = Role.RadioButton,
+                                )
+                                .semantics { contentDescription = "モデル ${model.name} を選択" },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    // 行の圧迫感を避けながら縦密度を半歩だけ上げる
-                                    .padding(vertical = 1.dp)
-                                    .selectable(
-                                        selected = selectedModel == model.name,
-                                        onClick = {
-                                            selectModelAndKeepSheetOpen(model.name)
-                                        },
-                                        role = Role.RadioButton
-                                    )
-                                    .semantics {
-                                        contentDescription = "モデル ${model.name} を選択"
-                                    },
+                                modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = selectedModel == model.name,
-                                        onClick = null,
-                                        modifier = Modifier.semantics { contentDescription = "モデル ${model.name}" }
-                                    )
-                                    Text(
-                                        text = model.name,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            // ラジオボタンとの可読性を保ちつつ、モデル名の実効横幅を優先する
-                                            .padding(start = 4.dp, end = 0.dp),
-                                        maxLines = Int.MAX_VALUE,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Normal,
-                                            lineHeight = 18.sp,
-                                        ),
-                                    )
-                                }
+                                RadioButton(
+                                    selected = state.selectedModel == model.name,
+                                    onClick = null,
+                                    modifier = Modifier.semantics { contentDescription = "モデル ${model.name}" },
+                                )
+                                Text(
+                                    text = model.name,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // ラジオボタンとの可読性を保ちつつ、モデル名の実効横幅を優先する
+                                        .padding(start = 4.dp, end = 0.dp),
+                                    maxLines = Int.MAX_VALUE,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Normal,
+                                        lineHeight = 18.sp,
+                                    ),
+                                )
                             }
                         }
                     }
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
-                    if (controlUiText.showSettingsButton) {
-                        item {
-                            TextButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = {
-                                    onNavigateSettings?.invoke()
-                                    showSheet = false
-                                }
-                            ) {
-                                Text("設定画面へ移動")
-                            }
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                if (state.controlUiText.showSettingsButton) {
+                    item {
+                        TextButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = actions.onNavigateSettings,
+                        ) {
+                            Text("設定画面へ移動")
                         }
-                    }
                     }
                 }
             }
@@ -580,28 +638,30 @@ internal fun resolveLamiControlUiText(
         )
     }
 
-    val connectionLabel = when (lamiStatus) {
-        LamiStatus.CONNECTING -> "接続中"
-        LamiStatus.READY,
-        LamiStatus.TALKING,
-        LamiStatus.NO_MODELS -> "接続OK"
-        LamiStatus.DEGRADED,
-        LamiStatus.OFFLINE,
-        LamiStatus.ERROR -> "接続失敗"
+    val hasAvailableModels = availableModels.isNotEmpty()
+    val connectionFailed = !hasAvailableModels && (
+        lamiStatus == LamiStatus.DEGRADED ||
+            lamiStatus == LamiStatus.OFFLINE ||
+            lamiStatus == LamiStatus.ERROR
+        )
+    val connectionLabel = when {
+        hasAvailableModels -> "接続OK"
+        lamiStatus == LamiStatus.CONNECTING -> "接続中"
+        lamiStatus == LamiStatus.READY ||
+            lamiStatus == LamiStatus.TALKING ||
+            lamiStatus == LamiStatus.NO_MODELS -> "接続OK"
+        else -> "接続失敗"
     }
-    val connectionFailed = lamiStatus == LamiStatus.DEGRADED ||
-        lamiStatus == LamiStatus.OFFLINE ||
-        lamiStatus == LamiStatus.ERROR
     return LamiControlUiText(
         connectionLabel = connectionLabel,
         destinationLabel = normalizedBaseUrl,
         modelListTitle = "利用可能なモデル",
         modelListMessage = when {
-            connectionFailed -> "モデルを取得できませんでした"
-            availableModels.isEmpty() -> "モデルを取得できませんでした"
-            else -> null
+            hasAvailableModels -> null
+            lamiStatus == LamiStatus.NO_MODELS -> "利用可能なモデルがありません"
+            else -> "モデルを取得できませんでした"
         },
-        showModelSearch = !connectionFailed && availableModels.isNotEmpty(),
+        showModelSearch = hasAvailableModels,
         showSettingsButton = connectionFailed,
     )
 }

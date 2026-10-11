@@ -479,14 +479,17 @@ class GpuBlockingRaceContractTest {
             searchAfter = "private fun runOfficialLiteRtLmBlocking(",
             failureAnchor = "val npuPreferredBackendApplyResult = preferredBackendApplyResult",
         )
+        val officialRunnerSource = File(
+            "src/main/java/io/github/ninbyo02/lami/ui/screens/home/OfficialConversationRunner.kt",
+        ).readText()
         assertCancellationRethrowPrecedesFailureHandling(
-            source = source,
+            source = officialRunnerSource,
             searchAfter = "internal suspend fun tryRunOfficialLiteRtFlowStreaming(",
             outerCatchAnchor = "}.onFailure { throwable ->",
             failureAnchor = "val reasonCode = (throwable as? OfficialFlowFallbackException)",
         )
         assertCancellationRethrowPrecedesFailureHandling(
-            source = source,
+            source = officialRunnerSource,
             searchAfter = "internal fun tryRunOfficialLiteRtBlockingConversation(",
             outerCatchAnchor = "}.onFailure { throwable ->",
             failureAnchor = "val reasonCode = (throwable as? OfficialFlowFallbackException)",
@@ -740,7 +743,7 @@ class GpuBlockingRaceContractTest {
             )
             assertTrue(
                 "Only the policy-approved partial may reach the UI.",
-                fallbackBlock.contains("localStreamingResponseText = safePartial"),
+                fallbackBlock.contains("localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)"),
             )
             assertFalse(
                 "Streaming fallback partials must not write Room on every native update.",
@@ -748,7 +751,7 @@ class GpuBlockingRaceContractTest {
             )
             assertTrue(
                 "Fallback display must continue to publish approved text through the in-memory stream source.",
-                fallbackBlock.contains("localStreamingResponseText = safePartial"),
+                fallbackBlock.contains("localStreamingUiState = localStreamingUiState.copy(responseText = safePartial)"),
             )
             assertFalse(
                 "Native fallback callbacks must not bypass render throttling.",

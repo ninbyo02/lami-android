@@ -1,0 +1,90 @@
+{
+  "status": "bounded_qat_completed_not_audio_validated",
+  "steps": 80,
+  "learning_rate": 1e-05,
+  "train_texts": [
+    "train-0",
+    "train-1",
+    "train-10",
+    "train-11",
+    "train-12",
+    "train-13",
+    "train-14",
+    "train-15",
+    "train-2",
+    "train-3",
+    "train-4",
+    "train-5",
+    "train-6",
+    "train-7",
+    "train-8",
+    "train-9"
+  ],
+  "eval_texts": [
+    "eval-0",
+    "eval-1",
+    "eval-2",
+    "eval-3"
+  ],
+  "train_records": 512,
+  "eval_records": 128,
+  "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+  "before_fake_quant_eval": {
+    "mean_relative_l2": 0.06168577918288065,
+    "max_relative_l2": 0.11676385998725891
+  },
+  "after_fake_quant_eval": {
+    "mean_relative_l2": 0.38605405716225505,
+    "max_relative_l2": 1.6686246395111084
+  },
+  "int8_weight_constants": 35,
+  "pte_bytes": 79065600,
+  "pte_sha256": "fd1bdc0fc722889dc909fec8776844f5a9286743500f952ef0e427c5dadd46cc",
+  "history": [
+    {
+      "step": 10,
+      "loss": 0.12491536140441895,
+      "elapsed_s": 92.45780286399531
+    },
+    {
+      "step": 20,
+      "loss": 0.4222508668899536,
+      "elapsed_s": 101.6448482129781
+    },
+    {
+      "step": 30,
+      "loss": 0.7227081060409546,
+      "elapsed_s": 111.15377140598139
+    },
+    {
+      "step": 40,
+      "loss": 0.8629984855651855,
+      "elapsed_s": 120.39585603200248
+    },
+    {
+      "step": 50,
+      "loss": 2.2670490741729736,
+      "elapsed_s": 129.79774643297424
+    },
+    {
+      "step": 60,
+      "loss": 3.9502463340759277,
+      "elapsed_s": 139.1040269479854
+    },
+    {
+      "step": 70,
+      "loss": 0.968596875667572,
+      "elapsed_s": 148.2749857439776
+    },
+    {
+      "step": 80,
+      "loss": 0.242518812417984,
+      "elapsed_s": 157.1439340589859
+    }
+  ],
+  "limitations": [
+    "Small bounded prefix dataset, no full sentence rollout or listening.",
+    "Fake-quant evaluation must be confirmed after ExecuTorch conversion.",
+    "Teacher embeddings/caches supplied; no production promotion."
+  ]
+}

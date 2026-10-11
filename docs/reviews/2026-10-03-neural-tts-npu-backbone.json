@@ -1,0 +1,111 @@
+{
+  "status": "backbone_device_pilot_not_production_tts",
+  "export": {
+    "status": "exported_source_single_input_exact_parity_not_device_tested",
+    "artifact": "/home/sato/tmp/lami-tts-npu-pilot/backbone/mtp_backbone_fp16.tflite",
+    "bytes": 157433152,
+    "removed_head_weight_elements": 31457280,
+    "head_projection_location": "caller CPU; one selected original head",
+    "limitations": [
+      "one synthetic position-zero source parity check",
+      "not a generated speech or trained checkpoint test"
+    ]
+  },
+  "compile": {
+    "status": "sm8750_compiled_not_device_tested",
+    "artifact": "/home/sato/tmp/lami-tts-npu-pilot/backbone/aot/mtp_backbone_fp16_Qualcomm_SM8750_apply_plugin.tflite",
+    "artifact_bytes": 157753552,
+    "artifact_sha256": "b6454723119213feb6f53f35fc2e3052ecaf7691bf33e33312260c7739bbfcbe",
+    "dispatch_ops": 1,
+    "remaining_cpu_ops": 0,
+    "context": "/home/sato/tmp/lami-tts-npu-pilot/backbone/aot/mtp-qnn-context.bin",
+    "context_bytes": 157749248,
+    "graph_name": "qnn_partition_0"
+  },
+  "device": "NX733J / SM8750",
+  "sdk": "2.47.0.260601",
+  "inferences_per_run": 20,
+  "initial_allheads_us": 24521,
+  "initial_backbone_us": 2968,
+  "paired_repeat_allheads_us": 4181,
+  "paired_repeat_backbone_us": 3051,
+  "paired_backbone_reduction_percent": 27.03,
+  "numerical_comparison": {
+    "status": "device_single_input_numerical_comparison_not_speech_quality",
+    "outputs": [
+      {
+        "output": "hidden",
+        "max_abs_diff": 0.06798839569091797,
+        "rms_diff": 0.024490989129810084
+      },
+      {
+        "output": "kv_cache_k_0",
+        "max_abs_diff": 0.001682281494140625,
+        "rms_diff": 8.579527380355311e-05
+      },
+      {
+        "output": "kv_cache_k_1",
+        "max_abs_diff": 0.02059459686279297,
+        "rms_diff": 0.0007144278163457117
+      },
+      {
+        "output": "kv_cache_k_2",
+        "max_abs_diff": 0.02111142873764038,
+        "rms_diff": 0.0008335488801105297
+      },
+      {
+        "output": "kv_cache_k_3",
+        "max_abs_diff": 0.09197807312011719,
+        "rms_diff": 0.0022255766010366483
+      },
+      {
+        "output": "kv_cache_k_4",
+        "max_abs_diff": 0.05082976818084717,
+        "rms_diff": 0.002099301932703604
+      },
+      {
+        "output": "kv_cache_v_0",
+        "max_abs_diff": 0.00030806660652160645,
+        "rms_diff": 1.4404880138356747e-05
+      },
+      {
+        "output": "kv_cache_v_1",
+        "max_abs_diff": 0.004540920257568359,
+        "rms_diff": 0.00019299304440780713
+      },
+      {
+        "output": "kv_cache_v_2",
+        "max_abs_diff": 0.005901336669921875,
+        "rms_diff": 0.0002709085998798549
+      },
+      {
+        "output": "kv_cache_v_3",
+        "max_abs_diff": 0.01027609407901764,
+        "rms_diff": 0.0004612326503041816
+      },
+      {
+        "output": "kv_cache_v_4",
+        "max_abs_diff": 0.019262313842773438,
+        "rms_diff": 0.0008817809180223104
+      }
+    ],
+    "caller_head_comparison": {
+      "max_abs_diff": 0.0873415470123291,
+      "rms_diff": 0.015537831964308326,
+      "matching_argmax_heads": 15,
+      "total_heads": 15
+    },
+    "limitations": [
+      "Caller heads computed on host CPU with FP16-rounded weights; not Android JNI head timing",
+      "One synthetic position0 input",
+      "No speech generation or carried-cache device rollout"
+    ]
+  },
+  "limits": [
+    "NPU backbone timing excludes caller CPU head",
+    "One synthetic position0 input repeated, zero caches",
+    "Earlier all-head timing cannot establish an 8x speedup; initial-state/clock behavior is uncontrolled",
+    "No same-device CPU baseline",
+    "No voice quality, trained-checkpoint provenance, LLM concurrency, or carried-cache device rollout test"
+  ]
+}

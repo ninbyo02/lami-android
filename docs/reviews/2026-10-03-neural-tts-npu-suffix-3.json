@@ -1,0 +1,253 @@
+{
+  "status": "synthetic_cpu_prefix_npu_suffix_comparison",
+  "cpu_layers": 3,
+  "npu_layers": 2,
+  "total_head_comparisons": 255,
+  "suffix_cpu_argmax_mismatches": 3,
+  "full_npu_cpu_argmax_mismatches": 7,
+  "steps": [
+    {
+      "position": 0,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.0636129379272461,
+        "relative_l2": 0.004125127050347093
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.06798839569091797,
+        "relative_l2": 0.007039042423807449
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 1,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.038768768310546875,
+        "relative_l2": 0.003688808887441935
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.07104921340942383,
+        "relative_l2": 0.006329583595849893
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 2,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.04566669464111328,
+        "relative_l2": 0.003812206701061118
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.24605339765548706,
+        "relative_l2": 0.013415261869510416
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 3,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.04416398238390684,
+        "relative_l2": 0.003990949679936299
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.08139181137084961,
+        "relative_l2": 0.00598564229135805
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 4,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.08436870574951172,
+        "relative_l2": 0.005017774404234893
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.17270994186401367,
+        "relative_l2": 0.01087390206118881
+      },
+      "suffix_cpu_argmax_mismatch_heads": [
+        4
+      ],
+      "full_npu_cpu_argmax_mismatch_heads": [
+        4
+      ]
+    },
+    {
+      "position": 5,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.0175018310546875,
+        "relative_l2": 0.00019409820338706755
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.0175018310546875,
+        "relative_l2": 0.0002079268985253186
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 6,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.13150882720947266,
+        "relative_l2": 0.01279693682676777
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.15594005584716797,
+        "relative_l2": 0.012933646613352025
+      },
+      "suffix_cpu_argmax_mismatch_heads": [
+        5
+      ],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 7,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.05327558517456055,
+        "relative_l2": 0.005010556082657149
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.2209789752960205,
+        "relative_l2": 0.019384814641384446
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 8,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.11725139617919922,
+        "relative_l2": 0.009165696387714004
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 3.1223621368408203,
+        "relative_l2": 0.18172437008880912
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": [
+        1,
+        3,
+        5,
+        8,
+        13
+      ]
+    },
+    {
+      "position": 9,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.07537126541137695,
+        "relative_l2": 0.0057857151960941005
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.11952662467956543,
+        "relative_l2": 0.009397914632006652
+      },
+      "suffix_cpu_argmax_mismatch_heads": [
+        8
+      ],
+      "full_npu_cpu_argmax_mismatch_heads": [
+        8
+      ]
+    },
+    {
+      "position": 10,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.03927731513977051,
+        "relative_l2": 0.0037098964822358
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.10457384586334229,
+        "relative_l2": 0.008167167147383789
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 11,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.07769775390625,
+        "relative_l2": 0.004150098563047939
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.5147876739501953,
+        "relative_l2": 0.023385235238712294
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 12,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.022918701171875,
+        "relative_l2": 0.0002906856480977245
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.01982879638671875,
+        "relative_l2": 0.0002092338904997304
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 13,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.04578900337219238,
+        "relative_l2": 0.004257884935687042
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.09753036499023438,
+        "relative_l2": 0.007889714839555093
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 14,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.05400657653808594,
+        "relative_l2": 0.004241160768835094
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.17601147294044495,
+        "relative_l2": 0.012355641656016122
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 15,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.061492919921875,
+        "relative_l2": 0.001883143121844122
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.688507080078125,
+        "relative_l2": 0.014128702212727502
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    },
+    {
+      "position": 16,
+      "suffix_vs_cpu_hidden": {
+        "max_abs": 0.02191925048828125,
+        "relative_l2": 0.00022309231613661644
+      },
+      "full_npu_vs_cpu_hidden": {
+        "max_abs": 0.02191925048828125,
+        "relative_l2": 0.00022693424320747492
+      },
+      "suffix_cpu_argmax_mismatch_heads": [],
+      "full_npu_cpu_argmax_mismatch_heads": []
+    }
+  ],
+  "limitations": [
+    "CPU prefix executes on host, NPU suffix on device; no combined latency or memory claim.",
+    "Same saved original NPU cache inputs; no independent split-path rollout.",
+    "Synthetic embeddings and all heads, not actual generation schedule or speech validation.",
+    "CPU reference uses FP16-weight LiteRT CPU; split export source parity checked separately."
+  ]
+}

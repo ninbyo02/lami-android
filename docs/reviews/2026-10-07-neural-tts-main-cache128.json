@@ -1,0 +1,431 @@
+{
+  "export": {
+    "status": "isolated_main_pilot_not_voice_validated",
+    "precision": "int8",
+    "capacity": 128,
+    "int8_weight_constants": 196,
+    "bytes": 442932352,
+    "per_op_partition": true,
+    "partition_scope": "linear_bmm_softmax_permute",
+    "sha256": "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c",
+    "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+    "limitations": [
+      "No Android bundle changes",
+      "No realtime or voice quality acceptance"
+    ]
+  },
+  "feedback": {
+    "main_capacity": 128,
+    "cp_capacity": 16,
+    "host_validation": "passed",
+    "frontend": "model FP32 table, original Qwen custom-voice layout",
+    "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+    "model_sha256": {
+      "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+      "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+      "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+    },
+    "cases": [
+      {
+        "text": "窓を閉めてから、赤い箱を机に置いてください。",
+        "prefill_tokens": 27,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 49,
+        "eos_reached": true,
+        "samples": 94080,
+        "duration_seconds": 3.92,
+        "host_elapsed_seconds": 11.847
+      },
+      {
+        "text": "午前九時半に、次の予定をお知らせします。",
+        "prefill_tokens": 26,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 50,
+        "eos_reached": true,
+        "samples": 96000,
+        "duration_seconds": 4.0,
+        "host_elapsed_seconds": 11.445
+      }
+    ],
+    "host_forward_timing": {
+      "main": {
+        "calls": 152,
+        "mean_ms": 33.462799815855476,
+        "p50_ms": 33.06038199661998,
+        "p95_ms": 35.41551605449058
+      },
+      "cp": {
+        "calls": 1584,
+        "mean_ms": 2.9439154563850467,
+        "p50_ms": 2.876651007682085,
+        "p95_ms": 3.216549349599518
+      }
+    },
+    "android_validation": "pending",
+    "listening_quality_validation": "pending",
+    "candidate_sha256": "43d29ccbd80d8f9c6e0e2cf57d84c5939a772d31262301088b73f7613e22e22c",
+    "main_candidate_sha256": "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c",
+    "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+    "max_frames": 96,
+    "limitations": [
+      "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+      "Host timing includes frontend and decoding, not device realtime evidence."
+    ]
+  },
+  "output_comparison": [
+    {
+      "file": "case-0-codes.npy",
+      "sha256": "eb43f45a6d9128ef909ae7aac6f821a6ce0e61479d5be23f6aed6c39b6c27f84",
+      "reference_sha256": "eb43f45a6d9128ef909ae7aac6f821a6ce0e61479d5be23f6aed6c39b6c27f84",
+      "identical": true
+    },
+    {
+      "file": "case-0.wav",
+      "sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97",
+      "reference_sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97",
+      "identical": true
+    },
+    {
+      "file": "case-1-codes.npy",
+      "sha256": "48baf924ea804bdb75fb8ec920db43d75374682ece4f6f8cbd9d0530f3d6df93",
+      "reference_sha256": "48baf924ea804bdb75fb8ec920db43d75374682ece4f6f8cbd9d0530f3d6df93",
+      "identical": true
+    },
+    {
+      "file": "case-1.wav",
+      "sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5",
+      "reference_sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5",
+      "identical": true
+    }
+  ],
+  "benchmark": {
+    "checks": [
+      {
+        "position": 0,
+        "hidden_and_cache_prefix_bit_exact": [
+          true,
+          true,
+          true
+        ],
+        "max_abs_diff": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "position": 32,
+        "hidden_and_cache_prefix_bit_exact": [
+          true,
+          true,
+          true
+        ],
+        "max_abs_diff": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "position": 127,
+        "hidden_and_cache_prefix_bit_exact": [
+          true,
+          true,
+          true
+        ],
+        "max_abs_diff": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ],
+    "trials": [
+      {
+        "position": 0,
+        "trial": 0,
+        "capacity": 256,
+        "mean_ms": 49.75476287472702
+      },
+      {
+        "position": 0,
+        "trial": 0,
+        "capacity": 128,
+        "mean_ms": 32.228804877377115
+      },
+      {
+        "position": 0,
+        "trial": 1,
+        "capacity": 128,
+        "mean_ms": 32.25795112484775
+      },
+      {
+        "position": 0,
+        "trial": 1,
+        "capacity": 256,
+        "mean_ms": 49.567385627597105
+      },
+      {
+        "position": 0,
+        "trial": 2,
+        "capacity": 256,
+        "mean_ms": 49.9753258718556
+      },
+      {
+        "position": 0,
+        "trial": 2,
+        "capacity": 128,
+        "mean_ms": 33.07744050107431
+      },
+      {
+        "position": 0,
+        "trial": 3,
+        "capacity": 128,
+        "mean_ms": 31.601598748238757
+      },
+      {
+        "position": 0,
+        "trial": 3,
+        "capacity": 256,
+        "mean_ms": 48.59770174698497
+      },
+      {
+        "position": 0,
+        "trial": 4,
+        "capacity": 256,
+        "mean_ms": 49.25298962552915
+      },
+      {
+        "position": 0,
+        "trial": 4,
+        "capacity": 128,
+        "mean_ms": 32.91483312568744
+      },
+      {
+        "position": 0,
+        "trial": 5,
+        "capacity": 128,
+        "mean_ms": 32.169812875508796
+      },
+      {
+        "position": 0,
+        "trial": 5,
+        "capacity": 256,
+        "mean_ms": 55.49575037548493
+      },
+      {
+        "position": 0,
+        "trial": 6,
+        "capacity": 256,
+        "mean_ms": 61.52944724999543
+      },
+      {
+        "position": 0,
+        "trial": 6,
+        "capacity": 128,
+        "mean_ms": 38.47564124953351
+      },
+      {
+        "position": 32,
+        "trial": 0,
+        "capacity": 256,
+        "mean_ms": 64.42982000407937
+      },
+      {
+        "position": 32,
+        "trial": 0,
+        "capacity": 128,
+        "mean_ms": 45.97414375166409
+      },
+      {
+        "position": 32,
+        "trial": 1,
+        "capacity": 128,
+        "mean_ms": 37.5222409984417
+      },
+      {
+        "position": 32,
+        "trial": 1,
+        "capacity": 256,
+        "mean_ms": 59.63165087450761
+      },
+      {
+        "position": 32,
+        "trial": 2,
+        "capacity": 256,
+        "mean_ms": 76.28605049831094
+      },
+      {
+        "position": 32,
+        "trial": 2,
+        "capacity": 128,
+        "mean_ms": 39.53739224925812
+      },
+      {
+        "position": 32,
+        "trial": 3,
+        "capacity": 128,
+        "mean_ms": 39.706672499960405
+      },
+      {
+        "position": 32,
+        "trial": 3,
+        "capacity": 256,
+        "mean_ms": 61.64858600277512
+      },
+      {
+        "position": 32,
+        "trial": 4,
+        "capacity": 256,
+        "mean_ms": 58.96792862404254
+      },
+      {
+        "position": 32,
+        "trial": 4,
+        "capacity": 128,
+        "mean_ms": 36.807328626309754
+      },
+      {
+        "position": 32,
+        "trial": 5,
+        "capacity": 128,
+        "mean_ms": 39.46795400042902
+      },
+      {
+        "position": 32,
+        "trial": 5,
+        "capacity": 256,
+        "mean_ms": 65.31255862682883
+      },
+      {
+        "position": 32,
+        "trial": 6,
+        "capacity": 256,
+        "mean_ms": 58.02142374886898
+      },
+      {
+        "position": 32,
+        "trial": 6,
+        "capacity": 128,
+        "mean_ms": 35.03704562535859
+      },
+      {
+        "position": 127,
+        "trial": 0,
+        "capacity": 256,
+        "mean_ms": 47.585381000317284
+      },
+      {
+        "position": 127,
+        "trial": 0,
+        "capacity": 128,
+        "mean_ms": 31.708756621810608
+      },
+      {
+        "position": 127,
+        "trial": 1,
+        "capacity": 128,
+        "mean_ms": 32.29466450284235
+      },
+      {
+        "position": 127,
+        "trial": 1,
+        "capacity": 256,
+        "mean_ms": 47.72570250679564
+      },
+      {
+        "position": 127,
+        "trial": 2,
+        "capacity": 256,
+        "mean_ms": 47.38716499741713
+      },
+      {
+        "position": 127,
+        "trial": 2,
+        "capacity": 128,
+        "mean_ms": 32.04128937795758
+      },
+      {
+        "position": 127,
+        "trial": 3,
+        "capacity": 128,
+        "mean_ms": 32.29944337545021
+      },
+      {
+        "position": 127,
+        "trial": 3,
+        "capacity": 256,
+        "mean_ms": 47.74715537678276
+      },
+      {
+        "position": 127,
+        "trial": 4,
+        "capacity": 256,
+        "mean_ms": 47.69013925215404
+      },
+      {
+        "position": 127,
+        "trial": 4,
+        "capacity": 128,
+        "mean_ms": 31.983466000383487
+      },
+      {
+        "position": 127,
+        "trial": 5,
+        "capacity": 128,
+        "mean_ms": 31.860144623351516
+      },
+      {
+        "position": 127,
+        "trial": 5,
+        "capacity": 256,
+        "mean_ms": 47.84756087428832
+      },
+      {
+        "position": 127,
+        "trial": 6,
+        "capacity": 256,
+        "mean_ms": 47.719720751047134
+      },
+      {
+        "position": 127,
+        "trial": 6,
+        "capacity": 128,
+        "mean_ms": 32.38889637759712
+      }
+    ],
+    "limitations": [
+      "Synthetic zero caches, not voice quality acceptance",
+      "Host CPU only; concurrent workloads uncontrolled",
+      "Reduced capacity cannot serve every long input"
+    ]
+  },
+  "benchmark_summary": [
+    {
+      "position": 0,
+      "cache256_ms": 52.024766196024885,
+      "cache128_ms": 33.246583214609664,
+      "speedup": 1.564815423594069
+    },
+    {
+      "position": 32,
+      "cache256_ms": 63.471145482773345,
+      "cache128_ms": 39.15039682163167,
+      "speedup": 1.6212133371711777
+    },
+    {
+      "position": 127,
+      "cache256_ms": 47.67183210840033,
+      "cache128_ms": 32.08238012562755,
+      "speedup": 1.4859194337118353
+    }
+  ],
+  "guards": {
+    "python_compile": "passed",
+    "diff_check": "passed",
+    "reduced_main_requires_candidate": "passed",
+    "invalid_capacity_rejected": "passed",
+    "cli_guard": "passed"
+  },
+  "android_validation": "pending"
+}

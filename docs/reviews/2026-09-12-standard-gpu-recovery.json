@@ -1,0 +1,136 @@
+{
+  "gpu": {
+    "sequence_completed": true,
+    "steps": [
+      {
+        "label": "greeting",
+        "status": "COMPLETED",
+        "response_chars": 11,
+        "generation_ms": 18377,
+        "lami_ttft_ms": 696,
+        "finish_reason": "stop"
+      },
+      {
+        "label": "long",
+        "status": "COMPLETED",
+        "response_chars": 334,
+        "generation_ms": 39369,
+        "lami_ttft_ms": 1048,
+        "finish_reason": "stop"
+      },
+      {
+        "label": "short",
+        "status": "COMPLETED",
+        "response_chars": 1,
+        "generation_ms": 3830,
+        "lami_ttft_ms": 1329,
+        "finish_reason": "stop"
+      },
+      {
+        "label": "cancel",
+        "status": "CANCELLED",
+        "response_chars": 0,
+        "generation_ms": null,
+        "lami_ttft_ms": null,
+        "finish_reason": null
+      },
+      {
+        "label": "resend",
+        "status": "COMPLETED",
+        "response_chars": 6,
+        "generation_ms": 10128,
+        "lami_ttft_ms": 6639,
+        "finish_reason": "stop"
+      }
+    ],
+    "playback_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "generation_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "audio_started_2s_after_playback_stop": [],
+    "audio_started_8s_after_playback_stop": [],
+    "audio_started_2s_after_generation_stop": [],
+    "audio_started_8s_after_generation_stop": [],
+    "preferences_restored": true
+  },
+  "npu": {
+    "sequence_completed": true,
+    "steps": [
+      {
+        "label": "greeting",
+        "status": "COMPLETED",
+        "response_chars": 11,
+        "generation_ms": 567,
+        "lami_ttft_ms": null,
+        "finish_reason": "success"
+      },
+      {
+        "label": "long",
+        "status": "COMPLETED",
+        "response_chars": 751,
+        "generation_ms": 11405,
+        "lami_ttft_ms": null,
+        "finish_reason": "success"
+      },
+      {
+        "label": "short",
+        "status": "COMPLETED",
+        "response_chars": 1,
+        "generation_ms": 89,
+        "lami_ttft_ms": null,
+        "finish_reason": "success"
+      },
+      {
+        "label": "cancel",
+        "status": "CANCELLED",
+        "response_chars": 91,
+        "generation_ms": null,
+        "lami_ttft_ms": null,
+        "finish_reason": null
+      },
+      {
+        "label": "resend",
+        "status": "COMPLETED",
+        "response_chars": 9,
+        "generation_ms": 141,
+        "lami_ttft_ms": null,
+        "finish_reason": "success"
+      }
+    ],
+    "playback_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "generation_stop": {
+      "stop_seen": true,
+      "late_speech_events": [],
+      "observation_seconds": 8
+    },
+    "audio_started_2s_after_playback_stop": [],
+    "audio_started_8s_after_playback_stop": [],
+    "audio_started_2s_after_generation_stop": [],
+    "audio_started_8s_after_generation_stop": [],
+    "preferences_restored": true
+  },
+  "device": "NX733J / SM8750 / arm64",
+  "full_sequence_source": "64d500ba",
+  "full_sequence_apk_sha256": "a7de2c8c9a8d4dce1e053dcf760313b80c0182becbc4f29304707a833c191400",
+  "scope": "StandardDebug normal package; backend suites separated by app process restart; not live backend switching or Release qualification.",
+  "final_source": "bd3f5ed6",
+  "final_apk_sha256": "1d4992b50ba686b451aa2bcd4d780883e16b34bf54044fd6eca22a25705662f7",
+  "final_installed_apk_sha256_matches": true,
+  "final_gpu_smoke": {
+    "passed": true,
+    "generation_ms": 10662,
+    "response_chars": 11,
+    "preferences_restored": true,
+    "returned_to_chatgpt": true
+  }
+}

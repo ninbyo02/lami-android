@@ -1,0 +1,81 @@
+{
+  "main_capacity": 128,
+  "cp_capacity": 16,
+  "host_validation": "passed",
+  "frontend": "model FP32 table, original Qwen custom-voice layout",
+  "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+  "model_sha256": {
+    "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+    "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+    "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+  },
+  "cases": [
+    {
+      "text": "窓を閉めてから、赤い箱を机に置いてください。",
+      "prefill_tokens": 27,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 49,
+      "eos_reached": true,
+      "samples": 94080,
+      "duration_seconds": 3.92,
+      "host_elapsed_seconds": 12.666
+    },
+    {
+      "text": "午前九時半に、次の予定をお知らせします。",
+      "prefill_tokens": 26,
+      "preparation_max_abs_error": 2.384185791015625e-07,
+      "codec_frames": 50,
+      "eos_reached": true,
+      "samples": 96000,
+      "duration_seconds": 4.0,
+      "host_elapsed_seconds": 11.663
+    }
+  ],
+  "host_forward_timing": {
+    "main": {
+      "calls": 152,
+      "mean_ms": 30.27073114452306,
+      "p50_ms": 30.01658700304688,
+      "p95_ms": 33.31707845245546
+    },
+    "cp": {
+      "calls": 1584,
+      "mean_ms": 2.8693444868705145,
+      "p50_ms": 2.814596999087371,
+      "p95_ms": 3.3124895006039874
+    }
+  },
+  "android_validation": "pending",
+  "listening_quality_validation": "pending",
+  "candidate_sha256": "0f801eac3fbdd26db5e972d95b79e57362e75582ff09efe24a249da62ee046cf",
+  "main_candidate_sha256": "83ef62e9ac80c6db43d532b43c7e85d0586e5860e6718c552054f321d8da5dca",
+  "cp_delta_outputs": true,
+  "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+  "max_frames": 96,
+  "limitations": [
+    "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+    "Host timing includes frontend and decoding, not device realtime evidence."
+  ],
+  "baseline_comparison": [
+    {
+      "file": "case-0-codes.npy",
+      "sha256": "eb43f45a6d9128ef909ae7aac6f821a6ce0e61479d5be23f6aed6c39b6c27f84",
+      "byte_exact": true
+    },
+    {
+      "file": "case-0.wav",
+      "sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97",
+      "byte_exact": true
+    },
+    {
+      "file": "case-1-codes.npy",
+      "sha256": "48baf924ea804bdb75fb8ec920db43d75374682ece4f6f8cbd9d0530f3d6df93",
+      "byte_exact": true
+    },
+    {
+      "file": "case-1.wav",
+      "sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5",
+      "byte_exact": true
+    }
+  ]
+}

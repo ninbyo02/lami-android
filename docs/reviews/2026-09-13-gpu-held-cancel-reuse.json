@@ -1,0 +1,191 @@
+{
+  "device": "NX733J / SM8750 / arm64",
+  "tested_source": "e9f1640a",
+  "apk_sha256": "a6ad555279c20909f749283c29cb7e42a4b1500ae3039d89c2f6b34a31aa728e",
+  "baseline_report": "2026-09-12-standard-gpu-recovery.json",
+  "tests": {
+    "debug": 1793,
+    "release": 1256,
+    "failures": 0
+  },
+  "runs": {
+    "gpu_first": {
+      "steps": [
+        {
+          "label": "greeting",
+          "status": "COMPLETED",
+          "characters": 11,
+          "generation_ms": 9301,
+          "lami_ttft_ms": 1299
+        },
+        {
+          "label": "long",
+          "status": "COMPLETED",
+          "characters": 835,
+          "generation_ms": 21536,
+          "lami_ttft_ms": 1055
+        },
+        {
+          "label": "short",
+          "status": "COMPLETED",
+          "characters": 1,
+          "generation_ms": 4064,
+          "lami_ttft_ms": 1504
+        },
+        {
+          "label": "cancel",
+          "status": "CANCELLED",
+          "characters": 0,
+          "generation_ms": null,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "resend",
+          "status": "COMPLETED",
+          "characters": 6,
+          "generation_ms": 3741,
+          "lami_ttft_ms": 1316
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "preferences_restored": true,
+      "audio_observations": {
+        "playback_stop-audio-2s": [],
+        "playback_stop-audio-8s": [],
+        "generation_stop-audio-2s": [],
+        "generation_stop-audio-8s": []
+      },
+      "resend_held_engine_reused": true,
+      "resend_no_fallback": true,
+      "native_cancel_seen": true,
+      "harness_original_error": "AssertionError('resend left held route')",
+      "harness_error_explanation": "Rotated resend trace lost request-start markers. Verified using response-specific saved statistics and separately captured cancellation trace; second run used corrected assertions."
+    },
+    "gpu_repeat": {
+      "steps": [
+        {
+          "label": "greeting",
+          "status": "COMPLETED",
+          "characters": 11,
+          "generation_ms": 8328,
+          "lami_ttft_ms": 1154
+        },
+        {
+          "label": "long",
+          "status": "COMPLETED",
+          "characters": 835,
+          "generation_ms": 21488,
+          "lami_ttft_ms": 1014
+        },
+        {
+          "label": "short",
+          "status": "COMPLETED",
+          "characters": 1,
+          "generation_ms": 3455,
+          "lami_ttft_ms": 1409
+        },
+        {
+          "label": "cancel",
+          "status": "CANCELLED",
+          "characters": 67,
+          "generation_ms": null,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "resend",
+          "status": "COMPLETED",
+          "characters": 6,
+          "generation_ms": 3510,
+          "lami_ttft_ms": 1392
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "preferences_restored": true,
+      "audio_observations": {
+        "playback_stop-audio-2s": [],
+        "playback_stop-audio-8s": [],
+        "generation_stop-audio-2s": [],
+        "generation_stop-audio-8s": []
+      },
+      "resend_held_engine_reused": true,
+      "resend_no_fallback": true,
+      "native_cancel_seen": true
+    },
+    "npu": {
+      "steps": [
+        {
+          "label": "greeting",
+          "status": "COMPLETED",
+          "characters": 11,
+          "generation_ms": 586,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "long",
+          "status": "COMPLETED",
+          "characters": 751,
+          "generation_ms": 11369,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "short",
+          "status": "COMPLETED",
+          "characters": 1,
+          "generation_ms": 89,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "cancel",
+          "status": "CANCELLED",
+          "characters": 91,
+          "generation_ms": null,
+          "lami_ttft_ms": null
+        },
+        {
+          "label": "resend",
+          "status": "COMPLETED",
+          "characters": 9,
+          "generation_ms": 143,
+          "lami_ttft_ms": null
+        }
+      ],
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "preferences_restored": true,
+      "audio_observations": {
+        "playback_stop-audio-2s": [],
+        "playback_stop-audio-8s": [],
+        "generation_stop-audio-2s": [],
+        "generation_stop-audio-8s": []
+      }
+    }
+  },
+  "installed_apk_verified": true,
+  "returned_to_chatgpt": true
+}

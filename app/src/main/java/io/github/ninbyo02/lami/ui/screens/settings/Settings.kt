@@ -108,6 +108,7 @@ import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
 import io.github.ninbyo02.lami.viewmodels.RemoteProvider
+import io.github.ninbyo02.lami.viewmodels.remoteProviderCandidates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
@@ -126,7 +127,9 @@ internal data class ConnectionValidationResult(
     val isSuccess: Boolean,
     val isReachable: Boolean,
     val warningMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val detectedProvider: RemoteProvider? = null,
+    val attemptedProviders: List<RemoteProvider> = emptyList(),
 )
 
 private fun normalizeUrlForSave(url: String): String {
@@ -208,6 +211,11 @@ fun Settings(
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+    val providerBaseUrl = serverInputs.firstOrNull { it.isActive }?.url
+        ?.let { normalizeUrlForSave(normalizeUrlInput(it)) }.orEmpty()
+    val selectedRemoteProvider by remember(providerBaseUrl, settingsPreferences) {
+        settingsPreferences.remoteProviderForBaseUrlFlow(providerBaseUrl)
+    }.collectAsState(initial = settingsData.remoteProvider)
     val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
@@ -1172,15 +1180,15 @@ fun Settings(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider, providerBaseUrl) }
                                     }
                                     .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RadioButton(
-                                    selected = settingsData.remoteProvider == provider,
+                                    selected = selectedRemoteProvider == provider,
                                     onClick = {
-                                        scope.launch { settingsPreferences.saveRemoteProvider(provider) }
+                                        scope.launch { settingsPreferences.saveRemoteProvider(provider, providerBaseUrl) }
                                     },
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1197,7 +1205,7 @@ fun Settings(
                                 }
                             }
                         }
-                        if (settingsData.remoteProvider == RemoteProvider.LEMONADE) {
+                        if (selectedRemoteProvider == RemoteProvider.LEMONADE) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Lemonade自動アンロード",
@@ -1308,7 +1316,7 @@ fun Settings(
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
                                                 validateActiveConnections(inputsForValidation) { url ->
-                                                    isValidURL(url, settingsData.remoteProvider)
+                                                    isValidURL(url, selectedRemoteProvider)
                                                 }
                                             }
                                         } finally {
@@ -1317,6 +1325,10 @@ fun Settings(
                                         connectionStatuses = validationResults
                                         val unreachableConnections = validationResults.filterValues { !it.isReachable }
                                         val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
+                                        val activeInput = inputsForValidation.firstOrNull { it.isActive }
+                                        val detectedProvider = activeInput
+                                            ?.let { validationResults[it.localId]?.detectedProvider }
+                                        val recoveredProvider = detectedProvider?.takeIf { it != selectedRemoteProvider }
                                         if (unreachableConnections.isNotEmpty()) {
                                             snackbarHostState.showSnackbar(
                                                 message = "選択中のサーバーに接続できません。入力内容を確認してください",
@@ -1333,6 +1345,9 @@ fun Settings(
                                         }
                                         connectionStatuses = validationResults.mapValues { entry ->
                                             entry.value.copy(errorMessage = null)
+                                        }
+                                        if (activeInput != null && detectedProvider != null) {
+                                            settingsPreferences.saveRemoteProvider(detectedProvider, activeInput.url)
                                         }
                                         duplicateUrls = emptyMap()
                                         val inputsToSave = inputsForValidation.mapIndexed { _, input ->
@@ -1381,7 +1396,12 @@ fun Settings(
                                                     isActive = normalized == normalizedActiveBaseUrl
                                                 )
                                             }
-                                            showSuccessSnackbarShort("サーバー設定を保存しました")
+                                            val savedMessage = if (recoveredProvider != null) {
+                                                "サーバー設定を保存しました（${recoveredProvider.displayName}として自動認識）"
+                                            } else {
+                                                "サーバー設定を保存しました"
+                                            }
+                                            showSuccessSnackbarShort(savedMessage)
                                         }
                                     }
                                 }
@@ -1698,6 +1718,41 @@ private fun CardSectionHeader(
 internal suspend fun isValidURL(
     urlString: String,
     provider: RemoteProvider = RemoteProvider.OLLAMA,
+): ConnectionValidationResult {
+    val attempts = mutableListOf<Pair<RemoteProvider, ConnectionValidationResult>>()
+    remoteProviderCandidates(provider).forEach { candidate ->
+        val result = validateURLForProvider(urlString, candidate)
+        attempts += candidate to result
+        if (result.isSuccess) {
+            return result.copy(
+                detectedProvider = candidate,
+                attemptedProviders = attempts.map { it.first },
+            )
+        }
+    }
+
+    val attemptedProviders = attempts.map { it.first }
+    val reachableFailure = attempts.firstOrNull { it.second.isReachable }
+    if (reachableFailure != null) {
+        return reachableFailure.second.copy(
+            detectedProvider = reachableFailure.first,
+            attemptedProviders = attemptedProviders,
+        )
+    }
+
+    val firstFailure = attempts.first().second
+    val summary = attempts.joinToString { (candidate, result) ->
+        "${candidate.displayName}: ${result.errorMessage ?: "応答なし"}"
+    }
+    return firstFailure.copy(
+        errorMessage = "対応APIを確認しましたが接続できません ($summary)",
+        attemptedProviders = attemptedProviders,
+    )
+}
+
+private suspend fun validateURLForProvider(
+    urlString: String,
+    provider: RemoteProvider,
 ): ConnectionValidationResult {
     val formatResult = validateUrlFormat(urlString)
     if (!formatResult.isValid) {

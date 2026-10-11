@@ -1,0 +1,537 @@
+{
+  "date": "2026-09-13",
+  "merged_commit": "acf61a81c30b94e5330cb363a42bd3c1a376dca7",
+  "decision": "Proceed to a separate guarded adoption PR for the validated GPU post-response recount; do not enable by default in this evidence change.",
+  "diagnostic_apk_sha256": "153e89982b8f1544befb7ef50f50c2e8fcfa0b6726383e3b8779cffac7964c6a",
+  "packaging": {
+    "existing_count": 43,
+    "byte_identical": true,
+    "added": [
+      "lib/arm64-v8a/liblami_tokenizer_only.so"
+    ]
+  },
+  "comparisons": [
+    {
+      "sequence": "overlap",
+      "comparisons": [
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 11,
+          "expected_output": 1,
+          "candidate_input": 11,
+          "candidate_output": 1,
+          "load_ns": 138270208,
+          "count_ns": 48802,
+          "elapsed_ns": 221329948
+        },
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 11,
+          "expected_output": 1,
+          "candidate_input": 11,
+          "candidate_output": 1,
+          "load_ns": 115363438,
+          "count_ns": 47187,
+          "elapsed_ns": 197328124
+        }
+      ]
+    },
+    {
+      "sequence": "gpu-logged",
+      "comparisons": [
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 11,
+          "expected_output": 5,
+          "candidate_input": 11,
+          "candidate_output": 5,
+          "load_ns": 80126823,
+          "count_ns": 48021,
+          "elapsed_ns": 147298125
+        },
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 16,
+          "expected_output": 455,
+          "candidate_input": 16,
+          "candidate_output": 455,
+          "load_ns": 144143698,
+          "count_ns": 1004844,
+          "elapsed_ns": 222594844
+        },
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 11,
+          "expected_output": 1,
+          "candidate_input": 11,
+          "candidate_output": 1,
+          "load_ns": 146438750,
+          "count_ns": 58073,
+          "elapsed_ns": 239046406
+        },
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 10,
+          "expected_output": 2,
+          "candidate_input": 10,
+          "candidate_output": 2,
+          "load_ns": 137999271,
+          "count_ns": 58386,
+          "elapsed_ns": 231267344
+        },
+        {
+          "status": "match",
+          "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+          "expected_input": 11,
+          "expected_output": 1,
+          "candidate_input": 11,
+          "candidate_output": 1,
+          "load_ns": 151023594,
+          "count_ns": 53698,
+          "elapsed_ns": 251941407
+        }
+      ]
+    }
+  ],
+  "gpu_logged_turns": [
+    {
+      "label": "greeting",
+      "status": "COMPLETED",
+      "completion_ms": 6971,
+      "input_tokens": 11,
+      "output_tokens": 5,
+      "mode": "mediapipe_tokenizer_recount",
+      "baseline_recount_ms": 1422
+    },
+    {
+      "label": "long",
+      "status": "COMPLETED",
+      "completion_ms": 22653,
+      "input_tokens": 16,
+      "output_tokens": 455,
+      "mode": "mediapipe_tokenizer_recount",
+      "baseline_recount_ms": 1785
+    },
+    {
+      "label": "short",
+      "status": "COMPLETED",
+      "completion_ms": 1943,
+      "input_tokens": 11,
+      "output_tokens": 1,
+      "mode": "mediapipe_tokenizer_recount",
+      "baseline_recount_ms": 1807
+    },
+    {
+      "label": "cancel",
+      "status": "CANCELLED",
+      "completion_ms": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "mode": null,
+      "baseline_recount_ms": null
+    },
+    {
+      "label": "resend",
+      "status": "COMPLETED",
+      "completion_ms": 2027,
+      "input_tokens": 10,
+      "output_tokens": 2,
+      "mode": "mediapipe_tokenizer_recount",
+      "baseline_recount_ms": 1596
+    },
+    {
+      "label": "cached-short",
+      "status": "COMPLETED",
+      "completion_ms": 2062,
+      "input_tokens": 11,
+      "output_tokens": 1,
+      "mode": "mediapipe_tokenizer_recount",
+      "baseline_recount_ms": 1
+    }
+  ],
+  "android_isolated_probe": [
+    {
+      "model_index": 0,
+      "model_bytes": 2583085056,
+      "tokenizer_bytes": 4689013,
+      "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+      "read_ns": 16597031,
+      "cases": [
+        {
+          "index": 0,
+          "input": 0,
+          "output": 0,
+          "load_ns": 162476667,
+          "count_ns": 7188,
+          "elapsed_ns": 238630990,
+          "native_before": 851440,
+          "native_peak_sampled": 61074864,
+          "native_after": 872416
+        },
+        {
+          "index": 1,
+          "input": 1,
+          "output": 1,
+          "load_ns": 126419167,
+          "count_ns": 25938,
+          "elapsed_ns": 197633385,
+          "native_before": 872416,
+          "native_peak_sampled": 61075088,
+          "native_after": 872464
+        },
+        {
+          "index": 2,
+          "input": 1,
+          "output": 1,
+          "load_ns": 117704375,
+          "count_ns": 12187,
+          "elapsed_ns": 191618490,
+          "native_before": 872464,
+          "native_peak_sampled": 61075136,
+          "native_after": 872512
+        },
+        {
+          "index": 3,
+          "input": 5,
+          "output": 5,
+          "load_ns": 134286354,
+          "count_ns": 51563,
+          "elapsed_ns": 210646823,
+          "native_before": 872512,
+          "native_peak_sampled": 61075312,
+          "native_after": 872560
+        },
+        {
+          "index": 4,
+          "input": 8,
+          "output": 8,
+          "load_ns": 124310938,
+          "count_ns": 78281,
+          "elapsed_ns": 202043959,
+          "native_before": 872560,
+          "native_peak_sampled": 61107584,
+          "native_after": 872608
+        },
+        {
+          "index": 5,
+          "input": 14,
+          "output": 14,
+          "load_ns": 126397760,
+          "count_ns": 73907,
+          "elapsed_ns": 204174219,
+          "native_before": 872608,
+          "native_peak_sampled": 61075440,
+          "native_after": 872656
+        },
+        {
+          "index": 6,
+          "input": 3,
+          "output": 3,
+          "load_ns": 124939844,
+          "count_ns": 26615,
+          "elapsed_ns": 205365469,
+          "native_before": 872656,
+          "native_peak_sampled": 61075328,
+          "native_after": 872704
+        },
+        {
+          "index": 7,
+          "input": 4,
+          "output": 4,
+          "load_ns": 123974323,
+          "count_ns": 26250,
+          "elapsed_ns": 200748177,
+          "native_before": 872704,
+          "native_peak_sampled": 61075376,
+          "native_after": 872752
+        },
+        {
+          "index": 8,
+          "input": 19,
+          "output": 19,
+          "load_ns": 131399687,
+          "count_ns": 122344,
+          "elapsed_ns": 213614270,
+          "native_before": 872752,
+          "native_peak_sampled": 61075584,
+          "native_after": 872800
+        },
+        {
+          "index": 9,
+          "input": 13,
+          "output": 13,
+          "load_ns": 132450313,
+          "count_ns": 62083,
+          "elapsed_ns": 213379166,
+          "native_before": 872800,
+          "native_peak_sampled": 61075568,
+          "native_after": 872848
+        },
+        {
+          "index": 10,
+          "input": 28672,
+          "output": 28672,
+          "load_ns": 126309063,
+          "count_ns": 52487135,
+          "elapsed_ns": 259967396,
+          "native_before": 872848,
+          "native_peak_sampled": 70275584,
+          "native_after": 872896
+        }
+      ],
+      "recovery_cycles": 3,
+      "initial_native": 843120,
+      "final_native": 940960
+    },
+    {
+      "model_index": 1,
+      "model_bytes": 3016294400,
+      "tokenizer_bytes": 4689013,
+      "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+      "read_ns": 17186979,
+      "cases": [
+        {
+          "index": 0,
+          "input": 0,
+          "output": 0,
+          "load_ns": 165448802,
+          "count_ns": 4791,
+          "elapsed_ns": 245459374,
+          "native_before": 948496,
+          "native_peak_sampled": 61246432,
+          "native_after": 941936
+        },
+        {
+          "index": 1,
+          "input": 1,
+          "output": 1,
+          "load_ns": 129695156,
+          "count_ns": 26719,
+          "elapsed_ns": 211903230,
+          "native_before": 941936,
+          "native_peak_sampled": 61176864,
+          "native_after": 941984
+        },
+        {
+          "index": 2,
+          "input": 1,
+          "output": 1,
+          "load_ns": 136576198,
+          "count_ns": 47187,
+          "elapsed_ns": 239840520,
+          "native_before": 941984,
+          "native_peak_sampled": 61176912,
+          "native_after": 942032
+        },
+        {
+          "index": 3,
+          "input": 5,
+          "output": 5,
+          "load_ns": 142069687,
+          "count_ns": 57917,
+          "elapsed_ns": 238977865,
+          "native_before": 942032,
+          "native_peak_sampled": 61144832,
+          "native_after": 942080
+        },
+        {
+          "index": 4,
+          "input": 8,
+          "output": 8,
+          "load_ns": 106533906,
+          "count_ns": 41250,
+          "elapsed_ns": 187360260,
+          "native_before": 942080,
+          "native_peak_sampled": 61144848,
+          "native_after": 942128
+        },
+        {
+          "index": 5,
+          "input": 14,
+          "output": 14,
+          "load_ns": 100789219,
+          "count_ns": 103646,
+          "elapsed_ns": 183237344,
+          "native_before": 942128,
+          "native_peak_sampled": 61177216,
+          "native_after": 942176
+        },
+        {
+          "index": 6,
+          "input": 3,
+          "output": 3,
+          "load_ns": 98078907,
+          "count_ns": 22812,
+          "elapsed_ns": 181315886,
+          "native_before": 942176,
+          "native_peak_sampled": 61177104,
+          "native_after": 942224
+        },
+        {
+          "index": 7,
+          "input": 4,
+          "output": 4,
+          "load_ns": 101081458,
+          "count_ns": 23229,
+          "elapsed_ns": 176418490,
+          "native_before": 942224,
+          "native_peak_sampled": 61144896,
+          "native_after": 942272
+        },
+        {
+          "index": 8,
+          "input": 19,
+          "output": 19,
+          "load_ns": 98566823,
+          "count_ns": 82292,
+          "elapsed_ns": 181315364,
+          "native_before": 942272,
+          "native_peak_sampled": 60992320,
+          "native_after": 942320
+        },
+        {
+          "index": 9,
+          "input": 13,
+          "output": 13,
+          "load_ns": 103112969,
+          "count_ns": 72187,
+          "elapsed_ns": 186209271,
+          "native_before": 942320,
+          "native_peak_sampled": 61177344,
+          "native_after": 942368
+        },
+        {
+          "index": 10,
+          "input": 28672,
+          "output": 28672,
+          "load_ns": 148811563,
+          "count_ns": 51128437,
+          "elapsed_ns": 289107604,
+          "native_before": 942432,
+          "native_peak_sampled": 70222752,
+          "native_after": 942480
+        }
+      ],
+      "recovery_cycles": 3,
+      "initial_native": 843120,
+      "final_native": 942480
+    }
+  ],
+  "probe_memory_scope": "1 ms samples of Android Debug.getNativeHeapAllocatedSize in a separate app_process under the app UID, using the installed APK classes and JNI. Not total process PSS/RSS or an exact instantaneous peak.",
+  "functional": {
+    "gpu": {
+      "sequence_completed": true,
+      "error": null,
+      "restored_ime": true,
+      "restored_timeout": true,
+      "main_preferences_unchanged": true,
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "playback_stop-audio-2s": [],
+      "playback_stop-audio-8s": [],
+      "generation_stop-audio-2s": [],
+      "generation_stop-audio-8s": [],
+      "confirmed_overlap": null,
+      "first_count_finished_elapsed_ms": null,
+      "second_send_after_elapsed_ms": null
+    },
+    "npu": {
+      "sequence_completed": true,
+      "error": null,
+      "restored_ime": true,
+      "restored_timeout": true,
+      "main_preferences_unchanged": true,
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "playback_stop-audio-2s": [],
+      "playback_stop-audio-8s": [],
+      "generation_stop-audio-2s": [],
+      "generation_stop-audio-8s": [],
+      "confirmed_overlap": null,
+      "first_count_finished_elapsed_ms": null,
+      "second_send_after_elapsed_ms": null
+    },
+    "overlap": {
+      "sequence_completed": true,
+      "error": null,
+      "restored_ime": true,
+      "restored_timeout": true,
+      "main_preferences_unchanged": true,
+      "playback_stop": null,
+      "generation_stop": null,
+      "playback_stop-audio-2s": null,
+      "playback_stop-audio-8s": null,
+      "generation_stop-audio-2s": null,
+      "generation_stop-audio-8s": null,
+      "confirmed_overlap": true,
+      "first_count_finished_elapsed_ms": 2417248838,
+      "second_send_after_elapsed_ms": 2417247750
+    },
+    "gpu-logged": {
+      "sequence_completed": true,
+      "error": null,
+      "restored_ime": true,
+      "restored_timeout": true,
+      "main_preferences_unchanged": true,
+      "playback_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "generation_stop": {
+        "stop_seen": true,
+        "late_speech_events": [],
+        "observation_seconds": 8
+      },
+      "playback_stop-audio-2s": [],
+      "playback_stop-audio-8s": [],
+      "generation_stop-audio-2s": [],
+      "generation_stop-audio-8s": [],
+      "confirmed_overlap": null,
+      "first_count_finished_elapsed_ms": null,
+      "second_send_after_elapsed_ms": null
+    }
+  },
+  "restoration": {
+    "before_rows": 142,
+    "after_rows": 180,
+    "existing_rows_unchanged": true,
+    "preferences_unchanged": true,
+    "integrity_check": "ok",
+    "normal_apk_sha256": "c4a09f8f4b07cb218b18bd0d92cf4a9a6ff57fa81c72e6b64bf6b74332800295",
+    "normal_installed_verified": true,
+    "tokenizer_packaged": false,
+    "log_properties_restored": true,
+    "probe_files_removed": true,
+    "focus": "mCurrentFocus=Window{39baf0c u0 com.openai.chatgpt/com.openai.chatgpt.MainActivity}"
+  },
+  "limitations": [
+    "Native NPU success keeps estimated_code_points and does not invoke this post-response MediaPipe comparison. NPU model corpus parity is separate evidence.",
+    "CPU inference and production fallback-provider switching were not device-tested.",
+    "Current diagnostic performs both counters; end-user latency and end-to-end memory improvement are not demonstrated.",
+    "No claim that plain prompt text count equals the full model-prefill context count.",
+    "The first GPU sequence had tag logging suppressed; retained as functional evidence only. The logged GPU repeat supplies count comparison evidence."
+  ]
+}

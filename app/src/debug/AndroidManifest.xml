@@ -50,6 +50,25 @@
                 android:resource="@xml/jabra_assist_key_service" />
         </service>
         <service
+            android:name="io.github.ninbyo02.lami.integration.CpuBackgroundIntegrationService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:process=":cpu_integration"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_cpu_background_integration_test" />
+        </service>
+        <service
+            android:name="io.github.ninbyo02.lami.integration.GenerationIntegrationTestService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_background_generation_integration_test" />
+        </service>
+        <service
             android:name="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkService"
             android:exported="true"
             android:foregroundServiceType="specialUse"
@@ -111,6 +130,14 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver
+            android:name="io.github.ninbyo02.lami.remote.RemoteStreamingProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.REMOTE_STREAMING_PROBE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name="io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
             android:exported="true">
             <intent-filter>
@@ -130,5 +157,20 @@
             android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeService"
             android:exported="true"
             android:process=":qairt_npu_probe" />
+        <activity
+            android:name="io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnosticActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Ollama" />
+        <service
+            android:name="io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnosticService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="debug_bounded_on_device_voice_generation" />
+        </service>
+        <service
+            android:name="io.github.ninbyo02.lami.tts.LamiVoiceDecoderService"
+            android:exported="false"
+            android:process=":voice_decoder" />
     </application>
 </manifest>

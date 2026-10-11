@@ -1,0 +1,14 @@
+{
+  "status": "isolated_cp_pilot_not_audio_validated",
+  "precision": "int8",
+  "capacity": 32,
+  "int8_weight_constants": 35,
+  "bytes": 79064960,
+  "sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+  "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+  "limitations": [
+    "No Android bundle changes.",
+    "No realtime or voice quality claim.",
+    "INT8 uses dynamic signed activations and per-channel signed weights."
+  ]
+}

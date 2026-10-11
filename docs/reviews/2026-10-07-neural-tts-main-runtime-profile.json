@@ -1,0 +1,258 @@
+{
+  "runtime_source_commit": "3dd7ccd1d863fad22639dd2d918ae34a41ce45f0",
+  "runtime_version": "1.4.0",
+  "runner_sha256": "ae6b00d6066472c4ac412d66bbb3afe0a25a934f6a77ac45e76ebb23fc864bf8",
+  "threads": 2,
+  "executions": 6,
+  "inputs": [
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-0.bin",
+      "shape": [
+        1,
+        1,
+        1024
+      ],
+      "dtype": "torch.float32",
+      "bytes": 4096,
+      "sha256": "928c07e9646030be2cbc543f503e40ba2176faf90c6beb9f3c37312002925462"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-1.bin",
+      "shape": [
+        28,
+        1,
+        8,
+        256,
+        128
+      ],
+      "dtype": "torch.float32",
+      "bytes": 29360128,
+      "sha256": "f8280c81b347b01405277bf9e8bf0685ae8be863ff104797c65b7169f8203fd2"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-2.bin",
+      "shape": [
+        28,
+        1,
+        8,
+        256,
+        128
+      ],
+      "dtype": "torch.float32",
+      "bytes": 29360128,
+      "sha256": "f8280c81b347b01405277bf9e8bf0685ae8be863ff104797c65b7169f8203fd2"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-3.bin",
+      "shape": [
+        3,
+        1,
+        1,
+        128
+      ],
+      "dtype": "torch.float32",
+      "bytes": 1536,
+      "sha256": "5e3f7b1125d1c578c582f3da96a91713a89b6d5dcf508c15d19139dee463f1b0"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-4.bin",
+      "shape": [
+        3,
+        1,
+        1,
+        128
+      ],
+      "dtype": "torch.float32",
+      "bytes": 1536,
+      "sha256": "4e4d5676dfaa19e90ceeabbb8c077bca1fdc02bdc7c8c2036b6c46a9ca88f507"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-5.bin",
+      "shape": [
+        1,
+        1,
+        1,
+        256
+      ],
+      "dtype": "torch.float32",
+      "bytes": 1024,
+      "sha256": "7652c94c389d615d089b14dac63ed95b5e4bf62204eb2142cfb06a3439e783b5"
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/qat/main-int8-pilot-20261007/runtime-profile/input-6.bin",
+      "shape": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "bytes": 8,
+      "sha256": "9d4ac218fb54041e3a70a8e14db1ea1af9f570f4842b4702ef9323f1ad8f0ec4"
+    }
+  ],
+  "models": {
+    "fp32": {
+      "method_execute_ms": 75.92598416666667,
+      "native_cpu_ms": 18.26086799999996,
+      "delegate_call_ms": 57.16283483333332,
+      "native_operator_groups": [
+        {
+          "name": "native_call_expand_copy.out",
+          "mean_sum_ms": 10.33667416666666,
+          "instructions": 168
+        },
+        {
+          "name": "native_call_index_put.out",
+          "mean_sum_ms": 3.2863419999999977,
+          "instructions": 56
+        },
+        {
+          "name": "native_call_select_copy.int_out",
+          "mean_sum_ms": 3.2186031666666586,
+          "instructions": 224
+        },
+        {
+          "name": "native_call_unsqueeze_copy.out",
+          "mean_sum_ms": 1.232266666666664,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_mean.out",
+          "mean_sum_ms": 0.0730168333333286,
+          "instructions": 113
+        },
+        {
+          "name": "native_call_slice_copy.Tensor_out",
+          "mean_sum_ms": 0.037653499999993366,
+          "instructions": 224
+        },
+        {
+          "name": "native_call_slice_scatter.out",
+          "mean_sum_ms": 0.0264916666666641,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_copy.out",
+          "mean_sum_ms": 0.026274999999996267,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_cat.out",
+          "mean_sum_ms": 0.0207216666666653,
+          "instructions": 56
+        },
+        {
+          "name": "native_call_alias_copy.out",
+          "mean_sum_ms": 0.0028233333333331665,
+          "instructions": 28
+        }
+      ]
+    },
+    "int8": {
+      "method_execute_ms": 65.09912166666668,
+      "native_cpu_ms": 53.18047666666659,
+      "delegate_call_ms": 11.044846666666658,
+      "native_operator_groups": [
+        {
+          "name": "native_call_permute_copy.out",
+          "mean_sum_ms": 27.478255333333326,
+          "instructions": 140
+        },
+        {
+          "name": "native_call_expand_copy.out",
+          "mean_sum_ms": 7.347329999999993,
+          "instructions": 168
+        },
+        {
+          "name": "native_call_index_put.out",
+          "mean_sum_ms": 3.1741563333333307,
+          "instructions": 56
+        },
+        {
+          "name": "native_call_select_copy.int_out",
+          "mean_sum_ms": 3.151526166666664,
+          "instructions": 224
+        },
+        {
+          "name": "native_call_cat.out",
+          "mean_sum_ms": 2.8799304999999977,
+          "instructions": 114
+        },
+        {
+          "name": "native_call_view_copy.out",
+          "mean_sum_ms": 2.4586425,
+          "instructions": 2
+        },
+        {
+          "name": "native_call_pow.Tensor_Scalar_out",
+          "mean_sum_ms": 2.1508798333333283,
+          "instructions": 113
+        },
+        {
+          "name": "native_call__clone_dim_order.out",
+          "mean_sum_ms": 1.7566908333333304,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_unsqueeze_copy.out",
+          "mean_sum_ms": 0.915336666666664,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_sigmoid.out",
+          "mean_sum_ms": 0.6165413333333324,
+          "instructions": 28
+        },
+        {
+          "name": "native_call_mul.out",
+          "mean_sum_ms": 0.5508748333333175,
+          "instructions": 422
+        },
+        {
+          "name": "native_call_add.out",
+          "mean_sum_ms": 0.3243779999999903,
+          "instructions": 253
+        },
+        {
+          "name": "native_call_slice_copy.Tensor_out",
+          "mean_sum_ms": 0.19669716666665538,
+          "instructions": 392
+        },
+        {
+          "name": "native_call_mean.out",
+          "mean_sum_ms": 0.1050971666666622,
+          "instructions": 113
+        },
+        {
+          "name": "native_call_rsqrt.out",
+          "mean_sum_ms": 0.0249466666666622,
+          "instructions": 113
+        },
+        {
+          "name": "native_call_neg.out",
+          "mean_sum_ms": 0.0242483333333313,
+          "instructions": 56
+        },
+        {
+          "name": "native_call_slice_scatter.out",
+          "mean_sum_ms": 0.012281666666665334,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_copy.out",
+          "mean_sum_ms": 0.010448333333331833,
+          "instructions": 112
+        },
+        {
+          "name": "native_call_alias_copy.out",
+          "mean_sum_ms": 0.002214999999999867,
+          "instructions": 28
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Synthetic identical inputs, zero caches, position32",
+    "Host standalone Release runner with optimized kernels and event tracing; not Android or original Python runtime",
+    "Operator tracing adds overhead; nested scopes must not be summed",
+    "OPERATOR_CALL and delegated child events excluded from exclusive totals"
+  ]
+}

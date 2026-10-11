@@ -1,0 +1,16 @@
+// Resolve the exact stdlib selected by the app; do not guess from cache contents.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.project(':app')
+    app.tasks.register('writeTokenizerCiClasspath') {
+        doLast {
+            def artifact = app.configurations.getByName('standardDebugRuntimeClasspath')
+                .resolvedConfiguration.resolvedArtifacts.find {
+                    it.moduleVersion.id.group == 'org.jetbrains.kotlin' && it.name == 'kotlin-stdlib'
+                }
+            if (artifact == null) throw new GradleException('Resolved Kotlin stdlib missing')
+            def output = new File(app.property('tokenizerCiClasspathOutput').toString())
+            output.parentFile.mkdirs()
+            output.text = artifact.file.absolutePath + '\n'
+        }
+    }
+}

@@ -1,0 +1,1003 @@
+{
+  "device": {
+    "phone": "192.168.52.52:34439",
+    "model": "NX733J",
+    "soc": "SM8750",
+    "original_apk_sha256": "a5fb5f7e25a17078eae1954f9d793307351f4a43f1965e3bd1faa13876144ad4",
+    "manifest_sha256": "e2676c25693576f2f1a1938badba438d17a66c8cf445fe903f975878da076639",
+    "test_apk_sha256": "361dc1528dd6d403ae2fa3d0278d07eaf334b9e7a4e1f23b69db6b232932b100",
+    "original_main_program": "stateless-28-fp32-cache256-et14.pte",
+    "backups": {
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true
+    }
+  },
+  "model_manifests": {
+    "32": {
+      "version": 2,
+      "capacity": 256,
+      "language": "Japanese",
+      "speaker": "lami_cute",
+      "codec_eos": 2150,
+      "repetition_penalty": 1.05,
+      "top_k": 50,
+      "temperature": 0.9,
+      "seed": 42,
+      "decoder_frames_min": 2,
+      "decoder_frames_max": 256,
+      "samples_per_frame": 1920,
+      "sample_rate": 24000,
+      "sha256": {
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "main.head.f32": "05a497040cc657fb9fd4a970d24d3342a05e25183e4011baf0c51f5be23f257a",
+        "main.embedding.f32": "d746e3d302034eb7d83bc4f242df4eff01eb30ec0bc74dfdf72b4bb1bb4ac85c",
+        "cp.head.0.f32": "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af",
+        "cp.head.1.f32": "015daf05a9e60be772c865e423b2f903b22e98d1c1d20bfc2ebe3b401626238b",
+        "cp.head.2.f32": "b1b4660b6975e4130d4878e9323566b210c14bdd2e7e6ecfa9e78527a6518aac",
+        "cp.head.3.f32": "9a20fec4fdef4e0317cfbc4fef6e736812c6de75875e2f336a10d6e426609878",
+        "cp.head.4.f32": "6f07d4789b96f39011924bdfc32b3e1cf3e41b502efc690d29e68078f472befe",
+        "cp.head.5.f32": "86808556d53bfe7a5a3da62492e3ca9f3f9fdced4e438e8e21fd602449a57506",
+        "cp.head.6.f32": "58889a06e1e91e9d6c08ec9cd224d54be3363a11cd05e34de8484fba4dbcd39f",
+        "cp.head.7.f32": "8bb49e3c4434cdc6d1b968524e41672a2ae5624b899ac8fb5f8bcd68488543ab",
+        "cp.head.8.f32": "b4e9b9e7689d7bd74663e71dd6f5c97841f41f9e1075acd367218fa9762ab242",
+        "cp.head.9.f32": "5f4e98e3864ee341fe3d2fcf1266944fce0eae59285d6d161656b5358d450a6b",
+        "cp.head.10.f32": "271ccef7dfe42a74515817096b13eacb400e744934765824a257f853204df00b",
+        "cp.head.11.f32": "b536e679f40dea3bd1b3aee276e3704ed307334c002c45efbd52feda36d198f6",
+        "cp.head.12.f32": "af889f8088b716eb51e43ae056347c6530694a837c3681df7eccf6039eeff380",
+        "cp.head.13.f32": "5d08aec3d28704a295fad1c32e6a14bb621b5b2b04064f7b416b259b1560d1f0",
+        "cp.head.14.f32": "3901f952c52f1c8c4668f78ebce0bad3b521adb2a2ca5d871db3f4953efa53d2",
+        "cp.embedding.0.f32": "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958",
+        "cp.embedding.1.f32": "3f805eba88af414983720ab7e90fad87074614e552d74bd58783a222efc7ab21",
+        "cp.embedding.2.f32": "d3de46125ecbe8624cfd159587753634f7bb30f6136b6162185760ac6b9e1e4e",
+        "cp.embedding.3.f32": "188634910a0ffcb98fd90fe63246b6e1961280d786fc225640b71ff9b08006d1",
+        "cp.embedding.4.f32": "915337d209cbf2efbd380dee0c785948571e131aca4df233fe0727b6ba34f658",
+        "cp.embedding.5.f32": "437eb01f5d05906b2b6c89c0245bddc1d080ea987c36c60c1e89ce3339a2c8fd",
+        "cp.embedding.6.f32": "7fcfd7610dc51330ac1f4ee1326d143e8daf59fe097b61690e7aed8c27430202",
+        "cp.embedding.7.f32": "670b16ea75a4ab3dabaf2e3681512c57c7a2d6bc85fb24d2e97422937ea9be97",
+        "cp.embedding.8.f32": "45e103633da1d6f1e62a233f345d6409705e3d555b717e77860521bd56b3295c",
+        "cp.embedding.9.f32": "193bcae6756d3d86663a257a6c4246e2a7ad4debfff4c8a739184197ab8b8ac6",
+        "cp.embedding.10.f32": "5a438b167776acc5754ca923e89341c300d29386b85ce398f1df09bb26bb67f3",
+        "cp.embedding.11.f32": "a506fa70fc083728c2886c10bc69a8a65105f9220a3b1c6c12a1509700d8af3d",
+        "cp.embedding.12.f32": "e85f0af4651547c0924be15cecb0aba3a25a579ecdbcc5d3519546fecd7d87ce",
+        "cp.embedding.13.f32": "9dc5a7b67f31ce2dff7186b22d7a1a33c65cd8d28daa8534099b3576098d7d4f",
+        "cp.embedding.14.f32": "752e18c97f38a509f619e0809a3bb23c89b42b328b7ec9b771ee8281838c55fe",
+        "text_frontend/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "text_frontend/merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "text_frontend/tokenizer_config.json": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "text_frontend/projected-text.f32": "753e271513ae6235bc5ecd99ab5084cf348f05d47c0a069aadb8634b863e205e",
+        "cp-int8-cache32.pte": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+        "main-int8-permute-cache256.pte": "5a03abc2481cc050ea37950247b73450fd3be64d6a4b7854dee4251b39db9bba"
+      },
+      "main_program": "main-int8-permute-cache256.pte",
+      "cp_program": "cp-int8-cache32.pte"
+    },
+    "16": {
+      "version": 2,
+      "capacity": 256,
+      "language": "Japanese",
+      "speaker": "lami_cute",
+      "codec_eos": 2150,
+      "repetition_penalty": 1.05,
+      "top_k": 50,
+      "temperature": 0.9,
+      "seed": 42,
+      "decoder_frames_min": 2,
+      "decoder_frames_max": 256,
+      "samples_per_frame": 1920,
+      "sample_rate": 24000,
+      "sha256": {
+        "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+        "main.head.f32": "05a497040cc657fb9fd4a970d24d3342a05e25183e4011baf0c51f5be23f257a",
+        "main.embedding.f32": "d746e3d302034eb7d83bc4f242df4eff01eb30ec0bc74dfdf72b4bb1bb4ac85c",
+        "cp.head.0.f32": "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af",
+        "cp.head.1.f32": "015daf05a9e60be772c865e423b2f903b22e98d1c1d20bfc2ebe3b401626238b",
+        "cp.head.2.f32": "b1b4660b6975e4130d4878e9323566b210c14bdd2e7e6ecfa9e78527a6518aac",
+        "cp.head.3.f32": "9a20fec4fdef4e0317cfbc4fef6e736812c6de75875e2f336a10d6e426609878",
+        "cp.head.4.f32": "6f07d4789b96f39011924bdfc32b3e1cf3e41b502efc690d29e68078f472befe",
+        "cp.head.5.f32": "86808556d53bfe7a5a3da62492e3ca9f3f9fdced4e438e8e21fd602449a57506",
+        "cp.head.6.f32": "58889a06e1e91e9d6c08ec9cd224d54be3363a11cd05e34de8484fba4dbcd39f",
+        "cp.head.7.f32": "8bb49e3c4434cdc6d1b968524e41672a2ae5624b899ac8fb5f8bcd68488543ab",
+        "cp.head.8.f32": "b4e9b9e7689d7bd74663e71dd6f5c97841f41f9e1075acd367218fa9762ab242",
+        "cp.head.9.f32": "5f4e98e3864ee341fe3d2fcf1266944fce0eae59285d6d161656b5358d450a6b",
+        "cp.head.10.f32": "271ccef7dfe42a74515817096b13eacb400e744934765824a257f853204df00b",
+        "cp.head.11.f32": "b536e679f40dea3bd1b3aee276e3704ed307334c002c45efbd52feda36d198f6",
+        "cp.head.12.f32": "af889f8088b716eb51e43ae056347c6530694a837c3681df7eccf6039eeff380",
+        "cp.head.13.f32": "5d08aec3d28704a295fad1c32e6a14bb621b5b2b04064f7b416b259b1560d1f0",
+        "cp.head.14.f32": "3901f952c52f1c8c4668f78ebce0bad3b521adb2a2ca5d871db3f4953efa53d2",
+        "cp.embedding.0.f32": "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958",
+        "cp.embedding.1.f32": "3f805eba88af414983720ab7e90fad87074614e552d74bd58783a222efc7ab21",
+        "cp.embedding.2.f32": "d3de46125ecbe8624cfd159587753634f7bb30f6136b6162185760ac6b9e1e4e",
+        "cp.embedding.3.f32": "188634910a0ffcb98fd90fe63246b6e1961280d786fc225640b71ff9b08006d1",
+        "cp.embedding.4.f32": "915337d209cbf2efbd380dee0c785948571e131aca4df233fe0727b6ba34f658",
+        "cp.embedding.5.f32": "437eb01f5d05906b2b6c89c0245bddc1d080ea987c36c60c1e89ce3339a2c8fd",
+        "cp.embedding.6.f32": "7fcfd7610dc51330ac1f4ee1326d143e8daf59fe097b61690e7aed8c27430202",
+        "cp.embedding.7.f32": "670b16ea75a4ab3dabaf2e3681512c57c7a2d6bc85fb24d2e97422937ea9be97",
+        "cp.embedding.8.f32": "45e103633da1d6f1e62a233f345d6409705e3d555b717e77860521bd56b3295c",
+        "cp.embedding.9.f32": "193bcae6756d3d86663a257a6c4246e2a7ad4debfff4c8a739184197ab8b8ac6",
+        "cp.embedding.10.f32": "5a438b167776acc5754ca923e89341c300d29386b85ce398f1df09bb26bb67f3",
+        "cp.embedding.11.f32": "a506fa70fc083728c2886c10bc69a8a65105f9220a3b1c6c12a1509700d8af3d",
+        "cp.embedding.12.f32": "e85f0af4651547c0924be15cecb0aba3a25a579ecdbcc5d3519546fecd7d87ce",
+        "cp.embedding.13.f32": "9dc5a7b67f31ce2dff7186b22d7a1a33c65cd8d28daa8534099b3576098d7d4f",
+        "cp.embedding.14.f32": "752e18c97f38a509f619e0809a3bb23c89b42b328b7ec9b771ee8281838c55fe",
+        "text_frontend/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "text_frontend/merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "text_frontend/tokenizer_config.json": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "text_frontend/projected-text.f32": "753e271513ae6235bc5ecd99ab5084cf348f05d47c0a069aadb8634b863e205e",
+        "cp-int8-cache16.pte": "43d29ccbd80d8f9c6e0e2cf57d84c5939a772d31262301088b73f7613e22e22c",
+        "main-int8-permute-cache256.pte": "5a03abc2481cc050ea37950247b73450fd3be64d6a4b7854dee4251b39db9bba"
+      },
+      "main_program": "main-int8-permute-cache256.pte",
+      "cp_program": "cp-int8-cache16.pte"
+    }
+  },
+  "order": [
+    "32",
+    "16",
+    "16",
+    "32"
+  ],
+  "main_program": "main-int8-permute-cache256.pte",
+  "texts": [
+    "窓を閉めてから、赤い箱を机に置いてください。",
+    "午前九時半に、次の予定をお知らせします。"
+  ],
+  "rows": [
+    {
+      "trial": 0,
+      "variant": "32",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1547
+        },
+        "tokenizer_load": {
+          "ms": 462
+        },
+        "text_prepare": {
+          "ms": 475
+        },
+        "cp_program": {
+          "capacity": 32
+        },
+        "model_load": {
+          "ms": 140
+        },
+        "prefill": {
+          "ms": 1181
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 103,
+          "p95_ms": 111,
+          "max_ms": 143,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 5817
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 3509,
+          "mean_ms_per_call": 42.27710843373494
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 170
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 56
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 10
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 2388,
+          "mean_ms_per_call": 2.6651785714285716
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 64
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 528
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 130
+        },
+        "decoder_process": {
+          "pid": 24200,
+          "model_load_ms": 322,
+          "pcm_forward_ms": 2773,
+          "total_ms": 3369
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 0,
+      "variant": "32",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 14
+        },
+        "cp_program": {
+          "capacity": 32
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2050
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 156,
+          "p95_ms": 177,
+          "max_ms": 183,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 6662
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 4364,
+          "mean_ms_per_call": 64.17647058823529
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 188
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 64
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 10
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 3
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2405,
+          "mean_ms_per_call": 3.5788690476190474
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 76
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 627
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 129
+        },
+        "decoder_process": {
+          "pid": 24200,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 1828,
+          "total_ms": 1855
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 1,
+      "variant": "16",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1659
+        },
+        "tokenizer_load": {
+          "ms": 893
+        },
+        "text_prepare": {
+          "ms": 915
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 112
+        },
+        "prefill": {
+          "ms": 1662
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 134,
+          "p95_ms": 148,
+          "max_ms": 223,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 7680
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 4822,
+          "mean_ms_per_call": 58.096385542168676
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 184
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 90
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 20
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 1
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 2776,
+          "mean_ms_per_call": 3.0982142857142856
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 84
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 818
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 266
+        },
+        "decoder_process": {
+          "pid": 24492,
+          "model_load_ms": 519,
+          "pcm_forward_ms": 3810,
+          "total_ms": 4785
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 1,
+      "variant": "16",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 44
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2001
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 157,
+          "p95_ms": 169,
+          "max_ms": 173,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 6710
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 5038,
+          "mean_ms_per_call": 74.08823529411765
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 215
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 73
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 14
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2197,
+          "mean_ms_per_call": 3.269345238095238
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 69
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 710
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 168
+        },
+        "decoder_process": {
+          "pid": 24492,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 1970,
+          "total_ms": 1991
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 2,
+      "variant": "16",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1733
+        },
+        "tokenizer_load": {
+          "ms": 902
+        },
+        "text_prepare": {
+          "ms": 923
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 113
+        },
+        "prefill": {
+          "ms": 1669
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 154,
+          "p95_ms": 177,
+          "max_ms": 213,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8419
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 5281,
+          "mean_ms_per_call": 63.626506024096386
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 213
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 92
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 23
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 1
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 2926,
+          "mean_ms_per_call": 3.265625
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 90
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 865
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 289
+        },
+        "decoder_process": {
+          "pid": 24744,
+          "model_load_ms": 596,
+          "pcm_forward_ms": 3633,
+          "total_ms": 4682
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 2,
+      "variant": "16",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 14
+        },
+        "cp_program": {
+          "capacity": 16
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 1994
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 158,
+          "p95_ms": 171,
+          "max_ms": 175,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 6727
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 5013,
+          "mean_ms_per_call": 73.72058823529412
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 218
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 73
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 14
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2234,
+          "mean_ms_per_call": 3.324404761904762
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 69
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 712
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 165
+        },
+        "decoder_process": {
+          "pid": 24744,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 1974,
+          "total_ms": 1999
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    },
+    {
+      "trial": 3,
+      "variant": "32",
+      "request": 0,
+      "metrics": {
+        "hash_validation": {
+          "ms": 1693
+        },
+        "tokenizer_load": {
+          "ms": 899
+        },
+        "text_prepare": {
+          "ms": 920
+        },
+        "cp_program": {
+          "capacity": 32
+        },
+        "model_load": {
+          "ms": 112
+        },
+        "prefill": {
+          "ms": 1677
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 56,
+          "p50_ms": 141,
+          "p95_ms": 154,
+          "max_ms": 209,
+          "over_80ms": 56
+        },
+        "codec": {
+          "frames": 56,
+          "ms": 8037
+        },
+        "main_forward": {
+          "calls": 83,
+          "ms": 4857,
+          "mean_ms_per_call": 58.51807228915663
+        },
+        "main_output_copy": {
+          "calls": 83,
+          "ms": 186
+        },
+        "main_head": {
+          "calls": 57,
+          "ms": 85
+        },
+        "main_sampling": {
+          "calls": 57,
+          "ms": 20
+        },
+        "cp_reset": {
+          "calls": 56,
+          "ms": 2
+        },
+        "cp_forward": {
+          "calls": 896,
+          "ms": 3116,
+          "mean_ms_per_call": 3.4776785714285716
+        },
+        "cp_output_copy": {
+          "calls": 896,
+          "ms": 102
+        },
+        "cp_heads": {
+          "calls": 840,
+          "ms": 805
+        },
+        "cp_sampling": {
+          "calls": 840,
+          "ms": 261
+        },
+        "decoder_process": {
+          "pid": 25013,
+          "model_load_ms": 700,
+          "pcm_forward_ms": 3728,
+          "total_ms": 4889
+        }
+      },
+      "codes_sha256": "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39",
+      "pcm_sha256": "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+    },
+    {
+      "trial": 3,
+      "variant": "32",
+      "request": 1,
+      "metrics": {
+        "hash_validation": {
+          "ms": 2
+        },
+        "tokenizer_load": {
+          "ms": 0
+        },
+        "text_prepare": {
+          "ms": 13
+        },
+        "cp_program": {
+          "capacity": 32
+        },
+        "model_load": {
+          "ms": 0
+        },
+        "prefill": {
+          "ms": 2104
+        },
+        "cp_workspace": {},
+        "frame_budget": {
+          "frames": 42,
+          "p50_ms": 167,
+          "p95_ms": 183,
+          "max_ms": 188,
+          "over_80ms": 42
+        },
+        "codec": {
+          "frames": 42,
+          "ms": 7162
+        },
+        "main_forward": {
+          "calls": 68,
+          "ms": 5146,
+          "mean_ms_per_call": 75.67647058823529
+        },
+        "main_output_copy": {
+          "calls": 68,
+          "ms": 226
+        },
+        "main_head": {
+          "calls": 43,
+          "ms": 73
+        },
+        "main_sampling": {
+          "calls": 43,
+          "ms": 14
+        },
+        "cp_reset": {
+          "calls": 42,
+          "ms": 3
+        },
+        "cp_forward": {
+          "calls": 672,
+          "ms": 2611,
+          "mean_ms_per_call": 3.8854166666666665
+        },
+        "cp_output_copy": {
+          "calls": 672,
+          "ms": 92
+        },
+        "cp_heads": {
+          "calls": 630,
+          "ms": 711
+        },
+        "cp_sampling": {
+          "calls": 630,
+          "ms": 166
+        },
+        "decoder_process": {
+          "pid": 25013,
+          "model_load_ms": 0,
+          "pcm_forward_ms": 1838,
+          "total_ms": 1858
+        }
+      },
+      "codes_sha256": "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943",
+      "pcm_sha256": "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+    }
+  ],
+  "aggregates": {
+    "32": {
+      "main_forward": {
+        "calls": 302,
+        "ms": 17876,
+        "weighted_mean_ms_per_call": 59.19205298013245
+      },
+      "cp_forward": {
+        "calls": 3136,
+        "ms": 10520,
+        "weighted_mean_ms_per_call": 3.354591836734694
+      },
+      "frame_p50_ms_range": [
+        103,
+        167
+      ],
+      "frames": 196,
+      "frames_over_80ms": 196
+    },
+    "16": {
+      "main_forward": {
+        "calls": 302,
+        "ms": 20154,
+        "weighted_mean_ms_per_call": 66.73509933774834
+      },
+      "cp_forward": {
+        "calls": 3136,
+        "ms": 10133,
+        "weighted_mean_ms_per_call": 3.2311862244897958
+      },
+      "frame_p50_ms_range": [
+        134,
+        158
+      ],
+      "frames": 196,
+      "frames_over_80ms": 196
+    }
+  },
+  "hash_checks": [
+    {
+      "request": 0,
+      "hash": "codes_sha256",
+      "values": {
+        "32": [
+          "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39"
+        ],
+        "16": [
+          "e2ff0ad48c2670a16133384ce2136a7d1462dd3815b5ae327dd9746ce3e96f39"
+        ]
+      },
+      "cache32_and_cache16_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 0,
+      "hash": "pcm_sha256",
+      "values": {
+        "32": [
+          "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+        ],
+        "16": [
+          "ad43fe3c69460d0bf331b54fb67b1d4ac86a859d7b658f47532548d19ae3e181"
+        ]
+      },
+      "cache32_and_cache16_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 1,
+      "hash": "codes_sha256",
+      "values": {
+        "32": [
+          "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943"
+        ],
+        "16": [
+          "d6adf131995c065844a99909622456dc5b641c4dfe021bc8141c47a78a8ff943"
+        ]
+      },
+      "cache32_and_cache16_identical": true,
+      "repeat_stable": true
+    },
+    {
+      "request": 1,
+      "hash": "pcm_sha256",
+      "values": {
+        "32": [
+          "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+        ],
+        "16": [
+          "2f5349afff59dbe6902112e0e3c0fd19aaf31ee1ef7384f3e9ae79f56c321952"
+        ]
+      },
+      "cache32_and_cache16_identical": true,
+      "repeat_stable": true
+    }
+  ],
+  "restore": {
+    "status": "restored_and_hash_verified",
+    "verified": {
+      "apk": true,
+      "manifest": true,
+      "neural_tts_last.wav": true,
+      "neural_tts_pipeline_probe.txt": true,
+      "neural_tts_hai_probe.txt": true,
+      "removed_cp-int8-cache32.pte": true,
+      "removed_cp-int8-cache16.pte": true,
+      "removed_main-int8-permute-cache256.pte": true
+    },
+    "errors": []
+  },
+  "limits": [
+    "Serial whole-sentence diagnostic; timings are not streaming first-chunk latency.",
+    "Generated lengths may differ between CP capacities; per-call means and frame medians are diagnostic comparisons, not identical fixed-input benchmarking.",
+    "Only two texts, two fresh-process trials per variant; no thermal or scheduling control.",
+    "Main forward aggregate includes prefill and generated-token calls; it is not steady-state frame latency.",
+    "Both main and CP INT8 use CPU/XNNPACK PTQ, not NPU or QAT."
+  ],
+  "previous_accepted_device_comparison": [
+    {
+      "trial": 0,
+      "request": 0,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 0,
+      "request": 1,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 1,
+      "request": 0,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 1,
+      "request": 1,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 2,
+      "request": 0,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 2,
+      "request": 1,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 3,
+      "request": 0,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    },
+    {
+      "trial": 3,
+      "request": 1,
+      "matches_reviewed_device_codes": true,
+      "matches_reviewed_device_pcm": true
+    }
+  ],
+  "voice_lab": {
+    "group": "lami-main-copy-device-review-20261007",
+    "url": "http://192.168.52.99:8088/#main-copy-device-review",
+    "reviews": {
+      "lami-main-copy-device-review-20261007/01-窓と赤い箱-メインFP32-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/02-窓と赤い箱-メインINT8コピー改善-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/03-午前九時半の予定-メインFP32-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      },
+      "lami-main-copy-device-review-20261007/04-午前九時半の予定-メインINT8コピー改善-CP全層INT8-実機.wav": {
+        "status": "candidate",
+        "note": "問題なし。"
+      }
+    },
+    "new_clips_needed": false
+  },
+  "source_commit": "61615656b97b937efa61875c480d5bc862e5aefc",
+  "main_commit": "e0ee792b5af4ace29a1a6da839717700405c0401"
+}

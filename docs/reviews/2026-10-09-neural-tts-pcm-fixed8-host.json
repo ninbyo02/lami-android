@@ -1,0 +1,26 @@
+{
+  "fixed_frames": 8,
+  "backend": "portable_cpu",
+  "model_sha256": "260906b39223bfb2a6c98c94b8be67b532bb38e57339ff7d91a0f2c735a6cdca",
+  "reference_sha256": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+  "cases": [
+    {
+      "case": 0,
+      "max_abs": 1.301988959312439e-06,
+      "rmse": 1.6225183685492084e-07,
+      "bit_equal": false,
+      "input_sha256": "62267721998019ae81f426c63646129ea2a3589bf9e839b77d25bf5edf1ad947"
+    },
+    {
+      "case": 1,
+      "max_abs": 1.043081283569336e-06,
+      "rmse": 9.86764732147094e-08,
+      "bit_equal": false,
+      "input_sha256": "0c0b3c378afa38fdf0a7932b02f05cc4fd8ddaa9b6e716502489b9cb732d8ca2"
+    }
+  ],
+  "limitations": [
+    "Host CPU equivalence only; no NPU conversion or speed evidence.",
+    "Only prefix shape tested; independent chunks need boundary/state validation."
+  ]
+}

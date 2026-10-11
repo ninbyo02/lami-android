@@ -34,6 +34,8 @@ internal class AssistantGenerationSessionController {
     fun fail(): AssistantGenerationSession? =
         session?.fail()?.also { session = it }
 
+    fun ownedMessageId(uiMessageId: Int?): Int? = uiMessageId ?: session?.messageId
+
     fun acceptsStreamingUpdate(requestId: Long? = null): Boolean {
         val current = session ?: return true
         return (requestId == null || current.requestId == requestId) &&

@@ -1,0 +1,72 @@
+{
+  "status": "host_cp_pilot_checked_not_audio_validated",
+  "records": 128,
+  "split": "eval",
+  "capture_manifest_sha256": "72a16866ceee70e228eaf8fe7c1147bd4ab74d5f92a639a16a13a2070273d515",
+  "selected_heads": 120,
+  "bytes": {
+    "baseline": 314730112,
+    "candidate": 173325312
+  },
+  "candidate_sha256": "4d0cd5464070f9c8c4b7708c310048b809792a84b24d4b7f1954411f3b1f3338",
+  "host_median_ms_per_step": {
+    "baseline": 15.048340468865717,
+    "candidate": 11.419802937552959
+  },
+  "host_trial_ms_per_step": {
+    "baseline": [
+      15.84857517968885,
+      14.748188195426337,
+      14.953990179719767,
+      15.208664445253817,
+      14.864599664178968,
+      15.048340468865717,
+      15.339459085907947
+    ],
+    "candidate": [
+      11.139355031218656,
+      10.940942624984018,
+      11.778568913996423,
+      12.090290281321359,
+      11.61462863296947,
+      11.419802937552959,
+      11.176686312410311
+    ]
+  },
+  "max_relative_l2": {
+    "teacher": 0.15083351731300354,
+    "rolling": 0.13202627003192902
+  },
+  "sample_mismatches": {
+    "teacher": 85,
+    "rolling": 97
+  },
+  "top1_mismatches": {
+    "teacher": 17,
+    "rolling": 20
+  },
+  "limitations": [
+    "Bounded prefix captures do not establish voice quality.",
+    "Rolling caches use fixed teacher embeddings, not candidate token feedback.",
+    "Host timings include Python runtime bridge; no device speed or realtime claim."
+  ],
+  "mean_relative_l2": {
+    "teacher": 0.06369597624143353,
+    "rolling": 0.06508257120003691
+  },
+  "export": {
+    "status": "isolated_cp_pilot_not_audio_validated",
+    "precision": "int8",
+    "capacity": 32,
+    "quantize_scope": "mlp",
+    "int8_weight_constants": 15,
+    "bytes": 173325312,
+    "sha256": "4d0cd5464070f9c8c4b7708c310048b809792a84b24d4b7f1954411f3b1f3338",
+    "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+    "limitations": [
+      "No Android bundle changes.",
+      "No realtime or voice quality claim.",
+      "The INT8 option uses dynamic signed activations and per-channel signed weights."
+    ]
+  }
+}

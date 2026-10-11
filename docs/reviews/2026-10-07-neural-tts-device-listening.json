@@ -1,0 +1,23 @@
+{
+  "group": "lami-cp-int8-device-review-20261006",
+  "reviews": {
+    "lami-cp-int8-device-review-20261006/01-窓と赤い箱-FP32-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-cp-int8-device-review-20261006/02-窓と赤い箱-INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    },
+    "lami-cp-int8-device-review-20261006/03-午前九時半の予定-FP32-実機.wav": {
+      "status": "reject",
+      "note": "最後のノイズが気になる。"
+    },
+    "lami-cp-int8-device-review-20261006/04-午前九時半の予定-INT8-実機.wav": {
+      "status": "candidate",
+      "note": "問題なし。"
+    }
+  },
+  "decision": "Use full CP INT8 as the next experimental baseline; not general production acceptance.",
+  "next": "Evaluate isolated main transformer dynamic INT8; total frame budget remains unmet."
+}

@@ -1,0 +1,60 @@
+{
+  "tokenizer_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+  "cases": [
+    {
+      "text": "",
+      "repeat": 1,
+      "expected": 0
+    },
+    {
+      "text": "こんにちは",
+      "repeat": 1,
+      "expected": 1
+    },
+    {
+      "text": "赤",
+      "repeat": 1,
+      "expected": 1
+    },
+    {
+      "text": "佐藤さん、こんにちは。",
+      "repeat": 1,
+      "expected": 5
+    },
+    {
+      "text": "**宇宙旅行**\n\n原文。\n",
+      "repeat": 1,
+      "expected": 8
+    },
+    {
+      "text": "日本語 English １２３ 👨‍👩‍👧‍👦",
+      "repeat": 1,
+      "expected": 14
+    },
+    {
+      "text": "a\u0000b",
+      "repeat": 1,
+      "expected": 3
+    },
+    {
+      "text": "\r\n\t  ",
+      "repeat": 1,
+      "expected": 4
+    },
+    {
+      "text": "<bos><start_of_turn>user\nこんにちは<end_of_turn>",
+      "repeat": 1,
+      "expected": 19
+    },
+    {
+      "text": "def f(x):\n    return x + 1\n",
+      "repeat": 1,
+      "expected": 13
+    },
+    {
+      "text": "日本語の長文です。\n",
+      "repeat": 4096,
+      "expected": 28672
+    }
+  ]
+}

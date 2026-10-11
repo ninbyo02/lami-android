@@ -1458,13 +1458,30 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `Hello と World の境界では最小 join を入れる`() {
+    fun `subword callbacks preserve words numbers identifiers and whitespace`() {
+        val cases = listOf(
+            listOf("RE", "COVER", "ED") to "RECOVERED",
+            listOf("12", "34") to "1234",
+            listOf("user", "_", "name") to "user_name",
+            listOf("Hello", " ", "World") to "Hello World",
+            listOf("日本", "語", "の応答") to "日本語の応答",
+        )
+        cases.forEach { (chunks, expected) ->
+            val builder = StringBuilder()
+            val context = StreamingAppendContext()
+            chunks.forEach { appendStreamingChunk(builder, it, context) }
+            assertEquals(expected, builder.toString())
+        }
+    }
+
+    @Test
+    fun `ASCII callback chunksには推測した空白を挿入しない`() {
         val builder = StringBuilder("Hello")
 
         val join = appendStreamingChunk(builder, "World")
 
-        assertEquals(" ", join)
-        assertEquals("Hello World", builder.toString())
+        assertEquals("", join)
+        assertEquals("HelloWorld", builder.toString())
     }
 
     @Test

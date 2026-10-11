@@ -1,0 +1,19 @@
+{
+  "phrase": "はい。",
+  "host_parity": "passed",
+  "head_arithmetic": "sequential_float32_matching_kotlin",
+  "matching_codes": 496,
+  "samples": 59520,
+  "sample_rate": 24000,
+  "duration_seconds": 2.48,
+  "pcm_peak": 0.2669007182121277,
+  "host_elapsed_seconds": 11.622,
+  "android_device_validation": "pending",
+  "arbitrary_text_frontend": "not_implemented",
+  "model_sha256": {
+    "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+    "speech-decoder-fp32-et14.pte": "baed347b7ebd5cd5df6fa6c6df4243c4be4451444c909f88be44c55cce20c07f",
+    "stateless-28-int4-cache64-et14.pte": "b34300262cdfc0000e05f2735d2e635320ac8746461d677239a9249c257d426b"
+  },
+  "prepared_context_sha256": "e19aea8cc3a645841b198fc6564070c8b4210b7d7a04d01ef2b37f4ef3c04005"
+}

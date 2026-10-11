@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.viewmodels
 
 import io.github.ninbyo02.lami.UiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus.CONNECTING
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.THINKING
 import io.github.ninbyo02.lami.viewmodels.LamiStatus.DEGRADED
 import io.github.ninbyo02.lami.viewmodels.LamiStatus.ERROR
 import io.github.ninbyo02.lami.viewmodels.LamiStatus.NO_MODELS
@@ -20,6 +21,17 @@ data class LamiUiState(
     val lastInteractionTimeMs: Long = System.currentTimeMillis(),
 )
 
+/** A stale timeout must neither overwrite newer activity nor refresh an idle state's timestamp. */
+internal fun LamiUiState.idleAfterTimeout(
+    referenceTimeMs: Long,
+    idleTimeoutMs: Long,
+    nowMs: Long,
+): LamiUiState {
+    if (state !is LamiState.Speaking || lastInteractionTimeMs != referenceTimeMs) return this
+    if (nowMs - referenceTimeMs < idleTimeoutMs) return this
+    return LamiUiState(state = LamiState.Idle, lastInteractionTimeMs = nowMs)
+}
+
 fun bucket(len: Int): Int {
     return when {
         len <= 0 -> 0
@@ -35,6 +47,7 @@ fun mapToLamiState(uiState: UiState, selectedModel: String?): LamiState {
     }
     return when (uiState) {
         UiState.Loading -> LamiState.Thinking
+        is UiState.Thinking -> LamiState.Thinking
         is UiState.Error -> LamiState.Idle
         is UiState.Streaming -> LamiState.Speaking(uiState.partialText.length)
         is UiState.Success -> LamiState.Idle
@@ -55,6 +68,7 @@ fun mapToLamiState(
     return when (lamiStatus) {
         TALKING -> LamiState.Thinking
         CONNECTING -> LamiState.Thinking
+        THINKING -> LamiState.Thinking
         READY -> LamiState.Idle
         DEGRADED -> LamiState.Idle
         NO_MODELS -> LamiState.Idle

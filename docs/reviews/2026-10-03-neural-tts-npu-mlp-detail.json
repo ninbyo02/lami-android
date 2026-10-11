@@ -1,0 +1,226 @@
+{
+  "status": "diagnostic_synthetic_layer_trace",
+  "position": 8,
+  "trace_hidden_vs_original_npu": {
+    "max_abs": 0.1201171875,
+    "relative_l2": 0.010870755356061476
+  },
+  "trace_hidden_original_npu_bitwise_equal": false,
+  "layers": [
+    {
+      "output": "trace_attention_0",
+      "cpu_vs_source": {
+        "max_abs": 2.980232238769531e-07,
+        "relative_l2": 5.477903467061123e-07
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.00039133429527282715,
+        "relative_l2": 0.0006885196110089446
+      }
+    },
+    {
+      "output": "trace_mlp_0",
+      "cpu_vs_source": {
+        "max_abs": 6.854534149169922e-07,
+        "relative_l2": 1.1886043958135206e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0019153952598571777,
+        "relative_l2": 0.0031492862025544067
+      }
+    },
+    {
+      "output": "trace_attention_1",
+      "cpu_vs_source": {
+        "max_abs": 8.344650268554688e-07,
+        "relative_l2": 1.4275656731596384e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0033603310585021973,
+        "relative_l2": 0.0037955164891526317
+      }
+    },
+    {
+      "output": "trace_mlp_1",
+      "cpu_vs_source": {
+        "max_abs": 1.9073486328125e-06,
+        "relative_l2": 1.9989416334757443e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.0057593584060668945,
+        "relative_l2": 0.005255336114180744
+      }
+    },
+    {
+      "output": "trace_attention_2",
+      "cpu_vs_source": {
+        "max_abs": 2.1457672119140625e-06,
+        "relative_l2": 1.9936431894665992e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.005657196044921875,
+        "relative_l2": 0.005068323499707313
+      }
+    },
+    {
+      "output": "trace_mlp_2",
+      "cpu_vs_source": {
+        "max_abs": 4.0531158447265625e-05,
+        "relative_l2": 4.773442550322256e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.33869218826293945,
+        "relative_l2": 0.035471665220382746
+      }
+    },
+    {
+      "output": "trace_attention_3",
+      "cpu_vs_source": {
+        "max_abs": 4.029273986816406e-05,
+        "relative_l2": 5.59341986178184e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.33354783058166504,
+        "relative_l2": 0.050484966196091566
+      }
+    },
+    {
+      "output": "trace_mlp_3",
+      "cpu_vs_source": {
+        "max_abs": 3.719329833984375e-05,
+        "relative_l2": 7.082704610048635e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.32416725158691406,
+        "relative_l2": 0.06340048498820844
+      }
+    },
+    {
+      "output": "trace_attention_4",
+      "cpu_vs_source": {
+        "max_abs": 3.7670135498046875e-05,
+        "relative_l2": 7.276658617964897e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.3243377208709717,
+        "relative_l2": 0.08920607017534084
+      }
+    },
+    {
+      "output": "trace_mlp_4",
+      "cpu_vs_source": {
+        "max_abs": 4.649162292480469e-05,
+        "relative_l2": 1.0853519451611368e-05
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.49235594272613525,
+        "relative_l2": 0.17729949594921643
+      }
+    },
+    {
+      "output": "trace_detail_down",
+      "cpu_vs_source": {
+        "max_abs": 4.076957702636719e-05,
+        "relative_l2": 6.440494035971543e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.33948707580566406,
+        "relative_l2": 0.05007014290248371
+      }
+    },
+    {
+      "output": "trace_detail_gate",
+      "cpu_vs_source": {
+        "max_abs": 1.33514404296875e-05,
+        "relative_l2": 1.9757004568603974e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.10879230499267578,
+        "relative_l2": 0.005529241589152555
+      }
+    },
+    {
+      "output": "trace_detail_norm",
+      "cpu_vs_source": {
+        "max_abs": 9.298324584960938e-06,
+        "relative_l2": 1.9915434863840747e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.030906498432159424,
+        "relative_l2": 0.005121511503369098
+      }
+    },
+    {
+      "output": "trace_detail_product",
+      "cpu_vs_source": {
+        "max_abs": 0.0001163482666015625,
+        "relative_l2": 5.5117007298369716e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 1.0007743835449219,
+        "relative_l2": 0.04413456359826808
+      }
+    },
+    {
+      "output": "trace_detail_silu",
+      "cpu_vs_source": {
+        "max_abs": 1.3828277587890625e-05,
+        "relative_l2": 1.960328411896831e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.11241412162780762,
+        "relative_l2": 0.006625067417262178
+      }
+    },
+    {
+      "output": "trace_detail_up",
+      "cpu_vs_source": {
+        "max_abs": 1.52587890625e-05,
+        "relative_l2": 2.0345984782271926e-06
+      },
+      "npu_vs_cpu": {
+        "max_abs": 0.08337211608886719,
+        "relative_l2": 0.005327634715523977
+      }
+    },
+    {
+      "output": "hidden",
+      "cpu_vs_source": {
+        "max_abs": 0.00025272369384765625,
+        "relative_l2": 1.0259730947571153e-05
+      },
+      "npu_vs_cpu": {
+        "max_abs": 3.1067371368408203,
+        "relative_l2": 0.17350568405341804
+      }
+    }
+  ],
+  "limitations": [
+    "Intermediate outputs can alter fusion; final output comparison records this effect.",
+    "Same saved synthetic NPU cache inputs, no independent CPU rollout.",
+    "No sampled speech or audio quality validation.",
+    "Detailed outputs changed the final NPU hidden; compare fusion effect before interpreting."
+  ],
+  "same_npu_input_cpu_operator_replay": {
+    "gate": {
+      "max_abs": 0.001819610595703125,
+      "relative_l2": 0.00021421304405523729
+    },
+    "up": {
+      "max_abs": 0.0009641647338867188,
+      "relative_l2": 0.0002059895718853999
+    },
+    "down": {
+      "max_abs": 0.0003705024719238281,
+      "relative_l2": 0.0001910187720347876
+    },
+    "silu": {
+      "max_abs": 0.0032320022583007812,
+      "relative_l2": 0.0003031362634458699
+    },
+    "product": {
+      "max_abs": 0.00196075439453125,
+      "relative_l2": 0.0001808603252568003
+    }
+  }
+}

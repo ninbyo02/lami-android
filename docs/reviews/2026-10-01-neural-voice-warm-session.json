@@ -1,0 +1,64 @@
+{
+  "phrase": "好きな色は、赤です！",
+  "retention_idle_ms": 45000,
+  "per_utterance_hash_validation": true,
+  "fresh_kv_and_sampler_each_utterance": true,
+  "runs": [
+    {
+      "run": "cold",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=5531 elapsed_ms=5548",
+        "metric=text_prepare ms=1395 elapsed_ms=6943",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=1179 elapsed_ms=8123",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=276 elapsed_ms=8399",
+        "metric=prefill ms=4302 elapsed_ms=12728",
+        "metric=codec frames=28 ms=11526 elapsed_ms=24254",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=978 elapsed_ms=25233",
+        "metric=pcm_forward ms=2920 elapsed_ms=28154",
+        "synthesis=success samples=53760 elapsed_ms=28193"
+      ]
+    },
+    {
+      "run": "warm",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=5935 elapsed_ms=5950",
+        "metric=text_prepare ms=1015 elapsed_ms=6965",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=true ms=0 elapsed_ms=6965",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=true ms=0 elapsed_ms=6965",
+        "metric=prefill ms=4010 elapsed_ms=11012",
+        "metric=codec frames=28 ms=12531 elapsed_ms=23543",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=true ms=0 elapsed_ms=23546",
+        "metric=pcm_forward ms=1599 elapsed_ms=25145",
+        "synthesis=success samples=53760 elapsed_ms=25148"
+      ]
+    },
+    {
+      "run": "expired",
+      "sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+      "metrics": [
+        "metric=hash_validation ms=4960 elapsed_ms=4970",
+        "metric=text_prepare ms=618 elapsed_ms=5588",
+        "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=516 elapsed_ms=6105",
+        "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=91 elapsed_ms=6196",
+        "metric=prefill ms=2203 elapsed_ms=8411",
+        "metric=codec frames=28 ms=6880 elapsed_ms=15291",
+        "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=296 elapsed_ms=15587",
+        "metric=pcm_forward ms=1762 elapsed_ms=17350",
+        "synthesis=success samples=53760 elapsed_ms=17352"
+      ]
+    }
+  ],
+  "approved_baseline_sha256": "58c9684266c899b91d5ba2a7ece3ba1786f6e76334705d828812ead3894022b9",
+  "all_wavs_match_approved_baseline": true,
+  "interpretation": "Warm run eliminates three model loads. Overall latency varies; one pair is not a stable throughput benchmark.",
+  "real_time": false,
+  "cancellation_verified": true,
+  "recovery_model_loads": [
+    "metric=model_load name=stateless-28-fp32-cache256-et14.pte reused=false ms=485 elapsed_ms=2484",
+    "metric=model_load name=cp-stateless-fp32-cache32-et14.pte reused=false ms=80 elapsed_ms=2564",
+    "metric=model_load name=speech-decoder-dynamic-et14.pte reused=false ms=397 elapsed_ms=12094"
+  ],
+  "recovery_wav_matches_baseline": true
+}

@@ -1,0 +1,96 @@
+{
+  "device": "NX733J/SM8750",
+  "date": "2026-10-09 JST",
+  "model_sha256": "5aac6bebf8cdf35f7dd5029b74a1d9d1485b0a9113bd328b13b73438a14b0a72",
+  "runs": [
+    {
+      "artifacts": "/home/sato/project/lami-android-voice-dataset/device/pcm-vulkan-20261009-evening",
+      "status": "GPU_LOAD_NATIVE_CRASH",
+      "cpu4_measured": [
+        {
+          "gpu_trial": 0,
+          "backend": 0,
+          "repeat": 0,
+          "pcm_forward_ms": 905,
+          "model_load_ms": 1,
+          "total_ms": 915
+        },
+        {
+          "gpu_trial": 0,
+          "backend": 0,
+          "repeat": 1,
+          "pcm_forward_ms": 911,
+          "model_load_ms": 0,
+          "total_ms": 921
+        }
+      ],
+      "cpu4_forward_median_ms": 908.0,
+      "gpu_measurements": 0,
+      "cpu_numeric_errors": 0,
+      "restore": {
+        "status": "restored_and_hash_verified",
+        "verified": {
+          "apk": true,
+          "manifest": true,
+          "neural_tts_last.wav": true,
+          "neural_tts_pipeline_probe.txt": true,
+          "neural_tts_hai_probe.txt": true,
+          "removed_main-int8-grouped-cache128.pte": true,
+          "removed_cp-int8-grouped-cache16.pte": true,
+          "removed_speech-decoder-fixed16-xnnpack.pte": true,
+          "removed_speech-decoder-fixed16-vulkan.pte": true
+        },
+        "errors": []
+      }
+    },
+    {
+      "artifacts": "/home/sato/project/lami-android-voice-dataset/device/pcm-vulkan-20261009-errors",
+      "status": "GPU_LOAD_NATIVE_CRASH",
+      "cpu4_measured": [
+        {
+          "gpu_trial": 0,
+          "backend": 0,
+          "repeat": 0,
+          "pcm_forward_ms": 1086,
+          "model_load_ms": 0,
+          "total_ms": 1097
+        },
+        {
+          "gpu_trial": 0,
+          "backend": 0,
+          "repeat": 1,
+          "pcm_forward_ms": 1128,
+          "model_load_ms": 0,
+          "total_ms": 1139
+        }
+      ],
+      "cpu4_forward_median_ms": 1107.0,
+      "gpu_measurements": 0,
+      "cpu_numeric_errors": 0,
+      "restore": {
+        "status": "restored_and_hash_verified",
+        "verified": {
+          "apk": true,
+          "manifest": true,
+          "neural_tts_last.wav": true,
+          "neural_tts_pipeline_probe.txt": true,
+          "neural_tts_hai_probe.txt": true,
+          "removed_main-int8-grouped-cache128.pte": true,
+          "removed_cp-int8-grouped-cache16.pte": true,
+          "removed_speech-decoder-fixed16-xnnpack.pte": true,
+          "removed_speech-decoder-fixed16-vulkan.pte": true
+        },
+        "errors": []
+      }
+    }
+  ],
+  "native_failure": {
+    "process": "io.github.ninbyo02.lami:voice_decoder",
+    "reason": "APP CRASH(NATIVE)",
+    "signal": "SIGABRT",
+    "abort_message": "ptr",
+    "call": "org.pytorch.executorch.Module.loadMethod",
+    "stack": "libfbjni getJavaExceptionForCppException / translatePendingCppExceptionToJavaException",
+    "root_cause": "Underlying C++ exception not recovered; no Vulkan execution or speed evidence"
+  }
+}

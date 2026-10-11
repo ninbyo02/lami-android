@@ -1,0 +1,345 @@
+{
+  "export": {
+    "status": "isolated_main_pilot_not_voice_validated",
+    "precision": "int8",
+    "capacity": 256,
+    "int8_weight_constants": 196,
+    "bytes": 442932352,
+    "per_op_partition": true,
+    "partition_scope": "linear_bmm_softmax_permute",
+    "sha256": "5a03abc2481cc050ea37950247b73450fd3be64d6a4b7854dee4251b39db9bba",
+    "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+    "limitations": [
+      "No Android bundle changes",
+      "No realtime or voice quality acceptance"
+    ]
+  },
+  "traced_comparison": {
+    "int8-control": {
+      "execute_ms": 62.41458016666667,
+      "native_ms": 50.78114016666666,
+      "delegate_ms": 10.755536833333334,
+      "native_permute_ms": 26.243272166666667
+    },
+    "int8-permute": {
+      "execute_ms": 38.520826166666666,
+      "native_ms": 25.99593583333333,
+      "delegate_ms": 11.728896166666665,
+      "native_permute_ms": 0.0
+    },
+    "fixed_input_outputs_bit_exact": [
+      true,
+      true,
+      true
+    ]
+  },
+  "untraced_comparison": {
+    "trials": [
+      {
+        "trial": 0,
+        "model": "control",
+        "mean_ms": 82.58321387529577,
+        "p50_ms": 82.22645900241332,
+        "timings_ms": [
+          84.85144800215494,
+          83.45176299917512,
+          82.11290900362656,
+          81.1927350005135,
+          82.08535800076788,
+          81.5362869980163,
+          82.34000900120009,
+          83.09520199691178
+        ]
+      },
+      {
+        "trial": 0,
+        "model": "permute",
+        "mean_ms": 50.69731962521473,
+        "p50_ms": 50.497006999648875,
+        "timings_ms": [
+          50.71748200134607,
+          50.41454199817963,
+          50.37915000139037,
+          50.22057099995436,
+          50.22609000297962,
+          51.15342399949441,
+          51.88782599725528,
+          50.57947200111812
+        ]
+      },
+      {
+        "trial": 1,
+        "model": "permute",
+        "mean_ms": 50.41080850060098,
+        "p50_ms": 50.18372549966443,
+        "timings_ms": [
+          50.111540003854316,
+          50.092320001567714,
+          49.98519900254905,
+          50.25591099547455,
+          50.40865100454539,
+          52.114457001152914,
+          49.90547899797093,
+          50.41291099769296
+        ]
+      },
+      {
+        "trial": 1,
+        "model": "control",
+        "mean_ms": 81.64978837430681,
+        "p50_ms": 81.44060650010942,
+        "timings_ms": [
+          81.44604600238381,
+          82.13439899554942,
+          82.50368000153685,
+          81.4046759987832,
+          82.10473899816861,
+          81.09619499737164,
+          81.43516699783504,
+          81.0734050028259
+        ]
+      },
+      {
+        "trial": 2,
+        "model": "control",
+        "mean_ms": 81.74756887183321,
+        "p50_ms": 81.59133200024371,
+        "timings_ms": [
+          81.92388899624348,
+          81.15662499767495,
+          81.77699799853144,
+          82.40884999395348,
+          82.77268099482171,
+          81.17874499293976,
+          81.35709699854488,
+          81.40566600195598
+        ]
+      },
+      {
+        "trial": 2,
+        "model": "permute",
+        "mean_ms": 50.553580375890306,
+        "p50_ms": 50.30801549946773,
+        "timings_ms": [
+          52.3737380062812,
+          51.02148299920373,
+          49.97264000121504,
+          49.90465899754781,
+          49.99635000422131,
+          50.543741999717895,
+          50.41029099811567,
+          50.20574000081979
+        ]
+      },
+      {
+        "trial": 3,
+        "model": "permute",
+        "mean_ms": 50.50709150145849,
+        "p50_ms": 50.28355550166452,
+        "timings_ms": [
+          52.17222699866397,
+          50.586232006025966,
+          50.28845999913756,
+          50.15444099990418,
+          50.18738000217127,
+          50.06185000092955,
+          50.27865100419149,
+          50.32749100064393
+        ]
+      },
+      {
+        "trial": 3,
+        "model": "control",
+        "mean_ms": 81.70546875135187,
+        "p50_ms": 81.53664700148511,
+        "timings_ms": [
+          80.45225299429148,
+          81.19348600303056,
+          81.52094700199086,
+          81.56088700343389,
+          82.31112999783363,
+          83.74397400621092,
+          81.55234700097935,
+          81.30872600304428
+        ]
+      },
+      {
+        "trial": 4,
+        "model": "control",
+        "mean_ms": 82.33571599885181,
+        "p50_ms": 81.76650299719768,
+        "timings_ms": [
+          82.5986109994119,
+          81.34269599395338,
+          81.06350500020199,
+          84.39348699903348,
+          82.12201899732463,
+          81.21009600290563,
+          81.41098699707072,
+          84.54432700091274
+        ]
+      },
+      {
+        "trial": 4,
+        "model": "permute",
+        "mean_ms": 50.70330725175154,
+        "p50_ms": 50.26320100296289,
+        "timings_ms": [
+          49.891859001945704,
+          50.18407099851174,
+          50.40239100344479,
+          50.24278100609081,
+          50.10462000063853,
+          50.283620999834966,
+          53.88487299933331,
+          50.63224200421246
+        ]
+      },
+      {
+        "trial": 5,
+        "model": "permute",
+        "mean_ms": 50.66193699985888,
+        "p50_ms": 50.64862699873629,
+        "timings_ms": [
+          50.354020997474436,
+          50.30510000506183,
+          50.56216099910671,
+          50.89433299872326,
+          50.73509299836587,
+          50.91877299855696,
+          51.43443500128342,
+          50.09158000029856
+        ]
+      },
+      {
+        "trial": 5,
+        "model": "control",
+        "mean_ms": 81.35788912841235,
+        "p50_ms": 81.10530100384494,
+        "timings_ms": [
+          80.79083500342676,
+          80.31610299804015,
+          83.1895630035433,
+          81.44702700519701,
+          80.97427500615595,
+          81.13843600585824,
+          81.93470800324576,
+          81.07216600183165
+        ]
+      },
+      {
+        "trial": 6,
+        "model": "control",
+        "mean_ms": 81.29014637415821,
+        "p50_ms": 80.89550999648054,
+        "timings_ms": [
+          80.62102399708237,
+          80.99001499795122,
+          81.52746700216085,
+          80.78590499644633,
+          83.52670400199713,
+          81.30797700141557,
+          80.80100499500986,
+          80.76107400120236
+        ]
+      },
+      {
+        "trial": 6,
+        "model": "permute",
+        "mean_ms": 50.61555587235489,
+        "p50_ms": 50.318056495598285,
+        "timings_ms": [
+          50.20772099669557,
+          52.81532899971353,
+          50.31329099438153,
+          50.660952998441644,
+          50.03204999957234,
+          50.08259999885922,
+          50.32282199681504,
+          50.48968099436024
+        ]
+      }
+    ],
+    "median_trial_mean_ms": {
+      "control": 81.70546875135187,
+      "permute": 50.61555587235489
+    },
+    "speedup": 1.6142363220785572,
+    "limitations": [
+      "Untraced original Python runtime, synthetic inputs, warm loaded methods",
+      "torch threads2; XNNPACK runtime default pool",
+      "Host concurrency uncontrolled; not Android or whole TTS"
+    ]
+  },
+  "full_feedback": {
+    "host_validation": "passed",
+    "frontend": "model FP32 table, original Qwen custom-voice layout",
+    "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+    "model_sha256": {
+      "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+      "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+      "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+    },
+    "cases": [
+      {
+        "text": "窓を閉めてから、赤い箱を机に置いてください。",
+        "prefill_tokens": 27,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 49,
+        "eos_reached": true,
+        "samples": 94080,
+        "duration_seconds": 3.92,
+        "host_elapsed_seconds": 13.253
+      },
+      {
+        "text": "午前九時半に、次の予定をお知らせします。",
+        "prefill_tokens": 26,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 50,
+        "eos_reached": true,
+        "samples": 96000,
+        "duration_seconds": 4.0,
+        "host_elapsed_seconds": 12.557
+      }
+    ],
+    "host_forward_timing": {
+      "main": {
+        "calls": 152,
+        "mean_ms": 47.53701942770835,
+        "p50_ms": 47.276109504309716,
+        "p95_ms": 48.79113650022191
+      },
+      "cp": {
+        "calls": 1584,
+        "mean_ms": 3.085558756841541,
+        "p50_ms": 3.0805950009380467,
+        "p95_ms": 3.3636681484495057
+      }
+    },
+    "android_validation": "pending",
+    "listening_quality_validation": "pending",
+    "candidate_sha256": "8d0843096887167a64610e33569cc6c15b61dfedd19ddada23ae98c205cd1d87",
+    "main_candidate_sha256": "5a03abc2481cc050ea37950247b73450fd3be64d6a4b7854dee4251b39db9bba",
+    "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+    "max_frames": 96,
+    "limitations": [
+      "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+      "Host timing includes frontend and decoding, not device realtime evidence."
+    ],
+    "matching_reviewed_int8_main": [
+      {
+        "case": 0,
+        "codes_bit_exact": true,
+        "wav_sha256_equal": true,
+        "wav_sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97"
+      },
+      {
+        "case": 1,
+        "codes_bit_exact": true,
+        "wav_sha256_equal": true,
+        "wav_sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5"
+      }
+    ]
+  },
+  "device_validation": "pending"
+}

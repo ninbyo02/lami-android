@@ -1,0 +1,274 @@
+{
+  "export": {
+    "status": "isolated_cp_pilot_not_audio_validated",
+    "precision": "int8",
+    "capacity": 16,
+    "grouped_attention": true,
+    "quantize_scope": "all",
+    "int8_weight_constants": 35,
+    "bytes": 79059328,
+    "sha256": "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01",
+    "source_model": "/home/sato/project/lami-android-voice-dataset/releases/lami-cute-0.6b-partial-v1-rc1/model",
+    "limitations": [
+      "No Android bundle changes.",
+      "No realtime or voice quality claim.",
+      "The INT8 option uses dynamic signed activations and per-channel signed weights."
+    ]
+  },
+  "profile": {
+    "variant_keys": {
+      "32": "baseline_cache16",
+      "16": "grouped_attention_cache16"
+    },
+    "models": {
+      "32": {
+        "path": "/home/sato/project/lami-android-voice-dataset/qat/cp-cache16-pilot-20261007/cp-int8-cache16.pte",
+        "sha256": "43d29ccbd80d8f9c6e0e2cf57d84c5939a772d31262301088b73f7613e22e22c"
+      },
+      "16": {
+        "path": "/home/sato/project/lami-android-voice-dataset/qat/cp-grouped-pilot-20261008/cp-int8-grouped-cache16.pte",
+        "sha256": "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01"
+      }
+    },
+    "cases": [
+      {
+        "capture": {
+          "file": "case-0-frame-16-pos-0.npz",
+          "sha256": "ca0d165bfb544b67595225e5d69f4c5917c063024d22d95bcfe486847abed851",
+          "case": 0,
+          "id": "later-0",
+          "split": "eval",
+          "text": "窓を閉めてから、赤い箱を机に置いてください。",
+          "frame": 16,
+          "position": 0,
+          "selected_head": null
+        },
+        "outputs_bit_exact": [
+          true,
+          true,
+          true
+        ],
+        "max_abs_error": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "untraced_trials_mean_ms": {
+          "32": [
+            3.253703,
+            3.078452125,
+            3.06328575,
+            3.025376875,
+            3.039439375,
+            3.054852,
+            2.921867625
+          ],
+          "16": [
+            2.99977175,
+            2.77598675,
+            2.652147125,
+            2.7448639999999997,
+            2.7896229999999997,
+            2.80571425,
+            2.8132795
+          ]
+        },
+        "untraced_median_trial_mean_ms": {
+          "32": 3.054852,
+          "16": 2.7896229999999997
+        },
+        "trace": {
+          "32": {
+            "execute_ms": 2.1730104999999997,
+            "native_ms": 0.4656173333333333,
+            "delegate_ms": 1.6700346666666663,
+            "native_ops": {
+              "native_call_expand_copy.out": 0.25973266666666667,
+              "native_call_index_put.out": 0.16971450000000002,
+              "native_call_select_copy.int_out": 0.013363333333333333,
+              "native_call_mean.out": 0.012735,
+              "native_call_unsqueeze_copy.out": 0.010071833333333334
+            }
+          },
+          "16": {
+            "execute_ms": 1.9369769999999997,
+            "native_ms": 0.3021421666666666,
+            "delegate_ms": 1.6024246666666668,
+            "native_ops": {
+              "native_call_index_put.out": 0.16804833333333333,
+              "native_call_expand_copy.out": 0.10336883333333333,
+              "native_call_select_copy.int_out": 0.017381666666666667,
+              "native_call_mean.out": 0.012095,
+              "native_call_unsqueeze_copy.out": 0.0012483333333333335
+            }
+          }
+        }
+      },
+      {
+        "capture": {
+          "file": "case-0-frame-16-pos-15.npz",
+          "sha256": "e3187d0e8f696b6721c6d202c70213a2794e8aa72f4e6ff5c6ba1cda39c0e96f",
+          "case": 0,
+          "id": "later-0",
+          "split": "eval",
+          "text": "窓を閉めてから、赤い箱を机に置いてください。",
+          "frame": 16,
+          "position": 15,
+          "selected_head": 14,
+          "selected_code": 929,
+          "sampling_draw": 0.9328751283275705
+        },
+        "outputs_bit_exact": [
+          true,
+          true,
+          true
+        ],
+        "max_abs_error": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "untraced_trials_mean_ms": {
+          "32": [
+            3.2027078749999998,
+            3.201439,
+            3.04360825,
+            3.033980625,
+            2.998857875,
+            3.129871125,
+            3.01052675
+          ],
+          "16": [
+            2.7421365,
+            2.71708,
+            2.8555446250000003,
+            2.745414125,
+            2.96136275,
+            2.671778375,
+            2.649539625
+          ]
+        },
+        "untraced_median_trial_mean_ms": {
+          "32": 3.04360825,
+          "16": 2.7421365
+        },
+        "trace": {
+          "32": {
+            "execute_ms": 2.1691455000000004,
+            "native_ms": 0.48462266666666665,
+            "delegate_ms": 1.6445395,
+            "native_ops": {
+              "native_call_expand_copy.out": 0.285007,
+              "native_call_index_put.out": 0.1644005,
+              "native_call_select_copy.int_out": 0.013345166666666667,
+              "native_call_mean.out": 0.013003333333333334,
+              "native_call_unsqueeze_copy.out": 0.008866666666666667
+            }
+          },
+          "16": {
+            "execute_ms": 2.242696,
+            "native_ms": 0.41315750000000007,
+            "delegate_ms": 1.7877981666666667,
+            "native_ops": {
+              "native_call_index_put.out": 0.23545516666666666,
+              "native_call_expand_copy.out": 0.13915883333333334,
+              "native_call_select_copy.int_out": 0.02009333333333333,
+              "native_call_mean.out": 0.017196666666666666,
+              "native_call_unsqueeze_copy.out": 0.0012535
+            }
+          }
+        }
+      }
+    ],
+    "limits": [
+      "Host CPU/XNNPACK fixed-input microbenchmark, not Android or end-to-end TTS.",
+      "Inputs are prior FP32 host full-feedback captures, not newly recorded Android INT8 states.",
+      "Tracing and untraced timing reported separately; uncontrolled host scheduling."
+    ]
+  },
+  "feedback": {
+    "main_capacity": 128,
+    "cp_capacity": 16,
+    "host_validation": "passed",
+    "frontend": "model FP32 table, original Qwen custom-voice layout",
+    "sampling": "seed=42 JavaRandom main/CP, top_k=50 temperature=0.9 repetition_penalty=1.05, special-token suppression, minimum 2 frames",
+    "model_sha256": {
+      "cp-stateless-fp32-cache32-et14.pte": "b81bfdc1dd0b47d73854c340ab130ff0a28ce68dd4ab2ef6be23cdfb370adda1",
+      "speech-decoder-dynamic-et14.pte": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+      "stateless-28-fp32-cache256-et14.pte": "0813bb92405360aa285560f16270319491f7757480a98cb882e897a0e4d7531a"
+    },
+    "cases": [
+      {
+        "text": "窓を閉めてから、赤い箱を机に置いてください。",
+        "prefill_tokens": 27,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 49,
+        "eos_reached": true,
+        "samples": 94080,
+        "duration_seconds": 3.92,
+        "host_elapsed_seconds": 11.932
+      },
+      {
+        "text": "午前九時半に、次の予定をお知らせします。",
+        "prefill_tokens": 26,
+        "preparation_max_abs_error": 2.384185791015625e-07,
+        "codec_frames": 50,
+        "eos_reached": true,
+        "samples": 96000,
+        "duration_seconds": 4.0,
+        "host_elapsed_seconds": 10.904
+      }
+    ],
+    "host_forward_timing": {
+      "main": {
+        "calls": 152,
+        "mean_ms": 33.58195583577502,
+        "p50_ms": 32.43093700075406,
+        "p95_ms": 36.93645835082861
+      },
+      "cp": {
+        "calls": 1584,
+        "mean_ms": 2.750671445060428,
+        "p50_ms": 2.6552444978733547,
+        "p95_ms": 3.0691335026858724
+      }
+    },
+    "android_validation": "pending",
+    "listening_quality_validation": "pending",
+    "candidate_sha256": "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01",
+    "main_candidate_sha256": "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c",
+    "feedback": "Candidate CP codes feed CP embeddings and the next main step; no teacher tokens.",
+    "max_frames": 96,
+    "limitations": [
+      "Two new sentences with a bounded generation limit, not broad voice quality acceptance.",
+      "Host timing includes frontend and decoding, not device realtime evidence."
+    ]
+  },
+  "output_comparison": [
+    {
+      "file": "case-0-codes.npy",
+      "sha256": "eb43f45a6d9128ef909ae7aac6f821a6ce0e61479d5be23f6aed6c39b6c27f84",
+      "baseline_sha256": "eb43f45a6d9128ef909ae7aac6f821a6ce0e61479d5be23f6aed6c39b6c27f84",
+      "identical": true
+    },
+    {
+      "file": "case-0.wav",
+      "sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97",
+      "baseline_sha256": "0132049c8013ef914dd902eab615827e64622ee724eb6d34f84497ca5b32aa97",
+      "identical": true
+    },
+    {
+      "file": "case-1-codes.npy",
+      "sha256": "48baf924ea804bdb75fb8ec920db43d75374682ece4f6f8cbd9d0530f3d6df93",
+      "baseline_sha256": "48baf924ea804bdb75fb8ec920db43d75374682ece4f6f8cbd9d0530f3d6df93",
+      "identical": true
+    },
+    {
+      "file": "case-1.wav",
+      "sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5",
+      "baseline_sha256": "8111a3d82ef90a9ee8d4667c0609d70ead6b2875c733435f18cb2640fc7170d5",
+      "identical": true
+    }
+  ],
+  "android": "pending"
+}

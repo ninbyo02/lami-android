@@ -45,7 +45,7 @@ fun resolveBuildPrNumber(): String {
 }
 
 val liteRtLmAndroidReleaseVersion = "0.11.0"
-val liteRtLmAndroidDebugVersion = "0.11.0"
+val liteRtLmAndroidDebugVersion = "0.17.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
@@ -56,7 +56,22 @@ val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
+val standardGpuOpenClEnabled = providers.gradleProperty("lami.standardGpuOpenClEnabled")
+    .map { it.toBooleanStrict() }.orElse(true)
+val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
+    !providers.gradleProperty("lami.allowMissingQairt244Jni").map { it.toBooleanStrict() }.orElse(false).get()
+
+val tokenizerOnlyDiagnostic = providers.gradleProperty("lami.tokenizerOnlyDiagnostic")
+    .map { it.toBooleanStrict() }.orElse(false)
+val tokenizerOnlyArtifactDir = providers.gradleProperty("lami.tokenizerOnlyArtifactDir")
+val tokenizerOnlyGpuEnabled = providers.gradleProperty("lami.tokenizerOnlyGpuEnabled").map { it.toBooleanStrict() }.orElse(true)
+val tokenizerOnlyForceFallback = providers.gradleProperty("lami.tokenizerOnlyForceFallback").map { it.toBooleanStrict() }.orElse(false)
+val tokenizerOnlyPackaged = tokenizerOnlyDiagnostic.get() || (tokenizerOnlyGpuEnabled.get() && tokenizerOnlyArtifactDir.isPresent)
+
 val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntimeEnabled")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
+val gpuIdlePrewarmDiagnostic = providers.gradleProperty("lami.gpuIdlePrewarmDiagnostic")
     .map { it.toBooleanStrict() }
     .orElse(false)
 
@@ -98,13 +113,14 @@ android {
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_MODEL_ASSETS_ONLY_ENABLED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_HELD_RUN_ONCE_ENABLED", "false")
         buildConfigField("Boolean", "TRUE_ENGINE_NPU_PROBE_NATIVE_EXECUTION_ENABLED", "false")
+        buildConfigField("Boolean", "GPU_IDLE_PREWARM_DIAGNOSTIC", "false")
     }
 
     flavorDimensions += "dispatchExperiment"
     productFlavors {
         create("standard") {
             dimension = "dispatchExperiment"
-            if (standardNpuRuntimeEnabled.get()) {
+            if (standardNpuRuntimeEnabled.get() && !gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".npuvalidation"
             }
             buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
@@ -309,6 +325,10 @@ android {
             // Isolated assistant verification APK: never overwrite the main LAMI/TTS app.
             applicationIdSuffix = ".assistantprobe"
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
+            if (gpuIdlePrewarmDiagnostic.get()) {
+                applicationIdSuffix = ".gpuidleprewarm"
+                versionNameSuffix = "-gpuIdlePrewarmDiagnostic"
+            }
         }
         release {
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
@@ -392,6 +412,34 @@ androidComponents {
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val gpuPrewarmDiagnosticVariant =
+            flavor == "standard" && variant.buildType == "debug" && gpuIdlePrewarmDiagnostic.get()
+        variant.buildConfigFields?.put(
+            "GPU_IDLE_PREWARM_DIAGNOSTIC",
+            BuildConfigField("boolean", gpuPrewarmDiagnosticVariant.toString(), "Isolated debug-only GPU idle-prewarm diagnostic"),
+        )
+        val tokenizerComparison = flavor == "standard" && variant.buildType == "debug" && tokenizerOnlyDiagnostic.get()
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_DIAGNOSTIC", BuildConfigField("boolean", tokenizerComparison.toString(), "Diagnostic comparison only; never replaces counts"))
+        val tokenizerGpu = flavor == "standard" && variant.buildType == "debug" &&
+            !tokenizerComparison && tokenizerOnlyGpuEnabled.get() && tokenizerOnlyArtifactDir.isPresent
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_GPU_ENABLED", BuildConfigField("boolean", tokenizerGpu.toString(), "Validated GPU recount with legacy fallback"))
+        variant.buildConfigFields?.put("TOKENIZER_ONLY_FORCE_FALLBACK", BuildConfigField("boolean", (tokenizerGpu && tokenizerOnlyForceFallback.get()).toString(), "Debug validation only"))
+        if (tokenizerComparison || tokenizerGpu) {
+            val artifact = file(tokenizerOnlyArtifactDir.orNull ?: error("Set lami.tokenizerOnlyArtifactDir to the verified tokenizer build output"))
+            require(File(artifact, "jniLibs/arm64-v8a/liblami_tokenizer_only.so").isFile) { "Build tokenizer-only JNI first" }
+            variant.sources.jniLibs?.addStaticSourceDirectory(File(artifact, "jniLibs").absolutePath)
+            variant.sources.assets?.addStaticSourceDirectory(File(artifact, "notices").absolutePath)
+        } else {
+            variant.packaging.jniLibs.excludes.add("**/liblami_tokenizer_only.so")
+        }
+        val combinedGpuRuntime = flavor == "standard" && standardGpuOpenClEnabled.get() &&
+            (if (variant.buildType == "debug") standardGpuOpenClDebugEnabled else standardNpuRuntimeEnabled.get())
+        variant.buildConfigFields?.put("STANDARD_GPU_OPENCL_RUNTIME", BuildConfigField("boolean", combinedGpuRuntime.toString(), "Pinned combined GPU/NPU runtime"))
+        if (combinedGpuRuntime) {
+            variant.packaging.jniLibs.keepDebugSymbols.add("**/*.so")
+            variant.packaging.jniLibs.excludes.add("**/arm64-v8a/libLiteRtClGlAccelerator.so")
+            variant.packaging.jniLibs.excludes.add("**/arm64-v8a/libLiteRtGpuAccelerator.so")
+        }
         if (
             variant.buildType == "release" &&
             flavor == "standard" &&
@@ -427,9 +475,11 @@ androidComponents {
             listOf(
                 "**/libLiteRtDispatch_Qualcomm.so",
                 "**/libLiteRtCompilerPlugin_Qualcomm.so",
-                "**/libGemmaModelConstraintProvider.so",
                 "**/libQnn*.so",
                 "**/libqnn_*.so",
+                // Isolation probe: force the working CLI's LITERT_CL implementation.
+                "**/libLiteRtGpuAccelerator.so",
+                "**/libLiteRtClGlAccelerator.so",
             ).forEach { pattern ->
                 variant.packaging.jniLibs.excludes.add(pattern)
             }
@@ -607,6 +657,13 @@ val allowMissingQairt244Jni =
     providers.gradleProperty("lami.allowMissingQairt244Jni")
         .map { it.toBooleanStrict() }
         .orElse(false)
+
+fun verifyStandardGpuOpenClInputs(nativeDir: File) {
+    exec {
+        commandLine("python3", rootProject.file("scripts/stage_standard_gpu_opencl.py").absolutePath,
+            "--native-dir", nativeDir.absolutePath)
+    }
+}
 
 fun prepareQairt244StandardDebugBuildOutputForCopy(
     outputFile: File,
@@ -1041,6 +1098,9 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
     outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
     inputs.property("allowMissingQairt244Jni", allowMissingQairt244Jni)
 
+    inputs.property("standardGpuOpenClEnabled", standardGpuOpenClDebugEnabled)
+    inputs.file(rootProject.file("config/standard_gpu_npu_runtime.json"))
+    inputs.file(rootProject.file("scripts/stage_standard_gpu_opencl.py"))
     doLast {
         val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         prepareQairt244StandardDebugBuildOutputsForCopy(
@@ -1049,11 +1109,17 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
             allowedOutputRoots = listOf(qairt244StandardDebugGeneratedJniOutputDir.get().asFile),
             taskName = name,
         )
+        // Remove providers left by an earlier configuration before staging this variant.
+        listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
+            prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
+        }
+        if (standardGpuOpenClDebugEnabled) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         copy {
             from(qairt244StandardDebugNativeSourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
+                if (!(standardGpuOpenClDebugEnabled)) exclude("libLiteRtOpenClAccelerator.so")
                 }
             into(outputDir)
         }
@@ -1117,6 +1183,9 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
     inputs.property("standardNpuRuntimeEnabled", standardNpuRuntimeEnabled)
     outputs.dir(qairt244StandardReleaseGeneratedJniOutputDir)
 
+    inputs.property("standardGpuOpenClEnabled", standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get())
+    inputs.file(rootProject.file("config/standard_gpu_npu_runtime.json"))
+    inputs.file(rootProject.file("scripts/stage_standard_gpu_opencl.py"))
     doLast {
         val sourceDir = qairt244StandardDebugNativeSourceDir.asFile
         val outputDir = qairt244StandardReleaseGeneratedJniOutputDir.get().asFile
@@ -1126,6 +1195,11 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
             allowedOutputRoots = listOf(qairt244StandardReleaseGeneratedJniOutputDir.get().asFile),
             taskName = name,
         )
+        // Remove providers left by an earlier configuration before staging this variant.
+        listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
+            prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
+        }
+        if (standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get()) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         if (!standardNpuRuntimeEnabled.get()) {
             logger.lifecycle("Standard Release NPU runtime disabled; generated vendor runtime directory is clean.")
@@ -1135,6 +1209,7 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
             from(sourceDir) {
                 include("*.so")
                 exclude("liblami_qairt244_smoke.so")
+                if (!(standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get())) exclude("libLiteRtOpenClAccelerator.so")
                 }
             into(outputDir)
         }
@@ -1512,12 +1587,14 @@ dependencies {
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
+    debugImplementation(if (providers.gradleProperty("lami.voiceVulkan").orNull == "true") "org.pytorch:executorch-android-vulkan:1.4.0" else "org.pytorch:executorch-android:1.4.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
     
 
     //Generated
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -1537,4 +1614,70 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Verify the final APK, not just the inputs: another dependency must not reintroduce ClGl.
+tasks.register("verifyStandardGpuOpenClApk") {
+    dependsOn("packageStandardDebug")
+    onlyIf { standardGpuOpenClDebugEnabled }
+    doLast {
+        exec {
+            commandLine("python3", rootProject.file("scripts/stage_standard_gpu_opencl.py").absolutePath,
+                "--apk", layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath)
+        }
+    }
+}
+tasks.matching { it.name == "assembleStandardDebug" }.configureEach {
+    dependsOn("verifyStandardGpuOpenClApk")
+}
+
+val verifyTokenizerOnlyDiagnosticArtifact by tasks.registering {
+    onlyIf { tokenizerOnlyPackaged }
+    doLast {
+        val artifact = file(tokenizerOnlyArtifactDir.get())
+        val manifestFile = File(artifact, "manifest.json")
+        val manifest = groovy.json.JsonSlurper().parse(manifestFile) as Map<*, *>
+        require(manifest["sentencepiece_commit"] == "31646a467d2051eb904e0b45de3a73e91fe1c1e3")
+        require(manifest["abi"] == "arm64-v8a")
+        val files = File(artifact, "jniLibs").walkTopDown().filter { it.isFile }.map { it.relativeTo(File(artifact, "jniLibs")).invariantSeparatorsPath }.toSet()
+        require(files == setOf("arm64-v8a/liblami_tokenizer_only.so")) { "Tokenizer artifact must contain only its own library" }
+        val library = File(artifact, "jniLibs/arm64-v8a/liblami_tokenizer_only.so")
+        val actual = MessageDigest.getInstance("SHA-256").digest(library.readBytes()).joinToString("") { "%02x".format(it) }
+        require(manifest["sha256"] == actual) { "Tokenizer JNI checksum mismatch" }
+        require(File(artifact, "notices/tokenizer_only/LICENSE").isFile) { "Tokenizer license missing" }
+    }
+}
+tasks.matching { it.name == "mergeStandardDebugNativeLibs" || it.name == "mergeStandardDebugAssets" }.configureEach {
+    dependsOn(verifyTokenizerOnlyDiagnosticArtifact)
+}
+
+// AGP's merged folder tasks must invalidate when this optional external input
+// is enabled/disabled, even when their conventional source-set paths are unchanged.
+tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mergeStandardDebugAssets" }.configureEach {
+    inputs.property("tokenizerOnlyPackaged", tokenizerOnlyPackaged)
+    if (tokenizerOnlyPackaged) {
+        val subdirectory = if (name == "mergeStandardDebugAssets") "notices" else "jniLibs"
+        inputs.dir(file(tokenizerOnlyArtifactDir.get()).resolve(subdirectory))
+    }
+}
+
+
+// Debug-only voice heads. Preserve sequential FP32 accumulation across JVM/ARM.
+val voiceMatrixJniRoot = layout.buildDirectory.dir("generated/lamiVoiceMatrixDebugJniLibs")
+android.sourceSets.getByName("debug").jniLibs.srcDir(voiceMatrixJniRoot)
+tasks.register("buildLamiVoiceMatrixDebugJni") {
+    inputs.file(layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp"))
+    outputs.file(voiceMatrixJniRoot.map { it.file("arm64-v8a/liblami_voice_matrix.so") })
+    doLast {
+        val compiler = requireNotNull(findAndroidNdkClang()) { "Android NDK compiler required for debug voice matrix kernels" }
+        val output = voiceMatrixJniRoot.get().file("arm64-v8a/liblami_voice_matrix.so").asFile
+        output.parentFile.mkdirs()
+        exec {
+            commandLine(compiler.absolutePath, "-shared", "-fPIC", "-std=c++17", "-O3", "-ffp-contract=off", "-fno-fast-math", "-fno-exceptions", "-fno-rtti", "-nostdlib++", "-Wl,--build-id=sha1",
+                layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp").asFile.absolutePath, "-o", output.absolutePath)
+        }
+    }
+}
+tasks.matching { it.name.endsWith("DebugJniLibFolders") || it.name.endsWith("DebugNativeLibs") }.configureEach {
+    dependsOn("buildLamiVoiceMatrixDebugJni")
 }
