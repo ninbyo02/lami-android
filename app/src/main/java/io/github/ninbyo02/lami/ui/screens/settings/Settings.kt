@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Card
@@ -195,6 +196,8 @@ fun Settings(
     navgationController: NavController,
     onSaved: () -> Unit = {},
     settingsBackStackEntry: NavBackStackEntry? = null,
+    onBluetoothStandby: (() -> Unit)? = null,
+    onUsbHeadset: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -238,9 +241,9 @@ fun Settings(
     fun onBackRequested() {
         val popped = navgationController.popBackStack()
         if (!popped) {
-            navgationController.navigate(Routes.CHATS) {
+            navgationController.navigate(Routes.CHAT_ROOT) {
                 launchSingleTop = true
-                popUpTo(Routes.CHATS) { inclusive = true }
+                popUpTo(Routes.CHAT_ROOT) { inclusive = false }
             }
         }
     }
@@ -430,6 +433,19 @@ fun Settings(
                 ),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            if (onBluetoothStandby != null) {
+                item {
+                    SettingsNavRowItem(
+                        headline = "Bluetooth待機",
+                        supporting = "Pioneer SE-MS7BT",
+                        leadingIcon = Icons.Filled.Headset,
+                        onClick = onBluetoothStandby,
+                    )
+                }
+            }
+            if (onUsbHeadset != null) {
+                item { UsbHeadsetSettingsRow(onClick = onUsbHeadset) }
+            }
             item {
                 CardSectionHeader(
                     title = "デバッグツール",
@@ -1129,6 +1145,8 @@ fun Settings(
                         isValidSavedLocalModelInfo(localGenericModelDisplayName, localGenericModelFilePath),
                     ),
                 )
+                Spacer(modifier = Modifier.height(2.dp))
+                AsrModelSettingsCard()
             }
             item {
                 CardSectionHeader(

@@ -54,4 +54,22 @@ class NpuStandardRouteS2DbContractTest {
         assertNull(mapping.saveCandidate)
         assertEquals("s1_success_criteria_not_met", mapping.failureReason)
     }
+
+    @Test
+    fun `legacy DB save does not duplicate a phase-finalized response`() {
+        assertFalse(
+            shouldRunLegacyNpuStandardRouteDbSave(
+                s2DbEnabled = true,
+                legacyDbSaveAllowed = true,
+                phaseDbSaveExecuted = true,
+            )
+        )
+        assertTrue(
+            shouldRunLegacyNpuStandardRouteDbSave(
+                s2DbEnabled = true,
+                legacyDbSaveAllowed = true,
+                phaseDbSaveExecuted = false,
+            )
+        )
+    }
 }

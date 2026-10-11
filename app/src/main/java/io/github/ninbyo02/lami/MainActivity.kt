@@ -1,13 +1,14 @@
 package io.github.ninbyo02.lami
 
+import android.Manifest
+import android.content.Intent
 import io.github.ninbyo02.lami.tts.LamiNeuralVoiceDiagnostics
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.Crossfade
@@ -15,6 +16,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,15 +34,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import io.github.ninbyo02.lami.assistant.AssistantMediaButtonProbe
+import io.github.ninbyo02.lami.assistant.AssistantVoiceEvent
+import io.github.ninbyo02.lami.assistant.AssistantVoiceEvents
+import io.github.ninbyo02.lami.assistant.EXTRA_ASSISTANT_AUTO_SUBMIT
+import io.github.ninbyo02.lami.assistant.EXTRA_ASSISTANT_SHOW_WHEN_LOCKED
+import io.github.ninbyo02.lami.assistant.EXTRA_ASSISTANT_START_LISTENING
+import io.github.ninbyo02.lami.assistant.HeadsetAssistantVolumeController
+import io.github.ninbyo02.lami.asr.AssistantRecognitionResult
+import io.github.ninbyo02.lami.asr.LamiAssistantRecognizer
 import io.github.ninbyo02.lami.api.RetrofitClient
 import io.github.ninbyo02.lami.db.AppDatabase
 import io.github.ninbyo02.lami.db.ChatDatabase
@@ -49,7 +63,6 @@ import io.github.ninbyo02.lami.db.repository.ChatRepository
 import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
-import io.github.ninbyo02.lami.ui.screens.chats.Chats
 import io.github.ninbyo02.lami.ui.screens.home.Home
 import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.settings.About
@@ -71,10 +84,57 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModelFactory
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 class MainActivity : ComponentActivity() {
+    private val assistantButtonProbe by lazy {
+        if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) AssistantMediaButtonProbe(this) else null
+    }
+    private val headsetAssistantVolumeController by lazy {
+        if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
+            HeadsetAssistantVolumeController(this)
+        } else {
+            null
+        }
+    }
     private lateinit var viewModel: OllamaViewModel
+    private var assistantCueVoice: io.github.ninbyo02.lami.tts.AndroidTtsController? = null
+    private val assistantRecognizer by lazy {
+        LamiAssistantRecognizer(applicationContext, beforeCapture = {
+            val voice = assistantCueVoice ?: io.github.ninbyo02.lami.tts.AndroidTtsController(applicationContext)
+                .also { assistantCueVoice = it }
+            val preferences = SettingsPreferences(applicationContext)
+            voice.setSpeechConfig(preferences.ttsSpeechRateFlow.first(), preferences.ttsPitchFlow.first())
+            io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext, "[LAMI_ASR] cue_started")
+            io.github.ninbyo02.lami.assistant.AssistantListeningCue(voice,
+                completedNormally = { voice.lastPlaybackCompletedNormally }).play()
+            io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext, "[LAMI_ASR] cue_finished")
+        })
+    }
+    private var assistantRecognitionJob: Job? = null
+    private var chatLaunchVersion by mutableStateOf(0)
+    private var chatEntryReadyVersion by mutableStateOf(0)
+    private var assistantListeningPendingPermission = false
+    private var assistantAutoSubmitPendingPermission = false
+    private val microphonePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted && assistantListeningPendingPermission) {
+            assistantListeningPendingPermission = false
+            val autoSubmit = assistantAutoSubmitPendingPermission
+            assistantAutoSubmitPendingPermission = false
+            startAssistantRecognition(autoSubmit)
+        } else if (!granted) {
+            assistantListeningPendingPermission = false
+            assistantAutoSubmitPendingPermission = false
+            AssistantVoiceEvents.publish(
+                AssistantVoiceEvent.Failure("音声認識にはマイクの許可が必要です。"),
+            )
+        }
+    }
     private val heldEngineLifecycleBridge by lazy {
         HeldEngineLifecycleBridge(holder = LocalInferenceEngineHolder.getInstance(applicationContext))
     }
@@ -82,6 +142,7 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureAssistantWindow(intent)
         LamiNeuralVoiceDiagnostics.start(this, savedInstanceState)
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
@@ -132,10 +193,22 @@ class MainActivity : ComponentActivity() {
             }
             // Initialise navigation
             val navController = rememberNavController()
-            LaunchedEffect(showStartupSplash) {
+            LaunchedEffect(showStartupSplash, chatLaunchVersion) {
                 // The splash branch does not compose NavHost yet. Navigating before the
                 // graph is installed crashes NavController during cold start.
                 if (showStartupSplash) return@LaunchedEffect
+                if (chatLaunchVersion > 0) {
+                    val entry = navController.currentBackStackEntryFlow.first()
+                    if (!isAssistantChatRoute(entry.destination.route)) {
+                        navController.navigate(Routes.CHAT_ROOT) {
+                            launchSingleTop = true
+                            popUpTo(Routes.CHAT_ROOT) { inclusive = false }
+                        }
+                    }
+                    navController.currentBackStackEntryFlow.first { isAssistantChatRoute(it.destination.route) }
+                    chatEntryReadyVersion = chatLaunchVersion
+                    return@LaunchedEffect
+                }
                 // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
                 if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
                 // 回転などでActivity再生成時にlastRouteがSettingsだと意図せずSettingsへ遷移するため、
@@ -145,7 +218,6 @@ class MainActivity : ComponentActivity() {
                 val restored = settingsPreferences.lastRoute.first()
                 val allowedRoutes = setOf(
                     Routes.HOME,
-                    Routes.CHATS,
                     Routes.CHAT_ROOT,
                     Routes.SETTINGS,
                     Routes.ABOUT,
@@ -201,20 +273,17 @@ class MainActivity : ComponentActivity() {
                                     startDestination = Routes.CHAT_ROOT
                                 ) {
                                         composable(Routes.HOME) {
-                                            Home(navController, viewModel)
-                                        }
-                                        composable(Routes.CHATS) {
-                                            Chats(navController, viewModel)
+                                            Home(navController, viewModel, chatLaunchVersion = chatLaunchVersion)
                                         }
                                         composable(route = Routes.CHAT_ROOT) {
-                                            Home(navController, viewModel, chatId = null)
+                                            Home(navController, viewModel, chatId = null, chatLaunchVersion = chatLaunchVersion)
                                         }
                                         composable(
                                             route = Routes.CHAT_WITH_ID_ROUTE,
                                             arguments = listOf(navArgument(Routes.CHAT_ID_ARG_ROUTE) { type = NavType.IntType })
                                         ) { backStackEntry ->
                                             val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG_ROUTE)
-                                            Home(navController, viewModel, chatId)
+                                            Home(navController, viewModel, chatId, chatLaunchVersion = chatLaunchVersion)
                                         }
                                         composable(
                                             route = "${Routes.SETTINGS}?localModelFocus={localModelFocus}",
@@ -227,6 +296,18 @@ class MainActivity : ComponentActivity() {
                                             Settings(
                                                 navgationController = navController,
                                                 settingsBackStackEntry = settingsBackStackEntry,
+                                                onBluetoothStandby = if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
+                                                    {
+                                                        startActivity(Intent().setClassName(packageName,
+                                                            "io.github.ninbyo02.lami.assistant.BluetoothAssistSetupActivity"))
+                                                    }
+                                                } else null,
+                                                onUsbHeadset = if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
+                                                    {
+                                                        startActivity(Intent().setClassName(packageName,
+                                                            "io.github.ninbyo02.lami.assistant.JabraUsbSetupActivity"))
+                                                    }
+                                                } else null,
                                             )
                                         }
                                         composable(Routes.ABOUT) {
@@ -277,16 +358,120 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        maybeStartAssistantRecognition(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        configureAssistantWindow(intent)
+        if (isLauncherChatEntry(intent.action, intent.categories.orEmpty())) chatLaunchVersion++
+        maybeStartAssistantRecognition(intent)
+    }
+
+    private fun maybeStartAssistantRecognition(launchIntent: Intent) {
+        io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext,
+            "[LAMI_ASR] assist_received listening=${launchIntent.getBooleanExtra(EXTRA_ASSISTANT_START_LISTENING, false)}")
+        if (!launchIntent.getBooleanExtra(EXTRA_ASSISTANT_START_LISTENING, false)) return
+        chatLaunchVersion++
+        launchIntent.removeExtra(EXTRA_ASSISTANT_START_LISTENING)
+        val autoSubmit = launchIntent.getBooleanExtra(EXTRA_ASSISTANT_AUTO_SUBMIT, false)
+        launchIntent.removeExtra(EXTRA_ASSISTANT_AUTO_SUBMIT)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            startAssistantRecognition(autoSubmit)
+        } else {
+            assistantListeningPendingPermission = true
+            assistantAutoSubmitPendingPermission = autoSubmit
+            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startAssistantRecognition(autoSubmit: Boolean) {
+        if (assistantRecognitionJob?.isActive == true) {
+            io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext,
+                "[LAMI_ASR] recognition_skipped already_active=true")
+            return
+        }
+        io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext,
+            "[LAMI_ASR] recognition_requested autoSubmit=$autoSubmit")
+        AssistantVoiceEvents.prepare()
+        val requestedChatVersion = chatLaunchVersion
+        assistantRecognitionJob = lifecycleScope.launch {
+            try {
+                withTimeout(10_000) {
+                    lifecycle.withResumed { }
+                    snapshotFlow { chatEntryReadyVersion >= requestedChatVersion }.first { it }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                if (cancelled !is kotlinx.coroutines.TimeoutCancellationException) throw cancelled
+                AssistantVoiceEvents.publish(AssistantVoiceEvent.Failure("会話画面を準備できませんでした。もう一度呼び出してください。"))
+                return@launch
+            }
+            io.github.ninbyo02.lami.util.DebugTraceFile.append(applicationContext, "[LAMI_ASR] chat_ready")
+            when (val result = assistantRecognizer.listenOnce()) {
+                is AssistantRecognitionResult.Success -> AssistantVoiceEvents.publish(
+                    AssistantVoiceEvent.Transcript(
+                        text = result.transcript,
+                        autoSubmit = autoSubmit,
+                    ),
+                )
+                is AssistantRecognitionResult.ModelRequired -> AssistantVoiceEvents.publish(
+                    AssistantVoiceEvent.Failure(
+                        "音声認識モデルをLAMIへ配置してください: ${result.stagingPath}",
+                    ),
+                )
+                is AssistantRecognitionResult.Failure -> AssistantVoiceEvents.publish(
+                    AssistantVoiceEvent.Failure(result.detail),
+                )
+            }
+        }
+    }
+
+    private fun configureAssistantWindow(launchIntent: Intent) {
+        val showOverLock = BuildConfig.APPLICATION_ID.endsWith(".assistantprobe") &&
+            launchIntent.getBooleanExtra(EXTRA_ASSISTANT_SHOW_WHEN_LOCKED, false)
+        setShowWhenLocked(showOverLock)
+        setTurnScreenOn(showOverLock)
     }
 
     override fun onStart() {
         super.onStart()
+        assistantButtonProbe?.start()
         heldEngineLifecycleBridge.onStart(scope = lifecycleScope)
     }
 
     override fun onStop() {
+        // Restrict lock-screen visibility to the current explicit assist launch.
+        if (!isChangingConfigurations) {
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
+            intent.removeExtra(EXTRA_ASSISTANT_SHOW_WHEN_LOCKED)
+        }
+        assistantButtonProbe?.stop()
         heldEngineLifecycleBridge.onStop(scope = lifecycleScope)
         super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        headsetAssistantVolumeController?.activate()
+    }
+
+    override fun onPause() {
+        headsetAssistantVolumeController?.deactivate()
+        super.onPause()
+    }
+
+    // Public Activity callback; AndroidX's inherited bridge has a library-only annotation.
+    @android.annotation.SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (BuildConfig.APPLICATION_ID.endsWith(".assistantprobe")) {
+            assistantButtonProbe?.observeActivityKey(event)
+            if (headsetAssistantVolumeController?.observeKey(event) == true) return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onTrimMemory(level: Int) {
@@ -297,6 +482,14 @@ class MainActivity : ComponentActivity() {
     override fun onLowMemory() {
         super.onLowMemory()
         heldEngineLifecycleBridge.onLowMemory(scope = lifecycleScope)
+    }
+
+    override fun onDestroy() {
+        assistantRecognitionJob?.cancel()
+        assistantRecognizer.close()
+        assistantCueVoice?.shutdown()
+        assistantCueVoice = null
+        super.onDestroy()
     }
 }
 
@@ -313,5 +506,12 @@ internal fun resolveStartRoute(
     val isAllowedRoute = restored != null && (
         restored in allowed || restored.startsWith("${Routes.CHAT}/")
     )
-    return if (isAllowedRoute) restored else Routes.CHAT_ROOT
+    return if (isAllowedRoute && isAssistantChatRoute(restored)) restored else Routes.CHAT_ROOT
 }
+
+internal fun isLauncherChatEntry(action: String?, categories: Set<String>): Boolean =
+    action == Intent.ACTION_MAIN && Intent.CATEGORY_LAUNCHER in categories
+
+internal fun isAssistantChatRoute(route: String?): Boolean =
+    route == Routes.CHAT_ROOT || route == Routes.HOME ||
+        route?.startsWith("${Routes.CHAT}/") == true

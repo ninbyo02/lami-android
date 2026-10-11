@@ -127,7 +127,7 @@ interface MessageDao {
 
     @Query(
         """
-        SELECT m.chatId AS chatId, m.message AS message
+        SELECT m.chatId AS chatId, m.message AS message, m.isSendbyMe AS isSendbyMe
         FROM chat_table AS m
         INNER JOIN (
             SELECT chatId, MAX(messageID) AS latestMessageId
@@ -147,4 +147,5 @@ interface MessageDao {
 data class ChatLatestMessage(
     val chatId: Int,
     val message: String,
+    val isSendbyMe: Boolean = true,
 )

@@ -59,7 +59,7 @@ for expected in \
   'selected_path_npu_saved false' \
   'app_template_mode raw' \
   'prompt_template_owner native_npu_adapter_exception' \
-  'prompt_template_evaluator native_adapter_serialization' \
+  'prompt_template_evaluator lami_verified_model_template_renderer' \
   'conversation_api_used false' \
   'app_template_used true' \
   'template_ownership_unified false' \
@@ -72,7 +72,7 @@ grep -q 'for marker in QNN HTP FastRPC' "$RUNNER" ||
   fail "runner must require every NPU runtime marker"
 grep -q 'QNN_HTP_V79_FastRPC_native_diag' "$RUNNER" ||
   fail "runner must require the exact NPU evidence profile"
-grep -q 'prompt_tail_variant raw_dialog_tail_variant_a' "$RUNNER" ||
+grep -q 'prompt_tail_variant model_metadata_gemma4_turn_v1' "$RUNNER" ||
   fail "runner must exercise the production raw prompt variant"
 grep -q 'turn1_output=' "$RUNNER" ||
   fail "turn 2 must use the actual turn 1 output"

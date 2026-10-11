@@ -26,6 +26,10 @@ class SpeechTextBuilder private constructor() {
         private val boldUnderscoreRegex = Regex("(?<!\\w)__((?=[^\\n]*[^A-Za-z0-9_])[^_\\n]+)__(?!\\w)")
         private val italicAsteriskRegex = Regex("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)")
         private val italicUnderscoreRegex = Regex("(?<!\\w)_((?=[^\\n]*[^A-Za-z0-9_])[^_\\n]+)_(?!\\w)")
+        private val spacedDigitsBeforeJapaneseCounterRegex = Regex(
+            "(?<![A-Za-z0-9])\\d(?:[ \\u3000]+\\d)+" +
+                "(?=(?:か月|ヶ月|カ月|年|月|日|時間|時|分|秒|人|個|回|円|歳|台|本|枚|件|階|度))"
+        )
         private val leadingDecorativeEmojis = listOf(
             "☑️", "✔️", "✅", "☑", "✔",
             "🧠", "💡", "📌", "📍",
@@ -65,12 +69,18 @@ class SpeechTextBuilder private constructor() {
             val blankCollapsed = symbolReduced
                 .replace(multiBlankLineRegex, "\n\n")
             val listMarkerNormalized = normalizeListMarkers(blankCollapsed)
-            val normalized = listMarkerNormalized
+            val counterNumberNormalized = normalizeCounterNumbers(listMarkerNormalized)
+            val normalized = counterNumberNormalized
                 .trim()
             val trailingSmileNormalized = removeTrailingDecorativeSmile(normalized)
 
             return trailingSmileNormalized.ifEmpty { EMPTY_FALLBACK }
         }
+
+        fun normalizeCounterNumbers(text: String): String =
+            spacedDigitsBeforeJapaneseCounterRegex.replace(text) { match ->
+                match.value.replace(" ", "").replace("\u3000", "")
+            }
 
         private fun classifyFencedCodeLanguage(rawLanguage: String): String {
             val language = rawLanguage

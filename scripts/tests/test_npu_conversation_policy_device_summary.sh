@@ -54,7 +54,7 @@ streaming=false
 selected_path_npu_saved=false
 app_template_mode=raw
 prompt_template_owner=native_npu_adapter_exception
-prompt_template_evaluator=native_adapter_serialization
+prompt_template_evaluator=lami_verified_model_template_renderer
 conversation_api_used=false
 app_template_used=true
 template_ownership_unified=false
@@ -96,7 +96,7 @@ grep -q '| 96 | 東京 |' "$summary"
 grep -q '| 96 | 日本 |' "$summary"
 grep -q 'top-k=40, top-p=0.9, temperature=0.3, seed=42' "$summary"
 grep -q 'DB/TTS/Markdown/streaming/selected-path=false' "$summary"
-grep -q 'prompt_tail_variant raw_dialog_tail_variant_a' "$FAKE_ADB_LOG"
+grep -q 'prompt_tail_variant model_metadata_gemma4_turn_v1' "$FAKE_ADB_LOG"
 expected_context_base64="$(printf '%s' $'ユーザー: 日本の首都を句読点なしの一語で答えてください。\nアシスタント: 東京' | base64 | tr -d '\n')"
 grep -q "context_base64 $expected_context_base64" "$FAKE_ADB_LOG"
 

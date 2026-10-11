@@ -24,12 +24,12 @@ class MainGenerationOwnershipSourceContractTest {
     }
 
     @Test
-    fun `placeholder start and completion resolve session owned message id`() {
+    fun `placeholder start completion and failure resolve session owned message id`() {
         val ownershipCalls = Regex("""assistantGenerationSessionController\.ownedMessageId\(""")
             .findAll(source)
             .count()
 
-        assertEquals(2, ownershipCalls)
+        assertEquals(3, ownershipCalls)
     }
 
     @Test
