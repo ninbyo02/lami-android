@@ -941,3 +941,30 @@ Allow the app to appear as an Android default assistant candidate and accept a u
   license texts are recorded with its checksum and also bundled in APK/AAB
   assets. Required main debug/release checks must pass before normal PR merge;
   no branch-protection bypass is intended.
+
+### Jabra Verification on the Main-Integrated Build (2026-10-12)
+
+- Implementation PR #2751 merged to main as 997e4bdf after all required debug/
+  release checks and the additional tokenizer reproducibility/packaging check
+  passed. Local verification also passed 2,253 standard-debug and 1,621
+  standard-release tests, both lint tasks, debug/release APK and release AAB
+  builds, and release packaging/alignment checks.
+- The user reconnected Jabra Evolve2 40 SE and granted the new USB permission
+  prompt. Button standby restarted successfully with cpuTrial=false and no CPU
+  trial wake lock. The existing assistantprobe remained the default assistant.
+- From the home-screen test, the user confirmed that replies worked normally
+  and were not displayed twice. This supersedes the earlier physical-Jabra
+  verification gap for the installed main-integrated implementation; it does
+  not establish Pioneer regression, release-app headset parity, or a new
+  locked/screen-off test on this build.
+- Device diagnostics confirm physical assist launches with musicActive=false,
+  chat_ready, completed readiness cues, capture on USB input device 838/type 22,
+  END_SILENCE finalization, and FINAL recognition. An earlier no-speech attempt
+  produced the expected NO_SPEECH feedback before later successful captures.
+  Reply completion traces updated owned message IDs 84, 86 and 88 individually.
+  USB speech playback used output device 829/type 22 and completed with reason
+  done. No recordings, transcript text, or conversation database were copied
+  into this record.
+- This follow-up changes verification documentation only. The tested runtime
+  is unchanged; no new APK installation or separate cute-TTS worktree edit is
+  required.
