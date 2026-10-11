@@ -69,6 +69,7 @@ class LamiSpeechPipelineTest {
         pipeline.enqueue("old")
         pipeline.enqueue("discard")
         runCurrent()
+        assertTrue(events.contains("prepare discard"))
         pipeline.replace("superseded")
         runCurrent()
         pipeline.replace("new")
