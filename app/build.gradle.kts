@@ -1551,6 +1551,7 @@ dependencies {
 
     //Markdown
     implementation("com.github.jeziellago:compose-markdown:$markdown")
+    implementation(files("libs/sherpa-onnx-1.13.6.aar"))
 
     //implemented
     //noinspection UseTomlInstead
