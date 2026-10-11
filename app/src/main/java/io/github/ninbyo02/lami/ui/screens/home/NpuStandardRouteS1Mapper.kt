@@ -47,7 +47,18 @@ internal object NpuStandardRouteS1Mapper {
             raw.status == NpuStandardRouteS1Contract.STATUS_SUCCESS ||
             raw.result == NpuStandardRouteS1Contract.STATUS_SUCCESS
         val successEquivalent = !rawRoleContaminationOverridesQuality && successLikeRaw
-        val displayText = if (qualityCandidate.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+        val conversationApiLongFormSuccess =
+            raw.success == true &&
+                raw.runDecodeReached &&
+                !raw.fallbackUsed &&
+                !raw.timeout &&
+                !raw.freshCrash &&
+                sanitizedOutput.isNotBlank() &&
+                !rawRoleContaminationOverridesQuality &&
+                raw.qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
+        val displayText = if (
+            qualityCandidate.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS || conversationApiLongFormSuccess
+        ) {
             qualityCandidate.preparedOutput.ifBlank { sanitizedOutput }
         } else {
             ""

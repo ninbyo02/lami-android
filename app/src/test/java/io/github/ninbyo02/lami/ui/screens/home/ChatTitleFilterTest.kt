@@ -36,4 +36,11 @@ class ChatTitleFilterTest {
         assertEquals("", formatChatPreview(null))
         assertEquals("", formatChatPreview("   "))
     }
+
+    @Test
+    fun formatChatPreview_normalizesOnlyAssistantCounterNumbers() {
+        assertEquals("24時間です。", formatChatPreview("2 4時間です。", isAssistant = true))
+        assertEquals("2 4時間です。", formatChatPreview("2 4時間です。", isAssistant = false))
+        assertEquals("`2 4時間`", formatChatPreview("`2 4時間`", isAssistant = true))
+    }
 }

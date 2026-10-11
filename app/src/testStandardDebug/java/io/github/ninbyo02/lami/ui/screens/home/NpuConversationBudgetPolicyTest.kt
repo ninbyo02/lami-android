@@ -9,7 +9,7 @@ class NpuConversationBudgetPolicyTest {
 
     @Test fun reservesLessOutputInsteadOfDroppingShortNameMemory() {
         val history = listOf(user("私の名前は佐藤です。覚えておいてください。"), model("佐藤さんですね。覚えました。"))
-        val plan = NpuConversationBudgetPolicy.plan(history, "私の名前は何ですか。名前だけ答えてください。", 1024)
+        val plan = NpuConversationBudgetPolicy.plan(history, "私の名前は何ですか。名前だけ答えてください。", 1024, totalTokens = 512)
         assertTrue(plan.admitted)
         assertEquals(history, plan.initialTurns)
         assertTrue(plan.reservedOutputTokens in 128 until 256)
@@ -18,13 +18,13 @@ class NpuConversationBudgetPolicyTest {
 
     @Test fun retainsShortPairFromDeviceSequence() {
         val history = listOf(user("長文後の確認です。2足す3の答えだけ返してください。"), model("5"))
-        val plan = NpuConversationBudgetPolicy.plan(history, "停止後の再送信です。4足す5の答えだけ返してください。", 1024)
+        val plan = NpuConversationBudgetPolicy.plan(history, "停止後の再送信です。4足す5の答えだけ返してください。", 1024, totalTokens = 512)
         assertEquals(history, plan.initialTurns)
         assertTrue(plan.admitted)
     }
 
     @Test fun longReplyDoesNotExhaustNextQuestion() {
-        val plan = NpuConversationBudgetPolicy.plan(listOf(user("物語"), model("夏".repeat(599))), "3足す4", 32)
+        val plan = NpuConversationBudgetPolicy.plan(listOf(user("物語"), model("夏".repeat(599))), "3足す4", 32, totalTokens = 512)
         assertTrue(plan.admitted)
         assertTrue(plan.initialTurns.isEmpty())
         assertTrue(plan.estimatedInputTokens + plan.reservedOutputTokens <= 512)
@@ -33,13 +33,13 @@ class NpuConversationBudgetPolicyTest {
 
     @Test fun preservesRecentCompletePairsWithoutDuplicatingCurrentPrompt() {
         val recent = listOf(user("私は佐藤です"), model("こんにちは"))
-        val plan = NpuConversationBudgetPolicy.plan(listOf(user("昔"), model("昔".repeat(599))) + recent + user("今の質問"), "今の質問", 32)
+        val plan = NpuConversationBudgetPolicy.plan(listOf(user("昔"), model("昔".repeat(599))) + recent + user("今の質問"), "今の質問", 32, totalTokens = 512)
         assertEquals(recent, plan.initialTurns)
         assertTrue(plan.admitted)
     }
 
     @Test fun rejectsOversizedCurrentInputWithoutTruncatingIt() {
-        val plan = NpuConversationBudgetPolicy.plan(emptyList(), "あ".repeat(600), 128)
+        val plan = NpuConversationBudgetPolicy.plan(emptyList(), "あ".repeat(600), 128, totalTokens = 512)
         assertFalse(plan.admitted)
         assertTrue(plan.initialTurns.isEmpty())
     }
@@ -51,5 +51,13 @@ class NpuConversationBudgetPolicyTest {
 
     @Test fun supplementaryCharactersAreCountedAsCodePoints() {
         assertEquals(3, NpuConversationBudgetPolicy.estimate("😀😀"))
+    }
+
+    @Test fun defaultCapacityPreservesHistoryThatFitsTheConfiguredEngine() {
+        val history = listOf(user("物語"), model("夏".repeat(599)))
+        val plan = NpuConversationBudgetPolicy.plan(history, "3足す4", 32)
+        assertTrue(plan.admitted)
+        assertEquals(history, plan.initialTurns)
+        assertTrue(plan.estimatedInputTokens + plan.reservedOutputTokens <= NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT)
     }
 }
