@@ -229,7 +229,7 @@ internal object LamiPreparedVoiceSynthesizer {
                         h = mainCache.step(sum, prepared.prefill.size + frame)
                     }
                     frameMillis += (System.nanoTime() - frameStarted) / 1_000_000
-                    if (onPrefix != null && frames.size % 8 == 0) {
+                    if (onPrefix != null && LamiVoiceChunkProbeMath.shouldEmitStreamingPrefix(frames.size)) {
                         onPrefix(LamiVoiceCodes(LongArray(frames.size * 16) { index -> frames[index % frames.size][index / frames.size] }, frames.size))
                     }
                 }

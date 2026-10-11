@@ -4,6 +4,15 @@ import kotlin.math.sqrt
 
 /** Numerical diagnostic only; this does not authorize releasing partial audio. */
 internal object LamiVoiceChunkProbeMath {
+    const val STREAMING_STARTUP_PREFIX_FRAMES = 2
+    const val STREAMING_STEADY_PREFIX_INTERVAL_FRAMES = 8
+
+    fun shouldEmitStreamingPrefix(frames: Int): Boolean {
+        require(frames in 1..256)
+        return frames == STREAMING_STARTUP_PREFIX_FRAMES ||
+            frames % STREAMING_STEADY_PREFIX_INTERVAL_FRAMES == 0
+    }
+
     fun prefixCodes(values: LongArray, frames: Int, prefix: Int): LongArray {
         require(frames in 2..256 && values.size == frames * 16)
         require(prefix in 2..frames)
