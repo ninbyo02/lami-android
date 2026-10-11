@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.tts
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -48,11 +49,28 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     private var playbackGeneration: Long = 0L
     private val _isSpeaking = MutableStateFlow(false)
     override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+    @Volatile
+    var lastPlaybackCompletedNormally = false
+        private set
+    private val usbPlayback = UsbTtsPlayback(appContext, completed = { succeeded ->
+        lastPlaybackCompletedNormally = succeeded
+        hasActiveUtterance = false
+        if (!speakNextQueuedIfAvailable()) {
+            markPlaybackEnded()
+            notifyPlaybackState(false)
+        }
+    }, trace = ::trace)
 
     init {
         tts = TextToSpeech(appContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 isReady = true
+                tts?.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
                 val languageResult = tts?.setLanguage(Locale.JAPANESE)
                 Log.i(LOG_TAG, "initialized status=success language_result=$languageResult")
                 trace("initialized status=success language_result=$languageResult")
@@ -67,6 +85,8 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
 
                     override fun onDone(utteranceId: String?) {
                         if (!isCurrentPlaybackGeneration(utteranceId)) return
+                        if (usbPlayback.synthesized(utteranceId)) return
+                        lastPlaybackCompletedNormally = true
                         Log.i(LOG_TAG, "playback_done utterance_id=$utteranceId")
                         trace("playback_done utterance_id=$utteranceId")
                         hasActiveUtterance = false
@@ -78,6 +98,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
                     @Deprecated("Deprecated by Android; kept for compatibility with older TTS callbacks.")
                     override fun onError(utteranceId: String?) {
                         if (!isCurrentPlaybackGeneration(utteranceId)) return
+                        if (usbPlayback.failed(utteranceId)) return
                         Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=legacy")
                         hasActiveUtterance = false
                         if (speakNextQueuedIfAvailable()) return
@@ -87,6 +108,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
 
                     override fun onError(utteranceId: String?, errorCode: Int) {
                         if (!isCurrentPlaybackGeneration(utteranceId)) return
+                        if (usbPlayback.failed(utteranceId)) return
                         Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=$errorCode")
                         hasActiveUtterance = false
                         if (speakNextQueuedIfAvailable()) return
@@ -96,6 +118,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
 
                     override fun onStop(utteranceId: String?, interrupted: Boolean) {
                         if (!isCurrentPlaybackGeneration(utteranceId)) return
+                        if (usbPlayback.failed(utteranceId)) return
                         hasActiveUtterance = false
                         if (!interrupted && speakNextQueuedIfAvailable()) return
                         markPlaybackEnded()
@@ -169,6 +192,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
             Log.w(LOG_TAG, "request_rejected reason=empty_after_sanitize")
             return
         }
+        lastPlaybackCompletedNormally = false
         val requestTrace =
             "request code_points=${finalSpeechText.codePointCount(0, finalSpeechText.length)} ready=$isReady queue_mode=$queueMode"
         Log.i(LOG_TAG, requestTrace)
@@ -203,18 +227,34 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     }
 
     private fun speakInternal(text: String, queueMode: Int) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { speakInternal(text, queueMode) }
+            return
+        }
         runCatching {
             val engine = checkNotNull(tts) { "TTS engine unavailable" }
+            val usb = usbPlayback.target()
+            if (usb != null || usbPlayback.isActive()) {
+                playbackGeneration += 1
+                usbPlayback.stop()
+                engine.stop()
+            }
             val utteranceId = nextUtteranceId()
             engine.setSpeechRate(currentSpeechRate)
             engine.setPitch(currentPitch)
-            val result = engine.speak(text, queueMode, null, utteranceId)
+            val result = if (usb != null) {
+                val file = usbPlayback.begin(utteranceId, usb)
+                engine.synthesizeToFile(text, null, file, utteranceId)
+            } else {
+                engine.speak(text, queueMode, null, utteranceId)
+            }
             check(result == TextToSpeech.SUCCESS) { "TTS speak rejected with status=$result" }
             Log.i(LOG_TAG, "speak_accepted utterance_id=$utteranceId")
             trace("speak_accepted utterance_id=$utteranceId")
             hasActiveUtterance = true
             notifyPlaybackState(true)
         }.onFailure { exception ->
+            usbPlayback.stop()
             Log.e(LOG_TAG, "speak_failed", exception)
             hasActiveUtterance = false
             notifyPlaybackState(false)
@@ -223,6 +263,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
 
     override fun stop() {
         playbackGeneration += 1
+        usbPlayback.stop()
         pendingSpeakText = null
         queuedSpeechTexts.clear()
         hasActiveUtterance = false

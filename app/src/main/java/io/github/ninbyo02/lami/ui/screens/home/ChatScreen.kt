@@ -114,6 +114,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -147,6 +148,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.assistant.AssistantVoiceEvent
+import io.github.ninbyo02.lami.assistant.AssistantVoiceEvents
+import io.github.ninbyo02.lami.assistant.HeadsetVolumeAnnouncements
 import io.github.ninbyo02.lami.util.DebugTraceFile
 import io.github.ninbyo02.lami.R
 import io.github.ninbyo02.lami.UiState
@@ -161,6 +165,7 @@ import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import io.github.ninbyo02.lami.ui.common.showProjectShortSnackbar
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
@@ -211,6 +216,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -887,12 +893,24 @@ internal fun resolveUseNewConversationTopPadding(
     }
 }
 
+internal fun shouldAutoSubmitAssistantTranscript(transcript: String): Boolean {
+    val normalized = transcript.trim()
+    return normalized.codePointCount(0, normalized.length) >= 2
+}
+
+internal fun assistantTranscriptSnackbarMessage(autoSubmit: Boolean, willSubmit: Boolean): String? = when {
+    autoSubmit && willSubmit -> null
+    autoSubmit -> "認識結果が短いため送信しませんでした"
+    else -> "音声を入力しました"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
     navHostController: NavHostController,
     viewModel: OllamaViewModel,
     chatId: Int? = null,
+    chatLaunchVersion: Int = 0,
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
@@ -910,12 +928,13 @@ fun Home(
     }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
-    var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by rememberSaveable { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
+    var pendingAssistantAutoSubmitText by remember { mutableStateOf<String?>(null) }
+    var pendingFirstChatSubmission by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
     val allChatsState = effectiveChatId?.let {
         viewModel.allMessages(it)
             .map { messages -> messages as List<Message>? }
@@ -936,6 +955,44 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val assistantVoicePhase by AssistantVoiceEvents.phase.collectAsState()
+    val assistantRecognizing = assistantVoicePhase != io.github.ninbyo02.lami.assistant.AssistantVoicePhase.IDLE
+    LaunchedEffect(Unit) {
+        var assistantSnackbarJob: Job? = null
+        AssistantVoiceEvents.events.collect { event ->
+            assistantSnackbarJob?.cancel()
+            assistantSnackbarJob = null
+            when (event) {
+                AssistantVoiceEvent.Listening -> {
+                    // Capture state survives replacement of the chat composer.
+                }
+                is AssistantVoiceEvent.Transcript -> {
+                    val transcript = event.text.trim()
+                    userPrompt = transcript
+                    placeholder = "Enter your prompt ..."
+                    pendingAssistantAutoSubmitText = if (
+                        event.autoSubmit && shouldAutoSubmitAssistantTranscript(transcript)
+                    ) {
+                        transcript
+                    } else {
+                        null
+                    }
+                    assistantTranscriptSnackbarMessage(event.autoSubmit,
+                        pendingAssistantAutoSubmitText != null)?.let { message ->
+                        assistantSnackbarJob = launch {
+                            snackbarHostState.showProjectShortSnackbar(message)
+                        }
+                    }
+                }
+                is AssistantVoiceEvent.Failure -> {
+                    placeholder = "Enter your prompt ..."
+                    assistantSnackbarJob = launch {
+                        snackbarHostState.showProjectShortSnackbar(event.message)
+                    }
+                }
+            }
+        }
+    }
     LaunchedEffect(context.applicationContext) {
         if (!BuildConfig.DEBUG) return@LaunchedEffect
         runCatching {
@@ -1351,6 +1408,9 @@ fun Home(
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    LaunchedEffect(chatLaunchVersion) {
+        if (chatLaunchVersion > 0) closeDrawerForNavigation(drawerState)
+    }
     var chatSearchQuery by rememberSaveable { mutableStateOf("") }
     val sortedChats = remember(chats) { chats.sortedByDescending { it.chatId } }
     val filteredChats = remember(sortedChats, chatSearchQuery) {
@@ -3867,10 +3927,72 @@ fun Home(
 
     val latestIsInferenceRunningUi by rememberUpdatedState(isInferenceRunningUi)
     val latestIsTtsSpeaking by rememberUpdatedState(isTtsSpeaking)
+    SideEffect {
+        HeadsetVolumeAnnouncements.assistantWorkActive =
+            isInferenceRunningUi || pendingAssistantAutoSubmitText != null || assistantRecognizing
+        HeadsetVolumeAnnouncements.conversationActive =
+            isInferenceRunningUi || isTtsSpeaking || isTtsPlaying ||
+                pendingAssistantAutoSubmitText != null || assistantRecognizing
+    }
+    val volumeFeedbackBusy by rememberUpdatedState(
+        isInferenceRunningUi || isTtsPlaying || pendingAssistantAutoSubmitText != null ||
+            assistantRecognizing || !ttsEnabled,
+    )
+    val volumeFeedbackLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(volumeFeedbackLifecycle) {
+        val lifecycle = volumeFeedbackLifecycle.lifecycle
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            HeadsetVolumeAnnouncements.chatForeground =
+                lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+        }
+        lifecycle.addObserver(observer)
+        HeadsetVolumeAnnouncements.chatForeground =
+            lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+        onDispose {
+            lifecycle.removeObserver(observer)
+            HeadsetVolumeAnnouncements.chatForeground = false
+        }
+    }
+    val volumeFeedbackPlaying = remember(ttsController) { AtomicBoolean(false) }
+    LaunchedEffect(ttsController, volumeFeedbackLifecycle) {
+        HeadsetVolumeAnnouncements.events.collectLatest { announcement ->
+            val audio = context.getSystemService(android.media.AudioManager::class.java)
+            val retryMs = when (announcement.phase) {
+                io.github.ninbyo02.lami.assistant.HeadsetVolumeFeedbackPhase.RELEASE_CUE -> 500L
+                io.github.ninbyo02.lami.assistant.HeadsetVolumeFeedbackPhase.SETTLED -> 900L
+                else -> 500L
+            }
+            var canSpeak: Boolean
+            do {
+                canSpeak = !volumeFeedbackBusy && !ttsController.isSpeaking.value &&
+                    volumeFeedbackLifecycle.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED &&
+                    audio.mode == android.media.AudioManager.MODE_NORMAL && !audio.isMusicActive
+                if (canSpeak || HeadsetVolumeAnnouncements.assistantWorkActive ||
+                    volumeFeedbackLifecycle.lifecycle.currentState != androidx.lifecycle.Lifecycle.State.RESUMED ||
+                    SystemClock.elapsedRealtime() - announcement.createdAtMs >= retryMs) break
+                delay(50)
+            } while (true)
+            io.github.ninbyo02.lami.util.DebugTraceFile.append(
+                context,
+                "${SystemClock.elapsedRealtime()} [LAMI_VOLUME] phase=${announcement.phase} " +
+                    "percent=${announcement.percent} speak=$canSpeak busy=$volumeFeedbackBusy " +
+                    "tts=${ttsController.isSpeaking.value} music=${audio.isMusicActive} mode=${audio.mode} " +
+                    "waitMs=${SystemClock.elapsedRealtime() - announcement.createdAtMs}",
+            )
+            if (canSpeak) {
+                Log.i("LamiAssistantVolume", "feedback_speak percent=${announcement.percent}")
+                volumeFeedbackPlaying.set(true)
+                ttsController.speak(announcement.text)
+            }
+        }
+    }
 
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
+            if (!isPlaying && volumeFeedbackPlaying.getAndSet(false)) {
+                HeadsetVolumeAnnouncements.lastVolumeSpeechEndMs = SystemClock.elapsedRealtime()
+            }
             if (isPlaying) {
                 pendingStopButtonOwnerClearJob?.cancel()
                 pendingStopButtonOwnerClearJob = null
@@ -3893,6 +4015,8 @@ fun Home(
             }
         }
         onDispose {
+            HeadsetVolumeAnnouncements.conversationActive = false
+            HeadsetVolumeAnnouncements.assistantWorkActive = false
             viewModel.stopTtsPlayback()
             pendingStopButtonOwnerClearJob?.cancel()
             pendingStopButtonOwnerClearJob = null
@@ -3959,7 +4083,6 @@ fun Home(
             )
         }
         if (chatId != null) {
-            suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
         }
     }
@@ -3982,28 +4105,8 @@ fun Home(
         }
     }
 
-    LaunchedEffect(chatId, chats, pendingNavigateChatId) {
-        val resolvedChatId = resolveDefaultChatId(chatId, chats)
-        if (pendingNavigateChatId == null) {
-            effectiveChatId = resolvedChatId
-        }
-
-        if (
-            pendingNavigateChatId == null &&
-            shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
-        ) {
-            isCreatingChat = true
-            val newChatId = viewModel.insertChatAndReturnId(
-                Chat(title = "New chat", titleSource = TitleSource.TEMP)
-            )
-            effectiveChatId = newChatId
-            pendingNavigateChatId = newChatId
-        }
-
-        if (resolvedChatId != null) {
-            isCreatingChat = false
-            suppressAutoNewChat = false
-        }
+    LaunchedEffect(chatId) {
+        if (chatId != null) effectiveChatId = chatId
     }
 
     LaunchedEffect(sortedChats) {
@@ -4013,7 +4116,10 @@ fun Home(
         }
         val latestMessages = viewModel.getLatestMessagesByChatIds(sortedChats.map { it.chatId })
         latestMessagePreviewByChatId = latestMessages.associate { latestMessage ->
-            latestMessage.chatId to formatChatPreview(latestMessage.message)
+            latestMessage.chatId to formatChatPreview(
+                latestMessage.message,
+                isAssistant = !latestMessage.isSendbyMe,
+            )
         }
     }
 
@@ -4272,7 +4378,6 @@ fun Home(
                                     TextButton(
                                         onClick = {
                                             suppressChatContentWhileClosingDrawer = true
-                                            suppressAutoNewChat = true
                                             pendingNavigateChatId = chat.chatId
                                         },
                                         modifier = Modifier
@@ -4643,7 +4748,7 @@ fun Home(
                                                 interactionSource = interactionSource,
                                                 placeholder = {
                                                     Text(
-                                                        placeholder,
+                                                        assistantVoicePhase.promptPlaceholder ?: placeholder,
                                                         style = LamiTypographyTokens.chatPlaceholder(),
                                                     )
                                                 },
@@ -4658,17 +4763,16 @@ fun Home(
                                         }
                                     )
 
-                                    IconButton(
-                                        enabled = isComposerStopActive || resolveChatSendAvailability(
-                                            selectedInferenceTarget = selectedInferenceTarget,
-                                            selectedServerModel = selectedModel,
-                                            selectedLocalModelPath = selectedLocalModelFilePath,
-                                            serverUrl = baseUrl,
-                                            hasPromptText = userPrompt.isNotEmpty(),
-                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
-                                            isInferenceRunning = isInferenceRunningUi,
-                                        ).enabled,
-                                        onClick = {
+                                    val composerSendAvailability = resolveChatSendAvailability(
+                                        selectedInferenceTarget = selectedInferenceTarget,
+                                        selectedServerModel = selectedModel,
+                                        selectedLocalModelPath = selectedLocalModelFilePath,
+                                        serverUrl = baseUrl,
+                                        hasPromptText = userPrompt.isNotEmpty(),
+                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                        isInferenceRunning = isInferenceRunningUi,
+                                    )
+                                    val composerAction: () -> Unit = composerAction@{
                                             viewModel.onUserInteraction()
                                             if (!isInferenceRunningUi && isComposerStopActive) {
                                                 stopTtsWithCleanup(
@@ -4677,7 +4781,7 @@ fun Home(
                                                         ?: streamingSpeechStartedForMessageId,
                                                     armTapGuards = true,
                                                 )
-                                                return@IconButton
+                                                return@composerAction
                                             }
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
@@ -4705,7 +4809,7 @@ fun Home(
                                                         armTapGuards = false,
                                                     )
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
-                                                    return@IconButton
+                                                    return@composerAction
                                                 }
                                                 if (isServerRunningRaw) {
                                                     remoteStopRequested = true
@@ -4723,7 +4827,7 @@ fun Home(
                                                     )
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     viewModel.resetUiState()
-                                                    return@IconButton
+                                                    return@composerAction
                                                 }
                                             }
                                             val sendAvailability = resolveChatSendAvailability(
@@ -4743,14 +4847,37 @@ fun Home(
                                                         duration = SnackbarDuration.Short
                                                     )
                                                 }
-                                                return@IconButton
+                                                return@composerAction
+                                            }
+
+                                            if (effectiveChatId == null) {
+                                                if (isCreatingChat) return@composerAction
+                                                isCreatingChat = true
+                                                val firstSubmission = userPrompt to selectedImageUriStrings.toList()
+                                                coroutineScope.launch {
+                                                    try {
+                                                        resolveFirstSendChatId(
+                                                            currentChatId = null,
+                                                            createChat = { viewModel.insertChatAndReturnId(Chat(title = "New chat", titleSource = TitleSource.TEMP)) },
+                                                            onChatResolved = { effectiveChatId = it },
+                                                        )
+                                                        pendingFirstChatSubmission = firstSubmission
+                                                    } catch (cancelled: CancellationException) {
+                                                        throw cancelled
+                                                    } catch (_: Exception) {
+                                                        snackbarHostState.showProjectShortSnackbar("会話を作成できませんでした。もう一度送信してください。")
+                                                    } finally {
+                                                        isCreatingChat = false
+                                                    }
+                                                }
+                                                return@composerAction
                                             }
 
                                             Log.i("ChatScreen", "send entry selectedInferenceTarget=$selectedInferenceTarget")
                                             when (selectedInferenceTarget) {
                                                 InferenceTarget.SERVER -> {
-                                                    val currentChatId = effectiveChatId
-                                                    if (currentChatId != null) {
+                                                    val existingChatId = effectiveChatId
+                                                    if (remoteRequestJob?.isActive != true) {
                                                         val requestPrompt = userPrompt
                                                         val requestAttachmentUris = selectedImageUris
                                                         pendingAssistantImageInputCount = requestAttachmentUris.size
@@ -4768,6 +4895,11 @@ fun Home(
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
                                                             try {
+                                                                val currentChatId = existingChatId ?: resolveFirstSendChatId(
+                                                                    currentChatId = null,
+                                                                    createChat = { viewModel.insertChatAndReturnId(Chat(title = "New chat", titleSource = TitleSource.TEMP)) },
+                                                                    onChatResolved = { effectiveChatId = it },
+                                                                )
                                                                 viewModel.sendPrompt(
                                                                     prompt = requestPrompt,
                                                                     model = selectedModel,
@@ -4805,8 +4937,6 @@ fun Home(
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
-                                                    } else {
-                                                        placeholder = "Setting up a new chat ..."
                                                     }
                                                 }
 
@@ -4825,9 +4955,9 @@ fun Home(
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             }
-                                                            return@IconButton
+                                                            return@composerAction
                                                         }
-                                                        ExistingLocalGenerationJobPolicy.ALREADY_RUNNING -> return@IconButton
+                                                        ExistingLocalGenerationJobPolicy.ALREADY_RUNNING -> return@composerAction
                                                         ExistingLocalGenerationJobPolicy.START_NEW -> Unit
                                                     }
                                                     if (selectedImageUriStrings.isNotEmpty()) {
@@ -4838,10 +4968,10 @@ fun Home(
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                         }
-                                                        return@IconButton
+                                                        return@composerAction
                                                     }
                                                     val requestPrompt = userPrompt
-                                                    if (requestPrompt.isBlank()) return@IconButton
+                                                    if (requestPrompt.isBlank()) return@composerAction
                                                     val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
                                                         .mapNotNull { message ->
                                                             val text = message.message.trim().takeIf(String::isNotBlank)
@@ -4879,7 +5009,7 @@ fun Home(
                                                             "generate_invoked=false",
                                                             "message=$SAFETY_GUARD_BLOCKED_USER_MESSAGE",
                                                         ).joinToString("\n")
-                                                        return@IconButton
+                                                        return@composerAction
                                                     }
                                                     val immediateLocalChatId = effectiveChatId
                                                     val immediateLocalUserInsertJob = immediateLocalChatId?.let { chatId ->
@@ -5039,7 +5169,6 @@ fun Home(
                                                                     },
                                                                     onChatCreated = { newChatId ->
                                                                         effectiveChatId = newChatId
-                                                                        pendingNavigateChatId = newChatId
                                                                     },
                                                                     insertUserMessage = { chatId, promptText ->
                                                                         if (immediateLocalChatId == chatId && immediateLocalUserInsertJob != null) {
@@ -6018,7 +6147,14 @@ fun Home(
                                                             appendNpuStandardRouteExecutionDiagnostics(npuStandardRouteS1DevFullDumpCopyText)
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
-                                                        if (npuStandardRouteS2DbEnabled && npuStandardRouteLegacyDbSaveAllowed) {
+                                                        // Native streaming can already finalize through the phase delivery path.
+                                                        // Do not let the legacy S2 path persist the same assistant turn again.
+                                                        if (shouldRunLegacyNpuStandardRouteDbSave(
+                                                                s2DbEnabled = npuStandardRouteS2DbEnabled,
+                                                                legacyDbSaveAllowed = npuStandardRouteLegacyDbSaveAllowed,
+                                                                phaseDbSaveExecuted = npuStandardRouteDbSaveExecuted,
+                                                            )
+                                                        ) {
                                                             val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
                                                                 userPrompt = requestPrompt,
                                                                 s1Result = s1Result,
@@ -6564,7 +6700,6 @@ fun Home(
                                                                         )
                                                                     }
                                                                     effectiveChatId = newChatId
-                                                                    pendingNavigateChatId = newChatId
                                                                     currentChatId = newChatId
                                                                 } finally {
                                                                     isCreatingChat = false
@@ -6803,7 +6938,6 @@ fun Home(
                                                                     )
                                                                 }
                                                                 effectiveChatId = newChatId
-                                                                pendingNavigateChatId = newChatId
                                                                 currentChatId = newChatId
                                                             } finally {
                                                                 isCreatingChat = false
@@ -8496,7 +8630,45 @@ fun Home(
                                                     }
                                                 }
                                             }
-                                        },
+                                        }
+                                    val latestComposerAction by rememberUpdatedState(composerAction)
+                                    LaunchedEffect(pendingFirstChatSubmission, effectiveChatId) {
+                                        val submission = pendingFirstChatSubmission ?: return@LaunchedEffect
+                                        if (effectiveChatId == null) return@LaunchedEffect
+                                        pendingFirstChatSubmission = null
+                                        // Start with the recomposed chat-bound state, not the draft's old state.
+                                        if (submission.first == userPrompt && submission.second == selectedImageUriStrings) {
+                                            latestComposerAction()
+                                        }
+                                    }
+                                    LaunchedEffect(
+                                        pendingAssistantAutoSubmitText,
+                                        userPrompt,
+                                        composerSendAvailability.enabled,
+                                        isInferenceRunningUi,
+                                    ) {
+                                        val pendingTranscript = pendingAssistantAutoSubmitText
+                                            ?: return@LaunchedEffect
+                                        if (userPrompt != pendingTranscript) {
+                                            pendingAssistantAutoSubmitText = null
+                                            return@LaunchedEffect
+                                        }
+                                        if (!composerSendAvailability.enabled || isInferenceRunningUi) {
+                                            return@LaunchedEffect
+                                        }
+                                        delay(150)
+                                        if (
+                                            pendingAssistantAutoSubmitText == pendingTranscript &&
+                                            userPrompt == pendingTranscript
+                                        ) {
+                                            pendingAssistantAutoSubmitText = null
+                                            latestComposerAction()
+                                        }
+                                    }
+
+                                    IconButton(
+                                        enabled = isComposerStopActive || composerSendAvailability.enabled,
+                                        onClick = composerAction,
                                         modifier = Modifier
                                             .size(ComposerButtonSize)
                                             .align(Alignment.Bottom)
@@ -8685,25 +8857,11 @@ fun Home(
             val contentModifier = Modifier
                 .fillMaxSize()
 
-            if (effectiveChatId == null) {
-                Column(
-                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
-                }
-            } else if (allChatsOrNull == null) {
-                Column(
-                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("Loading messages...")
-                }
+            if (effectiveChatId != null && allChatsOrNull == null) {
+                Box(modifier = contentModifier)
             } else {
                 val currentChatId = effectiveChatId
-                val messagesForListBase: List<Message> = allChatsOrNull
+                val messagesForListBase: List<Message> = allChatsOrNull.orEmpty()
                 val pendingLocalUserMessageForRender = pendingLocalUserMessageText
                     ?.takeIf {
                         shouldShowPendingLocalUserMessage(
@@ -8802,9 +8960,7 @@ fun Home(
                         "chatId=$effectiveChatId assistant=${assistantMessages.size} stored=$storedCount missing=$missingCount",
                     )
                 }
-                val isListForCurrentChatForUi =
-                    currentChatId != null &&
-                        (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
+                val isListForCurrentChatForUi = shouldRenderChatMessages(currentChatId, messagesForListBase)
                 val latestAssistantIndex = messagesForList.indexOfLast { !it.isSendbyMe }
 
                 if (!isListForCurrentChatForUi) {
@@ -8916,9 +9072,9 @@ fun Home(
                                 }
                         }
 
-                        LaunchedEffect(effectiveChatId, allChatsOrNull.size) {
+                        LaunchedEffect(effectiveChatId, messagesForListBase.size) {
                             val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                            val allChats = allChatsOrNull
+                            val allChats = messagesForListBase
                             val isListForCurrentChat =
                                 allChats.isEmpty() ||
                                     allChats.all { it.chatId == currentChatId }
@@ -9195,7 +9351,7 @@ fun Home(
                                                     null
                                                 },
                                                 onCopyAllClick = {
-                                                    clipboardManager.setText(AnnotatedString(message.message))
+                                                    clipboardManager.setText(AnnotatedString(normalizeAssistantCounterNumbers(message.message)))
                                                 },
                                                 inferenceStats = messageInferenceStats,
                                                 createdAtEpochMs = message.createdAtEpochMs,
@@ -16996,11 +17152,12 @@ internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
 }
 
 
-internal fun formatChatPreview(message: String?): String {
+internal fun formatChatPreview(message: String?, isAssistant: Boolean = false): String {
     if (message.isNullOrBlank()) {
         return ""
     }
-    val oneLineMessage = message
+    val displayMessage = if (isAssistant) normalizeAssistantCounterNumbers(message) else message
+    val oneLineMessage = displayMessage
         .replace("\n", " ")
         .replace("\r", " ")
         .trim()
@@ -17061,13 +17218,14 @@ private suspend fun closeDrawerForNavigation(drawerState: DrawerState) {
     }
 }
 
-internal fun shouldAutoCreateNewChat(
-    suppressAutoNewChat: Boolean,
-    resolvedChatId: Int?,
-    isCreatingChat: Boolean,
-): Boolean {
-    return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
-}
+internal suspend fun resolveFirstSendChatId(
+    currentChatId: Int?,
+    createChat: suspend () -> Int,
+    onChatResolved: (Int) -> Unit,
+): Int = currentChatId ?: createChat().also(onChatResolved)
+
+internal fun shouldRenderChatMessages(chatId: Int?, messages: List<Message>): Boolean =
+    messages.isEmpty() || (chatId != null && messages.all { it.chatId == chatId })
 
 internal fun shouldEnterNpuStandardRouteS1(
     enabled: Boolean,
@@ -17284,6 +17442,12 @@ internal fun shouldPersistNpuStandardRouteS2Db(
     mapping: NpuStandardRouteS2DbMapping,
 ): Boolean =
     enabled && mapping.hasSaveCandidate
+
+internal fun shouldRunLegacyNpuStandardRouteDbSave(
+    s2DbEnabled: Boolean,
+    legacyDbSaveAllowed: Boolean,
+    phaseDbSaveExecuted: Boolean,
+): Boolean = s2DbEnabled && legacyDbSaveAllowed && !phaseDbSaveExecuted
 
 internal fun shouldRenderNpuStandardRouteS3Markdown(
     enabled: Boolean,

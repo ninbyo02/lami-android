@@ -3,29 +3,43 @@ package io.github.ninbyo02.lami.ui.screens.home
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import io.github.ninbyo02.lami.db.entity.Message
 
 class ChatNewChatActionTest {
 
     @Test
-    fun shouldAutoCreateNewChat_returnsFalse_whenSuppressedEvenIfUnresolved() {
-        val shouldCreate = shouldAutoCreateNewChat(
-            suppressAutoNewChat = true,
-            resolvedChatId = null,
-            isCreatingChat = false
-        )
-
-        assertEquals(false, shouldCreate)
+    fun draftChatRendersImmediatelyWithoutStoredMessages() {
+        assertEquals(true, shouldRenderChatMessages(null, emptyList()))
+        assertEquals(false, shouldRenderChatMessages(null, listOf(Message(chatId = 42, message = "old", isSendbyMe = false))))
+        assertEquals(false, shouldRenderChatMessages(43, listOf(Message(chatId = 42, message = "old", isSendbyMe = false))))
     }
 
     @Test
-    fun shouldAutoCreateNewChat_returnsTrue_whenNotSuppressedAndUnresolved() {
-        val shouldCreate = shouldAutoCreateNewChat(
-            suppressAutoNewChat = false,
-            resolvedChatId = null,
-            isCreatingChat = false
-        )
+    fun firstSendCreatesAChatAndFurtherSendsReuseIt() = runTest {
+        var createdCount = 0
+        var chatId: Int? = null
+        val create: suspend () -> Int = { createdCount++; 101 }
+        chatId = resolveFirstSendChatId(chatId, create) { chatId = it }
+        assertEquals(101, chatId)
+        assertEquals(101, resolveFirstSendChatId(chatId, create) { error("existing chat must not be replaced") })
+        assertEquals(1, createdCount)
+    }
 
-        assertEquals(true, shouldCreate)
+    @Test
+    fun failedCreationDoesNotResolveAnInvalidChat() = runTest {
+        var resolved = false
+        val failure = runCatching {
+            resolveFirstSendChatId(null, { error("storage failure") }) { resolved = true }
+        }
+        assertEquals(true, failure.isFailure)
+        assertEquals(false, resolved)
+    }
+
+    @Test
+    fun existingChatDisplaysOnlyItsOwnMessages() {
+        assertEquals(true, shouldRenderChatMessages(42,
+            listOf(Message(chatId = 42, message = "current", isSendbyMe = false)))
+        )
     }
 
     @Test

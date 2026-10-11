@@ -19,6 +19,7 @@
         <activity
             android:windowSoftInputMode="adjustResize"
             android:name="io.github.ninbyo02.lami.MainActivity"
+            android:launchMode="singleTop"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Ollama">
@@ -31,6 +32,8 @@
         <activity
             android:name=".assistant.AssistantEntryActivity"
             android:exported="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Ollama">
             <intent-filter>
@@ -41,4 +44,6 @@
     </application>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>

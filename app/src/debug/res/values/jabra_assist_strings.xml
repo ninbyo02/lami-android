@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="jabra_assist_service_name">LAMI Jabra Assist</string>
+    <string name="jabra_assist_service_description">Launch LAMI with the Jabra Evolve2 40 SE volume-down long press when LAMI is the default assistant and no media is playing. Short presses keep adjusting volume. During playback, long presses keep skipping to the previous track. Screen content is not read.</string>
+</resources>

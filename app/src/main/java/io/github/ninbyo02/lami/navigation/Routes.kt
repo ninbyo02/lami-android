@@ -2,7 +2,6 @@ package io.github.ninbyo02.lami.navigation
 
 object Routes {
     const val HOME = "home"
-    const val CHATS = "chats"
     const val CHAT = "chat"
     const val CHAT_ROOT = CHAT
     const val CHAT_ID_ARG = "chatID"

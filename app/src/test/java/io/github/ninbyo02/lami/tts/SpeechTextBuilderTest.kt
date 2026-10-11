@@ -117,6 +117,20 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun spacedDigitsBeforeJapaneseCounter_areJoinedForNaturalSpeech() {
+        val actual = SpeechTextBuilder.build("一年は1 2ヶ月です。参加者は1 5人です。")
+
+        assertEquals("一年は12ヶ月です。参加者は15人です。", actual)
+    }
+
+    @Test
+    fun spacedDigitsWithoutJapaneseCounter_arePreserved() {
+        val actual = SpeechTextBuilder.build("暗証番号は1 2 3 4です。")
+
+        assertEquals("暗証番号は1 2 3 4です。", actual)
+    }
+
+    @Test
     fun headingEmoji_isRemovedAtLineStart() {
         val input = "✅ 機能:\n🧠 動作方法:"
 

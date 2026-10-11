@@ -916,10 +916,10 @@ fun sanitizeAssistantMessageForDisplay(message: String): String {
         }
         visibleLines += line
     }
-    return visibleLines
+    return normalizeAssistantCounterNumbers(visibleLines
         .joinToString("\n")
         .replace('␠', ' ')
-        .trim()
+        .trim())
 }
 
 fun splitStreamingText(text: String): StreamingSplit {
