@@ -39,6 +39,7 @@ internal object LamiVoiceDecoderProcess {
     const val FAILURE = 3
     const val FORWARD_STARTED = 4
     const val MINIMAL_VULKAN = 5
+    const val PRELOAD = 6
 
     /** Debug-only minimal Vulkan smoke test, isolated in the decoder process. */
     suspend fun probeMinimalVulkan(context: Context, model: File, progress: (String) -> Unit) = mutex.withLock {
@@ -83,8 +84,85 @@ internal object LamiVoiceDecoderProcess {
     suspend fun decode(context: Context, root: File, codes: LamiVoiceCodes, progress: (String) -> Unit): FloatArray =
         decodeWithThreads(context, root, codes, 0, progress)
 
+    suspend fun preloadDynamicDecoder(context: Context, root: File, progress: (String) -> Unit) {
+        preloadModel(context, root.resolve("speech-decoder-dynamic-et14.pte"), 0, progress)
+    }
+
     suspend fun decodeWithThreads(context: Context, root: File, codes: LamiVoiceCodes, threads: Int, progress: (String) -> Unit): FloatArray =
         decodeModel(context, root, codes, "speech-decoder-dynamic-et14.pte", threads, progress)
+
+    private suspend fun preloadModel(context: Context, model: File, threads: Int, progress: (String) -> Unit): Unit = mutex.withLock {
+        require(threads in setOf(0, 1, 2, 4)) { "Invalid decoder thread count" }
+        expiry?.cancel()
+        var successful = false
+        val app = context.applicationContext
+        val id = UUID.randomUUID().toString()
+        val result = CompletableDeferred<Bundle>()
+        var bound = false
+        val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
+            if (message.data.getString("id") == id) {
+                if (message.what == SUCCESS) result.complete(message.data)
+                else {
+                    val error = message.data.getString("error") ?: "Unknown decoder preload error"
+                    progress("stage=pcm_process_preload_failure error=${error.replace('\n', ' ').replace('\r', ' ')}")
+                    result.completeExceptionally(IllegalStateException(error))
+                }
+            }
+            true
+        })
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                try {
+                    Messenger(binder).send(Message.obtain(null, PRELOAD).apply {
+                        replyTo = reply
+                        data = Bundle().apply {
+                            putString("id", id)
+                            putInt("threads", threads)
+                            putString("model", model.canonicalPath)
+                        }
+                    })
+                } catch (error: Exception) { result.completeExceptionally(error) }
+            }
+            override fun onServiceDisconnected(name: ComponentName) {
+                result.completeExceptionally(IllegalStateException("Voice decoder process disconnected during preload"))
+            }
+            override fun onBindingDied(name: ComponentName) {
+                result.completeExceptionally(IllegalStateException("Voice decoder preload binding died"))
+            }
+            override fun onNullBinding(name: ComponentName) {
+                result.completeExceptionally(IllegalStateException("Voice decoder returned no binder during preload"))
+            }
+        }
+        try {
+            val canonicalModel = model.canonicalFile
+            require(canonicalModel.path.startsWith(app.filesDir.canonicalPath + File.separator))
+            val started = SystemClock.elapsedRealtime()
+            bound = app.bindService(Intent(app, LamiVoiceDecoderService::class.java), connection, Context.BIND_AUTO_CREATE)
+            check(bound) { "Unable to bind voice decoder for preload" }
+            val metrics = withTimeout(60_000L) { result.await() }
+            val pid = metrics.getInt("pid")
+            check(pid > 0 && pid != Process.myPid()) { "Decoder preload did not run in separate process" }
+            progress("metric=decoder_preload pid=$pid threads=$threads model_load_ms=${metrics.getLong("load_ms")} reused=${metrics.getBoolean("reused")} total_ms=${SystemClock.elapsedRealtime() - started}")
+            successful = true
+        } finally {
+            result.cancel()
+            val previous = retained
+            retained = null
+            previous?.let { (owner, old) -> runCatching { owner.unbindService(old) } }
+            if (bound && successful) {
+                retained = app to connection
+                expiry = scope.launch {
+                    delay(45_000L)
+                    mutex.withLock {
+                        if (retained?.second === connection) {
+                            retained = null
+                            app.unbindService(connection)
+                        }
+                    }
+                }
+            } else if (bound) app.unbindService(connection)
+        }
+    }
 
     suspend fun decodeModel(context: Context, root: File, codes: LamiVoiceCodes, modelName: String, threads: Int, progress: (String) -> Unit): FloatArray = mutex.withLock {
         require(modelName in setOf("speech-decoder-dynamic-et14.pte", "speech-decoder-fixed16-xnnpack.pte", "speech-decoder-fixed16-vulkan.pte"))
@@ -188,6 +266,7 @@ class LamiVoiceDecoderService : Service() {
         worker = HandlerThread("lami-pcm-decoder").apply { start() }
         messenger = Messenger(Handler(worker.looper) { message ->
             if (message.what == LamiVoiceDecoderProcess.MINIMAL_VULKAN) minimalVulkan(message)
+            else if (message.what == LamiVoiceDecoderProcess.PRELOAD) preload(message)
             else if (message.what == LamiVoiceDecoderProcess.DECODE) decode(message)
             true
         })
@@ -224,6 +303,42 @@ class LamiVoiceDecoderService : Service() {
             response.putInt("pid", Process.myPid())
             status = LamiVoiceDecoderProcess.SUCCESS
         } catch (error: Throwable) {
+            response.putString("error", "${error.javaClass.simpleName}: ${error.message}")
+        }
+        runCatching { reply.send(Message.obtain(null, status).apply { data = response }) }
+    }
+
+    private fun preload(message: Message) {
+        val reply = message.replyTo ?: return
+        val id = message.data.getString("id") ?: return
+        val response = Bundle().apply { putString("id", id) }
+        var status = LamiVoiceDecoderProcess.FAILURE
+        try {
+            require(id.matches(Regex("[0-9a-f-]{36}")))
+            val model = File(requireNotNull(message.data.getString("model"))).canonicalFile
+            require(model.path.startsWith(filesDir.canonicalPath + File.separator))
+            val threads = message.data.getInt("threads", 0)
+            require(threads in setOf(0, 1, 2, 4))
+            val started = SystemClock.elapsedRealtime()
+            val identity = "${model.path}:${model.length()}:${model.lastModified()}:$threads"
+            val reused = cachedDecoder != null && cachedModelIdentity == identity
+            if (!reused) {
+                cachedDecoder?.close()
+                cachedDecoder = null
+                val loaded = if (threads == 0) Module.load(model.path, Module.LOAD_MODE_MMAP)
+                    else Module.load(model.path, Module.LOAD_MODE_MMAP, threads)
+                try { loaded.loadMethod("forward") } catch (error: Throwable) { loaded.close(); throw error }
+                cachedDecoder = loaded
+                cachedModelIdentity = identity
+            }
+            response.putBoolean("reused", reused)
+            response.putLong("load_ms", SystemClock.elapsedRealtime() - started)
+            response.putInt("pid", Process.myPid())
+            status = LamiVoiceDecoderProcess.SUCCESS
+        } catch (error: Throwable) {
+            cachedDecoder?.let { runCatching { it.close() } }
+            cachedDecoder = null
+            cachedModelIdentity = null
             response.putString("error", "${error.javaClass.simpleName}: ${error.message}")
         }
         runCatching { reply.send(Message.obtain(null, status).apply { data = response }) }
