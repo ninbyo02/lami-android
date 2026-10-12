@@ -74,6 +74,9 @@ val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntim
 val gpuIdlePrewarmDiagnostic = providers.gradleProperty("lami.gpuIdlePrewarmDiagnostic")
     .map { it.toBooleanStrict() }
     .orElse(false)
+val imageBenchmark = providers.gradleProperty("lami.imageBenchmark")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
 
 android {
 
@@ -328,6 +331,10 @@ android {
             if (gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".gpuidleprewarm"
                 versionNameSuffix = "-gpuIdlePrewarmDiagnostic"
+            }
+            if (imageBenchmark.get()) {
+                applicationIdSuffix = ".imagebench"
+                versionNameSuffix = "-imageBenchmark"
             }
         }
         release {
