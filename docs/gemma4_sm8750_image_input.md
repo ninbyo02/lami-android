@@ -286,6 +286,101 @@ whole-system thermal measurements. NPU-ten admission estimated 3266 input tokens
 initially and 3644 with restored history, each reserving 128 output tokens;
 the exact native input/output token counts were not instrumented.
 
+## Comparison audit and follow-up validation
+
+The six protocol-2 cold inputs have byte-identical prepared JPEGs (the first eight
+SHA-256 values match all six cases, including both ten-image cases), identical
+nonalphabetic order, USER prompt, system instruction, and text-before-images content
+order. Both routes call `LocalConversationPolicy.conversationConfig`: topK 40,
+topP 0.9, temperature 0.3, seed 42, and `enable_thinking=false`. The pinned JNI
+reads these SamplerConfig values rather than replacing them with defaults. Native
+sampler selection is CPU for CPU, GPU for GPU, and explicitly NPU for the SM8750
+route. A common seed is not a cross-backend bitwise-determinism guarantee.
+
+The engine context is 4096 in all image cases. The compatibility diagnostic line
+can still say `maxTokens=1024`; the following actual `gpu-engine-config` line
+correctly records 4096 for image input. The benchmark requests 128 output tokens
+on NPU, but this is admission/output-reserve metadata, not a native per-generation
+cap; CPU/GPU likewise have no per-generation cap here. Responses end naturally or
+at native context capacity. The prompts ask for short output.
+
+The product-history follow-up is NOT a fully controlled cross-backend input:
+each case retains its own previous MODEL answer. Its text, token length, omissions,
+and possible leaked dot counts differ. It checks real product-history operation,
+not isolated warm-backend quality. Generic and SM8750 bundles also differ in
+compiled/quantized weights, model metadata, vision signatures, and backend execution.
+The template renderer is shared, but model-owned templates need not be identical.
+Their accuracy differences cannot be called GPU/NPU-specific degradation from
+one trial. There is no newly enforced output cap or greedy override in this comparison.
+
+The protocol-3 harness preserves fixture protocol 2 and records sampler values,
+system instruction, content order, requested output-cap limitation, and trial ID.
+Default `imageHistoryMode=product` keeps actual previous answers. Explicit
+`imageHistoryMode=fixed` substitutes only the MODEL history text with the common
+neutral sentence "The images are available for the next question." so warm inputs
+can be controlled without leaking image answers. This is comparison-only synthetic
+history, not a claim about a live conversation. `imageTrial` adds a validated file
+suffix so repeated runs do not overwrite the baseline raw results.
+
+Code-path inspection found a chat-reopen race: collecting a newly selected chat
+could expose no history (or remembered old-chat state), yet local send remained
+enabled. History collection is now keyed to chat ID with a null loading state;
+local sends wait for loaded messages, stop remains available, and queued first-chat
+submissions wait without being consumed. Server send does not depend on local-history
+readiness. DB order is `messageID ASC`; persisted attachment URI arrays restore
+USER images, and invalid/missing paths remain errors rather than being silently
+removed. This is source/unit validation, not a UI navigation or DB-reopen device test.
+
+Both CPU/GPU and NPU now recheck coroutine cancellation immediately after
+synchronous Conversation creation/prefill, before starting a new decode. Existing
+native cancellation and close paths are preserved. A blocking native initialize/
+prefill is not interruptible by this guard; stop may wait for it to return. The
+32-52 second NPU image-history prefill makes that a material remaining UX risk.
+Immediate cancellation during native prefill is still unmeasured and not guaranteed.
+
+The pre-guard source `1544a9ba8` passed release assembly and 49 related JVM tests
+in 4m57s using offline cached dependencies, max-workers 2. The release artifact
+was unsigned, package `io.github.ninbyo02.lami.npuvalidation`, API 0.11.0,
+SHA-256 `4b2acf2dd3bc20f1efc9387486b99584958fe6c6049e511e9f792979e43a5085`;
+its packaged stock JNI matched the fixed hash above. It was NOT installed.
+This is the NPU-enabled validation configuration, not a production release deployment.
+The post-guard source passed release assembly, manual Android test compilation,
+and 89 JVM tests with zero failures/errors/skips. One incremental package attempt
+failed with the generic PackageAndroidArtifact worker error; its log is preserved
+and the cause was not established. A retry with stacktrace completed successfully
+in 50 seconds using already compiled inputs. Final unsigned release SHA-256:
+`51e2a8193f83e410286027a52f6d4c7be128edb9097f171af19aab8f20c16423`.
+Its packaged stock JNI again matched the fixed hash. Logs are
+`multi-image-fixed/release-regression-history-guard{,-stacktrace}.log`.
+No release APK or post-guard debug APK was installed. This final artifact embeds
+Git SHA `1544a9b` plus the then-uncommitted history/cancel guards; release inference
+and UI reopening/cancellation on the device remain unverified.
+
+Planned small repeat set: eight-image CPU/GPU/NPU cases, two trials each at fixed
+seed 42 and `imageHistoryMode=fixed`, identical JPEG hashes/order/prompts/system
+and context, sequentially. Keep initial and restored-history timings separate,
+report each response and strict scores plus median/range, and compare model kinds
+explicitly. Begin only in an agreed idle device window, preferably battery <=35 C,
+with existing >=40 C and low-RAM guards; no other process is stopped. At the planning
+check battery was 32 C / 80%, but assistantprobe and ttsstreamtrial processes existed.
+Presence alone does not prove active inference; coordination is still required.
+Build/install the protocol-3 isolated imagebench APK before using the new options;
+the currently installed protocol-2 APK does not implement them. A repeat command
+then adds `-e imageHistoryMode fixed -e imageTrial cmp_seed42_r1` (or `r2`) to the
+eight-image matrix command below. Preserve old product-history raw JSON and report
+new fixed-history results as a separate protocol, not replacements for the baseline.
+
+For a nonpersonal real-photo smoke test, a NASA public Earth photograph
+[AS17-148-22727](https://eol.jsc.nasa.gov/Collections/EarthFromSpace/images.pl?photo=AS17-148-22727)
+was downloaded and visually checked: 540x540 JPEG, 82,029 bytes, SHA-256
+`072669811298a8c35ac40790353f68bc09fc5cd9e10bd797fd3d16a149fc956b`.
+It contains Earth, blue ocean, visible land, white cloud/ice, and a black background,
+with no person or personal data. Host file: `multi-image-fixed/nasa_AS17-148-22727.jpg`.
+Planned identical prompt: "Name the main object and two visible features. English
+only." Score Earth plus two correct visible features and no invented object;
+record app-prepared JPEG hash across all routes. This photo has NOT been inferred
+yet; one known photo will not establish general real-photo quality.
+
 ## Reproduce the manual benchmark
 
 Stage the existing pinned native inputs, not new dependencies. Verify the APK

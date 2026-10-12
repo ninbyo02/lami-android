@@ -159,6 +159,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 conversation = activeEngine.createConversation(
                     LocalConversationPolicy.conversationConfig(budget.initialTurns),
                 )
+                currentCoroutineContext().ensureActive()
                 conversationChatId = chatId
                 trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${budget.initialTurns.size} conversation_reused=false")
 

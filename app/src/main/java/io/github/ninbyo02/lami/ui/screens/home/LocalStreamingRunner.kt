@@ -6413,12 +6413,14 @@ private suspend fun runOfficialLiteRtLmDirect(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-start")
             failureStage = "engine-initialize"
             engine.initialize()
+            currentCoroutineContext().ensureActive()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
             failureStage = "conversation-create"
             conversation = engine.createConversation(LocalConversationPolicy.conversationConfig(initialTurns))
+            currentCoroutineContext().ensureActive()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 

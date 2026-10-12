@@ -1044,9 +1044,11 @@ fun Home(
     var pendingAssistantAutoSubmitText by remember { mutableStateOf<String?>(null) }
     var pendingFirstChatSubmission by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
     val allChatsState = effectiveChatId?.let {
-        viewModel.allMessages(it)
-            .map { messages -> messages as List<Message>? }
-            .collectAsState(initial = null)
+        key(it) {
+            viewModel.allMessages(it)
+                .map { messages -> messages as List<Message>? }
+                .collectAsState(initial = null)
+        }
     }
     val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
@@ -1283,6 +1285,8 @@ fun Home(
         initial = InferenceStatsDisplayMode.SIMPLE,
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
+    val localChatHistoryReady = selectedInferenceTarget != InferenceTarget.LOCAL ||
+        effectiveChatId == null || allChatsOrNull != null
     var localInferenceRunState by remember { mutableStateOf(LocalInferenceRunState()) }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
@@ -4850,6 +4854,7 @@ fun Home(
                                         hasPromptText = userPrompt.isNotEmpty(),
                                         hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                         isInferenceRunning = isInferenceRunningUi,
+                                        localChatHistoryReady = localChatHistoryReady,
                                     )
                                     val composerAction: () -> Unit = composerAction@{
                                             viewModel.onUserInteraction()
@@ -4916,6 +4921,7 @@ fun Home(
                                                 hasPromptText = userPrompt.isNotEmpty(),
                                                 hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                                 isInferenceRunning = false,
+                                                localChatHistoryReady = localChatHistoryReady,
                                             )
                                             if (!sendAvailability.enabled) {
                                                 coroutineScope.launch {
@@ -9065,9 +9071,9 @@ fun Home(
                                             }
                                         }
                                     val latestComposerAction by rememberUpdatedState(composerAction)
-                                    LaunchedEffect(pendingFirstChatSubmission, effectiveChatId) {
+                                    LaunchedEffect(pendingFirstChatSubmission, effectiveChatId, localChatHistoryReady) {
                                         val submission = pendingFirstChatSubmission ?: return@LaunchedEffect
-                                        if (effectiveChatId == null) return@LaunchedEffect
+                                        if (effectiveChatId == null || !localChatHistoryReady) return@LaunchedEffect
                                         pendingFirstChatSubmission = null
                                         // Start with the recomposed chat-bound state, not the draft's old state.
                                         if (submission.first == userPrompt && submission.second == selectedImageUriStrings) {

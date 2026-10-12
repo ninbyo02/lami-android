@@ -45,13 +45,25 @@ class LocalMultiImageBenchmarkInstrumentedTest {
         val backend = PreferredBackendDryRunSetting.valueOf(args.getString("imageBackend", "GPU"))
         val count = args.getString("imageCount", "8").toInt()
         require(count == 8 || count == 10)
+        val historyMode = args.getString("imageHistoryMode", "product")
+        require(historyMode == "product" || historyMode == "fixed")
+        val trial = args.getString("imageTrial", "baseline")
+        require(trial.matches(Regex("[A-Za-z0-9_-]{1,32}")))
         val model = if (backend == PreferredBackendDryRunSetting.NPU) "/data/local/tmp/lami_npu_durability_model.litertlm" else "/data/local/tmp/lami_gpu_model.litertlm"
-        val stem = "multi_image_${backend}_$count"
+        val stem = "multi_image_${backend}_$count" + if (trial == "baseline") "" else "_$trial"
         val jsonFile = File(context.filesDir, "$stem.json")
         val traceFile = File(context.filesDir, "$stem.trace").apply { writeText("") }
         val result = JSONObject().put("backend", backend.name).put("image_count", count)
             .put("context_tokens", 4096).put("model", model).put("api_version", BuildConfig.LITERTLM_ANDROID_VERSION)
-            .put("commit", BuildConfig.GIT_SHA).put("protocol_version", 2).put("status", "preparing")
+            .put("commit", BuildConfig.GIT_SHA).put("protocol_version", 3).put("fixture_protocol_version", 2).put("status", "preparing")
+            .put("trial", trial).put("history_mode", historyMode)
+            .put("sampler", JSONObject().put("profile", LocalConversationPolicy.SAMPLER_PROFILE)
+                .put("top_k", LocalConversationPolicy.SAMPLER_TOP_K).put("top_p", LocalConversationPolicy.SAMPLER_TOP_P)
+                .put("temperature", LocalConversationPolicy.SAMPLER_TEMPERATURE).put("seed", LocalConversationPolicy.SAMPLER_SEED)
+                .put("thinking_enabled", LocalConversationPolicy.THINKING_ENABLED))
+            .put("requested_output_tokens", 128).put("native_per_generation_output_cap_enforced", false)
+            .put("system_instruction", LocalConversationPolicy.SYSTEM_INSTRUCTION)
+            .put("content_order", "text_then_images")
         fun save() { jsonFile.writeText(result.toString(2)) }
         fun temperature() = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.getIntExtra("temperature", -1) ?: -1
         fun memory(): JSONObject {
@@ -86,9 +98,11 @@ class LocalMultiImageBenchmarkInstrumentedTest {
                 .put("image_sha256", JSONArray(paths.map { path -> MessageDigest.getInstance("SHA-256").digest(File(path).readBytes()).joinToString("") { "%02x".format(it) } }))
             val coldPrompt = "Per image: read its letter and the fill color and type of the large shape below it. One line <letter>:<color>:<shape>, in input order. English only."
             val cold = executePhase(context, backend, capability, "cold", coldPrompt, paths, emptyList(), result, traceFile, ::temperature, ::memory, ::save)
+            val historyReply = if (historyMode == "fixed") "The images are available for the next question." else cold.first
+            result.put("restored_history_model_text", historyReply)
             val restoredHistory = listOf(
                 LocalConversationTurn(LocalConversationRole.USER, coldPrompt, paths),
-                LocalConversationTurn(LocalConversationRole.MODEL, cold.first),
+                LocalConversationTurn(LocalConversationRole.MODEL, historyReply),
             )
             val alive = inputs.all { File(it.absolutePath).isFile && Uri.parse(it.savedUriString).path == it.absolutePath }
             result.put("image_history_uris_valid", alive)
