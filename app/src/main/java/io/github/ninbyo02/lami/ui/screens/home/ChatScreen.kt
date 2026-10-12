@@ -1,8 +1,10 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-import android.content.Context
-import android.content.res.Configuration
+import android.Manifest
 import android.app.ActivityManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Debug
 import android.os.SystemClock
@@ -64,6 +66,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
@@ -197,10 +200,16 @@ import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
 import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
+import io.github.ninbyo02.lami.asr.PrivacyAsrPhase
+import io.github.ninbyo02.lami.asr.PrivacyLocalAsrController
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1092,6 +1101,7 @@ fun Home(
             }
         }
     }
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(context.applicationContext) {
         if (!BuildConfig.DEBUG) return@LaunchedEffect
         runCatching {
@@ -1296,6 +1306,29 @@ fun Home(
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    var localImageInputCapability by remember(
+        selectedLocalModelFilePath,
+        selectedLocalModelDisplayName,
+    ) {
+        mutableStateOf<LocalImageInputCapability>(LocalImageInputCapability.NotChecked)
+    }
+    LaunchedEffect(
+        selectedLocalModelFilePath,
+        selectedLocalModelDisplayName,
+        selectedImageUriStrings.isNotEmpty(),
+        developerAccessEnabled,
+    ) {
+        if (selectedImageUriStrings.isEmpty()) {
+            localImageInputCapability = LocalImageInputCapability.NotChecked
+            return@LaunchedEffect
+        }
+        localImageInputCapability = LocalImageInputCapability.Checking
+        localImageInputCapability = resolveLocalImageInputCapability(
+            selectedModelPath = selectedLocalModelFilePath,
+            selectedModelDisplayName = selectedLocalModelDisplayName,
+            allowUnverifiedGenericVision = developerAccessEnabled,
+        )
+    }
     LaunchedEffect(localBaseModelFilePath) {
         val selectedNpuModelPath = localBaseModelFilePath?.trim().orEmpty()
         if (selectedNpuModelPath.isNotBlank()) {
@@ -1352,6 +1385,124 @@ fun Home(
         mutableStateOf(LocalPartialStreamingState())
     }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var voiceInputActive by remember(effectiveChatId) { mutableStateOf(false) }
+    var voiceInputStartRequested by remember(effectiveChatId) { mutableStateOf(false) }
+    var voiceInputController by remember(effectiveChatId) { mutableStateOf<PrivacyLocalAsrController?>(null) }
+    val asrModelImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val controller = PrivacyLocalAsrController(context.applicationContext)
+            try {
+                val imported = controller.importModel(uris)
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = imported.detail,
+                    duration = SnackbarDuration.Short,
+                )
+                if (imported.phase == PrivacyAsrPhase.READY) {
+                    voiceInputStartRequested = true
+                }
+            } finally {
+                runCatching { controller.close() }
+            }
+        }
+    }
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            voiceInputStartRequested = true
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "マイク権限が必要です",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
+    fun requestVoiceInput() {
+        viewModel.onUserInteraction()
+        if (voiceInputActive) {
+            coroutineScope.launch { voiceInputController?.cancel() }
+            return
+        }
+        val permissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (permissionGranted) {
+            voiceInputStartRequested = true
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    LaunchedEffect(voiceInputStartRequested) {
+        if (!voiceInputStartRequested || voiceInputActive) return@LaunchedEffect
+        voiceInputStartRequested = false
+        val controller = PrivacyLocalAsrController(context.applicationContext)
+        voiceInputController = controller
+        voiceInputActive = true
+        try {
+            val prepared = controller.prepare()
+            if (prepared.phase == PrivacyAsrPhase.MODEL_REQUIRED) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
+                    message = "${prepared.detail} (${controller.stagingPath})",
+                    actionLabel = "モデル選択",
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                    asrModelImportLauncher.launch(arrayOf("*/*"))
+                }
+                return@LaunchedEffect
+            }
+            if (prepared.phase != PrivacyAsrPhase.READY) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = prepared.detail,
+                    duration = SnackbarDuration.Short,
+                )
+                return@LaunchedEffect
+            }
+            placeholder = "聞き取り中..."
+            val result = controller.recordUtterance()
+            val transcript = result.transcript?.text?.trim().orEmpty()
+            when {
+                result.phase == PrivacyAsrPhase.FINAL && transcript.isNotBlank() -> {
+                    userPrompt = transcript
+                    placeholder = "Enter your prompt..."
+                }
+                else -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = result.detail,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
+        } finally {
+            placeholder = "Enter your prompt..."
+            runCatching { controller.close() }
+            voiceInputController = null
+            voiceInputActive = false
+        }
+    }
+    DisposableEffect(lifecycleOwner, voiceInputController) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                coroutineScope.launch { voiceInputController?.cancel() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            runCatching { voiceInputController?.close() }
+        }
+    }
     var localGpuWatchdogJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
@@ -4558,7 +4709,7 @@ fun Home(
                     ) {
                     // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
                     val availableTextWidthDp =
-                        maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
+                        maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
                     val availableTextWidthPx = with(density) {
                         availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
                     }
@@ -4883,22 +5034,64 @@ fun Home(
                                                         ExistingLocalGenerationJobPolicy.ALREADY_RUNNING -> return@composerAction
                                                         ExistingLocalGenerationJobPolicy.START_NEW -> Unit
                                                     }
-                                                    if (selectedImageUriStrings.isNotEmpty()) {
-                                                        coroutineScope.launch {
-                                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                                            snackbarHostState.showSnackbar(
-                                                                message = "ローカル推論では画像入力はまだ未対応です",
-                                                                duration = SnackbarDuration.Short,
-                                                            )
+                                                    val requestAttachmentUris = selectedImageUris
+                                                    val requestAttachmentUriStrings = selectedImageUriStrings.toList()
+                                                    val localImagesRequested = requestAttachmentUris.isNotEmpty()
+                                                    if (localImagesRequested) {
+                                                        when (val capability = localImageInputCapability) {
+                                                            LocalImageInputCapability.NotChecked,
+                                                            LocalImageInputCapability.Checking,
+                                                            -> {
+                                                                coroutineScope.launch {
+                                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                                    snackbarHostState.showSnackbar(
+                                                                        message = "画像対応モデルを確認中です。少し待ってから送信してください",
+                                                                        duration = SnackbarDuration.Short,
+                                                                    )
+                                                                }
+                                                                return@composerAction
+                                                            }
+                                                            is LocalImageInputCapability.Unsupported -> {
+                                                                coroutineScope.launch {
+                                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                                    snackbarHostState.showSnackbar(
+                                                                        message = capability.userMessage,
+                                                                        duration = SnackbarDuration.Long,
+                                                                    )
+                                                                }
+                                                                return@composerAction
+                                                            }
+                                                            is LocalImageInputCapability.Supported -> Unit
                                                         }
-                                                        return@composerAction
                                                     }
-                                                    val requestPrompt = userPrompt
+                                                    val requestPrompt = NpuImageInputPolicy.effectivePrompt(
+                                                        prompt = userPrompt,
+                                                        hasImages = localImagesRequested,
+                                                    )
                                                     if (requestPrompt.isBlank()) return@composerAction
+                                                    val localImagePreparation = if (localImagesRequested) {
+                                                        coroutineScope.async {
+                                                            runCatching {
+                                                                prepareLocalImageInputs(
+                                                                    context = context.applicationContext,
+                                                                    attachmentUris = requestAttachmentUris,
+                                                                    persistent = true,
+                                                                )
+                                                            }
+                                                        }
+                                                    } else {
+                                                        null
+                                                    }
                                                     val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
                                                         .mapNotNull { message ->
-                                                            val text = message.message.trim().takeIf(String::isNotBlank)
-                                                                ?: return@mapNotNull null
+                                                            val images = if (message.isSendbyMe) {
+                                                                message.localConversationImageFilePaths()
+                                                            } else {
+                                                                emptyList()
+                                                            }
+                                                            val text = NpuImageInputPolicy
+                                                                .effectivePrompt(message.message, images.isNotEmpty())
+                                                                .takeIf(String::isNotBlank) ?: return@mapNotNull null
                                                             LocalConversationTurn(
                                                                 role = if (message.isSendbyMe) {
                                                                     LocalConversationRole.USER
@@ -4906,9 +5099,12 @@ fun Home(
                                                                     LocalConversationRole.MODEL
                                                                 },
                                                                 text = text,
+                                                                imageFilePaths = images,
                                                             )
                                                         }
                                                         .takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
+                                                    val requestHasImageContext = localImagesRequested ||
+                                                        localConversationHistorySnapshot.any { it.imageFilePaths.isNotEmpty() }
                                                     val localSendTapElapsedMs = SystemClock.elapsedRealtime()
                                                     lastLocalSendTapElapsedMs = localSendTapElapsedMs
                                                     lastLocalSendPromptForTrace = requestPrompt
@@ -4936,17 +5132,30 @@ fun Home(
                                                     }
                                                     val immediateLocalChatId = effectiveChatId
                                                     immediateLocalChatId?.let(::beginAssistantResponse)
-                                                    val immediateLocalUserInsertJob = immediateLocalChatId?.let { chatId ->
+                                                    val immediateLocalUserInsertJob = immediateLocalChatId
+                                                        ?.takeIf { !requestHasImageContext }
+                                                        ?.let { chatId ->
                                                         coroutineScope.launch(Dispatchers.IO) {
                                                             Log.i(
                                                                 "ChatScreen",
                                                                 "[LOCAL_UI] DB_INSERT_START dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$chatId promptLength=${requestPrompt.length}",
                                                             )
+                                                            val preparedLocalImages = localImagePreparation
+                                                                ?.await()
+                                                                ?.getOrNull()
+                                                                .orEmpty()
+                                                            val savedAttachmentUriStrings = preparedLocalImages
+                                                                .map(LocalImageInput::savedUriString)
+                                                                .ifEmpty { requestAttachmentUriStrings }
                                                             viewModel.insert(
                                                                 Message(
                                                                     chatId = chatId,
                                                                     message = requestPrompt,
                                                                     isSendbyMe = true,
+                                                                    attachmentUriString = savedAttachmentUriStrings.singleOrNull(),
+                                                                    attachmentUriStringsJson = savedAttachmentUriStrings
+                                                                        .takeIf { it.isNotEmpty() }
+                                                                        ?.toAttachmentUriStringsJson(),
                                                                 )
                                                             )
                                                             Log.i(
@@ -4986,6 +5195,52 @@ fun Home(
                                                         // Give Compose at least a few frames to render the cleared composer
                                                         // and the user message before local/NPU route setup can occupy the UI.
                                                         delay(50)
+                                                        val requestLocalImageInputs = localImagePreparation
+                                                            ?.await()
+                                                            ?.getOrElse { failure ->
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "画像を読み込めませんでした: ${failure.javaClass.simpleName}",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                                localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
+                                                                return@localSendLaunch
+                                                            }
+                                                            .orEmpty()
+                                                        val requestLocalImageFilePaths = requestLocalImageInputs.map(LocalImageInput::absolutePath)
+                                                        val requestSavedAttachmentUriStrings = requestLocalImageInputs
+                                                            .map(LocalImageInput::savedUriString)
+                                                            .ifEmpty { requestAttachmentUriStrings }
+                                                        val localImageCapabilityForRequest = if (requestHasImageContext) {
+                                                            when (val currentCapability = localImageInputCapability) {
+                                                                is LocalImageInputCapability.Supported -> currentCapability
+                                                                else -> resolveLocalImageInputCapability(
+                                                                    selectedModelPath = localBaseModelFilePath,
+                                                                    selectedModelDisplayName = localBaseModelDisplayName ?: selectedModel,
+                                                                    allowUnverifiedGenericVision = developerAccessEnabled,
+                                                                )
+                                                            }
+                                                        } else {
+                                                            null
+                                                        }
+                                                        val localImageRouteSupported =
+                                                            localImageCapabilityForRequest is LocalImageInputCapability.Supported
+                                                        if (requestHasImageContext && !localImageRouteSupported) {
+                                                            pendingLocalUserMessageText = null
+                                                            localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                            localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                            localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = (localImageCapabilityForRequest as? LocalImageInputCapability.Unsupported)
+                                                                    ?.userMessage ?: "画像入力にはDeveloper accessで確認済みのGemma画像モデルを選択してください。",
+                                                                duration = SnackbarDuration.Long,
+                                                            )
+                                                            return@localSendLaunch
+                                                        }
+                                                        val shouldUseNpuImageRoute = requestHasImageContext &&
+                                                            localImageCapabilityForRequest is LocalImageInputCapability.Supported &&
+                                                            localImageCapabilityForRequest.note.contains("npu-language")
                                                         debugLocalUiTrace(
                                                             label = "ROUTE_DEFERRED_START",
                                                             extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
@@ -5003,15 +5258,20 @@ fun Home(
                                                             "none"
                                                         }
                                                     val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
-                                                        enabled = effectiveNpuStandardRouteRequested,
+                                                        enabled = if (requestHasImageContext) {
+                                                            effectiveNpuStandardRouteRequested && shouldUseNpuImageRoute
+                                                        } else {
+                                                            effectiveNpuStandardRouteRequested
+                                                        },
                                                         selectedInferenceTarget = selectedInferenceTarget,
-                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        hasImageInput = requestHasImageContext,
                                                         requestPrompt = requestPrompt,
+                                                        imageInputSupported = shouldUseNpuImageRoute,
                                                     )
                                                     val localRouteEnteredAfterNpuDecision = shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
                                                         shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
                                                         selectedInferenceTarget = selectedInferenceTarget,
-                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        hasImageInput = requestHasImageContext,
                                                         requestPrompt = requestPrompt,
                                                     )
                                                     val localRouteDiagnosticContext = buildLocalRouteDiagnosticContext(
@@ -5127,6 +5387,10 @@ fun Home(
                                                                                         chatId = chatId,
                                                                                         message = promptText,
                                                                                         isSendbyMe = true,
+                                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                                            .takeIf { it.isNotEmpty() }
+                                                                                            ?.toAttachmentUriStringsJson(),
                                                                                     )
                                                                                 )
                                                                             }
@@ -5194,6 +5458,7 @@ fun Home(
                                                                                         initialTurns = prefacePlan.initialTurns,
                                                                                         selectedModelFile = localBaseModelFilePath,
                                                                                         requestedMaxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                        imageFilePaths = requestLocalImageFilePaths,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
                                                                                             if (partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
@@ -5222,7 +5487,7 @@ fun Home(
                                                                                     requireNotNull(kotlinConversationAttempt.result)
                                                                                 } else {
                                                                                     npuRealPromptTrace(
-                                                                                        "npu_product_route=KOTLIN_CONVERSATION_API_FALLBACK_LOCAL reason=${kotlinConversationAttempt.failureReason}",
+                                                                                        "npu_product_route=${if (requestHasImageContext) "KOTLIN_CONVERSATION_API_IMAGE_FAILURE" else "KOTLIN_CONVERSATION_API_FALLBACK_LOCAL"} reason=${kotlinConversationAttempt.failureReason}",
                                                                                     )
                                                                                     NpuStandardRouteS1Mapper.map(
                                                                                         NpuStandardRouteS1RawResult(
@@ -5235,6 +5500,17 @@ fun Home(
                                                                                         ),
                                                                                     )
                                                                                 }
+                                                                            } else if (requestHasImageContext) {
+                                                                                NpuStandardRouteS1Mapper.map(
+                                                                                    NpuStandardRouteS1RawResult(
+                                                                                        status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                                                                                        reason = "adapter_failure:kotlin_conversation_product_route:image_route_disabled",
+                                                                                        selectedModelName = npuModelEligibility.selectedModelName,
+                                                                                        selectedModelFile = localBaseModelFilePath.orEmpty(),
+                                                                                        npuModelEligible = npuModelEligibility.npuModelEligible,
+                                                                                        inputPrompt = requestPrompt,
+                                                                                    ),
+                                                                                )
                                                                             } else {
                                                                                 withContext(Dispatchers.Default) {
                                                                                     NpuStandardRouteS1Bridge(
@@ -5343,11 +5619,19 @@ fun Home(
                                                         } else {
                                                             s1Result.displayText
                                                         }
-                                                        val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(s1RouteDisplayText)
+                                                        val imageInputDiagnostics = if (requestHasImageContext) {
+                                                            "\nimage_input_count=${requestLocalImageFilePaths.size}\nvision_backend=CPU\nvision_adapter_backend=CPU\nlanguage_backend=NPU"
+                                                        } else {
+                                                            ""
+                                                        }
+                                                        val s1DisplayTextForDev = appendNpuS1MemoryDiagnostics(
+                                                            s1RouteDisplayText + imageInputDiagnostics,
+                                                        )
                                                         val npuOutputDecision = LocalInferenceOutputPolicy.evaluateNpu(
                                                             userPrompt = requestPrompt,
                                                             result = s1Result,
                                                             localStopRequested = localInferenceRunState.stopRequested,
+                                                            hasImageInput = requestHasImageContext,
                                                         )
                                                         val s1Fallback = npuOutputDecision.transientFallback
                                                         val shouldFallbackNpuFailure =
@@ -6467,6 +6751,25 @@ fun Home(
                                                                     prompt = requestPrompt,
                                                                     throwable = exception,
                                                                 )
+                                                                if (requestHasImageContext) {
+                                                                    pendingLocalUserMessageText = null
+                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                                    streamingResponseTextForRender = null
+                                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                                    val failureChatId = resolvedNpuChatId
+                                                                    if (failureChatId != null && streamingPersistenceState.assistantMessageId != null) {
+                                                                        finalizeStreamingAssistantFailureSerialized(
+                                                                            chatId = failureChatId,
+                                                                            response = NpuImageInputPolicy.FAILURE_MESSAGE,
+                                                                        )
+                                                                    } else {
+                                                                        userPrompt = requestPrompt
+                                                                        selectedImageUriStrings = requestAttachmentUriStrings
+                                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                                        snackbarHostState.showSnackbar(NpuImageInputPolicy.FAILURE_MESSAGE)
+                                                                    }
+                                                                    return@launch
+                                                                }
                                                                 suspend fun runExceptionFallback(
                                                                     backend: PreferredBackendDryRunSetting,
                                                                 ): LocalInferenceRunResult = runLocalInferenceOnceEntry(
@@ -6655,6 +6958,10 @@ fun Home(
                                                                         chatId = resolvedChatId,
                                                                         message = requestPrompt,
                                                                         isSendbyMe = true,
+                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                            .takeIf { it.isNotEmpty() }
+                                                                            ?.toAttachmentUriStringsJson(),
                                                                     )
                                                                 )
                                                             }
@@ -6887,8 +7194,10 @@ fun Home(
                                                                 isCreatingChat = false
                                                             }
                                                         } else {
-                                                            immediateLocalUserInsertJob?.join()
-                                                            localUserMessageAlreadyInserted = true
+                                                            if (immediateLocalUserInsertJob != null) {
+                                                                immediateLocalUserInsertJob.join()
+                                                                localUserMessageAlreadyInserted = true
+                                                            }
                                                         }
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
@@ -6902,6 +7211,10 @@ fun Home(
                                                                         chatId = resolvedChatId,
                                                                         message = requestPrompt,
                                                                         isSendbyMe = true,
+                                                                        attachmentUriString = requestSavedAttachmentUriStrings.singleOrNull(),
+                                                                        attachmentUriStringsJson = requestSavedAttachmentUriStrings
+                                                                            .takeIf { it.isNotEmpty() }
+                                                                            ?.toAttachmentUriStringsJson(),
                                                                     )
                                                                 )
                                                             }
@@ -7630,6 +7943,7 @@ fun Home(
                                                                         } else {
                                                                             "unavailable"
                                                                         },
+                                                                        localImageFilePaths = requestLocalImageFilePaths,
                                                                         onRouteDiagnosticStage = { stage ->
                                                                             lastRouteDiagnosticStage.set(stage)
                                                                             gpuRouteProgressTracker.recordStage(stage)
@@ -8627,6 +8941,35 @@ fun Home(
                                         ) {
                                             pendingAssistantAutoSubmitText = null
                                             latestComposerAction()
+                                        }
+                                    }
+
+                                    IconButton(
+                                        enabled = !isInferenceRunningUi,
+                                        onClick = { requestVoiceInput() },
+                                        modifier = Modifier
+                                            .size(ComposerButtonSize)
+                                            .align(Alignment.Bottom)
+                                            .clip(CircleShape),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(ComposerButtonVisualSize)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (voiceInputActive) {
+                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                    } else {
+                                                        Color.LightGray.copy(alpha = 0.25f)
+                                                    },
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = if (voiceInputActive) Icons.Filled.Stop else Icons.Filled.Mic,
+                                                contentDescription = if (voiceInputActive) "録音を停止" else "音声入力",
+                                                modifier = Modifier.size(ComposerButtonIconVisualSize),
+                                            )
                                         }
                                     }
 
@@ -11061,6 +11404,7 @@ private suspend fun tryRunOfficialConversationAttempt(
     effectivePreferredBackendDryRunSetting: PreferredBackendDryRunSetting,
     markdownStreamingMode: MarkdownStreamingMode,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     initialTurns: List<LocalConversationTurn>,
     onPartial: (String) -> Unit,
     allowLegacyReflectionFallback: Boolean,
@@ -11102,6 +11446,7 @@ private suspend fun tryRunOfficialConversationAttempt(
         )
         val officialResult = tryRunOfficialLiteRtFlowStreaming(
             prompt = prompt,
+            localImageFilePaths = localImageFilePaths,
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
@@ -11368,6 +11713,7 @@ private suspend fun runLocalInferenceOnceEntry(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     initialTurns: List<LocalConversationTurn> = emptyList(),
     onPartial: (String) -> Unit = {},
     allowLegacyReflectionFallback: Boolean = true,
@@ -11480,6 +11826,7 @@ private suspend fun runLocalInferenceOnceEntry(
         effectivePreferredBackendDryRunSetting = effectivePreferredBackendDryRunSetting,
         markdownStreamingMode = markdownStreamingMode,
         prompt = prompt,
+        localImageFilePaths = localImageFilePaths,
         initialTurns = initialTurns,
         onPartial = onPartial,
         allowLegacyReflectionFallback = allowLegacyReflectionFallback,
@@ -16104,10 +16451,11 @@ internal fun shouldEnterNpuStandardRouteS1(
     selectedInferenceTarget: InferenceTarget,
     hasImageInput: Boolean,
     requestPrompt: String,
+    imageInputSupported: Boolean = false,
 ): Boolean =
     enabled &&
         selectedInferenceTarget == InferenceTarget.LOCAL &&
-        !hasImageInput &&
+        (!hasImageInput || imageInputSupported) &&
         requestPrompt.isNotBlank()
 
 internal fun shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
@@ -16843,3 +17191,17 @@ private fun escapeDevQairt244DiagnosticValue(value: String): String =
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()
+
+private fun Message.localConversationImageFilePaths(): List<String> {
+    val uris = attachmentUriStringsJson?.let { json ->
+        runCatching {
+            val array = JSONArray(json)
+            List(array.length()) { index -> array.getString(index) }
+        }.getOrElse { listOf(json) }
+    }.orEmpty().ifEmpty { listOfNotNull(attachmentUriString) }
+    return uris.map { value ->
+        // Keep malformed or missing attachments in the request so the image route fails
+        // instead of silently degrading into a text-only follow-up.
+        runCatching { File(java.net.URI(value)).absolutePath }.getOrDefault(value)
+    }
+}

@@ -46,7 +46,7 @@ internal object LocalConversationPolicy {
         systemInstruction = Contents.of(SYSTEM_INSTRUCTION),
         initialMessages = LocalConversationHistoryPolicy.bounded(initialTurns).map { turn ->
             when (turn.role) {
-                LocalConversationRole.USER -> Message.user(turn.text)
+                LocalConversationRole.USER -> Message.user(NpuImageInputPolicy.contents(turn.text, turn.imageFilePaths))
                 LocalConversationRole.MODEL -> Message.model(turn.text)
             }
         },

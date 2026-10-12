@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -2012,6 +2014,7 @@ internal suspend fun runWithHeldEngine(
     heldEngineAcquireResult: String? = null,
     heldEngineAcquireElapsedMs: Long? = null,
     previousTurnSuccess: String? = null,
+    localImageFilePaths: List<String> = emptyList(),
     onRouteDiagnosticStage: (String) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
@@ -2425,6 +2428,7 @@ internal suspend fun runWithHeldEngine(
                 val sendMessageAsyncMethod = findSendMessageAsyncMethod(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
+                    useContentsInput = localImageFilePaths.isNotEmpty(),
                 ) ?: return@runCatching null
                 appendGenerateStarted()
                 callbackTracker.markGenerateCallEntered()
@@ -2437,6 +2441,7 @@ internal suspend fun runWithHeldEngine(
                     method = sendMessageAsyncMethod,
                     namespace = namespace,
                     prompt = effectivePrompt,
+                    localImageFilePaths = localImageFilePaths,
                 ) ?: run {
                     callbackTracker.markGenerateCallReturned()
                     appendRouteStage(
@@ -2699,6 +2704,7 @@ internal suspend fun runWithHeldEngine(
                 val sendMethod = findBlockingSendMethod(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
+                    useContentsInput = localImageFilePaths.isNotEmpty(),
                 ) ?: return@runCatching null
                 appendGenerateStarted()
                 callbackTracker.markGenerateCallEntered()
@@ -2711,6 +2717,7 @@ internal suspend fun runWithHeldEngine(
                     method = sendMethod,
                     namespace = namespace,
                     prompt = effectivePrompt,
+                    localImageFilePaths = localImageFilePaths,
                 ) ?: run {
                     callbackTracker.markGenerateCallReturned()
                     appendRouteStage(
@@ -5759,12 +5766,13 @@ private fun createConversationForHeldEngine(
 internal fun findSendMessageAsyncMethod(
     conversationClass: Class<*>,
     namespace: String?,
+    useContentsInput: Boolean = false,
 ): Method? {
     return if (namespace == "com.google.ai.edge.litertlm") {
         conversationClass.methods.firstOrNull { method ->
             method.name == "sendMessageAsync" &&
                 method.parameterTypes.size == 2 &&
-                method.parameterTypes[0] == String::class.java &&
+                method.parameterTypes[0] == (if (useContentsInput) Contents::class.java else String::class.java) &&
                 Map::class.java.isAssignableFrom(method.parameterTypes[1])
         }
     } else {
@@ -5777,10 +5785,16 @@ internal fun invokeSendMessageAsync(
     method: Method,
     namespace: String?,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
 ): Any? {
     return runCatching {
         if (namespace == "com.google.ai.edge.litertlm") {
-            method.invoke(conversation, prompt, emptyMap<String, Any>())
+            val argument = if (localImageFilePaths.isNotEmpty()) {
+                buildLiteRtLmContents(prompt, localImageFilePaths)
+            } else {
+                prompt
+            }
+            method.invoke(conversation, argument, emptyMap<String, Any>())
         } else {
             val argument = buildSendMessageArgument(
                 parameterType = method.parameterTypes.first(),
@@ -5795,12 +5809,13 @@ internal fun invokeSendMessageAsync(
 internal fun findBlockingSendMethod(
     conversationClass: Class<*>,
     namespace: String?,
+    useContentsInput: Boolean = false,
 ): Method? {
     return if (namespace == "com.google.ai.edge.litertlm") {
         conversationClass.methods.firstOrNull { method ->
             method.name == "sendMessage" &&
                 method.parameterTypes.size == 2 &&
-                method.parameterTypes[0] == String::class.java &&
+                method.parameterTypes[0] == (if (useContentsInput) Contents::class.java else String::class.java) &&
                 Map::class.java.isAssignableFrom(method.parameterTypes[1])
         }
     } else {
@@ -5815,10 +5830,16 @@ internal fun invokeBlockingSend(
     method: Method,
     namespace: String?,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
 ): Any? {
     return runCatching {
         if (namespace == "com.google.ai.edge.litertlm") {
-            method.invoke(conversation, prompt, emptyMap<String, Any>())
+            val argument = if (localImageFilePaths.isNotEmpty()) {
+                buildLiteRtLmContents(prompt, localImageFilePaths)
+            } else {
+                prompt
+            }
+            method.invoke(conversation, argument, emptyMap<String, Any>())
         } else {
             val argument = buildSendMessageArgument(
                 parameterType = method.parameterTypes.first(),
@@ -5830,9 +5851,15 @@ internal fun invokeBlockingSend(
     }.getOrNull()
 }
 
+internal fun buildLiteRtLmContents(
+    prompt: String,
+    localImageFilePaths: List<String>,
+): Contents = NpuImageInputPolicy.contents(prompt, localImageFilePaths)
+
 internal suspend fun runOfficialFlowStreamingSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
@@ -5848,6 +5875,7 @@ internal suspend fun runOfficialFlowStreamingSingleNamespace(
     if (spec.namespace == "com.google.ai.edge.litertlm") {
         return runOfficialLiteRtLmDirect(
             prompt = prompt,
+            localImageFilePaths = localImageFilePaths,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
@@ -5868,7 +5896,7 @@ internal suspend fun runOfficialFlowStreamingSingleNamespace(
         conversationClass.methods.firstOrNull { method ->
             method.name == "sendMessageAsync" &&
                 method.parameterTypes.size == 2 &&
-                method.parameterTypes[0] == String::class.java &&
+                method.parameterTypes[0] == (if (localImageFilePaths.isNotEmpty()) Contents::class.java else String::class.java) &&
                 Map::class.java.isAssignableFrom(method.parameterTypes[1]) &&
                 Flow::class.java.isAssignableFrom(method.returnType)
         }?.also {
@@ -5884,6 +5912,7 @@ internal suspend fun runOfficialFlowStreamingSingleNamespace(
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            imageInputCount = localImageFilePaths.size,
             nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             appendTrace = appendTrace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
@@ -5922,9 +5951,14 @@ internal suspend fun runOfficialFlowStreamingSingleNamespace(
             throw OfficialFlowFallbackException("conversation_create_failed", throwable)
         } ?: throw OfficialFlowFallbackException("conversation_create_failed")
         val flowValue = if (spec.namespace == "com.google.ai.edge.litertlm") {
-            safeAppendTrace(appendTrace, "UPSTREAM official-flow invoke promptLength=${prompt.length} mapSize=0")
+            safeAppendTrace(appendTrace, "UPSTREAM official-flow invoke promptLength=${prompt.length} imageCount=${localImageFilePaths.size} mapSize=0")
             runCatching {
-                sendMessageAsyncMethod.invoke(conversation, prompt, emptyMap<String, Any>())
+                val argument = if (localImageFilePaths.isNotEmpty()) {
+                    buildLiteRtLmContents(prompt, localImageFilePaths)
+                } else {
+                    prompt
+                }
+                sendMessageAsyncMethod.invoke(conversation, argument, emptyMap<String, Any>())
             }.getOrElse { throwable ->
                 throw OfficialFlowFallbackException("send_message_async_missing", throwable)
             }
@@ -6097,6 +6131,7 @@ internal suspend fun runOfficialFlowStreamingSingleNamespace(
 internal fun runOfficialBlockingConversationSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
@@ -6108,6 +6143,7 @@ internal fun runOfficialBlockingConversationSingleNamespace(
     if (spec.namespace == "com.google.ai.edge.litertlm") {
         val result = runOfficialLiteRtLmBlocking(
             prompt = prompt,
+            localImageFilePaths = localImageFilePaths,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
@@ -6284,6 +6320,7 @@ internal fun runOfficialBlockingConversationSingleNamespace(
 
 private suspend fun runOfficialLiteRtLmDirect(
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
@@ -6301,7 +6338,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         appendTrace,
         "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
     )
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=${if (localImageFilePaths.isNotEmpty()) "CPU" else "GPU"} audio=CPU imageCount=${localImageFilePaths.size}")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
@@ -6310,6 +6347,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            imageInputCount = localImageFilePaths.size,
             nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
@@ -6353,10 +6391,18 @@ private suspend fun runOfficialLiteRtLmDirect(
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
-            conversation.sendMessageAsync(
-                prompt,
-                LocalConversationPolicy.generationExtraContext,
-            ).collect { message ->
+            val messageFlow = if (localImageFilePaths.isNotEmpty()) {
+                conversation.sendMessageAsync(
+                    buildLiteRtLmContents(prompt, localImageFilePaths),
+                    LocalConversationPolicy.generationExtraContext,
+                )
+            } else {
+                conversation.sendMessageAsync(
+                    prompt,
+                    LocalConversationPolicy.generationExtraContext,
+                )
+            }
+            messageFlow.collect { message ->
                 currentCoroutineContext().ensureActive()
                 val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
@@ -6555,6 +6601,7 @@ private suspend fun runOfficialLiteRtLmDirect(
 
 private fun runOfficialLiteRtLmBlocking(
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
@@ -6569,7 +6616,7 @@ private fun runOfficialLiteRtLmBlocking(
         appendTrace,
         "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
     )
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=${if (localImageFilePaths.isNotEmpty()) "CPU" else "GPU"} audio=CPU imageCount=${localImageFilePaths.size}")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
@@ -6578,6 +6625,7 @@ private fun runOfficialLiteRtLmBlocking(
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            imageInputCount = localImageFilePaths.size,
             nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
@@ -6616,10 +6664,17 @@ private fun runOfficialLiteRtLmBlocking(
 
             failureStage = "generate-response"
             val startedAtMs = SystemClock.elapsedRealtime()
-            val message = conversation.sendMessage(
-                prompt,
-                LocalConversationPolicy.generationExtraContext,
-            )
+            val message = if (localImageFilePaths.isNotEmpty()) {
+                conversation.sendMessage(
+                    buildLiteRtLmContents(prompt, localImageFilePaths),
+                    LocalConversationPolicy.generationExtraContext,
+                )
+            } else {
+                conversation.sendMessage(
+                    prompt,
+                    LocalConversationPolicy.generationExtraContext,
+                )
+            }
             val rawContents = message.contents.toString()
             val normalizedContents = rawContents.trim()
             val rawMessage = message.toString()
@@ -6734,6 +6789,7 @@ private fun runOfficialLiteRtLmBlocking(
             )
             return runOfficialLiteRtLmBlocking(
                 prompt = prompt,
+                localImageFilePaths = localImageFilePaths,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
@@ -6784,6 +6840,7 @@ private fun createOfficialEngineInstance(
 private fun createOfficialLiteRtLmEngineInstance(
     modelPath: String,
     cacheDirPath: String? = null,
+    imageInputCount: Int = 0,
     nativeLibraryDir: String? = null,
     appendTrace: (String) -> Unit,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
@@ -6797,6 +6854,7 @@ private fun createOfficialLiteRtLmEngineInstance(
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            imageInputCount = imageInputCount,
             nativeLibraryDir = nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
@@ -6826,6 +6884,7 @@ private fun createOfficialLiteRtLmEngineInstance(
             return createOfficialLiteRtLmEngineInstance(
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
+                imageInputCount = imageInputCount,
                 nativeLibraryDir = nativeLibraryDir,
                 appendTrace = appendTrace,
                 preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
@@ -6841,6 +6900,7 @@ private fun createOfficialLiteRtLmEngineInstance(
 internal fun buildLiteRtEngineConfig(
     modelPath: String,
     cacheDirPath: String?,
+    imageInputCount: Int = 0,
     nativeLibraryDir: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     appendTrace: (String) -> Unit = {},
@@ -6907,7 +6967,7 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-engine-config modelPathTail=${gpuConfigDiagnostics.modelPathTail} cacheDir=${gpuConfigDiagnostics.cacheDir} backend=${gpuConfigDiagnostics.backend} visionBackend=${gpuConfigDiagnostics.visionBackend} audioBackend=${gpuConfigDiagnostics.audioBackend} maxTokens=${gpuConfigDiagnostics.maxTokens} samplerEnabled=${gpuConfigDiagnostics.samplerConfigEnabled} samplerPolicy=${gpuConfigDiagnostics.samplerAccelerationPolicy} gpuOptionsConfigured=${gpuConfigDiagnostics.gpuOptionsConfigured}",
+        "UPSTREAM gpu-engine-config modelPathTail=${gpuConfigDiagnostics.modelPathTail} cacheDir=${gpuConfigDiagnostics.cacheDir} backend=${gpuConfigDiagnostics.backend} visionBackend=${if (imageInputCount > 0) "CPU" else gpuConfigDiagnostics.visionBackend} audioBackend=${gpuConfigDiagnostics.audioBackend} maxTokens=${gpuConfigDiagnostics.maxTokens} maxImages=${imageInputCount.takeIf { it > 0 } ?: "default"} samplerEnabled=${gpuConfigDiagnostics.samplerConfigEnabled} samplerPolicy=${gpuConfigDiagnostics.samplerAccelerationPolicy} gpuOptionsConfigured=${gpuConfigDiagnostics.gpuOptionsConfigured}",
     )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
@@ -6918,9 +6978,10 @@ internal fun buildLiteRtEngineConfig(
     return EngineConfig(
         modelPath = modelPath,
         backend = backend,
-        visionBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU(),
+        visionBackend = if (imageInputCount > 0) Backend.CPU() else if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU(),
         audioBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.CPU(),
         maxNumTokens = if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null,
+        maxNumImages = imageInputCount.takeIf { it > 0 },
         cacheDir = resolveLiteRtEngineConfigCacheDir(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -66,6 +67,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     private var backgroundReleaseJob: Job? = null
     private var engine: Engine? = null
     private var engineModelPath: String? = null
+    private var engineVisionEnabled = false
     private var conversation: Conversation? = null
     private var conversationChatId: Int? = null
 
@@ -80,6 +82,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         initialTurns: List<LocalConversationTurn>,
         selectedModelFile: String?,
         requestedMaxOutputTokens: Int,
+        imageFilePaths: List<String> = emptyList(),
         markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
         onPartial: ((String) -> Unit)? = null,
         trace: (String) -> Unit = {},
@@ -89,7 +92,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 failureReason = "kotlin_conversation_product_route_disabled",
             )
         }
-        val prompt = userPrompt.trim()
+        val prompt = NpuImageInputPolicy.effectivePrompt(userPrompt, imageFilePaths.isNotEmpty())
         if (prompt.isBlank()) {
             return@withContext NpuKotlinConversationProductAttempt(
                 failureReason = "blank_prompt",
@@ -109,6 +112,14 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
             var engineReused = false
             var conversationReused = false
             try {
+                val visionEnabled = imageFilePaths.isNotEmpty() ||
+                    initialTurns.any { it.imageFilePaths.isNotEmpty() } ||
+                    (engineVisionEnabled && engineModelPath == modelPath)
+                val contents = if (imageFilePaths.isNotEmpty()) {
+                    NpuImageInputPolicy.contents(prompt, imageFilePaths)
+                } else {
+                    Contents.of(prompt)
+                }
                 val budget = NpuConversationBudgetPolicy.plan(initialTurns, prompt, requestedMaxOutputTokens)
                 trace("$ROUTE_ID budget_source=estimated_code_points total_tokens=$NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT estimated_input_tokens=${budget.estimatedInputTokens} reserved_output_tokens=${budget.reservedOutputTokens} retained_history_messages=${budget.initialTurns.size} requested_output_tokens=$requestedMaxOutputTokens native_output_limit_enforced=false")
                 if (!budget.admitted) {
@@ -120,13 +131,18 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 if (engineModelPath != null && engineModelPath != modelPath) {
                     closeLocked("model_changed", trace)
                 }
+                if (engine != null && visionEnabled != engineVisionEnabled) {
+                    closeLocked("vision_configuration_changed", trace)
+                }
                 if (engine == null) {
                     engine = createNpuEngineWithBoundedRetry(
                         context = context,
                         modelPath = modelPath,
+                        visionEnabled = visionEnabled,
                         trace = trace,
                     )
                     engineModelPath = modelPath
+                    engineVisionEnabled = visionEnabled
                 } else {
                     engineReused = true
                     trace("$ROUTE_ID engine_reused=true")
@@ -144,6 +160,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${budget.initialTurns.size} conversation_reused=false")
 
                 val activeConversation = requireNotNull(conversation)
+                trace("$ROUTE_ID image_input_count=${imageFilePaths.size} vision_backend=${if (visionEnabled) "CPU" else "none"} vision_adapter_backend=${if (visionEnabled) "CPU" else "none"} language_backend=NPU")
                 val sendStartedAt = SystemClock.elapsedRealtime()
                 val streamingResult = if (onPartial != null) {
                     val builder = StringBuilder()
@@ -154,7 +171,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     var firstVisibleChunkMs: Long? = null
                     var lastVisibleDispatchMs = 0L
                     activeConversation.sendMessageAsync(
-                        prompt,
+                        contents,
                         LocalConversationPolicy.generationExtraContext,
                     ).collect { message ->
                         currentCoroutineContext().ensureActive()
@@ -214,7 +231,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     )
                 } else {
                     val message = activeConversation.sendMessage(
-                        prompt,
+                        contents,
                         LocalConversationPolicy.generationExtraContext,
                     )
                     NpuConversationGenerationResult(
@@ -323,6 +340,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     private suspend fun createNpuEngineWithBoundedRetry(
         context: Context,
         modelPath: String,
+        visionEnabled: Boolean,
         trace: (String) -> Unit,
     ): Engine {
         val cacheDir = context.applicationContext.cacheDir
@@ -337,9 +355,10 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     EngineConfig(
                         modelPath = modelPath,
                         backend = Backend.NPU(context.applicationInfo.nativeLibraryDir),
-                        visionBackend = null,
+                        visionBackend = if (visionEnabled) Backend.CPU() else null,
                         audioBackend = null,
                         maxNumTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+                        maxNumImages = if (visionEnabled) NpuImageInputPolicy.MAX_IMAGES else null,
                         cacheDir = cacheDir.absolutePath,
                     ),
                 )
@@ -493,6 +512,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         val activeEngine = engine
         engine = null
         engineModelPath = null
+        engineVisionEnabled = false
         lastUsedAtElapsedMs = null
         backgroundReleaseJob?.cancel()
         backgroundReleaseJob = null

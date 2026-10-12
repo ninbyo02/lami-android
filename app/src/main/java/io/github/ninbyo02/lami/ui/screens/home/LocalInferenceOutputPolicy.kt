@@ -182,11 +182,24 @@ internal object LocalInferenceOutputPolicy {
         userPrompt: String,
         result: NpuStandardRouteS1Result,
         localStopRequested: Boolean,
+        hasImageInput: Boolean = false,
     ): LocalInferenceOutputDecision {
         if (result.successCriteriaMet) {
             return LocalInferenceOutputDecision(
                 disposition = LocalInferenceOutputDisposition.ACCEPT,
                 acceptedText = result.actualDisplayText.trim(),
+            )
+        }
+
+        if (hasImageInput) {
+            return LocalInferenceOutputDecision(
+                disposition = if (localStopRequested) {
+                    LocalInferenceOutputDisposition.STOPPED
+                } else {
+                    LocalInferenceOutputDisposition.REJECT
+                },
+                terminalText = if (localStopRequested) null else NpuImageInputPolicy.FAILURE_MESSAGE,
+                rejectionReason = npuRejectionReason(result),
             )
         }
 
