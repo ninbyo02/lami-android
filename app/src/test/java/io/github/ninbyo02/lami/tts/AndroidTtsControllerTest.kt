@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.tts
 
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import org.junit.Assert.*
 import org.junit.Test
@@ -8,6 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowTextToSpeech
 
 @RunWith(RobolectricTestRunner::class)
@@ -54,6 +56,29 @@ class AndroidTtsControllerTest {
         engine.utteranceProgressListener.onDone(oldId)
         assertTrue(controller.isSpeaking.value)
         assertEquals("新しい回答です。", engine.lastSpokenText)
+        controller.shutdown()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun `stop suppresses stale queued playback callback`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        val callbacks = mutableListOf<Boolean>()
+        controller.setOnPlaybackStateChanged(callbacks::add)
+
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("再生中です。")
+        val stoppedId = activeId(controller)
+        controller.stop()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        engine.utteranceProgressListener.onStart(stoppedId)
+        engine.utteranceProgressListener.onDone(stoppedId)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf(false), callbacks)
+        assertFalse(controller.isSpeaking.value)
         controller.shutdown()
     }
 
