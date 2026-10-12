@@ -32,22 +32,31 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=started first_audio_request_id=7 first_audio_start=cold first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=started first_audio_request_id=7 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
 
-    @Test fun playbackStartedEventPreservesWarmClassification() {
+    @Test fun playbackStartedEventPreservesWarmClassificationAndRawMonotonicInstants() {
         val request = LamiFirstAudioTiming.start(
             requestId = 8L,
             startedAtNs = 2_000_000_000L,
             startKind = LamiFirstAudioTiming.StartKind.WARM,
         )
+        val fields = LamiFirstAudioTiming.playbackStartedEvent(request, 2_000_999_999L)
+            .split(" ")
+            .associate {
+                val parts = it.split("=", limit = 2)
+                parts[0] to parts[1]
+            }
 
-        assertEquals(
-            "first_audio=started first_audio_request_id=8 first_audio_start=warm first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos",
-            LamiFirstAudioTiming.playbackStartedEvent(request, 2_000_999_999L),
-        )
+        assertEquals("started", fields["first_audio"])
+        assertEquals("8", fields["first_audio_request_id"])
+        assertEquals("warm", fields["first_audio_start"])
+        assertEquals("2000000000", fields["first_audio_request_started_at_ns"])
+        assertEquals("2000999999", fields["first_audio_at_ns"])
+        assertEquals("0", fields["first_audio_elapsed_ms"])
+        assertEquals("elapsedRealtimeNanos", fields["first_audio_clock"])
     }
 
     @Test fun requestAndEventTimestampsMustBeMonotonic() {
