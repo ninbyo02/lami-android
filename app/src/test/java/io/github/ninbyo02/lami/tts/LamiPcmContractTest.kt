@@ -13,6 +13,20 @@ class LamiPcmContractTest {
         }
     }
 
+    @Test fun rejectsMixedInvalidSpeechAsInvalidPcm() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            LamiPcmContract.validate(floatArrayOf(0.2f, Float.NaN))
+        }
+        assertEquals("Invalid decoder PCM", error.message)
+    }
+
+    @Test fun rejectsFiniteNearZeroPcmAsSilence() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            LamiPcmContract.validate(floatArrayOf(0.000001f, -0.000001f))
+        }
+        assertEquals("Decoder returned silence", error.message)
+    }
+
     @Test fun startupPrebufferUsesAboutFiftyMillisecondsOrPlatformMinimum() {
         assertEquals(1_200, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 128))
         assertEquals(4_096, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 4_096 * Float.SIZE_BYTES))

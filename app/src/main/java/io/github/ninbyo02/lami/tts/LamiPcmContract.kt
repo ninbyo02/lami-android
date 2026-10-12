@@ -7,8 +7,14 @@ internal object LamiPcmContract {
     fun validate(samples: FloatArray) {
         require(samples.isNotEmpty()) { "Decoder returned empty PCM" }
         require(samples.size <= SAMPLE_RATE * 30) { "Decoder PCM exceeds diagnostic limit" }
-        require(samples.all { it.isFinite() && it in -1f..1f }) { "Invalid decoder PCM" }
-        require(samples.any { kotlin.math.abs(it) > 0.00001f }) { "Decoder returned silence" }
+        var hasAudibleSample = false
+        for (sample in samples) {
+            require(sample.isFinite() && sample in -1f..1f) { "Invalid decoder PCM" }
+            if (!hasAudibleSample && kotlin.math.abs(sample) > 0.00001f) {
+                hasAudibleSample = true
+            }
+        }
+        require(hasAudibleSample) { "Decoder returned silence" }
     }
 
     fun startupPrebufferSamples(totalSamples: Int, minBufferBytes: Int): Int {
