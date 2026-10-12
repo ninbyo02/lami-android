@@ -32,7 +32,7 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=started first_audio_start=cold first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=started first_audio_request_id=7 first_audio_start=cold first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
@@ -45,7 +45,7 @@ class LamiFirstAudioTimingTest {
         )
 
         assertEquals(
-            "first_audio=started first_audio_start=warm first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=started first_audio_request_id=8 first_audio_start=warm first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos",
             LamiFirstAudioTiming.playbackStartedEvent(request, 2_000_999_999L),
         )
     }

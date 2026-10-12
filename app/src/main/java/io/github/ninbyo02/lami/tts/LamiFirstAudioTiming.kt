@@ -31,6 +31,7 @@ internal object LamiFirstAudioTiming {
 
     fun playbackStartedEvent(request: Request, firstAudioAtNs: Long): String =
         "first_audio=started " +
+            "first_audio_request_id=${request.requestId} " +
             "first_audio_start=${request.startKind.diagnosticValue} " +
             "first_audio_elapsed_ms=${elapsedMsSince(request, firstAudioAtNs)} " +
             "first_audio_clock=elapsedRealtimeNanos"
