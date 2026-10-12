@@ -56,4 +56,20 @@ class AndroidTtsControllerTest {
         assertEquals("新しい回答です。", engine.lastSpokenText)
         controller.shutdown()
     }
+
+    @Test fun `interrupted stop clears queued speech and ignores late completion`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("再生中です。")
+        val interruptedId = activeId(controller)
+        controller.speakQueued("割り込み後に読まない文章です。")
+
+        engine.utteranceProgressListener.onStop(interruptedId, true)
+        engine.utteranceProgressListener.onDone(interruptedId)
+
+        assertFalse(controller.isSpeaking.value)
+        assertEquals(listOf("再生中です。"), engine.spokenTextList.toList())
+        controller.shutdown()
+    }
 }
