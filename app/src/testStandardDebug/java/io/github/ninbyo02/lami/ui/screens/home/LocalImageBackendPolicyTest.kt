@@ -2,11 +2,43 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import com.google.ai.edge.litertlm.Backend
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LocalImageBackendPolicyTest {
+    @Test fun `user facing NPU DEFAULT plus mode resolves to NPU image backend`() {
+        assertEquals(PreferredBackendDryRunSetting.NPU, localImageBackendPreference(
+            PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.FULL,
+            NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL, true))
+    }
+
+    @Test fun `explicit NPU unavailable runtime remains NPU and cannot silently choose GPU`() {
+        assertEquals(PreferredBackendDryRunSetting.NPU, localImageBackendPreference(
+            PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.FULL,
+            NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL, false))
+    }
+
+    @Test fun `automatic NPU follows available image runtime but unavailable runtime stays generic`() {
+        assertEquals(PreferredBackendDryRunSetting.NPU, localImageBackendPreference(
+            PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.FULL,
+            NpuStandardRouteSelectionSource.LOCAL_BACKEND, true))
+        assertEquals(PreferredBackendDryRunSetting.DEFAULT, localImageBackendPreference(
+            PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.FULL,
+            NpuStandardRouteSelectionSource.LOCAL_BACKEND, false))
+    }
+
+    @Test fun `CPU GPU and mode off do not acquire an NPU image route`() {
+        listOf(PreferredBackendDryRunSetting.CPU, PreferredBackendDryRunSetting.GPU).forEach {
+            assertEquals(it, localImageBackendPreference(it, NpuStandardRouteMode.FULL,
+                NpuStandardRouteSelectionSource.USER_FACING_NPU_EXPERIMENTAL, true))
+        }
+        assertEquals(PreferredBackendDryRunSetting.DEFAULT, localImageBackendPreference(
+            PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.OFF,
+            NpuStandardRouteSelectionSource.LOCAL_BACKEND, true))
+    }
+
     @Test
     fun `CPU selects generic language and vision on CPU`() {
         assertEquals(

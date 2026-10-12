@@ -1,5 +1,10 @@
 # Gemma 4 E2B local image input on CPU, GPU, and NPU
 
+Current candidate: the v2 deferred-image-preface queue patch below builds but is
+NOT yet device-validated. Production update, push/PR/merge, and promotion of the
+Developer gate remain pending until this candidate passes device checks. All
+device measurements in this document currently used the historical v1 JNI.
+
 ## Supported route
 
 - Confirmed desktop bundle: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, 3,016,294,400 bytes,
@@ -380,6 +385,100 @@ Planned identical prompt: "Name the main object and two visible features. Englis
 only." Score Earth plus two correct visible features and no invented object;
 record app-prepared JPEG hash across all routes. This photo has NOT been inferred
 yet; one known photo will not establish general real-photo quality.
+
+## Additional measured checks and current candidate
+
+The protocol-3 eight-image repeat set completed two trials per backend, with the
+same seed 42, JPEG bytes, order, USER prompts, and neutral MODEL history. Hash and
+history equality are recorded in `multi-image-fixed/repeat-summary.json`.
+The app SHA-256 was
+`f047d80746d1cac6be2551a8a70c6252a8d5c1351646d3806d61fd35b18cb602`,
+using v1 stock JNI `dab6bbd...`. The test APK was initially `0cfbbd65...`, later
+`fd174685...` when photo/UI-only tests were added; the matrix test and app remained
+unchanged. These are two fixed-seed repeats, not a statistical robustness benchmark.
+
+| Backend | Initial totals (s) | Neutral-history totals (s) | Median initial / history (s) | Color + shape / ordering | Dot follow-up |
+| --- | --- | --- | --- | --- | --- |
+| CPU | 53.220, 53.559 | 54.463, 54.896 | 53.390 / 54.680 | 8/8 both, ordered | 3/3 both |
+| GPU | 14.018, 14.930 | 11.069, 12.520 | 14.474 / 11.795 | 7/8 both, ordered | 3/3 both |
+| NPU + CPU vision | 34.819, 41.843 | 40.258, 36.268 | 38.331 / 38.263 | 6/8 both, J omitted and D reordered | 3/3 both |
+
+Every initial and history turn was accepted natively. Each backend repeated the
+same answer, including its mistakes. This does not isolate model quantization,
+language execution, vision execution, or sampler numerical effects. No case reached
+the 40 C thermal guard. Raw JSON and traces are preserved per trial.
+
+The NASA Earth photo was inferred once per backend with the same prompt and
+settings. All three correctly named Earth, clouds, and continents. Prepared JPEG
+SHA-256 was identical:
+`7d6af9a7910882a04dd22a8daa35374a7b8c39b333b07fef31bf867eb67194c8`.
+
+| Backend | Total / first partial (s) |
+| --- | --- |
+| CPU | 11.116 / 10.206 |
+| GPU | 9.094 / 7.907 |
+| NPU + CPU vision | 7.236 / 6.843 |
+
+Real-photo evidence is `multi-image-fixed/photo_<BACKEND>_earth.json` and traces.
+One known public photo establishes a smoke check, not general photo accuracy.
+
+Device UI checks uncovered an image-specific selection bug: user-facing NPU is
+stored as DEFAULT plus a separate FULL mode/source. The image path read only the
+legacy preferred backend and therefore chose the generic GPU slot. The fix derives
+an image backend from the effective NPU mode and source, chooses its model slot,
+and captures both at send time. Explicit NPU cannot silently choose GPU if runtime
+is unavailable; CPU/GPU selections remain explicit. Automatic can use its available
+NPU image runtime. Four new policy tests cover these combinations.
+
+The corrected UI app SHA-256 was
+`b46312402f850f1306ebc39626476896be00251a72795c1147451a399420887d`;
+test APK `f416cac36920e5764b0fd9be7ca8237a4bc70b0320260de72d267f71ce38e0ef`.
+Both embed Git SHA `e373e9e` plus then-uncommitted binding/test changes. NPU UI
+Activity recreation and switching to another chat and back succeeded. With no new
+attachment, it answered "The main object in the image is the Earth." and persisted
+COMPLETED with NPU/QNN evidence; total UI time was 13.478 s.
+
+The eight-image NPU UI stop check persisted CANCELLED, not COMPLETED, and no late
+reply escaped. UI reaction was 115 ms, but waiting for native cleanup took 38.091 s.
+The v1 patch forced image-preface prefill inside synchronous Conversation creation;
+that operation has no cancellable Conversation handle until it returns. The UI
+showed Ready too early while this native work remained, so this is a promotion
+blocker requiring a cancellation-safe lifecycle or runtime correction.
+Raw evidence: `ui_cancel_NPU_binding_fixed.json`, `ui_reopen_NPU.json`, UI screenshots,
+and instrumentation reports. Earlier attempts failed a Markdown text locator or
+used the old deprecated preference setter (which normalizes NPU to GPU); those are
+excluded from successful NPU UI checks and preserved separately.
+
+The current v2 runtime candidate removes forced synchronous constructor prefill.
+On the first deferred send only, if the preface contains images, Conversation
+supplies preface messages plus the new message to ToInputDataVector. This pairs
+initial rendered image placeholders with their bytes in the existing asynchronous
+send/prefill path. Later sends, text-only prefaces, explicit eager prefill, templates,
+samplers, model weights, image limits, and the 4096-token limit are unchanged.
+It compiled in 12.343 s (four incremental actions, offline cached dependencies).
+
+- Source: pinned `c87189528a758db32ead241f4fc9c64836398ee7` plus the existing four patches.
+- Patch SHA-256: `5b399bd4931080d5a0f19b90d5c806847095401f995f9c598ba944a962cc4990`.
+- Marker: `qairt244_image_preface_queue_v2`.
+- Stock JNI SHA-256: `f6aa721bc12532b17317a48926d2e0cb8d3dfa62074e461c25ee50fd4432d281`.
+- Independent SONAME JNI SHA-256: `44eecb86a01fc861e9c6caf860886c947da85bdc0d322aa66efaa37908aac9e4`.
+
+The candidate debug APK and 93 related JVM tests passed in 32 s. It has NOT been
+installed or tested on the device yet. Source and packaging success do not prove
+native cancellation latency. Device testing is pending the agreed foreground
+window; do not promote based on this build alone. The rebuild script records and
+verifies the v2 queue marker and the current patch; the earlier v1 hashes/measurements
+remain historical evidence, not the current config pins.
+Candidate debug APK SHA-256:
+`17d184e96065ddeb59cc36a4ee031e5942d473bd1a5891b88e1ed21a4055b3d8`;
+test APK remains `f416cac3...`. Its NPU-enabled unsigned release build and 93
+related debug JVM tests also passed in 4m30s, with no device installation.
+Logs: `async-preface-apk-build.log`, `async-preface-release-build.log`, and the
+native `image-preface-async-native-build-fixed.log` in the evidence directory.
+Latest fetched origin/main remains `4a09c4550`; the original project has unrelated
+dirty TTS changes and has not been modified. No PR, push, merge, or main-package
+update has occurred. These actions are conditional on the candidate's device checks,
+existing signing-certificate compatibility, and preservation of primary app data.
 
 ## Reproduce the manual benchmark
 

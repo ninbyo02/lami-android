@@ -41,7 +41,7 @@ Options:
   --kotlin-npu-conversation-patch PATH
                           Kotlin Conversation JNI NPU sampler-backend alignment patch; pass an empty string to disable it.
   --image-preface-patch PATH
-                          Prefill image-bearing initial history; pass an empty string to reproduce the old runtime.
+                          Queue image-bearing initial history for async send; pass an empty string to reproduce the old runtime.
   --qairt-root PATH       Exact QAIRT 2.44 SDK root.
   --label LABEL           Artifact directory label.
   --require-persistent-probe BOOL
@@ -340,8 +340,9 @@ if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
   grep -Fq 'session_config.SetSamplerBackend(Backend::NPU)' "$JNI_SOURCE" || fail "Kotlin NPU Conversation sampler alignment is missing"
 fi
 if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
-  grep -Fq 'qairt244_image_preface_prefill_v1' "$JNI_SOURCE" || fail "Image preface marker is missing"
-  grep -Fq 'conversation_config_builder.SetPrefillPrefaceOnInit(true)' "$JNI_SOURCE" || fail "Image preface prefill is missing"
+  CONVERSATION_SOURCE="$WORKTREE_DIR/runtime/conversation/conversation.cc"
+  grep -Fq 'qairt244_image_preface_queue_v2' "$CONVERSATION_SOURCE" || fail "Image preface queue marker is missing"
+  grep -Fq 'source_messages = preface_messages' "$CONVERSATION_SOURCE" || fail "Image preface queue is missing"
 fi
 
 {
@@ -438,7 +439,7 @@ if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
   strings "$LITERTLM_JNI" | grep -F 'qairt244_kotlin_npu_conversation_sampler_v1' >/dev/null || fail "Kotlin NPU Conversation sampler marker is missing from stock-name JNI artifact"
 fi
 if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
-  strings "$LITERTLM_JNI" | grep -F 'qairt244_image_preface_prefill_v1' >/dev/null || fail "Image preface marker is missing from stock-name JNI artifact"
+  strings "$LITERTLM_JNI" | grep -F 'qairt244_image_preface_queue_v2' >/dev/null || fail "Image preface queue marker is missing from stock-name JNI artifact"
 fi
 if [[ -n "$CONVERSATION_PATCH" ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe'

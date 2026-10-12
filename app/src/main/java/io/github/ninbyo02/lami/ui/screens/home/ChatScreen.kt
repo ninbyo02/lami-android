@@ -1261,6 +1261,25 @@ fun Home(
     } else {
         npuStandardRouteRolloutSelection.effectiveMode
     }
+    val localImageNpuRouteAvailable = NpuKotlinConversationProductRoute.enabled &&
+        NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveNpuStandardRouteMode)
+    val localImageBackendSetting = localImageBackendPreference(
+        preferredBackendDryRunSetting, effectiveNpuStandardRouteMode,
+        npuStandardRouteSelectionSource, localImageNpuRouteAvailable,
+    )
+    val localImageModelSlot = resolveLocalModelSlotForAvailableModels(
+        preferredBackendDryRunSetting = localImageBackendSetting,
+        npuModelPath = localBaseModelFilePath,
+        genericModelPath = localGenericModelFilePath,
+    )
+    val localImageModelPath = when (localImageModelSlot) {
+        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelFilePath
+        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelFilePath
+    }
+    val localImageModelName = when (localImageModelSlot) {
+        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
+        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
+    }
     val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
         initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     )
@@ -1311,19 +1330,19 @@ fun Home(
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
     var localImageInputCapability by remember(
-        selectedLocalModelFilePath,
-        selectedLocalModelDisplayName,
-        preferredBackendDryRunSetting,
+        localImageModelPath,
+        localImageModelName,
+        localImageBackendSetting,
         effectiveNpuStandardRouteMode,
     ) {
         mutableStateOf<LocalImageInputCapability>(LocalImageInputCapability.NotChecked)
     }
     LaunchedEffect(
-        selectedLocalModelFilePath,
-        selectedLocalModelDisplayName,
+        localImageModelPath,
+        localImageModelName,
         selectedImageUriStrings.isNotEmpty(),
         developerAccessEnabled,
-        preferredBackendDryRunSetting,
+        localImageBackendSetting,
         effectiveNpuStandardRouteMode,
     ) {
         if (selectedImageUriStrings.isEmpty()) {
@@ -1332,12 +1351,11 @@ fun Home(
         }
         localImageInputCapability = LocalImageInputCapability.Checking
         localImageInputCapability = resolveLocalImageInputCapability(
-            selectedModelPath = selectedLocalModelFilePath,
-            selectedModelDisplayName = selectedLocalModelDisplayName,
+            selectedModelPath = localImageModelPath,
+            selectedModelDisplayName = localImageModelName,
             allowUnverifiedGenericVision = developerAccessEnabled,
-            preferredBackend = preferredBackendDryRunSetting,
-            npuRouteAvailable = NpuKotlinConversationProductRoute.enabled &&
-                NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveNpuStandardRouteMode),
+            preferredBackend = localImageBackendSetting,
+            npuRouteAvailable = localImageNpuRouteAvailable,
         )
     }
     LaunchedEffect(localBaseModelFilePath) {
@@ -5049,11 +5067,10 @@ fun Home(
                                                     }
                                                     val requestAttachmentUris = selectedImageUris
                                                     val requestAttachmentUriStrings = selectedImageUriStrings.toList()
-                                                    val requestImageModelPath = selectedLocalModelFilePath
-                                                    val requestImageModelName = selectedLocalModelDisplayName
-                                                    val requestImageBackend = preferredBackendDryRunSetting
-                                                    val requestNpuImageRouteAvailable = NpuKotlinConversationProductRoute.enabled &&
-                                                        NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveNpuStandardRouteMode)
+                                                    val requestImageModelPath = localImageModelPath
+                                                    val requestImageModelName = localImageModelName
+                                                    val requestImageBackend = localImageBackendSetting
+                                                    val requestNpuImageRouteAvailable = localImageNpuRouteAvailable
                                                     val localImagesRequested = requestAttachmentUris.isNotEmpty()
                                                     if (localImagesRequested) {
                                                         when (val capability = localImageInputCapability) {

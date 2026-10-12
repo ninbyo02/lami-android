@@ -1,9 +1,24 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 
 internal enum class LocalImageLanguageBackend { CPU, GPU, NPU }
 internal enum class LocalImageModelKind { GENERIC, QUALCOMM_SM8750 }
+
+internal fun localImageBackendPreference(
+    preferred: PreferredBackendDryRunSetting,
+    effectiveNpuMode: NpuStandardRouteMode,
+    selectionSource: NpuStandardRouteSelectionSource,
+    npuRouteAvailable: Boolean,
+): PreferredBackendDryRunSetting {
+    // The user-facing NPU choice intentionally stores DEFAULT plus a separate mode.
+    if (preferred == PreferredBackendDryRunSetting.DEFAULT && effectiveNpuMode.isS1Enabled() &&
+        (npuRouteAvailable || selectionSource != NpuStandardRouteSelectionSource.LOCAL_BACKEND)) {
+        return PreferredBackendDryRunSetting.NPU
+    }
+    return preferred
+}
 
 internal data class LocalImageBackendPlan(
     val languageBackend: LocalImageLanguageBackend,
