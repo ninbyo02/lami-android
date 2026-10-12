@@ -26,9 +26,9 @@ in the bundle are not enough to classify the image path as NPU-only.
 
 ## App behavior
 
-Local image requests require Developer access. Single-turn device inference has now
-been measured, but image-history restoration and multi-image counting still fail
-the checks below. Exact size and SHA-256 identify the two supported bundles. A mismatch
+Local image requests require Developer access. Device input acceptance and restored
+image history have been measured with the image-preface fix below; multi-image
+semantic accuracy is imperfect. Exact size and SHA-256 identify the two supported bundles. A mismatch
 between model and explicit backend is rejected: the NPU-compiled language bundle
 does not silently run as CPU/GPU, and the generic bundle does not silently handle
 an NPU selection. The selected path and backend are captured at send time and checked
@@ -169,7 +169,7 @@ different visual budget can change it. Fifteen is not Gemma 4's global maximum.
 Keep the app limit at ten until token-aware admission and broader quality checks
 are verified.
 
-## Remaining blocker: image-history follow-up
+## Image-history failure and native fix
 
 The NPU product route intentionally recreates the Conversation from authoritative
 bounded history on each turn while retaining its engine. The benchmark recreated
@@ -180,10 +180,111 @@ The first image recognition succeeded (6.645 s on this cached repeat); the
 follow-up failed in 0.229 s and is not a valid continuation-speed result.
 An earlier harness attempt omitted history and answered "Please provide the image";
 that was a benchmark setup error, not proof of an app defect. The corrected
-history-restoration failure is the real blocker. CPU/GPU image-history restoration
-was not separately executed. Retain Developer access; fix native image-preface
-handling or design a bounded image-aware Conversation lifecycle, then re-test
-follow-ups, chat reopening, cancellation, and release before promotion.
+history-restoration failure was a real blocker in the previous JNI.
+
+The v0.11.0 native default deferred preface prefill. The first rendered prompt
+contained image placeholders from restored USER messages, while SendMessageAsync
+supplied only the new message's image queue. A text-only follow-up therefore lacked
+the bytes for those placeholders. `patches/qairt244_litertlm_image_preface.patch`
+sets `SetPrefillPrefaceOnInit(true)` only when the initial messages contain image
+content. This uses the existing native prefill API without changing JNI signatures,
+templates, sampler policy, model weights, or the 4096-token limit. Text-only prefaces
+retain their previous behavior. Budget admission now accounts for current and
+retained images (288 estimated tokens each) and the shared ten-image limit; trimming
+all image history cannot silently turn an image follow-up into a text-only turn.
+This remains an admission estimate, not exact tokenization or an enforced output cap.
+
+The source build used pinned LiteRT-LM `c87189528a758db32ead241f4fc9c64836398ee7`
+and the four existing QAIRT patches, followed by the image-preface patch SHA-256
+`d4114226c3b1d44ca2c0393a115f7ad3b568bf5662586e32a5c2be300dbd8396`.
+The stock-name JNI SHA-256 is
+`dab6bbd3e027bd0dcd5eab77c1007821bf89b92670f959676b8152eeaba3cbc5`;
+the independent SONAME JNI is
+`3bbf04195c97e1689fad61878312c127da86e0f9112f96d639722eb35bce8c11`.
+Both contain marker `qairt244_image_preface_prefill_v1`. Other runtime components
+are unchanged. The source and Bazel cache were isolated copies; the original
+project/runtime and TTS APK were not modified. The rebuild script now applies,
+records, and verifies the patch; an empty `--image-preface-patch` reproduces the old
+runtime. The executed native build was offline, two jobs, 820.821 seconds.
+
+The corrected NPU one-image regression succeeded: first image 5.388 s total
+(5.281 s first partial), restored-history follow-up 3.076 s total (2.974 s first
+partial), answering "Blue square." then "It was blue.". The engine was reused and
+the Conversation recreated. Raw evidence is `multi-image-fixed/NPU_1_history_fixed.json`.
+Retain Developer access: chat reopening through the UI, real photographs, cancellation,
+backend switching, repeated trials, and release APK behavior remain unverified.
+
+## Distinct-image matrix with fixed JNI
+
+Protocol 2 uses eight or ten distinct 384x384 fixtures, in order
+`F,B,H,A,J,D,G,C[,I,E]`, with different labeled colored shapes and one to three dots.
+Images pass through the app's persistent JPEG preprocessing and saved-URI checks.
+The first prompt asks for each letter, fill color, and shape in input order; the
+follow-up adds no new images and asks for dot counts on three retained images.
+Input acceptance, omissions, ordering, color/shape accuracy, and follow-up accuracy
+are independent checks. Strict shape grading counts "rectangle" as incorrect for
+a square. Answers and per-image hashes are preserved, not replaced by a success flag.
+
+The measured app APK SHA-256 is
+`5efdffb5374fa175970e6e0d48cb386d0bbb2ed89188488e550a46f619b8db38`;
+test APK SHA-256 is
+`e9080ccba51c36f25963046415e5dbeff8fc423247d0515f8e6786225666c316`.
+Their embedded Git SHA is `309c3b3`; these artifacts include the subsequent
+uncommitted image-preface/budget/benchmark changes, not just that commit.
+The first protocol was a GPU-eight pilot with different fixtures and is excluded
+from this table. Protocol-2 raw `warm_assessment` missed comma-separated rows;
+the final assessment parser accepts those rows without rerunning inference.
+Raw JSON is retained unchanged and corrected grading is reported separately.
+
+| Backend | Images | Initial total / first (s) | History total / first (s) | Color + shape correct | Ordered / omissions | Follow-up dots |
+| --- | --- | --- | --- | --- | --- | --- |
+| CPU | 8 | 56.028 / 53.266 | 61.207 / 60.286 | 8/8 | Yes / 0 | 3/3 |
+| CPU | 10 | 72.487 / 69.259 | 62.190 / 61.267 | 10/10 | Yes / 0 | 3/3 |
+| GPU | 8 | 14.844 / 11.965 | 12.464 / 11.492 | 7/8 | Yes / 0 | 3/3 |
+| GPU | 10 | 18.552 / 12.879 | 13.340 / 12.382 | 7/10 | Yes / 0 | 3/3 |
+| NPU + CPU vision | 8 | 33.641 / 32.718 | 32.530 / 32.203 | 6/8 | No / 1 | 3/3 |
+| NPU + CPU vision | 10 | 50.401 / 49.346 | 52.403 / 52.075 | 6/10 | No / 2 | 3/3 |
+
+All six cases passed native acceptance of both initial/history turns (six manual
+JUnit tests). CPU-eight and CPU-ten correctly identified every color/shape,
+input order, both endpoints, and all three follow-up counts. GPU-eight mislabeled
+the cyan square as black. GPU-ten called three squares rectangles; its first
+answer also volunteered dot counts, so the follow-up may use that text rather
+than independently re-inspect images. NPU-eight omitted J and called the black
+triangle green, but its follow-up correctly answered the three dot counts absent
+from its first answer, including J. NPU-ten omitted D and I, mislabeled J's shape
+and E's color, but correctly answered all three follow-up counts, including D.
+First/last color+shape both passed for NPU-eight, but not NPU-ten or either GPU
+row because an endpoint's color/shape was wrong.
+
+Each row is one trial. "Initial" means a new engine with disk caches not cleared.
+CPU/GPU history uses another fresh engine and warm disk caches. NPU history reuses
+the engine but recreates/prefills the Conversation. Its 32.530 s includes preface
+prefill; `send_ms=369` alone is not end-to-end continuation latency. SHA checks
+and preprocessing remain outside the timer. Memory values are snapshots, not peaks;
+the harness refuses low available RAM or battery temperature >=40 C and releases
+its foreground activity and scoped WakeLock after every case. No phone-wide power
+settings are altered.
+
+The final targeted JVM run passed 38 tests (zero failures/errors/skips): image
+budget admission, native patch/rebuild source contracts, product lifecycle,
+image policy, conversation policy, and answer-format assessment. Debug application
+and Android test APK assembly passed before device installation. The subsequent
+source-only parser change does not change prompts, fixtures, inference, or timings.
+CPU/GPU and NPU use different quantized bundles. One trial per case cannot
+attribute accuracy differences to an accelerator, establish typical latency,
+or guarantee the same quality on real photographs. Loaded GPU libraries/file
+descriptors can also belong to the foreground UI or another initialized app engine;
+they do not override the explicit CPU vision/language EngineConfig. Process
+library evidence is not per-operator profiling.
+
+Protocol-2 first-partial PSS snapshots were 2.92-2.98 GiB for CPU,
+1.16-1.23 GiB for GPU, and 2.44-2.53 GiB for NPU. Total available RAM was
+4.58-8.18 GiB before phases. Battery temperatures ranged from 30 to 38 C;
+none hit the 40 C guard. These are sampled observations, not peak-memory or
+whole-system thermal measurements. NPU-ten admission estimated 3266 input tokens
+initially and 3644 with restored history, each reserving 128 output tokens;
+the exact native input/output token counts were not instrumented.
 
 ## Reproduce the manual benchmark
 
@@ -209,3 +310,19 @@ use count 1 and `-e imageWarmFollowup true`. Results and traces are in app-priva
 Evidence for this session is saved in the sibling task directory
 `gemma4-image-benchmark-evidence`, including raw JSON, traces, structural parsing,
 memory snapshots, and excluded/interrupted trials.
+
+For the fixed-JNI distinct-image matrix, use the isolated APK above and run one
+condition at a time (CPU/GPU/NPU; count 8/10):
+
+```sh
+adb -s DEVICE shell am instrument -w -r \
+  -e class io.github.ninbyo02.lami.ui.screens.home.LocalMultiImageBenchmarkInstrumentedTest \
+  -e imageMatrix true -e imageBackend NPU -e imageCount 10 \
+  io.github.ninbyo02.lami.npuvalidation.imagebench.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Each case performs the initial turn and a restored-image-history turn with a
+180-second per-phase guard. Its JUnit success means native acceptance of both
+turns, not perfect recognition. Raw files are
+`files/multi_image_<BACKEND>_<COUNT>.{json,trace}`; host copies are under
+`gemma4-image-benchmark-evidence/multi-image-fixed`.

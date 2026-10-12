@@ -1,0 +1,32 @@
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -4207,6 +4207,29 @@
+           .SetFilterChannelContentFromKvCache(
+               filter_channel_content_from_kv_cache);
+ 
++  // Image placeholders from initial messages must be paired with their bytes
++  // before SendMessageAsync processes only the new message's image queue.
++  bool image_preface = false;
++  if (json_preface.messages.is_array()) {
++    for (const auto& message : json_preface.messages) {
++      if (!message.is_object() || !message.contains("content") ||
++          !message["content"].is_array()) {
++        continue;
++      }
++      for (const auto& item : message["content"]) {
++        if (item.is_object() && item.value("type", "") == "image") {
++          image_preface = true;
++          break;
++        }
++      }
++      if (image_preface) break;
++    }
++  }
++  if (image_preface) {
++    conversation_config_builder.SetPrefillPrefaceOnInit(true);
++    ABSL_LOG(INFO) << "qairt244_image_preface_prefill_v1 enabled=true";
++  }
++
+   // Set the channels, if provided.
+   // If channels is nullptr, the Conversation will use the channels defined in
+   // the LlmMetadata or the default channels for the model type.
