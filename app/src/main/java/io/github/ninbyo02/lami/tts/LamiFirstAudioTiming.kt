@@ -13,6 +13,11 @@ internal object LamiFirstAudioTiming {
         val startKind: StartKind,
     )
 
+    fun startKindForRequestOrdinal(requestOrdinal: Long): StartKind {
+        require(requestOrdinal >= 0L) { "request ordinal must be non-negative" }
+        return if (requestOrdinal == 0L) StartKind.COLD else StartKind.WARM
+    }
+
     fun start(requestId: Long, startedAtNs: Long, startKind: StartKind): Request {
         require(requestId >= 0L) { "request id must be non-negative" }
         require(startedAtNs >= 0L) { "request start must use a non-negative monotonic timestamp" }

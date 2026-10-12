@@ -82,11 +82,7 @@ internal object LamiNeuralVoiceDiagnostics {
                     firstAudioRequests[index] = LamiFirstAudioTiming.start(
                         requestId = index.toLong(),
                         startedAtNs = SystemClock.elapsedRealtimeNanos(),
-                        startKind = if (index == 0) {
-                            LamiFirstAudioTiming.StartKind.COLD
-                        } else {
-                            LamiFirstAudioTiming.StartKind.WARM
-                        },
+                        startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(index.toLong()),
                     )
                     trace("request=$index synthesis=started")
                     val pcm = LamiVoiceModuleCache.withSession(root) { session ->

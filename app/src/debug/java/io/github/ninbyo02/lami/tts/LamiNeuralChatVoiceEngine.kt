@@ -24,7 +24,6 @@ internal class LamiNeuralChatVoiceEngine(
     private var listener: (Boolean) -> Unit = {}
     private val requestIds = AtomicLong()
     private var lastEndedAtMs = Long.MIN_VALUE
-    private var lastEndedAtNs: Long? = null
 
     override fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
         this.listener = listener
@@ -33,7 +32,6 @@ internal class LamiNeuralChatVoiceEngine(
     private val queue = LamiSpeechPipeline<PreparedClip?>(scope, { busy ->
         if (!busy && speaking.value) {
             lastEndedAtMs = SystemClock.elapsedRealtime()
-            lastEndedAtNs = SystemClock.elapsedRealtimeNanos()
         }
         setSpeaking(busy)
     }, ::prepareUtterance, ::playClip)
@@ -57,11 +55,7 @@ internal class LamiNeuralChatVoiceEngine(
         val firstAudio = LamiFirstAudioTiming.start(
             requestId = requestId,
             startedAtNs = started,
-            startKind = if (lastEndedAtNs == null) {
-                LamiFirstAudioTiming.StartKind.COLD
-            } else {
-                LamiFirstAudioTiming.StartKind.WARM
-            },
+            startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(requestId - 1L),
         )
         trace(firstAudio, "status=started text_chars=${text.length}")
         return try {

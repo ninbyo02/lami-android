@@ -5,6 +5,24 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class LamiFirstAudioTimingTest {
+    @Test fun requestOrdinalClassifiesOnlyTheFirstRequestAsCold() {
+        assertEquals(
+            LamiFirstAudioTiming.StartKind.COLD,
+            LamiFirstAudioTiming.startKindForRequestOrdinal(0L),
+        )
+        assertEquals(
+            LamiFirstAudioTiming.StartKind.WARM,
+            LamiFirstAudioTiming.startKindForRequestOrdinal(1L),
+        )
+        assertEquals(
+            LamiFirstAudioTiming.StartKind.WARM,
+            LamiFirstAudioTiming.startKindForRequestOrdinal(99L),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            LamiFirstAudioTiming.startKindForRequestOrdinal(-1L)
+        }
+    }
+
     @Test fun playbackStartedEventUsesMonotonicElapsedRealtimeNanosContract() {
         val request = LamiFirstAudioTiming.start(
             requestId = 7L,
