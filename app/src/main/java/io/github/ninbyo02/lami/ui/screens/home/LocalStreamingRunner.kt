@@ -6318,6 +6318,44 @@ internal fun runOfficialBlockingConversationSingleNamespace(
     )
 }
 
+internal suspend fun runLocalImageConversation(
+    context: Context,
+    capability: LocalImageInputCapability.Supported,
+    prompt: String,
+    imageFilePaths: List<String>,
+    history: List<LocalConversationTurn>,
+    markdownStreamingMode: MarkdownStreamingMode,
+    onPartial: (String) -> Unit,
+    appendTrace: (String) -> Unit,
+): LocalOfficialFlowStreamingResult = withContext(Dispatchers.IO) {
+    val plan = capability.backendPlan
+    require(plan.languageBackend != LocalImageLanguageBackend.NPU) { "Use the NPU Conversation route" }
+    val boundedHistory = LocalConversationHistoryPolicy.bounded(history)
+    require(localImageCapacity(imageFilePaths, boundedHistory) > 0) { "Image context required" }
+    NpuImageInputPolicy.contents(prompt, imageFilePaths)
+    boundedHistory.filter { it.role == LocalConversationRole.USER }.forEach {
+        NpuImageInputPolicy.contents(it.text, it.imageFilePaths)
+    }
+    appendTrace("LOCAL_IMAGE ${plan.diagnostics(imageFilePaths.size)}")
+    val cacheDir = context.cacheDir.resolve("litertlm_image_${plan.languageBackend}")
+    check(cacheDir.isDirectory || cacheDir.mkdirs()) { "Image engine cache unavailable" }
+    val diagnostics = StringBuilder()
+    runOfficialLiteRtLmDirect(
+        prompt = prompt,
+        localImageFilePaths = imageFilePaths,
+        modelPath = capability.modelPath,
+        cacheDirPath = cacheDir.absolutePath,
+        mediaPipeProbeContext = context,
+        preferredBackendDryRunSetting = plan.preferredBackend,
+        markdownStreamingMode = markdownStreamingMode,
+        initialTurns = boundedHistory,
+        startElapsedMs = SystemClock.elapsedRealtime(),
+        onPartial = onPartial,
+        appendTrace = appendTrace,
+        onFailureDiagnostics = { diagnostics.append(it) },
+    ) ?: error("Local image Conversation failed: $diagnostics")
+}
+
 private suspend fun runOfficialLiteRtLmDirect(
     prompt: String,
     localImageFilePaths: List<String> = emptyList(),
@@ -6338,7 +6376,8 @@ private suspend fun runOfficialLiteRtLmDirect(
         appendTrace,
         "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
     )
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=${if (localImageFilePaths.isNotEmpty()) "CPU" else "GPU"} audio=CPU imageCount=${localImageFilePaths.size}")
+    val imageCapacity = localImageCapacity(localImageFilePaths, LocalConversationHistoryPolicy.bounded(initialTurns))
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct requested=$preferredBackendDryRunSetting imageCount=${localImageFilePaths.size} imageCapacity=$imageCapacity")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
@@ -6347,7 +6386,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
-            imageInputCount = localImageFilePaths.size,
+            imageInputCount = imageCapacity,
             nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
@@ -6616,7 +6655,8 @@ private fun runOfficialLiteRtLmBlocking(
         appendTrace,
         "UPSTREAM ${LocalConversationPolicy.promptTemplateOwnershipDiagnostics()}",
     )
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=${if (localImageFilePaths.isNotEmpty()) "CPU" else "GPU"} audio=CPU imageCount=${localImageFilePaths.size}")
+    val imageCapacity = localImageCapacity(localImageFilePaths, LocalConversationHistoryPolicy.bounded(initialTurns))
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct requested=$preferredBackendDryRunSetting imageCount=${localImageFilePaths.size} imageCapacity=$imageCapacity")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
@@ -6625,7 +6665,7 @@ private fun runOfficialLiteRtLmBlocking(
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
-            imageInputCount = localImageFilePaths.size,
+            imageInputCount = imageCapacity,
             nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
@@ -6943,6 +6983,10 @@ internal fun buildLiteRtEngineConfig(
         PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback().backend
         PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback().backend
     }
+    val visionBackend = if (imageInputCount > 0) backend else if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU()
+    val audioBackend = if (imageInputCount > 0 || edgeGalleryLike || textOnlyNullModalities) null else Backend.CPU()
+    val maxNumTokens = if (imageInputCount > 0) NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT
+        else if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
             requestedPreferredBackend = preferredBackendDryRunSetting.name,
@@ -6967,7 +7011,7 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-engine-config modelPathTail=${gpuConfigDiagnostics.modelPathTail} cacheDir=${gpuConfigDiagnostics.cacheDir} backend=${gpuConfigDiagnostics.backend} visionBackend=${if (imageInputCount > 0) "CPU" else gpuConfigDiagnostics.visionBackend} audioBackend=${gpuConfigDiagnostics.audioBackend} maxTokens=${gpuConfigDiagnostics.maxTokens} maxImages=${imageInputCount.takeIf { it > 0 } ?: "default"} samplerEnabled=${gpuConfigDiagnostics.samplerConfigEnabled} samplerPolicy=${gpuConfigDiagnostics.samplerAccelerationPolicy} gpuOptionsConfigured=${gpuConfigDiagnostics.gpuOptionsConfigured}",
+        "UPSTREAM gpu-engine-config modelPathTail=${gpuConfigDiagnostics.modelPathTail} cacheDir=${gpuConfigDiagnostics.cacheDir} backend=${backend.name} visionBackend=${visionBackend?.name ?: "none"} audioBackend=${audioBackend?.name ?: "none"} maxTokens=${if (imageInputCount > 0) maxNumTokens else gpuConfigDiagnostics.maxTokens} maxImages=${imageInputCount.takeIf { it > 0 } ?: "default"} samplerEnabled=${gpuConfigDiagnostics.samplerConfigEnabled} samplerPolicy=${gpuConfigDiagnostics.samplerAccelerationPolicy} gpuOptionsConfigured=${gpuConfigDiagnostics.gpuOptionsConfigured}",
     )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
@@ -6978,9 +7022,9 @@ internal fun buildLiteRtEngineConfig(
     return EngineConfig(
         modelPath = modelPath,
         backend = backend,
-        visionBackend = if (imageInputCount > 0) Backend.CPU() else if (edgeGalleryLike || textOnlyNullModalities) null else Backend.GPU(),
-        audioBackend = if (edgeGalleryLike || textOnlyNullModalities) null else Backend.CPU(),
-        maxNumTokens = if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null,
+        visionBackend = visionBackend,
+        audioBackend = audioBackend,
+        maxNumTokens = maxNumTokens,
         maxNumImages = imageInputCount.takeIf { it > 0 },
         cacheDir = resolveLiteRtEngineConfigCacheDir(
             modelPath = modelPath,
