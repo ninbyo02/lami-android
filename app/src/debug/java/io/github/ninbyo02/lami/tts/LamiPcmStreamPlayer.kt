@@ -27,7 +27,7 @@ internal object LamiPcmStreamPlayer {
         var submitted = 0
         try {
             check(track.state == AudioTrack.STATE_INITIALIZED)
-            val initialUnderruns = track.underrunCount
+            val underrunSession = LamiPlaybackUnderrunAccounting.session(track.underrunCount)
             track.setStartThresholdInFrames(minOf(first.size, track.bufferSizeInFrames))
             suspend fun write(samples: FloatArray) {
                 require(samples.isNotEmpty() && submitted + samples.size <= 256 * 1920)
@@ -55,10 +55,7 @@ internal object LamiPcmStreamPlayer {
                 check(SystemClock.elapsedRealtime() < deadline) { "Streaming playback timed out" }
                 delay(10)
             }
-            val observedUnderruns = LamiPlaybackUnderrunAccounting.observedDelta(
-                initialUnderruns,
-                track.underrunCount,
-            )
+            val observedUnderruns = underrunSession.observe(track.underrunCount)
             return Stats(submitted, observedUnderruns)
         } finally {
             try { if (track.playState != AudioTrack.PLAYSTATE_STOPPED) track.stop() }
