@@ -9,6 +9,35 @@ import org.junit.Test
 
 class LocalInferenceOutputPolicyTest {
     @Test
+    fun `image failure never starts text fallback or returns canned greeting`() {
+        listOf(mixedLanguageFailureResult(), questionEchoFailureResult()).forEach { result ->
+            val decision = LocalInferenceOutputPolicy.evaluateNpu(
+                userPrompt = "こんにちは",
+                result = result,
+                localStopRequested = false,
+                hasImageInput = true,
+            )
+            assertEquals(LocalInferenceOutputDisposition.REJECT, decision.disposition)
+            assertEquals(NpuImageInputPolicy.FAILURE_MESSAGE, decision.terminalText)
+            assertFalse(decision.shouldRunGenericFallback)
+            assertFalse(decision.shouldFinalizeAsAssistantResponse)
+        }
+    }
+
+    @Test
+    fun `image cancellation suppresses fallback and terminal text`() {
+        val decision = LocalInferenceOutputPolicy.evaluateNpu(
+            userPrompt = "look",
+            result = questionEchoFailureResult(),
+            localStopRequested = true,
+            hasImageInput = true,
+        )
+        assertEquals(LocalInferenceOutputDisposition.STOPPED, decision.disposition)
+        assertNull(decision.terminalText)
+        assertFalse(decision.shouldRunGenericFallback)
+    }
+
+    @Test
     fun `successful NPU output is the only accepted display text`() {
         val decision = LocalInferenceOutputPolicy.evaluateNpu(
             userPrompt = "こんにちは",

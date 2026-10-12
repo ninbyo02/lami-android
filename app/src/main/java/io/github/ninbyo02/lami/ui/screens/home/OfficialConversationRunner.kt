@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 
 internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
@@ -46,6 +47,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
             runOfficialFlowStreamingSingleNamespace(
                 spec = spec,
                 prompt = prompt,
+                localImageFilePaths = localImageFilePaths,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
@@ -102,6 +104,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
 
 internal fun tryRunOfficialLiteRtBlockingConversation(
     prompt: String,
+    localImageFilePaths: List<String> = emptyList(),
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
@@ -134,6 +137,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
             runOfficialBlockingConversationSingleNamespace(
                 spec = spec,
                 prompt = prompt,
+                localImageFilePaths = localImageFilePaths,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
