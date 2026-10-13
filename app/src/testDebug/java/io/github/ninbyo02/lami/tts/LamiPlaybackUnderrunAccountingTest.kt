@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,5 +78,21 @@ class LamiPlaybackUnderrunAccountingTest {
         assertTrue(playbackDrain > sessionStart)
         assertTrue(finalObservation > playbackDrain)
         assertTrue(statsReturn > finalObservation)
+    }
+
+    @Test fun streamPlayerStatsDoNotExposeRawCumulativeTrackCounter() {
+        val source = File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+        ).readText()
+
+        val statsUnderrunArgument = Regex("""return\s+Stats\(\s*submitted\s*,\s*([^)]+)\)""")
+            .find(source)
+            ?.groupValues
+            ?.get(1)
+            ?.trim()
+
+        assertEquals("observedUnderruns", statsUnderrunArgument)
+        assertTrue(source.contains("val observedUnderruns = underrunSession.observe(track.underrunCount)"))
+        assertFalse(Regex("""return\s+Stats\([^)]*track\.underrunCount""").containsMatchIn(source))
     }
 }
