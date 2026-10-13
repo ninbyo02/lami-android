@@ -120,7 +120,10 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 } else {
                     Contents.of(prompt)
                 }
-                val budget = NpuConversationBudgetPolicy.plan(initialTurns, prompt, requestedMaxOutputTokens)
+                val budget = NpuConversationBudgetPolicy.plan(
+                    initialTurns, prompt, requestedMaxOutputTokens,
+                    currentImageCount = imageFilePaths.size,
+                )
                 trace("$ROUTE_ID budget_source=estimated_code_points total_tokens=$NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT estimated_input_tokens=${budget.estimatedInputTokens} reserved_output_tokens=${budget.reservedOutputTokens} retained_history_messages=${budget.initialTurns.size} requested_output_tokens=$requestedMaxOutputTokens native_output_limit_enforced=false")
                 if (!budget.admitted) {
                     closeConversationLocked("input_budget_exceeded", trace)
@@ -156,6 +159,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 conversation = activeEngine.createConversation(
                     LocalConversationPolicy.conversationConfig(budget.initialTurns),
                 )
+                currentCoroutineContext().ensureActive()
                 conversationChatId = chatId
                 trace("$ROUTE_ID conversation_created=true chat_id=$chatId initial_turns=${budget.initialTurns.size} conversation_reused=false")
 

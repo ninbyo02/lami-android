@@ -74,6 +74,9 @@ val standardNpuRuntimeEnabled = providers.gradleProperty("lami.standardNpuRuntim
 val gpuIdlePrewarmDiagnostic = providers.gradleProperty("lami.gpuIdlePrewarmDiagnostic")
     .map { it.toBooleanStrict() }
     .orElse(false)
+val imageBenchmark = providers.gradleProperty("lami.imageBenchmark")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
 
 android {
 
@@ -329,9 +332,17 @@ android {
                 applicationIdSuffix = ".gpuidleprewarm"
                 versionNameSuffix = "-gpuIdlePrewarmDiagnostic"
             }
+            if (imageBenchmark.get()) {
+                applicationIdSuffix = ".imagebench"
+                versionNameSuffix = "-imageBenchmark"
+            }
         }
         release {
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
+            if (imageBenchmark.get()) {
+                applicationIdSuffix = ".imagebench"
+                versionNameSuffix = "-imageBenchmarkRelease"
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

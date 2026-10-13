@@ -60,4 +60,49 @@ class NpuConversationBudgetPolicyTest {
         assertEquals(history, plan.initialTurns)
         assertTrue(plan.estimatedInputTokens + plan.reservedOutputTokens <= NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT)
     }
+
+    @Test fun currentImagesReserveTheirVisualTokensWithoutTruncation() {
+        val plain = NpuConversationBudgetPolicy.plan(emptyList(), "look", 128)
+        val images = NpuConversationBudgetPolicy.plan(emptyList(), "look", 128, currentImageCount = 10)
+        assertTrue(images.admitted)
+        assertEquals(10 * NpuConversationBudgetPolicy.IMAGE_TOKEN_ALLOWANCE,
+            images.estimatedInputTokens - plain.estimatedInputTokens)
+        assertTrue(images.estimatedInputTokens + images.reservedOutputTokens <= 4096)
+    }
+
+    @Test fun imageHistoryIsRetainedWithItsVisualCostForTextFollowups() {
+        val history = listOf(user("look").copy(imageFilePaths = List(10) { "/image$it.jpg" }), model("pictures"))
+        val plan = NpuConversationBudgetPolicy.plan(history, "Which is blue?", 128)
+        assertTrue(plan.admitted)
+        assertEquals(history, plan.initialTurns)
+        assertTrue(plan.estimatedInputTokens >= 10 * NpuConversationBudgetPolicy.IMAGE_TOKEN_ALLOWANCE)
+    }
+
+    @Test fun currentAndHistoricalImagesShareTheTenImageCapacity() {
+        val history = listOf(user("look").copy(imageFilePaths = listOf("/old.jpg")), model("blue"))
+        val fits = NpuConversationBudgetPolicy.plan(history, "new", 128, currentImageCount = 9)
+        assertTrue(fits.admitted)
+        assertEquals(history, fits.initialTurns)
+        val full = NpuConversationBudgetPolicy.plan(history, "new", 128, currentImageCount = 10)
+        assertTrue(full.admitted)
+        assertTrue(full.initialTurns.isEmpty())
+    }
+
+    @Test fun overlongImageHistoryCannotSilentlyBecomeTextOnly() {
+        val history = listOf(user("look").copy(imageFilePaths = List(10) { "/image$it.jpg" }), model("long ".repeat(300)))
+        val plan = NpuConversationBudgetPolicy.plan(history, "Which is blue?", 128)
+        assertFalse(plan.admitted)
+        assertTrue(plan.initialTurns.isEmpty())
+    }
+
+    @Test fun imageOnlyHistoryIsNotDroppedAsAnEmptyUserTurn() {
+        val history = listOf(user("").copy(imageFilePaths = listOf("/image.jpg")), model("blue"))
+        val plan = NpuConversationBudgetPolicy.plan(history, "color?", 128)
+        assertTrue(plan.admitted)
+        assertEquals(history, plan.initialTurns)
+    }
+
+    @Test fun tooManyCurrentImagesAreNotAdmitted() {
+        assertFalse(NpuConversationBudgetPolicy.plan(emptyList(), "look", 128, currentImageCount = 11).admitted)
+    }
 }

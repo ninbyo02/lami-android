@@ -1,7 +1,16 @@
 {
   "abi": "arm64-v8a",
   "reference_apk_sha256": "68a5266d1fca320668c3875696403dfcc6abd664d5445054abab7f7bd01eb7fd",
-  "provenance": "Combined GPU OpenCL + preserved NPU candidate validated on NX733J, 2026-09-12; binary-input reproducibility, not a source build recipe.",
+  "provenance": "Pinned GPU OpenCL/NPU stack with isolated v0.11.0 deferred-image-preface queue JNI candidate (2026-10-12); other components retained. See docs/gemma4_sm8750_image_input.md.",
+  "image_preface_fix": {
+    "source_commit": "c87189528a758db32ead241f4fc9c64836398ee7",
+    "patch_sha256": "5b399bd4931080d5a0f19b90d5c806847095401f995f9c598ba944a962cc4990",
+    "previous_stock_jni_sha256": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca",
+    "previous_independent_jni_sha256": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea",
+    "previous_sync_preface_stock_jni_sha256": "dab6bbd3e027bd0dcd5eab77c1007821bf89b92670f959676b8152eeaba3cbc5",
+    "previous_sync_preface_independent_jni_sha256": "3bbf04195c97e1689fad61878312c127da86e0f9112f96d639722eb35bce8c11",
+    "marker": "qairt244_image_preface_queue_v2"
+  },
   "libraries": {
     "libLiteRt.so": "84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553",
     "libLiteRtDispatch_Qualcomm.so": "7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f",
@@ -14,8 +23,8 @@
     "libQnnHtpV79Skel.so": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
     "libQnnDsp.so": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
     "libQnnGpu.so": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694",
-    "liblitertlm_jni.so": "8897538e9f8ac3165052ee39e74c970af38de17cb05613867c630d5fd4e416ca",
-    "liblami_qairt244_npu_jni.so": "b418295b5d08253bb70f5f084d217eab1b70b835011e78e9db27666a220085ea",
+    "liblitertlm_jni.so": "f6aa721bc12532b17317a48926d2e0cb8d3dfa62074e461c25ee50fd4432d281",
+    "liblami_qairt244_npu_jni.so": "44eecb86a01fc861e9c6caf860886c947da85bdc0d322aa66efaa37908aac9e4",
     "libLiteRtOpenClAccelerator.so": "e3386a53095e13c37ea0b0f63ebcf5ec1698404e63baf606558664ebe8c5dcf1"
   }
 }
