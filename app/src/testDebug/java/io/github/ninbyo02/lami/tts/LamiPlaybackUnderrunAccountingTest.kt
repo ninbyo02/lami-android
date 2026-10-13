@@ -34,6 +34,17 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(Int.MAX_VALUE, session.observedUnderruns)
     }
 
+    @Test fun sessionRejectsInvalidObservationWithoutCorruptingAccounting() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = 2)
+
+        assertEquals(3, session.observe(5))
+        assertThrows(IllegalArgumentException::class.java) {
+            session.observe(-1)
+        }
+        assertEquals(3, session.observedUnderruns)
+        assertEquals(5, session.observe(7))
+    }
+
     @Test fun observedDeltaRejectsInvalidPlatformCounts() {
         assertThrows(IllegalArgumentException::class.java) {
             LamiPlaybackUnderrunAccounting.observedDelta(initialCount = -1, finalCount = 0)
