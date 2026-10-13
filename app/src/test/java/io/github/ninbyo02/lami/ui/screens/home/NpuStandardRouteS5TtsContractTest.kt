@@ -54,4 +54,49 @@ class NpuStandardRouteS5TtsContractTest {
         assertFalse(mapping.hasTtsCandidate)
         assertEquals(NpuStandardRouteS5TtsContract.FAILURE_EMPTY_TEXT, mapping.failureReason)
     }
+
+    @Test
+    fun `stop suppressed assistant blocks S5 TTS replay`() {
+        val mapping = readyMapping()
+
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = true,
+                inCooldown = false,
+            ),
+        )
+
+        val reason = classifyNpuStandardRouteS5TtsSkipReason(
+            enabled = true,
+            mapping = mapping,
+            ttsEnabled = true,
+            streamingActive = false,
+            assistantId = 42,
+            suppressedForAssistant = true,
+            inCooldown = false,
+        )
+        val trace = buildNpuStandardRouteS5TtsSkipTrace(
+            reason = reason,
+            assistantId = 42,
+        )
+
+        assertEquals(NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED, reason)
+        assertTrue(trace.contains("tts_speak_invoked=false"))
+        assertTrue(trace.contains("tts_skipped_reason=stop_suppressed"))
+        assertTrue(trace.contains("assistant_id=42"))
+        assertTrue(trace.contains("backend_npu_persisted=true"))
+    }
+
+    private fun readyMapping(): NpuStandardRouteS5TtsMapping =
+        NpuStandardRouteS5TtsMapping(
+            ttsCandidate = NpuStandardRouteS5TtsCandidate(
+                finalAssistantText = "こんにちは。",
+                speakText = "こんにちは。",
+            ),
+        )
 }
