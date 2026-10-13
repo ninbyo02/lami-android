@@ -19,9 +19,7 @@ internal object LamiPcmPlayer {
             AudioFormat.ENCODING_PCM_FLOAT,
         )
         check(minimum > 0) { "AudioTrack minimum buffer unavailable: $minimum" }
-        val prebufferSamples = LamiPcmContract.startupPrebufferSamples(samples.size, minimum)
-        val minimumBufferSamples = (minimum + Float.SIZE_BYTES - 1) / Float.SIZE_BYTES
-        val bufferSamples = maxOf(prebufferSamples, minimumBufferSamples)
+        val prebufferPlan = LamiPcmContract.startupPrebufferPlan(samples.size, minimum)
         val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ASSISTANT)
@@ -29,10 +27,10 @@ internal object LamiPcmPlayer {
             .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
                 .setSampleRate(LamiPcmContract.SAMPLE_RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .setBufferSizeInBytes(bufferSamples * Float.SIZE_BYTES).build()
+            .setBufferSizeInBytes(prebufferPlan.bufferSamples * Float.SIZE_BYTES).build()
         try {
             check(track.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack initialization failed" }
-            track.setStartThresholdInFrames(minOf(prebufferSamples, track.bufferSizeInFrames))
+            track.setStartThresholdInFrames(minOf(prebufferPlan.prebufferSamples, track.bufferSizeInFrames))
             suspend fun writeUntil(target: Int, start: Int, writeMode: Int): Int {
                 var offset = start
                 currentCoroutineContext().ensureActive()
@@ -46,7 +44,7 @@ internal object LamiPcmPlayer {
                 }
                 return offset
             }
-            var offset = writeUntil(prebufferSamples, 0, AudioTrack.WRITE_BLOCKING)
+            var offset = writeUntil(prebufferPlan.prebufferSamples, 0, AudioTrack.WRITE_BLOCKING)
             currentCoroutineContext().ensureActive()
             track.play()
             onStarted()
