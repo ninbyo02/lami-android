@@ -6331,7 +6331,7 @@ internal suspend fun runLocalImageConversation(
     val plan = capability.backendPlan
     require(plan.languageBackend != LocalImageLanguageBackend.NPU) { "Use the NPU Conversation route" }
     val boundedHistory = LocalConversationHistoryPolicy.bounded(history)
-    require(localImageCapacity(imageFilePaths, boundedHistory) > 0) { "Image context required" }
+    require(requireLocalImageContextWithinLimit(imageFilePaths, boundedHistory) > 0) { "Image context required" }
     NpuImageInputPolicy.contents(prompt, imageFilePaths)
     boundedHistory.filter { it.role == LocalConversationRole.USER }.forEach {
         NpuImageInputPolicy.contents(it.text, it.imageFilePaths)

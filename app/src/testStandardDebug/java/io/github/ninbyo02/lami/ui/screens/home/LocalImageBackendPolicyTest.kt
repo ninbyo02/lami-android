@@ -5,9 +5,35 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.NpuStandardRouteSelectionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalImageBackendPolicyTest {
+    @Test fun `current request at ten image context limit is accepted`() {
+        assertEquals(10, requireLocalImageContextWithinLimit(List(10) { "current-$it" }, emptyList()))
+    }
+
+    @Test fun `restored image history at limit is accepted without another attachment`() {
+        val history = listOf(LocalConversationTurn(LocalConversationRole.USER, "look", List(10) { "history-$it" }))
+        assertEquals(10, requireLocalImageContextWithinLimit(emptyList(), history))
+    }
+
+    @Test fun `restored and current images exceeding total limit fail before engine creation`() {
+        val history = listOf(LocalConversationTurn(LocalConversationRole.USER, "look", List(5) { "history-$it" }))
+        val failure = assertThrows(LocalImageContextLimitException::class.java) {
+            requireLocalImageContextWithinLimit(List(6) { "current-$it" }, history)
+        }
+        assertEquals(11, failure.imageCount)
+        assertTrue(failure.userMessage.contains("10"))
+        assertTrue(failure.userMessage.contains("新しい会話"))
+    }
+
+    @Test fun `model turns and text only context do not reserve image capacity`() {
+        val history = listOf(LocalConversationTurn(LocalConversationRole.MODEL, "reply", List(11) { "invalid-model-image-$it" }))
+        assertEquals(0, requireLocalImageContextWithinLimit(emptyList(), history))
+    }
+
     @Test fun `user facing NPU DEFAULT plus mode resolves to NPU image backend`() {
         assertEquals(PreferredBackendDryRunSetting.NPU, localImageBackendPreference(
             PreferredBackendDryRunSetting.DEFAULT, NpuStandardRouteMode.FULL,

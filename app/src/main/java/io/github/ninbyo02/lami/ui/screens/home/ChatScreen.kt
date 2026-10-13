@@ -5391,17 +5391,19 @@ fun Home(
                                                                     throw cancelled
                                                                 } catch (failure: Exception) {
                                                                     logStreamTrace("LOCAL_IMAGE failure=${failure.javaClass.simpleName}:${failure.message}")
+                                                                    val imageFailureMessage = (failure as? LocalImageContextLimitException)
+                                                                        ?.userMessage ?: NpuImageInputPolicy.FAILURE_MESSAGE
                                                                     imageChatId?.let { chatId ->
                                                                         finalizeStreamingAssistantFailureSerialized(
                                                                             chatId = chatId,
-                                                                            response = NpuImageInputPolicy.FAILURE_MESSAGE,
+                                                                            response = imageFailureMessage,
                                                                             localSourceSummary = imagePlan.diagnostics(requestLocalImageFilePaths.size),
                                                                         )
                                                                     } ?: run {
                                                                         pendingLocalUserMessageText = null
                                                                         userPrompt = requestPrompt
                                                                         selectedImageUriStrings = requestAttachmentUriStrings
-                                                                        snackbarHostState.showSnackbar(NpuImageInputPolicy.FAILURE_MESSAGE)
+                                                                        snackbarHostState.showSnackbar(imageFailureMessage)
                                                                     }
                                                                 } finally {
                                                                     acceptImagePartials = false

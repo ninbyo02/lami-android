@@ -12,7 +12,10 @@ device measurements in this document currently used the historical v1 JNI.
 - Confirmed generic bundle: `gemma-4-E2B-it.litertlm`, 2,588,147,712 bytes,
   SHA-256 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
 - Image preprocessing: EXIF-aware decode, max 1280 pixels on the long edge, JPEG quality 85,
-  up to 10 attachments per message.
+  up to 10 attachments per message. CPU/GPU product requests also reject more than
+  10 images across new attachments plus bounded restored history, before native
+  engine initialization. NPU keeps recent complete history within the same ten-
+  image budget and its 4096-token context budget.
 
 | Selected backend | Model slot / bundle | Language | Vision encoder | Adapter |
 | --- | --- | --- | --- | --- |
@@ -32,7 +35,8 @@ in the bundle are not enough to classify the image path as NPU-only.
 ## App behavior
 
 Local image requests require Developer access. Device input acceptance and restored
-image history have been measured with the image-preface fix below; multi-image
+image history were measured with the historical v1 synchronous-preface fix below;
+the current v2 deferred-preface runtime is not device-verified. Multi-image
 semantic accuracy is imperfect. Exact size and SHA-256 identify the two supported bundles. A mismatch
 between model and explicit backend is rejected: the NPU-compiled language bundle
 does not silently run as CPU/GPU, and the generic bundle does not silently handle
@@ -55,17 +59,18 @@ the text-only GPU/CPU retry or canned-greeting fallback path.
 
 ## Validation
 
-Based on main merge `4a09c4550c7f1c4dacf7f6ff315fa18ae7b36454`, the final source passed
+Based on main merge `4a09c4550c7f1c4dacf7f6ff315fa18ae7b36454`, the initial source passed
 `:app:compileStandardDebugKotlin`, `:app:compileStandardDebugAndroidTestKotlin`, and
 269 related `:app:testStandardDebugUnitTest` tests with zero failures, errors, or
 skips. The new backend-policy tests cover model/backend compatibility, CPU/GPU
 EngineConfig values, restored image capacity, and separate NPU/CPU diagnostics.
 This was the source-only validation before the device measurements below.
 
-The static bundle inspection is not per-operator accelerator profiling. Real photos,
-image-only UI sends, chat reopening, backend switching, cancellation, and release
-APK behavior remain unverified. Do not promote the route based only on synthetic
-single-turn success.
+The static bundle inspection is not per-operator accelerator profiling. Historical
+v1 real-photo and NPU chat-reopening checks are recorded below; the current v2
+runtime still needs device checks. Image-only UI sends, backend switching,
+cancellation latency with v2, and release APK inference remain unverified.
+Do not promote the route based only on synthetic single-turn or packaging success.
 
 For further integration checks, run a standard debug build with the existing
 native runtime and Developer access. For CPU and GPU select the generic bundle in
@@ -520,3 +525,133 @@ Each case performs the initial turn and a restored-image-history turn with a
 turns, not perfect recognition. Raw files are
 `files/multi_image_<BACKEND>_<COUNT>.{json,trace}`; host copies are under
 `gemma4-image-benchmark-evidence/multi-image-fixed`.
+
+## PC review and device-resume gate: 2026-10-13
+
+Source HEAD remains `8e1990750af249e741614c5d2103857e38e15df5`; there were no
+later code changes or uncommitted changes at review start. The review found no
+new actionable defect in the backend binding, initial image-preface queue, or
+cancellation cleanup paths. No app/runtime code was changed. This is static
+review, not proof of SM8750 cancellation latency.
+
+PC-only evidence reuse was verified in
+`../gemma4-image-benchmark-evidence/pc-review-8e1990750.json`:
+
+- Ten retained JVM XML suites total 93 tests, with zero failures/errors/skips.
+- Existing native/debug/release build logs record success in 12.343 s / 32 s /
+  4m30s. They were not rerun without a source change.
+- Debug APK SHA-256 remains `17d184e9...`, test APK `f416cac3...`, and unsigned
+  release APK `b792b97b...`; complete hashes are in the evidence JSON above.
+- Both app APKs contain all 14 pinned native libraries with matching hashes and
+  the `qairt244_image_preface_queue_v2` marker in both JNI names.
+- The recorded native patch reverses cleanly against the isolated runtime source.
+  The original TTS worktree, models, and production package were not modified.
+
+No ADB call, device read, installation, device test, or GPU inference was made
+during this PC review. On non-holiday weekdays, 08:00-19:30 Japan time is a
+device-access blackout, including read-only ADB. Outside that window, obtain
+the user's foreground-use confirmation and coordinate with the TTS device
+tests before connecting. Do not schedule or start a device job from this note.
+
+### Minimal ordered device checks, after permission
+
+1. Reconfirm the serial, unlocked foreground window, temperature below 40 C,
+   and absence of another device test. Check the APK application IDs and
+   signatures first. Update only `io.github.ninbyo02.lami.npuvalidation.imagebench`
+   and its test package with `install -r`; never uninstall, clear app data, or
+   install the unsigned release APK over the main app. Preserve previous raw
+   JSON/traces before a test reuses its app-private output filename.
+2. Confirm the two model fingerprints and the existing NASA image, plus the
+   eight image paths from `files/multi_image_NPU_8_cmp_seed42_r2.json`. The
+   cancel helper uses that historical fixture file only as a path list. If it
+   or its files are missing, stop and prepare a new isolated fixture; do not
+   claim an empty/missing-fixture test passed or rerun unrelated matrices.
+3. Start with NPU restored-photo UI (`imageUi=true`, `imageUiMode=reopen`,
+   `imageBackend=NPU`). Require Activity recreation, thread switch away/back,
+   valid persisted image files, and a COMPLETED reply identifying Earth. Notes
+   must identify language NPU/QNN and vision CPU, with no GPU/text-only fallback.
+4. Run NPU eight-image UI stop (`imageUiMode=cancel`). Require persisted
+   CANCELLED, no later COMPLETED reply, successful native cancel/close evidence,
+   and collect both `ui_stop_ms` and `native_drain_wait_ms`. Proposed promotion
+   thresholds are UI stop <= 1 s and native drain <= 5 s; these are acceptance
+   targets, not previously measured v2 results. The existing helper's JUnit
+   assertions cover statuses, not these latency targets. Manually reject a run
+   exceeding either target, even when JUnit reports success. The v1 drain of
+   38.091 s is a failure baseline, not a passing result.
+5. After native drain, send a short new request in the same isolated app.
+   Require completion with no stale chunks, blocked mutex, duplicate reply,
+   crash, or backend change. The current helper does not automate this recovery
+   check; record it as a separate UI observation. If cancellation fails, stop
+   further expensive matrix runs and preserve logs for diagnosis.
+6. Because v2 changes image-preface replay for every backend, run the restored
+   Earth UI check once for CPU and once for GPU. Then run one NPU eight-distinct-
+   image cold/fixed-neutral-history case only if the preceding checks pass.
+   Record hashes, image order, sampler seed42, accepted turns, recognition
+   score, and timings. Native acceptance and semantic accuracy remain distinct;
+   do not label an accepted but wrong/omitted image answer as correct.
+
+Example existing UI-helper command (documentation only; not executed during
+the blackout):
+
+```sh
+adb -s "$DEVICE" shell am instrument -w -r \
+  -e class io.github.ninbyo02.lami.ui.screens.home.LocalImageReopenCancelUiInstrumentedTest \
+  -e imageUi true -e imageUiMode reopen -e imageBackend NPU \
+  io.github.ninbyo02.lami.npuvalidation.imagebench.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Change `imageUiMode` to `cancel` only for NPU; CPU/GPU use `reopen`.
+Do not rerun the historical 15/16-image capacity probes, all eight-image repeats,
+or the complete 8/10-image matrix just to reconfirm unchanged model limits.
+Revisit them only after a relevant model/preprocessor/context-budget change or
+a new failure. Current app attachment limit remains ten, not fifteen.
+
+Release uses API0.11.0 while the debug harness uses API0.17.0, so debug success
+does not replace an isolated, correctly signed release-mode image/history/stop
+check. The current release APK is unsigned and has package
+`io.github.ninbyo02.lami.npuvalidation`; arrange that isolated test without
+touching a TTS package. Production promotion stays blocked until v2 device and
+release checks pass, latest-main integration is reviewed, and the installed
+main package's signing certificate and data-preserving update are verified.
+
+## Gated product integration scope: 2026-10-14
+
+The user approved source integration. GitHub's default branch and the requested
+target are `main`, currently `4a09c4550...`. `future` is a separate older lineage
+(`a220927fc...`, last Android CI on 2026-10-04), diverged by five commits ahead
+and 291 behind main at inspection. It is not the target of this image-input PR.
+The candidate was originally five local commits ahead of main, with no remote
+branch, PR, or CI attached to exact HEAD `8e1990750...` at inspection.
+
+Main requires both `Standard debug verification` and `Standard release
+verification`, with an up-to-date base. Configured mandatory approving review
+count is zero; no administrator bypass is permitted. Hosted CI covers non-NPU
+smoke packaging, unit tests, lint, and release artifacts. It cannot certify the
+private QAIRT runtime's image inference or cancellation on SM8750.
+
+Integration retains the following safety boundaries:
+
+- `verifiedForNormalUse=false`; normal-use local images remain unavailable.
+  Explicit Developer access is required for trial sends.
+- CPU/GPU require the exact generic model fingerprint; NPU requires the exact
+  SM8750 fingerprint and an enabled runtime. Incompatible/unavailable routes
+  are rejected, never silently replaced with a text-only or different backend.
+- CPU/GPU total image context above ten is rejected before native initialization,
+  with a failed reply explaining the limit and asking for a new conversation.
+  Four new unit cases cover the exact limit, restored-only limit, combined
+  overflow, and exclusion of model-turn images/text-only context.
+- Models, private SDK/runtime binaries, benchmark APKs, and credentials are not
+  included in Git. The new native patch remains an opt-in experimental candidate;
+  this integration does not deploy it to the production phone.
+- Production image enrollment and a signed main-package update still require
+  the device/resume gates above. No foreground window has been granted yet and
+  TTS owns the device; no ADB call is allowed from this integration work.
+
+First device window: allow roughly 3-5 minutes for NPU image selection/send,
+restored-photo response, eight-image stop/drain and recovery. If successful,
+allow another 5-10 minutes for CPU/GPU image/history checks, short text-only
+checks, and isolated signed release validation. These are planning estimates,
+not measured execution times. Never run during the weekday 08:00-19:30 JST
+blackout or concurrently with TTS device tests. The 93-test PC snapshot above
+predates the new four-case context guard; use fresh integration CI for the new
+source HEAD, not that historical count as proof of current coverage.

@@ -55,3 +55,18 @@ internal fun localImageBackendPlan(
 
 internal fun localImageCapacity(imageFilePaths: List<String>, history: List<LocalConversationTurn>): Int =
     imageFilePaths.size + history.filter { it.role == LocalConversationRole.USER }.sumOf { it.imageFilePaths.size }
+
+internal class LocalImageContextLimitException(val imageCount: Int) : IllegalArgumentException(
+    "Image context has $imageCount images; maximum is ${NpuImageInputPolicy.MAX_IMAGES}",
+) {
+    val userMessage: String = "画像は会話履歴と合わせて${NpuImageInputPolicy.MAX_IMAGES}枚までです。新しい会話で送信してください"
+}
+
+internal fun requireLocalImageContextWithinLimit(
+    imageFilePaths: List<String>,
+    history: List<LocalConversationTurn>,
+): Int {
+    val count = localImageCapacity(imageFilePaths, history)
+    if (count > NpuImageInputPolicy.MAX_IMAGES) throw LocalImageContextLimitException(count)
+    return count
+}
