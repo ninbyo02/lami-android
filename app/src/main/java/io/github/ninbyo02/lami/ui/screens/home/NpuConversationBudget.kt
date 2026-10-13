@@ -11,6 +11,7 @@ internal data class NpuConversationBudget(
 internal object NpuConversationBudgetPolicy {
     private const val TEMPLATE_ALLOWANCE = 64
     private const val MESSAGE_ALLOWANCE = 8
+    internal const val IMAGE_TOKEN_ALLOWANCE = 280 + MESSAGE_ALLOWANCE
 
     // Deliberately overestimates typical Japanese text. Tokenization is model-dependent.
     internal fun estimate(text: String): Int =
@@ -22,15 +23,19 @@ internal object NpuConversationBudgetPolicy {
         prompt: String,
         requestedOutputTokens: Int,
         totalTokens: Int = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+        currentImageCount: Int = 0,
     ): NpuConversationBudget {
+        require(currentImageCount >= 0)
         val preferredReserve = requestedOutputTokens.coerceIn(128, 256)
         val minimumReserve = 128
         var input = estimate(LocalConversationPolicy.SYSTEM_INSTRUCTION).toLong() +
-            TEMPLATE_ALLOWANCE + MESSAGE_ALLOWANCE + estimate(prompt)
+            TEMPLATE_ALLOWANCE + MESSAGE_ALLOWANCE + estimate(prompt) +
+            currentImageCount.toLong() * IMAGE_TOKEN_ALLOWANCE
+        var imageCount = currentImageCount.toLong()
         val pairs = mutableListOf<List<LocalConversationTurn>>()
         var pending: LocalConversationTurn? = null
         for (turn in history) {
-            if (turn.text.isBlank()) continue
+            if (turn.text.isBlank() && turn.imageFilePaths.isEmpty()) continue
             when (turn.role) {
                 LocalConversationRole.USER -> pending = turn
                 LocalConversationRole.MODEL -> {
@@ -41,17 +46,23 @@ internal object NpuConversationBudgetPolicy {
         }
         val selected = mutableListOf<LocalConversationTurn>()
         for (pair in pairs.asReversed()) {
-            val cost = pair.sumOf { estimate(it.text).toLong() + MESSAGE_ALLOWANCE }
+            val pairImages = pair.filter { it.role == LocalConversationRole.USER }
+                .sumOf { it.imageFilePaths.size.toLong() }
+            val cost = pair.sumOf { estimate(it.text).toLong() + MESSAGE_ALLOWANCE } +
+                pairImages * IMAGE_TOKEN_ALLOWANCE
             if (input + cost + minimumReserve > totalTokens ||
+                imageCount + pairImages > NpuImageInputPolicy.MAX_IMAGES ||
                 selected.size + 2 > LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES) break
             selected.addAll(0, pair)
             input += cost
+            imageCount += pairImages
         }
         // Keep recent complete turns before increasing the speculative output reservation.
         val reserve = minOf(preferredReserve.toLong(), (totalTokens - input).coerceAtLeast(minimumReserve.toLong())).toInt()
         return NpuConversationBudget(
             selected.toList(), input.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), reserve,
-            input + reserve <= totalTokens,
+            input + reserve <= totalTokens && imageCount <= NpuImageInputPolicy.MAX_IMAGES &&
+                (imageCount > 0 || history.none { it.role == LocalConversationRole.USER && it.imageFilePaths.isNotEmpty() }),
         )
     }
 }

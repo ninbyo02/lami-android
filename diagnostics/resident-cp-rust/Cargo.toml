@@ -1,0 +1,16 @@
+[package]
+name = "lami-resident-cp"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+
+[features]
+default = []
+ffi = []
+qnn-sdk = ["ffi"]
+ffi-host-test = ["ffi"]

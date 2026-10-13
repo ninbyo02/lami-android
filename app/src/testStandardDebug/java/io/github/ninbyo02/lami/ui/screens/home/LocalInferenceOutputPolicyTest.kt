@@ -172,8 +172,8 @@ class LocalInferenceOutputPolicyTest {
 
         assertTrue(source.contains("LocalInferenceOutputPolicy.evaluateNpu("))
         assertEquals(
-            "GPU/CPU fallback must validate both provisional streaming partials and final candidates.",
-            4,
+            "GPU/CPU image turns and fallback must validate both streaming partials and final candidates.",
+            6,
             "LocalInferenceOutputPolicy.evaluateLocalCandidate(".countIn(source),
         )
         assertTrue(source.contains("npuOutputDecision.acceptedText.trim()"))

@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.media.ExifInterface
 import android.util.Log
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -37,6 +38,8 @@ internal sealed interface LocalImageInputCapability {
         val visionBackend: LocalVisionBackend,
         val verifiedForNormalUse: Boolean,
         val note: String,
+        val modelPath: String,
+        val backendPlan: LocalImageBackendPlan,
     ) : LocalImageInputCapability
 
     data class Unsupported(
@@ -47,6 +50,7 @@ internal sealed interface LocalImageInputCapability {
 
 internal enum class LocalVisionBackend {
     CPU,
+    GPU,
 }
 
 internal data class LocalImageInput(
@@ -80,48 +84,54 @@ internal suspend fun resolveLocalImageInputCapability(
     selectedModelPath: String?,
     selectedModelDisplayName: String?,
     allowUnverifiedGenericVision: Boolean = false,
+    preferredBackend: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuRouteAvailable: Boolean = true,
 ): LocalImageInputCapability = withContext(Dispatchers.IO) {
     val modelPath = selectedModelPath?.trim().orEmpty()
     if (modelPath.isBlank()) {
         return@withContext LocalImageInputCapability.Unsupported("ローカル画像入力には画像対応モデルが必要です")
     }
     val file = File(modelPath)
-    if (!file.isFile) {
+    if (!file.isFile || !file.canRead()) {
         return@withContext LocalImageInputCapability.Unsupported("選択中のローカルモデルを読み取れません")
     }
     val size = file.length()
-    val sha256 = LocalVisionModelSha256Cache.sha256(file)
-    if (isKnownGenericGemmaVisionModelFingerprint(sizeBytes = size, sha256 = sha256)) {
-        if (!allowUnverifiedGenericVision) {
-            return@withContext LocalImageInputCapability.Unsupported(
-                userMessage = "このGemma画像モデルは未実機検証です。Developer accessを有効にすると試験送信できます",
-                sha256 = sha256,
-            )
-        }
-        return@withContext LocalImageInputCapability.Supported(
-            sha256 = sha256,
-            visionBackend = LocalVisionBackend.CPU,
-            verifiedForNormalUse = false,
-            note = "generic-gemma-vision-dev-only-cpu-vision-backend",
+    val sha256 = try {
+        LocalVisionModelSha256Cache.sha256(file)
+    } catch (failure: Exception) {
+        return@withContext LocalImageInputCapability.Unsupported("選択中のローカルモデルを読み取れません")
+    }
+    val kind = when {
+        isKnownGenericGemmaVisionModelFingerprint(size, sha256) -> LocalImageModelKind.GENERIC
+        isKnownQualcommGemmaVisionModelFingerprint(size, sha256) -> LocalImageModelKind.QUALCOMM_SM8750
+        else -> return@withContext LocalImageInputCapability.Unsupported(
+            "このローカルモデルは確認済みの画像対応Gemmaではありません", sha256,
         )
     }
-    if (isKnownQualcommGemmaVisionModelFingerprint(sizeBytes = size, sha256 = sha256)) {
-        if (!allowUnverifiedGenericVision) {
-            return@withContext LocalImageInputCapability.Unsupported(
-                userMessage = "このGemma画像モデルは未実機検証です。Developer accessを有効にすると試験送信できます",
-                sha256 = sha256,
-            )
-        }
-        return@withContext LocalImageInputCapability.Supported(
-            sha256 = sha256,
-            visionBackend = LocalVisionBackend.CPU,
-            verifiedForNormalUse = false,
-            note = "sm8750-gemma-vision-dev-only-cpu-vision-npu-language",
+    val plan = localImageBackendPlan(kind, preferredBackend)
+        ?: return@withContext LocalImageInputCapability.Unsupported(
+            if (kind == LocalImageModelKind.GENERIC) {
+                "NPU画像入力にはSM8750版Gemmaモデルを選択してください"
+            } else {
+                "CPU/GPU画像入力には汎用版Gemma画像モデルを選択してください"
+            },
+            sha256,
+        )
+    if (plan.languageBackend == LocalImageLanguageBackend.NPU && !npuRouteAvailable) {
+        return@withContext LocalImageInputCapability.Unsupported("NPU画像入力の実行経路を有効にしてください", sha256)
+    }
+    if (!allowUnverifiedGenericVision) {
+        return@withContext LocalImageInputCapability.Unsupported(
+            "このGemma画像モデルは未実機検証です。Developer accessを有効にすると試験送信できます", sha256,
         )
     }
-    LocalImageInputCapability.Unsupported(
-        userMessage = "このローカルモデルは確認済みの画像対応Gemmaではありません",
+    LocalImageInputCapability.Supported(
         sha256 = sha256,
+        visionBackend = plan.visionBackend,
+        verifiedForNormalUse = false,
+        note = "gemma-vision-dev-only-language=${plan.languageBackend}-vision=${plan.visionBackend}",
+        modelPath = file.absolutePath,
+        backendPlan = plan,
     )
 }
 

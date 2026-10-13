@@ -14,6 +14,12 @@ on:
       - 'codex/**'
       - 'ci/**'
   workflow_dispatch:
+    inputs:
+      upload_artifacts:
+        description: Upload APK/AAB files for this explicitly requested manual run
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -100,6 +106,12 @@ jobs:
       - name: Run standard debug lint (non-NPU clean checkout)
         run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:lintStandardDebug --stacktrace
 
+      - name: Verify SDK-free Rust and JNI lifecycle
+        run: |
+          cargo test --offline --locked --manifest-path diagnostics/resident-cp-rust/Cargo.toml --features ffi-host-test
+          cargo clippy --offline --locked --manifest-path diagnostics/resident-cp-rust/Cargo.toml --features ffi-host-test --all-targets -- -D warnings
+          python3 scripts/check_resident_cp_jni.py
+
       - name: Assemble standard debug non-NPU smoke APK
         run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:assembleStandardDebug --stacktrace
 
@@ -116,18 +128,25 @@ jobs:
           test -z "$(git status --porcelain --untracked-files=all -- app/schemas)"
 
       - name: Upload debug reports
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: lami-standard-debug-non-npu
           path: |
-            app/build/outputs/apk/standard/debug/*.apk
             app/build/reports/tests/testStandardDebugUnitTest/
             app/build/test-results/testStandardDebugUnitTest/
             app/build/reports/lint-results-standardDebug.*
-            app/schemas/
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 3
+
+      - name: Upload debug APK on explicit manual request
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: lami-standard-debug-apk
+          path: app/build/outputs/apk/standard/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 3
 
   standard-release:
     name: Standard release verification
@@ -197,17 +216,26 @@ jobs:
           cat "$report_dir/sha256sums.txt"
           cat "$report_dir/native-library-inventory.txt"
 
-      - name: Upload release reports and bundle
-        if: always()
+      - name: Upload release failure reports
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: lami-standard-release
           path: |
-            app/build/outputs/apk/standard/release/*.apk
-            app/build/outputs/bundle/standardRelease/*.aab
             app/build/reports/tests/testStandardReleaseUnitTest/
             app/build/test-results/testStandardReleaseUnitTest/
             app/build/reports/lint-results-standardRelease.*
             app/build/reports/release-artifacts/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
+
+      - name: Upload release APK and AAB on explicit manual request
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: lami-standard-release-build
+          path: |
+            app/build/outputs/apk/standard/release/*.apk
+            app/build/outputs/bundle/standardRelease/*.aab
+          if-no-files-found: warn
+          retention-days: 3
