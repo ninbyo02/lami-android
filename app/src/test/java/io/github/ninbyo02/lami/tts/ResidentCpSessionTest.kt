@@ -54,6 +54,35 @@ class ResidentCpSessionTest {
         session.close()
         assertFails { session.startFrame() }
     }
+    @Test fun backendFailureRequiresResetWithoutReload() {
+        val backend = object : ResidentCpSession.Backend {
+            var loads = 0
+            var resets = 0
+            override fun loadOnce() { loads++ }
+            override fun resetFrameKv() { resets++ }
+            override fun execute(position: Int, input: FloatArray): FloatArray {
+                if (resets == 1) error("Simulated NPU failure")
+                return input.copyOf()
+            }
+            override fun close() {}
+        }
+        ResidentCpSession(backend).use { session ->
+            session.startFrame()
+            assertFails { session.step(floatArrayOf(1f)) }
+            session.startFrame()
+            repeat(16) { session.step(floatArrayOf(1f)) }
+            assertEquals(1, backend.loads)
+            assertEquals(2, backend.resets)
+            assertEquals(1, session.completedFrames)
+        }
+    }
+    @Test fun changingTensorShapeIsRejected() {
+        ResidentCpSession(Fake()).use { session ->
+            session.startFrame()
+            session.step(floatArrayOf(1f))
+            assertFails { session.step(floatArrayOf(1f, 2f)) }
+        }
+    }
     private fun assertFails(block: () -> Unit) {
         try { block(); fail("Expected rejection") }
         catch (_: IllegalStateException) { }
