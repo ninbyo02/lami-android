@@ -553,7 +553,7 @@ device-access blackout, including read-only ADB. Outside that window, obtain
 the user's foreground-use confirmation and coordinate with the TTS device
 tests before connecting. Do not schedule or start a device job from this note.
 
-### Minimal ordered device checks, after permission
+### Historical device plan, before the 2026-10-14 window
 
 1. Reconfirm the serial, unlocked foreground window, temperature below 40 C,
    and absence of another device test. Check the APK application IDs and
@@ -644,8 +644,9 @@ Integration retains the following safety boundaries:
   included in Git. The new native patch remains an opt-in experimental candidate;
   this integration does not deploy it to the production phone.
 - Production image enrollment and a signed main-package update still require
-  the device/resume gates above. No foreground window has been granted yet and
-  TTS owns the device; no ADB call is allowed from this integration work.
+  the device/resume gates above. At this initial inspection no foreground
+  window had been granted and TTS owned the device. The later authorized
+  window is recorded below; this is not continuing device-use permission.
 
 First device window: allow roughly 3-5 minutes for NPU image selection/send,
 restored-photo response, eight-image stop/drain and recovery. If successful,
@@ -655,3 +656,60 @@ not measured execution times. Never run during the weekday 08:00-19:30 JST
 blackout or concurrently with TTS device tests. The 93-test PC snapshot above
 predates the new four-case context guard; use fresh integration CI for the new
 source HEAD, not that historical count as proof of current coverage.
+
+## Authorized v2 device window: 2026-10-14
+
+Candidate `c8f3d503c2a1ae6324fa3576d8382f13f657ddaa` was tested after the
+user approved a bounded foreground window and TTS released its shared device
+lock. The window ended and the lock was released at **04:20:17 JST**. The
+production and TTS packages, user data, screen-lock and power settings were
+not changed. No further device case was started after the failure below.
+
+The candidate debug/test APKs were installed with data-preserving `install -r`
+only to `io.github.ninbyo02.lami.npuvalidation.imagebench` and its test package.
+The signed isolated release APK uses the same debug certificate (SHA-256
+`4a0871be6ed685755478a8d447a3a1c9b2c4743deb5dc65a4c5e016ab686b357`),
+but was **not installed or tested** because the preceding cancellation gate
+failed. This is not a production signing certificate or deployment approval.
+
+| v2 debug check | Result | Measured time |
+| --- | --- | --- |
+| Restored Earth photo, Activity recreation and thread switch away/back | COMPLETED; correctly identified Earth; NPU/QNN notes; no fallback | UI 9.638 s; native send 4.166 s |
+| Subsequent text-only RAM question | COMPLETED; relevant answer; NPU notes | UI 1.328 s |
+| Stop during eight-image restored-history processing | CANCELLED persisted; no late COMPLETED reply in the observation window | UI stop 0.118 s; native drain wait **32.805 s** |
+
+Instrumentation confirmed the actual target build was debug/API0.17.0 and
+all persisted image files existed. Eight-image cancellation **failed** the
+explicit native drain <=5 s assertion even though UI stop passed <=1 s.
+Drain wait starts after the stopped screenshot; it is not the complete
+stop-to-release latency and must not be presented as a passing cancellation.
+The trace records cancel at 04:19:39.160, conversation close at 04:20:11.988
+and engine close at 04:20:12.223. Text recovery after this cancellation,
+fresh PhotoPicker selection, CPU/GPU v2 UI checks, and API0.11.0 isolated
+release behavior remain **unverified**. Historical v1 timings elsewhere in
+this document do not replace those missing v2 checks.
+
+Static runtime inspection shows `SessionBasic::RunPrefillAsync` performs
+preprocessing before worker scheduling, with cancellation checked after
+`PrefillInternal` completes. This is a plausible cancellation boundary to
+investigate, not profiler proof of where this measured wait occurred. Do not
+remove the native-close wait or declare success by hiding ongoing work.
+
+PC validation at this head built debug/test/unsigned release with the opt-in
+private runtime and passed 42 focused tests across four suites (zero
+failures/errors/skips). The earlier full suite at `14da6a36d...` passed 2306
+tests; subsequent hosted CI remains the gate for the exact integration head.
+Independent read-only reviews of `14da6a36d...` and the additional committed
+`14da6a36d..c8f3d503c` changes found no actionable source regressions. Reviews
+are not device certification.
+
+Raw local evidence, including APK hashes and structured instrumentation
+results, is retained outside Git in
+`../gemma4-image-benchmark-evidence/device-c8f3d503c-v2/`. Models and native
+binary inputs were unchanged. The previous 15-image acceptance/16-image
+rejection results are not rerun for this source-only candidate. The app's
+ten-image limit and `verifiedForNormalUse=false` remain in force. Source
+integration may proceed only as a Developer-gated trial, not normal-use
+image enrollment. Next native work must locate the non-interruptible phase,
+add safe cancellation boundaries, rebuild and remeasure in another explicitly
+authorized device window before normal-use promotion.
