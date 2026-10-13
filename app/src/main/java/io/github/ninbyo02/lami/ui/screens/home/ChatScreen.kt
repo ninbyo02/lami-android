@@ -5259,6 +5259,8 @@ fun Home(
                                                         extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
                                                     )
                                                     val dispatchJob = coroutineScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+                                                      var ownedPreparedLocalImages = emptyList<LocalImageInput>()
+                                                      var imageAttachmentPersistenceStarted = false
                                                       try {
                                                        kotlinx.coroutines.coroutineScope localSendLaunch@ {
                                                         // Give Compose at least a few frames to render the cleared composer
@@ -5282,6 +5284,7 @@ fun Home(
                                                             }
                                                             .orEmpty() else emptyList()
                                                         val requestLocalImageFilePaths = requestLocalImageInputs.map(LocalImageInput::absolutePath)
+                                                        ownedPreparedLocalImages = requestLocalImageInputs
                                                         val requestSavedAttachmentUriStrings = requestLocalImageInputs
                                                             .map(LocalImageInput::savedUriString)
                                                             .ifEmpty { requestAttachmentUriStrings }
@@ -5347,6 +5350,7 @@ fun Home(
                                                                         },
                                                                         insertUserMessage = { chatId, text ->
                                                                             imageChatId = chatId
+                                                                            imageAttachmentPersistenceStarted = true
                                                                             withContext(Dispatchers.IO) {
                                                                                 viewModel.insertAssistantMessageAndReturnId(
                                                                                     Message(
@@ -5602,6 +5606,7 @@ fun Home(
                                                                         effectiveChatId = newChatId
                                                                     },
                                                                     insertUserMessage = { chatId, promptText ->
+                                                                        imageAttachmentPersistenceStarted = true
                                                                         if (immediateLocalChatId == chatId && immediateLocalUserInsertJob != null) {
                                                                             immediateLocalUserInsertJob.join()
                                                                         } else {
@@ -9155,6 +9160,12 @@ fun Home(
                                                             withContext(NonCancellable) {
                                                                 imageRunLease.finishHistoryCleanup { messageId ->
                                                                     cancelStreamingAssistantLifecycleSerialized(messageId)
+                                                                }
+                                                                withContext(Dispatchers.IO) {
+                                                                    val retained = deleteUnpersistedLocalImageInputs(
+                                                                        ownedPreparedLocalImages, imageAttachmentPersistenceStarted,
+                                                                    )
+                                                                    if (retained > 0) logStreamTrace("LOCAL_IMAGE unused_attachment_cleanup_failed_count=$retained")
                                                                 }
                                                                 if (imageRunLease.ownsRun) {
                                                                     pendingLocalUserMessageText = null

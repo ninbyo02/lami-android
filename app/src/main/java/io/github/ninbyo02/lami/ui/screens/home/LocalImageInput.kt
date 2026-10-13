@@ -223,6 +223,13 @@ private fun readImageBytesForLocalInput(
     return output.toByteArray()
 }
 
+internal fun deleteUnpersistedLocalImageInputs(inputs: List<LocalImageInput>, persistenceStarted: Boolean): Int {
+    if (persistenceStarted) return 0
+    return inputs.count { input ->
+        !runCatching { File(input.absolutePath).let { !it.exists() || it.delete() } }.getOrDefault(false)
+    }
+}
+
 private fun normalizeBitmapForLocalImageInput(
     bitmap: Bitmap,
     sourceBytes: ByteArray,
