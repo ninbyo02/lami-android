@@ -72,8 +72,14 @@ fn registry() -> &'static Mutex<HashMap<u64, Worker>> {
 }
 fn insert(worker: Worker) -> Result<u64, i32> {
     static NEXT: AtomicU64 = AtomicU64::new(1);
-    let handle = NEXT.fetch_update(Ordering::Relaxed, Ordering::Relaxed,
-        |value| (value < i64::MAX as u64).then_some(value + 1)).map_err(|_| INTERNAL)?;
+    let mut value = NEXT.load(Ordering::Relaxed);
+    let handle = loop {
+        if value >= i64::MAX as u64 { return Err(INTERNAL); }
+        match NEXT.compare_exchange_weak(value, value + 1, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => break value,
+            Err(actual) => value = actual,
+        }
+    };
     registry().lock().map_err(|_| INTERNAL)?.insert(handle, worker);
     Ok(handle)
 }
