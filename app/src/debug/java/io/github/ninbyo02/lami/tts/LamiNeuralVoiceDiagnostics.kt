@@ -29,6 +29,7 @@ internal object LamiNeuralVoiceDiagnostics {
         val started = SystemClock.elapsedRealtimeNanos()
         val firstAudio = LamiFirstAudioTiming.start(
             requestId = 0L,
+            requestOrdinal = 0L,
             startedAtNs = started,
             startKind = LamiFirstAudioTiming.StartKind.COLD,
         )
@@ -82,6 +83,7 @@ internal object LamiNeuralVoiceDiagnostics {
                 suspend fun prepare(index: Int): Pair<Int, FloatArray> {
                     val firstAudio = LamiFirstAudioTiming.start(
                         requestId = index.toLong(),
+                        requestOrdinal = index.toLong(),
                         startedAtNs = SystemClock.elapsedRealtimeNanos(),
                         startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(index.toLong()),
                     )
