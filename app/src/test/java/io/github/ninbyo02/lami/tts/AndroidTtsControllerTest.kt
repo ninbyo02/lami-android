@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.tts
 
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import org.junit.Assert.*
 import org.junit.Test
@@ -8,6 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowTextToSpeech
 
 @RunWith(RobolectricTestRunner::class)
@@ -54,6 +56,62 @@ class AndroidTtsControllerTest {
         engine.utteranceProgressListener.onDone(oldId)
         assertTrue(controller.isSpeaking.value)
         assertEquals("新しい回答です。", engine.lastSpokenText)
+        controller.shutdown()
+    }
+
+    @Test fun `old interrupted stop cannot interrupt replacement playback`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("古い回答です。")
+        val oldId = activeId(controller)
+        controller.stop()
+        controller.speakQueued("新しい回答です。")
+
+        engine.utteranceProgressListener.onStop(oldId, true)
+
+        assertTrue(controller.isSpeaking.value)
+        assertEquals("新しい回答です。", engine.lastSpokenText)
+        assertEquals(listOf("古い回答です。", "新しい回答です。"), engine.spokenTextList.toList())
+        controller.shutdown()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun `stop suppresses stale queued playback callback`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        val callbacks = mutableListOf<Boolean>()
+        controller.setOnPlaybackStateChanged(callbacks::add)
+
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("再生中です。")
+        val stoppedId = activeId(controller)
+        controller.stop()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        engine.utteranceProgressListener.onStart(stoppedId)
+        engine.utteranceProgressListener.onDone(stoppedId)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf(false), callbacks)
+        assertFalse(controller.isSpeaking.value)
+        controller.shutdown()
+    }
+
+    @Test fun `interrupted stop clears queued speech and ignores late completion`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("再生中です。")
+        val interruptedId = activeId(controller)
+        controller.speakQueued("割り込み後に読まない文章です。")
+
+        engine.utteranceProgressListener.onStop(interruptedId, true)
+        engine.utteranceProgressListener.onDone(interruptedId)
+
+        assertFalse(controller.isSpeaking.value)
+        assertEquals(listOf("再生中です。"), engine.spokenTextList.toList())
         controller.shutdown()
     }
 }

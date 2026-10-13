@@ -16,17 +16,22 @@ internal class LamiVoiceTextFrontend(
         val pad = projectedText(151671)
         val bos = projectedText(151672)
         val eos = projectedText(151673)
-        val codecTags = listOf(2154, 2156, 2058, 2157, 3000, 2148, 2149)
+        val codecSpeech = codecEmbedding(2148)
+        val codecEnd = codecEmbedding(2149)
+        val codecTags = intArrayOf(2154, 2156, 2058, 2157, 3000, 2148)
         fun add(a: FloatArray, b: FloatArray): FloatArray {
             require(a.size == 1024 && b.size == 1024)
             return FloatArray(1024) { a[it] + b[it] }.also { require(it.all(Float::isFinite)) }
         }
         val prefill = mutableListOf<FloatArray>()
-        ids.take(3).forEach { prefill += projectedText(it) }
-        codecTags.dropLast(1).forEachIndexed { index, token -> prefill += add(if (index == codecTags.size - 2) bos else pad, codecEmbedding(token)) }
-        ids.slice(3 until ids.size - 5).forEach { prefill += add(projectedText(it), codecEmbedding(2148)) }
-        prefill += add(eos, codecEmbedding(2148))
-        prefill += add(pad, codecEmbedding(2149))
+        for (index in 0 until 3) prefill += projectedText(ids[index])
+        for (index in codecTags.indices) {
+            val token = codecTags[index]
+            prefill += add(if (index == codecTags.lastIndex) bos else pad, if (token == 2148) codecSpeech else codecEmbedding(token))
+        }
+        for (index in 3 until ids.size - 5) prefill += add(projectedText(ids[index]), codecSpeech)
+        prefill += add(eos, codecSpeech)
+        prefill += add(pad, codecEnd)
         require(prefill.size < capacity - 2) { "Speech text does not fit model cache" }
         return LamiVoiceTextContext(ids, prefill, pad)
     }

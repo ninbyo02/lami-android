@@ -69,6 +69,7 @@ class LamiSpeechPipelineTest {
         pipeline.enqueue("old")
         pipeline.enqueue("discard")
         runCurrent()
+        assertTrue(events.contains("prepare discard"))
         pipeline.replace("superseded")
         runCurrent()
         pipeline.replace("new")
@@ -80,5 +81,34 @@ class LamiSpeechPipelineTest {
         assertTrue(events.contains("play new"))
         assertFalse(events.contains("play discard"))
         assertFalse(events.contains("play superseded"))
+    }
+
+    @Test fun `enqueue after explicit stop waits for cancelled playback cleanup`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val events = mutableListOf<String>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, {}, prepare = {
+            events += "prepare $it"
+            it
+        }, play = {
+            events += "play $it"
+            if (it == "old") try { delay(1000) } finally {
+                withContext(NonCancellable) {
+                    events += "cleanup started"
+                    cleanup.await()
+                    events += "cleanup finished"
+                }
+            }
+        })
+        pipeline.enqueue("old")
+        runCurrent()
+        pipeline.stop()
+        runCurrent()
+        pipeline.enqueue("new")
+        runCurrent()
+        assertEquals(listOf("prepare old", "play old", "cleanup started"), events)
+        cleanup.complete(Unit)
+        runCurrent()
+        assertTrue(events.indexOf("cleanup finished") < events.indexOf("prepare new"))
+        assertTrue(events.contains("play new"))
     }
 }

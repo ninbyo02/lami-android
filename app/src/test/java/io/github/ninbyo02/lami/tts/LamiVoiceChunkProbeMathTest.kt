@@ -30,6 +30,12 @@ class LamiVoiceChunkProbeMathTest {
             LamiVoiceChunkProbeMath.appendedPcm(first, next) + LamiVoiceChunkProbeMath.appendedPcm(next, last)
         assertArrayEquals(last, assembled, 0f)
     }
+    @Test fun streamingPrefixCadenceStartsAtFirstDecodableChunkThenUsesSteadyInterval() {
+        val emitted = (1..18).filter(LamiVoiceChunkProbeMath::shouldEmitStreamingPrefix)
+        assertEquals(listOf(2, 8, 16), emitted)
+        assertEquals(2, LamiVoiceChunkProbeMath.STREAMING_STARTUP_PREFIX_FRAMES)
+        assertEquals(8, LamiVoiceChunkProbeMath.STREAMING_STEADY_PREFIX_INTERVAL_FRAMES)
+    }
     @Test(expected = IllegalArgumentException::class)
     fun changedPrefixCannotBeSubmittedAsNewAudio() {
         LamiVoiceChunkProbeMath.appendedPcm(floatArrayOf(0.1f), floatArrayOf(0.2f, 0.3f))
