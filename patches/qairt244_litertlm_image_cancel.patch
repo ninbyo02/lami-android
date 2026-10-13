@@ -1,0 +1,129 @@
+diff --git a/runtime/core/BUILD b/runtime/core/BUILD
+index a06d0bcf..4d95cef4 100644
+--- a/runtime/core/BUILD
++++ b/runtime/core/BUILD
+@@ -290,6 +290,7 @@ cc_test(
+         "//runtime/executor:executor_settings_base",
+         "//runtime/executor:fake_llm_executor",
+         "//runtime/executor:llm_executor_io_types",
++        "//runtime/executor:vision_executor",
+         "//runtime/framework:threadpool",
+         "//runtime/util:convert_tensor_buffer",
+         "//runtime/util:litert_status_util",
+diff --git a/runtime/core/session_basic.cc b/runtime/core/session_basic.cc
+index f9407f17..4f94fd44 100644
+--- a/runtime/core/session_basic.cc
++++ b/runtime/core/session_basic.cc
+@@ -151,6 +151,9 @@ absl::StatusOr<ExecutorInputs> SessionBasic::ProcessAndCombineContents(
+   std::vector<ExecutorVisionData> all_image_data;
+   std::vector<ExecutorAudioData> all_audio_data;
+   for (const auto& preprocessed_content : preprocessed_contents) {
++    if (cancelled_.load()) {
++      return absl::CancelledError("Session is cancelled before input encoding.");
++    }
+     if (const auto* input_text =
+             std::get_if<InputText>(&preprocessed_content)) {
+       ASSIGN_OR_RETURN(const auto* token_ids,
+@@ -183,6 +186,10 @@ absl::StatusOr<ExecutorInputs> SessionBasic::ProcessAndCombineContents(
+         return absl::FailedPreconditionError(
+             "The image is not preprocessed and does not have a tensor.");
+       }
++      // An individual Encode cannot be interrupted, but remaining images can.
++      if (cancelled_.load()) {
++        return absl::CancelledError("Session is cancelled during vision encoding.");
++      }
+       if (benchmark_info_.has_value()) {
+         RETURN_IF_ERROR(benchmark_info_->TimeMarkDelta("vision_executor"));
+       }
+@@ -286,6 +293,9 @@ absl::Status SessionBasic::PrefillInternal(
+     bool wait_for_completion) {
+   ASSIGN_OR_RETURN(ExecutorInputs inputs,
+                    ProcessAndCombineContents(preprocessed_contents));
++  if (cancelled_.load()) {
++    return absl::CancelledError("Session is cancelled before language prefill.");
++  }
+   ASSIGN_OR_RETURN(
+       last_prefill_token_id_,
+       Prefill(executor_, inputs, wait_for_completion, benchmark_info_));
+diff --git a/runtime/core/session_basic_test.cc b/runtime/core/session_basic_test.cc
+index 308c5128..53c65658 100644
+--- a/runtime/core/session_basic_test.cc
++++ b/runtime/core/session_basic_test.cc
+@@ -48,6 +48,7 @@
+ #include "runtime/executor/executor_settings_base.h"
+ #include "runtime/executor/fake_llm_executor.h"
+ #include "runtime/executor/llm_executor_io_types.h"
++#include "runtime/executor/vision_executor.h"
+ #include "runtime/framework/threadpool.h"
+ #include "runtime/util/convert_tensor_buffer.h"
+ #include "runtime/util/scoped_file.h"
+@@ -59,6 +60,18 @@ namespace {
+ 
+ using ::testing::status::StatusIs;
+ 
++using VisionInputs = absl::flat_hash_map<std::string, litert::TensorBuffer>;
++
++class MockVisionExecutor : public VisionExecutor {
++ public:
++  MOCK_METHOD(absl::StatusOr<ExecutorVisionData>, Encode,
++              (const litert::TensorBuffer&), (override));
++  MOCK_METHOD(absl::StatusOr<ExecutorVisionData>, Encode,
++              (const VisionInputs&), (override));
++  MOCK_METHOD(absl::StatusOr<std::vector<int>>, GetExpectedInputDimension, (),
++              (const, override));
++};
++
+ constexpr absl::string_view kTestdataDir =
+     "litert_lm/runtime/components/testdata/";
+ constexpr absl::string_view kTestAudioModelPath =
+@@ -970,6 +983,50 @@ TEST_F(SessionBasicTest, GenerateContentStreamDecodeError) {
+   EXPECT_THAT(status, StatusIs(absl::StatusCode::kInternal, "Decode failed"));
+ }
+ 
++TEST_F(SessionBasicTest, ProcessAndCombineContentsCancelledBeforeVision) {
++  SessionConfig session_config = SessionConfig::CreateDefault();
++  session_config.GetMutableSamplerParams() = sampler_params_;
++  session_config.SetSamplerBackend(Backend::CPU);
++  ASSERT_OK_AND_ASSIGN(auto executor, CreateFakeLlmExecutor({}, {}));
++  testing::StrictMock<MockVisionExecutor> vision;
++  EXPECT_CALL(vision, Encode(testing::A<const litert::TensorBuffer&>())).Times(0);
++  ASSERT_OK_AND_ASSIGN(
++      auto session,
++      SessionBasic::Create(executor.get(), tokenizer_.get(), &vision, nullptr,
++                           session_config, std::nullopt, worker_thread_pool_.get()));
++  ASSERT_OK_AND_ASSIGN(auto image, tokenizer_->TokenIdsToTensorBuffer({90}));
++  std::vector<InputData> inputs;
++  inputs.emplace_back(InputImage(std::move(image)));
++  session->CancelProcess();
++  EXPECT_THAT(session->ProcessAndCombineContents(inputs),
++              StatusIs(absl::StatusCode::kCancelled));
++}
++
++TEST_F(SessionBasicTest, ProcessAndCombineContentsStopsAfterFirstVisionEncode) {
++  SessionConfig session_config = SessionConfig::CreateDefault();
++  session_config.GetMutableSamplerParams() = sampler_params_;
++  session_config.SetSamplerBackend(Backend::CPU);
++  ASSERT_OK_AND_ASSIGN(auto executor, CreateFakeLlmExecutor({}, {}));
++  testing::StrictMock<MockVisionExecutor> vision;
++  ASSERT_OK_AND_ASSIGN(
++      auto session,
++      SessionBasic::Create(executor.get(), tokenizer_.get(), &vision, nullptr,
++                           session_config, std::nullopt, worker_thread_pool_.get()));
++  EXPECT_CALL(vision, Encode(testing::A<const litert::TensorBuffer&>()))
++      .WillOnce(testing::Invoke([&](const litert::TensorBuffer&)
++                                  -> absl::StatusOr<ExecutorVisionData> {
++        session->CancelProcess();
++        return ExecutorVisionData();
++      }));
++  std::vector<InputData> inputs;
++  for (int i = 0; i < 8; ++i) {
++    ASSERT_OK_AND_ASSIGN(auto image, tokenizer_->TokenIdsToTensorBuffer({90}));
++    inputs.emplace_back(InputImage(std::move(image)));
++  }
++  EXPECT_THAT(session->ProcessAndCombineContents(inputs),
++              StatusIs(absl::StatusCode::kCancelled));
++}
++
+ TEST_F(SessionBasicTest, ProcessAndCombineContentsSingleText) {
+   const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+   SessionConfig session_config = SessionConfig::CreateDefault();

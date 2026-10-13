@@ -215,6 +215,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -1308,6 +1310,22 @@ fun Home(
     val localChatHistoryReady = selectedInferenceTarget != InferenceTarget.LOCAL ||
         effectiveChatId == null || allChatsOrNull != null
     var localInferenceRunState by remember { mutableStateOf(LocalInferenceRunState()) }
+    val imageRunOwner = remember { Any() }
+    var currentImageRunLease by remember { mutableStateOf<LocalImageRunLease?>(null) }
+    val imageRunSnapshot by localImageRunCoordinator.state.collectAsState()
+    DisposableEffect(imageRunOwner) {
+        onDispose { currentImageRunLease?.requestCancellation("screen-disposed") }
+    }
+    LaunchedEffect(effectiveChatId, selectedInferenceTarget, localImageModelPath, localImageBackendSetting) {
+        val lease = currentImageRunLease ?: return@LaunchedEffect
+        if (lease.ownsRun && (
+                selectedInferenceTarget != InferenceTarget.LOCAL ||
+                    lease.modelPath != localImageModelPath || lease.backend != localImageBackendSetting ||
+                    (lease.chatId != null && lease.chatId != effectiveChatId)
+            )) {
+            lease.requestCancellation("chat-or-backend-changed")
+        }
+    }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
@@ -1574,7 +1592,8 @@ fun Home(
                 )
     val isServerRunningRaw = isServerRunning
     val isStopRequested = localInferenceRunState.stopRequested || remoteStopRequested
-    val isLocalRunningUi = isLocalRunningRaw && !isStopRequested
+    val isLocalRunningUi = (isLocalRunningRaw && !isStopRequested) ||
+        (selectedInferenceTarget == InferenceTarget.LOCAL && imageRunSnapshot.phase == LocalImageRunPhase.RUNNING)
     val isServerRunningUi = isServerRunningRaw && !isStopRequested
     val isInferenceRunningUi = isLocalRunningUi || isServerRunningUi
     val isComposerStopActive = isInferenceRunningUi || isTtsSpeaking || isTtsPlaying || keepTtsTalkingInHeader
@@ -1612,6 +1631,9 @@ fun Home(
         }
     }
     val headerStatusTitleOverride = when {
+        selectedInferenceTarget == InferenceTarget.LOCAL && imageRunSnapshot.phase == LocalImageRunPhase.FINALIZING -> "保存中..."
+        selectedInferenceTarget == InferenceTarget.LOCAL && imageRunSnapshot.phase == LocalImageRunPhase.RELEASE_FAILED -> "終了処理を確認できません"
+        selectedInferenceTarget == InferenceTarget.LOCAL && imageRunSnapshot.cleanupPending -> "停止中..."
         uiState is UiState.Thinking && isServerRunningUi -> "Thinking..."
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
@@ -3310,14 +3332,17 @@ fun Home(
         latestInferenceStats: InferenceStats? = null,
         localSourceSummary: String? = null,
         generationTimeMs: Long? = null,
+        imageRunLease: LocalImageRunLease? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        val terminalMessageId = finalizeStreamingAssistantFailure(
+        if (imageRunLease != null && !imageRunLease.claimFailure()) return@withLock null
+        suspend fun persist() = finalizeStreamingAssistantFailure(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
             generationTimeMs = generationTimeMs,
         )
+        val terminalMessageId = if (imageRunLease != null) imageRunLease.persistTerminal { persist() } else persist()
         releaseStreamingAssistantLifecycleOwnership(
             terminalMessageId = terminalMessageId,
             reason = "failure",
@@ -3864,8 +3889,10 @@ fun Home(
         localSourceSummary: String? = null,
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
+        imageRunLease: LocalImageRunLease? = null,
     ): Int? = streamingAssistantPersistMutex.withLock {
-        val terminalMessageId = finalizeStreamingAssistantMessage(
+        if (imageRunLease != null && !imageRunLease.claimCompletion()) return@withLock null
+        suspend fun persist() = finalizeStreamingAssistantMessage(
             chatId = chatId,
             response = response,
             latestInferenceStats = latestInferenceStats,
@@ -3873,6 +3900,7 @@ fun Home(
             imageInputCount = imageInputCount,
             generationTimeMs = generationTimeMs,
         )
+        val terminalMessageId = if (imageRunLease != null) imageRunLease.persistTerminal { persist() } else persist()
         releaseStreamingAssistantLifecycleOwnership(
             terminalMessageId = terminalMessageId,
             reason = "completed",
@@ -4874,9 +4902,26 @@ fun Home(
                                         hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                         isInferenceRunning = isInferenceRunningUi,
                                         localChatHistoryReady = localChatHistoryReady,
+                                        localImageCleanupPending = imageRunSnapshot.cleanupPending,
                                     )
                                     val composerAction: () -> Unit = composerAction@{
                                             viewModel.onUserInteraction()
+                                            if (selectedInferenceTarget == InferenceTarget.LOCAL && localImageRunCoordinator.state.value.busy) {
+                                                val lease = currentImageRunLease
+                                                if (lease?.requestCancellation("user-stop") == true) {
+                                                    localInferenceRunState = LocalInferenceRunController.requestStop(localInferenceRunState)
+                                                    localGpuWatchdogJob?.cancel()
+                                                    localGpuWatchdogJob = null
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId ?: currentSpeakingAssistantMessageId,
+                                                        armTapGuards = false,
+                                                    )
+                                                    resetStreamingAssistantPlaceholderId("stop")
+                                                    localStreamingUiState = localStreamingUiState.copy(responseText = null)
+                                                    localPartialStreamingState = LocalPartialStreamingState()
+                                                }
+                                                return@composerAction
+                                            }
                                             if (!isInferenceRunningUi && isComposerStopActive) {
                                                 stopTtsWithCleanup(
                                                     suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -5105,23 +5150,9 @@ fun Home(
                                                         hasImages = localImagesRequested,
                                                     )
                                                     if (requestPrompt.isBlank()) return@composerAction
-                                                    val localImagePreparation = if (localImagesRequested) {
-                                                        coroutineScope.async {
-                                                            runCatching {
-                                                                prepareLocalImageInputs(
-                                                                    context = context.applicationContext,
-                                                                    attachmentUris = requestAttachmentUris,
-                                                                    persistent = true,
-                                                                )
-                                                            }.onFailure { failure ->
-                                                                if (failure is CancellationException) throw failure
-                                                            }
-                                                        }
-                                                    } else {
-                                                        null
-                                                    }
                                                     val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
                                                         .mapNotNull { message ->
+                                                            if (!message.isSendbyMe && message.status != MessageStatus.COMPLETED) return@mapNotNull null
                                                             val images = if (message.isSendbyMe) {
                                                                 message.localConversationImageFilePaths()
                                                             } else {
@@ -5169,6 +5200,10 @@ fun Home(
                                                         return@composerAction
                                                     }
                                                     val immediateLocalChatId = effectiveChatId
+                                                    val imageRunLease = if (requestHasImageContext) {
+                                                        localImageRunCoordinator.begin(imageRunOwner, immediateLocalChatId, requestImageModelPath, requestImageBackend)
+                                                            ?: return@composerAction
+                                                    } else null
                                                     immediateLocalChatId?.let(::beginAssistantResponse)
                                                     val immediateLocalUserInsertJob = immediateLocalChatId
                                                         ?.takeIf { !requestHasImageContext }
@@ -5178,13 +5213,7 @@ fun Home(
                                                                 "ChatScreen",
                                                                 "[LOCAL_UI] DB_INSERT_START dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$chatId promptLength=${requestPrompt.length}",
                                                             )
-                                                            val preparedLocalImages = localImagePreparation
-                                                                ?.await()
-                                                                ?.getOrNull()
-                                                                .orEmpty()
-                                                            val savedAttachmentUriStrings = preparedLocalImages
-                                                                .map(LocalImageInput::savedUriString)
-                                                                .ifEmpty { requestAttachmentUriStrings }
+                                                            val savedAttachmentUriStrings = requestAttachmentUriStrings
                                                             viewModel.insert(
                                                                 Message(
                                                                     chatId = chatId,
@@ -5229,13 +5258,18 @@ fun Home(
                                                         label = "COMPOSER_CLEARED",
                                                         extra = "dt=${SystemClock.elapsedRealtime() - localSendTapElapsedMs}ms chatId=$immediateLocalChatId",
                                                     )
-                                                    coroutineScope.launch localSendLaunch@ {
+                                                    val dispatchJob = coroutineScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+                                                      var ownedPreparedLocalImages = emptyList<LocalImageInput>()
+                                                      var imageAttachmentPersistenceStarted = false
+                                                      try {
+                                                       kotlinx.coroutines.coroutineScope localSendLaunch@ {
                                                         // Give Compose at least a few frames to render the cleared composer
                                                         // and the user message before local/NPU route setup can occupy the UI.
                                                         delay(50)
-                                                        val requestLocalImageInputs = localImagePreparation
-                                                            ?.await()
-                                                            ?.getOrElse { failure ->
+                                                        val requestLocalImageInputs = if (localImagesRequested) runCatching {
+                                                            prepareLocalImageInputs(context.applicationContext, requestAttachmentUris, persistent = true)
+                                                        }
+                                                            .getOrElse { failure ->
                                                                 if (failure is CancellationException) throw failure
                                                                 pendingLocalUserMessageText = null
                                                                 userPrompt = requestPrompt
@@ -5248,8 +5282,9 @@ fun Home(
                                                                 localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
                                                                 return@localSendLaunch
                                                             }
-                                                            .orEmpty()
+                                                            .orEmpty() else emptyList()
                                                         val requestLocalImageFilePaths = requestLocalImageInputs.map(LocalImageInput::absolutePath)
+                                                        ownedPreparedLocalImages = requestLocalImageInputs
                                                         val requestSavedAttachmentUriStrings = requestLocalImageInputs
                                                             .map(LocalImageInput::savedUriString)
                                                             .ifEmpty { requestAttachmentUriStrings }
@@ -5293,7 +5328,7 @@ fun Home(
                                                                 armTapGuards = false,
                                                             )
                                                             responseSpeechSession.begin()
-                                                            localInferenceJob = coroutineScope.launch {
+                                                            localInferenceJob = launch {
                                                                 var imageChatId: Int? = null
                                                                 var acceptImagePartials = true
                                                                 try {
@@ -5301,19 +5336,21 @@ fun Home(
                                                                     NpuKotlinConversationProductRoute.reset("image-backend-changed", ::logStreamTrace)
                                                                     val run = runNpuInferenceAfterImmediateUserMessage(
                                                                         requestPrompt = requestPrompt,
-                                                                        currentChatId = effectiveChatId,
+                                                                        currentChatId = immediateLocalChatId,
                                                                         createChat = {
                                                                             withContext(Dispatchers.IO) {
                                                                                 viewModel.insertChatAndReturnId(Chat(title = "New chat", titleSource = TitleSource.TEMP))
                                                                             }
                                                                         },
                                                                         onChatCreated = { chatId ->
+                                                                            imageRunLease?.bindChat(chatId)
                                                                             effectiveChatId = chatId
                                                                             pendingNavigateChatId = chatId
                                                                             beginAssistantResponse(chatId)
                                                                         },
                                                                         insertUserMessage = { chatId, text ->
                                                                             imageChatId = chatId
+                                                                            imageAttachmentPersistenceStarted = true
                                                                             withContext(Dispatchers.IO) {
                                                                                 viewModel.insertAssistantMessageAndReturnId(
                                                                                     Message(
@@ -5329,8 +5366,13 @@ fun Home(
                                                                             pendingLocalUserMessageText = null
                                                                         },
                                                                         beforeInference = { chatId ->
-                                                                            val lifecycle = startStreamingAssistantLifecycleSerialized(chatId, "Failed to start image generation")
-                                                                            check(lifecycle.placeholderOwnershipReady) { "Image message lifecycle unavailable" }
+                                                                            currentCoroutineContext().ensureActive()
+                                                                            withContext(NonCancellable) {
+                                                                                val lifecycle = startStreamingAssistantLifecycleSerialized(chatId, "Failed to start image generation")
+                                                                                check(lifecycle.placeholderOwnershipReady) { "Image message lifecycle unavailable" }
+                                                                                imageRunLease?.bindAssistantMessage(lifecycle.messageId)
+                                                                            }
+                                                                            currentCoroutineContext().ensureActive()
                                                                         },
                                                                         runInference = { chatId ->
                                                                             val startedAt = SystemClock.elapsedRealtime()
@@ -5346,7 +5388,7 @@ fun Home(
                                                                                     val candidate = LocalInferenceOutputPolicy.evaluateLocalCandidate(requestPrompt, partial)
                                                                                     if (candidate.disposition == LocalInferenceOutputDisposition.ACCEPT) {
                                                                                         coroutineScope.launch {
-                                                                                            if (!acceptImagePartials || localInferenceRunState.stopRequested ||
+                                                                                            if (imageRunLease?.acceptsCallbacks == false || !acceptImagePartials || localInferenceRunState.stopRequested ||
                                                                                                 effectiveChatId != chatId || streamingGuardEpoch != guardEpoch) return@launch
                                                                                             localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                             localStreamingUiState = localStreamingUiState.copy(responseText = candidate.acceptedText)
@@ -5374,7 +5416,7 @@ fun Home(
                                                                         },
                                                                     )
                                                                     acceptImagePartials = false
-                                                                    if (localInferenceRunState.stopRequested || effectiveChatId != run.chatId) return@launch
+                                                                    if (imageRunLease?.acceptsCallbacks == false || localInferenceRunState.stopRequested || effectiveChatId != run.chatId) return@launch
                                                                     val (response, stats) = run.result
                                                                     val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = run.chatId,
@@ -5383,14 +5425,17 @@ fun Home(
                                                                         localSourceSummary = stats.localSourceSummary,
                                                                         imageInputCount = requestLocalImageFilePaths.size,
                                                                         generationTimeMs = stats.generationTimeMs,
+                                                                        imageRunLease = imageRunLease,
                                                                     )
                                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                     streamingResponseTextForRender = null
                                                                     if (assistantId != null) streamingSpeechStartedForMessageId = assistantId
                                                                     if (prepareResponseSpeechPlayback()) queueResponseSpeech(response, final = true)
                                                                 } catch (cancelled: CancellationException) {
+                                                                    imageRunLease?.requestCancellation("image-worker-cancelled")
                                                                     throw cancelled
                                                                 } catch (failure: Exception) {
+                                                                    if (imageRunLease?.cancelled == true) throw CancellationException("Image request cancelled", failure)
                                                                     logStreamTrace("LOCAL_IMAGE failure=${failure.javaClass.simpleName}:${failure.message}")
                                                                     val imageFailureMessage = (failure as? LocalImageContextLimitException)
                                                                         ?.userMessage ?: NpuImageInputPolicy.FAILURE_MESSAGE
@@ -5399,6 +5444,7 @@ fun Home(
                                                                             chatId = chatId,
                                                                             response = imageFailureMessage,
                                                                             localSourceSummary = imagePlan.diagnostics(requestLocalImageFilePaths.size),
+                                                                            imageRunLease = imageRunLease,
                                                                         )
                                                                     } ?: run {
                                                                         pendingLocalUserMessageText = null
@@ -5515,7 +5561,7 @@ fun Home(
                                                         )
                                                         responseSpeechSession.begin()
                                                         val npuSpeechGeneration = responseSpeechSession.generation
-                                                        localInferenceJob = coroutineScope.launch {
+                                                        localInferenceJob = launch {
                                                             var resolvedNpuChatId: Int? = null
                                                             var npuS1DecodeStartedAtMs: Long? = null
                                                             var npuProductNativeStreamingUsed = false
@@ -5542,7 +5588,7 @@ fun Home(
                                                                 var acceptNpuProductPartial = true
                                                                 val immediateNpuRun = runNpuInferenceAfterImmediateUserMessage(
                                                                     requestPrompt = requestPrompt,
-                                                                    currentChatId = effectiveChatId,
+                                                                    currentChatId = immediateLocalChatId,
                                                                     createChat = {
                                                                         isCreatingChat = true
                                                                         try {
@@ -5556,9 +5602,11 @@ fun Home(
                                                                         }
                                                                     },
                                                                     onChatCreated = { newChatId ->
+                                                                        imageRunLease?.bindChat(newChatId)
                                                                         effectiveChatId = newChatId
                                                                     },
                                                                     insertUserMessage = { chatId, promptText ->
+                                                                        imageAttachmentPersistenceStarted = true
                                                                         if (immediateLocalChatId == chatId && immediateLocalUserInsertJob != null) {
                                                                             immediateLocalUserInsertJob.join()
                                                                         } else {
@@ -5579,6 +5627,8 @@ fun Home(
                                                                         pendingLocalUserMessageText = null
                                                                     },
                                                                     beforeInference = { chatId ->
+                                                                        resolvedNpuChatId = chatId
+                                                                      withContext(if (imageRunLease != null) NonCancellable else kotlin.coroutines.EmptyCoroutineContext) {
                                                                         val session = assistantGenerationSessionController.session
                                                                         if (session?.messageId == null) {
                                                                             val lifecycle = startStreamingAssistantLifecycleSerialized(
@@ -5592,6 +5642,9 @@ fun Home(
                                                                                 )
                                                                             }
                                                                         }
+                                                                        imageRunLease?.bindAssistantMessage(assistantGenerationSessionController.session?.messageId)
+                                                                      }
+                                                                      currentCoroutineContext().ensureActive()
                                                                     },
                                                                     runInference = { npuChatId ->
                                                                         assistantGenerationSessionController.setStreamingOwner(
@@ -5642,9 +5695,9 @@ fun Home(
                                                                                         imageFilePaths = requestLocalImageFilePaths,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
+                                                                                            if (imageRunLease?.acceptsCallbacks != false && partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (!partialGate.acceptsUpdates || localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
+                                                                                                    if (imageRunLease?.acceptsCallbacks == false || !partialGate.acceptsUpdates || localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
                                                                                                     localPartialStreamingState = localPartialStreamingState.onPartialReceived()
                                                                                                                                                                                                         localStreamingUiState = localStreamingUiState.copy(responseText = partial)
                                                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
@@ -5710,6 +5763,8 @@ fun Home(
                                                                 )
                                                                 val currentChatId = immediateNpuRun.chatId
                                                                 resolvedNpuChatId = currentChatId
+                                                                currentCoroutineContext().ensureActive()
+                                                                if (imageRunLease?.acceptsCallbacks == false) return@launch
                                                                 val s1Result = immediateNpuRun.result.withTiming(
                                                                     buildNpuStandardRouteS1UiTiming(
                                                                         result = immediateNpuRun.result,
@@ -5853,6 +5908,7 @@ fun Home(
                                                                     chatId = currentChatId,
                                                                     response = npuFailureAssistantText,
                                                                     localSourceSummary = s1DisplayTextForDev,
+                                                                    imageRunLease = imageRunLease,
                                                                 )
                                                             }
                                                             localStreamingUiState = localStreamingUiState.copy(responseText = null)
@@ -6335,7 +6391,8 @@ fun Home(
                                                             npuStandardRouteNativeStreamingUsed &&
                                                                 s1Result.successCriteriaMet &&
                                                                 npuStandardRouteAssistantTextForPersist.isNotBlank() &&
-                                                                !localInferenceRunState.stopRequested
+                                                                !localInferenceRunState.stopRequested &&
+                                                                imageRunLease?.acceptsCallbacks != false
                                                         if (
                                                             mustFinalizeSuccessfulNativeConversation ||
                                                             (
@@ -6360,11 +6417,13 @@ fun Home(
                                                                     assistantGenerationSessionController.beginFinalizing()
                                                                     acceptNpuProductPartial = false
                                                                     val assistantId = withContext(NonCancellable + Dispatchers.IO) {
+                                                                        if (imageRunLease?.acceptsCallbacks == false) return@withContext null
                                                                         finalizeStreamingAssistantMessageSerialized(
                                                                             chatId = currentChatId,
                                                                             response = npuStandardRouteAssistantTextForPersist,
                                                                             latestInferenceStats = sharedInferenceStats,
                                                                             localSourceSummary = sharedInferenceStats.localSourceSummary,
+                                                                            imageRunLease = imageRunLease,
                                                                         )
                                                                     } ?: return@launch
                                                                     // Invalidate delayed streaming observers before releasing the transient UI.
@@ -6924,15 +6983,20 @@ fun Home(
                                                             }
                                                         }
                                                             } catch (exception: CancellationException) {
+                                                                imageRunLease?.requestCancellation("image-worker-cancelled")
                                                                 throw exception
                                                             } catch (exception: Exception) {
+                                                                if (imageRunLease?.cancelled == true) throw CancellationException("Image request cancelled", exception)
                                                                 Log.e("ChatScreen", "NPU standard route execution failed", exception)
                                                                 NpuStandardRouteS1AppHistory.recordException(
                                                                     context = context.applicationContext,
                                                                     prompt = requestPrompt,
                                                                     throwable = exception,
                                                                 )
-                                                                if (requestHasImageContext) {
+                                                                if (requestHasImageContext || exception is LocalImageReleaseException) {
+                                                                    val failureMessage = if (exception is LocalImageReleaseException)
+                                                                        "推論の終了処理を確認できないため、再試行を停止しました。"
+                                                                    else NpuImageInputPolicy.FAILURE_MESSAGE
                                                                     pendingLocalUserMessageText = null
                                                                     localStreamingUiState = localStreamingUiState.copy(responseText = null)
                                                                     streamingResponseTextForRender = null
@@ -6941,13 +7005,14 @@ fun Home(
                                                                     if (failureChatId != null && streamingPersistenceState.assistantMessageId != null) {
                                                                         finalizeStreamingAssistantFailureSerialized(
                                                                             chatId = failureChatId,
-                                                                            response = NpuImageInputPolicy.FAILURE_MESSAGE,
+                                                                            response = failureMessage,
+                                                                            imageRunLease = imageRunLease,
                                                                         )
                                                                     } else {
                                                                         userPrompt = requestPrompt
                                                                         selectedImageUriStrings = requestAttachmentUriStrings
                                                                         snackbarHostState.currentSnackbarData?.dismiss()
-                                                                        snackbarHostState.showSnackbar(NpuImageInputPolicy.FAILURE_MESSAGE)
+                                                                        snackbarHostState.showSnackbar(failureMessage)
                                                                     }
                                                                     return@launch
                                                                 }
@@ -9087,6 +9152,36 @@ fun Home(
                                                         }
                                                     }
                                                     }
+                                                      } catch (failure: LocalImagePersistenceException) {
+                                                        logStreamTrace("LOCAL_IMAGE terminal_persistence_failed=${failure.cause?.javaClass?.simpleName}")
+                                                      } finally {
+                                                        if (imageRunLease != null) {
+                                                            imageRunLease.releasing()
+                                                            withContext(NonCancellable) {
+                                                                imageRunLease.finishHistoryCleanup { messageId ->
+                                                                    cancelStreamingAssistantLifecycleSerialized(messageId)
+                                                                }
+                                                                withContext(Dispatchers.IO) {
+                                                                    val retained = deleteUnpersistedLocalImageInputs(
+                                                                        ownedPreparedLocalImages, imageAttachmentPersistenceStarted,
+                                                                    )
+                                                                    if (retained > 0) logStreamTrace("LOCAL_IMAGE unused_attachment_cleanup_failed_count=$retained")
+                                                                }
+                                                                if (imageRunLease.ownsRun) {
+                                                                    pendingLocalUserMessageText = null
+                                                                    localInferenceRunState = LocalInferenceRunController.finish(localInferenceRunState)
+                                                                    localInferenceJob = null
+                                                                }
+                                                            }
+                                                        }
+                                                      }
+                                                    }
+                                                    if (imageRunLease != null) {
+                                                        currentImageRunLease = imageRunLease
+                                                        imageRunLease.bindJob(dispatchJob)
+                                                        localInferenceJob = dispatchJob
+                                                    }
+                                                    dispatchJob.start()
                                                 }
                                             }
                                         }

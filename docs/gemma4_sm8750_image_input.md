@@ -6,6 +6,47 @@ latency gate. Source integration is a Developer-gated trial (PR #2754); normal-u
 promotion and production deployment remain blocked. Most measurements below
 are historical v1 results; the separate 2026-10-14 section records the v2 window.
 
+## Cancellation cleanup revision (2026-10-14, device timing pending)
+
+Based on main `7b0028a87e8c8d428ff0fa42b496521f4ce428c0` (PR #2754),
+the next candidate separates stop request from native/history cleanup completion.
+A process-wide lease blocks local image **and text** resend until its structured
+preparation/inference children and non-cancellable history cleanup finish.
+Screen disposal, chat/model/backend change and double-stop use the same lease;
+queued partial/final callbacks must still own the active generation. Cancelled
+or failed assistant rows are excluded from restored model history.
+Final persistence claims the terminal outcome atomically inside the persistence
+mutex. Once persistence has claimed completion/failure, Stop is no longer
+accepted; the UI shows saving and remains unavailable until cleanup completes.
+This avoids accepting Stop during a suspending database write and then committing
+COMPLETED behind the caller's back.
+
+Native cleanup closes Conversation before Engine. A close failure retains the
+uncertain handles, blocks reuse, and reports an unconfirmed-release state; it
+does not retry destruction, force-close, kill the process or silently fall back.
+Prepared bitmap and temporary-file cleanup now covers decoding/compression
+failures and cancellation at the IO dispatch boundary. Persisted attachments
+are not blindly deleted when a database insert might already have committed.
+
+`patches/qairt244_litertlm_image_cancel.patch` adds cancellation checks between
+input items, immediately after each vision Encode, and before language prefill.
+An **individual Encode remains non-interruptible**. Safe drain is still required;
+this is not a guarantee of an immediate stop or a measured latency improvement.
+Native Engine initialization also cannot be forcibly interrupted; cancellation
+is checked when its public API call returns, before further inference starts.
+The native PC suite passed all 39 tests; removing this patch makes both new
+cancellation tests fail. ARM64 JNI and test binary cross-compilation also passed.
+New pinned stock/independent JNI hashes are recorded in runtime config; other
+native components and both model files remain unchanged.
+
+The opt-in isolated UI test now measures stop-to-ready (including native and
+history cleanup), rejects resend while cleanup is pending, checks persisted
+CANCELLED/no later COMPLETED, and can test both text and one-photo recovery.
+The previous 0.118 s UI stop / 32.805 s native drain remains a **failed historical
+measurement**, not a measurement of this revision. New device and Release API
+0.11 validation need a fresh foreground lease. `verifiedForNormalUse=false`
+and the ten-image product cap remain unchanged.
+
 ## Supported route
 
 - Confirmed desktop bundle: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, 3,016,294,400 bytes,

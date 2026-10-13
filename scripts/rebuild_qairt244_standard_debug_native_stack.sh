@@ -10,6 +10,7 @@ EXTRA_PATCH="${QAIRT244_EXTRA_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_utf8_12
 CONVERSATION_PATCH="${QAIRT244_CONVERSATION_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_conversation_api_probe.patch}"
 KOTLIN_NPU_CONVERSATION_PATCH="${QAIRT244_KOTLIN_NPU_CONVERSATION_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_kotlin_npu_conversation_sampler.patch}"
 IMAGE_PREFACE_PATCH="${QAIRT244_IMAGE_PREFACE_PATCH-$ROOT_DIR/patches/qairt244_litertlm_image_preface.patch}"
+IMAGE_CANCEL_PATCH="$ROOT_DIR/patches/qairt244_litertlm_image_cancel.patch"
 QAIRT_ROOT="${QAIRT244_ROOT:-$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225}"
 LABEL="${QAIRT244_BUILD_LABEL:-qairt244_128token_persistent_probe_repro}"
 REQUIRE_PERSISTENT_PROBE="${QAIRT244_REQUIRE_PERSISTENT_PROBE:-true}"
@@ -323,6 +324,7 @@ if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
 fi
 if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
   apply_patch "$IMAGE_PREFACE_PATCH" image_preface
+  apply_patch "$IMAGE_CANCEL_PATCH" image_cancel
 fi
 git -C "$WORKTREE_DIR" diff --check
 
@@ -343,6 +345,7 @@ if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
   CONVERSATION_SOURCE="$WORKTREE_DIR/runtime/conversation/conversation.cc"
   grep -Fq 'qairt244_image_preface_queue_v2' "$CONVERSATION_SOURCE" || fail "Image preface queue marker is missing"
   grep -Fq 'source_messages = preface_messages' "$CONVERSATION_SOURCE" || fail "Image preface queue is missing"
+  grep -Fq 'Session is cancelled during vision encoding.' "$WORKTREE_DIR/runtime/core/session_basic.cc" || fail "Image cancellation boundary is missing"
 fi
 
 {
@@ -365,6 +368,7 @@ fi
   [[ -z "$KOTLIN_NPU_CONVERSATION_PATCH" ]] || printf 'kotlin_npu_conversation_patch_sha256\t%s\n' "$(sha_for "$KOTLIN_NPU_CONVERSATION_PATCH")"
   printf 'image_preface_patch\t%s\n' "${IMAGE_PREFACE_PATCH:-none}"
   [[ -z "$IMAGE_PREFACE_PATCH" ]] || printf 'image_preface_patch_sha256\t%s\n' "$(sha_for "$IMAGE_PREFACE_PATCH")"
+  [[ -z "$IMAGE_PREFACE_PATCH" ]] || printf 'image_cancel_patch_sha256\t%s\n' "$(sha_for "$IMAGE_CANCEL_PATCH")"
   printf 'provider_sha256\t%s\n' "$(sha_for "$PROVIDER_FILE")"
   printf 'require_persistent_probe\t%s\n' "$REQUIRE_PERSISTENT_PROBE"
   printf 'qairt_root\t%s\n' "$QAIRT_ROOT"

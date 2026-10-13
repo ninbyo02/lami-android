@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.printToString
@@ -57,8 +58,10 @@ class LocalImageReopenCancelUiInstrumentedTest {
     private val result = JSONObject()
     private var chatId = 0
     private var otherChatId = 0
+    private var recoveryChatId = 0
     private lateinit var title: String
     private lateinit var otherTitle: String
+    private lateinit var recoveryTitle: String
     private lateinit var mode: String
     private lateinit var backend: PreferredBackendDryRunSetting
     private val seedText = "Image UI persisted fixture"
@@ -103,6 +106,14 @@ class LocalImageReopenCancelUiInstrumentedTest {
             otherTitle = "Other UI $mode ${backend.name} ${System.currentTimeMillis()}"
             chatId = db.chatDao().insertChat(Chat(title = title)).toInt()
             otherChatId = db.chatDao().insertChat(Chat(title = otherTitle)).toInt()
+            recoveryTitle = "Image recovery ${System.currentTimeMillis()}"
+            recoveryChatId = db.chatDao().insertChat(Chat(title = recoveryTitle)).toInt()
+            val recoveryImage = prepareLocalImageInputs(context,
+                listOf(Uri.fromFile(File("/data/local/tmp/lami_nasa_AS17-148-22727.jpg"))), persistent = true).single()
+            db.messageDao().insertMessage(Message(chatId = recoveryChatId, message = seedText, isSendbyMe = true,
+                attachmentUriString = recoveryImage.savedUriString))
+            db.messageDao().insertMessage(Message(chatId = recoveryChatId,
+                message = "The image is available for the next question.", isSendbyMe = false))
             val uris = paths.map { File(it).toURI().toString() }
             db.messageDao().insertMessage(Message(chatId = chatId, message = seedText, isSendbyMe = true,
                 attachmentUriStringsJson = JSONArray(uris).toString(), attachmentUriString = uris.singleOrNull()))
@@ -165,7 +176,14 @@ class LocalImageReopenCancelUiInstrumentedTest {
                 compose.onNodeWithContentDescription("Stop Button").performClick()
                 compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Stop Button").fetchSemanticsNodes().isEmpty() }
                 result.put("ui_stop_ms", SystemClock.elapsedRealtime() - stopped)
+                if (localImageRunCoordinator.state.value.busy) {
+                    assertTrue("Stop must enter cleanup", localImageRunCoordinator.state.value.cleanupPending)
+                    compose.onNodeWithContentDescription("Send Button").assertIsNotEnabled()
+                    result.put("resend_disabled_during_cleanup", true)
+                }
                 screenshot("stopped")
+                compose.waitUntil(90_000) { !localImageRunCoordinator.state.value.busy }
+                result.put("stop_to_ready_ms", SystemClock.elapsedRealtime() - stopped)
                 val drainStart = SystemClock.elapsedRealtime()
                 runBlocking { withTimeout(90_000) { NpuKotlinConversationProductRoute.reset("ui_stop_drain_measure") } }
                 result.put("native_drain_wait_ms", SystemClock.elapsedRealtime() - drainStart)
@@ -176,7 +194,7 @@ class LocalImageReopenCancelUiInstrumentedTest {
                 assertTrue("Cancellation must be persisted", added.any { it.status == MessageStatus.CANCELLED })
                 if (InstrumentationRegistry.getArguments().getString("imageUiEnforceCancelLatency", "false").toBoolean()) {
                     assertTrue("UI stop exceeds 1 second", result.getLong("ui_stop_ms") <= 1_000L)
-                    assertTrue("Native drain exceeds 5 seconds", result.getLong("native_drain_wait_ms") <= 5_000L)
+                    assertTrue("Stop-to-ready exceeds 5 seconds", result.getLong("stop_to_ready_ms") <= 5_000L)
                 }
             } else {
                 compose.waitUntil(90_000) { rows().any { it.messageID !in before && !it.isSendbyMe && it.status !in MessageStatus.IN_FLIGHT } }
@@ -202,6 +220,26 @@ class LocalImageReopenCancelUiInstrumentedTest {
                     it.status == MessageStatus.COMPLETED && listOf("memory", "data", "instruction").any { word -> it.message.contains(word, true) }
                 })
                 screenshot("text_reply")
+            }
+            if (mode == "cancel" && InstrumentationRegistry.getArguments().getString("imageUiImageRegression", "false").toBoolean()) {
+                openChat(recoveryTitle, recoveryChatId)
+                val beforeRecovery = rows(recoveryChatId).map { it.messageID }.toSet()
+                compose.onNode(hasSetTextAction() and hasText("Enter your prompt ..."))
+                    .performTextInput("Name the main object in the previous image. English only.")
+                val recoveryStarted = SystemClock.elapsedRealtime()
+                compose.onNodeWithContentDescription("Send Button").performClick()
+                compose.waitUntil(90_000) { rows(recoveryChatId).any {
+                    it.messageID !in beforeRecovery && !it.isSendbyMe && it.status !in MessageStatus.IN_FLIGHT
+                } }
+                val replies = rows(recoveryChatId).filter { it.messageID !in beforeRecovery && !it.isSendbyMe }
+                result.put("image_recovery_ms", SystemClock.elapsedRealtime() - recoveryStarted)
+                    .put("image_recovery_messages", JSONArray(replies.map {
+                        JSONObject().put("text", it.message).put("status", it.status).put("notes", it.inferenceNotes)
+                    }))
+                assertTrue("Image inference must recover after cancellation", replies.any {
+                    it.status == MessageStatus.COMPLETED && it.message.contains("earth", true)
+                })
+                screenshot("image_recovery")
             }
             result.put("status", "completed")
         } catch (failure: Throwable) {

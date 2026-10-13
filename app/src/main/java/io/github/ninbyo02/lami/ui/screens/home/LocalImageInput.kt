@@ -17,6 +17,8 @@ import java.io.FileInputStream
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 private const val GEMMA_4_E2B_VISION_MODEL_FILE_NAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
 private const val GEMMA_4_E2B_VISION_MODEL_SIZE_BYTES = 3_016_294_400L
@@ -98,6 +100,8 @@ internal suspend fun resolveLocalImageInputCapability(
     val size = file.length()
     val sha256 = try {
         LocalVisionModelSha256Cache.sha256(file)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
     } catch (failure: Exception) {
         return@withContext LocalImageInputCapability.Unsupported("選択中のローカルモデルを読み取れません")
     }
@@ -139,51 +143,52 @@ internal suspend fun prepareLocalImageInputs(
     context: Context,
     attachmentUris: List<Uri>,
     persistent: Boolean = false,
-): List<LocalImageInput> = withContext(Dispatchers.IO) {
-    require(attachmentUris.size <= NpuImageInputPolicy.MAX_IMAGES) { "too many attachment images" }
-    val attachmentsDir = if (persistent) {
-        File(context.filesDir, LOCAL_IMAGE_PERSISTENT_DIR)
-    } else {
-        File(context.cacheDir, "attachments")
-    }.apply { mkdirs() }
+): List<LocalImageInput> {
     val prepared = mutableListOf<File>()
-    try {
-        attachmentUris.mapIndexed { index, attachmentUri ->
-            val bytes = readImageBytesForLocalInput(context, attachmentUri)
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "attachment decode failed" }
-            val longEdge = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
-            var sampleSize = 1
-            while (longEdge / sampleSize > LOCAL_IMAGE_MAX_LONG_EDGE_PX) {
-                sampleSize *= 2
+    return try {
+        withContext(Dispatchers.IO) {
+            require(attachmentUris.size <= NpuImageInputPolicy.MAX_IMAGES) { "too many attachment images" }
+            val attachmentsDir = if (persistent) {
+                File(context.filesDir, LOCAL_IMAGE_PERSISTENT_DIR)
+            } else {
+                File(context.cacheDir, "attachments")
+            }.apply { mkdirs() }
+            attachmentUris.map { attachmentUri ->
+                val ownerContext = currentCoroutineContext()
+                ownerContext.ensureActive()
+                val bytes = readImageBytesForLocalInput(context, attachmentUri) { ownerContext.ensureActive() }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                require(bounds.outWidth > 0 && bounds.outHeight > 0) { "attachment decode failed" }
+                val longEdge = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+                var sampleSize = 1
+                while (longEdge / sampleSize > LOCAL_IMAGE_MAX_LONG_EDGE_PX) sampleSize *= 2
+                val bitmap = BitmapFactory.decodeByteArray(
+                    bytes, 0, bytes.size,
+                    BitmapFactory.Options().apply { inSampleSize = sampleSize },
+                ) ?: error("attachment decode failed")
+                var normalizedBitmap: Bitmap? = null
+                val jpegBytes = try {
+                    normalizedBitmap = normalizeBitmapForLocalImageInput(bitmap, bytes)
+                    ByteArrayOutputStream().use { output ->
+                        check(normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, LOCAL_IMAGE_JPEG_QUALITY, output))
+                        output.toByteArray()
+                    }
+                } finally {
+                    normalizedBitmap?.takeIf { it !== bitmap }?.recycle()
+                    bitmap.recycle()
+                }
+                ownerContext.ensureActive()
+                val attachmentFile = File.createTempFile("local_att_", ".jpg", attachmentsDir)
+                prepared += attachmentFile
+                attachmentFile.writeBytes(jpegBytes)
+                ownerContext.ensureActive()
+                Log.d("LocalImageInput", "Prepared local image input path=${attachmentFile.absolutePath} bytes=${jpegBytes.size}")
+                LocalImageInput(attachmentFile.absolutePath, attachmentFile.toURI().toString())
             }
-            val bitmap = BitmapFactory.decodeByteArray(
-                bytes,
-                0,
-                bytes.size,
-                BitmapFactory.Options().apply { inSampleSize = sampleSize },
-            ) ?: error("attachment decode failed")
-            val normalizedBitmap = normalizeBitmapForLocalImageInput(bitmap, bytes)
-            val jpegBytes = ByteArrayOutputStream().use { output ->
-                normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, LOCAL_IMAGE_JPEG_QUALITY, output)
-                normalizedBitmap.recycle()
-                if (normalizedBitmap !== bitmap) bitmap.recycle()
-                output.toByteArray()
-            }
-            val attachmentFile = File(
-                attachmentsDir,
-                "local_att_${System.currentTimeMillis()}_$index.jpg",
-            )
-            attachmentFile.writeBytes(jpegBytes)
-            prepared += attachmentFile
-            Log.d("LocalImageInput", "Prepared local image input path=${attachmentFile.absolutePath} bytes=${jpegBytes.size}")
-            LocalImageInput(
-                absolutePath = attachmentFile.absolutePath,
-                savedUriString = attachmentFile.toURI().toString(),
-            )
         }
     } catch (failure: Throwable) {
+        // Also handles cancellation while dispatching the completed IO result.
         prepared.forEach(File::delete)
         throw failure
     }
@@ -192,6 +197,7 @@ internal suspend fun prepareLocalImageInputs(
 private fun readImageBytesForLocalInput(
     context: Context,
     attachmentUri: Uri,
+    checkCancellation: () -> Unit,
 ): ByteArray {
     val declaredLength = runCatching {
         context.contentResolver.openAssetFileDescriptor(attachmentUri, "r")?.use { descriptor ->
@@ -206,6 +212,7 @@ private fun readImageBytesForLocalInput(
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var total = 0L
         while (true) {
+            checkCancellation()
             val read = input.read(buffer)
             if (read <= 0) break
             total += read
@@ -214,6 +221,13 @@ private fun readImageBytesForLocalInput(
         }
     } ?: error("attachment read failed")
     return output.toByteArray()
+}
+
+internal fun deleteUnpersistedLocalImageInputs(inputs: List<LocalImageInput>, persistenceStarted: Boolean): Int {
+    if (persistenceStarted) return 0
+    return inputs.count { input ->
+        !runCatching { File(input.absolutePath).let { !it.exists() || it.delete() } }.getOrDefault(false)
+    }
 }
 
 private fun normalizeBitmapForLocalImageInput(
@@ -248,13 +262,21 @@ private fun normalizeBitmapForLocalImageInput(
         bitmap
     }
     if (!oriented.hasAlpha()) return oriented
-    val flattened = Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888)
-    Canvas(flattened).apply {
-        drawColor(Color.WHITE)
-        drawBitmap(oriented, 0f, 0f, null)
+    var flattened: Bitmap? = null
+    try {
+        val result = Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888)
+        flattened = result
+        Canvas(result).apply {
+            drawColor(Color.WHITE)
+            drawBitmap(oriented, 0f, 0f, null)
+        }
+        return result
+    } catch (failure: Throwable) {
+        flattened?.recycle()
+        throw failure
+    } finally {
+        if (oriented !== bitmap) oriented.recycle()
     }
-    if (oriented !== bitmap) oriented.recycle()
-    return flattened
 }
 
 private object LocalVisionModelSha256Cache {
@@ -266,7 +288,7 @@ private object LocalVisionModelSha256Cache {
 
     private val cache = linkedMapOf<Key, String>()
 
-    fun sha256(file: File): String {
+    suspend fun sha256(file: File): String {
         val key = Key(
             path = file.absolutePath,
             length = file.length(),
@@ -279,6 +301,7 @@ private object LocalVisionModelSha256Cache {
         FileInputStream(file).use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (true) {
+                currentCoroutineContext().ensureActive()
                 val read = input.read(buffer)
                 if (read <= 0) break
                 digest.update(buffer, 0, read)

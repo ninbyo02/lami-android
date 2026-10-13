@@ -10,6 +10,40 @@ import java.io.File
 
 class ChatSendAvailabilityTest {
     @Test
+    fun `local cleanup blocks image and text resend including repeated stop taps`() {
+        for (running in listOf(false, true)) {
+            for (image in listOf(false, true)) {
+                val availability = resolveChatSendAvailability(
+                    selectedInferenceTarget = InferenceTarget.LOCAL,
+                    selectedServerModel = null,
+                    selectedLocalModelPath = "/models/gemma.litertlm",
+                    serverUrl = null,
+                    hasPromptText = true,
+                    hasImageInput = image,
+                    isInferenceRunning = running,
+                    localImageCleanupPending = true,
+                )
+                assertFalse(availability.enabled)
+                assertEquals(ChatSendBlockedReason.LOCAL_IMAGE_CLEANUP_PENDING, availability.blockedReason)
+            }
+        }
+    }
+
+    @Test
+    fun `local cleanup does not block the independent server route`() {
+        assertTrue(resolveChatSendAvailability(
+            selectedInferenceTarget = InferenceTarget.SERVER,
+            selectedServerModel = "server-model",
+            selectedLocalModelPath = null,
+            serverUrl = "http://localhost:13511",
+            hasPromptText = true,
+            hasImageInput = true,
+            isInferenceRunning = false,
+            localImageCleanupPending = true,
+        ).enabled)
+    }
+
+    @Test
     fun `empty chat uses normal copy when selected local route has a model`() {
         assertEquals(
             EmptyChatUiState("ラミィがお手伝いします", "今日は何をしましょうか？", null, false),
