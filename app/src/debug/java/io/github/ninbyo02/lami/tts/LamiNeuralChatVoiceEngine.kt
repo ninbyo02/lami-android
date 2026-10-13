@@ -51,12 +51,15 @@ internal class LamiNeuralChatVoiceEngine(
 
     private suspend fun prepareUtterance(text: String): PreparedClip? {
         val requestId = requestIds.incrementAndGet()
+        val requestOrdinal = requestId - 1L
         val started = SystemClock.elapsedRealtimeNanos()
         val firstAudio = LamiFirstAudioTiming.start(
             requestId = requestId,
+            requestOrdinal = requestOrdinal,
             startedAtNs = started,
-            startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(requestId - 1L),
+            startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(requestOrdinal),
         )
+        trace(firstAudio, LamiFirstAudioTiming.requestStartedEvent(firstAudio))
         trace(firstAudio, "status=started text_chars=${text.length}")
         return try {
             val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(firstAudio, it) }
