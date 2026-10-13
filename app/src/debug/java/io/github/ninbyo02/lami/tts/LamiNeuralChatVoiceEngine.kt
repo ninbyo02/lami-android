@@ -57,6 +57,7 @@ internal class LamiNeuralChatVoiceEngine(
             startedAtNs = started,
             startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(requestId - 1L),
         )
+        trace(firstAudio, LamiFirstAudioTiming.requestStartedEvent(firstAudio))
         trace(firstAudio, "status=started text_chars=${text.length}")
         return try {
             val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(firstAudio, it) }

@@ -32,6 +32,7 @@ internal object LamiNeuralVoiceDiagnostics {
             startedAtNs = started,
             startKind = LamiFirstAudioTiming.StartKind.COLD,
         )
+        report.appendText("${LamiFirstAudioTiming.requestStartedEvent(firstAudio)}\n")
         fun firstAudioElapsedMs(): Long =
             LamiFirstAudioTiming.elapsedMsSince(firstAudio, SystemClock.elapsedRealtimeNanos())
         try {
@@ -79,11 +80,13 @@ internal object LamiNeuralVoiceDiagnostics {
             withTimeout(600_000L) {
                 val firstAudioRequests = arrayOfNulls<LamiFirstAudioTiming.Request>(texts.size)
                 suspend fun prepare(index: Int): Pair<Int, FloatArray> {
-                    firstAudioRequests[index] = LamiFirstAudioTiming.start(
+                    val firstAudio = LamiFirstAudioTiming.start(
                         requestId = index.toLong(),
                         startedAtNs = SystemClock.elapsedRealtimeNanos(),
                         startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(index.toLong()),
                     )
+                    firstAudioRequests[index] = firstAudio
+                    trace("request=$index ${LamiFirstAudioTiming.requestStartedEvent(firstAudio)}")
                     trace("request=$index synthesis=started")
                     val pcm = LamiVoiceModuleCache.withSession(root) { session ->
                         val codes = LamiPreparedVoiceSynthesizer.generateText(root, texts[index], session, reuseCpWorkspace) { trace("request=$index $it") }
