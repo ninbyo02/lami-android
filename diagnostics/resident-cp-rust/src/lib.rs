@@ -1,5 +1,5 @@
 //! Rust ownership boundary for the resident CP graph.
-//! Qualcomm QNN FFI and Android JNI are deliberately not implemented here.
+//! The optional SDK/FFI diagnostic retains the context on one native worker.
 //! No graph reload is allowed between CP positions or frames.
 use std::fmt::Debug;
 
@@ -11,6 +11,11 @@ pub trait Backend {
     fn clear_kv(&mut self) -> Result<(), Self::Error>;
     fn execute(&mut self, position: u8) -> Result<(), Self::Error>;
     fn close(&mut self);
+}
+
+pub trait EmbeddedBackend: Backend {
+    fn stage_embedding(&mut self, embedding: &[f32]) -> Result<(), Self::Error>;
+    fn hidden(&self) -> &[f32];
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -29,6 +34,7 @@ pub struct ResidentCp<B: Backend> {
 }
 
 impl<B: Backend> ResidentCp<B> {
+    pub fn backend_ref(&self) -> &B { &self.backend }
     pub fn new(backend: B) -> Self {
         Self { backend, loaded: false, poisoned: false, closed: false, next_position: STEPS_PER_FRAME }
     }
@@ -37,13 +43,7 @@ impl<B: Backend> ResidentCp<B> {
         if self.closed || self.poisoned || self.next_position != STEPS_PER_FRAME {
             return Err(CpError::InvalidState);
         }
-        if !self.loaded {
-            if let Err(e) = self.backend.open() {
-                self.poisoned = true;
-                return Err(CpError::Backend(e));
-            }
-            self.loaded = true;
-        }
+        self.load_once()?;
         if let Err(e) = self.backend.clear_kv() {
             self.poisoned = true;
             return Err(CpError::Backend(e));
@@ -52,19 +52,36 @@ impl<B: Backend> ResidentCp<B> {
         Ok(())
     }
 
+    pub fn load_once(&mut self) -> Result<(), CpError<B::Error>> {
+        if self.closed || self.poisoned { return Err(CpError::InvalidState); }
+        if !self.loaded {
+            if let Err(e) = self.backend.open() {
+                self.poisoned = true;
+                return Err(CpError::Backend(e));
+            }
+            self.loaded = true;
+        }
+        Ok(())
+    }
+
     pub fn step(&mut self, position: u8) -> Result<(), CpError<B::Error>> {
-        if self.closed || self.poisoned || !self.loaded || self.next_position >= STEPS_PER_FRAME {
-            return Err(CpError::InvalidState);
-        }
-        if position != self.next_position {
-            return Err(CpError::WrongPosition { expected: self.next_position, actual: position });
-        }
+        self.require_step(position)?;
         if let Err(e) = self.backend.execute(position) {
             self.poisoned = true;
             self.next_position = STEPS_PER_FRAME;
             return Err(CpError::Backend(e));
         }
         self.next_position += 1;
+        Ok(())
+    }
+
+    fn require_step(&self, position: u8) -> Result<(), CpError<B::Error>> {
+        if self.closed || self.poisoned || !self.loaded || self.next_position >= STEPS_PER_FRAME {
+            return Err(CpError::InvalidState);
+        }
+        if position != self.next_position {
+            return Err(CpError::WrongPosition { expected: self.next_position, actual: position });
+        }
         Ok(())
     }
 
@@ -84,6 +101,15 @@ impl<B: Backend> ResidentCp<B> {
                 self.loaded = false;
             }
         }
+    }
+}
+
+impl<B: EmbeddedBackend> ResidentCp<B> {
+    pub fn step_with_embedding(&mut self, position: u8, embedding: &[f32]) -> Result<&[f32], CpError<B::Error>> {
+        self.require_step(position)?;
+        self.backend.stage_embedding(embedding).map_err(CpError::Backend)?;
+        self.step(position)?;
+        Ok(self.backend.hidden())
     }
 }
 
@@ -168,3 +194,10 @@ mod tests {
 }
 
 pub mod tensors;
+pub mod sampling;
+
+#[cfg(feature = "qnn-sdk")]
+pub mod qnn;
+
+#[cfg(feature = "ffi")]
+pub mod ffi;

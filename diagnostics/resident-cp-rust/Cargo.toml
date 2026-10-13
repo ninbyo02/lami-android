@@ -8,3 +8,9 @@ publish = false
 crate-type = ["rlib", "staticlib"]
 
 [dependencies]
+
+[features]
+default = []
+ffi = []
+qnn-sdk = ["ffi"]
+ffi-host-test = ["ffi"]
