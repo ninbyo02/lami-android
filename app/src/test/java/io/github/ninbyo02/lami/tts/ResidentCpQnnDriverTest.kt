@@ -83,6 +83,21 @@ class ResidentCpQnnDriverTest {
             assertEquals(1, native.releases)
         } finally { file.delete() }
     }
+    @Test fun failedNativeLoadCannotRetryInSameDriver() {
+        val native = object : ResidentCpQnnDriver.NativeApi {
+            var loads = 0
+            override fun loadContext(asset: String): Long { loads++; error("load failure") }
+            override fun resetKv(context: Long) {}
+            override fun execute(context: Long, position: Int, input: FloatArray, output: FloatArray) {}
+            override fun release(context: Long) { fail("No handle was loaded") }
+        }
+        val driver = ResidentCpQnnDriver(native, "context.bin")
+        reject { driver.open() }
+        reject { driver.open() }
+        assertEquals(1, native.loads)
+        driver.close()
+    }
+
     private fun reject(block: () -> Unit) {
         try { block(); fail("Expected failure") }
         catch (_: IllegalStateException) {}

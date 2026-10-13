@@ -35,8 +35,16 @@ internal class ResidentCpQnnDriver(
                 require(file.absolutePath == contextAsset) { "Context path changed" }
                 ResidentCpArtifactVerifier.verify(file, spec)
             }
-            val opened = api.loadContext(contextAsset)
-            check(opened != 0L) { "QNN returned invalid context" }
+            val opened = try {
+                api.loadContext(contextAsset)
+            } catch (failure: Throwable) {
+                faulted = true
+                throw failure
+            }
+            if (opened == 0L) {
+                faulted = true
+                error("QNN returned invalid context")
+            }
             handle = opened
         }
     }
