@@ -6,6 +6,7 @@ internal object UsbSpeechPcm {
     fun stereo48k(samples: ShortArray, rate: Int, channels: Int): ShortArray {
         require(rate in 8_000..48_000 && channels in 1..2)
         require(samples.isNotEmpty() && samples.size % channels == 0)
+        if (rate == 48_000 && channels == 2) return samples
         val frames = samples.size / channels
         val outputFrames = (frames * 48_000L / rate).toInt()
         require(outputFrames in 1..2_880_000)

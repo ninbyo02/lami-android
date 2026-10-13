@@ -2,13 +2,16 @@ package io.github.ninbyo02.lami.tts
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class UsbSpeechPcmTest {
     @Test
     fun nativeStereoIsUnchanged() {
         val samples = shortArrayOf(-32768, 32767, -200, 100)
-        assertArrayEquals(samples, UsbSpeechPcm.stereo48k(samples, 48000, 2))
+        val converted = UsbSpeechPcm.stereo48k(samples, 48000, 2)
+        assertSame(samples, converted)
+        assertArrayEquals(shortArrayOf(-32768, 32767, -200, 100), converted)
     }
 
     @Test
