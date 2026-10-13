@@ -1,9 +1,10 @@
 # Gemma 4 E2B local image input on CPU, GPU, and NPU
 
-Current candidate: the v2 deferred-image-preface queue patch below builds but is
-NOT yet device-validated. Production update, push/PR/merge, and promotion of the
-Developer gate remain pending until this candidate passes device checks. All
-device measurements in this document currently used the historical v1 JNI.
+Current candidate: v2 deferred-image-preface has passed one NPU restored-photo
+and text-only follow-up check, but failed the eight-image native cancellation
+latency gate. Source integration is a Developer-gated trial (PR #2754); normal-use
+promotion and production deployment remain blocked. Most measurements below
+are historical v1 results; the separate 2026-10-14 section records the v2 window.
 
 ## Supported route
 
@@ -34,9 +35,9 @@ in the bundle are not enough to classify the image path as NPU-only.
 
 ## App behavior
 
-Local image requests require Developer access. Device input acceptance and restored
-image history were measured with the historical v1 synchronous-preface fix below;
-the current v2 deferred-preface runtime is not device-verified. Multi-image
+Local image requests require Developer access. All three backends' input acceptance
+and multi-image timings below used the historical v1 synchronous-preface fix;
+v2 has only partial NPU device validation and a failed cancellation gate. Multi-image
 semantic accuracy is imperfect. Exact size and SHA-256 identify the two supported bundles. A mismatch
 between model and explicit backend is rejected: the NPU-compiled language bundle
 does not silently run as CPU/GPU, and the generic bundle does not silently handle
@@ -67,9 +68,10 @@ EngineConfig values, restored image capacity, and separate NPU/CPU diagnostics.
 This was the source-only validation before the device measurements below.
 
 The static bundle inspection is not per-operator accelerator profiling. Historical
-v1 real-photo and NPU chat-reopening checks are recorded below; the current v2
-runtime still needs device checks. Image-only UI sends, backend switching,
-cancellation latency with v2, and release APK inference remain unverified.
+v1 real-photo and NPU chat-reopening checks are recorded below. The separate v2
+window measured NPU restored-photo success and failed cancellation latency.
+Image-only UI sends, backend switching, CPU/GPU v2 checks and release APK inference
+remain unverified.
 Do not promote the route based only on synthetic single-turn or packaging success.
 
 For further integration checks, run a standard debug build with the existing
