@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
+import android.os.Bundle
 import android.view.WindowManager
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -110,6 +111,7 @@ class LocalImageReopenCancelUiInstrumentedTest {
             resultFile = File(context.filesDir, "ui_${mode}_${backend}.json")
             result.put("status", "seeded").put("mode", mode).put("backend", backend.name).put("chat_id", chatId)
                 .put("image_count", paths.size).put("all_image_files_valid", paths.all { File(it).isFile })
+            putLocalImageRuntimeBuildMetadata(result)
             save()
         }
 
@@ -121,7 +123,7 @@ class LocalImageReopenCancelUiInstrumentedTest {
 
     @get:Rule val rules: TestRule = RuleChain.outerRule(seed).around(compose)
     private fun save() = resultFile.writeText(result.toString(2))
-    private fun rows(): List<Message> = runBlocking { db.messageDao().getAllMessages(chatId).first() }
+    private fun rows(id: Int = chatId): List<Message> = runBlocking { db.messageDao().getAllMessages(id).first() }
     private fun openChat(name: String, id: Int) {
         compose.waitUntil(20_000) { compose.activity.hasWindowFocus() }
         compose.onNodeWithContentDescription("チャット一覧").performClick()
@@ -172,6 +174,10 @@ class LocalImageReopenCancelUiInstrumentedTest {
                 result.put("assistant_statuses", JSONArray(added.map { it.status })).put("trace_after_stop", recentTrace().takeLast(6000))
                 assertTrue("Cancelled reply must not complete", added.isNotEmpty() && added.none { it.status == MessageStatus.COMPLETED })
                 assertTrue("Cancellation must be persisted", added.any { it.status == MessageStatus.CANCELLED })
+                if (InstrumentationRegistry.getArguments().getString("imageUiEnforceCancelLatency", "false").toBoolean()) {
+                    assertTrue("UI stop exceeds 1 second", result.getLong("ui_stop_ms") <= 1_000L)
+                    assertTrue("Native drain exceeds 5 seconds", result.getLong("native_drain_wait_ms") <= 5_000L)
+                }
             } else {
                 compose.waitUntil(90_000) { rows().any { it.messageID !in before && !it.isSendbyMe && it.status !in MessageStatus.IN_FLIGHT } }
                 val added = rows().filter { it.messageID !in before && !it.isSendbyMe }
@@ -181,6 +187,22 @@ class LocalImageReopenCancelUiInstrumentedTest {
                 assertTrue("Restored image must identify Earth", added.any { it.status == MessageStatus.COMPLETED && it.message.contains("earth", true) })
                 screenshot("reply")
             }
+            if (InstrumentationRegistry.getArguments().getString("imageUiTextRegression", "false").toBoolean()) {
+                openChat(otherTitle, otherChatId)
+                val beforeText = rows(otherChatId).map { it.messageID }.toSet()
+                compose.onNode(hasSetTextAction() and hasText("Enter your prompt ..."))
+                    .performTextInput("In one English sentence explain what RAM stores.")
+                val textStarted = SystemClock.elapsedRealtime()
+                compose.onNodeWithContentDescription("Send Button").performClick()
+                compose.waitUntil(90_000) { rows(otherChatId).any { it.messageID !in beforeText && !it.isSendbyMe && it.status !in MessageStatus.IN_FLIGHT } }
+                val textReplies = rows(otherChatId).filter { it.messageID !in beforeText && !it.isSendbyMe }
+                result.put("text_regression_ms", SystemClock.elapsedRealtime() - textStarted)
+                    .put("text_regression_messages", JSONArray(textReplies.map { JSONObject().put("text", it.message).put("status", it.status).put("notes", it.inferenceNotes) }))
+                assertTrue("Text-only reply must complete and answer the RAM question", textReplies.any {
+                    it.status == MessageStatus.COMPLETED && listOf("memory", "data", "instruction").any { word -> it.message.contains(word, true) }
+                })
+                screenshot("text_reply")
+            }
             result.put("status", "completed")
         } catch (failure: Throwable) {
             result.put("activity_had_focus_at_failure", compose.activity.hasWindowFocus())
@@ -188,7 +210,12 @@ class LocalImageReopenCancelUiInstrumentedTest {
             runCatching { File(context.filesDir, "ui_${mode}_${backend}_semantics.txt").writeText(compose.onRoot().printToString()) }
             result.put("status", "failed").put("error", failure.stackTraceToString())
             throw failure
-        } finally { save() }
+        } finally {
+            save()
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                putString("gemma_image_ui_result", result.toString())
+            })
+        }
     }
 
     private fun screenshot(stage: String) {

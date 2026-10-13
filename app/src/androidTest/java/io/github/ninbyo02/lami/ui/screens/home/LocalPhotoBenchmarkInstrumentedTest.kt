@@ -6,13 +6,13 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.PowerManager
 import android.os.SystemClock
+import android.os.Bundle
 import android.view.WindowManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.ninbyo02.lami.MainActivity
-import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import java.io.File
@@ -37,8 +37,9 @@ class LocalPhotoBenchmarkInstrumentedTest {
         val stem = "photo_${backend}_earth"
         val file = File(context.filesDir, "$stem.json")
         val trace = File(context.filesDir, "$stem.trace").apply { writeText("") }
-        val result = JSONObject().put("backend", backend.name).put("commit", BuildConfig.GIT_SHA)
+        val result = JSONObject().put("backend", backend.name)
             .put("status", "preparing").put("seed", 42).put("top_k", 40).put("top_p", 0.9).put("temperature", 0.3)
+        putLocalImageRuntimeBuildMetadata(result)
         fun save() = file.writeText(result.toString(2))
         fun temp() = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.getIntExtra("temperature", -1) ?: -1
         val lock = context.getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "lami:photo-test")
@@ -91,6 +92,9 @@ class LocalPhotoBenchmarkInstrumentedTest {
         } finally {
             result.put("native_accepted", accepted).put("response", response).put("temperature_end_tenths_c", temp())
             save()
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                putString("gemma_image_photo_result", result.toString())
+            })
             if (backend == PreferredBackendDryRunSetting.NPU) NpuKotlinConversationProductRoute.reset("photo_done")
             activity?.close()
             if (lock.isHeld) lock.release()

@@ -339,6 +339,10 @@ android {
         }
         release {
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
+            if (imageBenchmark.get()) {
+                applicationIdSuffix = ".imagebench"
+                versionNameSuffix = "-imageBenchmarkRelease"
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

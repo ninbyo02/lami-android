@@ -1045,9 +1045,10 @@ fun Home(
     var pendingFirstChatSubmission by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
     val allChatsState = effectiveChatId?.let {
         key(it) {
-            viewModel.allMessages(it)
-                .map { messages -> messages as List<Message>? }
-                .collectAsState(initial = null)
+            val historyFlow = remember(viewModel, it) {
+                viewModel.allMessages(it).map { messages -> messages as List<Message>? }
+            }
+            historyFlow.collectAsState(initial = null)
         }
     }
     val allChatsOrNull = allChatsState?.value
