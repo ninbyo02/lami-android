@@ -38,7 +38,7 @@ class LamiFirstAudioTimingTest {
             LamiFirstAudioTiming.requestStartedEvent(request),
         )
         assertEquals(
-            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
@@ -61,6 +61,7 @@ class LamiFirstAudioTimingTest {
         assertEquals(requested["first_audio_request_started_at_ns"], started["first_audio_request_started_at_ns"])
         assertEquals("elapsedRealtimeNanos", requested["first_audio_clock"])
         assertEquals("elapsedRealtimeNanos", started["first_audio_clock"])
+        assertEquals("audio_track_play_returned", started["first_audio_boundary"])
         assertEquals("0", requested["first_audio_elapsed_ms"])
         assertEquals("32", started["first_audio_elapsed_ms"])
         assertTrue(
@@ -86,6 +87,15 @@ class LamiFirstAudioTimingTest {
         assertEquals("2000999999", fields["first_audio_at_ns"])
         assertEquals("0", fields["first_audio_elapsed_ms"])
         assertEquals("elapsedRealtimeNanos", fields["first_audio_clock"])
+        assertEquals("audio_track_play_returned", fields["first_audio_boundary"])
+    }
+
+    @Test fun playbackBoundaryCallbackImmediatelyFollowsAudioTrackPlay() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmPlayer.kt",
+        ).readText()
+
+        assertTrue(Regex("track\\.play\\(\\)\\s+onStarted\\(\\)").containsMatchIn(source))
     }
 
     @Test fun requestAndEventTimestampsMustBeMonotonic() {
