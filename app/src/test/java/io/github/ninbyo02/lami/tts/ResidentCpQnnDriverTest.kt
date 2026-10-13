@@ -1,6 +1,8 @@
 package io.github.ninbyo02.lami.tts
 
 import org.junit.Assert.*
+import java.io.File
+import java.security.MessageDigest
 import org.junit.Test
 
 class ResidentCpQnnDriverTest {
@@ -59,6 +61,28 @@ class ResidentCpQnnDriverTest {
         reject { ResidentCpQnnDriver(native, "context.bin").open() }
     }
 
+    @Test fun verifiedLoadRejectsTamperingBeforeNativeOpen() {
+        val native = Fake()
+        val file = File.createTempFile("cp-context", ".bin")
+        try {
+            val original = "compiled-context".toByteArray()
+            val digest = MessageDigest.getInstance("SHA-256").digest(original)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            val spec = ResidentCpContextSpec(digest, 1024, 16, 32, "cp-test")
+            file.writeBytes("corrupted-context".toByteArray())
+            val driver = ResidentCpQnnDriver(native, file, spec)
+            try { driver.open(); fail("Expected hash rejection") }
+            catch (_: IllegalArgumentException) {}
+            assertEquals(0, native.loads)
+            driver.close()
+            file.writeBytes(original)
+            val good = ResidentCpQnnDriver(native, file, spec)
+            good.open()
+            good.close()
+            assertEquals(1, native.loads)
+            assertEquals(1, native.releases)
+        } finally { file.delete() }
+    }
     private fun reject(block: () -> Unit) {
         try { block(); fail("Expected failure") }
         catch (_: IllegalStateException) {}

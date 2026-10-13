@@ -1,5 +1,7 @@
 package io.github.ninbyo02.lami.tts
 
+import java.io.File
+
 /**
  * Host-side ownership boundary for a future JNI/QNN implementation.
  * NativeApi must map loadContext to a single resident QNN context and graph.
@@ -8,6 +10,7 @@ package io.github.ninbyo02.lami.tts
 internal class ResidentCpQnnDriver(
     private val api: NativeApi,
     private val contextAsset: String,
+    private val verifiedArtifact: Pair<File, ResidentCpContextSpec>? = null,
 ) : ResidentCpBufferedBackend.Driver {
     interface NativeApi {
         fun loadContext(asset: String): Long
@@ -15,6 +18,9 @@ internal class ResidentCpQnnDriver(
         fun execute(context: Long, position: Int, input: FloatArray, output: FloatArray)
         fun release(context: Long)
     }
+
+    constructor(api: NativeApi, file: File, spec: ResidentCpContextSpec) :
+        this(api, file.absolutePath, file to spec)
 
     init { require(contextAsset.isNotBlank()) }
 
@@ -25,6 +31,10 @@ internal class ResidentCpQnnDriver(
     override fun open() {
         check(!closed && !faulted) { "QNN driver unavailable" }
         if (handle == 0L) {
+            verifiedArtifact?.let { (file, spec) ->
+                require(file.absolutePath == contextAsset) { "Context path changed" }
+                ResidentCpArtifactVerifier.verify(file, spec)
+            }
             val opened = api.loadContext(contextAsset)
             check(opened != 0L) { "QNN returned invalid context" }
             handle = opened
