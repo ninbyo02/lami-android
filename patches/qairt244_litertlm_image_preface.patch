@@ -1,0 +1,49 @@
+diff --git a/runtime/conversation/conversation.cc b/runtime/conversation/conversation.cc
+index 6351e59c..f973da43 100644
+--- a/runtime/conversation/conversation.cc
++++ b/runtime/conversation/conversation.cc
+@@ -440,8 +440,35 @@ absl::Status Conversation::SendMessageAsync(
+   auto open_channel_name =
+       GetOpenChannelName(single_turn_text, config_.GetChannels());
+
++  Message source_messages = nlohmann::ordered_json::array({message});
++  const auto& preface_messages = std::get<JsonPreface>(preface_).messages;
+   {
+     absl::MutexLock lock(history_mutex_);  // NOLINT
++    bool include_image_preface = false;
++    if (history_.empty() && !config_.prefill_preface_on_init() &&
++        preface_messages.is_array()) {
++      for (const auto& initial_message : preface_messages) {
++        if (!initial_message.is_object() || !initial_message.contains("content") ||
++            !initial_message["content"].is_array()) {
++          continue;
++        }
++        for (const auto& item : initial_message["content"]) {
++          if (item.is_object() && item.value("type", "") == "image") {
++            include_image_preface = true;
++            break;
++          }
++        }
++        if (include_image_preface) break;
++      }
++    }
++    if (include_image_preface) {
++      // The first rendered prompt includes preface image placeholders. Supply
++      // their bytes to the cancellable send path instead of prefilling in Create.
++      source_messages = preface_messages;
++      source_messages.push_back(message);
++      ABSL_LOG(INFO) << "qairt244_image_preface_queue_v2 messages="
++                     << source_messages.size();
++    }
+     if (message.is_array()) {
+       for (const auto& message : message) {
+         history_.push_back(message);
+@@ -475,7 +502,7 @@ absl::Status Conversation::SendMessageAsync(
+   ASSIGN_OR_RETURN(
+       auto session_inputs,
+       model_data_processor_->ToInputDataVector(
+-          single_turn_text, nlohmann::ordered_json::array({message}),
++          single_turn_text, source_messages,
+           optional_args.args.value_or(std::monostate())));
+
+   if (is_appending_message_) {

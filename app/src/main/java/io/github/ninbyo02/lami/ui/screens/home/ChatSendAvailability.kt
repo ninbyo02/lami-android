@@ -11,6 +11,7 @@ internal data class ChatSendAvailability(
 internal enum class ChatSendBlockedReason {
     EMPTY_INPUT,
     LOCAL_MODEL_MISSING,
+    LOCAL_HISTORY_LOADING,
     SERVER_MISSING,
     SERVER_URL_INVALID,
     SERVER_MODEL_MISSING,
@@ -72,6 +73,7 @@ internal fun resolveChatSendAvailability(
     hasPromptText: Boolean,
     hasImageInput: Boolean,
     isInferenceRunning: Boolean,
+    localChatHistoryReady: Boolean = true,
 ): ChatSendAvailability {
     if (isInferenceRunning) {
         return ChatSendAvailability(enabled = true)
@@ -85,6 +87,9 @@ internal fun resolveChatSendAvailability(
 
     return when (selectedInferenceTarget) {
         InferenceTarget.LOCAL -> {
+            if (!localChatHistoryReady) {
+                return ChatSendAvailability(false, ChatSendBlockedReason.LOCAL_HISTORY_LOADING)
+            }
             if (!selectedLocalModelPath.isNullOrBlank()) {
                 ChatSendAvailability(enabled = true)
             } else {
@@ -121,6 +126,7 @@ internal fun resolveChatSendAvailability(
 
 internal fun chatSendBlockedSnackbarMessage(reason: ChatSendBlockedReason?): String = when (reason) {
     ChatSendBlockedReason.LOCAL_MODEL_MISSING -> "ローカルモデルを選択してください"
+    ChatSendBlockedReason.LOCAL_HISTORY_LOADING -> "会話の読み込みが終わるまでお待ちください"
     ChatSendBlockedReason.SERVER_MISSING -> "サーバーを追加してください"
     ChatSendBlockedReason.SERVER_URL_INVALID -> "サーバーURLを設定してください"
     ChatSendBlockedReason.SERVER_MODEL_MISSING -> "モデルを選択してください"

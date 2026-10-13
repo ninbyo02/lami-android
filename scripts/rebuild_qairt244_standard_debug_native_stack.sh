@@ -9,6 +9,7 @@ BASE_PATCH="${QAIRT244_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.
 EXTRA_PATCH="${QAIRT244_EXTRA_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_persistent_probe.patch}"
 CONVERSATION_PATCH="${QAIRT244_CONVERSATION_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_conversation_api_probe.patch}"
 KOTLIN_NPU_CONVERSATION_PATCH="${QAIRT244_KOTLIN_NPU_CONVERSATION_PATCH:-$ROOT_DIR/patches/qairt244_litertlm_kotlin_npu_conversation_sampler.patch}"
+IMAGE_PREFACE_PATCH="${QAIRT244_IMAGE_PREFACE_PATCH-$ROOT_DIR/patches/qairt244_litertlm_image_preface.patch}"
 QAIRT_ROOT="${QAIRT244_ROOT:-$HOME/compose/qairt/workspace/sdk/qairt/2.44.0.260225}"
 LABEL="${QAIRT244_BUILD_LABEL:-qairt244_128token_persistent_probe_repro}"
 REQUIRE_PERSISTENT_PROBE="${QAIRT244_REQUIRE_PERSISTENT_PROBE:-true}"
@@ -39,6 +40,8 @@ Options:
                           Isolated C++ Conversation API probe patch; pass an empty string to disable it.
   --kotlin-npu-conversation-patch PATH
                           Kotlin Conversation JNI NPU sampler-backend alignment patch; pass an empty string to disable it.
+  --image-preface-patch PATH
+                          Queue image-bearing initial history for async send; pass an empty string to reproduce the old runtime.
   --qairt-root PATH       Exact QAIRT 2.44 SDK root.
   --label LABEL           Artifact directory label.
   --require-persistent-probe BOOL
@@ -66,6 +69,7 @@ while (($#)); do
     --extra-patch) EXTRA_PATCH="${2-}"; shift 2 ;;
     --conversation-patch) CONVERSATION_PATCH="${2-}"; shift 2 ;;
     --kotlin-npu-conversation-patch) KOTLIN_NPU_CONVERSATION_PATCH="${2-}"; shift 2 ;;
+    --image-preface-patch) IMAGE_PREFACE_PATCH="${2-}"; shift 2 ;;
     --qairt-root) QAIRT_ROOT="${2:?missing path}"; shift 2 ;;
     --label) LABEL="${2:?missing label}"; shift 2 ;;
     --require-persistent-probe) REQUIRE_PERSISTENT_PROBE="${2:?missing boolean}"; shift 2 ;;
@@ -152,6 +156,7 @@ git -C "$SOURCE_CHECKOUT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 [[ -z "$EXTRA_PATCH" || -f "$EXTRA_PATCH" ]] || fail "extra patch is missing: $EXTRA_PATCH"
 [[ -z "$CONVERSATION_PATCH" || -f "$CONVERSATION_PATCH" ]] || fail "conversation patch is missing: $CONVERSATION_PATCH"
 [[ -z "$KOTLIN_NPU_CONVERSATION_PATCH" || -f "$KOTLIN_NPU_CONVERSATION_PATCH" ]] || fail "Kotlin NPU Conversation patch is missing: $KOTLIN_NPU_CONVERSATION_PATCH"
+[[ -z "$IMAGE_PREFACE_PATCH" || -f "$IMAGE_PREFACE_PATCH" ]] || fail "Image preface patch is missing: $IMAGE_PREFACE_PATCH"
 [[ -d "$QAIRT_ROOT" ]] || fail "QAIRT root is missing: $QAIRT_ROOT"
 [[ "$(basename "$QAIRT_ROOT")" == "2.44.0.260225" ]] || fail "QAIRT root must resolve to 2.44.0.260225: $QAIRT_ROOT"
 [[ -d "$ANDROID_HOME_VALUE" ]] || fail "Android SDK is missing: $ANDROID_HOME_VALUE"
@@ -166,6 +171,7 @@ BASE_PATCH="$(realpath "$BASE_PATCH")"
 [[ -z "$EXTRA_PATCH" ]] || EXTRA_PATCH="$(realpath "$EXTRA_PATCH")"
 [[ -z "$CONVERSATION_PATCH" ]] || CONVERSATION_PATCH="$(realpath "$CONVERSATION_PATCH")"
 [[ -z "$KOTLIN_NPU_CONVERSATION_PATCH" ]] || KOTLIN_NPU_CONVERSATION_PATCH="$(realpath "$KOTLIN_NPU_CONVERSATION_PATCH")"
+[[ -z "$IMAGE_PREFACE_PATCH" ]] || IMAGE_PREFACE_PATCH="$(realpath "$IMAGE_PREFACE_PATCH")"
 QAIRT_ROOT="$(realpath "$QAIRT_ROOT")"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 if [[ -z "$ARTIFACT_DIR" ]]; then
@@ -315,6 +321,9 @@ fi
 if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
   apply_patch "$KOTLIN_NPU_CONVERSATION_PATCH" kotlin_npu_conversation
 fi
+if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
+  apply_patch "$IMAGE_PREFACE_PATCH" image_preface
+fi
 git -C "$WORKTREE_DIR" diff --check
 
 JNI_SOURCE="$WORKTREE_DIR/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
@@ -329,6 +338,11 @@ fi
 if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
   grep -Fq 'qairt244_kotlin_npu_conversation_sampler_v1' "$JNI_SOURCE" || fail "Kotlin NPU Conversation sampler marker is missing"
   grep -Fq 'session_config.SetSamplerBackend(Backend::NPU)' "$JNI_SOURCE" || fail "Kotlin NPU Conversation sampler alignment is missing"
+fi
+if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
+  CONVERSATION_SOURCE="$WORKTREE_DIR/runtime/conversation/conversation.cc"
+  grep -Fq 'qairt244_image_preface_queue_v2' "$CONVERSATION_SOURCE" || fail "Image preface queue marker is missing"
+  grep -Fq 'source_messages = preface_messages' "$CONVERSATION_SOURCE" || fail "Image preface queue is missing"
 fi
 
 {
@@ -349,6 +363,8 @@ fi
   [[ -z "$CONVERSATION_PATCH" ]] || printf 'conversation_patch_sha256\t%s\n' "$(sha_for "$CONVERSATION_PATCH")"
   printf 'kotlin_npu_conversation_patch\t%s\n' "${KOTLIN_NPU_CONVERSATION_PATCH:-none}"
   [[ -z "$KOTLIN_NPU_CONVERSATION_PATCH" ]] || printf 'kotlin_npu_conversation_patch_sha256\t%s\n' "$(sha_for "$KOTLIN_NPU_CONVERSATION_PATCH")"
+  printf 'image_preface_patch\t%s\n' "${IMAGE_PREFACE_PATCH:-none}"
+  [[ -z "$IMAGE_PREFACE_PATCH" ]] || printf 'image_preface_patch_sha256\t%s\n' "$(sha_for "$IMAGE_PREFACE_PATCH")"
   printf 'provider_sha256\t%s\n' "$(sha_for "$PROVIDER_FILE")"
   printf 'require_persistent_probe\t%s\n' "$REQUIRE_PERSISTENT_PROBE"
   printf 'qairt_root\t%s\n' "$QAIRT_ROOT"
@@ -421,6 +437,9 @@ if [[ "$REQUIRE_PERSISTENT_PROBE" == true ]]; then
 fi
 if [[ -n "$KOTLIN_NPU_CONVERSATION_PATCH" ]]; then
   strings "$LITERTLM_JNI" | grep -F 'qairt244_kotlin_npu_conversation_sampler_v1' >/dev/null || fail "Kotlin NPU Conversation sampler marker is missing from stock-name JNI artifact"
+fi
+if [[ -n "$IMAGE_PREFACE_PATCH" ]]; then
+  strings "$LITERTLM_JNI" | grep -F 'qairt244_image_preface_queue_v2' >/dev/null || fail "Image preface queue marker is missing from stock-name JNI artifact"
 fi
 if [[ -n "$CONVERSATION_PATCH" ]]; then
   require_exported_symbol "$NPU_JNI" 'Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunConversationApiProbe'
