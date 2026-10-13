@@ -59,6 +59,23 @@ class AndroidTtsControllerTest {
         controller.shutdown()
     }
 
+    @Test fun `old interrupted stop cannot interrupt replacement playback`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+        controller.speakQueued("古い回答です。")
+        val oldId = activeId(controller)
+        controller.stop()
+        controller.speakQueued("新しい回答です。")
+
+        engine.utteranceProgressListener.onStop(oldId, true)
+
+        assertTrue(controller.isSpeaking.value)
+        assertEquals("新しい回答です。", engine.lastSpokenText)
+        assertEquals(listOf("古い回答です。", "新しい回答です。"), engine.spokenTextList.toList())
+        controller.shutdown()
+    }
+
     @Test
     @LooperMode(LooperMode.Mode.PAUSED)
     fun `stop suppresses stale queued playback callback`() {
