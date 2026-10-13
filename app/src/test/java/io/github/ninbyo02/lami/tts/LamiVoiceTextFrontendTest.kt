@@ -26,6 +26,15 @@ class LamiVoiceTextFrontendTest {
             for (i in 0 until coordinates.length()) vector[coordinates.getInt(i)] = sparse.getDouble(i).toFloat()
         }
     }
+    private fun assertPrefillMatchesReference(case: JSONObject, actual: LamiVoiceTextContext) {
+        val coordinates = fixture.getJSONArray("coordinates")
+        val expected = case.getJSONArray("prefill_coordinates")
+        assertEquals(case.getString("text"), expected.length(), actual.prefill.size)
+        for (p in 0 until expected.length()) for (j in 0 until coordinates.length()) {
+            assertEquals("${case.getString("text")} position=$p coordinate=$j", expected.getJSONArray(p).getDouble(j).toFloat(), actual.prefill[p][coordinates.getInt(j)], 0.0001f)
+        }
+        for (j in 0 until coordinates.length()) assertEquals(case.getJSONArray("pad_coordinates").getDouble(j).toFloat(), actual.pad[coordinates.getInt(j)], 0.0001f)
+    }
     @Test fun multilingualTokenIdsMatchHuggingFaceReference() {
         val tokenizer = tokenizer()
         val cases = fixture.getJSONArray("cases")
@@ -38,17 +47,31 @@ class LamiVoiceTextFrontendTest {
     @Test fun japaneseInputEmbeddingsMatchOriginalCustomVoicePreparation() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         val cases = fixture.getJSONArray("cases")
-        val coordinates = fixture.getJSONArray("coordinates")
         for (i in 0 until cases.length()) {
             val case = cases.getJSONObject(i)
-            val actual = frontend.prepare(case.getString("text"))
-            val expected = case.getJSONArray("prefill_coordinates")
-            assertEquals(case.getString("text"), expected.length(), actual.prefill.size)
-            for (p in 0 until expected.length()) for (j in 0 until coordinates.length()) {
-                assertEquals("${case.getString("text")} position=$p coordinate=$j", expected.getJSONArray(p).getDouble(j).toFloat(), actual.prefill[p][coordinates.getInt(j)], 0.0001f)
-            }
-            for (j in 0 until coordinates.length()) assertEquals(case.getJSONArray("pad_coordinates").getDouble(j).toFloat(), actual.pad[coordinates.getInt(j)], 0.0001f)
+            assertPrefillMatchesReference(case, frontend.prepare(case.getString("text")))
         }
+    }
+    @Test fun repeatedSpeechCodecRowIsLoadedOnceWithoutChangingPrefill() {
+        val codecCalls = linkedMapOf<Int, Int>()
+        val frontend = LamiVoiceTextFrontend(
+            tokenizer(),
+            { row("text_rows", it) },
+            {
+                codecCalls[it] = (codecCalls[it] ?: 0) + 1
+                row("codec_rows", it)
+            }
+        )
+        val case = fixture.getJSONArray("cases").getJSONObject(0)
+        val expectedIds = case.getJSONArray("ids").let { ids -> IntArray(ids.length()) { ids.getInt(it) } }
+        val actual = frontend.prepare(case.getString("text"))
+
+        assertArrayEquals(expectedIds, actual.tokenIds)
+        assertPrefillMatchesReference(case, actual)
+        assertEquals(1, codecCalls.getValue(2148))
+        assertEquals(1, codecCalls.getValue(2149))
+        assertEquals(setOf(2154, 2156, 2058, 2157, 3000, 2148, 2149), codecCalls.keys)
+        assertTrue(codecCalls.values.all { it == 1 })
     }
     @Test fun rejectsBlankSpecialSyntaxAndCacheOverflow() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })

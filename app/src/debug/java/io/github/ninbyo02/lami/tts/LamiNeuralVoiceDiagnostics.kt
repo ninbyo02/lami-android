@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import android.os.Bundle
 import android.content.Context
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CompletableDeferred
@@ -25,16 +26,33 @@ internal object LamiNeuralVoiceDiagnostics {
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_hai_probe.txt")
         report.writeText("mode=${if (requestedText == null) "fixed_hai" else "arbitrary_text"} status=started\n")
-        val started = android.os.SystemClock.elapsedRealtime()
+        val started = SystemClock.elapsedRealtimeNanos()
+        val firstAudio = LamiFirstAudioTiming.start(
+            requestId = 0L,
+            requestOrdinal = 0L,
+            startedAtNs = started,
+            startKind = LamiFirstAudioTiming.StartKind.COLD,
+        )
+        report.appendText("${LamiFirstAudioTiming.requestStartedEvent(firstAudio)}\n")
+        fun firstAudioElapsedMs(): Long =
+            LamiFirstAudioTiming.elapsedMsSince(firstAudio, SystemClock.elapsedRealtimeNanos())
         try {
             withTimeout(600_000L) {
-                val pcm = if (requestedText == null) LamiVoiceDiagnostic.synthesize(root) { report.appendText("$it elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n") }
-                    else LamiVoiceDiagnostic.synthesizeText(context, root, requestedText) { report.appendText("$it elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n") }
-                report.appendText("synthesis=success samples=${pcm.size} elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
+                val pcm = if (requestedText == null) LamiVoiceDiagnostic.synthesize(root) {
+                    report.appendText("$it elapsed_ms=${firstAudioElapsedMs()}\n")
+                } else LamiVoiceDiagnostic.synthesizeText(context, root, requestedText) {
+                    report.appendText("$it elapsed_ms=${firstAudioElapsedMs()}\n")
+                }
+                report.appendText("synthesis=success samples=${pcm.size} elapsed_ms=${firstAudioElapsedMs()}\n")
                 val wav = context.filesDir.resolve("neural_tts_last.wav")
                 writeWav(wav, pcm)
                 report.appendText("wav=neural_tts_last.wav\n")
-                LamiPcmPlayer.play(pcm) { report.appendText("playback=started\n") }
+                LamiPcmPlayer.play(pcm) {
+                    report.appendText(
+                        "${LamiFirstAudioTiming.playbackStartedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}\n",
+                    )
+                    report.appendText("playback=started\n")
+                }
                 report.appendText("playback=complete\n")
             }
         } catch (cancelled: CancellationException) {
@@ -52,15 +70,25 @@ internal object LamiNeuralVoiceDiagnostics {
         require(texts.size in 2..4 && texts.all { it.isNotBlank() && it.length <= 120 })
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         val report = context.filesDir.resolve("neural_tts_pipeline_probe.txt")
-        val started = android.os.SystemClock.elapsedRealtime()
+        val started = SystemClock.elapsedRealtimeNanos()
         val reportLock = Any()
         fun trace(event: String) = synchronized(reportLock) {
-            report.appendText("$event elapsed_ms=${android.os.SystemClock.elapsedRealtime() - started}\n")
+            val elapsedMs = (SystemClock.elapsedRealtimeNanos() - started).coerceAtLeast(0L) / 1_000_000L
+            report.appendText("$event elapsed_ms=$elapsedMs\n")
         }
         report.writeText("mode=${if (serial) "serial" else "pipeline"} status=started\n")
         try {
             withTimeout(600_000L) {
+                val firstAudioRequests = arrayOfNulls<LamiFirstAudioTiming.Request>(texts.size)
                 suspend fun prepare(index: Int): Pair<Int, FloatArray> {
+                    val firstAudio = LamiFirstAudioTiming.start(
+                        requestId = index.toLong(),
+                        requestOrdinal = index.toLong(),
+                        startedAtNs = SystemClock.elapsedRealtimeNanos(),
+                        startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(index.toLong()),
+                    )
+                    firstAudioRequests[index] = firstAudio
+                    trace("request=$index ${LamiFirstAudioTiming.requestStartedEvent(firstAudio)}")
                     trace("request=$index synthesis=started")
                     val pcm = LamiVoiceModuleCache.withSession(root) { session ->
                         val codes = LamiPreparedVoiceSynthesizer.generateText(root, texts[index], session, reuseCpWorkspace) { trace("request=$index $it") }
@@ -80,7 +108,20 @@ internal object LamiNeuralVoiceDiagnostics {
                     return index to pcm
                 }
                 suspend fun play(clip: Pair<Int, FloatArray>) {
-                    LamiPcmPlayer.play(clip.second) { trace("request=${clip.first} playback=started") }
+                    LamiPcmPlayer.play(clip.second) {
+                        val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
+                            "first-audio request timing missing"
+                        }
+                        trace(
+                            "request=${clip.first} ${
+                                LamiFirstAudioTiming.playbackStartedEvent(
+                                    firstAudio,
+                                    SystemClock.elapsedRealtimeNanos(),
+                                )
+                            }",
+                        )
+                        trace("request=${clip.first} playback=started")
+                    }
                     trace("request=${clip.first} playback=complete")
                 }
                 if (serial) {

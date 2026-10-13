@@ -124,7 +124,12 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
                             if (usbPlayback.failed(utteranceId)) return
                             hasActiveUtterance = false
-                            if (!interrupted && speakNextQueuedIfAvailable()) return
+                            if (interrupted) {
+                                activeUtteranceId = null
+                                queuedSpeechTexts.clear()
+                            } else if (speakNextQueuedIfAvailable()) {
+                                return
+                            }
                             markPlaybackEnded()
                             notifyPlaybackState(false)
                         }

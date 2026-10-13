@@ -30,32 +30,46 @@ internal class LamiNeuralChatVoiceEngine(
     }
 
     private val queue = LamiSpeechPipeline<PreparedClip?>(scope, { busy ->
-        if (!busy && speaking.value) lastEndedAtMs = SystemClock.elapsedRealtime()
+        if (!busy && speaking.value) {
+            lastEndedAtMs = SystemClock.elapsedRealtime()
+        }
         setSpeaking(busy)
     }, ::prepareUtterance, ::playClip)
 
     override fun speak(text: String) = queue.replace(text)
     override fun speakQueued(text: String) = queue.enqueue(text)
 
-    private data class PreparedClip(val pcm: FloatArray, val requestId: Long, val started: Long)
+    private data class PreparedClip(val pcm: FloatArray, val firstAudio: LamiFirstAudioTiming.Request)
 
-    private fun trace(requestId: Long, started: Long, event: String) {
-        Log.i("LamiNeuralChatTts", "request=$requestId $event elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+    private fun trace(firstAudio: LamiFirstAudioTiming.Request, event: String) {
+        val elapsedMs = LamiFirstAudioTiming.elapsedMsSince(
+            firstAudio,
+            SystemClock.elapsedRealtimeNanos(),
+        )
+        Log.i("LamiNeuralChatTts", "request=${firstAudio.requestId} $event elapsed_ms=$elapsedMs")
     }
 
     private suspend fun prepareUtterance(text: String): PreparedClip? {
         val requestId = requestIds.incrementAndGet()
-        val started = SystemClock.elapsedRealtime()
-        trace(requestId, started, "status=started text_chars=${text.length}")
+        val requestOrdinal = requestId - 1L
+        val started = SystemClock.elapsedRealtimeNanos()
+        val firstAudio = LamiFirstAudioTiming.start(
+            requestId = requestId,
+            requestOrdinal = requestOrdinal,
+            startedAtNs = started,
+            startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(requestOrdinal),
+        )
+        trace(firstAudio, LamiFirstAudioTiming.requestStartedEvent(firstAudio))
+        trace(firstAudio, "status=started text_chars=${text.length}")
         return try {
-            val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(requestId, started, it) }
-            trace(requestId, started, "synthesis=complete samples=${pcm.size}")
-            PreparedClip(pcm, requestId, started)
+            val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(firstAudio, it) }
+            trace(firstAudio, "synthesis=complete samples=${pcm.size}")
+            PreparedClip(pcm, firstAudio)
         } catch (cancelled: CancellationException) {
-            trace(requestId, started, "status=cancelled phase=synthesis")
+            trace(firstAudio, "status=cancelled phase=synthesis")
             throw cancelled
         } catch (failure: Exception) {
-            trace(requestId, started, "status=failure class=${failure.javaClass.simpleName}")
+            trace(firstAudio, "status=failure class=${failure.javaClass.simpleName}")
             Log.e("LamiNeuralChatTts", "request=$requestId synthesis failed", failure)
             null
         }
@@ -64,14 +78,23 @@ internal class LamiNeuralChatVoiceEngine(
     private suspend fun playClip(clip: PreparedClip?) {
         if (clip == null) return
         try {
-            LamiPcmPlayer.play(clip.pcm) { trace(clip.requestId, clip.started, "playback=started") }
-            trace(clip.requestId, clip.started, "status=complete")
+            LamiPcmPlayer.play(clip.pcm) {
+                trace(
+                    clip.firstAudio,
+                    LamiFirstAudioTiming.playbackStartedEvent(
+                        clip.firstAudio,
+                        SystemClock.elapsedRealtimeNanos(),
+                    ),
+                )
+                trace(clip.firstAudio, "playback=started")
+            }
+            trace(clip.firstAudio, "status=complete")
         } catch (cancelled: CancellationException) {
-            trace(clip.requestId, clip.started, "status=cancelled phase=playback")
+            trace(clip.firstAudio, "status=cancelled phase=playback")
             throw cancelled
         } catch (failure: Exception) {
-            trace(clip.requestId, clip.started, "status=failure phase=playback class=${failure.javaClass.simpleName}")
-            Log.e("LamiNeuralChatTts", "request=${clip.requestId} playback failed", failure)
+            trace(clip.firstAudio, "status=failure phase=playback class=${failure.javaClass.simpleName}")
+            Log.e("LamiNeuralChatTts", "request=${clip.firstAudio.requestId} playback failed", failure)
         }
     }
 
