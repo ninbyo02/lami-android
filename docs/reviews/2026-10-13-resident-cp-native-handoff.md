@@ -9,8 +9,8 @@
 ## Existing code found
 - `app/src/debug/cpp/lami_npu_persistent_holder_stub.cpp`: test-only native create/close holder with diagnostics and fatal latch. Not a resident CP execution backend.
 - `app/src/debug/cpp/qnn_direct_probe_debug.cpp`: QNN dependency/probe loading diagnostics, not the CP 16-position inference driver.
-- Existing CP AOT binary: `/home/sato/tmp/lami-tts-npu-pilot/production-plain/aot/mtp-qnn-context.bin`.
-- Existing PC-only save-trace parity gate: `/home/sato/lami-tts-daemon/cp-host-validation-20261013/check_paired.py`. Saved traces have only 8/32 identical step inputs and 2/32 identical incoming KV caches; they cannot be used for a CPU/NPU speedup ratio.
+- Existing CP AOT binary: supplied locally as `CP_CONTEXT`; the model binary and private filesystem location are not published.
+- Existing PC-only saved-trace parity gate remains local. Those older traces have only 8/32 identical step inputs and 2/32 identical incoming KV caches; they cannot be used for a CPU/NPU speedup ratio.
 - Existing resident CP abstractions: ResidentCpSession, ResidentCpBufferedBackend, ResidentCpQnnDriver, ResidentCpContextSpec, ResidentCpArtifactVerifier and ResidentCpRoutingPolicy.
 
 ## Native driver requirements before hardware trial
@@ -23,5 +23,16 @@
 7. On native fatal errors, close/discard context, do not retry a poisoned handle, never silently promote NPU output or overwrite generated WAV.
 8. Test cold/warm lifecycle and 16-step parity on the phone only after the weekday 19:30 access restriction, and only in a controlled device test.
 
-## Known blocker
-The current Kotlin NativeApi is an interface with fake tests. There is **no actual QNN/HTP NativeApi implementation** and the existing holder is not an inference engine. Resident CP performance is unmeasured.
+## Follow-up boundary
+The subsequent opt-in debug implementation now connects NativeApi to JNI and a
+single owning Rust worker. SDK-free tests cover reuse, cancellation/reset,
+release, stale rejection and fresh-context recovery. Normal app routing and CPU
+fallback remain unchanged; see `diagnostics/resident-cp-rust/README.md`.
+
+The original native ELF diagnostic is distinct from Android JNI: its resident
+CP/EOS and later host-decoded PCM results do not prove Android speed or voice
+quality. The app_process JNI attempt reached nativeCreate but deviceCreate
+returned error 14001; loader diagnostics exposed an unresolved libhidlbase
+dependency in the Java namespace. No additional libraries or permissions were
+used to bypass that boundary. Real-device JNI graph execution, installed-app
+namespace validation and Android Main/head/PCM integration remain unverified.
