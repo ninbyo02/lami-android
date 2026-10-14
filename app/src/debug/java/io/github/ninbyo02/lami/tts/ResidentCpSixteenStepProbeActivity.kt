@@ -68,10 +68,25 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
             File(filesDir, "resident-cp-input-0.f32"),
             ResidentCpSingleStepFixture.INPUT_SHA256
         )
-        val golden = ResidentCpSingleStepFixture.readPinnedRow(
-            File(filesDir, "resident-cp-golden-0.f32"),
-            ResidentCpSingleStepFixture.GOLDEN_SHA256
-        )
+        // Optional explicit per-position rows, never accepted from an untrusted public intent.
+        // Without the pinned multi-row fixture, retain the verified fixed-input smoke test.
+        val rowsFile = File(filesDir, "resident-cp-16-embeddings.f32")
+        val inputRows = if (rowsFile.isFile) {
+            val expectedSha = File(filesDir, "resident-cp-16-embeddings.sha256")
+            require(expectedSha.isFile) { "Missing 16-row fixture hash" }
+            val expected = expectedSha.readText().trim()
+            require(expected.matches(Regex("[0-9a-f]{64}")) &&
+                rowsFile.length() == 16L * 1024L * 4L &&
+                ResidentCpSingleStepFixture.sha256(rowsFile) == expected) {
+                "16-row fixture hash or size mismatch"
+            }
+            ByteBuffer.wrap(rowsFile.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
+                .asFloatBuffer().let { buffer ->
+                    Array(16) { FloatArray(1024).also(buffer::get) }
+                }.also { rows -> require(rows.all { row -> row.all(Float::isFinite) }) }
+        } else {
+            Array(16) { input.copyOf() }
+        }
         val context = File(filesDir, "mtp-qnn-context.bin")
         require(context.isFile) { "Missing pinned QNN context" }
         val spec = ResidentCpContextSpec(
@@ -96,7 +111,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 val stepDurations = LongArray(16)
                 for (position in 0 until 16) {
                     val startedStep = System.nanoTime()
-                    api.execute(handle, position, input, output)
+                    api.execute(handle, position, inputRows[position], output)
                     stepDurations[position] = System.nanoTime() - startedStep
                 }
                 val totalStepNs = stepDurations.sum()
