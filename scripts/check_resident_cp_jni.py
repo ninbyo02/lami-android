@@ -50,6 +50,10 @@ def main():
         runtime = work / 'host-test'; runtime.mkdir()
         for name in ('libQnnHtp.so', 'libQnnSystem.so'):
             (runtime / name).write_bytes(b'fake host fixture only')
+        # Exercise the same explicit SDK-stub load ordering without any vendor code.
+        stub_source = work / 'host_stub.c'
+        stub_source.write_text('void lami_cp_host_stub_fixture(void) {}\n')
+        run([compiler, '-fPIC', '-shared', stub_source, '-o', runtime / 'libQnnHtpV79Stub.so'])
         model = runtime / 'context.bin'; model.write_bytes(b'LAMI_CP_HOST_TEST')
         inputs = work / 'inputs.f32'
         inputs.write_bytes(b''.join(struct.pack('<f', float((position + column) % 17) / 16)

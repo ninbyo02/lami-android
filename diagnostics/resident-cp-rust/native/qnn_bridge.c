@@ -7,11 +7,49 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
+#include <pthread.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LAMI_QNN_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "LamiCpQnnBridge", __VA_ARGS__)
+#else
+#define LAMI_QNN_ERROR(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 
 #if QNN_API_VERSION_MAJOR != 2 || QNN_API_VERSION_MINOR != 36
 #error This prototype requires the verified QAIRT 2.47 API headers.
 #endif
 
+/* Bounded diagnostic receipt; never stores tensors, paths, user text or audio. */
+static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char g_log_receipt[8192];
+static size_t g_log_used = 0;
+
+void lami_qnn_log_clear(void) {
+    pthread_mutex_lock(&g_log_mutex);
+    g_log_used = 0;
+    g_log_receipt[0] = '\0';
+    pthread_mutex_unlock(&g_log_mutex);
+}
+void lami_qnn_log_read(char *out, size_t capacity) {
+    if (!out || capacity == 0) return;
+    pthread_mutex_lock(&g_log_mutex);
+    snprintf(out, capacity, "%s", g_log_receipt);
+    pthread_mutex_unlock(&g_log_mutex);
+}
+static void lami_qnn_log_append(int level, const char *message) {
+    pthread_mutex_lock(&g_log_mutex);
+    if (g_log_used < sizeof(g_log_receipt) - 1) {
+        int written = snprintf(g_log_receipt + g_log_used, sizeof(g_log_receipt) - g_log_used,
+                               "L%d: %.300s\n", level, message);
+        if (written > 0) {
+            size_t available = sizeof(g_log_receipt) - 1 - g_log_used;
+            g_log_used += (size_t)written > available ? available : (size_t)written;
+        }
+    }
+    pthread_mutex_unlock(&g_log_mutex);
+}
 typedef struct { const char *name; void *data; uint32_t bytes; } LamiBuffer;
 /* Exact rpcmem signatures/heap/flags from SDK 2.47 SampleAppSharedBuffer IOTensor.hpp. */
 typedef void *(*RpcAlloc)(int, uint32_t, int);
@@ -22,6 +60,7 @@ typedef struct {
     void *backend_library, *system_library;
     QNN_INTERFACE_VER_TYPE api;
     QNN_SYSTEM_INTERFACE_VER_TYPE system_api;
+    Qnn_LogHandle_t logger;
     Qnn_BackendHandle_t backend;
     Qnn_DeviceHandle_t device;
     Qnn_ContextHandle_t context;
@@ -50,12 +89,21 @@ void lami_qnn_close(LamiSession *s) {
         if (s->shared[i].mapped && s->rpc_free) s->rpc_free(s->shared[i].mapped);
     if (s->device && s->api.deviceFree) s->api.deviceFree(s->device);
     if (s->backend && s->api.backendFree) s->api.backendFree(s->backend);
+    if (s->logger && s->api.logFree) s->api.logFree(s->logger);
     if (s->system_context && s->system_api.systemContextFree)
         s->system_api.systemContextFree(s->system_context);
     if (s->backend_library) dlclose(s->backend_library);
     if (s->system_library) dlclose(s->system_library);
     if (s->rpc_library) dlclose(s->rpc_library);
     free(s);
+}
+
+static void lami_cp_qnn_log(const char *fmt, QnnLog_Level_t level, uint64_t timestamp, va_list args) {
+    (void)timestamp;
+    char message[512];
+    vsnprintf(message, sizeof(message), fmt, args);
+    LAMI_QNN_ERROR("sdk_level=%d %s", (int)level, message);
+    lami_qnn_log_append((int)level, message);
 }
 
 static uint64_t now_ns(void) {
@@ -66,7 +114,7 @@ static uint64_t now_ns(void) {
 
 static uint64_t system_provider(LamiSession *s, const char *system) {
     s->system_library = dlopen(system, RTLD_NOW | RTLD_LOCAL);
-    if (!s->system_library) { fprintf(stderr, "lami_cp_dlopen_system_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->system_library) { LAMI_QNN_ERROR("lami_cp_dlopen_system_error=%s\n", dlerror()); return LOCAL_ERROR; }
     __typeof__(&QnnSystemInterface_getProviders) get_system =
         (__typeof__(&QnnSystemInterface_getProviders))dlsym(s->system_library, "QnnSystemInterface_getProviders");
     if (!get_system) return LOCAL_ERROR;
@@ -87,7 +135,7 @@ static uint64_t providers(LamiSession *s, const char *backend, const char *syste
     uint64_t status = system_provider(s, system);
     if (status) return status;
     s->backend_library = dlopen(backend, RTLD_NOW | RTLD_LOCAL);
-    if (!s->backend_library) { fprintf(stderr, "lami_cp_dlopen_backend_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->backend_library) { LAMI_QNN_ERROR("lami_cp_dlopen_backend_error=%s\n", dlerror()); return LOCAL_ERROR; }
     __typeof__(&QnnInterface_getProviders) get_backend =
         (__typeof__(&QnnInterface_getProviders))dlsym(s->backend_library, "QnnInterface_getProviders");
     if (!get_backend) return LOCAL_ERROR;
@@ -204,14 +252,19 @@ static uint64_t graph_metadata(LamiSession *s, void *binary, size_t bytes,
     return 0;
 }
 
-static uint64_t register_shared(LamiSession *s, const char *library) {
-    if (!s->api.memRegister || !s->api.memDeRegister) return LOCAL_ERROR;
+static uint64_t prepare_rpc(LamiSession *s, const char *library) {
     s->rpc_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
-    if (!s->rpc_library) { fprintf(stderr, "lami_cp_dlopen_rpc_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->rpc_library) { LAMI_QNN_ERROR("lami_cp_dlopen_rpc_error=%s\n", dlerror()); return LOCAL_ERROR; }
     s->rpc_alloc = (RpcAlloc)dlsym(s->rpc_library, "rpcmem_alloc");
     s->rpc_free = (RpcFree)dlsym(s->rpc_library, "rpcmem_free");
     s->rpc_to_fd = (RpcToFd)dlsym(s->rpc_library, "rpcmem_to_fd");
     if (!s->rpc_alloc || !s->rpc_free || !s->rpc_to_fd) return LOCAL_ERROR;
+    return 0;
+}
+
+static uint64_t register_shared(LamiSession *s) {
+    if (!s->api.memRegister || !s->api.memDeRegister || !s->rpc_library ||
+        !s->rpc_alloc || !s->rpc_free || !s->rpc_to_fd) return LOCAL_ERROR;
     for (uint32_t i = 0; i < 24; ++i) {
         Qnn_Tensor_t *t = i < 13 ? &s->inputs[i] : &s->outputs[i-13];
         SharedBuffer *b = &s->shared[i];
@@ -245,21 +298,39 @@ static uint64_t register_shared(LamiSession *s, const char *library) {
 
 uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_library, void *binary, size_t bytes,
         const LamiBuffer *inputs, const LamiBuffer *outputs, LamiSession **result) {
+    lami_qnn_log_clear();
     if (!result) return LOCAL_ERROR;
     *result = NULL;
     if (!backend || !system || !binary || !bytes || !inputs || !outputs) return LOCAL_ERROR;
     LamiSession *s = calloc(1, sizeof(*s));
     if (!s) return LOCAL_ERROR;
-    const char *stage = "providers";
-    uint64_t status = providers(s, backend, system);
+    const char *stage = "rpc_loader";
+    uint64_t status = rpc_library ? prepare_rpc(s, rpc_library) : 0;
+    if (!status) { stage = "providers"; status = providers(s, backend, system); }
     if (!status) { stage = "metadata"; status = graph_metadata(s, binary, bytes, inputs, outputs); }
-    if (!status) { stage = "backend"; status = s->api.backendCreate(NULL, NULL, &s->backend); }
-    if (!status) { stage = "device"; status = s->api.deviceCreate(NULL, NULL, &s->device); }
+    if (!status) {
+        stage = "logger";
+        status = !s->api.logCreate ? LOCAL_ERROR :
+            s->api.logCreate(lami_cp_qnn_log, QNN_LOG_LEVEL_VERBOSE, &s->logger);
+    }
+    if (!status) { stage = "backend"; status = s->api.backendCreate(s->logger, NULL, &s->backend); }
+    if (!status) { stage = "device"; status = s->api.deviceCreate(s->logger, NULL, &s->device); }
     if (!status) { stage = "context"; status = s->api.contextCreateFromBinary(s->backend, s->device, NULL, binary, bytes, &s->context, NULL); }
     if (!status) { stage = "graph"; status = s->api.graphRetrieve(s->context, "qnn_partition_0", &s->graph); }
-    if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s, rpc_library); }
-    if (status) fprintf(stderr, "lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
-    if (status) { lami_qnn_close(s); return status; }
+    if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
+    if (status) {
+        LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
+        char summary[120];
+        snprintf(summary, sizeof(summary), "stage=%s sdk_status=%llu", stage, (unsigned long long)status);
+        lami_qnn_log_append(1, summary);
+        // Stage is carried through the FFI result even when Android suppresses native stderr/logcat.
+        const char *names[] = { "rpc_loader", "providers", "metadata", "backend",
+                                "device", "context", "graph", "registered_buffers", "logger" };
+        uint64_t stage_code = 0;
+        for (uint64_t i = 0; i < 9; ++i) if (strcmp(stage, names[i]) == 0) stage_code = i + 1;
+        lami_qnn_close(s);
+        return (stage_code << 56) | (status & UINT64_C(0x00ffffffffffffff));
+    }
     *result = s;
     return 0;
 }

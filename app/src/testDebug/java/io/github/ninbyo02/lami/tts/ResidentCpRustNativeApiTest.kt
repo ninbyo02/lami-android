@@ -11,8 +11,10 @@ class ResidentCpRustNativeApiTest {
         var libraries = 0; var loads = 0; var releases = 0; var resets = 0; var executions = 0
         var fail = false
         var rpcLibrary = ""
+        val initialization = mutableListOf<String>()
         override fun loadLibrary(file: File?) { libraries++ }
-        override fun create(bytes: ByteArray, backend: String, system: String, rpc: String): Long { loads++; rpcLibrary = rpc; return loads.toLong() }
+        override fun prepareRuntime(runtime: File) { initialization += "stub" }
+        override fun create(bytes: ByteArray, backend: String, system: String, rpc: String): Long { initialization += "create"; loads++; rpcLibrary = rpc; return loads.toLong() }
         override fun reset(handle: Long) { resets++ }
         override fun execute(handle: Long, position: Int, input: FloatArray, output: FloatArray) {
             if (fail) error("native failure")
@@ -26,7 +28,7 @@ class ResidentCpRustNativeApiTest {
         val root = Files.createTempDirectory("cp-jni-test").toFile()
         try {
             val file = File(root, "context.bin").apply { writeBytes("model".toByteArray()) }
-            for (name in listOf("libQnnHtp.so", "libQnnSystem.so", "libcdsprpc.so")) File(root, name).writeBytes(byteArrayOf(0))
+            for (name in listOf("libQnnHtp.so", "libQnnSystem.so", "libQnnHtpV79Stub.so")) File(root, name).writeBytes(byteArrayOf(0))
             val sha = MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it.toInt() and 0xff) }
             val spec = ResidentCpContextSpec(sha, 1024, 16, 32, "diagnostic-test")
             val fake = Fake()
@@ -41,8 +43,22 @@ class ResidentCpRustNativeApiTest {
         }
         assertEquals(1, fake.loads); assertEquals(1, fake.libraries)
         assertEquals("libcdsprpc.so", fake.rpcLibrary)
+        assertEquals(listOf("stub", "create"), fake.initialization)
         assertEquals(4, fake.resets); assertEquals(49, fake.executions); assertEquals(1, fake.releases)
         api.close(); assertEquals(1, fake.releases)
+    }
+    @Test fun bundledRpcAndPrivateOsCopiesRejectedBeforeNativeLoad() = fixture { file, _, fake, api ->
+        for (name in listOf("libcdsprpc.so", "libadsprpc.so", "libhidlbase.so", "libvndksupport.so")) {
+            val copy = File(file.parentFile, name).apply { writeBytes(byteArrayOf(0)) }
+            try { api.loadContext(file.absolutePath); fail("Expected unsafe runtime rejection") } catch (_: IllegalArgumentException) {}
+            copy.delete()
+        }
+        assertEquals(0, fake.libraries); assertEquals(0, fake.loads)
+    }
+    @Test fun missingMatchingStubRejectedBeforeNativeLoad() = fixture { file, _, fake, api ->
+        File(file.parentFile, "libQnnHtpV79Stub.so").delete()
+        try { api.loadContext(file.absolutePath); fail("Expected missing stub rejection") } catch (_: IllegalArgumentException) {}
+        assertEquals(0, fake.libraries); assertEquals(0, fake.loads)
     }
     @Test fun failedDriverReleasedAndFreshDriverCanRecover() = fixture { file, spec, fake, api ->
         val broken = ResidentCpQnnDriver(api, file, spec)
