@@ -43,6 +43,7 @@ internal object LamiFirstAudioTiming {
             "first_audio_start=${request.startKind.diagnosticValue} " +
             "first_audio_request_started_at_ns=${request.startedAtNs} " +
             "first_audio_elapsed_ms=0 " +
+            "first_audio_elapsed_ns=0 " +
             "first_audio_clock=elapsedRealtimeNanos " +
             "first_audio_start_basis=engine_request_ordinal " +
             "first_audio_request_boundary=preparation_started"
@@ -56,6 +57,7 @@ internal object LamiFirstAudioTiming {
             "first_audio_request_started_at_ns=${request.startedAtNs} " +
             "first_audio_at_ns=$firstAudioAtNs " +
             "first_audio_elapsed_ms=${elapsedMsSince(request, firstAudioAtNs)} " +
+            "first_audio_elapsed_ns=${firstAudioAtNs - request.startedAtNs} " +
             "first_audio_clock=elapsedRealtimeNanos " +
             "first_audio_boundary=audio_track_play_returned " +
             "first_audio_start_basis=engine_request_ordinal " +
