@@ -118,6 +118,8 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 require(!feedbackEnabled || (allTables && rowsFile.isFile)) {
                     "Full feedback requires 15 head/embedding pairs and pinned input rows"
                 }
+                val verifiedTables = if (feedbackEnabled) ResidentCpGreedyFeedback.verifyTables(filesDir)
+                    else emptyList()
                 val feedbackCodes = mutableListOf<Int>()
                 val sharedDraw = ResidentCpGreedyFeedback.SharedDraw()
                 for (position in 0 until 16) {
@@ -127,9 +129,9 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                     if (position in 1..14 && feedbackEnabled) {
                         val headIndex = position - 1
                         val selectionStarted = System.nanoTime()
-                        val (code, selectedEmbedding) = ResidentCpGreedyFeedback.select(
-                            headFiles[headIndex], embFiles[headIndex], output, headIndex,
-                            sharedDraw.draw()
+                        val (code, selectedEmbedding) = ResidentCpGreedyFeedback.selectVerified(
+                            verifiedTables[headIndex].first, verifiedTables[headIndex].second,
+                            output, sharedDraw.draw()
                         )
                         feedbackCodes += code
                         inputRows[position + 1] = selectedEmbedding

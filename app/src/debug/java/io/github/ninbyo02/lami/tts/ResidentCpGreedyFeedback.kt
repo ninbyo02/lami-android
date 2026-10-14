@@ -23,17 +23,25 @@ internal object ResidentCpGreedyFeedback {
         fun draw(): Double = ((bits(26) shl 27) + bits(27)).toDouble() / (1L shl 53)
     }
 
-    fun select(head: File, embedding: File, hidden: FloatArray, headIndex: Int,
+    fun verifyTables(directory: File): List<Pair<File, File>> {
+        val hashes = File(directory, "resident-cp-heads-embeddings.sha256").readLines()
+        require(hashes.size == 15) { "Expected fifteen immutable table hashes" }
+        return (0 until 15).map { index ->
+            val pair = hashes[index].split(" ")
+            require(pair.size == 2 && pair.all { it.matches(Regex("[0-9a-f]{64}")) })
+            val head = File(directory, "resident-cp-head-$index.f32")
+            val embedding = File(directory, "resident-cp-embedding-$index.f32")
+            for ((file, hash) in listOf(head to pair[0], embedding to pair[1])) {
+                require(file.isFile && file.length() == CODES.toLong() * ROW_BYTES &&
+                    ResidentCpSingleStepFixture.sha256(file) == hash) { "Incorrect feedback fixture" }
+            }
+            head to embedding
+        }
+    }
+
+    fun selectVerified(head: File, embedding: File, hidden: FloatArray,
                draw: Double? = null): Pair<Int, FloatArray> {
         require(hidden.size == WIDTH && hidden.all(Float::isFinite))
-        require(headIndex in 0..14)
-        val hashes = File(head.parentFile, "resident-cp-heads-embeddings.sha256").readLines()
-        val pairHashes = hashes[headIndex].split(" ")
-        require(pairHashes.size == 2 && pairHashes.all { it.matches(Regex("[0-9a-f]{64}")) })
-        for ((file, hash) in listOf(head to pairHashes[0], embedding to pairHashes[1])) {
-            require(file.isFile && file.length() == CODES.toLong() * ROW_BYTES &&
-                ResidentCpSingleStepFixture.sha256(file) == hash) { "Incorrect feedback fixture" }
-        }
         val scores = DoubleArray(CODES)
         RandomAccessFile(head, "r").use { reader ->
             val bytes = ByteArray(ROW_BYTES)
