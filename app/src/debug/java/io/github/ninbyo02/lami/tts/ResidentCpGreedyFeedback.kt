@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import java.io.File
 import java.io.RandomAccessFile
+import java.nio.channels.FileChannel
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.exp
@@ -43,13 +44,14 @@ internal object ResidentCpGreedyFeedback {
                draw: Double? = null): Pair<Int, FloatArray> {
         require(hidden.size == WIDTH && hidden.all(Float::isFinite))
         val scores = DoubleArray(CODES)
+        // Read-only memory map avoids 2048 individual filesystem reads per head.
         RandomAccessFile(head, "r").use { reader ->
-            val bytes = ByteArray(ROW_BYTES)
+            val mapped = reader.channel.map(FileChannel.MapMode.READ_ONLY, 0L, reader.length())
+                .order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
             for (code in 0 until CODES) {
-                reader.readFully(bytes)
-                val row = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
                 var score = 0.0
-                for (i in 0 until WIDTH) score += row.get(i).toDouble() * hidden[i]
+                val offset = code * WIDTH
+                for (i in 0 until WIDTH) score += mapped.get(offset + i).toDouble() * hidden[i]
                 require(score.isFinite()) { "Non-finite head score" }
                 scores[code] = score
             }
