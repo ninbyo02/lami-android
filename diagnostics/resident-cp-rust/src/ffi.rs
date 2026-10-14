@@ -51,7 +51,11 @@ impl Worker {
                         match (error as &dyn std::any::Any).downcast_ref::<crate::qnn::QnnError>() {
                             Some(crate::qnn::QnnError::Sdk(encoded)) => {
                                 let stage = (encoded >> 56) as i32;
-                                if (1..=8).contains(&stage) { 100 + stage } else { BACKEND }
+                                if (1..=8).contains(&stage) {
+                                    // Diagnostic encoding: stage * 1,000,000 + SDK low 20 bits.
+                                    // Unlike the previous stage-only status, preserves SDK error detail.
+                                    stage * 1_000_000 + (encoded & 0xfffff) as i32
+                                } else { BACKEND }
                             }
                             _ => BACKEND,
                         }
