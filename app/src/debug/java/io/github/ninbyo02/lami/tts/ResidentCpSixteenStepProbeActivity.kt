@@ -109,6 +109,8 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 api.resetKv(handle)
                 val resetNs = System.nanoTime() - startedReset
                 val stepDurations = LongArray(16)
+                val selectionDurations = LongArray(14)
+                val loopStarted = System.nanoTime()
                 val headFiles = (0 until 15).map { File(filesDir, "resident-cp-head-$it.f32") }
                 val embFiles = (0 until 15).map { File(filesDir, "resident-cp-embedding-$it.f32") }
                 val feedbackEnabled = headFiles.any(File::exists) || embFiles.any(File::exists)
@@ -124,15 +126,19 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                     stepDurations[position] = System.nanoTime() - startedStep
                     if (position in 1..14 && feedbackEnabled) {
                         val headIndex = position - 1
+                        val selectionStarted = System.nanoTime()
                         val (code, selectedEmbedding) = ResidentCpGreedyFeedback.select(
                             headFiles[headIndex], embFiles[headIndex], output, headIndex,
                             sharedDraw.draw()
                         )
                         feedbackCodes += code
                         inputRows[position + 1] = selectedEmbedding
+                        selectionDurations[headIndex] = System.nanoTime() - selectionStarted
                     }
                 }
+                val totalLoopNs = System.nanoTime() - loopStarted
                 val totalStepNs = stepDurations.sum()
+                val totalSelectionNs = selectionDurations.sum()
                 check(output.all(Float::isFinite)) { "Non-finite result from native CP" }
 
                 // A position-zero reference must never be compared to position 15.
@@ -144,7 +150,8 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 return "status=SIXTEEN_STEPS_RETURNED\npositions_completed=16\n" +
                     "greedy_feedback_enabled=$feedbackEnabled\ntopk_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
                     "step_durations_ns=${stepDurations.joinToString(",")}\n" +
-                    "total_step_ns=$totalStepNs\n" +
+                    "total_step_ns=$totalStepNs\ntotal_selection_ns=$totalSelectionNs\n" +
+                    "total_loop_ns=$totalLoopNs\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +
                     "last_output_sha256=$outputHash\nnative_stats=${stats.joinToString(",")}\n" +
                     "reference_checked=false\naudio_played=false\n"
