@@ -11,6 +11,12 @@
 
     <application android:extractNativeLibs="true">
         <activity
+            android:name=".tts.ResidentCpLibraryProbeActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
+        <activity
             android:name=".assistant.BluetoothAssistSetupActivity"
             android:exported="true"
             android:label="Bluetooth待機"
