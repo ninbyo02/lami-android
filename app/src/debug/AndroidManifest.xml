@@ -17,6 +17,13 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
         <activity
+            android:name=".tts.ResidentCpSixteenStepProbeActivity"
+            android:process=":cp_sixteen_step_probe"
+            android:permission="android.permission.DUMP"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+        <activity
             android:name=".tts.ResidentCpSingleStepProbeActivity"
             android:process=":cp_single_step_probe"
             android:permission="android.permission.DUMP"
