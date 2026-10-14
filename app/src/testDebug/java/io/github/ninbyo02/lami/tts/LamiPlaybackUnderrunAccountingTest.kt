@@ -37,6 +37,25 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(Int.MAX_VALUE, session.observedUnderruns)
     }
 
+    @Test fun monotonicCounterTotalIsIndependentOfObservationCadence() {
+        val initialCount = 17
+        val finalCount = Int.MAX_VALUE
+        val finalOnly = LamiPlaybackUnderrunAccounting.session(initialCount)
+        val frequentlyPolled = LamiPlaybackUnderrunAccounting.session(initialCount)
+
+        // Repeated polls and intermediate readings must not inflate or lose events.
+        val readings = listOf(initialCount, 18, 1_000_000_000, finalCount - 1, finalCount)
+        for (reading in readings) {
+            assertEquals(reading - initialCount, frequentlyPolled.observe(reading))
+            assertEquals(reading - initialCount, frequentlyPolled.observe(reading))
+        }
+
+        val expected = finalCount - initialCount
+        assertEquals(expected, finalOnly.observe(finalCount))
+        assertEquals(expected, frequentlyPolled.observedUnderruns)
+        assertEquals(finalOnly.observedUnderruns, frequentlyPolled.observedUnderruns)
+    }
+
     @Test fun playbackSessionsKeepIndependentBaselinesAndTotals() {
         val firstPlayback = LamiPlaybackUnderrunAccounting.session(initialCount = 4)
         assertEquals(3, firstPlayback.observe(7))
