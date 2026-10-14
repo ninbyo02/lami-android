@@ -109,10 +109,24 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 api.resetKv(handle)
                 val resetNs = System.nanoTime() - startedReset
                 val stepDurations = LongArray(16)
+                val feedbackHead = File(filesDir, "resident-cp-head-0.f32")
+                val feedbackEmb = File(filesDir, "resident-cp-embedding-0.f32")
+                val feedbackEnabled = feedbackHead.exists() || feedbackEmb.exists()
+                require(!feedbackEnabled || (feedbackHead.isFile && feedbackEmb.isFile && rowsFile.isFile)) {
+                    "Feedback requires both authenticated tables and 16-row inputs"
+                }
+                var feedbackCode = -1
                 for (position in 0 until 16) {
                     val startedStep = System.nanoTime()
                     api.execute(handle, position, inputRows[position], output)
                     stepDurations[position] = System.nanoTime() - startedStep
+                    if (position == 1 && feedbackEnabled) {
+                        val (code, selectedEmbedding) = ResidentCpGreedyFeedback.select(
+                            feedbackHead, feedbackEmb, output
+                        )
+                        feedbackCode = code
+                        inputRows[2] = selectedEmbedding
+                    }
                 }
                 val totalStepNs = stepDurations.sum()
                 check(output.all(Float::isFinite)) { "Non-finite result from native CP" }
