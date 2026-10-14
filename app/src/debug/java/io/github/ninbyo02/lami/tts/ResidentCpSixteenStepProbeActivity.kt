@@ -117,6 +117,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                     "Full feedback requires 15 head/embedding pairs and pinned input rows"
                 }
                 val feedbackCodes = mutableListOf<Int>()
+                val sharedDraw = ResidentCpGreedyFeedback.SharedDraw()
                 for (position in 0 until 16) {
                     val startedStep = System.nanoTime()
                     api.execute(handle, position, inputRows[position], output)
@@ -124,7 +125,8 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                     if (position in 1..14 && feedbackEnabled) {
                         val headIndex = position - 1
                         val (code, selectedEmbedding) = ResidentCpGreedyFeedback.select(
-                            headFiles[headIndex], embFiles[headIndex], output, headIndex
+                            headFiles[headIndex], embFiles[headIndex], output, headIndex,
+                            sharedDraw.draw()
                         )
                         feedbackCodes += code
                         inputRows[position + 1] = selectedEmbedding
@@ -140,7 +142,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 output.forEach(encoded::putFloat)
                 val outputHash = ResidentCpSingleStepFixture.sha256(encoded.array())
                 return "status=SIXTEEN_STEPS_RETURNED\npositions_completed=16\n" +
-                    "greedy_feedback_enabled=$feedbackEnabled\ngreedy_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
+                    "greedy_feedback_enabled=$feedbackEnabled\ntopk_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
                     "step_durations_ns=${stepDurations.joinToString(",")}\n" +
                     "total_step_ns=$totalStepNs\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +

@@ -4,6 +4,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.exp
 
 /** Debug-only first feedback edge. Uses greedy argmax, not production sampling. */
 internal object ResidentCpGreedyFeedback {
@@ -13,7 +14,17 @@ internal object ResidentCpGreedyFeedback {
     const val HEAD_SHA256 = "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af"
     const val EMBEDDING_SHA256 = "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958"
 
-    fun select(head: File, embedding: File, hidden: FloatArray, headIndex: Int): Pair<Int, FloatArray> {
+    internal class SharedDraw(seed: Long = 42L) {
+        private var state = (seed xor 0x5DEECE66DL) and ((1L shl 48) - 1)
+        private fun bits(n: Int): Long {
+            state = (state * 0x5DEECE66DL + 0xBL) and ((1L shl 48) - 1)
+            return state ushr (48 - n)
+        }
+        fun draw(): Double = ((bits(26) shl 27) + bits(27)).toDouble() / (1L shl 53)
+    }
+
+    fun select(head: File, embedding: File, hidden: FloatArray, headIndex: Int,
+               draw: Double? = null): Pair<Int, FloatArray> {
         require(hidden.size == WIDTH && hidden.all(Float::isFinite))
         require(headIndex in 0..14)
         val hashes = File(head.parentFile, "resident-cp-heads-embeddings.sha256").readLines()
@@ -23,8 +34,7 @@ internal object ResidentCpGreedyFeedback {
             require(file.isFile && file.length() == CODES.toLong() * ROW_BYTES &&
                 ResidentCpSingleStepFixture.sha256(file) == hash) { "Incorrect feedback fixture" }
         }
-        var best = -1
-        var bestScore = Double.NEGATIVE_INFINITY
+        val scores = DoubleArray(CODES)
         RandomAccessFile(head, "r").use { reader ->
             val bytes = ByteArray(ROW_BYTES)
             for (code in 0 until CODES) {
@@ -33,8 +43,23 @@ internal object ResidentCpGreedyFeedback {
                 var score = 0.0
                 for (i in 0 until WIDTH) score += row.get(i).toDouble() * hidden[i]
                 require(score.isFinite()) { "Non-finite head score" }
-                if (score > bestScore) { bestScore = score; best = code }
+                scores[code] = score
             }
+        }
+        val best = if (draw == null) {
+            scores.indices.maxWithOrNull(compareBy<Int> { scores[it] }.thenBy { -it })!!
+        } else {
+            require(draw >= 0.0 && draw < 1.0 && draw.isFinite())
+            val top = scores.indices.sortedWith(compareByDescending<Int> { scores[it] }.thenBy { it }).take(50)
+            val weights = top.map { exp((scores[it] - scores[top.first()]) / 0.9) }
+            val threshold = draw * weights.sum()
+            var cumulative = 0.0
+            var chosen = top.last()
+            for (i in top.indices) {
+                cumulative += weights[i]
+                if (threshold < cumulative) { chosen = top[i]; break }
+            }
+            chosen
         }
         require(best in 0 until CODES)
         val bytes = ByteArray(ROW_BYTES)
