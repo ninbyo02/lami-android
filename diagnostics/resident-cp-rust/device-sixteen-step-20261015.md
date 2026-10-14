@@ -24,3 +24,21 @@ Second invocation:
 NPU execution and single-context reuse are established for one synthetic
 16-position test. Accuracy, KV-value correctness, CPU numerical parity,
 speech quality, speed under contention and sustained operation remain unproven.
+
+## Cache handling code review, 06:31 JST
+
+The verified 16/16 result exercised the Rust QnnBackend::execute() path,
+which calls execute_graph(position, true). After each successful SDK graph run,
+validate_cache_write checks that all FP32 K/V elements outside the active
+position remain bit-identical (5 K + 5 V tensors, dimensions 32 x 8 x 128).
+On a detected unrelated position change the step fails instead of adopting
+the output. A passing step copies all output K/V tensors to next-step input
+without reallocating the tensors. The native stats receipt reported 16
+executions and a single context open.
+
+This confirms that the strict write-boundary invariant did not fail in the
+synthetic 16-position run; it does NOT independently prove values written
+at the active positions are correct or that the cache affects the subsequent
+hidden state correctly. Remaining work: compare same-context independent
+QNN 16-step carried-KV rollout per position (hidden and K/V outputs), and
+compare to same-input CPU model.
