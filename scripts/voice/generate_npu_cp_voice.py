@@ -63,7 +63,7 @@ def main():
         return candidates[-1][0]
     class Main:
         def __init__(self):
-            self.method = Runtime.get().load_program(a.root / cfg['main_program']).load_method('forward')
+            self.method = Runtime.get().load_program(a.root / 'stateless-28-int4-cache256-et14.pte').load_method('forward')
             self.k = torch.zeros(28, 1, 8, 256, 128)
             self.v = torch.zeros_like(self.k)
         def step(self, x, position):
