@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 #ifdef __ANDROID__
 #include <android/log.h>
 #define LAMI_QNN_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "LamiCpQnnBridge", __VA_ARGS__)
@@ -29,6 +30,7 @@ typedef struct {
     void *backend_library, *system_library;
     QNN_INTERFACE_VER_TYPE api;
     QNN_SYSTEM_INTERFACE_VER_TYPE system_api;
+    Qnn_LogHandle_t logger;
     Qnn_BackendHandle_t backend;
     Qnn_DeviceHandle_t device;
     Qnn_ContextHandle_t context;
@@ -57,12 +59,20 @@ void lami_qnn_close(LamiSession *s) {
         if (s->shared[i].mapped && s->rpc_free) s->rpc_free(s->shared[i].mapped);
     if (s->device && s->api.deviceFree) s->api.deviceFree(s->device);
     if (s->backend && s->api.backendFree) s->api.backendFree(s->backend);
+    if (s->logger && s->api.logFree) s->api.logFree(s->logger);
     if (s->system_context && s->system_api.systemContextFree)
         s->system_api.systemContextFree(s->system_context);
     if (s->backend_library) dlclose(s->backend_library);
     if (s->system_library) dlclose(s->system_library);
     if (s->rpc_library) dlclose(s->rpc_library);
     free(s);
+}
+
+static void lami_cp_qnn_log(const char *fmt, QnnLog_Level_t level, uint64_t timestamp, va_list args) {
+    (void)timestamp;
+    char message[512];
+    vsnprintf(message, sizeof(message), fmt, args);
+    LAMI_QNN_ERROR("sdk_level=%d %s", (int)level, message);
 }
 
 static uint64_t now_ns(void) {
@@ -266,8 +276,13 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
     uint64_t status = rpc_library ? prepare_rpc(s, rpc_library) : 0;
     if (!status) { stage = "providers"; status = providers(s, backend, system); }
     if (!status) { stage = "metadata"; status = graph_metadata(s, binary, bytes, inputs, outputs); }
-    if (!status) { stage = "backend"; status = s->api.backendCreate(NULL, NULL, &s->backend); }
-    if (!status) { stage = "device"; status = s->api.deviceCreate(NULL, NULL, &s->device); }
+    if (!status) {
+        stage = "logger";
+        status = !s->api.logCreate ? LOCAL_ERROR :
+            s->api.logCreate(lami_cp_qnn_log, QNN_LOG_LEVEL_VERBOSE, &s->logger);
+    }
+    if (!status) { stage = "backend"; status = s->api.backendCreate(s->logger, NULL, &s->backend); }
+    if (!status) { stage = "device"; status = s->api.deviceCreate(s->logger, NULL, &s->device); }
     if (!status) { stage = "context"; status = s->api.contextCreateFromBinary(s->backend, s->device, NULL, binary, bytes, &s->context, NULL); }
     if (!status) { stage = "graph"; status = s->api.graphRetrieve(s->context, "qnn_partition_0", &s->graph); }
     if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
@@ -275,9 +290,9 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
         LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
         // Stage is carried through the FFI result even when Android suppresses native stderr/logcat.
         const char *names[] = { "rpc_loader", "providers", "metadata", "backend",
-                                "device", "context", "graph", "registered_buffers" };
+                                "device", "context", "graph", "registered_buffers", "logger" };
         uint64_t stage_code = 0;
-        for (uint64_t i = 0; i < 8; ++i) if (strcmp(stage, names[i]) == 0) stage_code = i + 1;
+        for (uint64_t i = 0; i < 9; ++i) if (strcmp(stage, names[i]) == 0) stage_code = i + 1;
         lami_qnn_close(s);
         return (stage_code << 56) | (status & UINT64_C(0x00ffffffffffffff));
     }
