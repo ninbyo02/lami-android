@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--cache", type=Path, default=Path.home() / ".gradle/caches/modules-2/files-2.1")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--replay-fixture", type=Path)
+    parser.add_argument("--pcm-fixture", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     def jar(group, name, version):
@@ -44,6 +45,10 @@ def main():
         sources.append(root / "app/src/test/java/io/github/ninbyo02/lami/tts/LamiSpeechPipelineRecordedReplayTest.kt")
         if not args.replay_fixture.is_file():
             raise ValueError("Replay fixture missing")
+    if args.pcm_fixture:
+        sources.append(root / "app/src/test/java/io/github/ninbyo02/lami/tts/LamiSpeechPipelinePcmReplayTest.kt")
+        if not args.pcm_fixture.is_file():
+            raise ValueError("PCM fixture missing")
     with tempfile.TemporaryDirectory(prefix="lami-pipeline-host-") as directory:
         compiled = subprocess.run(
             ["java", "-cp", os.pathsep.join(compiler),
@@ -54,9 +59,9 @@ def main():
         tested = None
         if compiled.returncode == 0:
             tested = subprocess.run(
-                ["java"] + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
+                ["java"] + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineTest",
-                 "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []),
+                 "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []),
                 capture_output=True, text=True, timeout=60,
             )
     success = compiled.returncode == 0 and tested is not None and tested.returncode == 0
