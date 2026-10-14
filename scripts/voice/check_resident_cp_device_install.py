@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import zipfile
 
-PACKAGE = 'io.github.ninbyo02.lami.assistantprobe'
+PACKAGE = 'io.github.ninbyo02.lami.cpdiagnostic'
 
 def preflight(apk: Path, adb: str, serial: str) -> tuple[bool, str]:
     with zipfile.ZipFile(apk) as archive:
@@ -16,13 +16,14 @@ def preflight(apk: Path, adb: str, serial: str) -> tuple[bool, str]:
         missing = required.difference(archive.namelist())
     if missing:
         return False, 'missing libraries: ' + ','.join(sorted(missing))
-    result = subprocess.run([adb, '-s', serial, 'shell', 'pm', 'path', PACKAGE],
+    result = subprocess.run([adb, '-s', serial, 'shell', 'pm', 'list', 'packages', PACKAGE],
                             capture_output=True, text=True, timeout=15, check=False)
-    if result.returncode:
+    if result.returncode or result.stderr.strip():
         return False, 'cannot establish package inventory'
-    if 'package:' in result.stdout:
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if any(line == 'package:' + PACKAGE for line in lines):
         return False, f'{PACKAGE} already installed; reject overwrite'
-    if result.stdout.strip():
+    if lines:
         return False, 'unexpected package inventory'
     return True, 'no package collision (installation NOT authorized or performed)'
 

@@ -10,7 +10,7 @@ def inspect(aapt2: Path, apk: Path, require_runtime=False):
     proc = subprocess.run([str(aapt2), 'dump', 'badging', str(apk)],
         capture_output=True, text=True, check=True)
     package = re.search(r"package: name='([^']+)'", proc.stdout)
-    if not package or package.group(1) != 'io.github.ninbyo02.lami.assistantprobe':
+    if not package or package.group(1) != 'io.github.ninbyo02.lami.cpdiagnostic':
         raise ValueError('Refuse non-isolated package')
     manifest = subprocess.run([str(aapt2), 'dump', 'xmltree', '--file', 'AndroidManifest.xml', str(apk)],
         capture_output=True, text=True, check=True).stdout

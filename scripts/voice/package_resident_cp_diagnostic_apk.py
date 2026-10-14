@@ -22,7 +22,7 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
     aapt = build_tools/'aapt2'
     badging = subprocess.run([str(aapt),'dump','badging',str(source)],
         capture_output=True,text=True,check=True).stdout
-    if "package: name='io.github.ninbyo02.lami.assistantprobe'" not in badging:
+    if "package: name='io.github.ninbyo02.lami.cpdiagnostic'" not in badging:
         raise ValueError('Not an isolated assistantprobe source APK')
     with tempfile.TemporaryDirectory(prefix='lami-cp-repack-') as temp:
         raw = Path(temp)/'candidate-unsigned.apk'

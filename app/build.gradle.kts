@@ -326,7 +326,11 @@ android {
     buildTypes {
         debug {
             // Isolated assistant verification APK: never overwrite the main LAMI/TTS app.
-            applicationIdSuffix = ".assistantprobe"
+            applicationIdSuffix = if (providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true") {
+                ".cpdiagnostic"
+            } else {
+                ".assistantprobe"
+            }
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
             if (gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".gpuidleprewarm"
