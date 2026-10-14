@@ -16,7 +16,10 @@ class ResidentCpLibraryProbeActivity : Activity() {
         }
         val result = try {
             System.loadLibrary("lami_resident_cp_diag")
-            "JNI_LIBRARY_LOAD_OK; QNN_NOT_EXECUTED"
+            System.loadLibrary("QnnSystem")
+            System.loadLibrary("QnnHtpV79Stub")
+            System.loadLibrary("QnnHtp")
+            "QNN_LIBRARIES_LOAD_OK; CONTEXT_NOT_CREATED; NPU_NOT_EXECUTED"
         } catch (error: LinkageError) {
             "JNI_LIBRARY_LOAD_FAILED: " + error.javaClass.simpleName
         }
