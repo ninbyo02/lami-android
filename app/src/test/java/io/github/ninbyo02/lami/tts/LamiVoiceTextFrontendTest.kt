@@ -83,6 +83,24 @@ class LamiVoiceTextFrontendTest {
             }
         }
     }
+    @Test fun repeatedPairMergesPreserveTokenIdsAcrossPassesAndCalls() {
+        val tokenizer = LamiQwenTokenizer(
+            mapOf("a" to 1, "aa" to 2, "aaaa" to 3, "aaaaaaaa" to 4),
+            mapOf(("a" to "a") to 0, ("aa" to "aa") to 1, ("aaaa" to "aaaa") to 2),
+            mapOf("<special>" to -1),
+        )
+        // Repeated pairs, overlapping pairs, and an unmerged tail at each pass.
+        repeat(2) {
+            for (length in 1..63) {
+                val expected = mutableListOf<Int>()
+                repeat(length / 8) { expected += 4 }
+                if (length % 8 >= 4) expected += 3
+                if (length % 4 >= 2) expected += 2
+                if (length % 2 == 1) expected += 1
+                assertArrayEquals("length=$length", expected.toIntArray(), tokenizer.encode("a".repeat(length)))
+            }
+        }
+    }
     @Test fun japaneseInputEmbeddingsMatchOriginalCustomVoicePreparation() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         val cases = fixture.getJSONArray("cases")

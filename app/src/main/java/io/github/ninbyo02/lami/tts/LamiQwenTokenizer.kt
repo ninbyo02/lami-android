@@ -76,11 +76,12 @@ internal class LamiQwenTokenizer(
                     }
                 }
                 if (candidate == null) break
+                val mergedToken = candidate.first + candidate.second
                 val merged = ArrayList<String>(word.size)
                 var i = 0
                 while (i < word.size) {
                     if (i + 1 < word.size && word[i] == candidate.first && word[i + 1] == candidate.second) {
-                        merged += word[i] + word[i + 1]
+                        merged += mergedToken
                         i += 2
                     } else { merged += word[i]; i++ }
                 }
