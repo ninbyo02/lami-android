@@ -70,6 +70,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     private var engineVisionEnabled = false
     private var conversation: Conversation? = null
     private var conversationChatId: Int? = null
+    private var unsafeReleaseFailure: LocalImageReleaseException? = null
 
     val enabled: Boolean
         get() = (BuildConfig.DEBUG || BuildConfig.STANDARD_NPU_RUNTIME_ENABLED) &&
@@ -107,6 +108,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         }
 
         mutex.withLock {
+            unsafeReleaseFailure?.let { throw it }
             currentCoroutineContext().ensureActive()
             maybeReleaseExpiredLocked(SystemClock.elapsedRealtime(), trace)
             var engineReused = false
@@ -373,10 +375,12 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                 )
                 return candidate
             } catch (cancelled: CancellationException) {
-                runCatching { candidate?.close() }
+                if (visionEnabled) releaseLocalImageResources(null, candidate, {}, { candidate?.takeIf { it.isInitialized() }?.close() })
+                else runCatching { candidate?.close() }
                 throw cancelled
             } catch (throwable: Throwable) {
-                runCatching { candidate?.close() }
+                if (visionEnabled) releaseLocalImageResources(null, candidate, {}, { candidate?.takeIf { it.isInitialized() }?.close() })
+                else runCatching { candidate?.close() }
                 val retry = shouldRetryNpuEngineCreateFailure(attemptNumber, throwable)
                 trace(
                     "$ROUTE_ID engine_create_failed=true attempt=$attemptNumber retry=$retry " +
@@ -441,7 +445,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         mutex.withLock {
             backgroundReleaseJob?.cancel()
             backgroundReleaseJob = null
-            maybeReleaseExpiredLocked(nowElapsedMs)
+            runLocalImageLifecycleCleanup { maybeReleaseExpiredLocked(nowElapsedMs) }
             appInForeground = true
             backgroundedAtElapsedMs = null
         }
@@ -457,7 +461,8 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
 
     override suspend fun notifyLowMemory() = withContext(Dispatchers.IO) {
         mutex.withLock {
-            closeLocked("low-memory", {})
+            runLocalImageLifecycleCleanup { closeLocked("low-memory", {}) }
+            Unit
         }
     }
 
@@ -475,7 +480,7 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         backgroundReleaseJob = lifecycleScope.launch {
             delay(NPU_RESIDENT_BACKGROUND_TIMEOUT_MS)
             mutex.withLock {
-                maybeReleaseExpiredLocked(SystemClock.elapsedRealtime())
+                runLocalImageLifecycleCleanup { maybeReleaseExpiredLocked(SystemClock.elapsedRealtime()) }
             }
         }
     }
@@ -499,13 +504,22 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
         reason: String,
         trace: (String) -> Unit,
     ) {
+        unsafeReleaseFailure?.let { throw it }
         val activeConversation = conversation
+        if (activeConversation != null) {
+            try {
+                activeConversation.close()
+            } catch (failure: Throwable) {
+                val releaseFailure = LocalImageReleaseException("conversation", failure)
+                unsafeReleaseFailure = releaseFailure
+                localImageRunCoordinator.quarantine("npu-conversation-close", listOfNotNull(activeConversation, engine))
+                runCatching { trace("$ROUTE_ID conversation_closed=false reason=$reason") }
+                throw releaseFailure
+            }
+        }
         conversation = null
         conversationChatId = null
-        if (activeConversation != null) {
-            runCatching { activeConversation.close() }
-            trace("$ROUTE_ID conversation_closed=true reason=$reason")
-        }
+        if (activeConversation != null) runCatching { trace("$ROUTE_ID conversation_closed=true reason=$reason") }
     }
 
     private fun closeLocked(
@@ -514,16 +528,24 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     ) {
         closeConversationLocked(reason, trace)
         val activeEngine = engine
+        backgroundReleaseJob?.cancel()
+        backgroundReleaseJob = null
+        if (activeEngine != null) {
+            try {
+                activeEngine.close()
+            } catch (failure: Throwable) {
+                val releaseFailure = LocalImageReleaseException("engine", failure)
+                unsafeReleaseFailure = releaseFailure
+                localImageRunCoordinator.quarantine("npu-engine-close", listOf(activeEngine))
+                runCatching { trace("$ROUTE_ID engine_closed=false reason=$reason") }
+                throw releaseFailure
+            }
+        }
         engine = null
         engineModelPath = null
         engineVisionEnabled = false
         lastUsedAtElapsedMs = null
-        backgroundReleaseJob?.cancel()
-        backgroundReleaseJob = null
-        if (activeEngine != null) {
-            runCatching { activeEngine.close() }
-            trace("$ROUTE_ID engine_closed=true reason=$reason")
-        }
+        if (activeEngine != null) runCatching { trace("$ROUTE_ID engine_closed=true reason=$reason") }
     }
 
     private fun writeGenerationTelemetry(

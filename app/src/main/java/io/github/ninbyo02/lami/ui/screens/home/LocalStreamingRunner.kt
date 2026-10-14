@@ -6532,6 +6532,19 @@ private suspend fun runOfficialLiteRtLmDirect(
                 measuredTokenSnapshot = measuredTokenSnapshot,
             )
         } finally {
+            if (imageCapacity > 0) {
+                val imageCloseStarted = SystemClock.elapsedRealtime()
+                if (!successReached) runCatching { (conversation as? Conversation)?.cancelProcess() }
+                releaseLocalImageResources(
+                    conversation = conversation,
+                    engine = engine,
+                    closeConversation = { conversation?.let { (it as Conversation).close() } },
+                    closeEngine = { engine?.takeIf { it.isInitialized() }?.close() },
+                )
+                conversation = null
+                engine = null
+                safeAppendTrace(appendTrace, "LOCAL_IMAGE native_release_ms=${SystemClock.elapsedRealtime() - imageCloseStarted} confirmed=true")
+            }
             if (!successReached) {
                 (conversation as? Conversation)?.let { activeConversation ->
                     runCatching { activeConversation.cancelProcess() }
@@ -6593,6 +6606,7 @@ private suspend fun runOfficialLiteRtLmDirect(
         result
     }.getOrElse { throwable ->
         if (throwable is CancellationException) throw throwable
+        if (throwable is LocalImageReleaseException) throw throwable
         val npuPreferredBackendApplyResult = preferredBackendApplyResult
             ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
         if (npuPreferredBackendApplyResult != null) {

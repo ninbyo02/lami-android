@@ -29,5 +29,17 @@ class Qairt244ImagePrefacePatchSourceContractTest {
         assertTrue(script.contains("apply_patch \"\$IMAGE_PREFACE_PATCH\" image_preface"))
         assertTrue(script.contains("image_preface_patch_sha256"))
         assertTrue(script.contains("qairt244_image_preface_queue_v2"))
+        assertTrue(script.contains("apply_patch \"\$IMAGE_CANCEL_PATCH\" image_cancel"))
+        assertTrue(script.contains("image_cancel_patch_sha256"))
+    }
+
+    @Test fun cancellationPatchChecksBeforeEachImageAndBeforeLanguagePrefillWithoutEarlyFree() {
+        val patch = File(root, "patches/qairt244_litertlm_image_cancel.patch").readText()
+        assertTrue(patch.contains("Session is cancelled before input encoding."))
+        assertTrue(patch.contains("Session is cancelled during vision encoding."))
+        assertTrue(patch.contains("Session is cancelled before language prefill."))
+        assertTrue(patch.contains("ProcessAndCombineContentsStopsAfterFirstVisionEncode"))
+        assertFalse(patch.contains("~SessionBasic"))
+        assertFalse(patch.contains("WaitUntilDone"))
     }
 }
