@@ -117,6 +117,7 @@ class ResidentCpSingleStepProbeActivity : Activity() {
                     "mean_abs_error=$meanAbsError\nrmse=$rmse\n" +
                     "reference_normalized_max_error=$referenceNormalizedMaxError\n" +
                     "reference_max_magnitude=$maxReferenceMagnitude\noutput_sha256=$outputHash\n" +
+                    "reference_conditions_verified=false\nreference_is_cpu=false\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +
                     "one_step_ns=$stepNs\nnative_stats=${stats.joinToString(",")}\n" +
                     "audio_played=false\n"
