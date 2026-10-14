@@ -64,7 +64,18 @@ internal class LamiQwenTokenizer(
             end = matcher.end()
             var word = matcher.group().toByteArray(Charsets.UTF_8).map { byteCharacters[it.toInt() and 255] }
             while (word.size > 1) {
-                val candidate = word.zipWithNext().mapNotNull { pair -> ranks[pair]?.let { pair to it } }.minByOrNull { it.second }?.first ?: break
+                var candidate: Pair<String, String>? = null
+                var bestRank = Int.MAX_VALUE
+                for (index in 0 until word.lastIndex) {
+                    val pair = word[index] to word[index + 1]
+                    val rank = ranks[pair] ?: continue
+                    // Strict comparison keeps the first adjacent pair on rank ties.
+                    if (candidate == null || rank < bestRank) {
+                        candidate = pair
+                        bestRank = rank
+                    }
+                }
+                if (candidate == null) break
                 val merged = ArrayList<String>(word.size)
                 var i = 0
                 while (i < word.size) {

@@ -44,6 +44,45 @@ class LamiVoiceTextFrontendTest {
             assertArrayEquals(case.getString("text"), expected, tokenizer.encode(case.getString("wrapped")))
         }
     }
+    @Test fun mergeSelectionMatchesPreviousListBasedAlgorithm() {
+        // Every substring is present, so all possible merge outcomes have token IDs.
+        val words = (1..7).flatMap { length ->
+            (0 until (1 shl length)).map { bits ->
+                (0 until length).joinToString("") { if (bits and (1 shl it) == 0) "a" else "b" }
+            }
+        }
+        val vocabulary = words.withIndex().associate { it.value to it.index }
+        val pairs = words.flatMap { word ->
+            (1 until word.length).map { split -> word.substring(0, split) to word.substring(split) }
+        }.distinct()
+        val random = java.util.Random(42)
+        repeat(12) { round ->
+            val ranks = pairs.filter { random.nextBoolean() }.associateWith {
+                // Include ties and the largest valid rank, as well as absent pairs.
+                if (round == 0) Int.MAX_VALUE else random.nextInt(8)
+            }
+            val tokenizer = LamiQwenTokenizer(vocabulary, ranks, mapOf("<special>" to -1))
+            for (input in words) {
+                var word = input.map(Char::toString)
+                while (word.size > 1) {
+                    val candidate = word.zipWithNext().mapNotNull { pair -> ranks[pair]?.let { pair to it } }
+                        .minByOrNull { it.second }?.first ?: break
+                    val merged = mutableListOf<String>()
+                    var i = 0
+                    while (i < word.size) {
+                        if (i + 1 < word.size && word[i] == candidate.first && word[i + 1] == candidate.second) {
+                            merged += word[i] + word[i + 1]
+                            i += 2
+                        } else {
+                            merged += word[i++]
+                        }
+                    }
+                    word = merged
+                }
+                assertArrayEquals("round=$round input=$input", word.map(vocabulary::getValue).toIntArray(), tokenizer.encode(input))
+            }
+        }
+    }
     @Test fun japaneseInputEmbeddingsMatchOriginalCustomVoicePreparation() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         val cases = fixture.getJSONArray("cases")
