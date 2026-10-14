@@ -8,6 +8,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
+#include <pthread.h>
 #ifdef __ANDROID__
 #include <android/log.h>
 #define LAMI_QNN_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "LamiCpQnnBridge", __VA_ARGS__)
@@ -20,6 +21,35 @@
 #error This prototype requires the verified QAIRT 2.47 API headers.
 #endif
 
+/* Bounded diagnostic receipt; never stores tensors, paths, user text or audio. */
+static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char g_log_receipt[8192];
+static size_t g_log_used = 0;
+
+void lami_qnn_log_clear(void) {
+    pthread_mutex_lock(&g_log_mutex);
+    g_log_used = 0;
+    g_log_receipt[0] = '\0';
+    pthread_mutex_unlock(&g_log_mutex);
+}
+void lami_qnn_log_read(char *out, size_t capacity) {
+    if (!out || capacity == 0) return;
+    pthread_mutex_lock(&g_log_mutex);
+    snprintf(out, capacity, "%s", g_log_receipt);
+    pthread_mutex_unlock(&g_log_mutex);
+}
+static void lami_qnn_log_append(int level, const char *message) {
+    pthread_mutex_lock(&g_log_mutex);
+    if (g_log_used < sizeof(g_log_receipt) - 1) {
+        int written = snprintf(g_log_receipt + g_log_used, sizeof(g_log_receipt) - g_log_used,
+                               "L%d: %.300s\n", level, message);
+        if (written > 0) {
+            size_t available = sizeof(g_log_receipt) - 1 - g_log_used;
+            g_log_used += (size_t)written > available ? available : (size_t)written;
+        }
+    }
+    pthread_mutex_unlock(&g_log_mutex);
+}
 typedef struct { const char *name; void *data; uint32_t bytes; } LamiBuffer;
 /* Exact rpcmem signatures/heap/flags from SDK 2.47 SampleAppSharedBuffer IOTensor.hpp. */
 typedef void *(*RpcAlloc)(int, uint32_t, int);
@@ -73,6 +103,7 @@ static void lami_cp_qnn_log(const char *fmt, QnnLog_Level_t level, uint64_t time
     char message[512];
     vsnprintf(message, sizeof(message), fmt, args);
     LAMI_QNN_ERROR("sdk_level=%d %s", (int)level, message);
+    lami_qnn_log_append((int)level, message);
 }
 
 static uint64_t now_ns(void) {
@@ -267,6 +298,7 @@ static uint64_t register_shared(LamiSession *s) {
 
 uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_library, void *binary, size_t bytes,
         const LamiBuffer *inputs, const LamiBuffer *outputs, LamiSession **result) {
+    lami_qnn_log_clear();
     if (!result) return LOCAL_ERROR;
     *result = NULL;
     if (!backend || !system || !binary || !bytes || !inputs || !outputs) return LOCAL_ERROR;
@@ -288,6 +320,9 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
     if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
     if (status) {
         LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
+        char summary[120];
+        snprintf(summary, sizeof(summary), "stage=%s sdk_status=%llu", stage, (unsigned long long)status);
+        lami_qnn_log_append(1, summary);
         // Stage is carried through the FFI result even when Android suppresses native stderr/logcat.
         const char *names[] = { "rpc_loader", "providers", "metadata", "backend",
                                 "device", "context", "graph", "registered_buffers", "logger" };

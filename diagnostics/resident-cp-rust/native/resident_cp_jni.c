@@ -65,3 +65,13 @@ JNIEXPORT jlongArray JNICALL Java_io_github_ninbyo02_lami_tts_ResidentCpRustJni_
     if (output) (*env)->SetLongArrayRegion(env, output, 0, 7, values);
     return output;
 }
+
+
+extern void lami_qnn_log_read(char *out, size_t capacity);
+JNIEXPORT jstring JNICALL Java_io_github_ninbyo02_lami_tts_ResidentCpRustJni_nativeDiagnosticLog(
+    JNIEnv *env, jobject owner) {
+    (void)owner;
+    char summary[8192];
+    lami_qnn_log_read(summary, sizeof(summary));
+    return (*env)->NewStringUTF(env, summary);
+}

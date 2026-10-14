@@ -41,6 +41,12 @@ class ResidentCpContextProbeActivity : Activity() {
             openFileOutput("resident-cp-context-probe.txt", MODE_PRIVATE).bufferedWriter().use {
                 it.write(result)
                 it.newLine()
+                // Read the native bounded receipt after the probe failed/succeeded.
+                val qnnLog = runCatching { ResidentCpRustJni.diagnosticLog() }.getOrDefault("")
+                if (qnnLog.isNotBlank()) {
+                    it.write(qnnLog.take(8192))
+                    it.newLine()
+                }
             }
             Log.i("ResidentCpContextProbe", result)
         } catch (failure: Exception) {

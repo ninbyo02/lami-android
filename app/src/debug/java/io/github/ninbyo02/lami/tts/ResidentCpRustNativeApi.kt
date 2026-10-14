@@ -73,7 +73,7 @@ internal class ResidentCpRustNativeApi(
     }
 }
 
-private object ResidentCpRustJni : ResidentCpRustNativeApi.Bridge {
+internal object ResidentCpRustJni : ResidentCpRustNativeApi.Bridge {
     override fun loadLibrary(file: File?) {
         if (file == null) System.loadLibrary("lami_resident_cp_diag") else System.load(file.canonicalPath)
     }
@@ -87,6 +87,8 @@ private object ResidentCpRustJni : ResidentCpRustNativeApi.Bridge {
     override fun cancel(handle: Long) = nativeCancel(handle)
     override fun release(handle: Long) = nativeRelease(handle)
     override fun stats(handle: Long) = nativeStats(handle)
+    internal fun diagnosticLog(): String = nativeDiagnosticLog()
+    private external fun nativeDiagnosticLog(): String
     private external fun nativeCreate(bytes: ByteArray, backend: String, system: String, rpc: String): Long
     private external fun nativeReset(handle: Long)
     private external fun nativeStep(handle: Long, position: Int, input: FloatArray, output: FloatArray)
