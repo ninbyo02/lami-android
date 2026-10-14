@@ -12,6 +12,12 @@ def inspect(aapt2: Path, apk: Path, require_runtime=False):
     package = re.search(r"package: name='([^']+)'", proc.stdout)
     if not package or package.group(1) != 'io.github.ninbyo02.lami.assistantprobe':
         raise ValueError('Refuse non-isolated package')
+    manifest = subprocess.run([str(aapt2), 'dump', 'xmltree', '--file', 'AndroidManifest.xml', str(apk)],
+        capture_output=True, text=True, check=True).stdout
+    if 'extractNativeLibs(0x010104ea)=true' not in manifest:
+        raise ValueError('Diagnostic requires extractNativeLibs=true')
+    if 'name(0x01010003)="libcdsprpc.so"' not in manifest:
+        raise ValueError('Missing public RPC uses-native-library declaration')
     with zipfile.ZipFile(apk) as z:
         names = set(z.namelist())
         forbidden = ('libcdsprpc.so','libadsprpc.so','libhidlbase.so','libvndksupport.so')
