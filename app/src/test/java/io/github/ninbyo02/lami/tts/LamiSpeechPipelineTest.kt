@@ -12,6 +12,35 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LamiSpeechPipelineTest {
+    @Test fun `stop before first audio discards late prepared clip and waits for cleanup`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val events = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            events += "prepare $it"
+            if (it == "old") withContext(NonCancellable) {
+                cleanup.await()
+                events += "prepare cleanup finished"
+            }
+            it
+        }, play = { events += "play $it" })
+        pipeline.enqueue("old")
+        pipeline.enqueue("discard")
+        runCurrent()
+        assertEquals(listOf("prepare old"), events)
+
+        pipeline.stop()
+        pipeline.enqueue("new")
+        runCurrent()
+        assertEquals(listOf("prepare old"), events)
+        assertEquals(listOf(true, false, true), busy)
+
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("prepare old", "prepare cleanup finished", "prepare new", "play new"), events)
+        assertEquals(listOf(true, false, true, false), busy)
+    }
+
     @Test fun `prepares the next sentence during playback with exactly one clip ahead`() = runTest {
         val firstPlayed = CompletableDeferred<Unit>()
         val prepared = mutableListOf<String>()
