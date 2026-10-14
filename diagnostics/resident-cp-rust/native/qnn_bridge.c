@@ -7,6 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LAMI_QNN_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "LamiCpQnnBridge", __VA_ARGS__)
+#else
+#define LAMI_QNN_ERROR(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 
 #if QNN_API_VERSION_MAJOR != 2 || QNN_API_VERSION_MINOR != 36
 #error This prototype requires the verified QAIRT 2.47 API headers.
@@ -66,7 +73,7 @@ static uint64_t now_ns(void) {
 
 static uint64_t system_provider(LamiSession *s, const char *system) {
     s->system_library = dlopen(system, RTLD_NOW | RTLD_LOCAL);
-    if (!s->system_library) { fprintf(stderr, "lami_cp_dlopen_system_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->system_library) { LAMI_QNN_ERROR("lami_cp_dlopen_system_error=%s\n", dlerror()); return LOCAL_ERROR; }
     __typeof__(&QnnSystemInterface_getProviders) get_system =
         (__typeof__(&QnnSystemInterface_getProviders))dlsym(s->system_library, "QnnSystemInterface_getProviders");
     if (!get_system) return LOCAL_ERROR;
@@ -87,7 +94,7 @@ static uint64_t providers(LamiSession *s, const char *backend, const char *syste
     uint64_t status = system_provider(s, system);
     if (status) return status;
     s->backend_library = dlopen(backend, RTLD_NOW | RTLD_LOCAL);
-    if (!s->backend_library) { fprintf(stderr, "lami_cp_dlopen_backend_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->backend_library) { LAMI_QNN_ERROR("lami_cp_dlopen_backend_error=%s\n", dlerror()); return LOCAL_ERROR; }
     __typeof__(&QnnInterface_getProviders) get_backend =
         (__typeof__(&QnnInterface_getProviders))dlsym(s->backend_library, "QnnInterface_getProviders");
     if (!get_backend) return LOCAL_ERROR;
@@ -206,7 +213,7 @@ static uint64_t graph_metadata(LamiSession *s, void *binary, size_t bytes,
 
 static uint64_t prepare_rpc(LamiSession *s, const char *library) {
     s->rpc_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
-    if (!s->rpc_library) { fprintf(stderr, "lami_cp_dlopen_rpc_error=%s\n", dlerror()); return LOCAL_ERROR; }
+    if (!s->rpc_library) { LAMI_QNN_ERROR("lami_cp_dlopen_rpc_error=%s\n", dlerror()); return LOCAL_ERROR; }
     s->rpc_alloc = (RpcAlloc)dlsym(s->rpc_library, "rpcmem_alloc");
     s->rpc_free = (RpcFree)dlsym(s->rpc_library, "rpcmem_free");
     s->rpc_to_fd = (RpcToFd)dlsym(s->rpc_library, "rpcmem_to_fd");
@@ -264,7 +271,7 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
     if (!status) { stage = "context"; status = s->api.contextCreateFromBinary(s->backend, s->device, NULL, binary, bytes, &s->context, NULL); }
     if (!status) { stage = "graph"; status = s->api.graphRetrieve(s->context, "qnn_partition_0", &s->graph); }
     if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
-    if (status) fprintf(stderr, "lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
+    if (status) LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
     if (status) { lami_qnn_close(s); return status; }
     *result = s;
     return 0;

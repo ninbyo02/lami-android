@@ -6,6 +6,17 @@ use std::{collections::HashMap, ffi::{c_char, CStr}, panic::{catch_unwind, Asser
 #[cfg(all(feature = "ffi-host-test", target_os = "android"))]
 compile_error!("The fake FFI backend must never be compiled for Android");
 
+#[cfg(target_os = "android")]
+fn cp_android_error(message: &str) {
+    use std::ffi::CString;
+    extern "C" { fn __android_log_write(priority: i32, tag: *const c_char, text: *const c_char) -> i32; }
+    if let (Ok(tag), Ok(message)) = (CString::new("LamiCpRust"), CString::new(message)) {
+        unsafe { __android_log_write(6, tag.as_ptr(), message.as_ptr()); }
+    }
+}
+#[cfg(not(target_os = "android"))]
+fn cp_android_error(_message: &str) {}
+
 const INVALID: i32 = 1;
 const STALE: i32 = 2;
 const BACKEND: i32 = 3;
@@ -25,9 +36,13 @@ impl Worker {
         let (sender, receiver) = mpsc::channel::<Request>();
         let (ready, waiting) = mpsc::channel();
         let worker = thread::Builder::new().name("lami-cp-diag".into()).spawn(move || {
-            let backend = match factory() { Ok(b) => b, Err(e) => { let _ = ready.send(Err(e)); return; } };
+            let backend = match factory() { Ok(b) => b, Err(e) => {
+                cp_android_error(&format!("worker_factory_failed={e}"));
+                let _ = ready.send(Err(e)); return;
+            } };
             let mut cp = ResidentCp::new(backend);
-            if let Err(error) = cp.load_once() { eprintln!("lami_cp_worker_open_error={error:?}"); let _ = ready.send(Err(BACKEND)); return; }
+            if let Err(error) = cp.load_once() { eprintln!("lami_cp_worker_open_error={error:?}");
+                cp_android_error(&format!("worker_open_failed={error:?}")); let _ = ready.send(Err(BACKEND)); return; }
             if ready.send(Ok(())).is_err() { return; }
             let (mut resets, mut cancels) = (0, 0);
             let mut faulted = false;
