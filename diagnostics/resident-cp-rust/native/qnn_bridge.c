@@ -271,8 +271,16 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
     if (!status) { stage = "context"; status = s->api.contextCreateFromBinary(s->backend, s->device, NULL, binary, bytes, &s->context, NULL); }
     if (!status) { stage = "graph"; status = s->api.graphRetrieve(s->context, "qnn_partition_0", &s->graph); }
     if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
-    if (status) LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
-    if (status) { lami_qnn_close(s); return status; }
+    if (status) {
+        LAMI_QNN_ERROR("lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
+        // Stage is carried through the FFI result even when Android suppresses native stderr/logcat.
+        const char *names[] = { "rpc_loader", "providers", "metadata", "backend",
+                                "device", "context", "graph", "registered_buffers" };
+        uint64_t stage_code = 0;
+        for (uint64_t i = 0; i < 8; ++i) if (strcmp(stage, names[i]) == 0) stage_code = i + 1;
+        lami_qnn_close(s);
+        return (stage_code << 56) | (status & UINT64_C(0x00ffffffffffffff));
+    }
     *result = s;
     return 0;
 }

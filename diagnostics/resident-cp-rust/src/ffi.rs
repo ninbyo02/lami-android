@@ -31,7 +31,7 @@ struct Worker { sender: mpsc::Sender<Request>, thread: Option<thread::JoinHandle
 
 impl Worker {
     fn spawn<B, F, S>(factory: F, stats: S) -> Result<Self, i32>
-    where B: EmbeddedBackend + 'static, F: FnOnce() -> Result<B, i32> + Send + 'static,
+    where B: EmbeddedBackend + 'static, B::Error: 'static, F: FnOnce() -> Result<B, i32> + Send + 'static,
           S: Fn(&B) -> Stats + Send + 'static {
         let (sender, receiver) = mpsc::channel::<Request>();
         let (ready, waiting) = mpsc::channel();
@@ -41,8 +41,27 @@ impl Worker {
                 let _ = ready.send(Err(e)); return;
             } };
             let mut cp = ResidentCp::new(backend);
-            if let Err(error) = cp.load_once() { eprintln!("lami_cp_worker_open_error={error:?}");
-                cp_android_error(&format!("worker_open_failed={error:?}")); let _ = ready.send(Err(BACKEND)); return; }
+            if let Err(error) = cp.load_once() {
+                eprintln!("lami_cp_worker_open_error={error:?}");
+                cp_android_error(&format!("worker_open_failed={error:?}"));
+                // 101..108 identify C QNN open stages; 3 remains a generic backend failure.
+                #[cfg(feature = "qnn-sdk")]
+                let code = match &error {
+                    crate::CpError::Backend(error) => {
+                        match (error as &dyn std::any::Any).downcast_ref::<crate::qnn::QnnError>() {
+                            Some(crate::qnn::QnnError::Sdk(encoded)) => {
+                                let stage = (encoded >> 56) as i32;
+                                if (1..=8).contains(&stage) { 100 + stage } else { BACKEND }
+                            }
+                            _ => BACKEND,
+                        }
+                    }
+                    _ => BACKEND
+                };
+                #[cfg(not(feature = "qnn-sdk"))]
+                let code = BACKEND;
+                let _ = ready.send(Err(code)); return;
+            }
             if ready.send(Ok(())).is_err() { return; }
             let (mut resets, mut cancels) = (0, 0);
             let mut faulted = false;
