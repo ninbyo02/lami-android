@@ -83,6 +83,47 @@ class LamiSpeechPipelineTest {
         assertFalse(events.contains("play superseded"))
     }
 
+    @Test fun `stop during prefetch waits for preparation cleanup before replacement`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val events = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            events += "prepare $it"
+            if (it == "prefetched") try { delay(1000) } finally {
+                withContext(NonCancellable) {
+                    events += "prepare cleanup started"
+                    cleanup.await()
+                    events += "prepare cleanup finished"
+                }
+            }
+            it
+        }, play = {
+            events += "play $it"
+            if (it == "old") delay(1000)
+        })
+        pipeline.enqueue("old")
+        pipeline.enqueue("prefetched")
+        pipeline.enqueue("discard")
+        runCurrent()
+        assertTrue(events.contains("prepare prefetched"))
+        assertTrue(events.contains("play old"))
+
+        pipeline.stop()
+        runCurrent()
+        pipeline.enqueue("new")
+        runCurrent()
+        assertTrue(events.contains("prepare cleanup started"))
+        assertFalse(events.contains("prepare new"))
+        assertEquals(listOf(true, false, true), busy)
+
+        cleanup.complete(Unit)
+        runCurrent()
+        assertTrue(events.indexOf("prepare cleanup finished") < events.indexOf("prepare new"))
+        assertEquals(listOf("play old", "play new"), events.filter { it.startsWith("play ") })
+        assertFalse(events.contains("prepare discard"))
+        assertEquals(listOf(true, false, true, false), busy)
+    }
+
     @Test fun `enqueue after explicit stop waits for cancelled playback cleanup`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         val events = mutableListOf<String>()
