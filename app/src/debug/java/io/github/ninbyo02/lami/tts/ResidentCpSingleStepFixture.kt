@@ -7,12 +7,12 @@ import java.security.MessageDigest
 
 /**
  * Pinned one-position QNN fixture from the production-fp32 SM8750 qnn-net-run actual-check.
- * The reference is an independent QNN result, NOT a CPU accuracy oracle.
+ * The reference is a QNN net-run position=0/zero-KV result for the same AOT; NOT a CPU accuracy oracle.
  * No utterance, sampling, PCM, runtime fixture generation, or mutable baseline.
  */
 internal object ResidentCpSingleStepFixture {
     const val INPUT_SHA256 = "af4986f4525dc536ec3feb552afc2eaad1947b99657c8ac7d69b86b80725bd18"
-    const val GOLDEN_SHA256 = "957864d1aef2610fc9c1786f784012f596133d8765d0fce0c0aedf10dafd3ce6"
+    const val GOLDEN_SHA256 = "4328738d582c28f8ebe2313066cc0fd21867b4482248e0493b64467a0686ac16"
     const val CONTEXT_SHA256 = "1ebaf036a376c886fe135afbf5f87dfb651be2804dc8675f1035be9ca7a92136"
     const val SKELETON_SHA256 = "dd8987c17928e53877e51ce5739c550d3e74393bd5b1b5ccf311326eddb08612"
     private const val WIDTH = 1024
