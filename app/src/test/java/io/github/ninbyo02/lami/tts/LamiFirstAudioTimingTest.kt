@@ -34,11 +34,11 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal",
             LamiFirstAudioTiming.requestStartedEvent(request),
         )
         assertEquals(
-            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned",
+            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned first_audio_start_basis=engine_request_ordinal",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
@@ -142,6 +142,26 @@ class LamiFirstAudioTimingTest {
         assertTrue(source.contains("val requestOrdinal = requestId - 1L"))
         assertTrue(source.contains("requestOrdinal = requestOrdinal"))
         assertTrue(source.contains("startKindForRequestOrdinal(requestOrdinal)"))
+    }
+
+    @Test fun coldAndWarmEventsDeclareEngineRequestOrdinalAsClassificationBasis() {
+        for (ordinal in listOf(0L, 1L, 2L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 10L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            for (event in listOf(
+                LamiFirstAudioTiming.requestStartedEvent(request),
+                LamiFirstAudioTiming.playbackStartedEvent(request, 20L),
+            )) {
+                val fields = eventFields(event)
+                assertEquals("engine_request_ordinal", fields["first_audio_start_basis"])
+                assertEquals(if (ordinal == 0L) "cold" else "warm", fields["first_audio_start"])
+                assertEquals(ordinal.toString(), fields["first_audio_request_ordinal"])
+            }
+        }
     }
 
     private fun eventFields(event: String): Map<String, String> =
