@@ -452,6 +452,15 @@ androidComponents {
             variant.packaging.jniLibs.excludes.add("**/arm64-v8a/libLiteRtGpuAccelerator.so")
         }
         if (
+            variant.buildType == "debug" &&
+            flavor == "standard" &&
+            providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true"
+        ) {
+            // Isolated .assistantprobe APK only. Never enable on the production release.
+            // Diagnostic JNI/QNN payload is not silently added by this flag.
+            variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
+        if (
             variant.buildType == "release" &&
             flavor == "standard" &&
             standardNpuRuntimeEnabled.get()
