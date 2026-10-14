@@ -37,6 +37,24 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(Int.MAX_VALUE, session.observedUnderruns)
     }
 
+    @Test fun playbackSessionsKeepIndependentBaselinesAndTotals() {
+        val firstPlayback = LamiPlaybackUnderrunAccounting.session(initialCount = 4)
+        assertEquals(3, firstPlayback.observe(7))
+
+        // A later playback starts with the existing cumulative platform count.
+        val laterPlayback = LamiPlaybackUnderrunAccounting.session(initialCount = 7)
+        assertEquals(0, laterPlayback.observe(7))
+        assertEquals(2, laterPlayback.observe(9))
+        assertEquals(3, firstPlayback.observedUnderruns)
+
+        // Resetting one track's counter must not rebase another session.
+        assertEquals(3, firstPlayback.observe(0))
+        assertEquals(4, firstPlayback.observe(1))
+        assertEquals(3, laterPlayback.observe(10))
+        assertEquals(4, firstPlayback.observedUnderruns)
+        assertEquals(3, laterPlayback.observedUnderruns)
+    }
+
     @Test fun sessionRejectsInvalidObservationWithoutCorruptingAccounting() {
         val session = LamiPlaybackUnderrunAccounting.session(initialCount = 2)
 
