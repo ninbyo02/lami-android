@@ -13,9 +13,13 @@ internal object ResidentCpGreedyFeedback {
     const val HEAD_SHA256 = "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af"
     const val EMBEDDING_SHA256 = "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958"
 
-    fun select(head: File, embedding: File, hidden: FloatArray): Pair<Int, FloatArray> {
+    fun select(head: File, embedding: File, hidden: FloatArray, headIndex: Int): Pair<Int, FloatArray> {
         require(hidden.size == WIDTH && hidden.all(Float::isFinite))
-        for ((file, hash) in listOf(head to HEAD_SHA256, embedding to EMBEDDING_SHA256)) {
+        require(headIndex in 0..14)
+        val hashes = File(head.parentFile, "resident-cp-heads-embeddings.sha256").readLines()
+        val pairHashes = hashes[headIndex].split(" ")
+        require(pairHashes.size == 2 && pairHashes.all { it.matches(Regex("[0-9a-f]{64}")) })
+        for ((file, hash) in listOf(head to pairHashes[0], embedding to pairHashes[1])) {
             require(file.isFile && file.length() == CODES.toLong() * ROW_BYTES &&
                 ResidentCpSingleStepFixture.sha256(file) == hash) { "Incorrect feedback fixture" }
         }

@@ -1,0 +1,7 @@
+# Real device QNN 14-edge greedy feedback test, 2026-10-15 07:40 JST
+
+Isolated debug-only cpdiagnostic APK, Snapdragon SM8750, QAIRT 2.47 QNN HTP resident context. Position 0/1 input rows came from a real CPU-main pilot of 「こんにちは。」. Position 1..14 NPU hidden outputs were scored using the original matching 2048x1024 FP32 code head 0..13, then corresponding code embedding was supplied as the next input (positions 2..15), carrying KV caches in one resident context. All 15 table pairs are pinned to SHA256 in the isolated diagnostic private app; no normal Android LAMI app, original voice/model, or other GPU job modified.
+
+Real-device receipt: status=SIXTEEN_STEPS_RETURNED; positions_completed=16; greedy_feedback_enabled=true; greedy_feedback_codes=506,1114,1985,1671,121,1751,668,1304,387,1042,362,996,781,260; total_step_ns=363429896 (mean 22.714ms); context_load_ns=459207031; kv_reset_ns=1796406; last_output_sha256=e19240db067babaad8675fc824481c997407401132d03d4578571387019c9ea3; native_stats=1,16,24,1,0,159504739,260824061; reference_checked=false; audio_played=false.
+
+Limitations: This is a one-frame partial closed loop (14 feedback edges) with greedy argmax, not the production top-k stochastic sampling, EOS or speech decoder. No audio played or generated in this specific resident run; no real-time end-to-end TTFA claim. Main model / decoding and frame-to-frame feedback remain to integrate. Step timings exclude synchronous head-score cost and Android-side orchestration; they cannot alone establish speech generation latency.

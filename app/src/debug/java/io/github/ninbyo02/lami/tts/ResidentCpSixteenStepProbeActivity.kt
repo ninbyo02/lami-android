@@ -109,23 +109,25 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 api.resetKv(handle)
                 val resetNs = System.nanoTime() - startedReset
                 val stepDurations = LongArray(16)
-                val feedbackHead = File(filesDir, "resident-cp-head-0.f32")
-                val feedbackEmb = File(filesDir, "resident-cp-embedding-0.f32")
-                val feedbackEnabled = feedbackHead.exists() || feedbackEmb.exists()
-                require(!feedbackEnabled || (feedbackHead.isFile && feedbackEmb.isFile && rowsFile.isFile)) {
-                    "Feedback requires both authenticated tables and 16-row inputs"
+                val headFiles = (0 until 15).map { File(filesDir, "resident-cp-head-$it.f32") }
+                val embFiles = (0 until 15).map { File(filesDir, "resident-cp-embedding-$it.f32") }
+                val feedbackEnabled = headFiles.any(File::exists) || embFiles.any(File::exists)
+                val allTables = (headFiles + embFiles).all(File::isFile)
+                require(!feedbackEnabled || (allTables && rowsFile.isFile)) {
+                    "Full feedback requires 15 head/embedding pairs and pinned input rows"
                 }
-                var feedbackCode = -1
+                val feedbackCodes = mutableListOf<Int>()
                 for (position in 0 until 16) {
                     val startedStep = System.nanoTime()
                     api.execute(handle, position, inputRows[position], output)
                     stepDurations[position] = System.nanoTime() - startedStep
-                    if (position == 1 && feedbackEnabled) {
+                    if (position in 1..14 && feedbackEnabled) {
+                        val headIndex = position - 1
                         val (code, selectedEmbedding) = ResidentCpGreedyFeedback.select(
-                            feedbackHead, feedbackEmb, output
+                            headFiles[headIndex], embFiles[headIndex], output, headIndex
                         )
-                        feedbackCode = code
-                        inputRows[2] = selectedEmbedding
+                        feedbackCodes += code
+                        inputRows[position + 1] = selectedEmbedding
                     }
                 }
                 val totalStepNs = stepDurations.sum()
@@ -138,7 +140,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 output.forEach(encoded::putFloat)
                 val outputHash = ResidentCpSingleStepFixture.sha256(encoded.array())
                 return "status=SIXTEEN_STEPS_RETURNED\npositions_completed=16\n" +
-                    "greedy_feedback_enabled=$feedbackEnabled\ngreedy_feedback_code=$feedbackCode\n" +
+                    "greedy_feedback_enabled=$feedbackEnabled\ngreedy_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
                     "step_durations_ns=${stepDurations.joinToString(",")}\n" +
                     "total_step_ns=$totalStepNs\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +
