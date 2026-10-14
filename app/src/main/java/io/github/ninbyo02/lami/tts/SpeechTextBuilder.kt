@@ -16,6 +16,8 @@ class SpeechTextBuilder private constructor() {
         private val fencedCodeRegex = Regex("```\\s*([^\\n`]*)\\n?[\\s\\S]*?```")
         private val inlineCodeRegex = Regex("`([^`]+)`")
         private val rawUrlRegex = Regex("(https?://\\S+|www\\.\\S+)")
+        private val inlineFunctionCallRegex = Regex("^[A-Za-z_][\\w.]*\\(\\)$")
+        private val inlineCommandRegex = Regex("^[a-zA-Z]{2,}(?:\\s+[\\w./:-]+){1,3}$")
         private val markdownDecorationLineRegex = Regex("(?m)^\\s*([#=\\-*`_])\\1{2,}\\s*$")
         private val atxHeadingRegex = Regex("^(\\s{0,3})#{1,6}\\s+(.+?)\\s*$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
@@ -108,10 +110,10 @@ class SpeechTextBuilder private constructor() {
             if (rawUrlRegex.matches(inlineCode)) {
                 return "リンク"
             }
-            if (Regex("^[A-Za-z_][\\w.]*\\(\\)$").matches(inlineCode)) {
+            if (inlineFunctionCallRegex.matches(inlineCode)) {
                 return "関数呼び出し"
             }
-            if (Regex("^[a-zA-Z]{2,}(?:\\s+[\\w./:-]+){1,3}$").matches(inlineCode)) {
+            if (inlineCommandRegex.matches(inlineCode)) {
                 return "$inlineCode コマンド"
             }
             return if (inlineCode.length <= 20) inlineCode else "コード"
