@@ -138,6 +138,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 output.forEach(encoded::putFloat)
                 val outputHash = ResidentCpSingleStepFixture.sha256(encoded.array())
                 return "status=SIXTEEN_STEPS_RETURNED\npositions_completed=16\n" +
+                    "greedy_feedback_enabled=$feedbackEnabled\ngreedy_feedback_code=$feedbackCode\n" +
                     "step_durations_ns=${stepDurations.joinToString(",")}\n" +
                     "total_step_ns=$totalStepNs\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +
