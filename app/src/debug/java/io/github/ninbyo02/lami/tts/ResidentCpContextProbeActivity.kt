@@ -2,6 +2,8 @@ package io.github.ninbyo02.lami.tts
 
 import android.app.Activity
 import android.os.Bundle
+import android.system.Os
+import java.security.MessageDigest
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import java.io.File
@@ -18,6 +20,25 @@ class ResidentCpContextProbeActivity : Activity() {
             return
         }
         val result = try {
+            val skeleton = File(filesDir, "libQnnHtpV79Skel.so")
+            require(skeleton.isFile && skeleton.length() == 11491912L) {
+                "Missing pinned QAIRT 2.47 DSP skeleton"
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+            skeleton.inputStream().use { stream ->
+                val buffer = ByteArray(1024 * 1024)
+                while (true) {
+                    val n = stream.read(buffer)
+                    if (n < 0) break
+                    digest.update(buffer, 0, n)
+                }
+            }
+            val hash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            require(hash == "dd8987c17928e53877e51ce5739c550d3e74393bd5b1b5ccf311326eddb08612") {
+                "DSP skeleton SHA-256 mismatch"
+            }
+            // Diagnostic process only; Android vendor files and normal LAMI stay untouched.
+            Os.setenv("ADSP_LIBRARY_PATH", filesDir.absolutePath + ";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/vendor/dsp", true)
             val context = File(filesDir, "mtp-qnn-context.bin")
             val spec = ResidentCpContextSpec(
                 "1ebaf036a376c886fe135afbf5f87dfb651be2804dc8675f1035be9ca7a92136",
