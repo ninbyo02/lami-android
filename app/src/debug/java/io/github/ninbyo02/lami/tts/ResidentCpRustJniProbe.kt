@@ -33,16 +33,6 @@ internal object ResidentCpRustJniProbe {
         val inputs = rows(args[4]); val expected = rows(args[5])
         val lines = mutableListOf<String>()
         fun record(key: String, value: Any) { lines += "$key=$value"; stdout.println("$key=$value") }
-        if (args[7] != "host-test") {
-            // app_process owns a Java native-library namespace, unlike the ELF probe.
-            System.loadLibrary("cdsprpc")
-            record("preloaded_public_cdsprpc", true)
-            for (name in listOf("libQnnHtpV79Stub.so")) {
-                val sdkLibrary = File(runtime, name); require(sdkLibrary.isFile)
-                System.load(sdkLibrary.canonicalPath)
-                record("preloaded_$name", true)
-            }
-        }
         var handle = 0L
         ResidentCpRustNativeApi(runtime, spec, library).use { api ->
             val tracing = object : ResidentCpQnnDriver.NativeApi {

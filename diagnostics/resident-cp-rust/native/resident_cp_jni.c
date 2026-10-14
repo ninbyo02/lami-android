@@ -1,10 +1,15 @@
 #include <jni.h>
+#include <stdio.h>
 #include "resident_cp_ffi.h"
 
 static void failed(JNIEnv *env, int32_t status) {
     if (!status || (*env)->ExceptionCheck(env)) return;
     jclass type = (*env)->FindClass(env, status == 1 ? "java/lang/IllegalArgumentException" : "java/lang/IllegalStateException");
-    if (type) (*env)->ThrowNew(env, type, "Resident CP diagnostic native operation failed");
+    if (type) {
+        char message[96];
+        snprintf(message, sizeof(message), "Resident CP native operation failed (status=%d)", status);
+        (*env)->ThrowNew(env, type, message);
+    }
 }
 
 JNIEXPORT jlong JNICALL Java_io_github_ninbyo02_lami_tts_ResidentCpRustJni_nativeCreate(
@@ -59,4 +64,14 @@ JNIEXPORT jlongArray JNICALL Java_io_github_ninbyo02_lami_tts_ResidentCpRustJni_
     jlongArray output = (*env)->NewLongArray(env, 7);
     if (output) (*env)->SetLongArrayRegion(env, output, 0, 7, values);
     return output;
+}
+
+
+extern void lami_qnn_log_read(char *out, size_t capacity);
+JNIEXPORT jstring JNICALL Java_io_github_ninbyo02_lami_tts_ResidentCpRustJni_nativeDiagnosticLog(
+    JNIEnv *env, jobject owner) {
+    (void)owner;
+    char summary[8192];
+    lami_qnn_log_read(summary, sizeof(summary));
+    return (*env)->NewStringUTF(env, summary);
 }
