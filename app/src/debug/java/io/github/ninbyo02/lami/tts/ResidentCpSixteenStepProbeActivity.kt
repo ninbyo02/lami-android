@@ -109,7 +109,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 api.resetKv(handle)
                 val resetNs = System.nanoTime() - startedReset
                 val stepDurations = LongArray(16)
-                val selectionDurations = LongArray(14)
+                val selectionDurations = LongArray(15)
                 val loopStarted = System.nanoTime()
                 val headFiles = (0 until 15).map { File(filesDir, "resident-cp-head-$it.f32") }
                 val embFiles = (0 until 15).map { File(filesDir, "resident-cp-embedding-$it.f32") }
@@ -126,7 +126,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                     val startedStep = System.nanoTime()
                     api.execute(handle, position, inputRows[position], output)
                     stepDurations[position] = System.nanoTime() - startedStep
-                    if (position in 1..14 && feedbackEnabled) {
+                    if (position in 1..15 && feedbackEnabled) {
                         val headIndex = position - 1
                         val selectionStarted = System.nanoTime()
                         val (code, selectedEmbedding) = ResidentCpGreedyFeedback.selectVerified(
@@ -134,7 +134,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                             output, sharedDraw.draw()
                         )
                         feedbackCodes += code
-                        inputRows[position + 1] = selectedEmbedding
+                        if (position < 15) inputRows[position + 1] = selectedEmbedding
                         selectionDurations[headIndex] = System.nanoTime() - selectionStarted
                     }
                 }
@@ -150,7 +150,7 @@ class ResidentCpSixteenStepProbeActivity : Activity() {
                 output.forEach(encoded::putFloat)
                 val outputHash = ResidentCpSingleStepFixture.sha256(encoded.array())
                 return "status=SIXTEEN_STEPS_RETURNED\npositions_completed=16\n" +
-                    "greedy_feedback_enabled=$feedbackEnabled\ntopk_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
+                    "greedy_feedback_enabled=$feedbackEnabled\ncp_codes_complete=${feedbackCodes.size == 15}\ntopk_feedback_codes=${feedbackCodes.joinToString(",")}\n" +
                     "step_durations_ns=${stepDurations.joinToString(",")}\n" +
                     "total_step_ns=$totalStepNs\ntotal_selection_ns=$totalSelectionNs\n" +
                     "total_loop_ns=$totalLoopNs\n" +
