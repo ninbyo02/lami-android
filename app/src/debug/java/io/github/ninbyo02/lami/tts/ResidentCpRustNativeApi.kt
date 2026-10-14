@@ -12,6 +12,7 @@ internal class ResidentCpRustNativeApi(
 ) : ResidentCpQnnDriver.NativeApi, AutoCloseable {
     internal interface Bridge {
         fun loadLibrary(file: File?)
+        fun prepareRuntime(runtime: File)
         fun create(bytes: ByteArray, backend: String, system: String, rpc: String): Long
         fun reset(handle: Long)
         fun execute(handle: Long, position: Int, input: FloatArray, output: FloatArray)
@@ -37,7 +38,11 @@ internal class ResidentCpRustNativeApi(
         val paths = listOf("libQnnHtp.so", "libQnnSystem.so").map { name ->
             File(runtime, name).also { require(it.isFile) { "Missing existing SDK runtime" } }.canonicalPath
         }
-        if (!loaded) { bridge.loadLibrary(library); loaded = true }
+        for (name in listOf("libcdsprpc.so", "libadsprpc.so", "libhidlbase.so", "libvndksupport.so")) {
+            require(!File(runtime, name).exists()) { "Use public vendor RPC; do not bundle RPC or private OS dependencies" }
+        }
+        require(File(runtime, "libQnnHtpV79Stub.so").isFile) { "Missing matching SDK HTP stub" }
+        if (!loaded) { bridge.loadLibrary(library); bridge.prepareRuntime(runtime); loaded = true }
         // Android exposes the vendor RPC library by SONAME in its public namespace.
         val handle = bridge.create(bytes, paths[0], paths[1], "libcdsprpc.so")
         check(handle > 0 && handle !in handles) { "Invalid native context token" }
@@ -71,6 +76,10 @@ internal class ResidentCpRustNativeApi(
 private object ResidentCpRustJni : ResidentCpRustNativeApi.Bridge {
     override fun loadLibrary(file: File?) {
         if (file == null) System.loadLibrary("lami_resident_cp_diag") else System.load(file.canonicalPath)
+    }
+    override fun prepareRuntime(runtime: File) {
+        // Keep the app's existing ClassLoader namespace; RPC resolves natively by SONAME.
+        System.load(File(runtime, "libQnnHtpV79Stub.so").canonicalPath)
     }
     override fun create(bytes: ByteArray, backend: String, system: String, rpc: String) = nativeCreate(bytes, backend, system, rpc)
     override fun reset(handle: Long) = nativeReset(handle)

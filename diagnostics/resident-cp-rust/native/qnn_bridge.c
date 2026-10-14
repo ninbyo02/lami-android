@@ -204,14 +204,19 @@ static uint64_t graph_metadata(LamiSession *s, void *binary, size_t bytes,
     return 0;
 }
 
-static uint64_t register_shared(LamiSession *s, const char *library) {
-    if (!s->api.memRegister || !s->api.memDeRegister) return LOCAL_ERROR;
+static uint64_t prepare_rpc(LamiSession *s, const char *library) {
     s->rpc_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
     if (!s->rpc_library) { fprintf(stderr, "lami_cp_dlopen_rpc_error=%s\n", dlerror()); return LOCAL_ERROR; }
     s->rpc_alloc = (RpcAlloc)dlsym(s->rpc_library, "rpcmem_alloc");
     s->rpc_free = (RpcFree)dlsym(s->rpc_library, "rpcmem_free");
     s->rpc_to_fd = (RpcToFd)dlsym(s->rpc_library, "rpcmem_to_fd");
     if (!s->rpc_alloc || !s->rpc_free || !s->rpc_to_fd) return LOCAL_ERROR;
+    return 0;
+}
+
+static uint64_t register_shared(LamiSession *s) {
+    if (!s->api.memRegister || !s->api.memDeRegister || !s->rpc_library ||
+        !s->rpc_alloc || !s->rpc_free || !s->rpc_to_fd) return LOCAL_ERROR;
     for (uint32_t i = 0; i < 24; ++i) {
         Qnn_Tensor_t *t = i < 13 ? &s->inputs[i] : &s->outputs[i-13];
         SharedBuffer *b = &s->shared[i];
@@ -250,14 +255,15 @@ uint64_t lami_qnn_open(const char *backend, const char *system, const char *rpc_
     if (!backend || !system || !binary || !bytes || !inputs || !outputs) return LOCAL_ERROR;
     LamiSession *s = calloc(1, sizeof(*s));
     if (!s) return LOCAL_ERROR;
-    const char *stage = "providers";
-    uint64_t status = providers(s, backend, system);
+    const char *stage = "rpc_loader";
+    uint64_t status = rpc_library ? prepare_rpc(s, rpc_library) : 0;
+    if (!status) { stage = "providers"; status = providers(s, backend, system); }
     if (!status) { stage = "metadata"; status = graph_metadata(s, binary, bytes, inputs, outputs); }
     if (!status) { stage = "backend"; status = s->api.backendCreate(NULL, NULL, &s->backend); }
     if (!status) { stage = "device"; status = s->api.deviceCreate(NULL, NULL, &s->device); }
     if (!status) { stage = "context"; status = s->api.contextCreateFromBinary(s->backend, s->device, NULL, binary, bytes, &s->context, NULL); }
     if (!status) { stage = "graph"; status = s->api.graphRetrieve(s->context, "qnn_partition_0", &s->graph); }
-    if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s, rpc_library); }
+    if (!status && rpc_library) { stage = "registered_buffers"; status = register_shared(s); }
     if (status) fprintf(stderr, "lami_cp_open_error_stage=%s status=0x%llx\n", stage, (unsigned long long)status);
     if (status) { lami_qnn_close(s); return status; }
     *result = s;

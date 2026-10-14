@@ -213,6 +213,15 @@ impl Drop for QnnBackend {
 mod tests {
     use super::*;
     #[test]
+    fn missing_rpc_fails_before_sdk_context_or_execution() {
+        let mut backend = QnnBackend::from_verified_bytes(vec![0;8], "/missing/libQnnHtp.so", "/missing/libQnnSystem.so").unwrap();
+        backend.use_registered_rpc_buffers("/missing/libcdsprpc.so").unwrap();
+        assert!(matches!(backend.open(), Err(QnnError::Sdk(_))));
+        assert!(backend.session.is_none());
+        assert_eq!(backend.timings().executions, 0);
+        backend.close(); backend.close();
+    }
+    #[test]
     fn missing_sdk_library_fails_closed_without_inference() {
         let mut backend = QnnBackend::from_verified_bytes(vec![0;8], "/missing/libQnnHtp.so", "/missing/libQnnSystem.so").unwrap();
         assert!(matches!(backend.open(), Err(QnnError::Sdk(_))));
