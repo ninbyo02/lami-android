@@ -1,0 +1,45 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preStandardDebugBuild UP-TO-DATE
+> Task :app:generateStandardDebugBuildConfig
+> Task :app:checkStandardDebugAarMetadata
+> Task :app:processStandardDebugNavigationResources
+> Task :app:generateStandardDebugResValues
+> Task :app:compileStandardDebugNavigationResources
+> Task :app:mapStandardDebugSourceSetPaths
+> Task :app:generateStandardDebugResources
+> Task :app:packageStandardDebugResources
+> Task :app:mergeStandardDebugResources
+> Task :app:createStandardDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksStandardDebug
+> Task :app:parseStandardDebugLocalResources
+
+> Task :app:processStandardDebugMainManifest
+/home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/AndroidManifest.xml:12:18-50 Warning:
+	android:extractNativeLibs should not be specified in this source AndroidManifest.xml file. See https://d.android.com/guide/topics/manifest/application-element#extractNativeLibs for more information.
+The AGP Upgrade Assistant can remove the attribute from the AndroidManifest.xml file and update the build file accordingly. See https://d.android.com/studio/build/agp-upgrade-assistant for more information.
+
+> Task :app:processStandardDebugManifest
+> Task :app:processStandardDebugManifestForPackage
+> Task :app:processStandardDebugResources
+> Task :app:kspStandardDebugKotlin
+> Task :app:copyRoomSchemas NO-SOURCE
+> Task :app:compileStandardDebugKotlin
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:477:126 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/gpu/GpuIdlePrewarmDiagnosticReceiver.kt:172:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/gpu/GpuIdlePrewarmDiagnosticReceiver.kt:180:46 'static field TRIM_MEMORY_RUNNING_LOW: Int' is deprecated. Deprecated in Java.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/gpu/GpuIdlePrewarmDiagnosticReceiver.kt:181:46 'static field TRIM_MEMORY_RUNNING_CRITICAL: Int' is deprecated. Deprecated in Java.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/integration/GenerationIntegrationTestService.kt:270:26 'constructor(p0: Context!): Notification.Builder' is deprecated. Deprecated in Java.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnosticService.kt:52:144 Unnecessary safe call on a non-null receiver of type 'Intent'.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnosticService.kt:52:228 Unnecessary safe call on a non-null receiver of type 'Intent'.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnosticService.kt:52:308 Unnecessary safe call on a non-null receiver of type 'Intent'.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnosticService.kt:52:385 Unnecessary safe call on a non-null receiver of type 'Intent'.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/main/java/io/github/ninbyo02/lami/asr/BluetoothConversationAudio.kt:33:25 Return in function with expression body and without explicit return type. Use block body '{...}' or add an explicit return type. This will become an error in language version 2.4. See https://youtrack.jetbrains.com/issue/KTLC-288.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/main/java/io/github/ninbyo02/lami/asr/foundation/audio/BoundedPcmFrameChannel.kt:36:27 This class is not recommended for use in Kotlin. Use 'kotlin.Any' instead.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/main/java/io/github/ninbyo02/lami/asr/foundation/session/AsrSessionCoordinator.kt:32:32 This class is not recommended for use in Kotlin. Use 'kotlin.Any' instead.
+w: file:///home/sato/lami-tts-daemon/npu-host-validation-20261015/app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteAdaptivePaletteReducer.kt:816:9 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of function types.
+
+BUILD SUCCESSFUL in 1m 12s
+18 actionable tasks: 18 executed

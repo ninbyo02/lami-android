@@ -37,6 +37,8 @@ def main():
         jar("org.jetbrains.kotlin", "kotlin-daemon-embeddable", kotlin),
     ] + runtime
     sources = [
+        root / "app/src/debug/java/io/github/ninbyo02/lami/tts/LamiSpeechTraceGuard.kt",
+        root / "scripts/voice/kotlin/LamiSpeechTraceGuardTest.kt",
         root / "app/src/debug/java/io/github/ninbyo02/lami/tts/LamiSpeechTraceCapture.kt",
         root / "scripts/voice/kotlin/LamiSpeechTraceCaptureTest.kt",
         root / "app/src/main/java/io/github/ninbyo02/lami/tts/LamiSpeechPipeline.kt",
@@ -62,6 +64,7 @@ def main():
         if compiled.returncode == 0:
             tested = subprocess.run(
                 ["java"] + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
+                 "io.github.ninbyo02.lami.tts.LamiSpeechTraceGuardTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceCaptureTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []),
