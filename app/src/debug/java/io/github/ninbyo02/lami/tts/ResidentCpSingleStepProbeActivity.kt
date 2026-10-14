@@ -12,6 +12,8 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
+import kotlin.math.abs
+import java.security.MessageDigest
 
 /** Explicit-only, silent one-position QNN diagnostic in its own debug process.
  * No normal TTS routing, speech, model mutation, or automatic execution.
@@ -99,8 +101,22 @@ class ResidentCpSingleStepProbeActivity : Activity() {
                 check(output.all(Float::isFinite)) { "Non-finite result from native CP" }
 
                 val exact = ResidentCpSingleStepFixture.bitEqual(output, golden)
+                val errors = output.indices.map { i -> (output[i] - golden[i]).toDouble() }
+                val maxAbsError = errors.maxOf { abs(it) }
+                val meanAbsError = errors.sumOf { abs(it) } / errors.size
+                val rmse = sqrt(errors.sumOf { it * it } / errors.size)
+                val maxReferenceMagnitude = golden.maxOf { abs(it.toDouble()) }
+                val referenceNormalizedMaxError = maxAbsError / maxOf(1e-9, maxReferenceMagnitude)
+                val changedElements = output.indices.count { output[it].toRawBits() != golden[it].toRawBits() }
+                val encoded = ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN)
+                output.forEach(encoded::putFloat)
+                val outputHash = ResidentCpSingleStepFixture.sha256(encoded.array())
                 val stats = api.stats(handle)
                 return "status=STEP_RETURNED\ngolden_bit_equal=$exact\n" +
+                    "changed_elements=$changedElements\nmax_abs_error=$maxAbsError\n" +
+                    "mean_abs_error=$meanAbsError\nrmse=$rmse\n" +
+                    "reference_normalized_max_error=$referenceNormalizedMaxError\n" +
+                    "reference_max_magnitude=$maxReferenceMagnitude\noutput_sha256=$outputHash\n" +
                     "context_load_ns=$loadNs\nkv_reset_ns=$resetNs\n" +
                     "one_step_ns=$stepNs\nnative_stats=${stats.joinToString(",")}\n" +
                     "audio_played=false\n"
