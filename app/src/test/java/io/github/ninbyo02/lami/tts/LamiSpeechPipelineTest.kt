@@ -124,6 +124,43 @@ class LamiSpeechPipelineTest {
         assertEquals(listOf(true, false, true, false), busy)
     }
 
+    @Test fun `stop discards replacement waiting for cleanup and permits later reuse`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val prepared = mutableListOf<String>()
+        val played = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            prepared += it
+            it
+        }, play = {
+            played += it
+            if (it == "old") try { delay(1000) } finally {
+                withContext(NonCancellable) { cleanup.await() }
+            }
+        })
+        pipeline.enqueue("old")
+        runCurrent()
+        pipeline.replace("waiting replacement")
+        pipeline.enqueue("queued replacement")
+        runCurrent()
+        assertEquals(listOf("old"), prepared)
+
+        pipeline.stop()
+        runCurrent()
+        assertEquals(listOf(true, false, true, false), busy)
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("old"), prepared)
+        assertEquals(listOf("old"), played)
+        assertEquals(listOf(true, false, true, false), busy)
+
+        pipeline.enqueue("after cleanup")
+        runCurrent()
+        assertEquals(listOf("old", "after cleanup"), prepared)
+        assertEquals(listOf("old", "after cleanup"), played)
+        assertEquals(listOf(true, false, true, false, true, false), busy)
+    }
+
     @Test fun `enqueue after explicit stop waits for cancelled playback cleanup`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         val events = mutableListOf<String>()
