@@ -1,0 +1,11 @@
+{
+  "host_pipeline_tests": "passed",
+  "compile_output": "",
+  "test_output": "JUnit version 4.13.2\n...........\nTime: 0.094\n\nOK (11 tests)\n\n",
+  "npu_execution": "not_run",
+  "android_audio": "not_run",
+  "limitations": [
+    "Real queue/cancellation code tested with injected preparation and playback.",
+    "No JNI, driver crash, memory pressure or hardware timing reproduction."
+  ]
+}
