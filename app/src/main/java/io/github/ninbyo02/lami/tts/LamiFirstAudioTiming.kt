@@ -7,6 +7,7 @@ internal object LamiFirstAudioTiming {
         WARM("warm"),
     }
 
+    /** Starts at preparation, excluding any earlier speech-queue wait. */
     data class Request(
         val requestId: Long,
         val requestOrdinal: Long,
@@ -43,7 +44,8 @@ internal object LamiFirstAudioTiming {
             "first_audio_request_started_at_ns=${request.startedAtNs} " +
             "first_audio_elapsed_ms=0 " +
             "first_audio_clock=elapsedRealtimeNanos " +
-            "first_audio_start_basis=engine_request_ordinal"
+            "first_audio_start_basis=engine_request_ordinal " +
+            "first_audio_request_boundary=preparation_started"
 
     /** Callback immediately after AudioTrack.play() returns; not an acoustic onset measurement. */
     fun playbackStartedEvent(request: Request, firstAudioAtNs: Long): String =
@@ -56,5 +58,6 @@ internal object LamiFirstAudioTiming {
             "first_audio_elapsed_ms=${elapsedMsSince(request, firstAudioAtNs)} " +
             "first_audio_clock=elapsedRealtimeNanos " +
             "first_audio_boundary=audio_track_play_returned " +
-            "first_audio_start_basis=engine_request_ordinal"
+            "first_audio_start_basis=engine_request_ordinal " +
+            "first_audio_request_boundary=preparation_started"
 }

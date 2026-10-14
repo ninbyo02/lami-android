@@ -34,11 +34,11 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal",
+            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
             LamiFirstAudioTiming.requestStartedEvent(request),
         )
         assertEquals(
-            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned first_audio_start_basis=engine_request_ordinal",
+            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
@@ -158,6 +158,7 @@ class LamiFirstAudioTimingTest {
             )) {
                 val fields = eventFields(event)
                 assertEquals("engine_request_ordinal", fields["first_audio_start_basis"])
+                assertEquals("preparation_started", fields["first_audio_request_boundary"])
                 assertEquals(if (ordinal == 0L) "cold" else "warm", fields["first_audio_start"])
                 assertEquals(ordinal.toString(), fields["first_audio_request_ordinal"])
             }
