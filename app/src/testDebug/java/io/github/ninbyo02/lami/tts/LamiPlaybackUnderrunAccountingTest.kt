@@ -28,6 +28,27 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(5, session.observedUnderruns)
     }
 
+    @Test fun repeatedCounterResetsRebaseWithoutRecountingBaseline() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = 10)
+        // Each decrease starts a new counter epoch; only subsequent increases count.
+        val readingsAndTotals = listOf(
+            14 to 4,
+            6 to 4,
+            6 to 4,
+            9 to 7,
+            2 to 7,
+            5 to 10,
+            0 to 10,
+            0 to 10,
+            1 to 11,
+        )
+
+        for ((reading, expectedTotal) in readingsAndTotals) {
+            assertEquals("Counter reading $reading", expectedTotal, session.observe(reading))
+            assertEquals(expectedTotal, session.observedUnderruns)
+        }
+    }
+
     @Test fun sessionSaturatesAccumulatedUnderrunsInsteadOfWrapping() {
         val session = LamiPlaybackUnderrunAccounting.session(initialCount = 0)
 
