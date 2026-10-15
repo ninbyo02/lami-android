@@ -1,0 +1,67 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "model": "sam860/LFM2:350m",
+  "scope": "normal_local_chat_to_host_cpu",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "success",
+      "backend": "host_cpu_reference",
+      "request_id": "c3f8e119-4b4c-43f2-917a-3eeff1ac95ad",
+      "input_sha256": "2c13f169d6b1c721c7cbc1c517291a05ed42e3911ef5726919d4906674bfe859",
+      "model": "sam860/LFM2:350m",
+      "response": "17 plus 25 equals 42.",
+      "history_messages": 0,
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified",
+      "requested_num_gpu": 0,
+      "content_chunks": 8,
+      "first_content_ms": 599,
+      "total_ms": 674
+    },
+    {
+      "status": "success",
+      "backend": "host_cpu_reference",
+      "request_id": "a97f59ff-0d09-46a3-82dd-f6b7f8af6aef",
+      "input_sha256": "7a3482ab6684979e8f1b14f1e0a327e45a78d84db3e574a6f0b0bf4899ef4b00",
+      "model": "sam860/LFM2:350m",
+      "response": "Multiplying 42 by 2 gives 84.",
+      "history_messages": 2,
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified",
+      "requested_num_gpu": 0,
+      "content_chunks": 12,
+      "first_content_ms": 624,
+      "total_ms": 737
+    }
+  ],
+  "saved_messages": [
+    {
+      "message": "What is 17 plus 25? Reply briefly.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null
+    },
+    {
+      "message": "17 plus 25 equals 42.",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: sam860/LFM2:350m"
+    },
+    {
+      "message": "Now multiply that result by 2. Reply briefly.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null
+    },
+    {
+      "message": "Multiplying 42 by 2 gives 84.",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: sam860/LFM2:350m"
+    }
+  ],
+  "process_restart": "passed"
+}
