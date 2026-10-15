@@ -69,6 +69,20 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(Int.MAX_VALUE, session.observedUnderruns)
     }
 
+    @Test fun smallDeltaAcrossEpochsSaturatesAtIntegerBoundaryAndStaysSaturated() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = 0)
+
+        assertEquals(Int.MAX_VALUE - 3, session.observe(Int.MAX_VALUE - 3))
+        assertEquals(Int.MAX_VALUE - 3, session.observe(0))
+        assertEquals(Int.MAX_VALUE - 1, session.observe(2))
+        // Neither epoch reaches the limit on its own; their sum crosses it by one.
+        assertEquals(Int.MAX_VALUE, session.observe(4))
+        assertEquals(Int.MAX_VALUE, session.observe(4))
+        assertEquals(Int.MAX_VALUE, session.observe(0))
+        assertEquals(Int.MAX_VALUE, session.observe(1))
+        assertEquals(Int.MAX_VALUE, session.observedUnderruns)
+    }
+
     @Test fun monotonicCounterTotalIsIndependentOfObservationCadence() {
         val initialCount = 17
         val finalCount = Int.MAX_VALUE
