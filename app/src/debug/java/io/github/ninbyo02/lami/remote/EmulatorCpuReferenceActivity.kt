@@ -32,17 +32,32 @@ class EmulatorCpuReferenceActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra("enable_main_chat", false)) { openMainChat(true); return }
+        if (intent.getBooleanExtra("disable_main_chat", false)) { openMainChat(false); return }
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 24, 24, 24) }
         panel.addView(TextView(this).apply { text = "PC CPU reference / NPU未使用\nエミュレータ専用: 10.0.2.2:11434\n任意入力を実際に推論します。NPUモデルの数値一致・速度は検証しません。" })
         model = EditText(this).apply { setSingleLine(); hint = "PC Ollama model"; setText(intent.getStringExtra("model") ?: "sam860/LFM2:350m") }
         prompt = EditText(this).apply { hint = "入力"; setText(intent.getStringExtra("prompt") ?: "こんにちは。短く自己紹介してください。") }
         panel.addView(model); panel.addView(prompt)
+        panel.addView(Button(this).apply { text = "通常チャットでCPU開発"; setOnClickListener { openMainChat(true, model.text.toString()) } })
+        panel.addView(Button(this).apply { text = "CPU開発を無効化"; setOnClickListener { openMainChat(false) } })
         panel.addView(Button(this).apply { text = "CPUで推論"; setOnClickListener { infer() } })
         panel.addView(Button(this).apply { text = "停止"; setOnClickListener { cancelInference(); output.text = "中断しました"; save(JSONObject().put("status", "cancelled")) } })
         output = TextView(this).apply { setTextIsSelectable(true) }
         panel.addView(output)
         setContentView(ScrollView(this).apply { addView(panel) })
         if (intent.getBooleanExtra("auto_run", false) && savedInstanceState == null) infer()
+    }
+
+    private fun openMainChat(enabled: Boolean, selectedModel: String? = null) {
+        check(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.isEmulator()) { "Emulator only" }
+        cancelInference()
+        getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS, MODE_PRIVATE).edit()
+            .putBoolean("enabled", enabled)
+            .putString("model", selectedModel ?: intent.getStringExtra("model") ?: "sam860/LFM2:350m").apply()
+        startActivity(android.content.Intent(this, io.github.ninbyo02.lami.MainActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        finish()
     }
 
     private fun cancelInference() {

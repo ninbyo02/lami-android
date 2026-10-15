@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-10-15T20:19:31.538909+00:00",
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "physical_device_inference": "not_run",
+  "debug_apk_build": "passed",
+  "release_kotlin_compile": "passed",
+  "release_backend_constant_disabled": "verified_in_bytecode",
+  "release_debug_activity_absent": true,
+  "normal_chat_real_generation": "passed",
+  "two_turn_history": "passed",
+  "saved_completed_messages": 4,
+  "history_reopened_after_process_restart": "passed",
+  "normal_chat_stop": "passed",
+  "recovery_after_stop": "passed",
+  "missing_model_failure": "passed",
+  "disable_and_reenable": "passed",
+  "recovery_after_error": "passed",
+  "ollama_models_remaining": 0,
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "source_sha256": {
+    "app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt": "efa5510130da286fadfd3b892337035190b9be92771351515093fb67fb03dbb9",
+    "app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/EmulatorMainChatBackend.kt": "9946b9d8e868e01102db7c587c1ab342983ad06b101be59e7a50382235675a36",
+    "app/src/release/java/io/github/ninbyo02/lami/ui/screens/home/EmulatorMainChatBackend.kt": "e8e4428e610a94c5f2ecc58a37a1eb1a832bd9b4350420aecf16f0cfb4b7bdf5",
+    "app/src/debug/java/io/github/ninbyo02/lami/remote/EmulatorCpuReferenceActivity.kt": "d30963aecf71d568790d19ebd77035413905b4b30882402f1419cd560d5abbaa"
+  }
+}

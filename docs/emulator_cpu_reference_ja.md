@@ -30,7 +30,7 @@ python3 scripts/voice/check_emulator_cpu_reference.py --serial emulator-5580 --o
 - 実機なしでAndroid画面→任意入力の実推論→ストリーム表示を動かす。
 - 成功・通信失敗・停止を開発する。
 - 通常チャット画面のサーバー経路は既存。今回の専用画面はその設定やスマホのLOCAL/NPU設定を変更しない。
-- ローカルNPUスロットへの代替バックエンド注入、同一モデルのCPU/NPU差分比較、TTS/ASRとの統合はこの画面では未実装。
+- 通常チャットのLOCAL表示・保存経路への明示的なCPUバックエンド接続を追加済み（emulator_main_chat_ja.md）。同一モデルのCPU/NPU差分比較、TTS/ASRとの統合は未検証。
 - NPU専用コンパイル済みモデルの実行、ドライバ、性能・発熱・メモリ競合、実際のSIGABRT原因の検証には実機が必要。
 
 ## 参照
