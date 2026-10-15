@@ -3,8 +3,11 @@ import json
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
+import prepare_unified_speech_replay as unified
+import prepare_terminal_speech_replay as terminal
 from pathlib import Path
-from validate_speech_trace import validate, inspect_incomplete
+from validate_speech_trace import validate, validate_snapshot, inspect_incomplete
 
 
 class TraceValidationTest(unittest.TestCase):
@@ -38,6 +41,44 @@ class TraceValidationTest(unittest.TestCase):
                               {"stage":"request_ended","elapsed_ms":1}]
             write()
             self.assertEqual(validate(path)["recorded_status"], "failure")
+
+
+    def test_export_uses_validated_metadata_snapshot(self):
+        for module, status in ((unified, "success"), (terminal, "failure")):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                raw = struct.pack("<f", 0.25)
+                (root / "output.f32").write_bytes(raw)
+                data = {"schema_version": 1, "request_id": "original",
+                        "input_sha256": "a"*64, "model_sha256": "b"*64,
+                        "runtime_sha256": "c"*64, "status": status,
+                        "failure_stage": None if status == "success" else "cancelled",
+                        "events": [{"stage": s, "elapsed_ms": t} for s, t in
+                                   [("request_started", 0), ("synthesis_started", 0),
+                                    ("pcm_ready", 0), ("request_ended", 1)]],
+                        "pcm": {"path": "output.f32", "format": "float32le",
+                                "sample_rate": 24000, "samples": 1,
+                                "sha256": hashlib.sha256(raw).hexdigest()}
+                               if status == "success" else None}
+                source = root / "trace.json"
+                source.write_text(json.dumps(data))
+                original_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+                def change_after_validation(path):
+                    snapshot = validate_snapshot(path)
+                    altered = dict(data, request_id="changed", model_sha256="d"*64)
+                    path.write_text(json.dumps(altered))
+                    return snapshot
+                output = root / "export"
+                with patch.object(module, "validate_snapshot", side_effect=change_after_validation):
+                    module.prepare(source if status == "success" else [source], output)
+                manifest = json.loads((output / "manifest.json").read_text())
+                if status == "success":
+                    self.assertEqual(manifest["request_id"], "original")
+                    self.assertEqual(manifest["model_sha256"], "b"*64)
+                    self.assertEqual(manifest["source_sha256"], original_sha)
+                else:
+                    self.assertEqual(manifest["rows"][0]["id"], "original")
+                    self.assertEqual(manifest["rows"][0]["source_sha256"], original_sha)
 
     def test_partial_journal_is_incomplete_and_preserves_last_valid_stage(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -3,12 +3,11 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from validate_speech_trace import validate
+from validate_speech_trace import validate_snapshot
 
 
 def prepare(source, output):
-    verified = validate(source)
-    data = json.loads(source.read_text())
+    verified, data = validate_snapshot(source)
     if data["status"] != "success":
         raise ValueError("PCM replay requires a successful request")
     ready = next(event["elapsed_ms"] for event in data["events"] if event["stage"] == "pcm_ready")

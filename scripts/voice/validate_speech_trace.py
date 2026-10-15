@@ -8,10 +8,12 @@ import struct
 from pathlib import Path
 
 
-def validate(path):
-    if path.stat().st_size > 16384:
+def validate_snapshot(path):
+    with path.open("rb") as stream:
+        metadata = stream.read(16385)
+    if len(metadata) > 16384:
         raise ValueError("Trace metadata exceeds bound")
-    data = json.loads(path.read_text())
+    data = json.loads(metadata)
     if not isinstance(data, dict) or type(data.get("schema_version")) is not int or data["schema_version"] != 1:
         raise ValueError("Unsupported trace schema")
     if not isinstance(data.get("request_id"), str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", data["request_id"]):
@@ -33,7 +35,7 @@ def validate(path):
     pcm = data.get("pcm")
     result = {"request_id": data["request_id"], "recorded_status": status,
               "recorded_duration_ms": times[-1], "pcm_integrity": "not_present",
-              "trace_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+              "trace_sha256": hashlib.sha256(metadata).hexdigest()}
     if status == "failure":
         if data.get("failure_stage") not in ("load", "synthesis", "playback", "cancelled") or pcm is not None:
             raise ValueError("Invalid failure record")
@@ -58,7 +60,11 @@ def validate(path):
                       playback_start_recorded="playback_started" in stages)
     else:
         raise ValueError("Invalid terminal status")
-    return result
+    return result, data
+
+
+def validate(path):
+    return validate_snapshot(path)[0]
 
 
 def inspect_incomplete(directory):

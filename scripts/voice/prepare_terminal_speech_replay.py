@@ -2,15 +2,14 @@
 import argparse
 import json
 from pathlib import Path
-from validate_speech_trace import validate
+from validate_speech_trace import validate_snapshot
 
 
 def prepare(sources, output):
     rows = []
     seen = set()
     for source in sources:
-        verified = validate(source)
-        data = json.loads(source.read_text())
+        verified, data = validate_snapshot(source)
         if data["status"] != "failure":
             raise ValueError("Expected terminal failure/cancellation")
         if data["request_id"] in seen:
