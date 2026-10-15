@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "backend": "host_cpu_reference",
+  "model": "gemma4:e4b",
+  "response": "Hello! \ud83d\udc4b",
+  "history_messages": 1,
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "requested_num_gpu": 0,
+  "content_chunks": 3,
+  "first_content_ms": 11340,
+  "total_ms": 12176
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "messageID": 1,
+    "chatId": 1,
+    "message": "What is 17 plus 25? Reply briefly.",
+    "isSendbyMe": 1,
+    "modelName": null,
+    "status": "COMPLETED",
+    "localSourceSummary": null
+  },
+  {
+    "messageID": 2,
+    "chatId": 1,
+    "message": "17 plus 25 equals 42.",
+    "isSendbyMe": 0,
+    "modelName": "PC CPU reference: sam860/LFM2:350m",
+    "status": "COMPLETED",
+    "localSourceSummary": "source_summary=host_cpu_reference"
+  },
+  {
+    "messageID": 3,
+    "chatId": 1,
+    "message": "Now multiply that result by 2. Reply briefly.",
+    "isSendbyMe": 1,
+    "modelName": null,
+    "status": "COMPLETED",
+    "localSourceSummary": null
+  },
+  {
+    "messageID": 4,
+    "chatId": 1,
+    "message": "Multiplying 42 by 2 gives 84.",
+    "isSendbyMe": 0,
+    "modelName": "PC CPU reference: sam860/LFM2:350m",
+    "status": "COMPLETED",
+    "localSourceSummary": "source_summary=host_cpu_reference"
+  }
+]

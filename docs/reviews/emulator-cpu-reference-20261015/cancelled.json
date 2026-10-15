@@ -1,0 +1,7 @@
+{
+  "status": "cancelled",
+  "run_id": "831db4f9-a079-495a-af47-a1d0fa64f5b3",
+  "backend": "host_cpu_reference",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified"
+}

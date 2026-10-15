@@ -1,0 +1,13 @@
+{
+  "status": "failed",
+  "backend": "host_cpu_reference",
+  "model": "lami-main-chat-missing-model",
+  "response": "",
+  "history_messages": 0,
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "requested_num_gpu": 0,
+  "content_chunks": 0,
+  "total_ms": 23,
+  "error": "java.lang.IllegalStateException: HTTP 404"
+}

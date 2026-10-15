@@ -1,0 +1,24 @@
+{
+  "verified_at": "2026-10-14T23:11:00.645010+00:00",
+  "artifacts": [
+    {
+      "path": "/home/sato/tmp/lami-tts-npu-pilot/full-voice-cpu/report.json",
+      "sha256": "806aab37de03d51ca0c750136c01a1cb255ca1249ce0e18d794ab4b9dafbcd10",
+      "bytes": 4196
+    },
+    {
+      "path": "/home/sato/tmp/lami-tts-npu-pilot/full-voice/report.json",
+      "sha256": "22d970290b67f2e8e4dd996e05c2a8fcbdfbb89a571e7521ddfab71081563214",
+      "bytes": 4238
+    },
+    {
+      "path": "/home/sato/project/lami-android-voice-dataset/releases/prepared-hai-android-v1/speech-decoder-dynamic-et14.pte",
+      "sha256": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+      "bytes": 456581764
+    }
+  ],
+  "runtime": "/home/sato/.local/share/lami-executorch-1.4/bin/python",
+  "current_npu_execution": "not_run",
+  "source_code_generation": "historical",
+  "current_pcm_execution": "host_cpu"
+}

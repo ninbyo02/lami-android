@@ -1,0 +1,40 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "model": "sam860/LFM2:350m",
+  "scope": "android_emulator_to_host_cpu_real_inference",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "success",
+      "model": "sam860/LFM2:350m",
+      "input_sha256": "2c13f169d6b1c721c7cbc1c517291a05ed42e3911ef5726919d4906674bfe859",
+      "response": "17 plus 25 equals 42.",
+      "content_chunks": 8,
+      "first_content_ms": 878,
+      "total_ms": 962,
+      "done_reason": "stop",
+      "requested_num_gpu": 0,
+      "run_id": "db58c4bc-2a92-4aaf-8820-81192a8aaeb4",
+      "backend": "host_cpu_reference",
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified"
+    },
+    {
+      "status": "success",
+      "model": "sam860/LFM2:350m",
+      "input_sha256": "cdc96b5f8fcbe2389e5e0aadd81a7a6720384273a08aa87ea87555524b682bb0",
+      "response": "Two colors are red and blue.",
+      "content_chunks": 7,
+      "first_content_ms": 586,
+      "total_ms": 657,
+      "done_reason": "stop",
+      "requested_num_gpu": 0,
+      "run_id": "00719892-3403-4946-9aa1-b8b9e0c29b7e",
+      "backend": "host_cpu_reference",
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified"
+    }
+  ]
+}

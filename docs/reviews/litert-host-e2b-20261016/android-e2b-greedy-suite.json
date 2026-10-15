@@ -1,0 +1,89 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "model": "gemma4-e2b-litert-cpu",
+  "scope": "normal_local_chat_to_host_cpu",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "success",
+      "backend": "host_cpu_reference",
+      "request_id": "9691e3da-da5e-4b95-80b8-4176f6b2ec32",
+      "input_sha256": "2c13f169d6b1c721c7cbc1c517291a05ed42e3911ef5726919d4906674bfe859",
+      "model": "gemma4-e2b-litert-cpu",
+      "response": "42",
+      "history_messages": 0,
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified",
+      "requested_num_gpu": 0,
+      "host_port": 11435,
+      "content_chunks": 2,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "first_content_ms": 470,
+      "total_ms": 574
+    },
+    {
+      "status": "success",
+      "backend": "host_cpu_reference",
+      "request_id": "0fda6671-2c39-4626-9be1-6372ad4d3b62",
+      "input_sha256": "7a3482ab6684979e8f1b14f1e0a327e45a78d84db3e574a6f0b0bf4899ef4b00",
+      "model": "gemma4-e2b-litert-cpu",
+      "response": "84",
+      "history_messages": 2,
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified",
+      "requested_num_gpu": 0,
+      "host_port": 11435,
+      "content_chunks": 2,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "first_content_ms": 453,
+      "total_ms": 564
+    }
+  ],
+  "saved_messages": [
+    {
+      "message": "What is 17 plus 25? Reply briefly.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null
+    },
+    {
+      "message": "42",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu"
+    },
+    {
+      "message": "Now multiply that result by 2. Reply briefly.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null
+    },
+    {
+      "message": "84",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu"
+    }
+  ],
+  "process_restart": "passed"
+}

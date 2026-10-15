@@ -1,0 +1,16 @@
+{
+  "verified_at": "2026-10-15T13:12:47.696707+00:00",
+  "android_build": "passed",
+  "serial": "emulator-5580",
+  "abi": "x86_64",
+  "physical_device_inference": "not_run",
+  "apk_sha256": "382e94865fa356260f6a17a05590b245d01a251c574d2df3e78917b1194a7357",
+  "fresh_lightweight_requests": 2,
+  "gemma4_e4b_cpu_request": "passed",
+  "missing_model_failure": "passed",
+  "ui_cancellation": "passed",
+  "recovery_after_cancellation": "passed",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "main_npu_slot_integration": "not_implemented"
+}
