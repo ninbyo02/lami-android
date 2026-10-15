@@ -68,4 +68,20 @@ class LamiSpeechTraceCaptureTest {
             }
         } finally { parent.deleteRecursively() }
     }
+    @Test fun unfinishedCaptureKeepsLastCompletedStage() {
+        val parent = Files.createTempDirectory("lami-journal").toFile()
+        try {
+            var clock = 100L
+            val directory = parent.resolve("capture")
+            val trace = LamiSpeechTraceCapture(directory, "unfinished", "", "a".repeat(64), "b".repeat(64)) { clock }
+            clock = 125
+            trace.event("synthesis_started")
+            assertFalse(directory.resolve("trace.json").exists())
+            val lines = directory.resolve("events.jsonl").readLines()
+            assertEquals(2, lines.size)
+            assertTrue(lines.last().contains("synthesis_started"))
+            assertTrue(lines.last().contains("25"))
+            assertTrue(directory.resolve("request.properties").readText().contains("request_id=unfinished"))
+        } finally { parent.deleteRecursively() }
+    }
 }

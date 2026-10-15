@@ -61,6 +61,31 @@ def validate(path):
     return result
 
 
+def inspect_incomplete(directory):
+    journal = directory / "events.jsonl"
+    if not journal.is_file() or journal.is_symlink() or journal.stat().st_size > 16384:
+        return {"status": "incomplete", "last_recorded_stage": "unknown"}
+    parsed = []
+    truncated = False
+    for line in journal.read_text().splitlines():
+        try:
+            event = json.loads(line)
+            stage, elapsed = event["stage"], event["elapsed_ms"]
+            allowed = ["request_started", "synthesis_started", "pcm_ready", "playback_started"]
+            if len(parsed) >= len(allowed) or stage != allowed[len(parsed)]:
+                raise ValueError("Unexpected journal stage")
+            if type(elapsed) is not int or elapsed < 0 or (parsed and elapsed < parsed[-1]["elapsed_ms"]):
+                raise ValueError("Invalid journal time")
+            parsed.append(event)
+        except (ValueError, KeyError, TypeError):
+            truncated = True
+            break
+    return {"status": "incomplete", "last_recorded_stage": parsed[-1]["stage"] if parsed else "unknown",
+            "last_recorded_elapsed_ms": parsed[-1]["elapsed_ms"] if parsed else None,
+            "truncated_or_invalid_journal": truncated,
+            "cause": "unknown; does not establish a process crash"}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", type=Path)
@@ -72,6 +97,11 @@ def main():
         report["validation"] = "passed"
     except (OSError, ValueError, KeyError, TypeError) as error:
         report["error"] = f"{type(error).__name__}: {error}"
+        if not args.trace.exists():
+            try:
+                report["incomplete_capture"] = inspect_incomplete(args.trace.parent)
+            except (OSError, ValueError):
+                report["incomplete_capture"] = {"status": "incomplete", "last_recorded_stage": "unknown"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))

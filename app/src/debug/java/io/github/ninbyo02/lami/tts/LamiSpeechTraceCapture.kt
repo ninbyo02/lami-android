@@ -22,6 +22,10 @@ internal class LamiSpeechTraceCapture(
         require(runtimeSha256.matches(Regex("[0-9a-f]{64}")))
         require(!directory.exists()) { "Capture directory already exists" }
         require(directory.mkdirs()) { "Cannot create capture directory" }
+        val metadata = "request_id=" + requestId + "\ninput_sha256=" + inputHash +
+            "\nmodel_sha256=" + modelSha256 + "\nruntime_sha256=" + runtimeSha256 + "\n"
+        File(directory, "request.properties").writeText(metadata)
+        journal("request_started", 0L)
     }
 
     @Synchronized fun event(stage: String) {
@@ -31,6 +35,7 @@ internal class LamiSpeechTraceCapture(
         require(stages.indexOf(stage) == stages.indexOf(events.last().first) + 1)
         val elapsed = clockMs() - start
         require(elapsed >= events.last().second)
+        journal(stage, elapsed)
         events += stage to elapsed
     }
 
@@ -50,6 +55,11 @@ internal class LamiSpeechTraceCapture(
         finish("failure", stage, null, null)
     }
 
+    private fun journal(stage: String, elapsed: Long) {
+        val line = "{\"stage\":\"" + stage + "\",\"elapsed_ms\":" + elapsed + "}\n"
+        File(directory, "events.jsonl").appendText(line)
+    }
+
     private fun finish(status: String, failureStage: String?, bytes: ByteArray?, samples: Int?) {
         val elapsed = clockMs() - start
         require(elapsed >= events.last().second)
@@ -64,11 +74,13 @@ internal class LamiSpeechTraceCapture(
             "\",\"model_sha256\":\"" + modelSha256 + "\",\"runtime_sha256\":\"" + runtimeSha256 +
             "\",\"status\":\"" + status + "\",\"failure_stage\":" + failureJson +
             ",\"events\":[" + eventJson + "],\"pcm\":" + pcmJson + "}"
-        require(json.toByteArray(Charsets.UTF_8).size < 16 * 1024)
+        require(json.toByteArray(Charsets.UTF_8).size +
+            File(directory, "events.jsonl").length() + File(directory, "request.properties").length() < 16 * 1024)
         val temp = File(directory, "trace.json.tmp")
         temp.writeText(json + "\n")
         check(temp.renameTo(File(directory, "trace.json")))
         ended = true
+        journal("request_ended", elapsed)
     }
 
     companion object {
