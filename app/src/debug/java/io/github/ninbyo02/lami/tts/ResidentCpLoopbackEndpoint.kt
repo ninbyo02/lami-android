@@ -14,7 +14,7 @@ internal class ResidentCpLoopbackEndpoint(
     private val timeoutMillis: Int = 15_000,
 ) : AutoCloseable {
     init { require(timeoutMillis in 1..60_000) }
-    private val server = ServerSocket(0, 1, InetAddress.getLoopbackAddress()).apply {
+    private val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).apply {
         soTimeout = timeoutMillis
     }
     private var served = false
