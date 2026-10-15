@@ -61,3 +61,34 @@ class RejectionTests(unittest.TestCase):
         client = ResidentCpClient(1234, bytes(32))
         with self.assertRaises(ValueError):
             client.step(np.ones(1024, dtype=np.float32))
+
+    def test_wrong_position_reply_closes_connection(self):
+        key = bytes(range(32))
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+        failures = []
+        def server():
+            try:
+                conn, _ = listener.accept()
+                with conn:
+                    stream = conn.makefile("rb")
+                    self.assertEqual(key, stream.read(32))
+                    self.assertEqual(RESET, decode(stream)[0])
+                    frame, position = decode(stream)[1:3]
+                    conn.sendall(encode(RESULT, frame, position + 1, np.ones(1024, np.float32).tobytes()))
+            except Exception as exc:
+                failures.append(exc)
+            finally:
+                listener.close()
+        thread = threading.Thread(target=server)
+        thread.start()
+        with ResidentCpClient(port, key, timeout=3) as client:
+            client.reset()
+            with self.assertRaises(ValueError):
+                client.step(np.ones(1024, np.float32))
+            self.assertIsNone(client.connection)
+        thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertFalse(failures)
