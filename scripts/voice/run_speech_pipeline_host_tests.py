@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--capture-export", type=Path)
     parser.add_argument("--unified-fixture", type=Path)
     parser.add_argument("--terminal-fixture", type=Path)
+    parser.add_argument("--process-exit-probe", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     def jar(group, name, version):
@@ -62,6 +63,9 @@ def main():
         sources.append(root / "scripts/voice/kotlin/LamiUnifiedSpeechReplayTest.kt")
     if args.terminal_fixture:
         sources.append(root / "scripts/voice/kotlin/LamiTerminalSpeechReplayTest.kt")
+    if args.process_exit_probe:
+        sources.append(root / "scripts/voice/kotlin/LamiTraceExitProbe.kt")
+    exit_probe = None
     with tempfile.TemporaryDirectory(prefix="lami-pipeline-host-") as directory:
         compiled = subprocess.run(
             ["java", "-cp", os.pathsep.join(compiler),
@@ -80,8 +84,16 @@ def main():
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiUnifiedSpeechReplayTest"] if args.unified_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiTerminalSpeechReplayTest"] if args.terminal_fixture else []),
                 capture_output=True, text=True, timeout=60,
             )
+        if args.process_exit_probe and compiled.returncode == 0 and tested is not None and tested.returncode == 0:
+            from check_trace_process_exit import probe
+            try:
+                exit_probe = probe(os.pathsep.join([directory] + runtime), directory)
+            except Exception as error:
+                exit_probe = {"status": "failed", "error": str(error)}
     success = compiled.returncode == 0 and tested is not None and tested.returncode == 0
-    report = {"host_pipeline_tests": "passed" if success else "failed",
+    if args.process_exit_probe and (exit_probe is None or exit_probe.get("status") != "passed"):
+        success = False
+    report = {"process_exit_probe": exit_probe, "host_pipeline_tests": "passed" if success else "failed",
               "compile_output": compiled.stdout + compiled.stderr,
               "test_output": None if tested is None else tested.stdout + tested.stderr,
               "npu_execution": "not_run", "android_audio": "not_run",

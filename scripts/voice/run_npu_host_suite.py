@@ -53,7 +53,7 @@ def main():
             result_file = Path(directory) / "pipeline.json"
             command = [sys.executable, "scripts/voice/run_speech_pipeline_host_tests.py",
                        "--replay-fixture", str(replay.resolve()), "--pcm-fixture", str(pcm.resolve()),
-                       "--output", str(result_file), "--capture-export", str(Path(directory) / "captured")]
+                       "--process-exit-probe", "--output", str(result_file), "--capture-export", str(Path(directory) / "captured")]
             if args.cache:
                 command += ["--cache", str(args.cache)]
             step = run_step(command, root, 180)
