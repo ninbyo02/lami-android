@@ -71,6 +71,41 @@ class LamiSpeechQueueTest {
         assertEquals(listOf(true, false, true, false, true, false), busy)
     }
 
+    @Test fun `stop of waiting replacement retains cleanup barrier for immediate reuse`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val events = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val queue = LamiSpeechQueue(backgroundScope, busy::add) {
+            events += it
+            if (it == "old") try { delay(1000) } finally {
+                withContext(NonCancellable) {
+                    events += "cleanup started"
+                    cleanup.await()
+                    events += "cleanup finished"
+                }
+            }
+        }
+        queue.enqueue("old")
+        queue.enqueue("discard old")
+        runCurrent()
+        queue.replace("discard replacement")
+        queue.enqueue("discard queued replacement")
+        runCurrent()
+        assertEquals(listOf("old", "cleanup started"), events)
+
+        queue.stop()
+        queue.enqueue("new")
+        queue.enqueue("next")
+        runCurrent()
+        assertEquals(listOf("old", "cleanup started"), events)
+        assertEquals(listOf(true, false, true, false, true), busy)
+
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("old", "cleanup started", "cleanup finished", "new", "next"), events)
+        assertEquals(listOf(true, false, true, false, true, false), busy)
+    }
+
     @Test fun `blank replacement does not cancel active speech`() = runTest {
         val heard = mutableListOf<String>()
         val queue = LamiSpeechQueue(backgroundScope, {}) { heard += it; delay(1000) }
