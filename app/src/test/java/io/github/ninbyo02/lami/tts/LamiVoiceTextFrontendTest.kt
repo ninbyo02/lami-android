@@ -130,6 +130,48 @@ class LamiVoiceTextFrontendTest {
         assertEquals(setOf(2154, 2156, 2058, 2157, 3000, 2148, 2149), codecCalls.keys)
         assertTrue(codecCalls.values.all { it == 1 })
     }
+    @Test fun repeatedTextRowsAreLoadedOncePerRequestWithBitExactPrefill() {
+        val tokenizer = tokenizer()
+        val calls = mutableListOf<Int>()
+        var request = 0
+        fun textRow(id: Int) = FloatArray(1024) { coordinate ->
+            (id % 97 - coordinate + request).toFloat() / 128f
+        }
+        fun codecRow(id: Int) = FloatArray(1024) { coordinate ->
+            (id % 31 + coordinate).toFloat() / 256f
+        }
+        fun add(a: FloatArray, b: FloatArray) = FloatArray(1024) { a[it] + b[it] }
+        val frontend = LamiVoiceTextFrontend(tokenizer, { calls += it; textRow(it) }, ::codecRow)
+        // Digits tokenize individually, demonstrating repeated body tokens.
+        repeat(2) {
+            request++
+            calls.clear()
+            val actual = frontend.prepare("111212111")
+            val ids = tokenizer.encode("<|im_start|>assistant\n111212111<|im_end|>\n<|im_start|>assistant\n")
+            val body = ids.slice(3 until ids.size - 5)
+            assertTrue(body.size > body.distinct().size)
+            val pad = textRow(151671)
+            val speech = codecRow(2148)
+            // Original preparation, including a fresh row for every body token.
+            val expected = mutableListOf<FloatArray>()
+            for (i in 0 until 3) expected += textRow(ids[i])
+            val tags = intArrayOf(2154, 2156, 2058, 2157, 3000, 2148)
+            for (i in tags.indices) expected += add(if (i == tags.lastIndex) textRow(151672) else pad, codecRow(tags[i]))
+            for (id in body) expected += add(textRow(id), speech)
+            expected += add(textRow(151673), speech)
+            expected += add(pad, codecRow(2149))
+
+            assertArrayEquals(ids, actual.tokenIds)
+            assertArrayEquals(pad.map(Float::toRawBits).toIntArray(), actual.pad.map(Float::toRawBits).toIntArray())
+            assertEquals(expected.size, actual.prefill.size)
+            expected.indices.forEach { i ->
+                assertArrayEquals("request=$request row=$i", expected[i].map(Float::toRawBits).toIntArray(), actual.prefill[i].map(Float::toRawBits).toIntArray())
+            }
+            assertEquals(listOf(151671, 151672, 151673) + ids.take(3) + body.distinct(), calls)
+            // Summed prefill rows still own their storage even for repeated tokens.
+            assertNotSame(actual.prefill[9], actual.prefill[10])
+        }
+    }
     @Test fun rejectsBlankSpecialSyntaxAndCacheOverflow() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         assertThrows(IllegalArgumentException::class.java) { frontend.prepare(" ") }

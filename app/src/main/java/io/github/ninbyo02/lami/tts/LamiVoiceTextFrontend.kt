@@ -29,7 +29,11 @@ internal class LamiVoiceTextFrontend(
             val token = codecTags[index]
             prefill += add(if (index == codecTags.lastIndex) bos else pad, if (token == 2148) codecSpeech else codecEmbedding(token))
         }
-        for (index in 3 until ids.size - 5) prefill += add(projectedText(ids[index]), codecSpeech)
+        // Matrix rows are read-only; reuse repeated speech tokens within this request.
+        val textRows = mutableMapOf<Int, FloatArray>()
+        for (index in 3 until ids.size - 5) {
+            prefill += add(textRows.getOrPut(ids[index]) { projectedText(ids[index]) }, codecSpeech)
+        }
         prefill += add(eos, codecSpeech)
         prefill += add(pad, codecEnd)
         require(prefill.size < capacity - 2) { "Speech text does not fit model cache" }
