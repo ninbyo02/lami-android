@@ -43,6 +43,7 @@ internal object LamiNeuralVoiceDiagnostics {
                 } else LamiVoiceDiagnostic.synthesizeText(context, root, requestedText) {
                     report.appendText("$it elapsed_ms=${firstAudioElapsedMs()}\n")
                 }
+                report.appendText("${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}\n")
                 report.appendText("synthesis=success samples=${pcm.size} elapsed_ms=${firstAudioElapsedMs()}\n")
                 val wav = context.filesDir.resolve("neural_tts_last.wav")
                 writeWav(wav, pcm)
@@ -101,6 +102,7 @@ internal object LamiNeuralVoiceDiagnostics {
                         if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         full
                     }
+                    trace("request=$index ${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}")
                     val pcmBytes = java.nio.ByteBuffer.allocate(pcm.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     pcm.forEach(pcmBytes::putFloat)
                     trace("request=$index pcm_sha256=${sha256(pcmBytes.array())}")

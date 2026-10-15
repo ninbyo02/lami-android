@@ -245,6 +245,25 @@ class LamiFirstAudioTimingTest {
         }
     }
 
+    @Test fun diagnosticProbesRecordPreparationBeforePostSynthesisWork() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnostics.kt",
+        ).readText()
+        val single = source.substringAfter("suspend fun runProbe(")
+            .substringBefore("suspend fun runPipelineProbe(")
+        val pipeline = source.substringAfter("suspend fun runPipelineProbe(")
+            .substringBefore("suspend fun runStreamingProbe(")
+        val prepared = "LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())"
+        for ((probe, postSynthesisWork) in listOf(
+            single to "report.appendText(\"synthesis=success",
+            pipeline to "val pcmBytes =",
+        )) {
+            assertEquals(1, probe.windowed(prepared.length).count { it == prepared })
+            assertTrue(probe.indexOf(prepared) < probe.indexOf(postSynthesisWork))
+            assertTrue(probe.indexOf(prepared) < probe.indexOf("LamiPcmPlayer.play("))
+        }
+    }
+
     private fun eventFields(event: String): Map<String, String> =
         event.split(" ")
             .associate {
