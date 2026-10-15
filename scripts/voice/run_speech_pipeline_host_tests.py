@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--pcm-fixture", type=Path)
     parser.add_argument("--capture-export", type=Path)
     parser.add_argument("--unified-fixture", type=Path)
+    parser.add_argument("--terminal-fixture", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     def jar(group, name, version):
@@ -59,6 +60,8 @@ def main():
             raise ValueError("PCM fixture missing")
     if args.unified_fixture:
         sources.append(root / "scripts/voice/kotlin/LamiUnifiedSpeechReplayTest.kt")
+    if args.terminal_fixture:
+        sources.append(root / "scripts/voice/kotlin/LamiTerminalSpeechReplayTest.kt")
     with tempfile.TemporaryDirectory(prefix="lami-pipeline-host-") as directory:
         compiled = subprocess.run(
             ["java", "-cp", os.pathsep.join(compiler),
@@ -69,12 +72,12 @@ def main():
         tested = None
         if compiled.returncode == 0:
             tested = subprocess.run(
-                ["java"] + (["-Dlami.unified.fixture=" + str(args.unified_fixture.resolve())] if args.unified_fixture else []) + (["-Dlami.capture.export=" + str(args.capture_export.resolve())] if args.capture_export else []) + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
+                ["java"] + (["-Dlami.terminal.fixture=" + str(args.terminal_fixture.resolve())] if args.terminal_fixture else []) + (["-Dlami.unified.fixture=" + str(args.unified_fixture.resolve())] if args.unified_fixture else []) + (["-Dlami.capture.export=" + str(args.capture_export.resolve())] if args.capture_export else []) + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceStoreTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceGuardTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceCaptureTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineTest",
-                 "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiUnifiedSpeechReplayTest"] if args.unified_fixture else []),
+                 "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiUnifiedSpeechReplayTest"] if args.unified_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiTerminalSpeechReplayTest"] if args.terminal_fixture else []),
                 capture_output=True, text=True, timeout=60,
             )
     success = compiled.returncode == 0 and tested is not None and tested.returncode == 0

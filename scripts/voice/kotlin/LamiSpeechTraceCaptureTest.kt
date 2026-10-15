@@ -32,10 +32,15 @@ class LamiSpeechTraceCaptureTest {
         val parent = Files.createTempDirectory("lami-trace").toFile()
         try {
             val directory = parent.resolve("capture")
-            val trace = LamiSpeechTraceCapture(directory, "failed", "", "a".repeat(64), "b".repeat(64)) { 0L }
+            var clock = 0L
+            val trace = LamiSpeechTraceCapture(directory, "failed", "", "a".repeat(64), "b".repeat(64)) { clock }
+            clock = 25
             trace.failure("load")
             assertTrue(directory.resolve("trace.json").readText().contains("\"failure_stage\":\"load\""))
             assertFalse(directory.resolve("output.f32").exists())
+            System.getProperty("lami.capture.export")?.let { target ->
+                require(directory.copyRecursively(java.io.File(target + "-failure"), overwrite = false))
+            }
         } finally { parent.deleteRecursively() }
     }
     @Test fun rejectsBackwardsClockAndInvalidPcm() {
@@ -50,6 +55,9 @@ class LamiSpeechTraceCaptureTest {
             trace.event("pcm_ready")
             assertThrows(IllegalArgumentException::class.java) { trace.success(floatArrayOf(Float.NaN)) }
             trace.failure("cancelled")
+            System.getProperty("lami.capture.export")?.let { target ->
+                require(parent.resolve("capture").copyRecursively(java.io.File(target + "-cancelled"), overwrite = false))
+            }
         } finally { parent.deleteRecursively() }
     }
     @Test fun refusesExistingCaptureDirectory() {

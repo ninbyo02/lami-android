@@ -76,9 +76,16 @@ def main():
             report["steps"]["prepare_same_request_fixture"] = run_step(
                 [sys.executable, "scripts/voice/prepare_unified_speech_replay.py",
                  str(Path(directory) / "captured/trace.json"), "--output-dir", str(unified)], root, 30)
+            terminal = Path(directory) / "terminal"
+            report["steps"]["prepare_terminal_fixture"] = run_step(
+                [sys.executable, "scripts/voice/prepare_terminal_speech_replay.py",
+                 str(Path(directory) / "captured-failure/trace.json"),
+                 str(Path(directory) / "captured-cancelled/trace.json"),
+                 "--output-dir", str(terminal)], root, 30)
             unified_result = Path(directory) / "unified-results.json"
             unified_command = [sys.executable, "scripts/voice/run_speech_pipeline_host_tests.py",
-                "--unified-fixture", str(unified / "unified.tsv"), "--output", str(unified_result)]
+                "--unified-fixture", str(unified / "unified.tsv"),
+                "--terminal-fixture", str(terminal / "terminal.tsv"), "--output", str(unified_result)]
             if args.cache:
                 unified_command += ["--cache", str(args.cache)]
             report["steps"]["same_request_queue_replay"] = run_step(unified_command, root, 180)
