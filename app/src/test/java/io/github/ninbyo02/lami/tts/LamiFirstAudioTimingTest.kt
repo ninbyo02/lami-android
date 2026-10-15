@@ -34,7 +34,7 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_elapsed_ns=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
+            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_elapsed_ns=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
             LamiFirstAudioTiming.requestStartedEvent(request),
         )
         assertEquals(
@@ -217,6 +217,30 @@ class LamiFirstAudioTimingTest {
             )
             assertThrows(IllegalArgumentException::class.java) {
                 LamiFirstAudioTiming.preparedEvent(request, request.startedAtNs - 1L)
+            }
+        }
+    }
+
+    @Test fun allColdAndWarmEventsShareRawTimestampAndElapsedContract() {
+        for (ordinal in listOf(0L, 1L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 2_000_000_000L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            val events = listOf(
+                LamiFirstAudioTiming.requestStartedEvent(request),
+                LamiFirstAudioTiming.preparedEvent(request, request.startedAtNs + 999_999L),
+                LamiFirstAudioTiming.playbackStartedEvent(request, request.startedAtNs + 1_000_001L),
+            ).map(::eventFields)
+            assertEquals(request.startedAtNs.toString(), events.first()["first_audio_at_ns"])
+            for (fields in events) {
+                val elapsedNs = fields.getValue("first_audio_at_ns").toLong() -
+                    fields.getValue("first_audio_request_started_at_ns").toLong()
+                assertTrue(elapsedNs >= 0L)
+                assertEquals(elapsedNs.toString(), fields["first_audio_elapsed_ns"])
+                assertEquals((elapsedNs / 1_000_000L).toString(), fields["first_audio_elapsed_ms"])
             }
         }
     }

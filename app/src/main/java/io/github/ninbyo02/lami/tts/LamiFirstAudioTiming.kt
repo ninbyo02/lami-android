@@ -42,6 +42,7 @@ internal object LamiFirstAudioTiming {
             "first_audio_request_ordinal=${request.requestOrdinal} " +
             "first_audio_start=${request.startKind.diagnosticValue} " +
             "first_audio_request_started_at_ns=${request.startedAtNs} " +
+            "first_audio_at_ns=${request.startedAtNs} " +
             "first_audio_elapsed_ms=0 " +
             "first_audio_elapsed_ns=0 " +
             "first_audio_clock=elapsedRealtimeNanos " +
