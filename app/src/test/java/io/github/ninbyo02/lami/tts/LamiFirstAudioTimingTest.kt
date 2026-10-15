@@ -186,6 +186,41 @@ class LamiFirstAudioTimingTest {
         }
     }
 
+    @Test fun preparedEventCorrelatesColdAndWarmPreparationWithPlayback() {
+        for (ordinal in listOf(0L, 1L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 2_000_000_000L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            val preparedAtNs = request.startedAtNs + 999_999L
+            val playbackAtNs = preparedAtNs + 50_000_001L
+            val prepared = eventFields(LamiFirstAudioTiming.preparedEvent(request, preparedAtNs))
+            val started = eventFields(LamiFirstAudioTiming.playbackStartedEvent(request, playbackAtNs))
+            assertEquals("prepared", prepared["first_audio"])
+            assertEquals("full_pcm_synthesis_returned", prepared["first_audio_boundary"])
+            for (key in listOf(
+                "first_audio_request_id", "first_audio_request_ordinal", "first_audio_start",
+                "first_audio_request_started_at_ns", "first_audio_clock",
+                "first_audio_start_basis", "first_audio_request_boundary",
+            )) {
+                assertEquals(started[key], prepared[key])
+            }
+            assertEquals(preparedAtNs.toString(), prepared["first_audio_at_ns"])
+            assertEquals("999999", prepared["first_audio_elapsed_ns"])
+            assertEquals("0", prepared["first_audio_elapsed_ms"])
+            assertEquals(
+                50_000_001L,
+                started.getValue("first_audio_elapsed_ns").toLong() -
+                    prepared.getValue("first_audio_elapsed_ns").toLong(),
+            )
+            assertThrows(IllegalArgumentException::class.java) {
+                LamiFirstAudioTiming.preparedEvent(request, request.startedAtNs - 1L)
+            }
+        }
+    }
+
     private fun eventFields(event: String): Map<String, String> =
         event.split(" ")
             .associate {

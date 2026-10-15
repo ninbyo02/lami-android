@@ -63,6 +63,7 @@ internal class LamiNeuralChatVoiceEngine(
         trace(firstAudio, "status=started text_chars=${text.length}")
         return try {
             val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(firstAudio, it) }
+            trace(firstAudio, LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos()))
             trace(firstAudio, "synthesis=complete samples=${pcm.size}")
             PreparedClip(pcm, firstAudio)
         } catch (cancelled: CancellationException) {

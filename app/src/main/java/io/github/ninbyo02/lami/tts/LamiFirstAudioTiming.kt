@@ -48,6 +48,21 @@ internal object LamiFirstAudioTiming {
             "first_audio_start_basis=engine_request_ordinal " +
             "first_audio_request_boundary=preparation_started"
 
+    /** Full PCM synthesis returned; preparation may have run ahead of playback. */
+    fun preparedEvent(request: Request, preparedAtNs: Long): String =
+        "first_audio=prepared " +
+            "first_audio_request_id=${request.requestId} " +
+            "first_audio_request_ordinal=${request.requestOrdinal} " +
+            "first_audio_start=${request.startKind.diagnosticValue} " +
+            "first_audio_request_started_at_ns=${request.startedAtNs} " +
+            "first_audio_at_ns=$preparedAtNs " +
+            "first_audio_elapsed_ms=${elapsedMsSince(request, preparedAtNs)} " +
+            "first_audio_elapsed_ns=${preparedAtNs - request.startedAtNs} " +
+            "first_audio_clock=elapsedRealtimeNanos " +
+            "first_audio_boundary=full_pcm_synthesis_returned " +
+            "first_audio_start_basis=engine_request_ordinal " +
+            "first_audio_request_boundary=preparation_started"
+
     /** Callback immediately after AudioTrack.play() returns; not an acoustic onset measurement. */
     fun playbackStartedEvent(request: Request, firstAudioAtNs: Long): String =
         "first_audio=started " +
