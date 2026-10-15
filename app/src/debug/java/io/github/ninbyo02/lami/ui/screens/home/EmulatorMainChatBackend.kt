@@ -44,6 +44,8 @@ internal object EmulatorMainChatBackend {
             .joinToString("") { "%02x".format(it) }
         val start = SystemClock.elapsedRealtime()
         val model = modelName(context)
+        val port = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("host_port", 11434)
+        require(port in 1024..65535)
         val messages = JSONArray()
         LocalConversationHistoryPolicy.bounded(initialTurns).forEach { turn ->
             messages.put(JSONObject().put("role", if (turn.role == LocalConversationRole.USER) "user" else "assistant").put("content", turn.text))
@@ -52,18 +54,20 @@ internal object EmulatorMainChatBackend {
         val body = JSONObject().put("model", model).put("messages", messages).put("stream", true)
             .put("think", false).put("keep_alive", 0)
             .put("options", JSONObject().put("num_gpu", 0).put("num_ctx", 2048).put("num_predict", 128).put("temperature", 0))
-        val request = Request.Builder().url("http://10.0.2.2:11434/api/chat")
+        val request = Request.Builder().url("http://10.0.2.2:" + port + "/api/chat")
             .post(body.toString().toRequestBody("application/json".toMediaType())).build()
         val text = StringBuilder()
         var first: Long? = null
         var chunks = 0
         var done = false
+        var referenceBackend: JSONObject? = null
         fun save(status: String, error: String? = null) {
             val report = JSONObject().put("status", status).put("backend", "host_cpu_reference")
                 .put("request_id", requestId).put("input_sha256", inputHash)
                 .put("model", model).put("response", text.toString()).put("history_messages", messages.length() - 1)
                 .put("npu_execution", "not_run").put("npu_numerical_parity", "not_verified")
-                .put("requested_num_gpu", 0).put("content_chunks", chunks)
+                .put("requested_num_gpu", 0).put("host_port", port).put("content_chunks", chunks)
+                .put("reference_backend", referenceBackend)
                 .put("first_content_ms", first?.minus(start)).put("total_ms", SystemClock.elapsedRealtime() - start)
             if (error != null) report.put("error", error)
             val temporary = File(context.filesDir, "emulator_main_chat_reference.json.tmp")
@@ -88,7 +92,7 @@ internal object EmulatorMainChatBackend {
                                     check(!event.has("error")) { event.optString("error") }
                                     val chunk = event.optJSONObject("message")?.optString("content").orEmpty()
                                     if (chunk.isNotEmpty()) sendChunk(chunk)
-                                    if (event.optBoolean("done")) { done = true; break }
+                                    if (event.optBoolean("done")) { referenceBackend = event.optJSONObject("reference_backend"); done = true; break }
                                 }
                                 check(done) { "Inference stream ended without a terminal event" }
                             }

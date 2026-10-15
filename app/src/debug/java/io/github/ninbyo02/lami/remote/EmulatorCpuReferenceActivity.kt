@@ -54,6 +54,7 @@ class EmulatorCpuReferenceActivity : ComponentActivity() {
         cancelInference()
         getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS, MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
+            .putInt("host_port", intent.getIntExtra("host_port", 11434).also { require(it in 1024..65535) })
             .putString("model", selectedModel ?: intent.getStringExtra("model") ?: "sam860/LFM2:350m").apply()
         startActivity(android.content.Intent(this, io.github.ninbyo02.lami.MainActivity::class.java)
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))

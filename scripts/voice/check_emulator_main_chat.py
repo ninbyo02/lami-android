@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--adb", default="/home/sato/Android/Sdk/platform-tools/adb")
     parser.add_argument("--serial", default="emulator-5580")
     parser.add_argument("--package", default="io.github.ninbyo02.lami.assistantprobe")
+    parser.add_argument("--host-port", type=int, default=11434)
     parser.add_argument("--model", default="sam860/LFM2:350m")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -55,7 +56,7 @@ def main():
         if not args.serial.startswith("emulator-") or shell("getprop", "ro.kernel.qemu").strip() != "1":
             raise ValueError("Explicit verified emulator required; physical devices are refused")
         result = shell("am", "start", "-W", "-n", package + "/io.github.ninbyo02.lami.remote.EmulatorCpuReferenceActivity",
-                       "--ez", "enable_main_chat", "true", "--es", "model", args.model)
+                       "--ez", "enable_main_chat", "true", "--es", "model", args.model, "--ei", "host_port", str(args.host_port))
         if "Error" in result:
             raise ValueError("Development screen launch failed: " + result)
         old_id = read_report().get("request_id")

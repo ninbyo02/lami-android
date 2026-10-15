@@ -56,3 +56,6 @@ python3 scripts/voice/check_emulator_main_chat.py --serial emulator-5580 --outpu
 スマホのserialを渡すと、端末への操作を実行する前に拒否して失敗JSONを残す。
 
 一括ランナーの実行結果: repeatable-suite.json（合格）。要求IDの異なる2件を照合し、4件の保存と再起動が成功。スマホ指定を拒否する負例はphysical-target-refused.json（期待どおりvalidation=failed、操作なし）。結果はいずれも同じレビュー用ディレクトリに保存。
+
+## E2B .litertlm を直接使うCPU経路
+汎用Gemma 4 E2BをLiteRT-LM CPUで実行する経路を追加。モデルSHA256とランタイム版もAndroidへ返す。手順と互換性の制約はlitert_host_e2b_reference_ja.mdを参照。
