@@ -83,6 +83,9 @@ jobs:
           python3 -m py_compile scripts/voice/export_main_cache.py
           bash -n scripts/voice/build_profile_runtime.sh
 
+      - name: Verify host CPU bridge framing
+        run: python3 -m unittest discover -s scripts/voice -p test_litert_host_bridge.py -v
+
       - name: Verify CP teacher capture split guards
         run: python3 -m unittest scripts.tests.test_cp_capture_guards -v
 

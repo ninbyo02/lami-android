@@ -1,6 +1,7 @@
 """Loopback-only Ollama chat adapter for a fixed .litertlm CPU reference model."""
 import argparse
 import json
+import os
 import signal
 import socket
 import select
@@ -29,6 +30,9 @@ def main():
     lock = threading.Lock()
     children = set()
     class Handler(BaseHTTPRequestHandler):
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(30)
         def log_message(self, *unused):
             pass
         def json_response(self, code, data):
@@ -70,6 +74,7 @@ def main():
                 self.json_response(503, {"error": "Reference CPU busy"}); return
             child = None
             timer = None
+            headers_sent = False
             try:
                 with tempfile.TemporaryDirectory(prefix="lami-litert-request-") as directory:
                     root = Path(directory)
@@ -78,20 +83,29 @@ def main():
                     command = [args.runtime_python, str(Path(__file__).with_name("check_litert_host_cpu.py")), "--worker", "--stream",
                                "--model", str(model), "--prompt", messages[-1]["content"], "--messages", str(history), "--output", str(result)]
                     with (root / "error.txt").open("w+") as errors:
-                        child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=errors, text=True, bufsize=1)
+                        child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=errors, bufsize=0)
                         children.add(child)
                         timer = threading.Timer(120, child.kill); timer.daemon = True; timer.start()
                         self.send_response(200); self.send_header("Content-Type", "application/x-ndjson"); self.send_header("Connection", "close"); self.end_headers()
+                        headers_sent = True
+                        pending = b""
                         while True:
                             ready, _, _ = select.select([child.stdout, self.connection], [], [], .2)
                             if self.connection in ready and self.connection.recv(1, socket.MSG_PEEK) == b"":
                                 raise ConnectionError("Client disconnected")
                             if child.stdout in ready:
-                                line = child.stdout.readline()
-                                if not line:
+                                data = os.read(child.stdout.fileno(), 65536)
+                                if not data:
+                                    if pending:
+                                        raise ValueError("Incomplete worker stream event")
                                     break
-                                event = json.loads(line)
-                                self.wfile.write((json.dumps(event, ensure_ascii=False) + "\n").encode()); self.wfile.flush()
+                                pending += data
+                                if len(pending) > 1048576:
+                                    raise ValueError("Worker stream event too large")
+                                while b"\n" in pending:
+                                    line, pending = pending.split(b"\n", 1)
+                                    event = json.loads(line)
+                                    self.wfile.write((json.dumps(event, ensure_ascii=False) + "\n").encode()); self.wfile.flush()
                         child.wait(timeout=10)
                         if child.returncode != 0 or not result.is_file():
                             errors.flush(); errors.seek(0)
@@ -104,7 +118,10 @@ def main():
                         self.wfile.write((json.dumps(event, ensure_ascii=False) + "\n").encode()); self.wfile.flush()
             except (OSError, ValueError, subprocess.SubprocessError) as error:
                 try:
-                    self.wfile.write((json.dumps({"error": str(error), "done": False}) + "\n").encode()); self.wfile.flush()
+                    if not headers_sent:
+                        self.json_response(500, {"error": str(error)})
+                    else:
+                        self.wfile.write((json.dumps({"error": str(error), "done": False}) + "\n").encode()); self.wfile.flush()
                 except OSError:
                     pass
             finally:
@@ -113,6 +130,8 @@ def main():
                 if child:
                     if child.poll() is None:
                         child.kill(); child.wait(timeout=10)
+                    if child.stdout:
+                        child.stdout.close()
                     children.discard(child)
                 lock.release()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
