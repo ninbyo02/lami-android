@@ -49,6 +49,17 @@ class LamiPlaybackUnderrunAccountingTest {
         }
     }
 
+    @Test fun counterResetNearIntegerLimitPreservesSmallSessionTotal() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = Int.MAX_VALUE - 1)
+
+        assertEquals(1, session.observe(Int.MAX_VALUE))
+        // A large platform baseline is not part of this session's total.
+        assertEquals(1, session.observe(0))
+        assertEquals(1, session.observe(0))
+        assertEquals(2, session.observe(1))
+        assertEquals(2, session.observedUnderruns)
+    }
+
     @Test fun sessionSaturatesAccumulatedUnderrunsInsteadOfWrapping() {
         val session = LamiPlaybackUnderrunAccounting.session(initialCount = 0)
 
