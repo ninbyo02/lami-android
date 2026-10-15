@@ -47,3 +47,17 @@ class ClientTests(unittest.TestCase):
     def test_reject_bad_credentials(self):
         with self.assertRaises(ValueError):
             ResidentCpClient(1, b"short")
+
+class RejectionTests(unittest.TestCase):
+    def test_reject_invalid_timeout_and_frame_limit(self):
+        with self.assertRaises(ValueError):
+            ResidentCpClient(1234, bytes(32), timeout=0)
+        client = ResidentCpClient(1234, bytes(32))
+        client.frame = 256
+        with self.assertRaises(ValueError):
+            client.reset()
+
+    def test_reject_unconnected_step(self):
+        client = ResidentCpClient(1234, bytes(32))
+        with self.assertRaises(ValueError):
+            client.step(np.ones(1024, dtype=np.float32))
