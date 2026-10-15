@@ -50,7 +50,10 @@ def validate_snapshot(path):
         file = path.parent / "output.f32"
         if file.is_symlink() or file.stat().st_size != samples * 4:
             raise ValueError("PCM size/path mismatch")
-        raw = file.read_bytes()
+        with file.open("rb") as stream:
+            raw = stream.read(samples * 4 + 1)
+        if len(raw) != samples * 4:
+            raise ValueError("PCM size changed during validation")
         if hashlib.sha256(raw).hexdigest() != pcm.get("sha256"):
             raise ValueError("PCM SHA256 mismatch")
         if not all(math.isfinite(value[0]) for value in struct.iter_unpack("<f", raw)):

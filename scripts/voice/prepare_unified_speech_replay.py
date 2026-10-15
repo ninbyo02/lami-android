@@ -11,7 +11,11 @@ def prepare(source, output):
     if data["status"] != "success":
         raise ValueError("PCM replay requires a successful request")
     ready = next(event["elapsed_ms"] for event in data["events"] if event["stage"] == "pcm_ready")
-    raw = (source.parent / "output.f32").read_bytes()
+    expected_bytes = data["pcm"]["samples"] * 4
+    with (source.parent / "output.f32").open("rb") as stream:
+        raw = stream.read(expected_bytes + 1)
+    if len(raw) != expected_bytes:
+        raise ValueError("PCM size changed during fixture preparation")
     # Check the bytes we will actually copy, rather than relying on the earlier read.
     if hashlib.sha256(raw).hexdigest() != data["pcm"]["sha256"]:
         raise ValueError("PCM changed during fixture preparation")

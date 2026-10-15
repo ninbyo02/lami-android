@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import struct
 import tempfile
@@ -42,6 +43,33 @@ class TraceValidationTest(unittest.TestCase):
             write()
             self.assertEqual(validate(path)["recorded_status"], "failure")
 
+
+    def test_pcm_read_size_rechecked_after_stat(self):
+        for actual_samples in (1, 3):
+            with self.subTest(actual_samples=actual_samples), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                pcm = root / "output.f32"
+                pcm.write_bytes(struct.pack("<ff", 0.1, 0.2))
+                changed = struct.pack("<" + "f" * actual_samples, *([0.5] * actual_samples))
+                data = {"schema_version": 1, "request_id": "race",
+                        "input_sha256": "a"*64, "model_sha256": "b"*64,
+                        "runtime_sha256": "c"*64, "status": "success", "failure_stage": None,
+                        "events": [{"stage": s, "elapsed_ms": t} for s, t in
+                                   [("request_started", 0), ("synthesis_started", 1),
+                                    ("pcm_ready", 2), ("request_ended", 3)]],
+                        "pcm": {"path": "output.f32", "format": "float32le",
+                                "sample_rate": 24000, "samples": 2,
+                                "sha256": hashlib.sha256(changed).hexdigest()}}
+                source = root / "trace.json"
+                source.write_text(json.dumps(data))
+                original_open = Path.open
+                def changed_open(path, *args, **kwargs):
+                    if path == pcm:
+                        return io.BytesIO(changed)
+                    return original_open(path, *args, **kwargs)
+                with patch.object(Path, "open", autospec=True, side_effect=changed_open):
+                    with self.assertRaisesRegex(ValueError, "PCM size"):
+                        validate(source)
 
     def test_export_uses_validated_metadata_snapshot(self):
         for module, status in ((unified, "success"), (terminal, "failure")):
