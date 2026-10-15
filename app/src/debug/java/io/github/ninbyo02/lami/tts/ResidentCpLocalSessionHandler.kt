@@ -17,9 +17,9 @@ internal class ResidentCpLocalSessionHandler(
             try {
                 var read = 0
                 while (read < provided.size) {
-                val count = input.read(provided, read, provided.size - read)
-                if (count < 0) return
-                if (count == 0) continue
+                    val count = input.read(provided, read, provided.size - read)
+                    if (count < 0) return
+                    if (count == 0) continue
                     read += count
                 }
                 if (!session.authorize(provided)) return
