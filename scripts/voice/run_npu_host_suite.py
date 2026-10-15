@@ -72,6 +72,20 @@ def main():
             readback = Path(directory) / "readback.json"
             if readback.is_file():
                 report["steps"]["kotlin_capture_python_readback"]["detail"] = json.loads(readback.read_text())
+            unified = Path(directory) / "unified"
+            report["steps"]["prepare_same_request_fixture"] = run_step(
+                [sys.executable, "scripts/voice/prepare_unified_speech_replay.py",
+                 str(Path(directory) / "captured/trace.json"), "--output-dir", str(unified)], root, 30)
+            unified_result = Path(directory) / "unified-results.json"
+            unified_command = [sys.executable, "scripts/voice/run_speech_pipeline_host_tests.py",
+                "--unified-fixture", str(unified / "unified.tsv"), "--output", str(unified_result)]
+            if args.cache:
+                unified_command += ["--cache", str(args.cache)]
+            report["steps"]["same_request_queue_replay"] = run_step(unified_command, root, 180)
+            if unified_result.is_file():
+                report["steps"]["same_request_queue_replay"]["detail"] = json.loads(unified_result.read_text())
+            else:
+                report["steps"]["same_request_queue_replay"]["status"] = "failed"
         if all(step["status"] == "passed" for step in report["steps"].values()):
             report["host_suite"] = "passed"
     except Exception as error:
