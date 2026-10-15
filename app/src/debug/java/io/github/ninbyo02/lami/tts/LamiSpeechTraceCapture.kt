@@ -37,7 +37,8 @@ internal class LamiSpeechTraceCapture(
     @Synchronized fun success(pcm: FloatArray) {
         check(!ended)
         require(events.any { it.first == "pcm_ready" })
-        require(pcm.isNotEmpty() && pcm.all { it.isFinite() })
+        require(pcm.isNotEmpty() && pcm.size <= MAX_PCM_BYTES / 4)
+        require(pcm.all { it.isFinite() })
         val buffer = ByteBuffer.allocate(Math.multiplyExact(pcm.size, 4)).order(ByteOrder.LITTLE_ENDIAN)
         pcm.forEach { buffer.putFloat(it) }
         finish("success", null, buffer.array(), pcm.size)
@@ -63,6 +64,7 @@ internal class LamiSpeechTraceCapture(
             "\",\"model_sha256\":\"" + modelSha256 + "\",\"runtime_sha256\":\"" + runtimeSha256 +
             "\",\"status\":\"" + status + "\",\"failure_stage\":" + failureJson +
             ",\"events\":[" + eventJson + "],\"pcm\":" + pcmJson + "}"
+        require(json.toByteArray(Charsets.UTF_8).size < 16 * 1024)
         val temp = File(directory, "trace.json.tmp")
         temp.writeText(json + "\n")
         check(temp.renameTo(File(directory, "trace.json")))
@@ -70,6 +72,7 @@ internal class LamiSpeechTraceCapture(
     }
 
     companion object {
+        const val MAX_PCM_BYTES = 4 * 1024 * 1024
         private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256")
             .digest(bytes).joinToString("") { "%02x".format(it) }
     }
