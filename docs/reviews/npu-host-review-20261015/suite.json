@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "executed_at": "2026-10-15T10:41:40.314964+00:00",
+  "host_suite": "passed",
+  "steps": {
+    "test_npu_host_preflight.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_historical_status_does_not_certify_execution (test_npu_host_preflight.PreflightTest.test_historical_status_does_not_certify_execution) ... ok\ntest_integrity_and_bad_reports (test_npu_host_preflight.PreflightTest.test_integrity_and_bad_reports) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.009s\n\nOK\n"
+    },
+    "test_speech_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_duplicate_rejected (test_speech_replay_fixture.FixtureTest.test_duplicate_rejected) ... ok\ntest_impossible_duration_rejected (test_speech_replay_fixture.FixtureTest.test_impossible_duration_rejected) ... ok\ntest_missing_codec_rejected (test_speech_replay_fixture.FixtureTest.test_missing_codec_rejected) ... ok\ntest_valid_timing (test_speech_replay_fixture.FixtureTest.test_valid_timing) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n"
+    },
+    "test_pcm_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_identity_format_and_corruption (test_pcm_replay_fixture.PcmFixtureTest.test_identity_format_and_corruption) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n"
+    },
+    "test_speech_trace_validation.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_partial_journal_is_incomplete_and_preserves_last_valid_stage (test_speech_trace_validation.TraceValidationTest.test_partial_journal_is_incomplete_and_preserves_last_valid_stage) ... ok\ntest_success_failure_corruption_and_order (test_speech_trace_validation.TraceValidationTest.test_success_failure_corruption_and_order) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK\n"
+    },
+    "actual_speech_pipeline": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"process_exit_probe\": {\n    \"status\": \"passed\",\n    \"cases\": [\n      {\n        \"signal\": \"SIGKILL\",\n        \"child_exit_code\": -9,\n        \"result\": \"passed\",\n        \"capture\": {\n          \"status\": \"incomplete\",\n          \"last_recorded_stage\": \"synthesis_started\",\n          \"last_recorded_elapsed_ms\": 25,\n          \"truncated_or_invalid_journal\": false,\n          \"cause\": \"unknown; does not establish a process crash\"\n        }\n      },\n      {\n        \"signal\": \"SIGABRT\",\n        \"child_exit_code\": -6,\n        \"result\": \"passed\",\n        \"capture\": {\n          \"status\": \"incomplete\",\n          \"last_recorded_stage\": \"synthesis_started\",\n          \"last_recorded_elapsed_ms\": 25,\n          \"truncated_or_invalid_journal\": false,\n          \"cause\": \"unknown; does not establish a process crash\"\n        }\n      }\n    ],\n    \"scope\": \"host_child_process_death_journal_survival\",\n    \"npu_crash_reproduction\": \"not_run\",\n    \"limits\": [\n      \"Owned Linux JVM test children only; no Android driver or NPU is loaded.\",\n      \"Does not test power loss, storage failure, or the actual LAMI SIGABRT cause.\"\n    ]\n  },\n  \"host_pipeline_tests\": \"passed\",\n  \"compile_output\": \"\",\n  \"test_output\": \"JUnit version 4.13.2\\n.......................\\nTime: 0.147\\n\\nOK (23 tests)\\n\\n\",\n  \"npu_execution\": \"not_run\",\n  \"android_audio\": \"not_run\",\n  \"limitations\": [\n    \"Real queue/cancellation code tested with injected preparation and playback.\",\n    \"No JNI, driver crash, memory pressure or hardware timing reproduction.\"\n  ]\n}\n",
+      "detail": {
+        "process_exit_probe": {
+          "status": "passed",
+          "cases": [
+            {
+              "signal": "SIGKILL",
+              "child_exit_code": -9,
+              "result": "passed",
+              "capture": {
+                "status": "incomplete",
+                "last_recorded_stage": "synthesis_started",
+                "last_recorded_elapsed_ms": 25,
+                "truncated_or_invalid_journal": false,
+                "cause": "unknown; does not establish a process crash"
+              }
+            },
+            {
+              "signal": "SIGABRT",
+              "child_exit_code": -6,
+              "result": "passed",
+              "capture": {
+                "status": "incomplete",
+                "last_recorded_stage": "synthesis_started",
+                "last_recorded_elapsed_ms": 25,
+                "truncated_or_invalid_journal": false,
+                "cause": "unknown; does not establish a process crash"
+              }
+            }
+          ],
+          "scope": "host_child_process_death_journal_survival",
+          "npu_crash_reproduction": "not_run",
+          "limits": [
+            "Owned Linux JVM test children only; no Android driver or NPU is loaded.",
+            "Does not test power loss, storage failure, or the actual LAMI SIGABRT cause."
+          ]
+        },
+        "host_pipeline_tests": "passed",
+        "compile_output": "",
+        "test_output": "JUnit version 4.13.2\n.......................\nTime: 0.147\n\nOK (23 tests)\n\n",
+        "npu_execution": "not_run",
+        "android_audio": "not_run",
+        "limitations": [
+          "Real queue/cancellation code tested with injected preparation and playback.",
+          "No JNI, driver crash, memory pressure or hardware timing reproduction."
+        ]
+      }
+    },
+    "kotlin_capture_python_readback": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"validation\": \"passed\",\n  \"npu_execution\": \"not_run\",\n  \"audio_output\": \"not_run\",\n  \"record\": {\n    \"request_id\": \"request1\",\n    \"recorded_status\": \"success\",\n    \"recorded_duration_ms\": 70,\n    \"pcm_integrity\": \"verified\",\n    \"trace_sha256\": \"c725d694c68a9c215f3f11db0fe0b61bf3364fc0dc6e9caf968af7325f884729\",\n    \"samples\": 2,\n    \"audio_ms\": 0.08333333333333333,\n    \"playback_start_recorded\": false\n  }\n}\n",
+      "detail": {
+        "validation": "passed",
+        "npu_execution": "not_run",
+        "audio_output": "not_run",
+        "record": {
+          "request_id": "request1",
+          "recorded_status": "success",
+          "recorded_duration_ms": 70,
+          "pcm_integrity": "verified",
+          "trace_sha256": "c725d694c68a9c215f3f11db0fe0b61bf3364fc0dc6e9caf968af7325f884729",
+          "samples": 2,
+          "audio_ms": 0.08333333333333333,
+          "playback_start_recorded": false
+        }
+      }
+    },
+    "prepare_same_request_fixture": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"source\": \"/tmp/lami-host-suite-qf7dfif5/captured/trace.json\",\n  \"source_sha256\": \"c725d694c68a9c215f3f11db0fe0b61bf3364fc0dc6e9caf968af7325f884729\",\n  \"request_id\": \"request1\",\n  \"prepare_delay_ms\": 50,\n  \"input_sha256\": \"439e44a82b28f76c2661e4e65537f0f3963df49beaed16276f0938471f86a7d2\",\n  \"model_sha256\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"runtime_sha256\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n  \"pcm_sha256\": \"2dc6ad64a41cf5fa205222c306fccc1e62685dd486a3923bcff6657587119f4e\",\n  \"scope\": \"same_request_time_and_pcm_virtual_replay\",\n  \"npu_execution\": \"not_run\",\n  \"audio_output\": \"not_run\"\n}\n"
+    },
+    "prepare_terminal_fixture": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": ""
+    },
+    "same_request_queue_replay": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"process_exit_probe\": null,\n  \"host_pipeline_tests\": \"passed\",\n  \"compile_output\": \"\",\n  \"test_output\": \"JUnit version 4.13.2\\n.......................\\nTime: 0.522\\n\\nOK (23 tests)\\n\\n\",\n  \"npu_execution\": \"not_run\",\n  \"android_audio\": \"not_run\",\n  \"limitations\": [\n    \"Real queue/cancellation code tested with injected preparation and playback.\",\n    \"No JNI, driver crash, memory pressure or hardware timing reproduction.\"\n  ]\n}\n",
+      "detail": {
+        "process_exit_probe": null,
+        "host_pipeline_tests": "passed",
+        "compile_output": "",
+        "test_output": "JUnit version 4.13.2\n.......................\nTime: 0.522\n\nOK (23 tests)\n\n",
+        "npu_execution": "not_run",
+        "android_audio": "not_run",
+        "limitations": [
+          "Real queue/cancellation code tested with injected preparation and playback.",
+          "No JNI, driver crash, memory pressure or hardware timing reproduction."
+        ]
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-replay-20261015/codec.tsv",
+      "sha256": "85d7f1179acf43d7d432863c94161d4b64286bea2e33fee9f1c34a305d743d6b"
+    },
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-pcm-20261015/pcm.tsv",
+      "sha256": "986e37217cb6d242c7c3a992bdb93ec7a1c91dab0820d97e5b825e068cf9ebc8"
+    }
+  ],
+  "npu_execution": "not_run",
+  "soc_compile": "not_run",
+  "android_audio": "not_run",
+  "sigabrt_reproduction": "not_run",
+  "limitations": [
+    "Historical timing and audio fixtures; no new NPU inference.",
+    "Queue behavior uses virtual time and an injected playback consumer.",
+    "Passing does not certify NPU compatibility, performance or speech quality."
+  ]
+}
