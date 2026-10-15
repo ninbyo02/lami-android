@@ -45,7 +45,7 @@ def main():
                 raise FileNotFoundError(f"Missing fixture: {fixture}")
             report["fixtures"].append({"path": str(fixture),
                                       "sha256": hashlib.sha256(fixture.read_bytes()).hexdigest()})
-        for pattern in ("test_npu_host_preflight.py", "test_speech_replay_fixture.py", "test_pcm_replay_fixture.py"):
+        for pattern in ("test_npu_host_preflight.py", "test_speech_replay_fixture.py", "test_pcm_replay_fixture.py", "test_speech_trace_validation.py"):
             report["steps"][pattern] = run_step(
                 [sys.executable, "-m", "unittest", "discover", "-s", "scripts/voice", "-p", pattern, "-v"],
                 root, 30)
@@ -53,7 +53,7 @@ def main():
             result_file = Path(directory) / "pipeline.json"
             command = [sys.executable, "scripts/voice/run_speech_pipeline_host_tests.py",
                        "--replay-fixture", str(replay.resolve()), "--pcm-fixture", str(pcm.resolve()),
-                       "--output", str(result_file)]
+                       "--output", str(result_file), "--capture-export", str(Path(directory) / "captured")]
             if args.cache:
                 command += ["--cache", str(args.cache)]
             step = run_step(command, root, 180)
@@ -66,6 +66,12 @@ def main():
             else:
                 step["status"] = "failed"
                 step["error"] = "Pipeline result JSON missing"
+            report["steps"]["kotlin_capture_python_readback"] = run_step(
+                [sys.executable, "scripts/voice/validate_speech_trace.py",
+                 str(Path(directory) / "captured/trace.json"), "--output", str(Path(directory) / "readback.json")], root, 30)
+            readback = Path(directory) / "readback.json"
+            if readback.is_file():
+                report["steps"]["kotlin_capture_python_readback"]["detail"] = json.loads(readback.read_text())
         if all(step["status"] == "passed" for step in report["steps"].values()):
             report["host_suite"] = "passed"
     except Exception as error:

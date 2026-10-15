@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--replay-fixture", type=Path)
     parser.add_argument("--pcm-fixture", type=Path)
+    parser.add_argument("--capture-export", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     def jar(group, name, version):
@@ -65,7 +66,7 @@ def main():
         tested = None
         if compiled.returncode == 0:
             tested = subprocess.run(
-                ["java"] + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
+                ["java"] + (["-Dlami.capture.export=" + str(args.capture_export.resolve())] if args.capture_export else []) + (["-Dlami.pcm.fixture=" + str(args.pcm_fixture.resolve())] if args.pcm_fixture else []) + (["-Dlami.replay.fixture=" + str(args.replay_fixture.resolve())] if args.replay_fixture else []) + ["-cp", os.pathsep.join([directory] + runtime), "org.junit.runner.JUnitCore",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceStoreTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceGuardTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceCaptureTest",

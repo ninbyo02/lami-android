@@ -20,6 +20,11 @@ class LamiSpeechTraceCaptureTest {
             assertTrue(json.contains("\"request_id\":\"request1\""))
             assertTrue(json.contains("\"elapsed_ms\":70"))
             assertEquals(8L, directory.resolve("output.f32").length())
+            System.getProperty("lami.capture.export")?.let { target ->
+                val output = java.io.File(target)
+                require(!output.exists())
+                require(directory.copyRecursively(output, overwrite = false))
+            }
             assertThrows(IllegalStateException::class.java) { trace.failure("load") }
         } finally { parent.deleteRecursively() }
     }
