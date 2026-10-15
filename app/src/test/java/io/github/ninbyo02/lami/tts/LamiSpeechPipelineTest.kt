@@ -12,6 +12,46 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LamiSpeechPipelineTest {
+    @Test fun `stop of waiting replacement retains cleanup barrier for immediate reuse`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val events = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            events += "prepare $it"
+            it
+        }, play = {
+            events += "play $it"
+            if (it == "old") try { delay(1000) } finally {
+                withContext(NonCancellable) {
+                    events += "cleanup started"
+                    cleanup.await()
+                    events += "cleanup finished"
+                }
+            }
+        })
+        pipeline.enqueue("old")
+        runCurrent()
+        pipeline.replace("discard")
+        runCurrent()
+        assertEquals(listOf("prepare old", "play old", "cleanup started"), events)
+
+        pipeline.stop()
+        pipeline.enqueue("new")
+        pipeline.enqueue("next")
+        runCurrent()
+        assertEquals(listOf("prepare old", "play old", "cleanup started"), events)
+        assertEquals(listOf(true, false, true, false, true), busy)
+
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("prepare old", "prepare new", "prepare next"),
+            events.filter { it.startsWith("prepare ") })
+        assertEquals(listOf("play old", "play new", "play next"),
+            events.filter { it.startsWith("play ") })
+        assertTrue(events.indexOf("cleanup finished") < events.indexOf("prepare new"))
+        assertEquals(listOf(true, false, true, false, true, false), busy)
+    }
+
     @Test fun `replacement waits for both player and prefetch cleanup`() = runTest {
         val playerCleanup = CompletableDeferred<Unit>()
         val producerCleanup = CompletableDeferred<Unit>()
