@@ -168,8 +168,15 @@ class LamiVoiceTextFrontendTest {
                 assertArrayEquals("request=$request row=$i", expected[i].map(Float::toRawBits).toIntArray(), actual.prefill[i].map(Float::toRawBits).toIntArray())
             }
             assertEquals(listOf(151671, 151672, 151673) + ids.take(3) + body.distinct(), calls)
-            // Summed prefill rows still own their storage even for repeated tokens.
-            assertNotSame(actual.prefill[9], actual.prefill[10])
+            // Every body position owns its storage, including nonadjacent repeats.
+            for (i in body.indices) for (j in 0 until i) {
+                assertNotSame(actual.prefill[9 + i], actual.prefill[9 + j])
+            }
+            val repeatedIndex = body.indices.drop(1).first { body[it] == body[0] }
+            val repeatedRow = actual.prefill[9 + repeatedIndex]
+            val original = repeatedRow[0].toRawBits()
+            actual.prefill[9][0] = 12345f
+            assertEquals(original, repeatedRow[0].toRawBits())
         }
     }
     @Test fun rejectsBlankSpecialSyntaxAndCacheOverflow() {
