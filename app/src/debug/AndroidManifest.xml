@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application android:extractNativeLibs="true">
+        <activity android:name="io.github.ninbyo02.lami.npu.NpuReferenceChatSetupActivity" android:exported="true" />
         <activity android:name="io.github.ninbyo02.lami.remote.EmulatorCpuReferenceActivity" android:exported="true" android:label="LAMI CPU Reference (Debug)" />
         <activity
             android:name=".tts.ResidentCpContextProbeActivity"

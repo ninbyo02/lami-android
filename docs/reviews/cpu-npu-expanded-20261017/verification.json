@@ -1,0 +1,35 @@
+{
+  "scope": "Expanded diagnostic functional comparison plus normal chat UI/Room lifecycle in isolated apps",
+  "suite_status": "partial_quality_gap",
+  "case_set_turns": 6,
+  "longest_prompt_characters": 608,
+  "persistent_runs": 2,
+  "cpu_quality_correct": [
+    6,
+    6
+  ],
+  "npu_quality_correct": [
+    5,
+    5
+  ],
+  "npu_rehydrate_quality_correct": 4,
+  "raw_npu_wrong_identifier": "Z1",
+  "expected_identifier": "Z31",
+  "normal_cpu_lifecycle": "passed",
+  "normal_npu_lifecycle": "passed",
+  "stop_persisted": "CANCELLED",
+  "recovery_answer": "7",
+  "normal_npu_tts": false,
+  "normal_cpu_tts": "not_verified",
+  "npu_kernel_cancel_latency": "not_measured",
+  "restart_check": "activity_launch_and_retained_Room_snapshot; prior-chat selection not automated",
+  "python_voice_tests": 25,
+  "runtime_pin_tests": 5,
+  "failures_in_code_unit_tests": 0,
+  "debug_build": "passed",
+  "normal_apk_qnn_pin": "passed",
+  "npu_numerical_parity": "not_verified",
+  "quality_root_cause": "not_identified; distinct model artifacts and runtime configurations",
+  "production_main_app_updated": false,
+  "main_branch_integration": "held_due_to_quality_gap"
+}

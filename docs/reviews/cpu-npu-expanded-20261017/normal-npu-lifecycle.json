@@ -1,0 +1,86 @@
+{
+  "validation": "passed",
+  "run_id": "5a4c35185cb94572ac5352237e6765c3",
+  "backend": "npu",
+  "package": "io.github.ninbyo02.lami.npuvalidation.assistantprobe",
+  "cases": [
+    {
+      "prompt": "What is 17 plus 25? Reply with the number only.",
+      "expected": "42",
+      "ui_completed": "passed",
+      "ui_total_ms": 11906
+    },
+    {
+      "prompt": "Now multiply that result by 2. Reply with the number only.",
+      "expected": "84",
+      "ui_completed": "passed",
+      "ui_total_ms": 7680
+    }
+  ],
+  "npu_numerical_parity": "not_verified",
+  "tts": "disabled_for_npu_reference",
+  "scope": "normal_chat_ui_stop_recovery_room",
+  "stop_ui_ready_ms": 2165,
+  "recovery_ui": "passed",
+  "saved_messages": [
+    {
+      "message": "What is 17 plus 25? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "42",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+      "localSourceSummary": "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+    },
+    {
+      "message": "Now multiply that result by 2. Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "84",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+      "localSourceSummary": "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+    },
+    {
+      "message": "List every integer from 1 to 1000, one per line. Do not skip any numbers.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "",
+      "isSendbyMe": 0,
+      "status": "CANCELLED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "What is 3 plus 4? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "7",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+      "localSourceSummary": "route_family=npu_standard; backend=NPU; evidence=QNN_HTP_V79_FastRPC_native_diag"
+    }
+  ],
+  "room": "passed",
+  "stop_persisted": "CANCELLED",
+  "restart_launch": "passed"
+}

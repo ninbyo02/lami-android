@@ -1,0 +1,81 @@
+{
+  "apiSurface": "LiteRT-LM C++ Conversation::SendMessage",
+  "appTemplateUsed": false,
+  "backend": "NPU",
+  "conversationApiUsed": true,
+  "conversationStateProfile": "persistent_v1",
+  "directSessionApiUsed": false,
+  "effectiveMaxOutputTokens": 64,
+  "modelBytes": 3016294400,
+  "modelFileName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+  "modelTemplateSource": "model_metadata",
+  "outputLimitSource": "C++ OptionalArgs.max_output_tokens",
+  "promptTemplateOwner": "model_metadata",
+  "reason": "completed",
+  "requestedMaxOutputTokens": 64,
+  "samplerProfile": "greedy_top_k_1_v1",
+  "samplerSeed": 42,
+  "samplerTemperature": 1.0,
+  "samplerTopK": 1,
+  "samplerTopP": 1.0,
+  "scenarioId": "cpu_npu_reference_e8989a99368c48e7844196452ca65832",
+  "schemaVersion": 1,
+  "status": "success",
+  "totalMs": 3216,
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "私の姓は佐藤です。「了解」だけ答えてください。",
+      "rawOutput": "了解",
+      "reason": "completed",
+      "sanitizedOutput": "了解",
+      "sendMs": 233,
+      "status": "success"
+    },
+    {
+      "index": 2,
+      "prompt": "私の姓は何ですか。姓だけ答えてください。",
+      "rawOutput": "佐藤",
+      "reason": "completed",
+      "sanitizedOutput": "佐藤",
+      "sendMs": 96,
+      "status": "success"
+    },
+    {
+      "index": 3,
+      "prompt": "次の作業記録を読み、装置Aの担当者の姓だけ答えてください。\n記録01：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録02：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録03：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録04：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録05：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録06：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録07：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録08：共用工具の点検を実施し、所定の場所への返却を確認した。\n重要記録：装置Aの担当者は森、型番はZ31、次回の点検は金曜日。装置Bの担当者は田中、型番はB52。\n記録09：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録10：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録11：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録12：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録13：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録14：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録15：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録16：共用工具の点検を実施し、所定の場所への返却を確認した。",
+      "rawOutput": "森",
+      "reason": "completed",
+      "sanitizedOutput": "森",
+      "sendMs": 285,
+      "status": "success"
+    },
+    {
+      "index": 4,
+      "prompt": "先ほどの装置Aの型番は何ですか。型番だけ答えてください。",
+      "rawOutput": "Z1",
+      "reason": "completed",
+      "sanitizedOutput": "Z1",
+      "sendMs": 178,
+      "status": "success"
+    },
+    {
+      "index": 5,
+      "prompt": "装置Aの次回点検は何曜日ですか。曜日だけ答えてください。",
+      "rawOutput": "金曜日",
+      "reason": "completed",
+      "sanitizedOutput": "金曜日",
+      "sendMs": 95,
+      "status": "success"
+    },
+    {
+      "index": 6,
+      "prompt": "その曜日を英語で答えてください。英単語だけ答えてください。",
+      "rawOutput": "Friday",
+      "reason": "completed",
+      "sanitizedOutput": "Friday",
+      "sendMs": 61,
+      "status": "success"
+    }
+  ]
+}

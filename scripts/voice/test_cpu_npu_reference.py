@@ -1,5 +1,8 @@
 import unittest
-from check_cpu_npu_reference import PROMPTS, EXPECTED, score, receiver_acknowledged
+import json
+import tempfile
+from pathlib import Path
+from check_cpu_npu_reference import PROMPTS, EXPECTED, score, receiver_acknowledged, load_case_set
 
 
 class ComparisonTest(unittest.TestCase):
@@ -13,6 +16,24 @@ class ComparisonTest(unittest.TestCase):
         self.assertFalse(receiver_acknowledged(b"Broadcast completed: result=0"))
         self.assertFalse(receiver_acknowledged(b"Broadcast completed: result=2440"))
         self.assertFalse(receiver_acknowledged(b"result=244"))
+
+    def test_case_set_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cases.json"
+            for value in [{}, {"turns": []}, {"turns": [None]}, {"turns": [{"prompt": "x", "expected": " "}]}]:
+                path.write_text(json.dumps(value))
+                with self.assertRaises(ValueError): load_case_set(path)
+            path.write_text(json.dumps({"turns": [{"prompt":"x", "expected":"y"}]*7}))
+            with self.assertRaises(ValueError): load_case_set(path)
+            path.write_text(json.dumps({"turns": [{"prompt":"姓は？", "expected":"佐藤"}]}))
+            self.assertEqual(load_case_set(path), (["姓は？"], ["佐藤"]))
+
+    def test_custom_case_set_is_not_scored_as_default_math(self):
+        run = {"scenarioId":"fresh", "backend":"NPU", "status":"success", "turns":[
+            {"index":1, "prompt":"型番は？", "status":"success", "sanitizedOutput":"Z1"}]}
+        self.assertEqual(score(run, "fresh", "NPU", ["型番は？"], ["Z31"])["quality"], "failed")
+        run["turns"][0]["sanitizedOutput"] = "Ｚ３１。"
+        self.assertEqual(score(run, "fresh", "NPU", ["型番は？"], ["Z31"])["quality"], "passed")
 
     def test_correct_answers(self):
         self.assertEqual(score(self.result(), "fresh", "NPU")["quality"], "passed")
