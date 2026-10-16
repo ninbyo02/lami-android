@@ -45,50 +45,57 @@ internal class LamiQwenTokenizer(
         val text = Normalizer.normalize(input, Normalizer.Form.NFC)
         require(text.length <= 4096) { "TTS tokenizer input exceeds diagnostic limit" }
         val result = mutableListOf<Int>()
+        val words = mutableMapOf<String, List<Int>>()
         val special = specialPattern.matcher(text)
         var start = 0
         while (special.find()) {
-            ordinary(text.substring(start, special.start()), result)
+            ordinary(text.substring(start, special.start()), result, words)
             result += specialTokens.getValue(special.group())
             start = special.end()
         }
-        ordinary(text.substring(start), result)
+        ordinary(text.substring(start), result, words)
         return result.toIntArray()
     }
 
-    private fun ordinary(text: String, output: MutableList<Int>) {
+    private fun ordinary(text: String, output: MutableList<Int>, words: MutableMap<String, List<Int>>) {
         val matcher = pretoken.matcher(text)
         var end = 0
         while (matcher.find()) {
             check(matcher.start() == end) { "Unmatched tokenizer input" }
             end = matcher.end()
-            var word = matcher.group().toByteArray(Charsets.UTF_8).map { byteCharacters[it.toInt() and 255] }
-            while (word.size > 1) {
-                var candidate: Pair<String, String>? = null
-                var bestRank = Int.MAX_VALUE
-                for (index in 0 until word.lastIndex) {
-                    val pair = word[index] to word[index + 1]
-                    val rank = ranks[pair] ?: continue
-                    // Strict comparison keeps the first adjacent pair on rank ties.
-                    if (candidate == null || rank < bestRank) {
-                        candidate = pair
-                        bestRank = rank
-                    }
-                }
-                if (candidate == null) break
-                val mergedToken = candidate.first + candidate.second
-                val merged = ArrayList<String>(word.size)
-                var i = 0
-                while (i < word.size) {
-                    if (i + 1 < word.size && word[i] == candidate.first && word[i + 1] == candidate.second) {
-                        merged += mergedToken
-                        i += 2
-                    } else { merged += word[i]; i++ }
-                }
-                word = merged
-            }
-            word.forEach { output += requireNotNull(vocabulary[it]) { "Token missing from model vocabulary" } }
+            // Repeated pretokens have identical BPE results within this encode call.
+            val word = matcher.group()
+            output += words.getOrPut(word) { encodeWord(word) }
         }
         check(end == text.length) { "Unmatched tokenizer suffix" }
+    }
+
+    private fun encodeWord(text: String): List<Int> {
+        var word = text.toByteArray(Charsets.UTF_8).map { byteCharacters[it.toInt() and 255] }
+        while (word.size > 1) {
+            var candidate: Pair<String, String>? = null
+            var bestRank = Int.MAX_VALUE
+            for (index in 0 until word.lastIndex) {
+                val pair = word[index] to word[index + 1]
+                val rank = ranks[pair] ?: continue
+                // Strict comparison keeps the first adjacent pair on rank ties.
+                if (candidate == null || rank < bestRank) {
+                    candidate = pair
+                    bestRank = rank
+                }
+            }
+            if (candidate == null) break
+            val mergedToken = candidate.first + candidate.second
+            val merged = ArrayList<String>(word.size)
+            var i = 0
+            while (i < word.size) {
+                if (i + 1 < word.size && word[i] == candidate.first && word[i + 1] == candidate.second) {
+                    merged += mergedToken
+                    i += 2
+                } else { merged += word[i]; i++ }
+            }
+            word = merged
+        }
+        return word.map { requireNotNull(vocabulary[it]) { "Token missing from model vocabulary" } }
     }
 }

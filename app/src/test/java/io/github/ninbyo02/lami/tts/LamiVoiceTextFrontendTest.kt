@@ -101,6 +101,30 @@ class LamiVoiceTextFrontendTest {
             }
         }
     }
+    @Test fun repeatedPretokensReuseMergesOnlyWithinOneEncodeCall() {
+        var lookups = 0
+        val entries = mapOf(("a" to "a") to 0, ("aa" to "aa") to 1)
+        val ranks = object : Map<Pair<String, String>, Int> by entries {
+            override fun get(key: Pair<String, String>): Int? {
+                lookups++
+                return entries[key]
+            }
+        }
+        val tokenizer = LamiQwenTokenizer(
+            mapOf("a" to 1, "aa" to 2, "aaaa" to 3, "!" to 4),
+            ranks, mapOf("<special>" to -1),
+        )
+        assertArrayEquals(intArrayOf(3, 1), tokenizer.encode("aaaaa"))
+        val singleWordLookups = lookups
+        assertTrue(singleWordLookups > 0)
+        repeat(2) {
+            lookups = 0
+            // Same pretoken recurs across punctuation and a special-token boundary.
+            assertArrayEquals(intArrayOf(3, 1, -1, 3, 1, 4, -1, 3, 1),
+                tokenizer.encode("aaaaa<special>aaaaa!<special>aaaaa"))
+            assertEquals(singleWordLookups, lookups)
+        }
+    }
     @Test fun japaneseInputEmbeddingsMatchOriginalCustomVoicePreparation() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         val cases = fixture.getJSONArray("cases")
