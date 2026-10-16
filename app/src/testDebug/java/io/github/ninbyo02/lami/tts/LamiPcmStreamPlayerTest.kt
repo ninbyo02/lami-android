@@ -5,6 +5,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -82,6 +83,42 @@ class LamiPcmStreamPlayerTest {
         assertFalse(track.drained)
     }
 
+    @Test fun cancellationDuringDrainDoesNotReportCompletedUnderrunStats() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val last = floatArrayOf(0.5f, 0.6f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        var stats: LamiPcmStreamPlayer.Stats? = null
+        val playback = launch {
+            stats = LamiPcmStreamPlayer.play(chunks) {}
+        }
+        advanceUntilIdle()
+        val track = PartialWriteAudioTrack.latest
+        // Accept the final chunk in one write so runCurrent reaches the drain delay.
+        track.writes.clear()
+        track.writes.add(2)
+        chunks.send(last)
+        chunks.close()
+        runCurrent()
+
+        assertTrue(playback.isActive)
+        assertEquals((first + last).toList(), track.accepted)
+        assertEquals(1, track.drainHeadReads)
+        assertFalse(track.drained)
+        assertFalse(track.released)
+
+        playback.cancelAndJoin()
+        advanceUntilIdle()
+
+        assertTrue(playback.isCancelled)
+        assertEquals(null, stats)
+        assertEquals(listOf(7), track.underrunReadings)
+        assertEquals(1, track.drainHeadReads)
+        assertFalse(track.drained)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+        assertTrue(track.released)
+    }
+
     @Test fun partialAndZeroWritesPreserveSamplesAndObserveUnderrunsAfterDrain() = runTest {
         val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
         val last = floatArrayOf(0.5f, 0.6f)
@@ -149,7 +186,8 @@ class LamiPcmStreamPlayerTest {
         var drained = false
         var released = false
         val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
-        private var headReads = 0
+        var drainHeadReads = 0
+            private set
 
         @Implementation
         fun write(samples: FloatArray, offset: Int, size: Int, mode: Int): Int {
@@ -174,7 +212,7 @@ class LamiPcmStreamPlayerTest {
         @Implementation
         public override fun getPlaybackHeadPosition(): Int {
             assertTrue(writes.isEmpty())
-            drained = ++headReads > 1
+            drained = ++drainHeadReads > 1
             return if (drained) accepted.size else accepted.size - 1
         }
 
