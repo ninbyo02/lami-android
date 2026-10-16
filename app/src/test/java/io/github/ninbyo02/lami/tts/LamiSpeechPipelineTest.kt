@@ -12,6 +12,38 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LamiSpeechPipelineTest {
+    @Test fun `stop before worker starts discards queued speech and preserves replacement busy state`() = runTest {
+        val finishPlayback = CompletableDeferred<Unit>()
+        val prepared = mutableListOf<String>()
+        val played = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            prepared += it
+            it
+        }, play = {
+            played += it
+            finishPlayback.await()
+        })
+
+        // Cancel before dispatching the worker, then immediately reuse the pipeline.
+        pipeline.enqueue("discard first")
+        pipeline.enqueue("discard second")
+        pipeline.stop()
+        pipeline.enqueue("replacement")
+        assertTrue(prepared.isEmpty())
+        assertTrue(played.isEmpty())
+        assertEquals(listOf(true, false, true), busy)
+
+        runCurrent()
+        assertEquals(listOf("replacement"), prepared)
+        assertEquals(listOf("replacement"), played)
+        assertEquals(listOf(true, false, true), busy)
+
+        finishPlayback.complete(Unit)
+        runCurrent()
+        assertEquals(listOf(true, false, true, false), busy)
+    }
+
     @Test fun `stop of waiting replacement retains cleanup barrier for immediate reuse`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         val events = mutableListOf<String>()
