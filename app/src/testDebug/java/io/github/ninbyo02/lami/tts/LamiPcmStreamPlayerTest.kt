@@ -1,9 +1,13 @@
 package io.github.ninbyo02.lami.tts
 
 import android.media.AudioTrack
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +20,36 @@ import org.robolectric.shadows.ShadowAudioTrack
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], shadows = [LamiPcmStreamPlayerTest.PartialWriteAudioTrack::class])
 class LamiPcmStreamPlayerTest {
+    @Test fun cancellationWhileAwaitingNextChunkStopsAndReleasesTrack() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        var starts = 0
+        var completed = false
+        val playback = launch {
+            LamiPcmStreamPlayer.play(chunks) { starts++ }
+            completed = true
+        }
+        advanceUntilIdle()
+        val track = PartialWriteAudioTrack.latest
+        assertEquals(1, starts)
+        assertEquals(first.toList(), track.accepted)
+        assertTrue(playback.isActive)
+        assertFalse(track.released)
+
+        playback.cancelAndJoin()
+        chunks.send(floatArrayOf(0.5f, 0.6f))
+        chunks.close()
+        advanceUntilIdle()
+
+        assertTrue(playback.isCancelled)
+        assertFalse(completed)
+        assertEquals(first.toList(), track.accepted)
+        assertEquals(1, starts)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+        assertFalse(track.drained)
+    }
+
     @Test fun partialAndZeroWritesPreserveSamplesAndObserveUnderrunsAfterDrain() = runTest {
         val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
         val last = floatArrayOf(0.5f, 0.6f)
@@ -48,6 +82,7 @@ class LamiPcmStreamPlayerTest {
         val accepted = mutableListOf<Float>()
         val requestSizes = mutableListOf<Int>()
         val underrunReadings = mutableListOf<Int>()
+        val cleanup = mutableListOf<String>()
         var drained = false
         var released = false
         private val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
@@ -83,7 +118,13 @@ class LamiPcmStreamPlayerTest {
         fun setStartThresholdInFrames(frames: Int): Int = frames
 
         @Implementation
+        fun stop() {
+            cleanup += "stop"
+        }
+
+        @Implementation
         fun release() {
+            cleanup += "release"
             released = true
         }
     }
