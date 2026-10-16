@@ -104,6 +104,37 @@ class LamiPcmStreamPlayerTest {
         assertTrue(track.released)
     }
 
+    @Test fun writeFailureAfterPartialProgressDoesNotReportCompletedPlayback() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val last = floatArrayOf(0.5f, 0.6f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        var result: Result<LamiPcmStreamPlayer.Stats>? = null
+        var starts = 0
+        val playback = launch {
+            result = runCatching { LamiPcmStreamPlayer.play(chunks) { starts++ } }
+        }
+        advanceUntilIdle()
+        val track = PartialWriteAudioTrack.latest
+        track.writes.clear()
+        track.writes.addAll(listOf(1, AudioTrack.ERROR_INVALID_OPERATION))
+
+        chunks.send(last)
+        chunks.close()
+        playback.join()
+
+        val failure = result!!.exceptionOrNull()
+        assertTrue(failure is IllegalStateException)
+        assertEquals("Streaming PCM write failed: ${AudioTrack.ERROR_INVALID_OPERATION}", failure?.message)
+        assertEquals(1, starts)
+        assertEquals((first + last.take(1)).toList(), track.accepted)
+        assertEquals(listOf(4, 2, 2, 1, 2, 1), track.requestSizes)
+        assertEquals(listOf(7), track.underrunReadings)
+        assertFalse(track.drained)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+        assertTrue(track.released)
+    }
+
     /** Script backpressure and a delayed playback head without any audio device. */
     @Implements(AudioTrack::class)
     class PartialWriteAudioTrack : ShadowAudioTrack() {
@@ -117,7 +148,7 @@ class LamiPcmStreamPlayerTest {
         val cleanup = mutableListOf<String>()
         var drained = false
         var released = false
-        private val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
+        val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
         private var headReads = 0
 
         @Implementation
@@ -126,6 +157,7 @@ class LamiPcmStreamPlayerTest {
             assertEquals(AudioTrack.WRITE_NON_BLOCKING, mode)
             requestSizes += size
             val count = writes.removeFirst()
+            if (count < 0) return count
             assertTrue(count <= size)
             accepted.addAll(samples.slice(offset until offset + count))
             return count
