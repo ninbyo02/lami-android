@@ -20,6 +20,38 @@ import org.robolectric.shadows.ShadowAudioTrack
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], shadows = [LamiPcmStreamPlayerTest.PartialWriteAudioTrack::class])
 class LamiPcmStreamPlayerTest {
+    @Test fun producerGapDefersFinalUnderrunObservationUntilLastChunkDrains() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val last = floatArrayOf(0.5f, 0.6f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        var stats: LamiPcmStreamPlayer.Stats? = null
+        var starts = 0
+        val playback = launch {
+            stats = LamiPcmStreamPlayer.play(chunks) { starts++ }
+        }
+        advanceUntilIdle()
+        val track = PartialWriteAudioTrack.latest
+
+        assertTrue(playback.isActive)
+        assertEquals(null, stats)
+        assertEquals(first.toList(), track.accepted)
+        assertEquals(listOf(7), track.underrunReadings)
+        assertFalse(track.drained)
+        assertFalse(track.released)
+
+        chunks.send(last)
+        chunks.close()
+        playback.join()
+
+        assertEquals(LamiPcmStreamPlayer.Stats(samples = 6, underruns = 3), stats)
+        assertEquals(1, starts)
+        assertEquals((first + last).toList(), track.accepted)
+        assertEquals(listOf(7, 10), track.underrunReadings)
+        assertTrue(track.drained)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+    }
+
     @Test fun cancellationWhileAwaitingNextChunkStopsAndReleasesTrack() = runTest {
         val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
