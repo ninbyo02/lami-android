@@ -51,12 +51,13 @@ internal class LamiNeuralChatVoiceEngine(
     }
 
     private suspend fun prepareUtterance(text: String): PreparedClip? {
+        // Include optional diagnostic setup in the preparation-to-playback interval.
+        val started = SystemClock.elapsedRealtimeNanos()
         val requestId = requestIds.incrementAndGet()
         val capture = traceFactory?.let { factory ->
             LamiSpeechTraceGuard.create { factory(requestId, text) }
         }
         val requestOrdinal = requestId - 1L
-        val started = SystemClock.elapsedRealtimeNanos()
         val firstAudio = LamiFirstAudioTiming.start(
             requestId = requestId,
             requestOrdinal = requestOrdinal,

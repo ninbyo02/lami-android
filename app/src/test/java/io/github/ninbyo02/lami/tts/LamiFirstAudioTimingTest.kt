@@ -264,6 +264,20 @@ class LamiFirstAudioTimingTest {
         }
     }
 
+    @Test fun chatEngineStartsTimingBeforeOptionalDiagnosticSetup() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralChatVoiceEngine.kt",
+        ).readText()
+        val preparation = source.substringAfter("private suspend fun prepareUtterance(text: String): PreparedClip? {")
+            .substringBefore("private suspend fun playClip(")
+        // A slow trace factory must remain inside the measured preparation interval.
+        assertTrue(Regex(
+            "^\\s*(?://[^\\n]*\\n\\s*)?val started = SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        ).containsMatchIn(preparation))
+        assertTrue(preparation.indexOf("val started =") < preparation.indexOf("LamiSpeechTraceGuard.create"))
+        assertTrue(preparation.contains("startedAtNs = started,"))
+    }
+
     @Test fun chatEngineCapturesMonotonicEventsAtSynthesisAndPlaybackBoundaries() {
         val source = java.io.File(
             "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralChatVoiceEngine.kt",
