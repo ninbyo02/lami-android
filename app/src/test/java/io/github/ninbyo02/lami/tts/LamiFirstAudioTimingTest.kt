@@ -264,6 +264,28 @@ class LamiFirstAudioTimingTest {
         }
     }
 
+    @Test fun chatEngineCapturesMonotonicEventsAtSynthesisAndPlaybackBoundaries() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralChatVoiceEngine.kt",
+        ).readText()
+        val preparation = source.substringAfter("private suspend fun prepareUtterance(")
+            .substringBefore("private suspend fun playClip(")
+        // Capture PCM readiness before logging, trace capture, or queue handoff can add delay.
+        assertTrue(Regex(
+            "val pcm = LamiVoiceDiagnostic\\.synthesizeText[^\\n]+\\n\\s*" +
+                "trace\\(firstAudio, LamiFirstAudioTiming\\.preparedEvent\\(firstAudio, " +
+                "SystemClock\\.elapsedRealtimeNanos\\(\\)\\)\\)",
+        ).containsMatchIn(preparation))
+        val playback = source.substringAfter("private suspend fun playClip(")
+            .substringBefore("override fun isInCooldown(")
+        // The first callback action must sample the clock, before optional trace capture or logging.
+        assertTrue(Regex(
+            "LamiPcmPlayer\\.play\\(clip\\.pcm\\)\\s*\\{\\s*trace\\(\\s*" +
+                "clip\\.firstAudio,\\s*LamiFirstAudioTiming\\.playbackStartedEvent\\(\\s*" +
+                "clip\\.firstAudio,\\s*SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        ).containsMatchIn(playback))
+    }
+
     private fun eventFields(event: String): Map<String, String> =
         event.split(" ")
             .associate {
