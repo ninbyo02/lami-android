@@ -1,0 +1,48 @@
+{
+  "source": "/home/sato/tmp/lami-tts-npu-pilot/full-voice/report.json",
+  "frames": 19,
+  "full_decode_ms": 1346.63,
+  "prefixes": [
+    {
+      "frames": 2,
+      "audio_ms": 160,
+      "decode_ms": 39.93,
+      "max_abs_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "exact_samples": 3840,
+      "samples": 3840
+    },
+    {
+      "frames": 4,
+      "audio_ms": 320,
+      "decode_ms": 67.56,
+      "max_abs_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "exact_samples": 7680,
+      "samples": 7680
+    },
+    {
+      "frames": 8,
+      "audio_ms": 640,
+      "decode_ms": 111.86,
+      "max_abs_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "exact_samples": 15360,
+      "samples": 15360
+    },
+    {
+      "frames": 16,
+      "audio_ms": 1280,
+      "decode_ms": 189.34,
+      "max_abs_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "exact_samples": 30720,
+      "samples": 30720
+    }
+  ],
+  "limitations": [
+    "Host ExecuTorch decoder with fixed generated codes, not device scheduling.",
+    "Repeated prefix decoding may cost more than a stateful streaming decoder.",
+    "Prefix PCM comparison does not establish underrun-free playback."
+  ]
+}

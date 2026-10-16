@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "executed_at": "2026-10-15T00:07:01.528694+00:00",
+  "host_suite": "passed",
+  "steps": {
+    "test_npu_host_preflight.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_historical_status_does_not_certify_execution (test_npu_host_preflight.PreflightTest.test_historical_status_does_not_certify_execution) ... ok\ntest_integrity_and_bad_reports (test_npu_host_preflight.PreflightTest.test_integrity_and_bad_reports) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK\n"
+    },
+    "test_speech_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_duplicate_rejected (test_speech_replay_fixture.FixtureTest.test_duplicate_rejected) ... ok\ntest_impossible_duration_rejected (test_speech_replay_fixture.FixtureTest.test_impossible_duration_rejected) ... ok\ntest_missing_codec_rejected (test_speech_replay_fixture.FixtureTest.test_missing_codec_rejected) ... ok\ntest_valid_timing (test_speech_replay_fixture.FixtureTest.test_valid_timing) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n"
+    },
+    "test_pcm_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_identity_format_and_corruption (test_pcm_replay_fixture.PcmFixtureTest.test_identity_format_and_corruption) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n"
+    },
+    "test_speech_trace_validation.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_success_failure_corruption_and_order (test_speech_trace_validation.TraceValidationTest.test_success_failure_corruption_and_order) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n"
+    },
+    "actual_speech_pipeline": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"host_pipeline_tests\": \"passed\",\n  \"compile_output\": \"\",\n  \"test_output\": \"JUnit version 4.13.2\\n......................\\nTime: 0.121\\n\\nOK (22 tests)\\n\\n\",\n  \"npu_execution\": \"not_run\",\n  \"android_audio\": \"not_run\",\n  \"limitations\": [\n    \"Real queue/cancellation code tested with injected preparation and playback.\",\n    \"No JNI, driver crash, memory pressure or hardware timing reproduction.\"\n  ]\n}\n",
+      "detail": {
+        "host_pipeline_tests": "passed",
+        "compile_output": "",
+        "test_output": "JUnit version 4.13.2\n......................\nTime: 0.121\n\nOK (22 tests)\n\n",
+        "npu_execution": "not_run",
+        "android_audio": "not_run",
+        "limitations": [
+          "Real queue/cancellation code tested with injected preparation and playback.",
+          "No JNI, driver crash, memory pressure or hardware timing reproduction."
+        ]
+      }
+    },
+    "kotlin_capture_python_readback": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"validation\": \"passed\",\n  \"npu_execution\": \"not_run\",\n  \"audio_output\": \"not_run\",\n  \"record\": {\n    \"request_id\": \"request1\",\n    \"recorded_status\": \"success\",\n    \"recorded_duration_ms\": 70,\n    \"pcm_integrity\": \"verified\",\n    \"trace_sha256\": \"c725d694c68a9c215f3f11db0fe0b61bf3364fc0dc6e9caf968af7325f884729\",\n    \"samples\": 2,\n    \"audio_ms\": 0.08333333333333333,\n    \"playback_start_recorded\": false\n  }\n}\n",
+      "detail": {
+        "validation": "passed",
+        "npu_execution": "not_run",
+        "audio_output": "not_run",
+        "record": {
+          "request_id": "request1",
+          "recorded_status": "success",
+          "recorded_duration_ms": 70,
+          "pcm_integrity": "verified",
+          "trace_sha256": "c725d694c68a9c215f3f11db0fe0b61bf3364fc0dc6e9caf968af7325f884729",
+          "samples": 2,
+          "audio_ms": 0.08333333333333333,
+          "playback_start_recorded": false
+        }
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-replay-20261015/codec.tsv",
+      "sha256": "85d7f1179acf43d7d432863c94161d4b64286bea2e33fee9f1c34a305d743d6b"
+    },
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-pcm-20261015/pcm.tsv",
+      "sha256": "986e37217cb6d242c7c3a992bdb93ec7a1c91dab0820d97e5b825e068cf9ebc8"
+    }
+  ],
+  "npu_execution": "not_run",
+  "soc_compile": "not_run",
+  "android_audio": "not_run",
+  "sigabrt_reproduction": "not_run",
+  "limitations": [
+    "Historical timing and audio fixtures; no new NPU inference.",
+    "Queue behavior uses virtual time and an injected playback consumer.",
+    "Passing does not certify NPU compatibility, performance or speech quality."
+  ]
+}

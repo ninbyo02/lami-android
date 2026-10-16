@@ -1,0 +1,25 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "model": "sam860/LFM2:350m",
+  "scope": "android_emulator_to_host_cpu_real_inference",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "success",
+      "model": "sam860/LFM2:350m",
+      "input_sha256": "cf0f66fa0bb4cc5d1dad91058ca4cdf97982348f7759ccc2f239ceec33508aba",
+      "response": "6 multiplied by 7 equals 42.",
+      "content_chunks": 9,
+      "first_content_ms": 756,
+      "total_ms": 810,
+      "done_reason": "stop",
+      "requested_num_gpu": 0,
+      "run_id": "0c35b102-1840-4748-9a50-098851c6eb6d",
+      "backend": "host_cpu_reference",
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified"
+    }
+  ]
+}

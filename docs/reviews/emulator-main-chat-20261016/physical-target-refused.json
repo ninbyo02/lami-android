@@ -1,0 +1,10 @@
+{
+  "validation": "failed",
+  "serial": "192.168.52.52:45739",
+  "model": "sam860/LFM2:350m",
+  "scope": "normal_local_chat_to_host_cpu",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [],
+  "error": "Explicit verified emulator required; physical devices are refused"
+}

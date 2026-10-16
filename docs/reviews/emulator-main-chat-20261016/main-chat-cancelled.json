@@ -1,0 +1,12 @@
+{
+  "status": "cancelled",
+  "backend": "host_cpu_reference",
+  "model": "gemma4:e4b",
+  "response": "",
+  "history_messages": 0,
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "requested_num_gpu": 0,
+  "content_chunks": 0,
+  "total_ms": 240
+}

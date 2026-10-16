@@ -1,0 +1,78 @@
+{
+  "scope": "historical_device_serial_synthesis_timing_only",
+  "summary_sha256": "b430b5063e1ba71c0f31c783a73aa378a11d0651142f75c305186185e30bd493",
+  "requests": [
+    {
+      "id": "run0-baseline-request0",
+      "synthesis_ms": 24360,
+      "frames": 56,
+      "request_to_playback_ms": 24455,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/0-baseline.txt",
+      "log_sha256": "891416b1efa184ba662ee6e87427e4bb3169c5ad1e4c327d01894212e23f97ee"
+    },
+    {
+      "id": "run0-baseline-request1",
+      "synthesis_ms": 11072,
+      "frames": 42,
+      "request_to_playback_ms": 11159,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/0-baseline.txt",
+      "log_sha256": "891416b1efa184ba662ee6e87427e4bb3169c5ad1e4c327d01894212e23f97ee"
+    },
+    {
+      "id": "run1-grouped-request0",
+      "synthesis_ms": 23019,
+      "frames": 56,
+      "request_to_playback_ms": 23108,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/1-grouped.txt",
+      "log_sha256": "b90cd8d4cb41ca0531ae5329b66d2033a6f56eed235a6365bff56c5b5d236bda"
+    },
+    {
+      "id": "run1-grouped-request1",
+      "synthesis_ms": 10247,
+      "frames": 42,
+      "request_to_playback_ms": 10328,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/1-grouped.txt",
+      "log_sha256": "b90cd8d4cb41ca0531ae5329b66d2033a6f56eed235a6365bff56c5b5d236bda"
+    },
+    {
+      "id": "run2-grouped-request0",
+      "synthesis_ms": 22516,
+      "frames": 56,
+      "request_to_playback_ms": 22610,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/2-grouped.txt",
+      "log_sha256": "ac4fd579b388351da26158de1fcc596681baa7f7faff4ea9c021f7e74a110138"
+    },
+    {
+      "id": "run2-grouped-request1",
+      "synthesis_ms": 10330,
+      "frames": 42,
+      "request_to_playback_ms": 10408,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/2-grouped.txt",
+      "log_sha256": "ac4fd579b388351da26158de1fcc596681baa7f7faff4ea9c021f7e74a110138"
+    },
+    {
+      "id": "run3-baseline-request0",
+      "synthesis_ms": 23448,
+      "frames": 56,
+      "request_to_playback_ms": 23542,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/3-baseline.txt",
+      "log_sha256": "c7612263c932283a1b876a567e76079446e8fcf0c4823ec38397d39a92faac2e"
+    },
+    {
+      "id": "run3-baseline-request1",
+      "synthesis_ms": 10282,
+      "frames": 42,
+      "request_to_playback_ms": 10365,
+      "log": "/home/sato/project/lami-android-voice-dataset/device/cp-delta-native-20261009/3-baseline.txt",
+      "log_sha256": "c7612263c932283a1b876a567e76079446e8fcf0c4823ec38397d39a92faac2e"
+    }
+  ],
+  "current_device_execution": "not_run",
+  "pcm": "not_imported",
+  "model_runtime_identity": "not_verified",
+  "limitations": [
+    "Historical CPU diagnostic timing, not NPU inference evidence.",
+    "No corresponding PCM imported; do not combine with other audio captures.",
+    "Virtual-clock queue replay cannot predict new hardware performance."
+  ]
+}

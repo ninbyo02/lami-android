@@ -1,0 +1,16 @@
+[
+  {
+    "case": "missing_fixture",
+    "exit_code": 1,
+    "json_written": true,
+    "host_suite": "failed",
+    "error": "FileNotFoundError: Missing fixture: /tmp/tmphzqz_8fk/missing.tsv"
+  },
+  {
+    "case": "missing_dependencies",
+    "exit_code": 1,
+    "json_written": true,
+    "host_suite": "failed",
+    "error": "Pipeline result JSON missing"
+  }
+]

@@ -1,0 +1,9 @@
+test_duplicate_rejected (test_speech_replay_fixture.FixtureTest.test_duplicate_rejected) ... ok
+test_impossible_duration_rejected (test_speech_replay_fixture.FixtureTest.test_impossible_duration_rejected) ... ok
+test_missing_codec_rejected (test_speech_replay_fixture.FixtureTest.test_missing_codec_rejected) ... ok
+test_valid_timing (test_speech_replay_fixture.FixtureTest.test_valid_timing) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK

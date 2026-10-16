@@ -1169,11 +1169,12 @@ fun Home(
         npuModelPath = localBaseModelFilePath,
         genericModelPath = localGenericModelFilePath,
     )
-    val selectedLocalModelFilePath = when (selectedLocalModelSlot) {
+    val emulatorCpuDevelopmentEnabled = EmulatorMainChatBackend.isEnabled(context)
+    val selectedLocalModelFilePath = if (emulatorCpuDevelopmentEnabled) "host-cpu-reference" else when (selectedLocalModelSlot) {
         LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelFilePath
         LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelFilePath
     }
-    val selectedLocalModelDisplayName = when (selectedLocalModelSlot) {
+    val selectedLocalModelDisplayName = if (emulatorCpuDevelopmentEnabled) "PC CPU reference: " + EmulatorMainChatBackend.modelName(context) else when (selectedLocalModelSlot) {
         LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
         LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
     }
@@ -5478,7 +5479,7 @@ fun Home(
                                                         } else {
                                                             "none"
                                                         }
-                                                    val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
+                                                    val shouldEnterNpuS1ForRequest = !emulatorCpuDevelopmentEnabled && shouldEnterNpuStandardRouteS1(
                                                         enabled = if (requestHasImageContext) {
                                                             requestNpuImageRouteAvailable && shouldUseNpuImageRoute
                                                         } else {
@@ -7544,6 +7545,22 @@ fun Home(
                                                                     resolveNpuStandardRouteLocalFallbackBackend(preferredBackendDryRunSetting)
                                                             var mediaPipeProbeModelPathForRun: String? = null
                                                             val runResult = withContext(Dispatchers.Default) {
+                                                                if (emulatorCpuDevelopmentEnabled) {
+                                                                    return@withContext requireNotNull(EmulatorMainChatBackend.run(
+                                                                        context = context.applicationContext,
+                                                                        prompt = requestPrompt,
+                                                                        initialTurns = localConversationHistorySnapshot,
+                                                                        onPartial = { partial ->
+                                                                            coroutineScope.launch {
+                                                                                if (!localInferenceRunState.stopRequested && currentChatId == effectiveChatId && localRunGuardEpoch == streamingGuardEpoch) {
+                                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = partial)
+                                                                                    streamingResponseTextForRender = partial
+                                                                                    localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                    ))
+                                                                }
                                                                 val modelResolution = resolveLocalModelResolutionOrNull(
                                                                     context = context.applicationContext,
                                                                     settingsPreferences = settingsPreferences,

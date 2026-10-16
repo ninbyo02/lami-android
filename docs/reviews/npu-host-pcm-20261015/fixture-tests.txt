@@ -1,0 +1,6 @@
+test_identity_format_and_corruption (test_pcm_replay_fixture.PcmFixtureTest.test_identity_format_and_corruption) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+OK

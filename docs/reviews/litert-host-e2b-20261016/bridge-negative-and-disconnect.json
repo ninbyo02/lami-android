@@ -1,0 +1,25 @@
+{
+  "wrong_model": {
+    "http_status": 404,
+    "result": "passed"
+  },
+  "gpu_request": {
+    "http_status": 400,
+    "result": "passed"
+  },
+  "disconnect_cleanup": {
+    "result": "passed",
+    "child_processes_observed": 1,
+    "remaining_child_processes": 0
+  },
+  "health_after_disconnect": {
+    "backend": "host_litert_cpu",
+    "runtime": "litert-lm-api",
+    "runtime_version": "0.18.0",
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "model_bytes": 2588147712,
+    "model_alias": "gemma4-e2b-litert-cpu",
+    "npu_execution": "not_run",
+    "npu_numerical_parity": "not_verified"
+  }
+}

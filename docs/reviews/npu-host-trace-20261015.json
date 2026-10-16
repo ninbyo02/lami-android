@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "executed_at": "2026-10-14T23:51:13.487353+00:00",
+  "host_suite": "passed",
+  "steps": {
+    "test_npu_host_preflight.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_historical_status_does_not_certify_execution (test_npu_host_preflight.PreflightTest.test_historical_status_does_not_certify_execution) ... ok\ntest_integrity_and_bad_reports (test_npu_host_preflight.PreflightTest.test_integrity_and_bad_reports) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.006s\n\nOK\n"
+    },
+    "test_speech_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_duplicate_rejected (test_speech_replay_fixture.FixtureTest.test_duplicate_rejected) ... ok\ntest_impossible_duration_rejected (test_speech_replay_fixture.FixtureTest.test_impossible_duration_rejected) ... ok\ntest_missing_codec_rejected (test_speech_replay_fixture.FixtureTest.test_missing_codec_rejected) ... ok\ntest_valid_timing (test_speech_replay_fixture.FixtureTest.test_valid_timing) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.004s\n\nOK\n"
+    },
+    "test_pcm_replay_fixture.py": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "test_identity_format_and_corruption (test_pcm_replay_fixture.PcmFixtureTest.test_identity_format_and_corruption) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.012s\n\nOK\n"
+    },
+    "actual_speech_pipeline": {
+      "status": "passed",
+      "exit_code": 0,
+      "output": "{\n  \"host_pipeline_tests\": \"passed\",\n  \"compile_output\": \"\",\n  \"test_output\": \"JUnit version 4.13.2\\n.................\\nTime: 0.65\\n\\nOK (17 tests)\\n\\n\",\n  \"npu_execution\": \"not_run\",\n  \"android_audio\": \"not_run\",\n  \"limitations\": [\n    \"Real queue/cancellation code tested with injected preparation and playback.\",\n    \"No JNI, driver crash, memory pressure or hardware timing reproduction.\"\n  ]\n}\n",
+      "detail": {
+        "host_pipeline_tests": "passed",
+        "compile_output": "",
+        "test_output": "JUnit version 4.13.2\n.................\nTime: 0.65\n\nOK (17 tests)\n\n",
+        "npu_execution": "not_run",
+        "android_audio": "not_run",
+        "limitations": [
+          "Real queue/cancellation code tested with injected preparation and playback.",
+          "No JNI, driver crash, memory pressure or hardware timing reproduction."
+        ]
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-replay-20261015/codec.tsv",
+      "sha256": "85d7f1179acf43d7d432863c94161d4b64286bea2e33fee9f1c34a305d743d6b"
+    },
+    {
+      "path": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/npu-host-pcm-20261015/pcm.tsv",
+      "sha256": "986e37217cb6d242c7c3a992bdb93ec7a1c91dab0820d97e5b825e068cf9ebc8"
+    }
+  ],
+  "npu_execution": "not_run",
+  "soc_compile": "not_run",
+  "android_audio": "not_run",
+  "sigabrt_reproduction": "not_run",
+  "limitations": [
+    "Historical timing and audio fixtures; no new NPU inference.",
+    "Queue behavior uses virtual time and an injected playback consumer.",
+    "Passing does not certify NPU compatibility, performance or speech quality."
+  ]
+}

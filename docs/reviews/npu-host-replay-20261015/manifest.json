@@ -1,0 +1,36 @@
+{
+  "source": "/home/sato/lami-tts-daemon/npu-host-validation-20261015/docs/reviews/2026-10-03-neural-tts-prefix-decode-device.json",
+  "source_sha256": "d1bf7fadc6cb1d0222e8b09c1a55ac88c013e3920da5d3e83b2e7ce740c80d7a",
+  "timing_scope": "recorded_codec_stage_only",
+  "rows": [
+    {
+      "id": "prefix_cold:0",
+      "frames": 15,
+      "codec_ms": 3699,
+      "recorded_elapsed_ms": 8417
+    },
+    {
+      "id": "prefix_cold:1",
+      "frames": 26,
+      "codec_ms": 6892,
+      "recorded_elapsed_ms": 21026
+    },
+    {
+      "id": "prefix_warm:0",
+      "frames": 15,
+      "codec_ms": 3683,
+      "recorded_elapsed_ms": 4844
+    },
+    {
+      "id": "prefix_warm:1",
+      "frames": 26,
+      "codec_ms": 6579,
+      "recorded_elapsed_ms": 16242
+    }
+  ],
+  "limitations": [
+    "Missing synthesis-start events; full synthesis durations are not inferred.",
+    "Durations drive virtual-clock tests, not a hardware latency prediction.",
+    "Replayed clip identities are placeholders; PCM/audio is not replayed."
+  ]
+}

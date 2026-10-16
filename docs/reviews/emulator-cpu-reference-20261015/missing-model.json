@@ -1,0 +1,19 @@
+{
+  "validation": "failed",
+  "serial": "emulator-5580",
+  "model": "lami-nonexistent-model-for-negative-test",
+  "scope": "android_emulator_to_host_cpu_real_inference",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "failed",
+      "error": "java.lang.IllegalStateException: HTTP 404",
+      "run_id": "0186110d-c086-4659-ba0b-b4505da3df83",
+      "backend": "host_cpu_reference",
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified"
+    }
+  ],
+  "error": "Inference failed: java.lang.IllegalStateException: HTTP 404"
+}

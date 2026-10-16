@@ -1,0 +1,13 @@
+{
+  "verified_at": "2026-10-15T20:27:19.812045+00:00",
+  "validation": "passed",
+  "debug_build": "passed",
+  "normal_ui_two_turns_and_room": "passed",
+  "physical_target_rejected_before_adb_operations": true,
+  "fresh_request_ids": "verified",
+  "input_sha256": "verified",
+  "loaded_models_after_test": 0,
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "runner_sha256": "3b8b5d64d78402d81609d8c2df3e1f363f8eb2caa475ecbef40ba817923d9cf6"
+}

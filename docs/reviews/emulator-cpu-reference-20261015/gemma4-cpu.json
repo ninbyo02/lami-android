@@ -1,0 +1,25 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "model": "gemma4:e4b",
+  "scope": "android_emulator_to_host_cpu_real_inference",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "cases": [
+    {
+      "status": "success",
+      "model": "gemma4:e4b",
+      "input_sha256": "51773d83287f751190c5a5cfb489a8b28347c9562de31f0394bdff21ba201334",
+      "response": "こんにちは",
+      "content_chunks": 1,
+      "first_content_ms": 4172,
+      "total_ms": 4235,
+      "done_reason": "stop",
+      "requested_num_gpu": 0,
+      "run_id": "120e9839-9b23-40dc-89ba-e3b0a822061c",
+      "backend": "host_cpu_reference",
+      "npu_execution": "not_run",
+      "npu_numerical_parity": "not_verified"
+    }
+  ]
+}

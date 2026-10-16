@@ -1,0 +1,12 @@
+{
+  "validation": "failed",
+  "backend": "host_litert_cpu",
+  "model": "/home/sato/Downloads/gemma-4-E2B-it.litertlm",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "model_bytes": 2588147712,
+  "child_exit_code": 1,
+  "child_diagnostics": "ERROR: third_party/tensorflow/lite/kernels/dynamic_update_slice.cc:68 SizeOfDimension(update, i) <= SizeOfDimension(operand, i) was not true.\nERROR: Node number 1164 (DYNAMIC_UPDATE_SLICE) failed to prepare.\nERROR: [litert_compiled_model.cc:164] Failed to allocate tensors\nTraceback (most recent call last):\n  File \"/home/sato/lami-tts-daemon/npu-host-validation-20261015/scripts/voice/check_litert_host_cpu.py\", line 99, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/home/sato/lami-tts-daemon/npu-host-validation-20261015/scripts/voice/check_litert_host_cpu.py\", line 62, in main\n    return worker(args)\n           ^^^^^^^^^^^^\n  File \"/home/sato/lami-tts-daemon/npu-host-validation-20261015/scripts/voice/check_litert_host_cpu.py\", line 32, in worker\n    for chunk in conversation.send_message_async(args.prompt):\n  File \"/home/sato/lami-tts-daemon/host-litert-reference-20261016/venv/lib/python3.12/site-packages/litert_lm/conversation.py\", line 433, in send_message_async\n    raise item\nRuntimeError: INTERNAL: ERROR: [third_party/odml/litert_lm/runtime/executor/llm_litert_compiled_model_executor.cc:849]\n└ Failed to invoke the compiled model\n└ Failed to allocate tensors\n",
+  "error": "Host runtime failed; inspect child_diagnostics"
+}
