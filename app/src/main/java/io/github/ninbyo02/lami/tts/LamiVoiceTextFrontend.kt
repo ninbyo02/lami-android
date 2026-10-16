@@ -21,7 +21,8 @@ internal class LamiVoiceTextFrontend(
         val codecTags = intArrayOf(2154, 2156, 2058, 2157, 3000, 2148)
         fun add(a: FloatArray, b: FloatArray): FloatArray {
             require(a.size == 1024 && b.size == 1024)
-            return FloatArray(1024) { a[it] + b[it] }.also { require(it.all(Float::isFinite)) }
+            // Validate each sum as it is written, avoiding a second traversal of the row.
+            return FloatArray(1024) { (a[it] + b[it]).also { sum -> require(sum.isFinite()) } }
         }
         val prefill = mutableListOf<FloatArray>()
         for (index in 0 until 3) prefill += projectedText(ids[index])

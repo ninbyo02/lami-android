@@ -203,6 +203,29 @@ class LamiVoiceTextFrontendTest {
             assertEquals(original, repeatedRow[0].toRawBits())
         }
     }
+    @Test fun summedRowsRejectNonFiniteOperandsAndFiniteOverflow() {
+        // Cover both operands and early/late coordinates in the first summed row.
+        for (coordinate in listOf(0, 511, 1023)) {
+            for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+                for (invalidText in listOf(true, false)) {
+                    val frontend = LamiVoiceTextFrontend(tokenizer(), { id ->
+                        FloatArray(1024) { if (invalidText && id == 151671 && it == coordinate) invalid else 0f }
+                    }, { id ->
+                        FloatArray(1024) { if (!invalidText && id == 2154 && it == coordinate) invalid else 0f }
+                    })
+                    assertThrows(IllegalArgumentException::class.java) { frontend.prepare("111") }
+                }
+            }
+            for (value in listOf(Float.MAX_VALUE, -Float.MAX_VALUE)) {
+                val frontend = LamiVoiceTextFrontend(tokenizer(), {
+                    FloatArray(1024) { if (it == coordinate) value else 0f }
+                }, {
+                    FloatArray(1024) { if (it == coordinate) value else 0f }
+                })
+                assertThrows(IllegalArgumentException::class.java) { frontend.prepare("111") }
+            }
+        }
+    }
     @Test fun rejectsBlankSpecialSyntaxAndCacheOverflow() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         assertThrows(IllegalArgumentException::class.java) { frontend.prepare(" ") }
