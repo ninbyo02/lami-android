@@ -53,56 +53,65 @@ class LamiSpeechPipelineTest {
     }
 
     @Test fun `replacement waits for both player and prefetch cleanup`() = runTest {
-        val playerCleanup = CompletableDeferred<Unit>()
-        val producerCleanup = CompletableDeferred<Unit>()
-        val events = mutableListOf<String>()
-        val busy = mutableListOf<Boolean>()
-        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
-            events += "prepare $it"
-            if (it == "prefetched") try { delay(1000) } finally {
-                withContext(NonCancellable) {
-                    events += "producer cleanup started"
-                    producerCleanup.await()
-                    events += "producer released"
+        // Either resource can finish cancellation first; both must release before reuse.
+        for (playerFinishesFirst in listOf(true, false)) {
+            val playerCleanup = CompletableDeferred<Unit>()
+            val producerCleanup = CompletableDeferred<Unit>()
+            val events = mutableListOf<String>()
+            val busy = mutableListOf<Boolean>()
+            val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+                events += "prepare $it"
+                if (it == "prefetched") try { delay(1000) } finally {
+                    withContext(NonCancellable) {
+                        events += "producer cleanup started"
+                        producerCleanup.await()
+                        events += "producer released"
+                    }
                 }
-            }
-            it
-        }, play = {
-            events += "play $it"
-            if (it == "old") try { delay(1000) } finally {
-                withContext(NonCancellable) {
-                    events += "player cleanup started"
-                    playerCleanup.await()
-                    events += "player released"
+                it
+            }, play = {
+                events += "play $it"
+                if (it == "old") try { delay(1000) } finally {
+                    withContext(NonCancellable) {
+                        events += "player cleanup started"
+                        playerCleanup.await()
+                        events += "player released"
+                    }
                 }
-            }
-        })
-        pipeline.enqueue("old")
-        pipeline.enqueue("prefetched")
-        pipeline.enqueue("discard")
-        runCurrent()
-        assertTrue(events.contains("play old"))
-        assertTrue(events.contains("prepare prefetched"))
+            })
+            pipeline.enqueue("old")
+            pipeline.enqueue("prefetched")
+            pipeline.enqueue("discard")
+            runCurrent()
+            assertTrue(events.contains("play old"))
+            assertTrue(events.contains("prepare prefetched"))
 
-        pipeline.replace("new")
-        runCurrent()
-        assertTrue(events.contains("player cleanup started"))
-        assertTrue(events.contains("producer cleanup started"))
-        assertFalse(events.contains("prepare new"))
+            pipeline.replace("new")
+            runCurrent()
+            assertTrue(events.contains("player cleanup started"))
+            assertTrue(events.contains("producer cleanup started"))
+            assertFalse(events.contains("prepare new"))
 
-        playerCleanup.complete(Unit)
-        runCurrent()
-        assertTrue(events.contains("player released"))
-        assertFalse(events.contains("prepare new"))
-        assertEquals(listOf(true, false, true), busy)
+            val firstCleanup = if (playerFinishesFirst) playerCleanup else producerCleanup
+            val lastCleanup = if (playerFinishesFirst) producerCleanup else playerCleanup
+            val firstReleased = if (playerFinishesFirst) "player released" else "producer released"
+            val lastReleased = if (playerFinishesFirst) "producer released" else "player released"
+            firstCleanup.complete(Unit)
+            runCurrent()
+            assertTrue(events.contains(firstReleased))
+            assertFalse(events.contains(lastReleased))
+            assertFalse(events.contains("prepare new"))
+            assertEquals(listOf(true, false, true), busy)
 
-        producerCleanup.complete(Unit)
-        runCurrent()
-        assertTrue(events.indexOf("producer released") < events.indexOf("prepare new"))
-        assertEquals(listOf("prepare old", "prepare prefetched", "prepare new"),
-            events.filter { it.startsWith("prepare ") })
-        assertEquals(listOf("play old", "play new"), events.filter { it.startsWith("play ") })
-        assertEquals(listOf(true, false, true, false), busy)
+            lastCleanup.complete(Unit)
+            runCurrent()
+            assertTrue(events.indexOf(firstReleased) < events.indexOf("prepare new"))
+            assertTrue(events.indexOf(lastReleased) < events.indexOf("prepare new"))
+            assertEquals(listOf("prepare old", "prepare prefetched", "prepare new"),
+                events.filter { it.startsWith("prepare ") })
+            assertEquals(listOf("play old", "play new"), events.filter { it.startsWith("play ") })
+            assertEquals(listOf(true, false, true, false), busy)
+        }
     }
 
     @Test fun `stop before first audio discards late prepared clip and waits for cleanup`() = runTest {
