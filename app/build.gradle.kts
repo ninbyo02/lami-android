@@ -689,6 +689,14 @@ fun verifyStandardGpuOpenClInputs(nativeDir: File) {
     }
 }
 
+fun verifyQairt244QnnRuntimeInputs(nativeDir: File) {
+    if (!File(nativeDir, "liblami_qairt244_npu_jni.so").isFile) return
+    exec {
+        commandLine("python3", rootProject.file("scripts/stage_standard_gpu_opencl.py").absolutePath,
+            "--native-dir", nativeDir.absolutePath, "--qnn-only")
+    }
+}
+
 fun prepareQairt244StandardDebugBuildOutputForCopy(
     outputFile: File,
     allowedOutputRoots: List<File>,
@@ -1137,6 +1145,7 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
         listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
             prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
         }
+        verifyQairt244QnnRuntimeInputs(qairt244StandardDebugNativeSourceDir.asFile)
         if (standardGpuOpenClDebugEnabled) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         copy {
@@ -1223,6 +1232,7 @@ tasks.register("stageQairt244StandardReleaseNativeLibs") {
         listOf("libLiteRtOpenClAccelerator.so", "libLiteRtClGlAccelerator.so").forEach { provider ->
             prepareQairt244StandardDebugBuildOutputForCopy(File(outputDir, provider), listOf(outputDir), name)
         }
+        if (standardNpuRuntimeEnabled.get()) verifyQairt244QnnRuntimeInputs(sourceDir)
         if (standardGpuOpenClEnabled.get() && standardNpuRuntimeEnabled.get()) verifyStandardGpuOpenClInputs(qairt244StandardDebugNativeSourceDir.asFile)
         outputDir.mkdirs()
         if (!standardNpuRuntimeEnabled.get()) {

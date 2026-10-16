@@ -1,0 +1,21 @@
+{
+  "passed": false,
+  "errors": [
+    "hash mismatch libQnnSystem.so",
+    "hash mismatch libQnnHtp.so",
+    "hash mismatch libQnnHtpPrepare.so",
+    "hash mismatch libQnnHtpV79Stub.so",
+    "hash mismatch libQnnHtpV79Skel.so",
+    "hash mismatch libQnnDsp.so",
+    "hash mismatch libQnnGpu.so"
+  ],
+  "libraries": {
+    "libQnnSystem.so": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8",
+    "libQnnHtp.so": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a",
+    "libQnnHtpPrepare.so": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298",
+    "libQnnHtpV79Stub.so": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1",
+    "libQnnHtpV79Skel.so": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
+    "libQnnDsp.so": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
+    "libQnnGpu.so": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694"
+  }
+}

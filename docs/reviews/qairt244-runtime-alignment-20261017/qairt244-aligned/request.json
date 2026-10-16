@@ -1,0 +1,12 @@
+{
+  "scenarioId": "cpu_npu_reference_9885e35121564d36951347403793b5f9",
+  "prompts": [
+    "What is 17 plus 25? Reply with the number only.",
+    "Now multiply that result by 2. Reply with the number only."
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "prompt_sha256": [
+    "4a5e0b835cfd3ec60aaf4b81ef84f2f6d872532b5fc4a990a3824fbc77e3ce80",
+    "9ba4873e915f55069fd83baf1445dca0f6093fd753d1bbf7a29c82f69acd295e"
+  ]
+}

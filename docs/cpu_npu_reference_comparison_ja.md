@@ -27,3 +27,5 @@ python3 scripts/voice/check_cpu_npu_reference.py --cpu-only \
 旧APKは `gemma-4-E2B-it_qualcomm_sm8750.litertlm` だけを認識する場合があります。正式名 `ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm` を保存した端末では、ファイルが存在しても `model_file_not_found` になることがあります。mainの `Qairt244ModelPathResolver` は両名とタイムスタンプ付きの名前を認識します。恒久対応はこの実装を含むAPKへの更新です。比較ツール自身はファイル名・モデルを変更しません。
 
 NPUが完了JSONを残さず終了した場合も、ネイティブ診断結果と終了履歴を保存します。これらが過去の試験の記録である可能性もあるため、時刻・PIDと今回のリクエストを照合して判断してください。終了履歴だけからクラッシュの根本原因を断定しません。
+
+新規インストール直後のAPKは一度起動してから比較してください。診断Receiverの受理コード244が得られない場合は、比較ツールが配信失敗として終了します。QNNランタイム不一致の原因と修正確認は `qairt244_qnn_runtime_mismatch_ja.md` を参照してください。

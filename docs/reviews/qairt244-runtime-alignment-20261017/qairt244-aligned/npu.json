@@ -1,0 +1,45 @@
+{
+  "apiSurface": "LiteRT-LM C++ Conversation::SendMessage",
+  "appTemplateUsed": false,
+  "backend": "NPU",
+  "conversationApiUsed": true,
+  "conversationStateProfile": "persistent_v1",
+  "directSessionApiUsed": false,
+  "effectiveMaxOutputTokens": 64,
+  "modelBytes": 3016294400,
+  "modelFileName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+  "modelTemplateSource": "model_metadata",
+  "outputLimitSource": "C++ OptionalArgs.max_output_tokens",
+  "promptTemplateOwner": "model_metadata",
+  "reason": "completed",
+  "requestedMaxOutputTokens": 64,
+  "samplerProfile": "greedy_top_k_1_v1",
+  "samplerSeed": 42,
+  "samplerTemperature": 1.0,
+  "samplerTopK": 1,
+  "samplerTopP": 1.0,
+  "scenarioId": "cpu_npu_reference_9885e35121564d36951347403793b5f9",
+  "schemaVersion": 1,
+  "status": "success",
+  "totalMs": 2287,
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "What is 17 plus 25? Reply with the number only.",
+      "rawOutput": "42",
+      "reason": "completed",
+      "sanitizedOutput": "42",
+      "sendMs": 177,
+      "status": "success"
+    },
+    {
+      "index": 2,
+      "prompt": "Now multiply that result by 2. Reply with the number only.",
+      "rawOutput": "84",
+      "reason": "completed",
+      "sanitizedOutput": "84",
+      "sendMs": 167,
+      "status": "success"
+    }
+  ]
+}

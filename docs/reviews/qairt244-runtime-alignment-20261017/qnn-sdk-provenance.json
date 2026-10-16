@@ -1,0 +1,37 @@
+{
+  "libQnnSystem.so": {
+    "previous_sha256": "3bf3cf0841fccd8f14482a520d6c6f21f52e496de10253fa212d84eb06439994",
+    "candidate_sha256": "7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so"
+  },
+  "libQnnHtp.so": {
+    "previous_sha256": "3e5592d4a7361082f958aa1534f1d3adb29639a74dd5d47a014a4ce37e9fd927",
+    "candidate_sha256": "090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtp.so"
+  },
+  "libQnnHtpPrepare.so": {
+    "previous_sha256": "b178fcb21b68062e7b7aa7a0531a65f194ecc6dcaba9ad9b0b4ef8d54bced21b",
+    "candidate_sha256": "09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtpPrepare.so"
+  },
+  "libQnnHtpV79Stub.so": {
+    "previous_sha256": "610d69e78e9a26e9e6b706dcebc9a199fbb058403dce36b67749715095f68166",
+    "candidate_sha256": "005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtpV79Stub.so"
+  },
+  "libQnnDsp.so": {
+    "previous_sha256": "733895d35c95d7abca2fe7bb0b83b480b7bf34b9b4d252ca7b1fc096770dc490",
+    "candidate_sha256": "f4a811ad7836b660a147615e3822f6df3fa0d68246fa5d19c2630e7c1a87cb66",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnDsp.so"
+  },
+  "libQnnGpu.so": {
+    "previous_sha256": "ff2415a5290d6f58b79550b908bd3c69ea6c6473653a3a498d16ab62ddd73f31",
+    "candidate_sha256": "314e33c5ce27219979581e7ef6c5ce114d4d5ef37501bafca2a83492c1e14694",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnGpu.so"
+  },
+  "libQnnHtpV79Skel.so": {
+    "previous_sha256": "5590d6b34efdaef561155b77bc734a1a1e560767c180df9aba2dbceeb7ad28d1",
+    "candidate_sha256": "41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98",
+    "source": "/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/hexagon-v79/unsigned/libQnnHtpV79Skel.so"
+  }
+}

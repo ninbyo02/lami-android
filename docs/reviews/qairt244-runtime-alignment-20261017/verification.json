@@ -1,0 +1,21 @@
+{
+  "scope": "isolated NPU diagnostic package; normal main app not reinstalled",
+  "root_cause": "QNN System API 1.4.0 packaged with Dispatch requiring >=1.8.0",
+  "resolution": "all seven QNN runtime libraries match pinned QAIRT 2.44 SDK",
+  "candidate_package": "io.github.ninbyo02.lami.npuvalidation.assistantprobe",
+  "candidate_apk_sha256": "063446f0aee1f489e00a3006fc5020255733b83903e42077e817eeee39f9593c",
+  "npu_model_sha256": "41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e",
+  "python_tests": {
+    "voice_comparison_and_existing": 23,
+    "runtime_pin": 5,
+    "failures": 0
+  },
+  "gradle_debug_qnn_staging": "passed",
+  "gradle_npu_enabled_release_qnn_staging": "passed",
+  "debug_apk_assemble": "passed",
+  "cpu_npu_functional_comparison": "passed_two_distinct_scenarios_four_turns_per_backend",
+  "npu_numerical_parity": "not_verified",
+  "production_gpu_route": "not_tested",
+  "log_tag_restored": true,
+  "previous_temporary_model_copy_removed": true
+}

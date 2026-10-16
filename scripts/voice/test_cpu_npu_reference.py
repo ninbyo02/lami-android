@@ -1,5 +1,5 @@
 import unittest
-from check_cpu_npu_reference import PROMPTS, EXPECTED, score
+from check_cpu_npu_reference import PROMPTS, EXPECTED, score, receiver_acknowledged
 
 
 class ComparisonTest(unittest.TestCase):
@@ -7,6 +7,12 @@ class ComparisonTest(unittest.TestCase):
         return {"scenarioId": "fresh", "backend": "NPU", "status": "success", "turns": [
             {"index": i, "prompt": p, "status": "success", "sanitizedOutput": answer}
             for i, (p, answer) in enumerate(zip(PROMPTS, EXPECTED), 1)]}
+
+    def test_receiver_delivery_must_be_acknowledged(self):
+        self.assertTrue(receiver_acknowledged(b"Broadcast completed: result=244, extras: Bundle[]"))
+        self.assertFalse(receiver_acknowledged(b"Broadcast completed: result=0"))
+        self.assertFalse(receiver_acknowledged(b"Broadcast completed: result=2440"))
+        self.assertFalse(receiver_acknowledged(b"result=244"))
 
     def test_correct_answers(self):
         self.assertEqual(score(self.result(), "fresh", "NPU")["quality"], "passed")

@@ -1,0 +1,4 @@
+10-17 05:01:07.881 19239 19350 I litert  : [context_binary_info.cc:227] Context binary SDK version matches current SDK: 2.44.0
+10-17 05:01:08.565 19239 19350 I litert  : [context_binary_info.cc:227] Context binary SDK version matches current SDK: 2.44.0
+10-17 05:01:09.315 19239 19350 I litert  : [context_binary_info.cc:227] Context binary SDK version matches current SDK: 2.44.0
+10-17 05:01:09.323 19239 19350 I litert  : [context_binary_info.cc:227] Context binary SDK version matches current SDK: 2.44.0

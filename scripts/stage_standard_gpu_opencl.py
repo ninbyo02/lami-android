@@ -23,19 +23,24 @@ def validate(files, expected):
             errors.append("hash mismatch " + name)
     return errors
 
+def select_expected(expected, qnn_only=False):
+    return {name: sha for name, sha in expected.items() if not qnn_only or name.startswith("libQnn")}
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--native-dir", type=Path)
     p.add_argument("--artifact", type=Path, help="Verified candidate APK or OpenCL .so; only the pinned OpenCL bytes are staged")
     p.add_argument("--apk", type=Path, help="Verify the final packaged combined runtime")
+    p.add_argument("--qnn-only", action="store_true", help="Verify pinned QNN runtime even when GPU OpenCL is disabled; no staging writes")
     a = p.parse_args()
-    expected = json.loads(MANIFEST.read_text())["libraries"]
+    if a.qnn_only and a.artifact: p.error("--qnn-only cannot stage an artifact")
+    expected = select_expected(json.loads(MANIFEST.read_text())["libraries"], a.qnn_only)
     if a.apk:
         with zipfile.ZipFile(a.apk) as z:
             files = {n: z.read("lib/arm64-v8a/" + n) for n in expected if "lib/arm64-v8a/" + n in z.namelist()}
             errors = validate(files, expected)
             for n in ["libLiteRtClGlAccelerator.so", "libLiteRtGpuAccelerator.so"]:
-                if "lib/arm64-v8a/" + n in z.namelist(): errors.append("competing GPU provider " + n)
+                if not a.qnn_only and "lib/arm64-v8a/" + n in z.namelist(): errors.append("competing GPU provider " + n)
     else:
         if a.native_dir is None: p.error("--native-dir required unless --apk is used")
         files = {n: (a.native_dir/n).read_bytes() for n in expected if (a.native_dir/n).is_file()}

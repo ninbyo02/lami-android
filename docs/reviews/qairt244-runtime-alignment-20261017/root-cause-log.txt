@@ -1,0 +1,4 @@
+10-17 04:54:57.970 18047 18061 E litert  : [qnn_manager.cc:284] Qnn System library version 1.4.0 is mismatched. The minimum supported version is 1.8.0. Please make sure you have the correct library version.
+10-17 04:54:57.970 18047 18061 E litert  : [dispatch_api.cc:134] Failed to set up QNN manager
+10-17 04:54:57.970 18047 18061 E litert  : [dispatch_delegate.cc:115] Failed to initialize Dispatch API: ERROR: [external/litert/litert/runtime/dispatch/dispatch_delegate.cc:176]
+10-17 04:54:57.970 18047 18061 E litert  : [dispatch_delegate.cc:130] Failed to create a dispatch delegate kernel: No usable Dispatch runtime found

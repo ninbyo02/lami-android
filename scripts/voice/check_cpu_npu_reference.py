@@ -3,6 +3,7 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 import subprocess
 import time
 import unicodedata
@@ -14,6 +15,10 @@ PROMPTS = ["What is 17 plus 25? Reply with the number only.",
            "Now multiply that result by 2. Reply with the number only."]
 EXPECTED = ["42", "84"]
 SYSTEM = "You are a helpful assistant. Follow the user instructions."
+
+
+def receiver_acknowledged(stdout):
+    return re.search(rb"Broadcast completed:\s+result=244\b", stdout) is not None
 
 
 def normalize(text):
@@ -135,8 +140,8 @@ def main():
                 "--es", "conversation_sampler_profile", "greedy_top_k_1_v1",
                 "--es", "conversation_system_instruction_base64", enc(SYSTEM), "--ei", "max_output_tokens", "64"])
             (root / "broadcast.txt").write_bytes(broadcast.stdout + broadcast.stderr)
-            if broadcast.returncode:
-                raise ValueError("NPU receiver broadcast failed")
+            if broadcast.returncode or not receiver_acknowledged(broadcast.stdout):
+                raise ValueError("NPU receiver did not acknowledge delivery; launch a newly installed diagnostic app once and verify its component")
             deadline = time.monotonic() + args.timeout
             while time.monotonic() < deadline:
                 raw = call(["exec-out", "run-as", args.package, "cat", "files/conversation_ab_benchmark_result.json"])
