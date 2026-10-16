@@ -36,6 +36,35 @@ class LamiVoiceChunkProbeMathTest {
         assertEquals(2, LamiVoiceChunkProbeMath.STREAMING_STARTUP_PREFIX_FRAMES)
         assertEquals(8, LamiVoiceChunkProbeMath.STREAMING_STEADY_PREFIX_INTERVAL_FRAMES)
     }
+    @Test fun appendValidationMatchesStatisticalComparisonAndPreservesTailBits() {
+        fun reference(previous: FloatArray, next: FloatArray): FloatArray {
+            require(next.size > previous.size) { "PCM prefix did not advance" }
+            if (previous.isNotEmpty()) {
+                require(LamiVoiceChunkProbeMath.difference(next, previous, previous.size).maxAbsolute == 0.0) {
+                    "Provisional PCM changed after more codes"
+                }
+            }
+            return next.copyOfRange(previous.size, next.size)
+        }
+        val values = floatArrayOf(0f, -0f, Float.MIN_VALUE, -Float.MIN_VALUE,
+            0.1f, -1f, Float.MAX_VALUE, -Float.MAX_VALUE,
+            Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        for (a in values) for (b in values) {
+            // A mismatch before a nonfinite sample must still report invalid PCM.
+            for (suffix in arrayOf(floatArrayOf(), floatArrayOf(Float.NaN))) {
+                val previous = floatArrayOf(a) + suffix
+                val next = floatArrayOf(b) + suffix + floatArrayOf(-0f, Float.MIN_VALUE, 0.3f)
+                val expected = runCatching { reference(previous, next) }
+                val actual = runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, next) }
+                assertEquals(expected.exceptionOrNull()?.javaClass, actual.exceptionOrNull()?.javaClass)
+                assertEquals(expected.exceptionOrNull()?.message, actual.exceptionOrNull()?.message)
+                if (expected.isSuccess) {
+                    assertArrayEquals(expected.getOrThrow().map(Float::toRawBits).toIntArray(),
+                        actual.getOrThrow().map(Float::toRawBits).toIntArray())
+                }
+            }
+        }
+    }
     @Test(expected = IllegalArgumentException::class)
     fun changedPrefixCannotBeSubmittedAsNewAudio() {
         LamiVoiceChunkProbeMath.appendedPcm(floatArrayOf(0.1f), floatArrayOf(0.2f, 0.3f))

@@ -22,7 +22,13 @@ internal object LamiVoiceChunkProbeMath {
     fun appendedPcm(previous: FloatArray, next: FloatArray): FloatArray {
         require(next.size > previous.size) { "PCM prefix did not advance" }
         if (previous.isNotEmpty()) {
-            require(difference(next, previous, previous.size).maxAbsolute == 0.0) { "Provisional PCM changed after more codes" }
+            // Only equality is needed here; leave RMS calculation to diagnostics.
+            var unchanged = true
+            for (index in previous.indices) {
+                require(next[index].isFinite() && previous[index].isFinite())
+                if (next[index] != previous[index]) unchanged = false
+            }
+            require(unchanged) { "Provisional PCM changed after more codes" }
         }
         return next.copyOfRange(previous.size, next.size)
     }
