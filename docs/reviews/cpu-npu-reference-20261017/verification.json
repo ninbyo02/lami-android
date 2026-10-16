@@ -1,0 +1,27 @@
+{
+  "executed_at_jst": "2026-10-17T04:26:00+09:00",
+  "cpu_reference": "passed_42_84",
+  "npu_comparison": "failed_no_terminal_result",
+  "native_stage": "before_engine_create",
+  "native_engine_created": false,
+  "send_attempt_count": 0,
+  "fresh_exit": {
+    "time_jst": "2026-10-17T04:23:34.141+09:00",
+    "pid": 10197,
+    "reason": "APP CRASH(NATIVE)",
+    "signal": 6
+  },
+  "root_cause": "not_identified",
+  "model_detection_failure": "installed APK resolver only accepts legacy basename; confirmed by APK DEX inspection",
+  "npu_model_sha256": "41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e",
+  "temporary_model_copy": "SHA256 matched original; deleted after probe",
+  "apk_reinstalled": false,
+  "model_slots_modified": false,
+  "npu_numerical_parity": "not_verified",
+  "python_tests": {
+    "total": 22,
+    "failures": 0,
+    "errors": 0,
+    "new_comparison_cases": 7
+  }
+}

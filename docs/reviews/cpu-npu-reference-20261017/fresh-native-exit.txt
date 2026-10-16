@@ -1,0 +1,10 @@
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026-10-17 03:17:21.931
+  package: io.github.ninbyo02.lami
+    Historical Process Exit for uid=11572
+        ApplicationExitInfo #0:
+          timestamp=2026-10-17 04:23:34.141 pid=10197 realUid=11572 packageUid=11572 definingUid=11572 user=0
+          process=io.github.ninbyo02.lami reason=5 (APP CRASH(NATIVE)) subreason=0 (UNKNOWN) status=6
+          importance=300 pss=0.00 rss=204MB description=crash state=empty trace=null
+        ApplicationExitInfo #1:
+          timestamp=2026-10-16 22:10:47.483 pid=30321 realUid=11572 packageUid=11572 definingUid=11572 user=0

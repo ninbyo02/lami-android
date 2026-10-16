@@ -1,0 +1,7 @@
+{
+  "scenarioId": "cpu_npu_reference_e1f8ecdf07e948cfb4f27c0d68e21ece",
+  "backend": "NPU",
+  "status": "failure",
+  "reason": "No matching fresh NPU terminal result",
+  "turns": []
+}

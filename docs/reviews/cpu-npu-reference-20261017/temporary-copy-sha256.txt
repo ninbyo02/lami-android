@@ -1,0 +1,2 @@
+41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e  files/local_models/1790957625992_ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm
+41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e  files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
