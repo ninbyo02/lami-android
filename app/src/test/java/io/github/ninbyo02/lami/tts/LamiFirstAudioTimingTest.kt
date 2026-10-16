@@ -262,6 +262,14 @@ class LamiFirstAudioTimingTest {
             assertTrue(probe.indexOf(prepared) < probe.indexOf(postSynthesisWork))
             assertTrue(probe.indexOf(prepared) < probe.indexOf("LamiPcmPlayer.play("))
         }
+        // Optional comparison probes must not inflate the full-PCM readiness timestamp.
+        val afterDecode = pipeline.substringAfter("val full = LamiVoiceDecoderProcess.decode")
+            .substringAfter('\n').lineSequence().first().trim()
+        assertTrue(afterDecode.startsWith("trace("))
+        assertTrue(afterDecode.contains(prepared))
+        for (comparison in listOf("gpuDecoderProbe", "pcmThreadProbe", "prefixDecodeProbe")) {
+            assertTrue(pipeline.indexOf(prepared) < pipeline.indexOf("if ($comparison)"))
+        }
     }
 
     @Test fun chatEngineStartsTimingBeforeOptionalDiagnosticSetup() {

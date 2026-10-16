@@ -97,12 +97,12 @@ internal object LamiNeuralVoiceDiagnostics {
                         codes.values.forEach(codeBytes::putLong)
                         trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
                         val full = LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        trace("request=$index ${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}")
                         if (gpuDecoderProbe) LamiVoiceGpuDecoderProbe.compare(context, root, codes) { trace("request=$index $it") }
                         if (pcmThreadProbe) LamiVoicePcmThreadProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         full
                     }
-                    trace("request=$index ${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}")
                     val pcmBytes = java.nio.ByteBuffer.allocate(pcm.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     pcm.forEach(pcmBytes::putFloat)
                     trace("request=$index pcm_sha256=${sha256(pcmBytes.array())}")
