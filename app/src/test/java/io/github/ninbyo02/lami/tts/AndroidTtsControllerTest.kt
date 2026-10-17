@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.tts
 
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import io.github.ninbyo02.lami.ui.screens.home.ResponseSpeechSession
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +18,48 @@ import org.robolectric.shadows.ShadowTextToSpeech
 class AndroidTtsControllerTest {
     private fun activeId(controller: AndroidTtsController): String =
         AndroidTtsController::class.java.getDeclaredField("activeUtteranceId").apply { isAccessible = true }.get(controller) as String
+
+    @Test fun `streamed response and final tail play once in order on Android fallback`() {
+        val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
+        try {
+            val engine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+            engine.onInitListener.onInit(TextToSpeech.SUCCESS)
+            val session = ResponseSpeechSession().apply { begin() }
+            fun receive(text: String, final: Boolean = false) {
+                session.take(text, final)?.let(controller::speakQueued)
+            }
+
+            receive("こんにちは")
+            assertTrue(engine.spokenTextList.isEmpty())
+            receive("こんにちは。続き")
+            val firstId = activeId(controller)
+            receive("こんにちは。続き")
+            receive("こんにちは。続きです。最後")
+            receive("こんにちは。続きです。最後", final = true)
+            receive("こんにちは。続きです。最後", final = true)
+            assertEquals(listOf("こんにちは。"), engine.spokenTextList.toList())
+
+            engine.utteranceProgressListener.onDone(firstId)
+            val secondId = activeId(controller)
+            assertTrue(controller.isSpeaking.value)
+            assertEquals(listOf("こんにちは。", "続きです。"), engine.spokenTextList.toList())
+
+            // A duplicate completion for the first sentence must not skip the second.
+            engine.utteranceProgressListener.onDone(firstId)
+            assertEquals(secondId, activeId(controller))
+            assertEquals(2, engine.spokenTextList.size)
+            engine.utteranceProgressListener.onDone(secondId)
+            val tailId = activeId(controller)
+            assertTrue(controller.isSpeaking.value)
+            assertEquals(listOf("こんにちは。", "続きです。", "最後"), engine.spokenTextList.toList())
+
+            engine.utteranceProgressListener.onDone(tailId)
+            assertFalse(controller.isSpeaking.value)
+            assertTrue(controller.lastPlaybackCompletedNormally)
+        } finally {
+            controller.shutdown()
+        }
+    }
 
     @Test fun `stop clears queued speech and ignores late completion and start`() {
         val controller = AndroidTtsController(RuntimeEnvironment.getApplication())
