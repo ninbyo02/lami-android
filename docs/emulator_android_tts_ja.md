@@ -22,7 +22,7 @@ adb -s emulator-5580 shell am start -n io.github.ninbyo02.lami.assistantprobe/io
 Android TTSの音声が転送される構成であり、PCの別TTSで回答を作り直す方式ではない。
 
 ```sh
-scrcpy -s emulator-5580 --audio-codec=raw --window-title="LAMI Android"
+SDL_AUDIODRIVER=pulseaudio SDL_AUDIO_DRIVER=pulseaudio scrcpy -s emulator-5580 --audio-codec=raw --window-title="LAMI Android"
 ```
 
 PCのログインセッションから起動する。遠隔シェルではそのセッションのDISPLAY・XAUTHORITY・XDG_RUNTIME_DIR等を指定する。
@@ -48,3 +48,12 @@ python3 scripts/voice/check_emulator_android_tts.py --serial emulator-5580 --out
 
 このランナーはエミュレータだけに作用し、新しい会話を作成してAndroid TTSを有効化する。
 PC音声転送の検証は別途scrcpyを起動して行う。端末・PCの音量と出力先に依存する。
+
+## PCで聞こえない場合の追加確認（2026-10-17）
+
+ユーザーから実際には聞こえないとの報告があり、TTS完了や非ゼロPCMだけでは可聴性を保証できないことを再確認した。
+PC側のscrcpyはミュートなし・既知のアナログスピーカー出力先だったが、Androidのメディア音量は5/15だった。
+scrcpyの音声バックエンドをPulseAudioに固定し、エミュレータの音量ボタンでメディア音量を10/15に変更した。PC全体の音量は変更していない。
+この環境では `cmd media_session volume --set` は音量に反映されず、キー操作後の `--get` で10/15を確認した。
+同じ日本語応答のAndroid音声ピークは約−35dBFSから−17dBFSに増加。最終テストではPCスピーカー出力のモニター信号も測定した。
+物理スピーカーからの可聴性はユーザー確認待ち。音声合成・転送・デジタル出力信号の成功と区別する。

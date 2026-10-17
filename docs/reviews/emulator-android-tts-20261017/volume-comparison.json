@@ -1,0 +1,26 @@
+{
+  "before_volume": 5,
+  "after_volume": 10,
+  "recordings": [
+    {
+      "file": "volume-recheck.mkv",
+      "peak": 584,
+      "peak_dbfs": -34.98074175694637,
+      "nonzero_samples": 136584
+    },
+    {
+      "file": "volume-fixed.mkv",
+      "peak": 4740,
+      "peak_dbfs": -16.79343186571266,
+      "nonzero_samples": 138484
+    }
+  ],
+  "pc_global_volume_changed": false,
+  "pc_backend": "PulseAudio",
+  "listening_confirmation": "pending_user",
+  "pc_speaker_monitor": {
+    "peak": 4697,
+    "peak_dbfs": -16.87258749552938,
+    "nonzero_samples": 137500
+  }
+}

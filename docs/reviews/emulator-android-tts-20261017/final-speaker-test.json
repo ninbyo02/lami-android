@@ -1,0 +1,16 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5580",
+  "scope": "normal_chat_android_tts",
+  "pc_speaker_audibility": "not_verified",
+  "npu_execution": "not_run",
+  "engine": "com.reecedunn.espeak",
+  "prompt": "Say hello and introduce yourself as LAMI in Japanese. Use one short sentence only.",
+  "answer": "こんにちは、私はラミです。",
+  "request_id": "7a0d5aef-3cd6-4cbf-a677-682ccac2070d",
+  "android_tts_trace": "1792200800257 [LAMI_TTS] initialized status=success language_result=2\n1792200807476 [LAMI_TTS] stop generation=1 queued=0\n1792200808287 [LAMI_TTS] request code_points=6 ready=true queue_mode=1\n1792200808288 [LAMI_TTS] request_text=こんにちは、\n1792200808302 [LAMI_TTS] speak_accepted utterance_id=lami-tts-1-298d287a-755a-4c40-b0e0-a0ed47c8d7b9\n1792200808303 [LAMI_TTS] playback_started utterance_id=lami-tts-1-298d287a-755a-4c40-b0e0-a0ed47c8d7b9\n1792200808451 [LAMI_TTS] request code_points=7 ready=true queue_mode=1\n1792200808452 [LAMI_TTS] request_text=私はラミです。\n1792200809139 [LAMI_TTS] playback_done utterance_id=lami-tts-1-298d287a-755a-4c40-b0e0-a0ed47c8d7b9\n1792200809139 [LAMI_TTS] speak_accepted utterance_id=lami-tts-1-17464d5c-eb15-44bf-9297-a8d990cb633e\n1792200809140 [LAMI_TTS] playback_started utterance_id=lami-tts-1-17464d5c-eb15-44bf-9297-a8d990cb633e\n1792200809906 [LAMI_TTS] playback_done utterance_id=lami-tts-1-17464d5c-eb15-44bf-9297-a8d990cb633e",
+  "utterances_completed": [
+    "lami-tts-1-298d287a-755a-4c40-b0e0-a0ed47c8d7b9",
+    "lami-tts-1-17464d5c-eb15-44bf-9297-a8d990cb633e"
+  ]
+}
