@@ -26,6 +26,12 @@ def sha(path):
 def stage(sdk, jni, destination, profile='diagnostic'):
     if profile not in ('diagnostic', 'voice-trial'):
         raise ValueError('Unknown staging profile')
+    # Copying to JNI erases the input name, so APK inspection cannot catch a
+    # known legacy input afterwards. Check symlink targets before that rename.
+    # This is a negative check only; an accepted name proves no JNI provenance.
+    if profile == 'voice-trial' and any(
+            'qairt244' in path.name.lower() for path in (jni, jni.resolve())):
+        raise ValueError('Legacy QAIRT JNI input: ' + str(jni))
     metadata = sdk / 'sdk.yaml'
     if not metadata.is_file():
         raise ValueError('Missing SDK version evidence: sdk.yaml')

@@ -20,6 +20,34 @@ class RuntimeStageTest(unittest.TestCase):
         for path in (sdk/'lib').rglob('*.so'):
             self.pins[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
 
+    def test_full_stage_rejects_legacy_jni_before_renaming(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            legacy = base/'liblami_QAIRT244_npu_jni.so'
+            legacy.write_bytes(b'legacy JNI')
+            alias = base/JNI
+            alias.symlink_to(legacy.name)
+            # Reject both the explicit name and a neutral symlink alias before
+            # creating output that would hide the known legacy identity.
+            for jni in (legacy, alias):
+                with self.subTest(jni=jni):
+                    destination = base/'rejected'
+                    with self.assertRaisesRegex(ValueError, 'Legacy QAIRT JNI input'):
+                        stage(sdk, jni, destination, 'voice-trial')
+                    self.assertFalse(destination.exists())
+            manifest = stage(sdk, legacy, base/'diagnostic')
+            self.assertEqual(manifest['profile'], 'diagnostic')
+            self.assertIn('unverified', manifest['jni_provenance'])
+
     def test_changed_copy_cannot_receive_a_verified_manifest(self):
         with tempfile.TemporaryDirectory() as root:
             base = Path(root)
