@@ -57,3 +57,25 @@ scrcpyの音声バックエンドをPulseAudioに固定し、エミュレータ�
 この環境では `cmd media_session volume --set` は音量に反映されず、キー操作後の `--get` で10/15を確認した。
 同じ日本語応答のAndroid音声ピークは約−35dBFSから−17dBFSに増加。最終テストではPCスピーカー出力のモニター信号も測定した。
 物理スピーカーからの可聴性はユーザー確認待ち。音声合成・転送・デジタル出力信号の成功と区別する。
+
+## Google TTSへ切り替え（2026-10-17）
+
+eSpeakのロボット的な声を実機の声へ近づけるため、Google Play対応の別AVD `LAMI_GoogleTTS_API36_1` を作成した。
+現在PCで表示しているLAMIは **emulator-5582 / API36.1**。元のemulator-5580は保全した。
+Google TTS、日本語音声パック約22MB、Voice Iを使用。音量12/15。
+実機とエミュレータには話速・ピッチの保存上書きがなく、LAMIソースの既定値0.92/1.18が一致している。
+Google TTSのバージョンは実機210683481・エミュレータ210582126で異なり、声の完全一致は未確認。
+
+通常AOSP環境へのGoogle TTS APK単体インストールでは、日本語パックがダウンロード中から進まず、Google Play不足のログが出た。
+Google Play対応イメージでは音声パック導入が完了し、選択音声のnotInstalledフラグも消えた。
+通常画面で「こんにちは、私はラミです。」を生成し、Google TTSの全2文節が完了した。
+結果は `docs/reviews/emulator-google-tts-20261017/`。Google APK・音声パックはリポジトリへ含めない。
+
+Google TTSはLANG_AVAILABLE=0を返すため、検証はAndroidの有効値0/1/2を受け付けるよう修正した。
+新規インストール直後は前回推論結果JSONがないこともあるので、ランナーは最初の新しい結果を待つ。
+最初の結果欠落エラーと修正後の成功を両方保存した。
+
+再確認コマンド:
+```sh
+python3 scripts/voice/check_emulator_android_tts.py --serial emulator-5582 --output /tmp/lami-google-tts.json
+```

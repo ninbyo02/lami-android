@@ -40,7 +40,10 @@ def main():
         report['engine'] = engine
         shell('am','force-stop',package)
         started_ms = int(shell('date', '+%s%3N').strip())
-        previous = json.loads(read('emulator_main_chat_reference.json')).get('request_id')
+        try:
+            previous = json.loads(read('emulator_main_chat_reference.json')).get('request_id')
+        except ValueError:
+            previous = None
         shell('am','start','-W','-n',package+'/io.github.ninbyo02.lami.remote.EmulatorCpuReferenceActivity',
               '--ez','enable_main_chat','true','--es','model','gemma4-e2b-litert-cpu','--ei','host_port','11436',
               '--ez','android_tts','true')
@@ -54,7 +57,10 @@ def main():
         tap(next(n for n in ui().iter('node') if n.get('content-desc')=='Send Button'))
         deadline = time.monotonic()+120
         while time.monotonic()<deadline:
-            record = json.loads(read('emulator_main_chat_reference.json'))
+            try:
+                record = json.loads(read('emulator_main_chat_reference.json'))
+            except ValueError:
+                record = {}
             trace = read('debug/local_reflection_trace.log')
             fresh = '\n'.join(line for line in trace.splitlines()
                 if re.match(r'^(\d+) \[LAMI_TTS\]',line) and int(line.split()[0]) >= started_ms)
@@ -62,7 +68,7 @@ def main():
             accepted = re.findall(r'\[LAMI_TTS\] speak_accepted utterance_id=(\S+)',fresh)
             completed = re.findall(r'\[LAMI_TTS\] playback_done utterance_id=(\S+)',fresh)
             if valid and record.get('status')=='success' and accepted and set(accepted).issubset(completed):
-                if 'initialized status=success language_result=2' not in fresh:
+                if not re.search(r'initialized status=success language_result=[012]\b',fresh):
                     raise ValueError('Japanese Android TTS initialization not confirmed')
                 report.update(validation='passed', prompt=prompt, answer=record['response'],
                               request_id=record['request_id'], android_tts_trace=fresh,

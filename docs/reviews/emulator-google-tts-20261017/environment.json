@@ -1,0 +1,17 @@
+{
+  "avd": "LAMI_GoogleTTS_API36_1",
+  "serial": "emulator-5582",
+  "image": "system-images;android-36.1;google_apis_playstore;x86_64",
+  "tts_engine": "com.google.android.tts",
+  "version_code": 210582126,
+  "japanese_pack": "installed ~22 MB, Voice I selected",
+  "volume": 12,
+  "volume_max": 15,
+  "speech_rate": 0.92,
+  "pitch": 1.18,
+  "speech_preferences": "Neither device has saved overrides; source defaults match.",
+  "phone_engine": "Only installed TTS service is Google TTS, versionCode 210683481; engine versions differ.",
+  "old_emulator": "emulator-5580 retained, eSpeak default restored, own LAMI/Google TTS processes stopped",
+  "python_tests": 35,
+  "exact_phone_voice_match": "not_verified; listening comparison needed"
+}

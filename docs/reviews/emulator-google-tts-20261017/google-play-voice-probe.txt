@@ -1,0 +1,7 @@
+init=0
+engine=com.google.android.tts
+ja=0
+selected_voice=Voice[Name: ja-JP-language, locale: ja_JP, quality: 400, latency: 200, requiresNetwork: false, features: [networkTimeoutMs, legacySetLanguageVoice, networkRetriesCount]]
+synthesize=0
+start=ja
+done=ja

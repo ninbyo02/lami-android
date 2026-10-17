@@ -1,0 +1,9 @@
+{
+  "validation": "failed",
+  "serial": "emulator-5582",
+  "scope": "normal_chat_android_tts",
+  "pc_speaker_audibility": "not_verified",
+  "npu_execution": "not_run",
+  "engine": "com.google.android.tts",
+  "error": "cat: files/emulator_main_chat_reference.json: No such file or directory\n"
+}
