@@ -308,6 +308,25 @@ class LamiFirstAudioTimingTest {
         ).containsMatchIn(playback))
     }
 
+    @Test fun pipelineProbeSamplesPlaybackClockBeforeCallbackBookkeeping() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnostics.kt",
+        ).readText()
+        val playback = source.substringAfter("suspend fun play(clip: Pair<Int, FloatArray>) {")
+            .substringBefore("if (serial)")
+        assertTrue(playback.indexOf("checkNotNull(firstAudioRequests[clip.first])") in
+            0 until playback.indexOf("LamiPcmPlayer.play(clip.second)"))
+        // Sample before lookup, formatting or trace-lock contention can inflate the boundary.
+        assertTrue(Regex(
+            "LamiPcmPlayer\\.play\\(clip\\.second\\)\\s*\\{\\s*" +
+                "val playbackStartedAtNs = SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        ).containsMatchIn(playback))
+        assertTrue(Regex(
+            "LamiFirstAudioTiming\\.playbackStartedEvent\\(\\s*firstAudio,\\s*playbackStartedAtNs,",
+        ).containsMatchIn(playback))
+        assertEquals(1, Regex("SystemClock\\.elapsedRealtimeNanos\\(\\)").findAll(playback).count())
+    }
+
     private fun eventFields(event: String): Map<String, String> =
         event.split(" ")
             .associate {

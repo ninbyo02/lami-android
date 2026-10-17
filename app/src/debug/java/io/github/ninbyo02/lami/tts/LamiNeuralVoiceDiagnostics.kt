@@ -110,15 +110,16 @@ internal object LamiNeuralVoiceDiagnostics {
                     return index to pcm
                 }
                 suspend fun play(clip: Pair<Int, FloatArray>) {
+                    val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
+                        "first-audio request timing missing"
+                    }
                     LamiPcmPlayer.play(clip.second) {
-                        val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
-                            "first-audio request timing missing"
-                        }
+                        val playbackStartedAtNs = SystemClock.elapsedRealtimeNanos()
                         trace(
                             "request=${clip.first} ${
                                 LamiFirstAudioTiming.playbackStartedEvent(
                                     firstAudio,
-                                    SystemClock.elapsedRealtimeNanos(),
+                                    playbackStartedAtNs,
                                 )
                             }",
                         )
