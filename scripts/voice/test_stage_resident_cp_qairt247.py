@@ -1,5 +1,6 @@
 import hashlib
 import copy
+import shutil
 from unittest.mock import patch
 import tempfile
 import unittest
@@ -18,6 +19,44 @@ class RuntimeStageTest(unittest.TestCase):
         (sdk/'sdk.yaml').write_text('product: QAIRT\nversion: 2.47.0\nbuild_id: 260601114230\n')
         for path in (sdk/'lib').rglob('*.so'):
             self.pins[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def test_changed_copy_cannot_receive_a_verified_manifest(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(sdk)
+            copyfile = shutil.copyfile
+
+            for index, changed in enumerate((*FULL_RUNTIME, SKELETON, JNI)):
+                with self.subTest(library=changed):
+                    destination = base/('stage-' + str(index))
+
+                    def changed_copy(src, dst):
+                        result = copyfile(src, dst)
+                        if src.name == changed:
+                            dst.write_bytes(b'changed after input verification')
+                        return result
+
+                    with patch('stage_resident_cp_qairt247.shutil.copyfile',
+                               side_effect=changed_copy):
+                        with self.assertRaisesRegex(ValueError, 'Staged copy/hash mismatch'):
+                            stage(sdk, jni, destination, 'voice-trial')
+                    self.assertFalse((destination/'manifest.json').exists())
+
+            # Failed independent stages leave the inputs usable and unchanged.
+            manifest = stage(sdk, jni, base/'valid', 'voice-trial')
+            for name, digest in manifest['files'].items():
+                self.assertEqual(hashlib.sha256((base/'valid'/name).read_bytes()).hexdigest(),
+                                 digest)
 
     def test_staging_and_legacy_apk_rejected(self):
         with tempfile.TemporaryDirectory() as root:

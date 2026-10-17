@@ -42,8 +42,9 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     for name, path in files.items():
         if not path.is_file() or not path.stat().st_size:
             raise ValueError(f'Missing SDK 2.47 runtime: {name}')
-    for name, path in files.items():
-        if name != JNI and sha(path) != SDK_PINS[Path(name).name]:
+    verified_hashes = {name: sha(path) for name, path in files.items()}
+    for name, digest in verified_hashes.items():
+        if name != JNI and digest != SDK_PINS[Path(name).name]:
             raise ValueError('SDK version/hash mismatch: ' + name)
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Refuse populated staging directory')
@@ -51,11 +52,17 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     for name, src in files.items():
         (destination/name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, destination/name)
+    # Pin the copied bytes to the verified inputs, including the supplied JNI.
+    # A source can change between verification and copying; never bless those
+    # changed bytes by simply recording their new hashes in the manifest.
+    for name, expected in verified_hashes.items():
+        if sha(destination/name) != expected:
+            raise ValueError('Staged copy/hash mismatch: ' + name)
     manifest = {'runtime': 'QAIRT 2.47 Android arm64 diagnostic only',
                 'profile': profile,
                 'sdk_version': '2.47.0.260601114230',
                 'jni_provenance': 'unverified; rebuild required before promotion',
-                'files': {name: sha(destination/name) for name in files}}
+                'files': verified_hashes}
     (destination/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
     return manifest
 
