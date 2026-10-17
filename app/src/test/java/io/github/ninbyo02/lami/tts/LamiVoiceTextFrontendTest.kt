@@ -44,6 +44,24 @@ class LamiVoiceTextFrontendTest {
             assertArrayEquals(case.getString("text"), expected, tokenizer.encode(case.getString("wrapped")))
         }
     }
+    @Test fun ordinaryRegionsMatchIndependentlyTokenizedSegments() {
+        // Byte vocabulary covers arbitrary UTF-8 without requiring model files.
+        val visible = ((33..126) + (161..172) + (174..255)).toSet()
+        var extra = 256
+        val vocabulary = (0..255).associate { byte ->
+            String(Character.toChars(if (byte in visible) byte else extra++)) to byte
+        }
+        val tokenizer = LamiQwenTokenizer(vocabulary, emptyMap(), mapOf("<special>" to -1))
+        val segments = listOf("", "a", " leading", "trailing  ", "  ", "\t\r\n",
+            "こんにちは", "e\u0301", "!\n", "\u3000", "'s", "123")
+        for (left in segments) for (right in segments) {
+            val expected = tokenizer.encode(left) + intArrayOf(-1) + tokenizer.encode(right)
+            assertArrayEquals("left=[$left] right=[$right]", expected,
+                tokenizer.encode("$left<special>$right"))
+            assertArrayEquals(expected + intArrayOf(-1),
+                tokenizer.encode("$left<special>$right<special>"))
+        }
+    }
     @Test fun mergeSelectionMatchesPreviousListBasedAlgorithm() {
         // Every substring is present, so all possible merge outcomes have token IDs.
         val words = (1..7).flatMap { length ->

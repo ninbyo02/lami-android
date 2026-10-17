@@ -49,17 +49,18 @@ internal class LamiQwenTokenizer(
         val special = specialPattern.matcher(text)
         var start = 0
         while (special.find()) {
-            ordinary(text.substring(start, special.start()), result, words)
+            ordinary(text, start, special.start(), result, words)
             result += specialTokens.getValue(special.group())
             start = special.end()
         }
-        ordinary(text.substring(start), result, words)
+        ordinary(text, start, text.length, result, words)
         return result.toIntArray()
     }
 
-    private fun ordinary(text: String, output: MutableList<Int>, words: MutableMap<String, List<Int>>) {
-        val matcher = pretoken.matcher(text)
-        var end = 0
+    private fun ordinary(text: String, start: Int, limit: Int, output: MutableList<Int>, words: MutableMap<String, List<Int>>) {
+        // Opaque region bounds preserve substring lookahead semantics without copying the segment.
+        val matcher = pretoken.matcher(text).region(start, limit)
+        var end = start
         while (matcher.find()) {
             check(matcher.start() == end) { "Unmatched tokenizer input" }
             end = matcher.end()
@@ -67,7 +68,7 @@ internal class LamiQwenTokenizer(
             val word = matcher.group()
             output += words.getOrPut(word) { encodeWord(word) }
         }
-        check(end == text.length) { "Unmatched tokenizer suffix" }
+        check(end == limit) { "Unmatched tokenizer suffix" }
     }
 
     private fun encodeWord(text: String): List<Int> {
