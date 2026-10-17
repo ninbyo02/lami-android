@@ -8,6 +8,8 @@ object LamiVoiceEngineFactory {
         return runCatching {
             val factory = Class.forName("io.github.ninbyo02.lami.tts.LamiNeuralChatVoiceFactory")
             factory.getMethod("createOrNull", Context::class.java).invoke(null, app) as? LamiVoiceEngine
-        }.getOrNull() ?: AndroidTtsController(app)
+        }.getOrNull() ?: AndroidTtsController(app).also {
+            android.util.Log.i("LamiVoiceEngineFactory", "engine=android_tts fallback=true cute_tts=false")
+        }
     }
 }

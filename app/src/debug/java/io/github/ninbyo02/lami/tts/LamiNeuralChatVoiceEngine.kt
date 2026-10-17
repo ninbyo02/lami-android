@@ -13,13 +13,17 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** Debug chat bridge for the validated local neural voice path. */
+/** Debug chat bridge; streaming requires the isolated trial opt-in. */
 internal class LamiNeuralChatVoiceEngine(
     private val context: Context,
     private val root: File,
+    private val streamingEnabled: Boolean = false,
     private val traceFactory: ((Long, String) -> LamiSpeechTraceCapture)? = null,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val streamSpeech: suspend (String, (String) -> Unit, () -> Unit) -> FloatArray = { text, progress, started ->
+        LamiVoiceStreamingProbe.runSpeech(context, root, text, progress, started)
+    },
 ) : LamiVoiceEngine {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val speaking = MutableStateFlow(false)
     override val isSpeaking: StateFlow<Boolean> = speaking
     private var listener: (Boolean) -> Unit = {}
@@ -40,7 +44,7 @@ internal class LamiNeuralChatVoiceEngine(
     override fun speak(text: String) = queue.replace(text)
     override fun speakQueued(text: String) = queue.enqueue(text)
 
-    private data class PreparedClip(val pcm: FloatArray, val firstAudio: LamiFirstAudioTiming.Request, val capture: LamiSpeechTraceGuard?)
+    private data class PreparedClip(val pcm: FloatArray?, val firstAudio: LamiFirstAudioTiming.Request, val capture: LamiSpeechTraceGuard?, val text: String)
 
     private fun trace(firstAudio: LamiFirstAudioTiming.Request, event: String) {
         val elapsedMs = LamiFirstAudioTiming.elapsedMsSince(
@@ -66,13 +70,14 @@ internal class LamiNeuralChatVoiceEngine(
         )
         trace(firstAudio, LamiFirstAudioTiming.requestStartedEvent(firstAudio))
         trace(firstAudio, "status=started text_chars=${text.length}")
+        if (streamingEnabled) return PreparedClip(null, firstAudio, capture, text)
         return try {
             capture?.event("synthesis_started")
             val pcm = LamiVoiceDiagnostic.synthesizeText(context, root, text) { trace(firstAudio, it) }
             trace(firstAudio, LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos()))
             trace(firstAudio, "synthesis=complete samples=${pcm.size}")
             capture?.event("pcm_ready")
-            PreparedClip(pcm, firstAudio, capture)
+            PreparedClip(pcm, firstAudio, capture, text)
         } catch (cancelled: CancellationException) {
             capture?.failure("cancelled")
             trace(firstAudio, "status=cancelled phase=synthesis")
@@ -88,18 +93,25 @@ internal class LamiNeuralChatVoiceEngine(
     private suspend fun playClip(clip: PreparedClip?) {
         if (clip == null) return
         try {
-            LamiPcmPlayer.play(clip.pcm) {
+            val onStarted = {
+                val playbackStartedAtNs = SystemClock.elapsedRealtimeNanos()
                 trace(
                     clip.firstAudio,
                     LamiFirstAudioTiming.playbackStartedEvent(
                         clip.firstAudio,
-                        SystemClock.elapsedRealtimeNanos(),
+                        playbackStartedAtNs,
                     ),
                 )
                 clip.capture?.event("playback_started")
                 trace(clip.firstAudio, "playback=started")
             }
-            clip.capture?.success(clip.pcm)
+            val pcm = if (clip.pcm == null) {
+                streamSpeech(clip.text, { trace(clip.firstAudio, it) }, onStarted)
+            } else {
+                LamiPcmPlayer.play(clip.pcm, onStarted)
+                clip.pcm
+            }
+            clip.capture?.success(pcm)
             trace(clip.firstAudio, "status=complete")
         } catch (cancelled: CancellationException) {
             clip.capture?.failure("cancelled")

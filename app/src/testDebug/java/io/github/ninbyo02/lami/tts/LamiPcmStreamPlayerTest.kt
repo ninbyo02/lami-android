@@ -210,6 +210,33 @@ class LamiPcmStreamPlayerTest {
         assertTrue(track.released)
     }
 
+    @Test fun startCallbackPrecedesThresholdUpdateAndPostStartWrites() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val last = floatArrayOf(0.5f, 0.6f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        chunks.send(last)
+        chunks.close()
+        var starts = 0
+
+        val stats = LamiPcmStreamPlayer.play(chunks) {
+            starts++
+            val track = PartialWriteAudioTrack.latest
+            // Only the initial prebuffer threshold may have been configured here.
+            assertEquals(1, track.startThresholds.size)
+            assertEquals(first.toList(), track.accepted)
+            assertEquals(0, track.drainHeadReads)
+            assertFalse(track.released)
+        }
+        val track = PartialWriteAudioTrack.latest
+        assertEquals(1, starts)
+        assertEquals(2, track.startThresholds.size)
+        assertEquals(1, track.startThresholds.last())
+        assertEquals((first + last).toList(), track.accepted)
+        assertEquals(LamiPcmStreamPlayer.Stats(samples = 6, underruns = 3), stats)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+    }
+
     /** Script backpressure and a delayed playback head without any audio device. */
     @Implements(AudioTrack::class)
     class PartialWriteAudioTrack : ShadowAudioTrack() {
@@ -221,6 +248,7 @@ class LamiPcmStreamPlayerTest {
         val requestSizes = mutableListOf<Int>()
         val underrunReadings = mutableListOf<Int>()
         val cleanup = mutableListOf<String>()
+        val startThresholds = mutableListOf<Int>()
         var drained = false
         var released = false
         val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
@@ -255,7 +283,10 @@ class LamiPcmStreamPlayerTest {
         }
 
         @Implementation
-        fun setStartThresholdInFrames(frames: Int): Int = frames
+        fun setStartThresholdInFrames(frames: Int): Int {
+            startThresholds += frames
+            return frames
+        }
 
         @Implementation
         fun stop() {

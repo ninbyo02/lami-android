@@ -300,12 +300,45 @@ class LamiFirstAudioTimingTest {
         ).containsMatchIn(preparation))
         val playback = source.substringAfter("private suspend fun playClip(")
             .substringBefore("override fun isInCooldown(")
-        // The first callback action must sample the clock, before optional trace capture or logging.
-        assertTrue(Regex(
-            "LamiPcmPlayer\\.play\\(clip\\.pcm\\)\\s*\\{\\s*trace\\(\\s*" +
-                "clip\\.firstAudio,\\s*LamiFirstAudioTiming\\.playbackStartedEvent\\(\\s*" +
-                "clip\\.firstAudio,\\s*SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        // Both modes share one callback. Capture first, then format/log the same timestamp.
+        val callback = playback.substringAfter("val onStarted = {")
+            .substringBefore("val pcm = if (clip.pcm == null)")
+        assertTrue("Playback timestamp must be the first callback action", Regex(
+            """^\s*val playbackStartedAtNs = SystemClock\.elapsedRealtimeNanos\(\)""",
+        ).containsMatchIn(callback))
+        assertEquals(1, Regex("""SystemClock\.elapsedRealtimeNanos\(\)""").findAll(callback).count())
+        assertTrue("The event must use the captured timestamp", Regex(
+            """LamiFirstAudioTiming\.playbackStartedEvent\(\s*clip\.firstAudio,\s*playbackStartedAtNs,\s*\)""",
+        ).containsMatchIn(callback))
+        assertTrue(callback.indexOf("LamiFirstAudioTiming.playbackStartedEvent(") <
+            callback.indexOf("clip.capture?.event(\"playback_started\")"))
+        assertTrue("Streaming must receive the shared timing callback", Regex(
+            """streamSpeech\(clip\.text,\s*\{\s*trace\(clip\.firstAudio, it\)\s*\},\s*onStarted\)""",
         ).containsMatchIn(playback))
+        assertTrue("Buffered playback must receive the same timing callback", Regex(
+            """LamiPcmPlayer\.play\(clip\.pcm,\s*onStarted\)""",
+        ).containsMatchIn(playback))
+    }
+
+    @Test fun streamingProbeDispatchesStartBeforeDiagnosticProgress() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiVoiceStreamingProbe.kt",
+        ).readText()
+        assertTrue("Forward start before diagnostic logging can delay the timestamp", Regex(
+            """LamiPcmStreamPlayer\.play\(chunks\)\s*\{\s*onStarted\(\)\s*progress\(""",
+        ).containsMatchIn(source))
+    }
+
+    @Test fun streamingPlayerReportsPlayReturnBeforeThresholdUpdate() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+        ).readText()
+        assertEquals(1, Regex("""track\.play\(\)""").findAll(source).count())
+        assertEquals(1, Regex("""onStarted\(\)""").findAll(source).count())
+        assertTrue("Capture before post-start threshold changes or writes", Regex(
+            """track\.play\(\)\s*(?://[^\n]*\n\s*)*onStarted\(\)""",
+        ).containsMatchIn(source))
+        assertTrue(source.indexOf("onStarted()") < source.indexOf("track.setStartThresholdInFrames(1)"))
     }
 
     @Test fun pipelineProbeSamplesPlaybackClockBeforeCallbackBookkeeping() {

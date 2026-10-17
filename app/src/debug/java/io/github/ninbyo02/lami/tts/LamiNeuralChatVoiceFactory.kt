@@ -14,7 +14,11 @@ object LamiNeuralChatVoiceFactory {
                 Context.MODE_PRIVATE).getBoolean("android_tts", false)) return null
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         return if (root.resolve("voice-text-bundle.json").isFile) {
-            LamiNeuralChatVoiceEngine(context.applicationContext, root)
+            // Private opt-in in the isolated validation package only; ordinary debug stays unchanged.
+            LamiNeuralChatVoiceEngine(context.applicationContext, root,
+                streamingEnabled = context.packageName.endsWith(".npuvalidation") &&
+                    context.getSharedPreferences("lami_cute_debug_trial", Context.MODE_PRIVATE)
+                        .getBoolean("streaming_enabled", false))
         } else null
     }
     /** Explicit diagnostic API. Hashing may be expensive; call off the UI thread.
@@ -40,7 +44,7 @@ object LamiNeuralChatVoiceFactory {
             }
             val store = LamiSpeechTraceStore(context.filesDir.resolve("diagnostics/speech_traces"),
                 hash(modelArtifact), hash(runtimeArtifact), SystemClock::elapsedRealtime)
-            LamiNeuralChatVoiceEngine(context.applicationContext, root, store::capture)
+            LamiNeuralChatVoiceEngine(context.applicationContext, root, traceFactory = store::capture)
         } catch (_: Exception) {
             // Diagnostic setup failure must still permit speech.
             LamiNeuralChatVoiceEngine(context.applicationContext, root)

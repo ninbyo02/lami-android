@@ -44,10 +44,11 @@ internal object LamiPcmStreamPlayer {
             }
             write(first)
             track.play()
+            // Report the play-return boundary before any further playback work.
+            onStarted()
             // A short final remainder must resume after an underrun even when it
             // contains fewer frames than the initial prebuffer threshold.
             track.setStartThresholdInFrames(1)
-            onStarted()
             for (chunk in chunks) write(chunk)
             val deadline = SystemClock.elapsedRealtime() + submitted * 1000L / 24_000 + 5000
             while (track.playbackHeadPosition < submitted) {
