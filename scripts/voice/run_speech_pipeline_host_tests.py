@@ -41,6 +41,8 @@ def main():
         jar("org.jetbrains.kotlin", "kotlin-daemon-embeddable", kotlin),
     ] + runtime
     sources = [
+        root / "app/src/debug/java/io/github/ninbyo02/lami/tts/LamiVoiceTrialPolicy.kt",
+        root / "app/src/test/java/io/github/ninbyo02/lami/tts/LamiVoiceTrialPolicyTest.kt",
         root / "app/src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamingPipeline.kt",
         root / "app/src/main/java/io/github/ninbyo02/lami/tts/LamiVoiceChunkProbeMath.kt",
         root / "app/src/test/java/io/github/ninbyo02/lami/tts/LamiPcmStreamingPipelineTest.kt",
@@ -84,6 +86,7 @@ def main():
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceStoreTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceGuardTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechTraceCaptureTest",
+                 "io.github.ninbyo02.lami.tts.LamiVoiceTrialPolicyTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineTest",
                  "io.github.ninbyo02.lami.tts.LamiSpeechPipelineHostFailureTest"] + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelineRecordedReplayTest"] if args.replay_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiSpeechPipelinePcmReplayTest"] if args.pcm_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiUnifiedSpeechReplayTest"] if args.unified_fixture else []) + (["io.github.ninbyo02.lami.tts.LamiTerminalSpeechReplayTest"] if args.terminal_fixture else []),
                 capture_output=True, text=True, timeout=60,

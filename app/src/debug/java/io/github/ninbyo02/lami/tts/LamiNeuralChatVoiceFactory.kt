@@ -14,11 +14,12 @@ object LamiNeuralChatVoiceFactory {
                 Context.MODE_PRIVATE).getBoolean("android_tts", false)) return null
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         return if (root.resolve("voice-text-bundle.json").isFile) {
-            // Private opt-in in the isolated validation package only; ordinary debug stays unchanged.
+            // The delivery APK selects streaming; retain the existing validation opt-in.
             LamiNeuralChatVoiceEngine(context.applicationContext, root,
-                streamingEnabled = context.packageName.endsWith(".npuvalidation") &&
+                streamingEnabled = LamiVoiceTrialPolicy.streamingEnabled(context.packageName) {
                     context.getSharedPreferences("lami_cute_debug_trial", Context.MODE_PRIVATE)
-                        .getBoolean("streaming_enabled", false))
+                        .getBoolean("streaming_enabled", false)
+                })
         } else null
     }
     /** Explicit diagnostic API. Hashing may be expensive; call off the UI thread.
