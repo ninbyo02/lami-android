@@ -143,4 +143,49 @@ class RuntimeStageTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unpinned QAIRT manifest'):
                 inspect_apk(apk, manifest)
 
+    def test_diagnostic_checks_optional_qnn_libraries_without_requiring_them(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            runtime = base/'sdk/lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in FULL_RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            skeleton = base/'sdk/lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(base/'sdk')
+            manifest = stage(base/'sdk', jni, base/'stage')
+            del manifest['profile']  # Preserve the original diagnostic API.
+            apk = base/'diagnostic.apk'
+
+            def package(extra, payload):
+                with zipfile.ZipFile(apk, 'w') as z:
+                    for name in manifest['files']:
+                        z.write(base/'stage'/name, 'lib/arm64-v8a/'+name)
+                    z.writestr(extra, payload)
+
+            for name in set(FULL_RUNTIME) - set(RUNTIME):
+                with self.subTest(library=name):
+                    path = 'lib/arm64-v8a/'+name
+                    package(path, name.encode())
+                    self.assertTrue(inspect_apk(apk, manifest))
+                    package(path, b'244')
+                    with self.assertRaisesRegex(ValueError, 'version/hash mismatch'):
+                        inspect_apk(apk, manifest)
+            package('assets/hexagon-v79/'+SKELETON, b'hexagon')
+            self.assertTrue(inspect_apk(apk, manifest))
+            package('assets/hexagon-v79/'+SKELETON, b'244')
+            with self.assertRaisesRegex(ValueError, 'version/hash mismatch'):
+                inspect_apk(apk, manifest)
+            for path in ('lib/arm64-v8a/'+SKELETON,
+                         'lib/armeabi-v7a/libQnnGpu.so',
+                         'lib/arm64-v8a/libQnnCpu.so',
+                         'lib/arm64-v8a/libqnnGpu.so'):
+                package(path, b'unpinned')
+                with self.subTest(path=path):
+                    with self.assertRaisesRegex(ValueError, 'Unpinned/legacy'):
+                        inspect_apk(apk, manifest)
+
 if __name__=='__main__': unittest.main()

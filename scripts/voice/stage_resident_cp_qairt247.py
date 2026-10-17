@@ -78,14 +78,23 @@ def inspect_apk(apk, manifest):
         names = set(entries)
         if any(entries.count(n) > 1 for n in names if n.endswith('.so')):
             raise ValueError('Duplicate APK library entry')
-        if full:
-            for name in names:
-                base = Path(name).name
-                if base.endswith('.so') and ('qairt244' in base.lower() or
-                        (base.startswith('libQnn') and name not in {
-                            'lib/arm64-v8a/' + n for n in FULL_RUNTIME} | {
-                            'assets/hexagon-v79/' + SKELETON})):
+        # Diagnostic callers may bundle optional voice libraries too. Verify every
+        # QNN entry, not just the subset required by their manifest/profile.
+        allowed_qnn = {'lib/arm64-v8a/' + n: n for n in FULL_RUNTIME}
+        allowed_qnn['assets/hexagon-v79/' + SKELETON] = SKELETON
+        for name in names:
+            base = Path(name).name
+            if not base.endswith('.so'):
+                continue
+            if full and 'qairt244' in base.lower():
+                raise ValueError('Unpinned/legacy QAIRT library: ' + name)
+            if base.lower().startswith('libqnn'):
+                pinned_name = allowed_qnn.get(name)
+                expected = SDK_PINS.get(pinned_name)
+                if expected is None:
                     raise ValueError('Unpinned/legacy QAIRT library: ' + name)
+                if hashlib.sha256(z.read(name)).hexdigest() != expected:
+                    raise ValueError('version/hash mismatch ' + name)
         for name in FORBIDDEN:
             if 'lib/arm64-v8a/'+name in names:
                 raise ValueError(f'Private/vendor RPC bundled: {name}')
