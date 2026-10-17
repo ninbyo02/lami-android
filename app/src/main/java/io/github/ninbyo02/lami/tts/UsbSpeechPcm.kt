@@ -11,6 +11,14 @@ internal object UsbSpeechPcm {
         val outputFrames = (frames * 48_000L / rate).toInt()
         require(outputFrames in 1..2_880_000)
         val output = ShortArray(outputFrames * 2)
+        // At the target rate, mono needs only channel duplication, not interpolation.
+        if (rate == 48_000) {
+            for (frame in samples.indices) {
+                output[frame * 2] = samples[frame]
+                output[frame * 2 + 1] = samples[frame]
+            }
+            return output
+        }
         for (frame in 0 until outputFrames) {
             val position = frame * rate.toDouble() / 48_000
             val first = position.toInt().coerceAtMost(frames - 1)
