@@ -50,7 +50,22 @@ def source_identity():
     return {p.relative_to(ROOT).as_posix(): sha(p) for p in paths}
 
 
+def reject_cargo_config():
+    # Cargo discovers config from its working directory through every ancestor,
+    # plus CARGO_HOME. Neither config file contents nor their included files are
+    # represented by this receipt; even an apparently empty config can include
+    # another file. Do not allow hidden flags/tool selections into this build.
+    directories = [base / '.cargo' for base in (CRATE, *CRATE.parents)]
+    directories.append(Path(os.environ.get('CARGO_HOME') or Path.home()/'.cargo'))
+    for directory in directories:
+        for name in ('config', 'config.toml'):
+            path = directory / name
+            if path.exists() or path.is_symlink():
+                raise ValueError('Unrecorded Cargo configuration: ' + str(path))
+
+
 def rust_identity():
+    reject_cargo_config()
     # Cargo inherits these overrides from the caller. They can select a compiler
     # or alter its output without changing the tool hashes recorded below.
     # Fail closed rather than silently ignoring the operator's build settings.

@@ -113,6 +113,10 @@ Build and verification reject nonempty environment overrides for Rust compilers,
 compiler wrappers and Rust flags (including Cargo build/Android target variants),
 because those inputs are not recorded in schema 2. Unset the named variables
 before retrying; their values are never printed in the error.
+Build and verification also reject Cargo `config`/`config.toml` files in the
+crate's ancestor `.cargo` directories and `CARGO_HOME` (default `~/.cargo`),
+because their compiler/flag overrides and includes are not recorded. Use a
+configuration-free build environment; the helper never edits existing configs.
 Verification rejects absent or mismatched receipts; these local receipts are
 build evidence, not signed attestations. Outputs remain under ignored `target/`.
 

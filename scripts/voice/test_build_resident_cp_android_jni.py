@@ -120,6 +120,27 @@ class NativeBuildProvenanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Missing installed Rust Android'):
                 build.rust_identity()
 
+    def test_cargo_configuration_rejected_before_tools_run(self):
+        crate = self.root/'repository/diagnostics/crate'
+        crate.mkdir(parents=True)
+        cargo_home = self.root/'cargo-home'
+        directories = [base/'.cargo' for base in (crate, *crate.parents)
+                       if base.is_relative_to(self.root)] + [cargo_home]
+        with patch.object(build, 'CRATE', crate), \
+                patch.dict(os.environ, {'CARGO_HOME': str(cargo_home)}), \
+                patch.object(build.subprocess, 'run') as run:
+            for directory in directories:
+                directory.mkdir(exist_ok=True)
+                for name in ('config', 'config.toml'):
+                    with self.subTest(directory=directory, name=name):
+                        config = directory/name
+                        config.write_text('[build]\nrustflags = ["--cfg", "unrecorded"]\n')
+                        with self.assertRaisesRegex(ValueError, 'Unrecorded Cargo configuration'):
+                            build.rust_identity()
+                        config.unlink()
+            run.assert_not_called()
+            build.reject_cargo_config()
+
     def test_rust_identity_rejects_unrecorded_environment_before_running_tools(self):
         overrides = ('RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER',
                      'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_BUILD_RUSTC',
