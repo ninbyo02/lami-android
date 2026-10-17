@@ -1,0 +1,86 @@
+{
+  "validation": "passed",
+  "run_id": "b56c65dff9a6442da60112cf3e14e6d5",
+  "backend": "host_cpu",
+  "package": "io.github.ninbyo02.lami.assistantprobe",
+  "cases": [
+    {
+      "prompt": "What is 17 plus 25? Reply with the number only.",
+      "expected": "42",
+      "ui_completed": "passed",
+      "ui_total_ms": 16091
+    },
+    {
+      "prompt": "Now multiply that result by 2. Reply with the number only.",
+      "expected": "84",
+      "ui_completed": "passed",
+      "ui_total_ms": 12027
+    }
+  ],
+  "npu_numerical_parity": "not_verified",
+  "tts": "not_verified",
+  "scope": "normal_chat_ui_stop_recovery_room",
+  "stop_ui_ready_ms": 2243,
+  "recovery_ui": "passed",
+  "saved_messages": [
+    {
+      "message": "What is 17 plus 25? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "42",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=115985\ntts_requested_at_elapsed_ms=116013\ntts_started_at_elapsed_ms=116013\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=115997\nstats_build_finished_at_elapsed_ms=115997\nbottom_sheet_update_started_at_elapsed_ms=115997\nbottom_sheet_update_finished_at_elapsed_ms=116012\nstats_display_lag_after_generation_ms=27\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=116175\ntokenizer_count_finished_at_elapsed_ms=116221\ntokenizer_count_duration_ms=46\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    },
+    {
+      "message": "Now multiply that result by 2. Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "84",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=128260\ntts_requested_at_elapsed_ms=128268\ntts_started_at_elapsed_ms=128268\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=128263\nstats_build_finished_at_elapsed_ms=128263\nbottom_sheet_update_started_at_elapsed_ms=128264\nbottom_sheet_update_finished_at_elapsed_ms=128268\nstats_display_lag_after_generation_ms=8\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=128309\ntokenizer_count_finished_at_elapsed_ms=128309\ntokenizer_count_duration_ms=0\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    },
+    {
+      "message": "List every integer from 1 to 1000, one per line. Do not skip any numbers.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "",
+      "isSendbyMe": 0,
+      "status": "CANCELLED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "What is 3 plus 4? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "7",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=149928\ntts_requested_at_elapsed_ms=149937\ntts_started_at_elapsed_ms=149937\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=149931\nstats_build_finished_at_elapsed_ms=149931\nbottom_sheet_update_started_at_elapsed_ms=149931\nbottom_sheet_update_finished_at_elapsed_ms=149936\nstats_display_lag_after_generation_ms=8\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=149954\ntokenizer_count_finished_at_elapsed_ms=149954\ntokenizer_count_duration_ms=0\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    }
+  ],
+  "room": "passed",
+  "stop_persisted": "CANCELLED",
+  "restart_launch": "passed"
+}

@@ -46,3 +46,5 @@ NPU比較の現状は `cpu_npu_identifier_context_ja.md` を参照。
 ## 2026-10-17の実行結果
 
 `docs/reviews/phone-free-development-20261017/` に保存。日本語6ターン全問正答、通常画面の履歴・中断・復帰・Room保存・再起動が成功。スマホserial指定は操作前に拒否。スマホがADB一覧に存在していても、このチェックでは一切操作しない。
+
+Google TTSを含む常用環境の起動・開発手順は `emulator_development_workflow_ja.md`。現在の常用serialは `emulator-5582`。

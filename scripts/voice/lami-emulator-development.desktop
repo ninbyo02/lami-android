@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=LAMI Emulator Development
+Comment=Start LAMI emulator, CPU inference and Google TTS audio
+Exec=/usr/bin/python3 /home/sato/lami-tts-daemon/cpu-npu-comparison-20261017/scripts/voice/start_emulator_development.py start
+Path=/home/sato/lami-tts-daemon/cpu-npu-comparison-20261017
+Terminal=true
+Icon=applications-development
+Categories=Development;

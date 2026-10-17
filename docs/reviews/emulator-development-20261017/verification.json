@@ -1,0 +1,14 @@
+{
+  "python_tests": 38,
+  "repeated_start": "passed; no new processes",
+  "mirror_reopen": "passed",
+  "emulator_cold_start": "passed; existing CPU server reused",
+  "google_tts_after_restart": "passed",
+  "full_cpu_and_ui_suite": "passed",
+  "desktop_shortcut_trusted": true,
+  "phone_access": "none in this setup step",
+  "limitations": [
+    "Whole-PC reboot and starting a previously stopped CPU bridge were not exercised.",
+    "Digital playback completion is separate from listening quality."
+  ]
+}
