@@ -51,6 +51,18 @@ def source_identity():
 
 
 def rust_identity():
+    # Cargo inherits these overrides from the caller. They can select a compiler
+    # or alter its output without changing the tool hashes recorded below.
+    # Fail closed rather than silently ignoring the operator's build settings.
+    overrides = ('RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER',
+                 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_BUILD_RUSTC',
+                 'CARGO_BUILD_RUSTC_WRAPPER', 'CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER',
+                 'CARGO_BUILD_RUSTFLAGS',
+                 'CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS')
+    active = [name for name in overrides if os.environ.get(name)]
+    if active:
+        raise ValueError('Unrecorded Rust build overrides; unset: ' + ', '.join(active))
+
     def output(*args):
         return subprocess.run(args, capture_output=True, text=True,
                               check=True).stdout.strip()

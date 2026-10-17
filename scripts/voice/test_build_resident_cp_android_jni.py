@@ -120,6 +120,19 @@ class NativeBuildProvenanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Missing installed Rust Android'):
                 build.rust_identity()
 
+    def test_rust_identity_rejects_unrecorded_environment_before_running_tools(self):
+        overrides = ('RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER',
+                     'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_BUILD_RUSTC',
+                     'CARGO_BUILD_RUSTC_WRAPPER', 'CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER',
+                     'CARGO_BUILD_RUSTFLAGS',
+                     'CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS')
+        for name in overrides:
+            with self.subTest(name=name), patch.dict(os.environ, {name: 'custom'}, clear=True), \
+                    patch.object(build.subprocess, 'run') as run:
+                with self.assertRaisesRegex(ValueError, 'unset: ' + name + '$'):
+                    build.rust_identity()
+                run.assert_not_called()
+
     def test_receipt_binds_binary_sources_and_separate_architectures(self):
         jni = self.root/'test.so'
         jni.write_bytes(b'jni')

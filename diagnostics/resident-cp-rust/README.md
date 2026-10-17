@@ -109,6 +109,10 @@ invalidates any previous receipt. The adjacent `.so.provenance.json` binds the
 JNI hash to SDK hashes, repository source hashes, API level, NDK tool hashes, Rust/Cargo versions and executable hashes, and
 the installed Android target Rust library hashes. Schema 1 receipts require a
 rebuild; schema 2 verification checks the current Rust toolchain too.
+Build and verification reject nonempty environment overrides for Rust compilers,
+compiler wrappers and Rust flags (including Cargo build/Android target variants),
+because those inputs are not recorded in schema 2. Unset the named variables
+before retrying; their values are never printed in the error.
 Verification rejects absent or mismatched receipts; these local receipts are
 build evidence, not signed attestations. Outputs remain under ignored `target/`.
 
