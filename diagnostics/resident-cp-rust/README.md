@@ -88,6 +88,32 @@ temporary model/library/PCM-free fixture artifacts. Hosted CI does not need QNN
 headers or download a Qualcomm SDK. Optional real SDK compilation continues to
 require `QAIRT_SDK_ROOT` and the `qnn-sdk` feature.
 
+### Reproducible QAIRT 2.47 Android JNI build
+
+From the repository root, use existing tools only (no Gradle or device access):
+
+```bash
+python3 scripts/voice/build_resident_cp_android_jni.py --sdk /path/to/2.47.0.260601 --ndk /path/to/android-ndk --api 35
+python3 scripts/voice/build_resident_cp_android_jni.py --sdk /path/to/2.47.0.260601 --verify-jni diagnostics/resident-cp-rust/target/lami-arm64/liblami_resident_cp_diag.so
+```
+
+Requires Cargo/Rust with `aarch64-linux-android` already installed, offline Cargo
+inputs, the Linux NDK LLVM tools, and the complete official SDK. The builder pins
+all 186 QNN headers by sorted relative name and content digest and reuses the
+reviewed full runtime SHA pins. Android `arm64-v8a` runtime and Hexagon V79 DSP
+are recorded separately. Each build uses a fresh Cargo target directory, checks
+ELF64/AArch64 and rejects direct QNN/vendor RPC dependencies. A failed rebuild
+invalidates any previous receipt. The adjacent `.so.provenance.json` binds the
+JNI hash to SDK hashes, repository source hashes, API level and NDK tool hashes.
+Verification rejects absent or mismatched receipts; these local receipts are
+build evidence, not signed attestations. Outputs remain under ignored `target/`.
+
+This does not change staging/APK promotion gates: staging still labels JNI
+provenance unverified. A trial APK needs explicit receipt consumption by the
+packaging gate, the full pinned runtime with V79 skeleton in its separate asset
+location, model SHA gates and controller offline Android validation. Device
+acceptance remains with the separately authorized coordinator.
+
 ### Current Evidence And Limits
 
 The original native ELF route generated two 19-frame utterances with one context,
