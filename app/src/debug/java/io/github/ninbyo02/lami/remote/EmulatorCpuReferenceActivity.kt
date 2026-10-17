@@ -40,6 +40,7 @@ class EmulatorCpuReferenceActivity : ComponentActivity() {
         prompt = EditText(this).apply { hint = "入力"; setText(intent.getStringExtra("prompt") ?: "こんにちは。短く自己紹介してください。") }
         panel.addView(model); panel.addView(prompt)
         panel.addView(Button(this).apply { text = "通常チャットでCPU開発"; setOnClickListener { openMainChat(true, model.text.toString()) } })
+        panel.addView(Button(this).apply { text = "Android TTSで通常チャット"; setOnClickListener { openMainChat(true, model.text.toString(), true) } })
         panel.addView(Button(this).apply { text = "CPU開発を無効化"; setOnClickListener { openMainChat(false) } })
         panel.addView(Button(this).apply { text = "CPUで推論"; setOnClickListener { infer() } })
         panel.addView(Button(this).apply { text = "停止"; setOnClickListener { cancelInference(); output.text = "中断しました"; save(JSONObject().put("status", "cancelled")) } })
@@ -49,16 +50,24 @@ class EmulatorCpuReferenceActivity : ComponentActivity() {
         if (intent.getBooleanExtra("auto_run", false) && savedInstanceState == null) infer()
     }
 
-    private fun openMainChat(enabled: Boolean, selectedModel: String? = null) {
+    private fun openMainChat(enabled: Boolean, selectedModel: String? = null, androidTts: Boolean? = null) {
         check(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.isEmulator()) { "Emulator only" }
         cancelInference()
         getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS, MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putInt("host_port", intent.getIntExtra("host_port", 11434).also { require(it in 1024..65535) })
             .putString("model", selectedModel ?: intent.getStringExtra("model") ?: "sam860/LFM2:350m").apply()
-        startActivity(android.content.Intent(this, io.github.ninbyo02.lami.MainActivity::class.java)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        finish()
+        val useAndroidTts = androidTts ?: if (intent.hasExtra("android_tts")) intent.getBooleanExtra("android_tts", false) else null
+        lifecycleScope.launch {
+            if (useAndroidTts != null) {
+                getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean("android_tts", useAndroidTts).apply()
+                if (useAndroidTts) io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences(applicationContext).setTtsEnabled(true)
+            }
+            startActivity(android.content.Intent(this@EmulatorCpuReferenceActivity, io.github.ninbyo02.lami.MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            finish()
+        }
     }
 
     private fun cancelInference() {
