@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""PC-only isolated trial delivery; never builds with Gradle or installs an APK.
+
+Controller-only build command (run outside Codex):
+  ANDROID_HOME=/home/sato/Android/Sdk ANDROID_SDK_ROOT=/home/sato/Android/Sdk \
+  ./gradlew --offline :app:assembleStandardDebug -Plami.voiceIntegrationTrial=true
+
+Then invoke this script with that APK, existing QAIRT SDK, rebuilt JNI with its
+.provenance.json receipt, lami_cute model manifest + independently expected SHA,
+build-tools and debug keystore. --result is a new machine-readable JSON file.
+No skipped host/device behavioral check is counted as passed.
+"""
+import argparse
+import json
+from pathlib import Path
+import re
+import subprocess
+import zipfile
+import tempfile
+
+from build_resident_cp_android_jni import verify_jni
+from package_resident_cp_diagnostic_apk import pack
+from stage_resident_cp_qairt247 import stage, sha, JNI
+
+
+def verify_model(manifest, expected):
+    if not re.fullmatch('[0-9a-f]{64}', expected) or sha(manifest) != expected:
+        raise ValueError('Model manifest SHA-256 mismatch')
+    data = json.loads(manifest.read_text())
+    if data.get('speaker') != 'lami_cute' or not data.get('sha256'):
+        raise ValueError('Expected lami_cute model manifest with file hashes')
+    root = manifest.parent.resolve()
+    for name, digest in data['sha256'].items():
+        path = (root / name).resolve()
+        if (not path.is_relative_to(root) or not path.is_file() or
+                not re.fullmatch('[0-9a-f]{64}', digest) or sha(path) != digest):
+            raise ValueError('Model file SHA-256/path mismatch: ' + name)
+    return {'manifest_sha256': expected, 'files': data['sha256'], 'speaker': 'lami_cute'}
+
+
+def deliver(args):
+    report = {'schema': 1, 'local_delivery': 'failed',
+              'application_id': 'io.github.ninbyo02.lami.voiceintegrationtrial',
+              'device_speech': 'unverified', 'pcm_eos_stop': 'unverified',
+              'normal_llm_streaming': 'unverified',
+              'fallback': {'status': 'unverified', 'classification': 'not_executed'},
+              'controller_gradle_tests': 'unverified'}
+    if args.result.exists() or args.output.exists() or args.result.resolve() == args.output.resolve():
+        raise ValueError('Refuse existing or overlapping output/result')
+    try:
+        model = verify_model(args.model_manifest, args.model_manifest_sha256)
+        receipt = verify_jni(args.jni, args.sdk)
+        # Reuse the pinned full-profile staging and existing alignment/signature
+        # pipeline; publish only after its APK library hash acceptance succeeds.
+        with tempfile.TemporaryDirectory(prefix='.voice-trial-', dir=args.output.parent) as temp:
+            root = Path(temp)
+            runtime = stage(args.sdk, args.jni, root/'runtime', 'voice-trial')
+            if runtime['files'][JNI] != receipt['jni_sha256']:
+                raise ValueError('JNI changed after provenance verification')
+            candidate = root/'trial.apk'
+            pack(args.source, root/'runtime', candidate, args.build_tools,
+                 args.keystore, voice_trial=True)
+            report.update(local_delivery='passed', apk_sha256=sha(candidate),
+                          model=model, runtime=runtime,
+                          jni_provenance=receipt)
+            # Stage's generic JNI warning is superseded only by verify_jni above.
+            report['runtime']['jni_provenance'] = 'verified_source_build_receipt'
+            args.output.hardlink_to(candidate)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError,
+            zipfile.BadZipFile) as error:
+        report['local_delivery'] = 'failed'
+        report['error'] = type(error).__name__ + ': ' + str(error)
+    with args.result.open('x') as result:
+        result.write(json.dumps(report, indent=2) + '\n')
+    return 0 if report['local_delivery'] == 'passed' else 1
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    for name in ('source', 'sdk', 'jni', 'model-manifest', 'build-tools',
+                 'keystore', 'output', 'result'):
+        parser.add_argument('--' + name, required=True, type=Path)
+    parser.add_argument('--model-manifest-sha256', required=True)
+    args = parser.parse_args()
+    return deliver(args)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

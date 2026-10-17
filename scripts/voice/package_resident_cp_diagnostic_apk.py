@@ -4,17 +4,20 @@ Not a runnable QNN proof. Never install automatically.
 """
 import argparse
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
 import zipfile
-from stage_resident_cp_qairt247 import inspect_apk
+from stage_resident_cp_qairt247 import inspect_apk, FULL_RUNTIME, JNI, SKELETON
 
-def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: Path):
+def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: Path, *, voice_trial=False):
     manifest = json.loads((staged/'manifest.json').read_text())
     expected = set(manifest['files'])
-    assert expected == {'liblami_resident_cp_diag.so', 'libQnnHtp.so',
-                        'libQnnSystem.so', 'libQnnHtpV79Stub.so'}
+    required = ({*FULL_RUNTIME, JNI, 'hexagon-v79/' + SKELETON} if voice_trial else
+                {JNI, 'libQnnHtp.so', 'libQnnSystem.so', 'libQnnHtpV79Stub.so'})
+    if expected != required or (voice_trial and manifest.get('profile') != 'voice-trial'):
+        raise ValueError('Unexpected runtime packaging profile')
     if output.exists():
         raise ValueError('Refusing to overwrite diagnostic APK')
     if not keystore.is_file():
@@ -22,8 +25,16 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
     aapt = build_tools/'aapt2'
     badging = subprocess.run([str(aapt),'dump','badging',str(source)],
         capture_output=True,text=True,check=True).stdout
-    if "package: name='io.github.ninbyo02.lami.cpdiagnostic'" not in badging:
-        raise ValueError('Not an isolated assistantprobe source APK')
+    package = ('io.github.ninbyo02.lami.voiceintegrationtrial' if voice_trial else
+               'io.github.ninbyo02.lami.cpdiagnostic')
+    match = re.search(r"package: name='([^']+)'", badging)
+    if not match or match.group(1) != package:
+        raise ValueError('Not the requested isolated source APK')
+    if voice_trial:
+        xml = subprocess.run([str(aapt), 'dump', 'xmltree', '--file',
+            'AndroidManifest.xml', str(source)], capture_output=True, text=True, check=True).stdout
+        if 'extractNativeLibs(0x010104ea)=true' not in xml:
+            raise ValueError('Voice trial requires extractNativeLibs=true')
     with tempfile.TemporaryDirectory(prefix='lami-cp-repack-') as temp:
         raw = Path(temp)/'candidate-unsigned.apk'
         aligned = Path(temp)/'candidate-aligned.apk'
@@ -32,6 +43,9 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                 name = item.filename
                 if name.startswith('META-INF/') and name.upper().endswith(('.RSA','.SF','.DSA','.EC')):
                     continue
+                if voice_trial and (name == 'assets/hexagon-v79/' + SKELETON or
+                        name == 'lib/arm64-v8a/' + JNI):
+                    continue
                 if name.startswith('lib/arm64-v8a/') and (
                     'Qnn' in name or 'qnn' in name or 'qairt' in name.lower()
                     or name.endswith('/libLiteRtDispatch_Qualcomm.so')
@@ -39,7 +53,8 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                     continue
                 dst.writestr(item, origin.read(name))
             for name in sorted(expected):
-                dst.write(staged/name, arcname='lib/arm64-v8a/'+name,
+                dst.write(staged/name, arcname=('assets/' if name.startswith('hexagon-v79/')
+                                                       else 'lib/arm64-v8a/')+name,
                           compress_type=zipfile.ZIP_STORED)
         subprocess.run([str(build_tools/'zipalign'),'-f','-p','4',str(raw),str(aligned)],check=True)
         subprocess.run([str(build_tools/'apksigner'),'sign','--ks',str(keystore),
@@ -53,7 +68,7 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                      and ('Qnn' in n or 'qnn' in n or 'qairt' in n.lower())
                      and Path(n).name not in expected]
     if remaining: raise ValueError('Mixed QNN libraries remain: '+','.join(remaining))
-    print('DIAGNOSTIC_CANDIDATE_SIGNED',output)
+    print('VOICE_TRIAL_CANDIDATE_SIGNED' if voice_trial else 'DIAGNOSTIC_CANDIDATE_SIGNED', output)
     print('NOT_INSTALLED_OR_EXECUTED; normal TTS/other bundled runtimes are NOT device validated')
 
 if __name__ == '__main__':

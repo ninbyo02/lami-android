@@ -331,6 +331,13 @@ android {
             } else {
                 ".assistantprobe"
             }
+            if (providers.gradleProperty("lami.voiceIntegrationTrial").orNull == "true") {
+                require(providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull != "true" &&
+                    !gpuIdlePrewarmDiagnostic.get() && !imageBenchmark.get()) {
+                    "Voice integration trial cannot be combined with other diagnostic package modes"
+                }
+                applicationIdSuffix = ".voiceintegrationtrial"
+            }
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
             if (gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".gpuidleprewarm"
@@ -458,9 +465,10 @@ androidComponents {
         if (
             variant.buildType == "debug" &&
             flavor == "standard" &&
-            providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true"
+            (providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true" ||
+                providers.gradleProperty("lami.voiceIntegrationTrial").orNull == "true")
         ) {
-            // Isolated .assistantprobe APK only. Never enable on the production release.
+            // Isolated diagnostic/trial APK only. Never enable on the production release.
             // Diagnostic JNI/QNN payload is not silently added by this flag.
             variant.packaging.jniLibs.useLegacyPackaging.set(true)
         }
