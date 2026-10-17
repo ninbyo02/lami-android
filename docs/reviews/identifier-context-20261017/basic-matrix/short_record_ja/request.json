@@ -1,0 +1,15 @@
+{
+  "scenarioId": "cpu_npu_reference_8455f39f50bb4f208b058d0115a50842",
+  "prompts": [
+    "作業記録：装置Aの担当者は森、型番はZ31、次回点検は金曜日。装置Aの型番だけ答えてください。"
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "npu_history_mode": "persistent_v1",
+  "expected": [
+    "Z31"
+  ],
+  "case_set_sha256": "07ea480cb14f881d95e544f05831072f5d63d65ec23c848828ba38893ea45cd4",
+  "prompt_sha256": [
+    "aa8f5cdd1ca0f60d7b77a2178b66633a349186d7cac88553f040e4608247498f"
+  ]
+}

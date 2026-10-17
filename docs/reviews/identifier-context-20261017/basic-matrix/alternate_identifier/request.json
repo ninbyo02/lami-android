@@ -1,0 +1,15 @@
+{
+  "scenarioId": "cpu_npu_reference_4eae12122bf54ee6aed443153311d84f",
+  "prompts": [
+    "次の型番を一字も変えずに返してください。型番だけ答えてください：R4821"
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "npu_history_mode": "persistent_v1",
+  "expected": [
+    "R4821"
+  ],
+  "case_set_sha256": "f09d568608be0eca0a94858a983bc42b77494f0fee3c83f771f77e7aa10b21e3",
+  "prompt_sha256": [
+    "d1e71821b48ade02fdd55031b84641e5c39f14c5f0429848a67042709b4f0764"
+  ]
+}

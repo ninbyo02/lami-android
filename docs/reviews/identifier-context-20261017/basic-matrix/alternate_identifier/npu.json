@@ -1,0 +1,36 @@
+{
+  "apiSurface": "LiteRT-LM C++ Conversation::SendMessage",
+  "appTemplateUsed": false,
+  "backend": "NPU",
+  "conversationApiUsed": true,
+  "conversationStateProfile": "persistent_v1",
+  "directSessionApiUsed": false,
+  "effectiveMaxOutputTokens": 64,
+  "modelBytes": 3016294400,
+  "modelFileName": "ninbyo02-gemma-4-E2B-it-SM8750-NPU.litertlm",
+  "modelTemplateSource": "model_metadata",
+  "outputLimitSource": "C++ OptionalArgs.max_output_tokens",
+  "promptTemplateOwner": "model_metadata",
+  "reason": "completed",
+  "requestedMaxOutputTokens": 64,
+  "samplerProfile": "greedy_top_k_1_v1",
+  "samplerSeed": 42,
+  "samplerTemperature": 1.0,
+  "samplerTopK": 1,
+  "samplerTopP": 1.0,
+  "scenarioId": "cpu_npu_reference_4eae12122bf54ee6aed443153311d84f",
+  "schemaVersion": 1,
+  "status": "success",
+  "totalMs": 2771,
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "次の型番を一字も変えずに返してください。型番だけ答えてください：R4821",
+      "rawOutput": "R4821",
+      "reason": "completed",
+      "sanitizedOutput": "R4821",
+      "sendMs": 356,
+      "status": "success"
+    }
+  ]
+}

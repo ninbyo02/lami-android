@@ -1,0 +1,207 @@
+{
+  "matrix_status": "execution_passed",
+  "scope": "functional_identifier_accuracy_not_numerical_parity",
+  "cases": [
+    {
+      "case": "direct_ja",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 0,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/direct_ja/cpu_npu_reference_b23d405e841f42638080c0d793b77884",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "Z31"
+        ]
+      }
+    },
+    {
+      "case": "direct_en",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 0,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/direct_en/cpu_npu_reference_1d1b3abb175b4134bb9d78e8b338f316",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "Z31"
+        ]
+      }
+    },
+    {
+      "case": "short_record_ja",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 0,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/short_record_ja/cpu_npu_reference_8455f39f50bb4f208b058d0115a50842",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "Z31"
+        ]
+      }
+    },
+    {
+      "case": "short_history_ja",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true,
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true,
+            true
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 0,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/short_history_ja/cpu_npu_reference_29513e47f12842ac95febcaa84ddad12",
+      "answers": {
+        "cpu": [
+          "了解",
+          "Z31"
+        ],
+        "npu": [
+          "了解",
+          "Z31"
+        ]
+      }
+    },
+    {
+      "case": "long_record_ja",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "failed",
+          "turn_quality": [
+            false
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 1,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/long_record_ja/cpu_npu_reference_7c6e714eee6a4f78a8ab85bb9092b869",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "Aの型番は **Z1** です。"
+        ]
+      }
+    },
+    {
+      "case": "alternate_identifier",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 0,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f/alternate_identifier/cpu_npu_reference_4eae12122bf54ee6aed443153311d84f",
+      "answers": {
+        "cpu": [
+          "R4821"
+        ],
+        "npu": [
+          "R4821"
+        ]
+      }
+    }
+  ],
+  "quality_gaps": [
+    "long_record_ja"
+  ],
+  "all_answers_passed": false,
+  "output_dir": "/home/sato/lami-tts-daemon/cpu-npu-identifier-20261017/identifier_e347b56b82f94c8094f9b1393541127f"
+}

@@ -1,0 +1,31 @@
+{
+  "scenarioId": "cpu_npu_reference_d651e601ed044e769705ef63e3b8a969",
+  "validation": "passed",
+  "checks": {
+    "cpu": {
+      "execution": "passed",
+      "quality": "passed",
+      "turn_quality": [
+        true
+      ],
+      "errors": []
+    },
+    "npu": {
+      "execution": "passed",
+      "quality": "passed",
+      "turn_quality": [
+        true
+      ],
+      "errors": []
+    }
+  },
+  "npu_numerical_parity": "not_verified",
+  "npu_hardware_attestation": "not_performed",
+  "limitations": [
+    "Functional answers only; not token/logit numerical equivalence.",
+    "PC CPU and phone NPU timings are different environments, not a hardware speedup measurement.",
+    "Model artifacts/runtime versions differ. CPU seed 0, NPU requested greedy seed 42; thinking/configuration parity is not established.",
+    "CPU reconstructs history each turn; NPU requested history mode: persistent_v1. NPU execution identity relies on existing diagnostic report, not independent hardware attestation."
+  ],
+  "evidence_dir": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-cold-20261017/identifier_b53b5726c3d846e095f732576b7aff92/controlled_0/cpu_npu_reference_d651e601ed044e769705ef63e3b8a969"
+}

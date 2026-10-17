@@ -1,0 +1,18 @@
+{
+  "scenarioId": "cpu_npu_reference_29513e47f12842ac95febcaa84ddad12",
+  "prompts": [
+    "装置Aの型番はZ31です。「了解」だけ答えてください。",
+    "装置Aの型番だけ答えてください。"
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "npu_history_mode": "persistent_v1",
+  "expected": [
+    "了解",
+    "Z31"
+  ],
+  "case_set_sha256": "063f0667d7f8fd4ecf455e1db66c77047985fd6c814b462f5cb5380e5b736b77",
+  "prompt_sha256": [
+    "8c06c6423ba5cf51ee6d55feb9d1bf44c39d4f793a86358cec0846c795e56f18",
+    "ea42965035e9e6359da5e8a1badbd60594111944c11db50d1d0a2eb7297955ad"
+  ]
+}

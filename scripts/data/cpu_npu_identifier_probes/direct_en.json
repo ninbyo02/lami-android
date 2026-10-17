@@ -1,0 +1,9 @@
+{
+  "name": "direct_en",
+  "turns": [
+    {
+      "prompt": "Copy this identifier exactly. Reply with only the identifier: Z31",
+      "expected": "Z31"
+    }
+  ]
+}

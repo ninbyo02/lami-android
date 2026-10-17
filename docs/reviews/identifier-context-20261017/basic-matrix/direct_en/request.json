@@ -1,0 +1,15 @@
+{
+  "scenarioId": "cpu_npu_reference_1d1b3abb175b4134bb9d78e8b338f316",
+  "prompts": [
+    "Copy this identifier exactly. Reply with only the identifier: Z31"
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "npu_history_mode": "persistent_v1",
+  "expected": [
+    "Z31"
+  ],
+  "case_set_sha256": "45532e2ab65171f52dc6e50b4f295f8c03ffc37ed606d8a68e99508f8339bf76",
+  "prompt_sha256": [
+    "85a90c4238e3fcf56f5aa41ef05fcae12782bbebfc1d7f673a53c366cdd35fa4"
+  ]
+}

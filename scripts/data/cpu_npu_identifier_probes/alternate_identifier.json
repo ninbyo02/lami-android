@@ -1,0 +1,9 @@
+{
+  "name": "alternate_identifier",
+  "turns": [
+    {
+      "prompt": "次の型番を一字も変えずに返してください。型番だけ答えてください：R4821",
+      "expected": "R4821"
+    }
+  ]
+}

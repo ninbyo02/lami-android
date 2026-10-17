@@ -1,0 +1,36 @@
+{
+  "scenarioId": "cpu_npu_reference_b23d405e841f42638080c0d793b77884",
+  "backend": "HOST_CPU_REFERENCE",
+  "status": "success",
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "次の型番を一字も変えずに返してください。型番だけ答えてください：Z31",
+      "status": "success",
+      "sanitizedOutput": "Z31",
+      "sendMs": 814,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "Z31",
+        "content_chunks": 3,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "8e971b63fcb9dc52480cc6d2755de5b65d4029d17e40cf72a178ef71e8633487",
+        "model_load_ms": 242,
+        "first_content_ms": 612,
+        "total_ms": 707
+      }
+    }
+  ]
+}

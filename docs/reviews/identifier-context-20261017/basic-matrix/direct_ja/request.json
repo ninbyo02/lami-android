@@ -1,0 +1,15 @@
+{
+  "scenarioId": "cpu_npu_reference_b23d405e841f42638080c0d793b77884",
+  "prompts": [
+    "次の型番を一字も変えずに返してください。型番だけ答えてください：Z31"
+  ],
+  "system_instruction": "You are a helpful assistant. Follow the user instructions.",
+  "npu_history_mode": "persistent_v1",
+  "expected": [
+    "Z31"
+  ],
+  "case_set_sha256": "938e87daa9a366ceec85dcfd7b946a228e2b15e536064a0f69ba991dffc10145",
+  "prompt_sha256": [
+    "8e971b63fcb9dc52480cc6d2755de5b65d4029d17e40cf72a178ef71e8633487"
+  ]
+}

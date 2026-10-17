@@ -1,0 +1,73 @@
+{
+  "direct_ja": {
+    "raw_user_prompt_token_counts": [
+      22
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "direct_en": {
+    "raw_user_prompt_token_counts": [
+      14
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "short_record_ja": {
+    "raw_user_prompt_token_counts": [
+      34
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "short_history_ja": {
+    "raw_user_prompt_token_counts": [
+      18,
+      10
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "long_record_ja": {
+    "raw_user_prompt_token_counts": [
+      440
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "alternate_identifier": {
+    "raw_user_prompt_token_counts": [
+      24
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "controlled_0": {
+    "raw_user_prompt_token_counts": [
+      56
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "controlled_4": {
+    "raw_user_prompt_token_counts": [
+      152
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "controlled_8": {
+    "raw_user_prompt_token_counts": [
+      248
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  },
+  "controlled_16": {
+    "raw_user_prompt_token_counts": [
+      440
+    ],
+    "includes_system_and_template": false,
+    "npu_tokenizer_equivalence": "not_verified"
+  }
+}

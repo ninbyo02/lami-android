@@ -1,0 +1,36 @@
+{
+  "scenarioId": "cpu_npu_reference_5b7cf77b707b4a3cb00b20c71dba6468",
+  "backend": "HOST_CPU_REFERENCE",
+  "status": "success",
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "次の作業記録を読み、装置Aの型番だけ答えてください。\n重要記録：装置Aの担当者は森、型番はZ31、次回の点検は金曜日。装置Bの担当者は田中、型番はB52。",
+      "status": "success",
+      "sanitizedOutput": "Z31",
+      "sendMs": 566,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "Z31",
+        "content_chunks": 3,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "edcbdf24ced2d91be9439aac7249439f025b3024cb82ea5b557067fcf401959c",
+        "model_load_ms": 181,
+        "first_content_ms": 394,
+        "total_ms": 484
+      }
+    }
+  ]
+}

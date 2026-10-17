@@ -1,0 +1,30 @@
+{
+  "validation": "passed",
+  "models": [
+    {
+      "model": "/home/sato/Downloads/gemma-4-E2B-it.litertlm",
+      "model_bytes": 2588147712,
+      "tokenizer_sections": [
+        {
+          "kind_id": 4,
+          "bytes": 4689013,
+          "sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03"
+        }
+      ],
+      "scope": "Tokenizer bytes only; does not establish weight, template, runtime or numerical equivalence"
+    },
+    {
+      "model": "/home/sato/Downloads/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+      "model_bytes": 3016294400,
+      "tokenizer_sections": [
+        {
+          "kind_id": 4,
+          "bytes": 4689013,
+          "sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03"
+        }
+      ],
+      "scope": "Tokenizer bytes only; does not establish weight, template, runtime or numerical equivalence"
+    }
+  ],
+  "tokenizer_sections_identical": true
+}

@@ -1,0 +1,7 @@
+{
+  "scenarioId": "cpu_npu_reference_254fb3605a3c47d6a11089a04c9b20b9",
+  "backend": "NPU",
+  "status": "failure",
+  "reason": "NPU receiver did not acknowledge delivery; launch a newly installed diagnostic app once and verify its component",
+  "turns": []
+}

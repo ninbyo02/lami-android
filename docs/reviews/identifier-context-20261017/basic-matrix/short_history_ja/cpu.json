@@ -1,0 +1,65 @@
+{
+  "scenarioId": "cpu_npu_reference_29513e47f12842ac95febcaa84ddad12",
+  "backend": "HOST_CPU_REFERENCE",
+  "status": "success",
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "装置Aの型番はZ31です。「了解」だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "了解",
+      "sendMs": 800,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "了解",
+        "content_chunks": 1,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "8c06c6423ba5cf51ee6d55feb9d1bf44c39d4f793a86358cec0846c795e56f18",
+        "model_load_ms": 255,
+        "first_content_ms": 600,
+        "total_ms": 667
+      }
+    },
+    {
+      "index": 2,
+      "prompt": "装置Aの型番だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "Z31",
+      "sendMs": 664,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "Z31",
+        "content_chunks": 3,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "ea42965035e9e6359da5e8a1badbd60594111944c11db50d1d0a2eb7297955ad",
+        "model_load_ms": 235,
+        "first_content_ms": 448,
+        "total_ms": 557
+      }
+    }
+  ]
+}

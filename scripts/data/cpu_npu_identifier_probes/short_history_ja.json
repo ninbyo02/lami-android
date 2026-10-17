@@ -1,0 +1,13 @@
+{
+  "name": "short_history_ja",
+  "turns": [
+    {
+      "prompt": "装置Aの型番はZ31です。「了解」だけ答えてください。",
+      "expected": "了解"
+    },
+    {
+      "prompt": "装置Aの型番だけ答えてください。",
+      "expected": "Z31"
+    }
+  ]
+}

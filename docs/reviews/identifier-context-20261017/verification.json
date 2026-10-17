@@ -1,0 +1,37 @@
+{
+  "scope": "Functional identifier probes in isolated reference apps; no production/model changes",
+  "short_cases": "CPU and NPU pass direct Japanese, direct English, short record, short history, and alternate identifier",
+  "cold_length_matrix": {
+    "0_surrounding_rows": "both Z31",
+    "4_surrounding_rows": "both Z31",
+    "8_surrounding_rows": {
+      "cpu": "Z31",
+      "npu": "A"
+    },
+    "16_surrounding_rows": {
+      "cpu": "Z31",
+      "npu": "Aの型番は **Z1** です。"
+    }
+  },
+  "cpu_raw_prompt_tokens": [
+    56,
+    152,
+    248,
+    440
+  ],
+  "tokenizer_sections_identical": true,
+  "tokenizer_section_sha256": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+  "npu_pc_model_matches_previously_verified_device_sha256": true,
+  "retained_process_run_failures": [
+    "controlled_0 engine creation returned failure",
+    "controlled_4 receiver delivery not acknowledged"
+  ],
+  "cold_start_run_execution": "all four passed",
+  "npu_quality_gap": "reproduced without history and after app process restart",
+  "root_cause": "not_identified; weights/quantization/template/runtime differences remain",
+  "context_overflow": "not_established; raw CPU counts exclude template/system, NPU context limit not measured",
+  "npu_numerical_parity": "not_verified",
+  "python_voice_tests": 30,
+  "runtime_pin_tests": 5,
+  "production_main_updated": false
+}

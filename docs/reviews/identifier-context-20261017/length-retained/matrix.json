@@ -1,0 +1,119 @@
+{
+  "matrix_status": "failed",
+  "scope": "functional_identifier_accuracy_not_numerical_parity",
+  "cases": [
+    {
+      "case": "controlled_0",
+      "execution": "failed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "failed",
+          "quality": "not_evaluated",
+          "errors": [
+            "Missing or extra turns",
+            "engine-create-failed:INTERNAL: ERROR: [runtime/executor/llm_litert_npu_compiled_model_executor.cc:2725]\n└ ERROR: [external/litert/litert/cc/litert_compiled_model.h:1140]"
+          ]
+        }
+      },
+      "exit_code": 1,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-20261017/identifier_d1d7702c37214566b7c28ae703617f0c/controlled_0/cpu_npu_reference_5b7cf77b707b4a3cb00b20c71dba6468"
+    },
+    {
+      "case": "controlled_4",
+      "execution": "failed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "failed",
+          "quality": "not_evaluated",
+          "errors": [
+            "Missing or extra turns",
+            "NPU receiver did not acknowledge delivery; launch a newly installed diagnostic app once and verify its component"
+          ]
+        }
+      },
+      "exit_code": 1,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-20261017/identifier_d1d7702c37214566b7c28ae703617f0c/controlled_4/cpu_npu_reference_254fb3605a3c47d6a11089a04c9b20b9"
+    },
+    {
+      "case": "controlled_8",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "failed",
+          "turn_quality": [
+            false
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 1,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-20261017/identifier_d1d7702c37214566b7c28ae703617f0c/controlled_8/cpu_npu_reference_9fc118ef13fc4b0e87628e48af2ef538",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "A"
+        ]
+      }
+    },
+    {
+      "case": "controlled_16",
+      "execution": "passed",
+      "checks": {
+        "cpu": {
+          "execution": "passed",
+          "quality": "passed",
+          "turn_quality": [
+            true
+          ],
+          "errors": []
+        },
+        "npu": {
+          "execution": "passed",
+          "quality": "failed",
+          "turn_quality": [
+            false
+          ],
+          "errors": []
+        }
+      },
+      "exit_code": 1,
+      "evidence": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-20261017/identifier_d1d7702c37214566b7c28ae703617f0c/controlled_16/cpu_npu_reference_320d88a82bf24ec09437cc14b46abbe2",
+      "answers": {
+        "cpu": [
+          "Z31"
+        ],
+        "npu": [
+          "Aの型番は **Z1** です。"
+        ]
+      }
+    }
+  ],
+  "output_dir": "/home/sato/lami-tts-daemon/cpu-npu-identifier-length-20261017/identifier_d1d7702c37214566b7c28ae703617f0c"
+}
