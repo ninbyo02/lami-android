@@ -1,0 +1,7 @@
+# Resident QNN top-k codec feedback — SM8750, 2026-10-15 07:46 JST
+
+Isolated debug-only cpdiagnostic, production-fp32 context, QAIRT 2.47 on SM8750. Used real utterance-derived initial embeddings, 15 pinned codec head+embedding pairs, Java-compatible seeded 48-bit LCG draws, temperature 0.9, top-k 50. Positions 1..14 selected a token and fed its embedding to the next resident QNN inference. This is a one-frame diagnostic, not production voice generation.
+
+Device receipt: status=SIXTEEN_STEPS_RETURNED; positions_completed=16; topk_feedback_codes=1368,42,1436,793,69,532,790,1706,1022,103,739,1574,609,1141; total_step_ns=391267605; context_load_ns=424413802; kv_reset_ns=1809011; last_output_sha256=d427ef1a364c6f6d0aeb8f8107d6b6de4c66fcf02dd2ec83a0ed0752f7107caf; native_stats=1,16,24,1,0,149006562,287050623; audio_played=false.
+
+Important: This diagnostic still reports the legacy field greedy_feedback_enabled=true for whether feedback tables are present, but the selection is now top-k probabilistic; the separate topk_feedback_codes key identifies actual selection. The head scoring computes Double products and sums, unlike the original NumPy FP32 cumulative dot accumulation, so exact stochastic output equivalence with the legacy voice pipeline is NOT yet established. Timings cover only NPU calls and not head scoring / file validation / decoding. Full end-to-end audio and EOS remain outstanding.

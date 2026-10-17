@@ -1,0 +1,85 @@
+package io.github.ninbyo02.lami.tts
+
+import java.io.File
+import java.io.RandomAccessFile
+import java.nio.channels.FileChannel
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.math.exp
+
+/** Debug-only first feedback edge. Uses greedy argmax, not production sampling. */
+internal object ResidentCpGreedyFeedback {
+    private const val WIDTH = 1024
+    private const val CODES = 2048
+    private const val ROW_BYTES = WIDTH * 4
+    const val HEAD_SHA256 = "1bcf9112dde57e7c40fa31b455b2e60bdba0dbae75f3edfeed9f83594d3782af"
+    const val EMBEDDING_SHA256 = "deec193c5d8824dc20b47eb71c4c59f6a56cbd9585d22a5f029ca31172df1958"
+
+    internal class SharedDraw(seed: Long = 42L) {
+        private var state = (seed xor 0x5DEECE66DL) and ((1L shl 48) - 1)
+        private fun bits(n: Int): Long {
+            state = (state * 0x5DEECE66DL + 0xBL) and ((1L shl 48) - 1)
+            return state ushr (48 - n)
+        }
+        fun draw(): Double = ((bits(26) shl 27) + bits(27)).toDouble() / (1L shl 53)
+    }
+
+    fun verifyTables(directory: File): List<Pair<File, File>> {
+        val hashes = File(directory, "resident-cp-heads-embeddings.sha256").readLines()
+        require(hashes.size == 15) { "Expected fifteen immutable table hashes" }
+        return (0 until 15).map { index ->
+            val pair = hashes[index].split(" ")
+            require(pair.size == 2 && pair.all { it.matches(Regex("[0-9a-f]{64}")) })
+            val head = File(directory, "resident-cp-head-$index.f32")
+            val embedding = File(directory, "resident-cp-embedding-$index.f32")
+            for ((file, hash) in listOf(head to pair[0], embedding to pair[1])) {
+                require(file.isFile && file.length() == CODES.toLong() * ROW_BYTES &&
+                    ResidentCpSingleStepFixture.sha256(file) == hash) { "Incorrect feedback fixture" }
+            }
+            head to embedding
+        }
+    }
+
+    fun selectVerified(head: File, embedding: File, hidden: FloatArray,
+               draw: Double? = null): Pair<Int, FloatArray> {
+        require(hidden.size == WIDTH && hidden.all(Float::isFinite))
+        val scores = DoubleArray(CODES)
+        // Read-only memory map avoids 2048 individual filesystem reads per head.
+        RandomAccessFile(head, "r").use { reader ->
+            val mapped = reader.channel.map(FileChannel.MapMode.READ_ONLY, 0L, reader.length())
+                .order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            for (code in 0 until CODES) {
+                var score = 0.0
+                val offset = code * WIDTH
+                for (i in 0 until WIDTH) score += mapped.get(offset + i).toDouble() * hidden[i]
+                require(score.isFinite()) { "Non-finite head score" }
+                scores[code] = score
+            }
+        }
+        val best = if (draw == null) {
+            scores.indices.maxWithOrNull(compareBy<Int> { scores[it] }.thenBy { -it })!!
+        } else {
+            require(draw >= 0.0 && draw < 1.0 && draw.isFinite())
+            val top = scores.indices.sortedWith(compareByDescending<Int> { scores[it] }.thenBy { it }).take(50)
+            val weights = top.map { exp((scores[it] - scores[top.first()]) / 0.9) }
+            val threshold = draw * weights.sum()
+            var cumulative = 0.0
+            var chosen = top.last()
+            for (i in top.indices) {
+                cumulative += weights[i]
+                if (threshold < cumulative) { chosen = top[i]; break }
+            }
+            chosen
+        }
+        require(best in 0 until CODES)
+        val bytes = ByteArray(ROW_BYTES)
+        RandomAccessFile(embedding, "r").use {
+            it.seek(best.toLong() * ROW_BYTES)
+            it.readFully(bytes)
+        }
+        val row = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        return best to FloatArray(WIDTH) { row.get(it) }.also {
+            require(it.all(Float::isFinite)) { "Invalid selected embedding" }
+        }
+    }
+}
