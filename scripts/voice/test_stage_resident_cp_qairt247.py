@@ -1,4 +1,5 @@
 import hashlib
+import copy
 from unittest.mock import patch
 import tempfile
 import unittest
@@ -99,5 +100,47 @@ class RuntimeStageTest(unittest.TestCase):
             m['files']['libQnnGpu.so'] = '0'*64
             with self.assertRaisesRegex(ValueError, 'Unpinned'):
                 inspect_apk(apk, m)
+
+    def test_diagnostic_manifest_cannot_override_sdk_pins_or_skip_libraries(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            runtime = base/'sdk/lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(base/'sdk')
+            manifest = stage(base/'sdk', jni, base/'stage')
+            # Existing callers may omit the profile field.
+            del manifest['profile']
+            apk = base/'diagnostic.apk'
+            with zipfile.ZipFile(apk, 'w') as z:
+                for name in manifest['files']:
+                    z.write(base/'stage'/name, 'lib/arm64-v8a/'+name)
+            self.assertTrue(inspect_apk(apk, manifest))
+            cases = []
+            unknown = copy.deepcopy(manifest)
+            unknown['profile'] = 'voice_trial'
+            cases.append((unknown, 'Unknown staging profile'))
+            for name in manifest['files']:
+                missing = copy.deepcopy(manifest)
+                del missing['files'][name]
+                cases.append((missing, 'Incomplete diagnostic manifest'))
+            invalid_jni = copy.deepcopy(manifest)
+            invalid_jni['files'][JNI] = None
+            cases.append((invalid_jni, 'Invalid JNI hash'))
+            for candidate, error in cases:
+                with self.subTest(error=error, manifest=candidate):
+                    with self.assertRaisesRegex(ValueError, error):
+                        inspect_apk(apk, candidate)
+            # Even a manifest matching the APK bytes cannot bless an unpinned runtime.
+            manifest['files'][RUNTIME[0]] = hashlib.sha256(b'244').hexdigest()
+            with zipfile.ZipFile(apk, 'w') as z:
+                for name in manifest['files']:
+                    z.writestr('lib/arm64-v8a/'+name,
+                               b'244' if name == RUNTIME[0] else (base/'stage'/name).read_bytes())
+            with self.assertRaisesRegex(ValueError, 'Unpinned QAIRT manifest'):
+                inspect_apk(apk, manifest)
 
 if __name__=='__main__': unittest.main()

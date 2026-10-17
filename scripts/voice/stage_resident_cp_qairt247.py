@@ -60,16 +60,25 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     return manifest
 
 def inspect_apk(apk, manifest):
+    profile = manifest.get('profile', 'diagnostic')
+    if profile not in ('diagnostic', 'voice-trial'):
+        raise ValueError('Unknown staging profile')
+    full = profile == 'voice-trial'
+    required = {*FULL_RUNTIME, JNI, 'hexagon-v79/' + SKELETON} if full else {*RUNTIME, JNI}
+    files = manifest.get('files')
+    if not isinstance(files, dict) or set(files) != required:
+        raise ValueError('Incomplete ' + profile + ' manifest')
+    for name in required - {JNI}:
+        if files[name] != SDK_PINS[Path(name).name]:
+            raise ValueError('Unpinned QAIRT manifest: ' + name)
+    if not isinstance(files[JNI], str) or not re.fullmatch(r'[0-9a-f]{64}', files[JNI]):
+        raise ValueError('Invalid JNI hash in manifest')
     with zipfile.ZipFile(apk) as z:
         entries = z.namelist()
         names = set(entries)
         if any(entries.count(n) > 1 for n in names if n.endswith('.so')):
             raise ValueError('Duplicate APK library entry')
-        full = manifest.get('profile', 'diagnostic') == 'voice-trial'
         if full:
-            required = {*FULL_RUNTIME, JNI, 'hexagon-v79/' + SKELETON}
-            if set(manifest['files']) != required:
-                raise ValueError('Incomplete full voice-trial manifest')
             for name in names:
                 base = Path(name).name
                 if base.endswith('.so') and ('qairt244' in base.lower() or
@@ -77,9 +86,6 @@ def inspect_apk(apk, manifest):
                             'lib/arm64-v8a/' + n for n in FULL_RUNTIME} | {
                             'assets/hexagon-v79/' + SKELETON})):
                     raise ValueError('Unpinned/legacy QAIRT library: ' + name)
-            for name in required - {JNI}:
-                if manifest['files'][name] != SDK_PINS[Path(name).name]:
-                    raise ValueError('Unpinned QAIRT manifest: ' + name)
         for name in FORBIDDEN:
             if 'lib/arm64-v8a/'+name in names:
                 raise ValueError(f'Private/vendor RPC bundled: {name}')
