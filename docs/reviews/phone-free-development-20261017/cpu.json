@@ -1,0 +1,181 @@
+{
+  "scenarioId": "phone_free_3c556dd4bd3246f6a0bfe317ad63582e",
+  "backend": "HOST_CPU_REFERENCE",
+  "status": "success",
+  "turns": [
+    {
+      "index": 1,
+      "prompt": "私の姓は佐藤です。「了解」だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "了解",
+      "sendMs": 468,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "了解",
+        "content_chunks": 1,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "5a056f0e893167838ddbc5435c04b7e292ef474882f2a8c2fdd45e5ac05c4c65",
+        "model_load_ms": 159,
+        "first_content_ms": 351,
+        "total_ms": 390
+      }
+    },
+    {
+      "index": 2,
+      "prompt": "私の姓は何ですか。姓だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "佐藤",
+      "sendMs": 444,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "佐藤",
+        "content_chunks": 1,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "71c2dc236c2c5b96ccc6b53f2e97a175af31fe481a111f6bb3915e5718f001a0",
+        "model_load_ms": 153,
+        "first_content_ms": 340,
+        "total_ms": 381
+      }
+    },
+    {
+      "index": 3,
+      "prompt": "次の作業記録を読み、装置Aの担当者の姓だけ答えてください。\n記録01：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録02：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録03：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録04：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録05：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録06：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録07：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録08：共用工具の点検を実施し、所定の場所への返却を確認した。\n重要記録：装置Aの担当者は森、型番はZ31、次回の点検は金曜日。装置Bの担当者は田中、型番はB52。\n記録09：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録10：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録11：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録12：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録13：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録14：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録15：共用工具の点検を実施し、所定の場所への返却を確認した。\n記録16：共用工具の点検を実施し、所定の場所への返却を確認した。",
+      "status": "success",
+      "sanitizedOutput": "森",
+      "sendMs": 750,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "森",
+        "content_chunks": 1,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "1541dfe00ee56addadf405ecf453869d33c56fef6861d5042c6a127b8d3a3787",
+        "model_load_ms": 150,
+        "first_content_ms": 645,
+        "total_ms": 684
+      }
+    },
+    {
+      "index": 4,
+      "prompt": "先ほどの装置Aの型番は何ですか。型番だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "Z31",
+      "sendMs": 878,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "Z31",
+        "content_chunks": 3,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "12bf5b2473c755c5747ca579930ec0d7c125c731f672b6e70357701a56272739",
+        "model_load_ms": 149,
+        "first_content_ms": 733,
+        "total_ms": 815
+      }
+    },
+    {
+      "index": 5,
+      "prompt": "装置Aの次回点検は何曜日ですか。曜日だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "金曜日",
+      "sendMs": 876,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "金曜日",
+        "content_chunks": 2,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "e08283dbee92ce574756fd5e61cc6e27ef5ed4e7ee252f451332ba123439d7be",
+        "model_load_ms": 158,
+        "first_content_ms": 752,
+        "total_ms": 814
+      }
+    },
+    {
+      "index": 6,
+      "prompt": "その曜日を英語で答えてください。英単語だけ答えてください。",
+      "status": "success",
+      "sanitizedOutput": "Friday",
+      "sendMs": 865,
+      "reference_backend": {
+        "backend": "host_litert_cpu",
+        "runtime": "litert-lm-api",
+        "runtime_version": "0.18.0",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "model_bytes": 2588147712,
+        "model_alias": "gemma4-e2b-litert-cpu",
+        "npu_execution": "not_run",
+        "npu_numerical_parity": "not_verified"
+      },
+      "reference_metrics": {
+        "status": "passed",
+        "response": "Friday",
+        "content_chunks": 1,
+        "runtime_version": "0.18.0",
+        "sampling": "top_k_1_seed_0",
+        "max_output_tokens": 64,
+        "input_sha256": "88527eec7369498645c57f8cfab29b21a776580b26009bd52445bb16850d86f4",
+        "model_load_ms": 158,
+        "first_content_ms": 762,
+        "total_ms": 802
+      }
+    }
+  ]
+}

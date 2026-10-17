@@ -1,0 +1,14 @@
+{
+  "validation": "failed",
+  "scope": "phone_free_cpu_development",
+  "serial": "192.168.52.52:42543",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "evidence_dir": "/home/sato/lami-tts-daemon/phone-free-rejected-20261017/phone_free_2dd78cb217f54c21aac35df60b02c61d",
+  "limitations": [
+    "Requires a PC CPU bridge on port 11436 and an installed debug emulator app.",
+    "Does not validate NPU binaries, drivers, timing, memory or TTS.",
+    "Creates a chat and restarts only the emulator debug app; CPU mode remains enabled."
+  ],
+  "error": "Explicit emulator serial required; no phone commands were issued"
+}
