@@ -1,11 +1,60 @@
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import build_resident_cp_android_jni as build
+
+
+class NativeLinkContractTest(unittest.TestCase):
+    def test_android_link_rejects_missing_ffi_and_accepts_complete_ffi(self):
+        sdk = Path(os.environ.get('ANDROID_HOME', Path.home()/'Android/Sdk'))
+        compilers = sorted((sdk/'ndk').glob(
+            '*/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang'))
+        if not compilers:
+            self.skipTest('Existing Linux Android NDK API 35 compiler required')
+        clang = compilers[-1]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture = root/'ffi.c'
+            obj = root/'ffi.o'
+            archive = root/'ffi.a'
+            output = root/'jni.so'
+            fixture.write_text('void empty_archive_fixture(void) {}\n')
+            def compile_archive():
+                subprocess.run([str(clang), '-c', '-fPIC', str(fixture), '-o', str(obj)],
+                               check=True, capture_output=True)
+                subprocess.run([str(clang.parent/'llvm-ar'), 'rcs', str(archive), str(obj)],
+                               check=True, capture_output=True)
+            compile_archive()
+            run = subprocess.run
+            with patch.object(build.subprocess, 'run', side_effect=lambda *a, **kw:
+                              run(*a, capture_output=True, text=True, **kw)):
+                with self.assertRaises(subprocess.CalledProcessError) as error:
+                    build.link_jni(clang, archive, output)
+            self.assertIn('undefined symbol: lami_cp_create', error.exception.stderr)
+            self.assertFalse(build.receipt_path(output).exists())
+            # Link-only fixtures: never executed and never used as Android build inputs.
+            fixture.write_text('''#include "resident_cp_ffi.h"
+int32_t lami_cp_create(const uint8_t *a, size_t b, const char *c, const char *d,
+                       const char *e, uint64_t *f) { return 0; }
+int32_t lami_cp_reset(uint64_t a) { return 0; }
+int32_t lami_cp_cancel(uint64_t a) { return 0; }
+int32_t lami_cp_release(uint64_t a) { return 0; }
+int32_t lami_cp_step(uint64_t a, int32_t b, const float *c, float *d, size_t e) { return 0; }
+int32_t lami_cp_stats(uint64_t a, uint64_t *b, size_t c) { return 0; }
+void lami_qnn_log_read(char *out, size_t capacity) { if (capacity) out[0] = 0; }
+''')
+            subprocess.run([str(clang), '-c', '-fPIC', '-I', str(build.CRATE/'native'),
+                            str(fixture), '-o', str(obj)], check=True, capture_output=True)
+            subprocess.run([str(clang.parent/'llvm-ar'), 'rcs', str(archive), str(obj)],
+                           check=True, capture_output=True)
+            build.link_jni(clang, archive, output)
+            self.assertTrue(output.is_file())
 
 
 class NativeBuildProvenanceTest(unittest.TestCase):

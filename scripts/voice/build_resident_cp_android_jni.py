@@ -72,6 +72,15 @@ def receipt_path(jni):
     return jni.with_suffix(jni.suffix + '.provenance.json')
 
 
+def link_jni(clang, archive, output):
+    # Shared-library links otherwise permit missing Rust FFI definitions. Reject
+    # them before publishing a binary/receipt rather than at Android load time.
+    subprocess.run([str(clang), '-std=c11', '-O2', '-fPIC', '-shared', '-Wall',
+                    '-Wextra', '-Werror', '-Wl,--no-undefined', '-I', str(CRATE/'native'),
+                    str(CRATE/'native/resident_cp_jni.c'), str(archive),
+                    '-ldl', '-llog', '-lm', '-o', str(output)], check=True)
+
+
 def verify_jni(jni, sdk):
     receipt = json.loads(receipt_path(jni).read_text())
     if (receipt.get('schema') != 2 or receipt.get('sdk') != sdk_identity(sdk) or
@@ -122,11 +131,7 @@ def main():
                         '--target', 'aarch64-linux-android', '--features', 'qnn-sdk'],
                        cwd=CRATE, env=env, check=True)
         built = target/output.name
-        subprocess.run([str(clang), '-std=c11', '-O2', '-fPIC', '-shared', '-Wall',
-                        '-Wextra', '-Werror', '-I', str(CRATE/'native'),
-                        str(CRATE/'native/resident_cp_jni.c'),
-                        str(target/'aarch64-linux-android/release/liblami_resident_cp.a'),
-                        '-ldl', '-llog', '-lm', '-o', str(built)], check=True)
+        link_jni(clang, target/'aarch64-linux-android/release/liblami_resident_cp.a', built)
         elf = subprocess.run([str(readelf), '-h', '-d', str(built)],
                              capture_output=True, text=True, check=True).stdout
         if ('Machine: AArch64' not in ' '.join(elf.split()) or
