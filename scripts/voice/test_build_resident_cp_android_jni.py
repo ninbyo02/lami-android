@@ -48,19 +48,46 @@ class NativeBuildProvenanceTest(unittest.TestCase):
                 build.sdk_identity(self.sdk)
             path.write_bytes(original)
 
+    def test_rust_identity_binds_compiler_and_android_standard_library(self):
+        sysroot = self.root/'rust'
+        (sysroot/'bin').mkdir(parents=True)
+        for name in ('rustc', 'cargo'):
+            (sysroot/'bin'/name).write_bytes(name.encode())
+        libraries = sysroot/'target-libs'
+        libraries.mkdir()
+        std = libraries/'libstd-test.rlib'
+        std.write_bytes(b'android std')
+        from types import SimpleNamespace
+        def run(args, **kwargs):
+            value = (str(sysroot) if args[-1] == 'sysroot' else
+                     str(libraries) if 'target-libdir' in args else 'version')
+            return SimpleNamespace(stdout=value)
+        with patch.object(build.subprocess, 'run', side_effect=run):
+            identity = build.rust_identity()
+            self.assertEqual(identity['tools_sha256']['rustc'], build.sha(sysroot/'bin/rustc'))
+            std.write_bytes(b'different std')
+            self.assertNotEqual(build.rust_identity(), identity)
+            std.unlink()
+            with self.assertRaisesRegex(ValueError, 'Missing installed Rust Android'):
+                build.rust_identity()
+
     def test_receipt_binds_binary_sources_and_separate_architectures(self):
         jni = self.root/'test.so'
         jni.write_bytes(b'jni')
         with self.assertRaises(FileNotFoundError):
             build.verify_jni(jni, self.sdk)
-        receipt = {'schema': 1, 'sdk': build.sdk_identity(self.sdk),
+        rust = {'rustc_version': 'test compiler', 'target_rlib_sha256': {'std.rlib': 'a'*64}}
+        mock = patch.object(build, 'rust_identity', return_value=rust)
+        mock.start()
+        self.addCleanup(mock.stop)
+        receipt = {'schema': 2, 'rust': rust, 'sdk': build.sdk_identity(self.sdk),
                    'sources': build.source_identity(), 'api': 35,
                    'tools_sha256': {'clang': 'a'*64}, 'jni_sha256': build.sha(jni)}
         sidecar = build.receipt_path(jni)
         sidecar.write_text(json.dumps(receipt))
         self.assertEqual(build.verify_jni(jni, self.sdk), receipt)
         for field, value in (('jni_sha256', '0'*64), ('sources', {}),
-                             ('sdk', {'android_abi': 'hexagon-v79'}), ('schema', 0)):
+                             ('sdk', {'android_abi': 'hexagon-v79'}), ('rust', {}), ('schema', 1)):
             wrong = {**receipt, field: value}
             sidecar.write_text(json.dumps(wrong))
             with self.assertRaisesRegex(ValueError, 'rebuild required'):

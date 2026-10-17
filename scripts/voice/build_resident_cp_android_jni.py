@@ -50,14 +50,33 @@ def source_identity():
     return {p.relative_to(ROOT).as_posix(): sha(p) for p in paths}
 
 
+def rust_identity():
+    def output(*args):
+        return subprocess.run(args, capture_output=True, text=True,
+                              check=True).stdout.strip()
+
+    sysroot = Path(output('rustc', '--print', 'sysroot'))
+    target_lib = Path(output('rustc', '--print', 'target-libdir',
+                             '--target', 'aarch64-linux-android'))
+    libraries = sorted(target_lib.glob('*.rlib'))
+    if not libraries:
+        raise ValueError('Missing installed Rust Android target libraries')
+    return {'rustc_version': output('rustc', '-vV'),
+            'cargo_version': output('cargo', '-V'),
+            'tools_sha256': {name: sha(sysroot/'bin'/name)
+                             for name in ('rustc', 'cargo')},
+            'target_rlib_sha256': {path.name: sha(path) for path in libraries}}
+
+
 def receipt_path(jni):
     return jni.with_suffix(jni.suffix + '.provenance.json')
 
 
 def verify_jni(jni, sdk):
     receipt = json.loads(receipt_path(jni).read_text())
-    if (receipt.get('schema') != 1 or receipt.get('sdk') != sdk_identity(sdk) or
+    if (receipt.get('schema') != 2 or receipt.get('sdk') != sdk_identity(sdk) or
             receipt.get('sources') != source_identity() or
+            receipt.get('rust') != rust_identity() or
             receipt.get('jni_sha256') != sha(jni) or
             receipt.get('api', 0) < 26 or not receipt.get('tools_sha256')):
         raise ValueError('JNI provenance mismatch; rebuild required')
@@ -88,6 +107,7 @@ def main():
     if any(not tool.is_file() for tool in tools):
         raise SystemExit('Missing existing NDK tools; no downloads or fallback builds')
     sources = source_identity()
+    rust = rust_identity()
     tool_hashes = {tool.name: sha(tool) for tool in tools}
     env = {**os.environ, 'QAIRT_SDK_ROOT': str(sdk), 'CC': str(clang),
            'AR': str(archiver), 'CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER': str(clang)}
@@ -114,9 +134,10 @@ def main():
                 any(name in elf for name in ('libQnn', 'libcdsprpc.so', 'libadsprpc.so'))):
             raise ValueError('Unexpected JNI ELF ABI or direct vendor runtime binding')
         if (sdk_identity(sdk) != identity or source_identity() != sources or
+                rust_identity() != rust or
                 {tool.name: sha(tool) for tool in tools} != tool_hashes):
             raise ValueError('Build inputs changed during compilation')
-        receipt = {'schema': 1, 'sdk': identity, 'sources': sources,
+        receipt = {'schema': 2, 'sdk': identity, 'sources': sources, 'rust': rust,
                    'api': args.api, 'tools_sha256': tool_hashes, 'jni_sha256': sha(built)}
         built.replace(output)
         receipt_path(output).write_text(json.dumps(receipt, indent=2) + '\n')

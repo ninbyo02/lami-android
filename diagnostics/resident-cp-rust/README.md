@@ -104,7 +104,9 @@ reviewed full runtime SHA pins. Android `arm64-v8a` runtime and Hexagon V79 DSP
 are recorded separately. Each build uses a fresh Cargo target directory, checks
 ELF64/AArch64 and rejects direct QNN/vendor RPC dependencies. A failed rebuild
 invalidates any previous receipt. The adjacent `.so.provenance.json` binds the
-JNI hash to SDK hashes, repository source hashes, API level and NDK tool hashes.
+JNI hash to SDK hashes, repository source hashes, API level, NDK tool hashes, Rust/Cargo versions and executable hashes, and
+the installed Android target Rust library hashes. Schema 1 receipts require a
+rebuild; schema 2 verification checks the current Rust toolchain too.
 Verification rejects absent or mismatched receipts; these local receipts are
 build evidence, not signed attestations. Outputs remain under ignored `target/`.
 
