@@ -83,6 +83,44 @@ class LamiPcmStreamPlayerTest {
         assertFalse(track.drained)
     }
 
+    @Test fun cancellationDuringWriteBackpressureDiscardsUnwrittenSamplesAndReleasesTrack() = runTest {
+        val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
+        val last = floatArrayOf(0.5f, 0.6f)
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        chunks.send(first)
+        var stats: LamiPcmStreamPlayer.Stats? = null
+        var starts = 0
+        val playback = launch {
+            stats = LamiPcmStreamPlayer.play(chunks) { starts++ }
+        }
+        advanceUntilIdle()
+        val track = PartialWriteAudioTrack.latest
+        track.writes.clear()
+        track.writes.addAll(listOf(1, 0, 1))
+        chunks.send(last)
+        chunks.close()
+        // Suspend in the zero-write retry delay with one sample still unwritten.
+        runCurrent()
+        assertTrue(playback.isActive)
+        assertEquals((first + last.take(1)).toList(), track.accepted)
+        assertEquals(listOf(4, 2, 2, 1, 2, 1), track.requestSizes)
+        assertFalse(track.released)
+
+        playback.cancelAndJoin()
+        advanceUntilIdle()
+
+        assertTrue(playback.isCancelled)
+        assertEquals(null, stats)
+        assertEquals(1, starts)
+        assertEquals((first + last.take(1)).toList(), track.accepted)
+        assertEquals(listOf(4, 2, 2, 1, 2, 1), track.requestSizes)
+        assertEquals(listOf(1), track.writes.toList())
+        assertEquals(listOf(7), track.underrunReadings)
+        assertEquals(0, track.drainHeadReads)
+        assertEquals(listOf("stop", "release"), track.cleanup)
+        assertTrue(track.released)
+    }
+
     @Test fun cancellationDuringDrainDoesNotReportCompletedUnderrunStats() = runTest {
         val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
         val last = floatArrayOf(0.5f, 0.6f)
