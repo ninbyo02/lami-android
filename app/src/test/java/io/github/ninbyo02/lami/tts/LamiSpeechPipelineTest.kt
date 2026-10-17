@@ -220,6 +220,44 @@ class LamiSpeechPipelineTest {
         assertFalse(events.contains("play second"))
     }
 
+    @Test fun `stop discards fully prepared clip waiting for playback and permits reuse`() = runTest {
+        val cleanup = CompletableDeferred<Unit>()
+        val prepared = mutableListOf<String>()
+        val played = mutableListOf<String>()
+        val busy = mutableListOf<Boolean>()
+        val pipeline = LamiSpeechPipeline(backgroundScope, busy::add, prepare = {
+            prepared += it
+            it
+        }, play = {
+            played += it
+            if (it == "active") try { delay(1000) } finally {
+                withContext(NonCancellable) { cleanup.await() }
+            }
+        })
+        pipeline.enqueue("active")
+        pipeline.enqueue("ready")
+        pipeline.enqueue("queued")
+        runCurrent()
+        // Preparation has returned for ready; its rendezvous send is waiting on the player.
+        assertEquals(listOf("active", "ready"), prepared)
+        assertEquals(listOf("active"), played)
+
+        pipeline.stop()
+        runCurrent()
+        assertEquals(listOf(true, false), busy)
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("active", "ready"), prepared)
+        assertEquals(listOf("active"), played)
+        assertEquals(listOf(true, false), busy)
+
+        pipeline.enqueue("reuse")
+        runCurrent()
+        assertEquals(listOf("active", "ready", "reuse"), prepared)
+        assertEquals(listOf("active", "reuse"), played)
+        assertEquals(listOf(true, false, true, false), busy)
+    }
+
     @Test fun `rapid replacement waits for old producer and player cleanup`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         val events = mutableListOf<String>()
