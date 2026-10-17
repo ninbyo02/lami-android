@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from package_voice_integration_trial import deliver, verify_model
+from package_voice_integration_trial import accept_host_pipeline, deliver, verify_model
 from package_resident_cp_diagnostic_apk import pack, TRIAL_RECEIPT
 from stage_resident_cp_qairt247 import FULL_RUNTIME, JNI, SKELETON
 
@@ -102,14 +102,17 @@ class TrialDeliveryTest(unittest.TestCase):
                                  hashlib.sha256(b'source apk').hexdigest())
                 self.assertEqual(kwargs['trial_receipt']['model']['speaker'], 'lami_cute')
                 self.assertEqual(kwargs['trial_receipt']['device_speech'], 'unverified')
+                self.assertEqual(kwargs['trial_receipt']['host_pipeline_evidence']['host_pipeline_tests'], 'passed')
                 candidate.write_bytes(b'candidate')
             with patch('package_voice_integration_trial.verify_model', return_value={'speaker': 'lami_cute'}), \
                  patch('package_voice_integration_trial.verify_jni', return_value={'jni_sha256': 'b'*64}), \
                  patch('package_voice_integration_trial.stage', return_value={'files': {JNI: 'b'*64}}), \
+                 patch('package_voice_integration_trial.accept_host_pipeline', return_value={'host_pipeline_tests': 'passed'}), \
                  patch('package_voice_integration_trial.pack', side_effect=package):
                 self.assertEqual(deliver(args), 0)
             report = json.loads(args.result.read_text())
             self.assertEqual(report['local_delivery'], 'passed')
+            self.assertEqual(report['host_pipeline_tests'], 'passed')
             self.assertEqual(report['device_speech'], 'unverified')
             self.assertEqual(report['pcm_eos_stop'], 'unverified')
             self.assertEqual(report['normal_llm_streaming'], 'unverified')
@@ -117,6 +120,43 @@ class TrialDeliveryTest(unittest.TestCase):
             self.assertEqual(report['signed_provenance_asset'], TRIAL_RECEIPT)
             self.assertEqual(args.output.read_bytes(), b'candidate')
             with self.assertRaisesRegex(ValueError, 'Refuse existing'): deliver(args)
+
+    def test_host_failure_blocks_packaging_and_publication(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            args = SimpleNamespace(output=root/'out.apk', result=root/'result.json',
+                model_manifest=root/'manifest', model_manifest_sha256='a'*64,
+                sdk=root/'sdk', jni=root/'jni')
+            with patch('package_voice_integration_trial.verify_model', return_value={}), \
+                 patch('package_voice_integration_trial.verify_jni', return_value={}), \
+                 patch('package_voice_integration_trial.accept_host_pipeline',
+                       side_effect=ValueError('Offline host speech pipeline acceptance failed')), \
+                 patch('package_voice_integration_trial.pack') as package, \
+                 patch('package_voice_integration_trial.stage') as stage:
+                self.assertEqual(deliver(args), 1)
+                package.assert_not_called()
+                stage.assert_not_called()
+            report = json.loads(args.result.read_text())
+            self.assertEqual(report['host_pipeline_tests'], 'failed')
+            self.assertEqual(report['local_delivery'], 'failed')
+            self.assertEqual(report['device_speech'], 'unverified')
+            self.assertFalse(args.output.exists())
+
+    def test_host_acceptance_requires_success_and_explicit_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)/'host.json'
+            for code, status in ((0, None), (0, 'unverified'), (1, 'passed')):
+                with self.subTest(code=code, status=status):
+                    output.write_text(json.dumps({'host_pipeline_tests': status}))
+                    with patch('package_voice_integration_trial.subprocess.run',
+                               return_value=SimpleNamespace(returncode=code, stderr='')):
+                        with self.assertRaisesRegex(ValueError, 'acceptance failed'):
+                            accept_host_pipeline(output)
+            output.write_text(json.dumps({'host_pipeline_tests': 'passed'}))
+            with patch('package_voice_integration_trial.subprocess.run',
+                       return_value=SimpleNamespace(returncode=0, stderr='')) as run:
+                self.assertEqual(accept_host_pipeline(output)['host_pipeline_tests'], 'passed')
+                self.assertIn('run_speech_pipeline_host_tests.py', run.call_args.args[0][1])
 
     def test_failed_delivery_keeps_behavior_unverified(self):
         with tempfile.TemporaryDirectory() as temp:

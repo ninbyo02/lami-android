@@ -8,7 +8,8 @@ Controller-only build command (run outside Codex):
 Then invoke this script with that APK, existing QAIRT SDK, rebuilt JNI with its
 .provenance.json receipt, lami_cute model manifest + independently expected SHA,
 build-tools and debug keystore. --result is a new machine-readable JSON file.
-No skipped host/device behavioral check is counted as passed.
+The existing offline JVM speech suite must pass before packaging. Its result is
+bound into the signed receipt. No device behavioral check is counted as passed.
 The signed assets/lami-voice-trial-provenance.json binds the source APK,
 verified model hashes and QAIRT/JNI inputs; it is not device acceptance.
 """
@@ -17,6 +18,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import zipfile
 import tempfile
 
@@ -40,13 +42,28 @@ def verify_model(manifest, expected):
     return {'manifest_sha256': expected, 'files': data['sha256'], 'speaker': 'lami_cute'}
 
 
+def accept_host_pipeline(output):
+    """Run the maintained offline suite; never accept missing or skipped evidence."""
+    runner = Path(__file__).with_name('run_speech_pipeline_host_tests.py')
+    completed = subprocess.run(
+        [sys.executable, str(runner), '--output', str(output)],
+        capture_output=True, text=True, timeout=180,
+    )
+    evidence = json.loads(output.read_text()) if output.is_file() else {}
+    if completed.returncode != 0 or evidence.get('host_pipeline_tests') != 'passed':
+        raise ValueError('Offline host speech pipeline acceptance failed: ' +
+                         (completed.stderr[-2000:] or str(evidence)))
+    return evidence
+
+
 def deliver(args):
     report = {'schema': 1, 'local_delivery': 'failed',
               'application_id': 'io.github.ninbyo02.lami.voiceintegrationtrial',
               'device_speech': 'unverified', 'pcm_eos_stop': 'unverified',
               'normal_llm_streaming': 'unverified',
               'fallback': {'status': 'unverified', 'classification': 'not_executed'},
-              'controller_gradle_tests': 'unverified'}
+              'controller_gradle_tests': 'unverified',
+              'host_pipeline_tests': 'unverified'}
     if args.result.exists() or args.output.exists() or args.result.resolve() == args.output.resolve():
         raise ValueError('Refuse existing or overlapping output/result')
     try:
@@ -56,6 +73,10 @@ def deliver(args):
         # pipeline; publish only after its APK library hash acceptance succeeds.
         with tempfile.TemporaryDirectory(prefix='.voice-trial-', dir=args.output.parent) as temp:
             root = Path(temp)
+            report['host_pipeline_tests'] = 'failed'
+            host = accept_host_pipeline(root/'host-pipeline.json')
+            report['host_pipeline_tests'] = 'passed'
+            report['host_pipeline_evidence'] = host
             runtime = stage(args.sdk, args.jni, root/'runtime', 'voice-trial')
             if runtime['files'][JNI] != receipt['jni_sha256']:
                 raise ValueError('JNI changed after provenance verification')
@@ -66,6 +87,7 @@ def deliver(args):
                              'source_apk_sha256': sha(args.source),
                              'model': model, 'runtime': runtime,
                              'jni_provenance': receipt,
+                             'host_pipeline_evidence': host,
                              'device_speech': 'unverified'}
             pack(args.source, root/'runtime', candidate, args.build_tools,
                  args.keystore, voice_trial=True, trial_receipt=trial_receipt)
