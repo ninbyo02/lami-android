@@ -75,6 +75,23 @@ class TrialDeliveryTest(unittest.TestCase):
                 self.assertEqual(z.namelist().count(TRIAL_RECEIPT), 1)
                 self.assertEqual(json.loads(z.read(TRIAL_RECEIPT)),
                                  {'schema': 1, 'device_speech': 'unverified'})
+            # The signed artifact must retain isolation and native extraction,
+            # even when the input APK and runtime hashes were accepted.
+            for altered in ('package', 'extraction'):
+                def changed_identity(command, **kwargs):
+                    if str(root/'changed.apk') in command:
+                        if altered == 'package' and 'badging' in command:
+                            return SimpleNamespace(stdout="package: name='io.github.ninbyo02.lami'")
+                        if altered == 'extraction' and 'xmltree' in command:
+                            return SimpleNamespace(stdout='extractNativeLibs(0x010104ea)=false')
+                    return run(command, **kwargs)
+                changed = root/'changed.apk'
+                with self.subTest(altered=altered), \
+                     patch('package_resident_cp_diagnostic_apk.subprocess.run', side_effect=changed_identity), \
+                     patch('package_resident_cp_diagnostic_apk.inspect_apk', return_value=True):
+                    with self.assertRaisesRegex(ValueError, 'isolated source|extractNativeLibs'):
+                        pack(source, staged, changed, root, key, voice_trial=True)
+                changed.unlink()
             # Signature tooling must preserve the accepted input receipt.
             def corrupt(command, **kwargs):
                 result = run(command, **kwargs)

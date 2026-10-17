@@ -14,6 +14,23 @@ from stage_resident_cp_qairt247 import inspect_apk, FULL_RUNTIME, JNI, SKELETON
 TRIAL_RECEIPT = 'assets/lami-voice-trial-provenance.json'
 
 
+def verify_apk_identity(apk: Path, build_tools: Path, *, voice_trial=False):
+    """Check the delivered package as well as the pre-signing input."""
+    aapt = build_tools/'aapt2'
+    badging = subprocess.run([str(aapt),'dump','badging',str(apk)],
+        capture_output=True,text=True,check=True).stdout
+    package = ('io.github.ninbyo02.lami.voiceintegrationtrial' if voice_trial else
+               'io.github.ninbyo02.lami.cpdiagnostic')
+    match = re.search(r"package: name='([^']+)'", badging)
+    if not match or match.group(1) != package:
+        raise ValueError('Not the requested isolated source APK identity')
+    if voice_trial:
+        xml = subprocess.run([str(aapt), 'dump', 'xmltree', '--file',
+            'AndroidManifest.xml', str(apk)], capture_output=True, text=True, check=True).stdout
+        if 'extractNativeLibs(0x010104ea)=true' not in xml:
+            raise ValueError('Voice trial requires extractNativeLibs=true')
+
+
 def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: Path, *, voice_trial=False, trial_receipt=None):
     if trial_receipt is not None and not voice_trial:
         raise ValueError('Trial provenance requires isolated voice trial packaging')
@@ -28,19 +45,7 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
         raise ValueError('Refusing to overwrite diagnostic APK')
     if not keystore.is_file():
         raise ValueError('Missing debug keystore')
-    aapt = build_tools/'aapt2'
-    badging = subprocess.run([str(aapt),'dump','badging',str(source)],
-        capture_output=True,text=True,check=True).stdout
-    package = ('io.github.ninbyo02.lami.voiceintegrationtrial' if voice_trial else
-               'io.github.ninbyo02.lami.cpdiagnostic')
-    match = re.search(r"package: name='([^']+)'", badging)
-    if not match or match.group(1) != package:
-        raise ValueError('Not the requested isolated source APK')
-    if voice_trial:
-        xml = subprocess.run([str(aapt), 'dump', 'xmltree', '--file',
-            'AndroidManifest.xml', str(source)], capture_output=True, text=True, check=True).stdout
-        if 'extractNativeLibs(0x010104ea)=true' not in xml:
-            raise ValueError('Voice trial requires extractNativeLibs=true')
+    verify_apk_identity(source, build_tools, voice_trial=voice_trial)
     with tempfile.TemporaryDirectory(prefix='lami-cp-repack-') as temp:
         raw = Path(temp)/'candidate-unsigned.apk'
         aligned = Path(temp)/'candidate-aligned.apk'
@@ -75,6 +80,7 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
     subprocess.run([str(build_tools/'apksigner'),'verify','--verbose',str(output)],check=True,
                    capture_output=True)
     inspect_apk(output,manifest)
+    verify_apk_identity(output, build_tools, voice_trial=voice_trial)
     with zipfile.ZipFile(output) as z:
         if receipt_bytes is not None and (z.namelist().count(TRIAL_RECEIPT) != 1 or
                                           z.read(TRIAL_RECEIPT) != receipt_bytes):
