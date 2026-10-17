@@ -20,6 +20,40 @@ class RuntimeStageTest(unittest.TestCase):
         for path in (sdk/'lib').rglob('*.so'):
             self.pins[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
 
+    def test_ambiguous_sdk_version_evidence_rejected_before_staging(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            runtime = sdk/'lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(sdk)
+            metadata = sdk/'sdk.yaml'
+            valid = metadata.read_text()
+            for key, wrong in (('product', 'OTHER'), ('version', '2.44.0'),
+                               ('build_id', 'legacy')):
+                for declaration in (key + ': ' + wrong,
+                                    '"' + key + '": ' + wrong,
+                                    "'" + key + "': " + wrong,
+                                    '  ' + key + ': ' + wrong):
+                    with self.subTest(declaration=declaration):
+                        metadata.write_text(valid + declaration + '\n')
+                        destination = base/'rejected'
+                        with self.assertRaisesRegex(ValueError, 'version evidence: ' + key):
+                            stage(sdk, jni, destination)
+                        self.assertFalse(destination.exists())
+            # A value on another line must not be consumed by whitespace matching.
+            metadata.write_text(valid.replace('version: 2.47.0', 'version:\n2.47.0'))
+            with self.assertRaisesRegex(ValueError, 'version evidence: version'):
+                stage(sdk, jni, base/'rejected')
+            self.assertFalse((base/'rejected').exists())
+            # Preserve the official metadata's nested OS mapping and comments.
+            metadata.write_text('# SDK metadata\nos:\n  Ubuntu: 22.04\n' + valid)
+            self.assertEqual(stage(sdk, jni, base/'valid')['profile'], 'diagnostic')
+
     def test_full_stage_rejects_legacy_jni_before_renaming(self):
         with tempfile.TemporaryDirectory() as root:
             base = Path(root)

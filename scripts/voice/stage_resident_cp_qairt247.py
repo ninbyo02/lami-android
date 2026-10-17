@@ -38,7 +38,14 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     evidence = metadata.read_text()
     for key, value in (('product', 'QAIRT'), ('version', '2.47.0'),
                        ('build_id', '260601114230')):
-        if re.findall(r'^' + key + r':\s*([^\n]+)', evidence, re.M) != [value]:
+        # YAML permits quoted keys, and indentation can hide an additional
+        # declaration from a column-zero regex. Reject ambiguous declarations
+        # instead of silently selecting the one that claims the expected version.
+        declarations = re.findall(
+            r"^[ \t]*(?:" + key + r"|'" + key + r"'|\"" + key +
+            r"\")[ \t]*:[^\n]*$", evidence, re.M)
+        if (len(declarations) != 1 or not re.fullmatch(
+                key + r':[ \t]*' + re.escape(value), declarations[0])):
             raise ValueError('Unsupported SDK version evidence: ' + key)
     origin = sdk / 'lib/aarch64-android'
     files = {name: origin/name for name in (FULL_RUNTIME if profile == 'voice-trial' else RUNTIME)}
