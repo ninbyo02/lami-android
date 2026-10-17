@@ -1,4 +1,6 @@
 import copy
+import hashlib
+from check_normal_chat_lifecycle import fresh_cpu_request
 import unittest
 import contextlib
 import io
@@ -48,6 +50,20 @@ class LifecycleEvidenceTest(unittest.TestCase):
     def test_invalid_json_shapes(self):
         for value in [None, [], "passed", 0]:
             self.assertFalse(lifecycle_passed(value))
+
+
+class StopTargetIdentityTest(unittest.TestCase):
+    def test_fresh_matching_cpu_request(self):
+        value=dict(request_id='new',backend='host_cpu_reference',
+                   input_sha256=hashlib.sha256(b'prompt').hexdigest())
+        self.assertTrue(fresh_cpu_request(value,'old','prompt'))
+        self.assertFalse(fresh_cpu_request(value,'new','prompt'))
+        self.assertFalse(fresh_cpu_request(value,'old','other prompt'))
+        self.assertFalse(fresh_cpu_request(dict(value,backend='other'),'old','prompt'))
+
+    def test_missing_identity_is_not_a_stop_target(self):
+        for value in [None, [], {}, {'request_id':''}]:
+            self.assertFalse(fresh_cpu_request(value,'old','prompt'))
 
 
 if __name__ == "__main__":

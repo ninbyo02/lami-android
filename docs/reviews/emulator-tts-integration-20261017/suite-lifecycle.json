@@ -1,0 +1,88 @@
+{
+  "validation": "passed",
+  "run_id": "779c9590482b48379ab6155c41ef7d04",
+  "backend": "host_cpu",
+  "package": "io.github.ninbyo02.lami.assistantprobe",
+  "cases": [
+    {
+      "prompt": "What is 17 plus 25? Reply with the number only.",
+      "expected": "42",
+      "ui_completed": "passed",
+      "ui_total_ms": 15367
+    },
+    {
+      "prompt": "Now multiply that result by 2. Reply with the number only.",
+      "expected": "84",
+      "ui_completed": "passed",
+      "ui_total_ms": 13690
+    }
+  ],
+  "npu_numerical_parity": "not_verified",
+  "tts": "not_verified",
+  "scope": "normal_chat_ui_stop_recovery_room",
+  "stop_target_request_id": "68a7e965-e2fd-4ed3-b91a-cf13c80bb631",
+  "stop_target_status_before_tap": "running",
+  "stop_ui_ready_ms": 2881,
+  "recovery_ui": "passed",
+  "saved_messages": [
+    {
+      "message": "What is 17 plus 25? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "42",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=1022396\ntts_requested_at_elapsed_ms=1022444\ntts_started_at_elapsed_ms=1022444\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=1022413\nstats_build_finished_at_elapsed_ms=1022413\nbottom_sheet_update_started_at_elapsed_ms=1022414\nbottom_sheet_update_finished_at_elapsed_ms=1022443\nstats_display_lag_after_generation_ms=47\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=1022563\ntokenizer_count_finished_at_elapsed_ms=1022612\ntokenizer_count_duration_ms=49\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    },
+    {
+      "message": "Now multiply that result by 2. Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "84",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=1036257\ntts_requested_at_elapsed_ms=1036273\ntts_started_at_elapsed_ms=1036273\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=1036263\nstats_build_finished_at_elapsed_ms=1036263\nbottom_sheet_update_started_at_elapsed_ms=1036263\nbottom_sheet_update_finished_at_elapsed_ms=1036272\nstats_display_lag_after_generation_ms=15\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=1036408\ntokenizer_count_finished_at_elapsed_ms=1036408\ntokenizer_count_duration_ms=0\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    },
+    {
+      "message": "List every integer from 1 to 1000, one per line. Do not skip any numbers.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "",
+      "isSendbyMe": 0,
+      "status": "CANCELLED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "What is 3 plus 4? Reply with the number only.",
+      "isSendbyMe": 1,
+      "status": "COMPLETED",
+      "modelName": null,
+      "localSourceSummary": null
+    },
+    {
+      "message": "7",
+      "isSendbyMe": 0,
+      "status": "COMPLETED",
+      "modelName": "PC CPU reference: gemma4-e2b-litert-cpu",
+      "localSourceSummary": "source_summary=host_cpu_reference\n[DEV診断: Local inference success timing compact]\nstatus=success\nselected_backend=Automatic\nrequested_backend=Automatic\neffective_backend=Automatic\nroute_family=local_default\nbackend_evidence=local_default\ngeneration_finished_at_elapsed_ms=1062325\ntts_requested_at_elapsed_ms=1062335\ntts_started_at_elapsed_ms=1062335\ntts_completed_at_elapsed_ms=unavailable\nstats_build_started_at_elapsed_ms=1062328\nstats_build_finished_at_elapsed_ms=1062328\nbottom_sheet_update_started_at_elapsed_ms=1062329\nbottom_sheet_update_finished_at_elapsed_ms=1062334\nstats_display_lag_after_generation_ms=9\nstats_display_lag_after_tts_ms=0\nstats_initial_display_used_estimated_tokens=true\nstats_token_metrics_initial_source=estimated_tokens_before_tokenizer\ntokenizer_count_started_at_elapsed_ms=1062448\ntokenizer_count_finished_at_elapsed_ms=1062448\ntokenizer_count_duration_ms=0\nstats_final_display_used_tokenizer_tokens=false\ntokenizer_count_delayed_stats_update=true\nstats_token_metrics_final_source=estimated_tokens\ntokenizer_recount_policy=post_terminal_no_native_retention\ntokenizer_result_cache_hit=false\ntokenizer_count_provider=unavailable\ntokenizer_fallback_reason=unavailable"
+    }
+  ],
+  "room": "passed",
+  "stop_persisted": "CANCELLED",
+  "restart_launch": "passed"
+}

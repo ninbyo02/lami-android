@@ -1,5 +1,6 @@
 """Exercise normal chat history, user stop, recovery and Room persistence in isolated apps."""
 import argparse
+import hashlib
 import json
 import re
 import shlex
@@ -10,6 +11,13 @@ import time
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+
+def fresh_cpu_request(record, previous_id, prompt):
+    return (isinstance(record, dict) and bool(record.get('request_id'))
+            and record['request_id'] != previous_id
+            and record.get('backend') == 'host_cpu_reference'
+            and record.get('input_sha256') == hashlib.sha256(prompt.encode()).hexdigest())
 
 
 def main():
@@ -67,7 +75,19 @@ def main():
         for prompt,expected in zip(prompts[:2],['42','84']):
             started=time.monotonic();send(prompt);wait_answer(expected)
             report['cases'].append({'prompt':prompt,'expected':expected,'ui_completed':'passed','ui_total_ms':round((time.monotonic()-started)*1000)})
-        point=send(prompts[2]);time.sleep(.2)
+        previous=json.loads(shell('run-as',package,'cat','files/emulator_main_chat_reference.json')).get('request_id')
+        point=send(prompts[2])
+        deadline=time.monotonic()+15
+        while time.monotonic()<deadline:
+            record=json.loads(shell('run-as',package,'cat','files/emulator_main_chat_reference.json'))
+            if fresh_cpu_request(record,previous,prompts[2]):
+                if record.get('status')=='running':break
+                if record.get('status') in ('success','failed','cancelled'):
+                    raise ValueError('Stop window missed: request ended before a running state was observed')
+            time.sleep(.05)
+        else:raise TimeoutError('No fresh running request for Stop')
+        report['stop_target_request_id']=record['request_id']
+        report['stop_target_status_before_tap']=record['status']
         stopped=time.monotonic();shell('input','tap',*point)
         deadline=time.monotonic()+30
         while time.monotonic()<deadline:

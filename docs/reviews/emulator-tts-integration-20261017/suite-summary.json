@@ -1,0 +1,27 @@
+{
+  "validation": "passed",
+  "scope": "phone_free_cpu_development",
+  "serial": "emulator-5582",
+  "npu_execution": "not_run",
+  "npu_numerical_parity": "not_verified",
+  "evidence_dir": "/home/sato/lami-tts-daemon/emulator-tts-integration-review-20261017/suite-synchronized/phone_free_99323bd8f00a49c2ae0cc91caf2f052d",
+  "limitations": [
+    "Requires a PC CPU bridge on port 11436 and an installed debug emulator app.",
+    "Does not validate NPU binaries, drivers, timing, memory or TTS.",
+    "Creates a chat and restarts only the emulator debug app; CPU mode remains enabled."
+  ],
+  "cpu_answers": {
+    "execution": "passed",
+    "quality": "passed",
+    "turn_quality": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "errors": []
+  },
+  "android_lifecycle": "passed"
+}
