@@ -327,6 +327,24 @@ class LamiFirstAudioTimingTest {
         assertEquals(1, Regex("SystemClock\\.elapsedRealtimeNanos\\(\\)").findAll(playback).count())
     }
 
+    @Test fun pcmPlayerReportsPlayReturnBeforeFurtherPlaybackWork() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmPlayer.kt",
+        ).readText()
+        // The started event claims audio_track_play_returned. Keep its callback
+        // adjacent to play(), before threshold changes, writes or drain waits.
+        assertEquals(1, Regex("track\\.play\\(\\)").findAll(source).count())
+        assertEquals(1, Regex("onStarted\\(\\)").findAll(source).count())
+        assertTrue(Regex("track\\.play\\(\\)\\s+onStarted\\(\\)").containsMatchIn(source))
+        val playbackStart = source.indexOf("track.play()")
+        assertTrue(source.indexOf("var offset = writeUntil(prebufferPlan.prebufferSamples") in
+            0 until playbackStart)
+        val callback = source.indexOf("onStarted()")
+        assertTrue(callback < source.indexOf("track.setStartThresholdInFrames(1)"))
+        assertTrue(callback < source.indexOf("offset = writeUntil(samples.size"))
+        assertTrue(callback < source.indexOf("while (track.playbackHeadPosition"))
+    }
+
     private fun eventFields(event: String): Map<String, String> =
         event.split(" ")
             .associate {
