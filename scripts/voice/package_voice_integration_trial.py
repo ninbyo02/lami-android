@@ -9,6 +9,8 @@ Then invoke this script with that APK, existing QAIRT SDK, rebuilt JNI with its
 .provenance.json receipt, lami_cute model manifest + independently expected SHA,
 build-tools and debug keystore. --result is a new machine-readable JSON file.
 No skipped host/device behavioral check is counted as passed.
+The signed assets/lami-voice-trial-provenance.json binds the source APK,
+verified model hashes and QAIRT/JNI inputs; it is not device acceptance.
 """
 import argparse
 import json
@@ -19,7 +21,7 @@ import zipfile
 import tempfile
 
 from build_resident_cp_android_jni import verify_jni
-from package_resident_cp_diagnostic_apk import pack
+from package_resident_cp_diagnostic_apk import pack, TRIAL_RECEIPT
 from stage_resident_cp_qairt247 import stage, sha, JNI
 
 
@@ -57,14 +59,21 @@ def deliver(args):
             runtime = stage(args.sdk, args.jni, root/'runtime', 'voice-trial')
             if runtime['files'][JNI] != receipt['jni_sha256']:
                 raise ValueError('JNI changed after provenance verification')
+            # Stage's generic warning is superseded only by verify_jni above.
+            runtime['jni_provenance'] = 'verified_source_build_receipt'
             candidate = root/'trial.apk'
+            trial_receipt = {'schema': 1, 'application_id': report['application_id'],
+                             'source_apk_sha256': sha(args.source),
+                             'model': model, 'runtime': runtime,
+                             'jni_provenance': receipt,
+                             'device_speech': 'unverified'}
             pack(args.source, root/'runtime', candidate, args.build_tools,
-                 args.keystore, voice_trial=True)
+                 args.keystore, voice_trial=True, trial_receipt=trial_receipt)
             report.update(local_delivery='passed', apk_sha256=sha(candidate),
                           model=model, runtime=runtime,
-                          jni_provenance=receipt)
-            # Stage's generic JNI warning is superseded only by verify_jni above.
-            report['runtime']['jni_provenance'] = 'verified_source_build_receipt'
+                          jni_provenance=receipt,
+                          signed_provenance_asset=TRIAL_RECEIPT,
+                          source_apk_sha256=trial_receipt['source_apk_sha256'])
             args.output.hardlink_to(candidate)
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError,
             zipfile.BadZipFile) as error:

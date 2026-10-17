@@ -11,7 +11,13 @@ import tempfile
 import zipfile
 from stage_resident_cp_qairt247 import inspect_apk, FULL_RUNTIME, JNI, SKELETON
 
-def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: Path, *, voice_trial=False):
+TRIAL_RECEIPT = 'assets/lami-voice-trial-provenance.json'
+
+
+def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: Path, *, voice_trial=False, trial_receipt=None):
+    if trial_receipt is not None and not voice_trial:
+        raise ValueError('Trial provenance requires isolated voice trial packaging')
+    receipt_bytes = (json.dumps(trial_receipt, sort_keys=True, separators=(',', ':')) + '\n').encode() if trial_receipt is not None else None
     manifest = json.loads((staged/'manifest.json').read_text())
     expected = set(manifest['files'])
     required = ({*FULL_RUNTIME, JNI, 'hexagon-v79/' + SKELETON} if voice_trial else
@@ -41,6 +47,8 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
         with zipfile.ZipFile(source) as origin, zipfile.ZipFile(raw,'w') as dst:
             for item in origin.infolist():
                 name = item.filename
+                if receipt_bytes is not None and name == TRIAL_RECEIPT:
+                    continue
                 if name.startswith('META-INF/') and name.upper().endswith(('.RSA','.SF','.DSA','.EC')):
                     continue
                 if voice_trial and (name == 'assets/hexagon-v79/' + SKELETON or
@@ -52,6 +60,10 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                     or name.endswith('/libLiteRtCompilerPlugin_Qualcomm.so')):
                     continue
                 dst.writestr(item, origin.read(name))
+            if receipt_bytes is not None:
+                # Fixed metadata makes the receipt deterministic; APK signing is
+                # performed only after these verified-input bytes are included.
+                dst.writestr(zipfile.ZipInfo(TRIAL_RECEIPT), receipt_bytes)
             for name in sorted(expected):
                 dst.write(staged/name, arcname=('assets/' if name.startswith('hexagon-v79/')
                                                        else 'lib/arm64-v8a/')+name,
@@ -64,6 +76,9 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                    capture_output=True)
     inspect_apk(output,manifest)
     with zipfile.ZipFile(output) as z:
+        if receipt_bytes is not None and (z.namelist().count(TRIAL_RECEIPT) != 1 or
+                                          z.read(TRIAL_RECEIPT) != receipt_bytes):
+            raise ValueError('Signed APK trial provenance mismatch')
         remaining = [n for n in z.namelist() if n.startswith('lib/arm64-v8a/')
                      and ('Qnn' in n or 'qnn' in n or 'qairt' in n.lower())
                      and Path(n).name not in expected]

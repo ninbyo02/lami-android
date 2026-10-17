@@ -8,7 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 from package_voice_integration_trial import deliver, verify_model
-from package_resident_cp_diagnostic_apk import pack
+from package_resident_cp_diagnostic_apk import pack, TRIAL_RECEIPT
 from stage_resident_cp_qairt247 import FULL_RUNTIME, JNI, SKELETON
 
 
@@ -44,6 +44,7 @@ class TrialDeliveryTest(unittest.TestCase):
                 z.writestr('classes.dex', b'preserved')
                 z.writestr('lib/arm64-v8a/' + JNI, b'old')
                 z.writestr('lib/arm64-v8a/libQnnCpu.so', b'244')
+                z.writestr(TRIAL_RECEIPT, b'stale receipt')
             key = root/'key'; key.write_bytes(b'key')
             def run(command, **kwargs):
                 if 'badging' in command:
@@ -63,13 +64,29 @@ class TrialDeliveryTest(unittest.TestCase):
             self.assertFalse(output.exists())
             with patch('package_resident_cp_diagnostic_apk.subprocess.run', side_effect=run), \
                  patch('package_resident_cp_diagnostic_apk.inspect_apk', return_value=True):
-                pack(source, staged, output, root, key, voice_trial=True)
+                pack(source, staged, output, root, key, voice_trial=True,
+                     trial_receipt={'schema': 1, 'device_speech': 'unverified'})
             with zipfile.ZipFile(output) as z:
                 self.assertEqual(z.read('classes.dex'), b'preserved')
                 self.assertEqual(z.namelist().count('lib/arm64-v8a/'+JNI), 1)
                 self.assertEqual(z.read('lib/arm64-v8a/'+JNI), JNI.encode())
                 self.assertIn('assets/hexagon-v79/'+SKELETON, z.namelist())
                 self.assertNotIn('lib/arm64-v8a/libQnnCpu.so', z.namelist())
+                self.assertEqual(z.namelist().count(TRIAL_RECEIPT), 1)
+                self.assertEqual(json.loads(z.read(TRIAL_RECEIPT)),
+                                 {'schema': 1, 'device_speech': 'unverified'})
+            # Signature tooling must preserve the accepted input receipt.
+            def corrupt(command, **kwargs):
+                result = run(command, **kwargs)
+                if 'sign' in command:
+                    with zipfile.ZipFile(Path(command[command.index('--out')+1]), 'a') as z:
+                        z.writestr(TRIAL_RECEIPT, b'changed')
+                return result
+            with patch('package_resident_cp_diagnostic_apk.subprocess.run', side_effect=corrupt), \
+                 patch('package_resident_cp_diagnostic_apk.inspect_apk', return_value=True):
+                with self.assertWarns(UserWarning), self.assertRaisesRegex(ValueError, 'provenance mismatch'):
+                    pack(source, staged, root/'corrupt.apk', root, key, voice_trial=True,
+                         trial_receipt={'schema': 1})
 
     def test_verified_delivery_reports_skipped_behavior_and_rejects_overwrite(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -78,8 +95,13 @@ class TrialDeliveryTest(unittest.TestCase):
                 model_manifest=root/'manifest', model_manifest_sha256='a'*64,
                 sdk=root/'sdk', jni=root/'jni', source=root/'source.apk',
                 build_tools=root, keystore=root/'key')
+            args.source.write_bytes(b'source apk')
             def package(source, staged, candidate, tools, key, **kwargs):
                 self.assertTrue(kwargs['voice_trial'])
+                self.assertEqual(kwargs['trial_receipt']['source_apk_sha256'],
+                                 hashlib.sha256(b'source apk').hexdigest())
+                self.assertEqual(kwargs['trial_receipt']['model']['speaker'], 'lami_cute')
+                self.assertEqual(kwargs['trial_receipt']['device_speech'], 'unverified')
                 candidate.write_bytes(b'candidate')
             with patch('package_voice_integration_trial.verify_model', return_value={'speaker': 'lami_cute'}), \
                  patch('package_voice_integration_trial.verify_jni', return_value={'jni_sha256': 'b'*64}), \
@@ -92,6 +114,7 @@ class TrialDeliveryTest(unittest.TestCase):
             self.assertEqual(report['pcm_eos_stop'], 'unverified')
             self.assertEqual(report['normal_llm_streaming'], 'unverified')
             self.assertEqual(report['fallback']['classification'], 'not_executed')
+            self.assertEqual(report['signed_provenance_asset'], TRIAL_RECEIPT)
             self.assertEqual(args.output.read_bytes(), b'candidate')
             with self.assertRaisesRegex(ValueError, 'Refuse existing'): deliver(args)
 
