@@ -8,6 +8,10 @@ import java.security.MessageDigest
 object LamiNeuralChatVoiceFactory {
     @JvmStatic
     fun createOrNull(context: Context): LamiVoiceEngine? {
+        // Explicit emulator development choice: use Android's installed TTS engine.
+        if (io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.isEmulator() &&
+            context.getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS,
+                Context.MODE_PRIVATE).getBoolean("android_tts", false)) return null
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         return if (root.resolve("voice-text-bundle.json").isFile) {
             LamiNeuralChatVoiceEngine(context.applicationContext, root)

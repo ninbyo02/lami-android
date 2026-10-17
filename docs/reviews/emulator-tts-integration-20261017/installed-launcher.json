@@ -1,0 +1,29 @@
+{
+  "validation": "passed",
+  "action": "start",
+  "serial": "emulator-5582",
+  "avd": "LAMI_GoogleTTS_API36_1",
+  "npu_execution": "not_run",
+  "log_directory": "/home/sato/.local/state/lami-emulator-development",
+  "emulator": "ready",
+  "android_tts_engine": "com.google.android.tts",
+  "cpu_bridge": {
+    "backend": "host_litert_cpu",
+    "runtime": "litert-lm-api",
+    "runtime_version": "0.18.0",
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "model_bytes": 2588147712,
+    "model_alias": "gemma4-e2b-litert-cpu",
+    "npu_execution": "not_run",
+    "npu_numerical_parity": "not_verified"
+  },
+  "mirror_pids": [
+    1028488
+  ],
+  "media_volume": "[V] will control stream=3 (STREAM_MUSIC)\n[V] will get volume\n[V] Connecting to AudioService\n[V] volume is 12 in range [0..15]",
+  "scope": "environment readiness; conversation/audio quality need separate checks",
+  "shortcuts": [
+    "/home/sato/Desktop/lami-emulator-development.desktop",
+    "/home/sato/.local/share/applications/lami-emulator-development.desktop"
+  ]
+}

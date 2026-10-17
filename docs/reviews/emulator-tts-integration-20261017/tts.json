@@ -1,0 +1,16 @@
+{
+  "validation": "passed",
+  "serial": "emulator-5582",
+  "scope": "normal_chat_android_tts",
+  "pc_speaker_audibility": "not_verified",
+  "npu_execution": "not_run",
+  "engine": "com.google.android.tts",
+  "prompt": "Say hello and introduce yourself as LAMI in Japanese. Use one short sentence only.",
+  "answer": "こんにちは、私はラミです。",
+  "request_id": "c41ec447-db84-464e-9e7d-7e1f64add6e5",
+  "android_tts_trace": "1792202798214 [LAMI_TTS] initialized status=success language_result=0\n1792202809426 [LAMI_TTS] stop generation=1 queued=0\n1792202810240 [LAMI_TTS] request code_points=6 ready=true queue_mode=1\n1792202810241 [LAMI_TTS] request_text=こんにちは、\n1792202810243 [LAMI_TTS] speak_accepted utterance_id=lami-tts-1-3b14eefa-caca-47bb-9d20-78fb8b5b4799\n1792202810415 [LAMI_TTS] request code_points=7 ready=true queue_mode=1\n1792202810415 [LAMI_TTS] request_text=私はラミです。\n1792202810614 [LAMI_TTS] playback_started utterance_id=lami-tts-1-3b14eefa-caca-47bb-9d20-78fb8b5b4799\n1792202811651 [LAMI_TTS] playback_done utterance_id=lami-tts-1-3b14eefa-caca-47bb-9d20-78fb8b5b4799\n1792202811652 [LAMI_TTS] speak_accepted utterance_id=lami-tts-1-d123199e-fc6f-4cc5-8c9c-3fc7233d08f4\n1792202811673 [LAMI_TTS] playback_started utterance_id=lami-tts-1-d123199e-fc6f-4cc5-8c9c-3fc7233d08f4\n1792202813238 [LAMI_TTS] playback_done utterance_id=lami-tts-1-d123199e-fc6f-4cc5-8c9c-3fc7233d08f4",
+  "utterances_completed": [
+    "lami-tts-1-3b14eefa-caca-47bb-9d20-78fb8b5b4799",
+    "lami-tts-1-d123199e-fc6f-4cc5-8c9c-3fc7233d08f4"
+  ]
+}

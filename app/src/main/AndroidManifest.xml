@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Required for TextToSpeech engine discovery on Android 11 and later. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <!-- Public cleartext endpoints are rejected by UrlUtils; HTTP is limited to local/private hosts. -->
     <application
         android:usesCleartextTraffic="true"

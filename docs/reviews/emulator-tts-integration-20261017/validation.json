@@ -1,0 +1,151 @@
+{
+  "base_commit": "e6d40f51d0e529ee637df5db7c5c334290fc4679",
+  "android_source_commit": "a5bb6aa5b",
+  "python_helper_tests": 36,
+  "other_ci_python_tests": 28,
+  "gradle": "debug/release unit tests, lint, debug APK, release APK/AAB all successful",
+  "review": "Production diff is TTS service visibility only. Explicit voice choice is debug/x86-emulator guarded. CPU helpers contain no phone NPU execution route. No QNN packaging changes or model/native binaries are added.",
+  "physical_phone_changes": "none",
+  "limitations": [
+    "CPU reference does not certify NPU answer quality, numerical equivalence or performance.",
+    "The shared CPU bridge was reused; automatic launch from a stopped bridge was not exercised."
+  ],
+  "testStandardDebugUnitTest": {
+    "tests": 2393,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 5
+  },
+  "testStandardReleaseUnitTest": {
+    "tests": 1699,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 5
+  },
+  "lint_standardDebug": {
+    "errors": 0,
+    "warnings": 237
+  },
+  "lint_standardRelease": {
+    "errors": 0,
+    "warnings": 176
+  },
+  "ci_smoke_steps": [
+    {
+      "command": [
+        "bash",
+        "scripts/tests/test_npu_conversation_policy_artifact_verification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/tests/test_npu_conversation_policy_device_validation.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/tests/test_npu_conversation_policy_device_summary.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/tests/test_standard_release_automated_conversation_suite.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/tests/test_conversation_api_ab_harness.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/check_voice_matrix_kernel.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "py_compile",
+        "scripts/voice/export_main_cache.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        "scripts/voice/build_profile_runtime.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "diagnostics/resident-cp-rust/Cargo.toml",
+        "--features",
+        "ffi-host-test"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "diagnostics/resident-cp-rust/Cargo.toml",
+        "--features",
+        "ffi-host-test",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/check_resident_cp_jni.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "release_packaging": [
+    {
+      "file": "app/build/outputs/apk/standard/release/app-standard-release-unsigned.apk",
+      "exit_code": 0,
+      "bytes": 356937650,
+      "sha256": "a5f8d99d1defa1420af2926e4c6745a39a377d89262cf38df6b67bdc24f93132"
+    },
+    {
+      "file": "app/build/outputs/bundle/standardRelease/app-standard-release.aab",
+      "exit_code": 0,
+      "bytes": 141010715,
+      "sha256": "b661dae0dfc2e982584fd12133c53d4bfb3015ffe5acababf59508d70a988519"
+    },
+    {
+      "check": "zipalign 16K",
+      "exit_code": 0
+    }
+  ],
+  "debug_apk_sha256": "585f5b3ee40ebdf3510a026610a73bbf39ef54e7114b54453c0d1feee9b4d200",
+  "stop_verification": "Initial fixed-delay test did not persist CANCELLED. Preserved failure; synchronized the test to a fresh matching CPU request in running state, then verified CANCELLED and recovery."
+}
