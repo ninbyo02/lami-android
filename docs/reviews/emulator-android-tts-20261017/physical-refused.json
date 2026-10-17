@@ -1,0 +1,8 @@
+{
+  "validation": "failed",
+  "serial": "192.0.2.1:1234",
+  "scope": "normal_chat_android_tts",
+  "pc_speaker_audibility": "not_verified",
+  "npu_execution": "not_run",
+  "error": "Explicit emulator serial required"
+}

@@ -1,0 +1,17 @@
+{
+  "android_tts_unit_tests": {
+    "name": "io.github.ninbyo02.lami.tts.AndroidTtsControllerTest",
+    "tests": "6",
+    "skipped": "0",
+    "failures": "0",
+    "errors": "0",
+    "timestamp": "2026-10-17T01:24:21.061Z",
+    "hostname": "X870E-PLUS",
+    "time": "1.787"
+  },
+  "python_unit_tests": 35,
+  "build": "standardDebug successful, offline",
+  "installed_package": "io.github.ninbyo02.lami.assistantprobe",
+  "phone_modified": false,
+  "apk_sha256": "57059f0c05a80234e8f3e4513d6143af7677076106c683794a4e6c1f5f281bd8"
+}

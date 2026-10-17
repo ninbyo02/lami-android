@@ -1,0 +1,9 @@
+{
+  "validation": "failed",
+  "serial": "emulator-5580",
+  "scope": "normal_chat_android_tts",
+  "pc_speaker_audibility": "not_verified",
+  "npu_execution": "not_run",
+  "engine": "com.reecedunn.espeak",
+  "error": "Trace rotated; fresh evidence unavailable"
+}

@@ -1,0 +1,11 @@
+{
+  "audio_codec": "pcm_s16le",
+  "sample_rate": 48000,
+  "channels": 2,
+  "samples": 2981888,
+  "nonzero_samples": 136516,
+  "peak": 592,
+  "peak_dbfs": -34.86256456473596,
+  "source": "scrcpy Android output capture",
+  "audible_quality": "not_listened_by_assistant"
+}

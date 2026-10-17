@@ -1,0 +1,12 @@
+{
+  "engine": "com.reecedunn.espeak",
+  "version": "1.52.0",
+  "android_tts_init": 0,
+  "japanese_language_result": 2,
+  "synthesize_result": 0,
+  "utterance_done": true,
+  "wav_sha256": "9e2cd5d304d90a31001859888cf5d190367e05236999e6f24f29d9144213644d",
+  "pc_playback_exit": 0,
+  "emulator_native_audio": "disabled",
+  "lami_automatic_reply_playback": "not_verified"
+}
