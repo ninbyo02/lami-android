@@ -64,6 +64,7 @@ def deliver(args):
               'normal_llm_streaming': 'unverified',
               'fallback': {'status': 'unverified', 'classification': 'not_executed'},
               'controller_gradle_tests': 'unverified',
+              'source_payload_preserved': 'unverified',
               'host_pipeline_tests': 'unverified'}
     if args.result.exists() or args.output.exists() or args.result.resolve() == args.output.resolve():
         raise ValueError('Refuse existing or overlapping output/result')
@@ -100,6 +101,7 @@ def deliver(args):
             pack(source_snapshot, root/'runtime', candidate, args.build_tools,
                  args.keystore, voice_trial=True, trial_receipt=trial_receipt)
             report.update(local_delivery='passed', apk_sha256=sha(candidate),
+                          source_payload_preserved='passed',
                           model=model, runtime=runtime,
                           jni_provenance=receipt,
                           signed_provenance_asset=TRIAL_RECEIPT,

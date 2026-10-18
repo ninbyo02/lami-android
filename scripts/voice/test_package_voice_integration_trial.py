@@ -42,6 +42,7 @@ class TrialDeliveryTest(unittest.TestCase):
             source = root/'source.apk'
             with zipfile.ZipFile(source, 'w') as z:
                 z.writestr('classes.dex', b'preserved')
+                z.writestr('META-INF/MANIFEST.MF', b'old signing metadata')
                 z.writestr('lib/arm64-v8a/' + JNI, b'old')
                 z.writestr('lib/arm64-v8a/libQnnCpu.so', b'244')
                 z.writestr(TRIAL_RECEIPT, b'stale receipt')
@@ -54,7 +55,11 @@ class TrialDeliveryTest(unittest.TestCase):
                 if 'zipalign' in command[0]:
                     Path(command[-1]).write_bytes(Path(command[-2]).read_bytes())
                 if 'sign' in command:
-                    Path(command[command.index('--out')+1]).write_bytes(Path(command[-1]).read_bytes())
+                    with zipfile.ZipFile(Path(command[-1])) as origin, \
+                         zipfile.ZipFile(Path(command[command.index('--out')+1]), 'w') as signed:
+                        for item in origin.infolist():
+                            signed.writestr(item, b'new signing metadata' if
+                                            item.filename == 'META-INF/MANIFEST.MF' else origin.read(item))
                 return SimpleNamespace(stdout='')
             output = root/'out.apk'
             with patch('package_resident_cp_diagnostic_apk.subprocess.run',
@@ -105,6 +110,36 @@ class TrialDeliveryTest(unittest.TestCase):
                     pack(source, staged, root/'corrupt.apk', root, key, voice_trial=True,
                          trial_receipt={'schema': 1})
 
+            # A valid signature/identity/runtime receipt cannot authorize changed
+            # app code, missing resources or ambiguous duplicate payload entries.
+            for alteration in ('changed', 'missing', 'duplicate'):
+                def corrupt_payload(command, **kwargs):
+                    result = run(command, **kwargs)
+                    if 'sign' in command:
+                        signed = Path(command[command.index('--out')+1])
+                        with zipfile.ZipFile(signed) as z:
+                            entries = [(item, z.read(item)) for item in z.infolist()]
+                        with zipfile.ZipFile(signed, 'w') as z:
+                            for item, data in entries:
+                                if item.filename == 'classes.dex':
+                                    if alteration == 'missing':
+                                        continue
+                                    if alteration == 'changed':
+                                        data = b'changed speech wiring'
+                                z.writestr(item, data)
+                            if alteration == 'duplicate':
+                                z.writestr('classes.dex', b'preserved')
+                    return result
+                with self.subTest(alteration=alteration), \
+                     patch('package_resident_cp_diagnostic_apk.subprocess.run', side_effect=corrupt_payload), \
+                     patch('package_resident_cp_diagnostic_apk.inspect_apk', return_value=True):
+                    if alteration == 'duplicate':
+                        with self.assertWarns(UserWarning), self.assertRaisesRegex(ValueError, 'source payload mismatch'):
+                            pack(source, staged, root/'duplicate.apk', root, key, voice_trial=True)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'source payload mismatch'):
+                            pack(source, staged, root/(alteration+'.apk'), root, key, voice_trial=True)
+
     def test_verified_delivery_reports_skipped_behavior_and_rejects_overwrite(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -136,6 +171,7 @@ class TrialDeliveryTest(unittest.TestCase):
             report = json.loads(args.result.read_text())
             self.assertEqual(report['local_delivery'], 'passed')
             self.assertEqual(report['host_pipeline_tests'], 'passed')
+            self.assertEqual(report['source_payload_preserved'], 'passed')
             self.assertEqual(report['device_speech'], 'unverified')
             self.assertEqual(report['pcm_eos_stop'], 'unverified')
             self.assertEqual(report['normal_llm_streaming'], 'unverified')
@@ -216,6 +252,7 @@ class TrialDeliveryTest(unittest.TestCase):
             report = json.loads(args.result.read_text())
             self.assertEqual(report['local_delivery'], 'failed')
             self.assertEqual(report['pcm_eos_stop'], 'unverified')
+            self.assertEqual(report['source_payload_preserved'], 'unverified')
             self.assertEqual(report['fallback']['classification'], 'not_executed')
             self.assertFalse(args.output.exists())
 

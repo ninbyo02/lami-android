@@ -3,6 +3,7 @@
 Not a runnable QNN proof. Never install automatically.
 """
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -12,6 +13,14 @@ import zipfile
 from stage_resident_cp_qairt247 import inspect_apk, FULL_RUNTIME, JNI, SKELETON
 
 TRIAL_RECEIPT = 'assets/lami-voice-trial-provenance.json'
+
+
+def entry_sha256(archive, item):
+    digest = hashlib.sha256()
+    with archive.open(item) as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def verify_apk_identity(apk: Path, build_tools: Path, *, voice_trial=False):
@@ -46,6 +55,7 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
     if not keystore.is_file():
         raise ValueError('Missing debug keystore')
     verify_apk_identity(source, build_tools, voice_trial=voice_trial)
+    preserved = {}
     with tempfile.TemporaryDirectory(prefix='lami-cp-repack-') as temp:
         raw = Path(temp)/'candidate-unsigned.apk'
         aligned = Path(temp)/'candidate-aligned.apk'
@@ -64,7 +74,11 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
                     or name.endswith('/libLiteRtDispatch_Qualcomm.so')
                     or name.endswith('/libLiteRtCompilerPlugin_Qualcomm.so')):
                     continue
-                dst.writestr(item, origin.read(name))
+                if voice_trial and name.upper() != 'META-INF/MANIFEST.MF':
+                    if name in preserved:
+                        raise ValueError('Duplicate source APK payload: ' + name)
+                    preserved[name] = entry_sha256(origin, item)
+                dst.writestr(item, origin.read(item))
             if receipt_bytes is not None:
                 # Fixed metadata makes the receipt deterministic; APK signing is
                 # performed only after these verified-input bytes are included.
@@ -82,6 +96,13 @@ def pack(source: Path, staged: Path, output: Path, build_tools: Path, keystore: 
     inspect_apk(output,manifest)
     verify_apk_identity(output, build_tools, voice_trial=voice_trial)
     with zipfile.ZipFile(output) as z:
+        if voice_trial:
+            # Runtime replacement and signing must preserve the controller-built
+            # app, including its normal LLM-to-speech wiring and resources.
+            names = z.namelist()
+            for name, digest in preserved.items():
+                if names.count(name) != 1 or entry_sha256(z, name) != digest:
+                    raise ValueError('Signed APK source payload mismatch: ' + name)
         if receipt_bytes is not None and (z.namelist().count(TRIAL_RECEIPT) != 1 or
                                           z.read(TRIAL_RECEIPT) != receipt_bytes):
             raise ValueError('Signed APK trial provenance mismatch')
