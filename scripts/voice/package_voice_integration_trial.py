@@ -17,6 +17,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -73,6 +74,13 @@ def deliver(args):
         # pipeline; publish only after its APK library hash acceptance succeeds.
         with tempfile.TemporaryDirectory(prefix='.voice-trial-', dir=args.output.parent) as temp:
             root = Path(temp)
+            # Bind the receipt and packaged code to the same immutable input.
+            # The controller may replace its build output while host tests run.
+            source_sha256 = sha(args.source)
+            source_snapshot = root/'source.apk'
+            shutil.copyfile(args.source, source_snapshot)
+            if sha(source_snapshot) != source_sha256:
+                raise ValueError('Source APK changed while snapshotting')
             report['host_pipeline_tests'] = 'failed'
             host = accept_host_pipeline(root/'host-pipeline.json')
             report['host_pipeline_tests'] = 'passed'
@@ -84,12 +92,12 @@ def deliver(args):
             runtime['jni_provenance'] = 'verified_source_build_receipt'
             candidate = root/'trial.apk'
             trial_receipt = {'schema': 1, 'application_id': report['application_id'],
-                             'source_apk_sha256': sha(args.source),
+                             'source_apk_sha256': source_sha256,
                              'model': model, 'runtime': runtime,
                              'jni_provenance': receipt,
                              'host_pipeline_evidence': host,
                              'device_speech': 'unverified'}
-            pack(args.source, root/'runtime', candidate, args.build_tools,
+            pack(source_snapshot, root/'runtime', candidate, args.build_tools,
                  args.keystore, voice_trial=True, trial_receipt=trial_receipt)
             report.update(local_delivery='passed', apk_sha256=sha(candidate),
                           model=model, runtime=runtime,

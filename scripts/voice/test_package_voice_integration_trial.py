@@ -113,7 +113,13 @@ class TrialDeliveryTest(unittest.TestCase):
                 sdk=root/'sdk', jni=root/'jni', source=root/'source.apk',
                 build_tools=root, keystore=root/'key')
             args.source.write_bytes(b'source apk')
+            def host_acceptance(output):
+                # A concurrent controller build must not change this delivery.
+                args.source.write_bytes(b'new controller build')
+                return {'host_pipeline_tests': 'passed'}
             def package(source, staged, candidate, tools, key, **kwargs):
+                self.assertNotEqual(source, args.source)
+                self.assertEqual(source.read_bytes(), b'source apk')
                 self.assertTrue(kwargs['voice_trial'])
                 self.assertEqual(kwargs['trial_receipt']['source_apk_sha256'],
                                  hashlib.sha256(b'source apk').hexdigest())
@@ -124,7 +130,7 @@ class TrialDeliveryTest(unittest.TestCase):
             with patch('package_voice_integration_trial.verify_model', return_value={'speaker': 'lami_cute'}), \
                  patch('package_voice_integration_trial.verify_jni', return_value={'jni_sha256': 'b'*64}), \
                  patch('package_voice_integration_trial.stage', return_value={'files': {JNI: 'b'*64}}), \
-                 patch('package_voice_integration_trial.accept_host_pipeline', return_value={'host_pipeline_tests': 'passed'}), \
+                 patch('package_voice_integration_trial.accept_host_pipeline', side_effect=host_acceptance), \
                  patch('package_voice_integration_trial.pack', side_effect=package):
                 self.assertEqual(deliver(args), 0)
             report = json.loads(args.result.read_text())
@@ -135,6 +141,7 @@ class TrialDeliveryTest(unittest.TestCase):
             self.assertEqual(report['normal_llm_streaming'], 'unverified')
             self.assertEqual(report['fallback']['classification'], 'not_executed')
             self.assertEqual(report['signed_provenance_asset'], TRIAL_RECEIPT)
+            self.assertEqual(report['source_apk_sha256'], hashlib.sha256(b'source apk').hexdigest())
             self.assertEqual(args.output.read_bytes(), b'candidate')
             with self.assertRaisesRegex(ValueError, 'Refuse existing'): deliver(args)
 
@@ -143,7 +150,8 @@ class TrialDeliveryTest(unittest.TestCase):
             root = Path(temp)
             args = SimpleNamespace(output=root/'out.apk', result=root/'result.json',
                 model_manifest=root/'manifest', model_manifest_sha256='a'*64,
-                sdk=root/'sdk', jni=root/'jni')
+                sdk=root/'sdk', jni=root/'jni', source=root/'source.apk')
+            args.source.write_bytes(b'source apk')
             with patch('package_voice_integration_trial.verify_model', return_value={}), \
                  patch('package_voice_integration_trial.verify_jni', return_value={}), \
                  patch('package_voice_integration_trial.accept_host_pipeline',
@@ -156,6 +164,30 @@ class TrialDeliveryTest(unittest.TestCase):
             report = json.loads(args.result.read_text())
             self.assertEqual(report['host_pipeline_tests'], 'failed')
             self.assertEqual(report['local_delivery'], 'failed')
+            self.assertEqual(report['device_speech'], 'unverified')
+            self.assertFalse(args.output.exists())
+
+    def test_changed_source_copy_blocks_delivery_before_host_acceptance(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            args = SimpleNamespace(output=root/'out.apk', result=root/'result.json',
+                model_manifest=root/'manifest', model_manifest_sha256='a'*64,
+                sdk=root/'sdk', jni=root/'jni', source=root/'source.apk')
+            args.source.write_bytes(b'original')
+            def changed_copy(source, destination):
+                destination.write_bytes(b'concurrent replacement')
+            with patch('package_voice_integration_trial.verify_model', return_value={}), \
+                 patch('package_voice_integration_trial.verify_jni', return_value={}), \
+                 patch('package_voice_integration_trial.shutil.copyfile', side_effect=changed_copy), \
+                 patch('package_voice_integration_trial.accept_host_pipeline') as host, \
+                 patch('package_voice_integration_trial.pack') as package:
+                self.assertEqual(deliver(args), 1)
+                host.assert_not_called()
+                package.assert_not_called()
+            report = json.loads(args.result.read_text())
+            self.assertEqual(report['local_delivery'], 'failed')
+            self.assertIn('Source APK changed', report['error'])
+            self.assertEqual(report['host_pipeline_tests'], 'unverified')
             self.assertEqual(report['device_speech'], 'unverified')
             self.assertFalse(args.output.exists())
 
