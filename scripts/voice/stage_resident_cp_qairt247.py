@@ -160,6 +160,16 @@ def inspect_apk(apk, manifest):
                     verify_jni_abi(f.read(64))
         if mismatches:
             raise ValueError('; '.join(mismatches))
+        if full:
+            # Staging verifies the local build receipt against SDK/toolchain and
+            # source identities. Inspection must retain its binding to the JNI
+            # bytes, rather than accept an arbitrary caller-supplied JNI hash.
+            # This consistency check does not authenticate external manifests or
+            # replace stage()'s local provenance verification.
+            receipt = manifest.get('jni_build_receipt')
+            if (not isinstance(receipt, dict) or receipt.get('schema') != 2
+                    or receipt.get('jni_sha256') != files[JNI]):
+                raise ValueError('Missing/mismatched JNI build receipt')
     return True
 
 def main():

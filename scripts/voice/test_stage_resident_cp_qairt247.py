@@ -23,6 +23,7 @@ class RuntimeStageTest(unittest.TestCase):
         # real receipt verifier separately in NativeBuildProvenanceTest.
         self.receipt_check = patch('stage_resident_cp_qairt247.verified_build_receipt',
                                   side_effect=lambda jni, sdk: {
+                                      'schema': 2,
                                       'jni_sha256': hashlib.sha256(jni.read_bytes()).hexdigest()})
         self.verify_receipt = self.receipt_check.start()
         self.addCleanup(self.receipt_check.stop)
@@ -282,6 +283,19 @@ class RuntimeStageTest(unittest.TestCase):
 
             package()
             self.assertTrue(inspect_apk(apk, m))
+            # Matching APK/manifest hashes alone must not bypass the build
+            # receipt required by full staging. Diagnostic API remains separate.
+            for receipt in (None, [], {}, {'schema': 1, 'jni_sha256': m['files'][JNI]},
+                            {'schema': 2, 'jni_sha256': '0'*64}):
+                candidate = copy.deepcopy(m)
+                candidate['jni_build_receipt'] = receipt
+                with self.subTest(receipt=receipt):
+                    with self.assertRaisesRegex(ValueError, 'JNI build receipt'):
+                        inspect_apk(apk, candidate)
+            candidate = copy.deepcopy(m)
+            del candidate['jni_build_receipt']
+            with self.assertRaisesRegex(ValueError, 'JNI build receipt'):
+                inspect_apk(apk, candidate)
             for extra in ('lib/arm64-v8a/liblami_qairt244_npu_jni.so',
                           'lib/arm64-v8a/libQnnCpu.so',
                           'lib/arm64-v8a/'+SKELETON):
