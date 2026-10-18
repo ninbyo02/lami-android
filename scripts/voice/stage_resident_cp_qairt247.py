@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 import shutil
+import struct
 import zipfile
 
 RUNTIME = ('libQnnHtp.so', 'libQnnSystem.so', 'libQnnHtpV79Stub.so')
@@ -15,6 +16,14 @@ SKELETON = 'libQnnHtpV79Skel.so'
 SDK_PINS = {'libQnnGpu.so': '76f85140bb969b554660dc846c4ee900d5c5b645b5942667f87972b8a880e371', 'libQnnHtp.so': 'c0488f2df87932a42ca0a563883e6fba190896bca439ad0fdaa2428358ab5092', 'libQnnHtpPrepare.so': '9988ce10ffee6813ffd218df308478f44dbc758cc89aed9cb98cfebb030ca72e', 'libQnnSystem.so': '077a8b20a53b216d006b85b58dd754a9e958e02f98e9c79d46619db6f8edfec9', 'libQnnHtpV79Stub.so': '5f7460da65239d97be7b1845c2cebe20a4b8a92805721d9be796b2c4e706f132', 'libQnnHtpV79Skel.so': 'dd8987c17928e53877e51ce5739c550d3e74393bd5b1b5ccf311326eddb08612'}
 JNI = 'liblami_resident_cp_diag.so'
 FORBIDDEN = ('libcdsprpc.so','libadsprpc.so','libhidlbase.so','libvndksupport.so')
+
+def verify_jni_abi(header):
+    # This is an ABI header check, not evidence of a QAIRT 2.47 JNI rebuild.
+    # ET_DYN / EM_AARCH64 must not be inferred from the renamed input path.
+    if (len(header) < 64 or header[:7] != b'\x7fELF\x02\x01\x01'
+            or struct.unpack_from('<HHI', header, 16) != (3, 183, 1)
+            or struct.unpack_from('<H', header, 52)[0] != 64):
+        raise ValueError('JNI must have an AArch64 ELF64 shared-library header')
 
 def sha(path):
     h = hashlib.sha256()
@@ -59,6 +68,9 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     for name, digest in verified_hashes.items():
         if name != JNI and digest != SDK_PINS[Path(name).name]:
             raise ValueError('SDK version/hash mismatch: ' + name)
+    if profile == 'voice-trial':
+        with jni.open('rb') as f:
+            verify_jni_abi(f.read(64))
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Refuse populated staging directory')
     destination.mkdir(parents=True, exist_ok=True)
@@ -71,6 +83,9 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     for name, expected in verified_hashes.items():
         if sha(destination/name) != expected:
             raise ValueError('Staged copy/hash mismatch: ' + name)
+    if profile == 'voice-trial':
+        with (destination/JNI).open('rb') as f:
+            verify_jni_abi(f.read(64))
     manifest = {'runtime': 'QAIRT 2.47 Android arm64 diagnostic only',
                 'profile': profile,
                 'sdk_version': '2.47.0.260601114230',
@@ -125,6 +140,9 @@ def inspect_apk(apk, manifest):
                 mismatches.append('missing '+name)
             elif hashlib.sha256(z.read(path)).hexdigest() != expected:
                 mismatches.append('version/hash mismatch '+name)
+            elif full and name == JNI:
+                with z.open(path) as f:
+                    verify_jni_abi(f.read(64))
         if mismatches:
             raise ValueError('; '.join(mismatches))
     return True

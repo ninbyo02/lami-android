@@ -1,12 +1,21 @@
 import hashlib
 import copy
 import shutil
+import struct
 from unittest.mock import patch
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 from stage_resident_cp_qairt247 import stage, inspect_apk, RUNTIME, JNI, FULL_RUNTIME, SKELETON
+
+def jni_header(machine=183, elf_class=2, byte_order=1, kind=3):
+    header = bytearray(64)
+    header[:7] = bytes((127, 69, 76, 70, elf_class, byte_order, 1))
+    struct.pack_into('<HHI', header, 16, kind, machine, 1)
+    struct.pack_into('<H', header, 52, 64)
+    return bytes(header)
+
 
 class RuntimeStageTest(unittest.TestCase):
     def setUp(self):
@@ -94,7 +103,7 @@ class RuntimeStageTest(unittest.TestCase):
             skeleton.parent.mkdir(parents=True)
             skeleton.write_bytes(b'hexagon')
             jni = base/JNI
-            jni.write_bytes(b'jni')
+            jni.write_bytes(jni_header())
             self.evidence(sdk)
             copyfile = shutil.copyfile
 
@@ -119,6 +128,42 @@ class RuntimeStageTest(unittest.TestCase):
             for name, digest in manifest['files'].items():
                 self.assertEqual(hashlib.sha256((base/'valid'/name).read_bytes()).hexdigest(),
                                  digest)
+
+    def test_full_profile_rejects_wrong_jni_abi_at_staging_and_inspection(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            manifest = stage(sdk, jni, base/'valid', 'voice-trial')
+            invalid = (b'not ELF', jni_header()[:63], jni_header(machine=62),
+                       jni_header(machine=164), jni_header(elf_class=1),
+                       jni_header(byte_order=2), jni_header(kind=2))
+            for payload in invalid:
+                with self.subTest(header=payload):
+                    jni.write_bytes(payload)
+                    with self.assertRaisesRegex(ValueError, 'AArch64 ELF64'):
+                        stage(sdk, jni, base/'rejected', 'voice-trial')
+                    self.assertFalse((base/'rejected').exists())
+                    # A caller-provided matching hash cannot bless the wrong ABI.
+                    candidate = copy.deepcopy(manifest)
+                    candidate['files'][JNI] = hashlib.sha256(payload).hexdigest()
+                    apk = base/'wrong.apk'
+                    with zipfile.ZipFile(apk, 'w') as z:
+                        for name in candidate['files']:
+                            prefix = 'assets/' if name.startswith('hexagon-v79/') else 'lib/arm64-v8a/'
+                            z.writestr(prefix+name, payload if name == JNI else
+                                       (base/'valid'/name).read_bytes())
+                    with self.assertRaisesRegex(ValueError, 'AArch64 ELF64'):
+                        inspect_apk(apk, candidate)
 
     def test_staging_and_legacy_apk_rejected(self):
         with tempfile.TemporaryDirectory() as root:
@@ -159,7 +204,7 @@ class RuntimeStageTest(unittest.TestCase):
             skel.parent.mkdir(parents=True)
             skel.write_bytes(b'hexagon')
             jni = base/JNI
-            jni.write_bytes(b'jni')
+            jni.write_bytes(jni_header())
             with self.assertRaisesRegex(ValueError, 'version evidence'):
                 stage(sdk, jni, base/'missing')
             self.evidence(sdk)
