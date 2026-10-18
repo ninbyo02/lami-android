@@ -56,9 +56,11 @@ val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
+val voiceIntegrationTrial = providers.gradleProperty("lami.voiceIntegrationTrial")
+    .map { it.toBooleanStrict() }.orElse(false)
 val standardGpuOpenClEnabled = providers.gradleProperty("lami.standardGpuOpenClEnabled")
     .map { it.toBooleanStrict() }.orElse(true)
-val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
+val standardGpuOpenClDebugEnabled = !voiceIntegrationTrial.get() && standardGpuOpenClEnabled.get() &&
     !providers.gradleProperty("lami.allowMissingQairt244Jni").map { it.toBooleanStrict() }.orElse(false).get()
 
 val tokenizerOnlyDiagnostic = providers.gradleProperty("lami.tokenizerOnlyDiagnostic")
@@ -331,9 +333,10 @@ android {
             } else {
                 ".assistantprobe"
             }
-            if (providers.gradleProperty("lami.voiceIntegrationTrial").orNull == "true") {
+            if (voiceIntegrationTrial.get()) {
                 require(providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull != "true" &&
-                    !gpuIdlePrewarmDiagnostic.get() && !imageBenchmark.get()) {
+                    !gpuIdlePrewarmDiagnostic.get() && !imageBenchmark.get() &&
+                    !standardNpuRuntimeEnabled.get()) {
                     "Voice integration trial cannot be combined with other diagnostic package modes"
                 }
                 applicationIdSuffix = ".voiceintegrationtrial"
@@ -374,7 +377,11 @@ android {
     }
     sourceSets {
         maybeCreate("standardDebug").apply {
-            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+            // The trial uses the verified QAIRT 2.47 packager after assembly.
+            // Never consume a stale 2.44 staging directory from another build.
+            if (!voiceIntegrationTrial.get()) {
+                jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+            }
         }
         maybeCreate("standardRelease").apply {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardReleaseJniLibs"))
@@ -466,11 +473,20 @@ androidComponents {
             variant.buildType == "debug" &&
             flavor == "standard" &&
             (providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true" ||
-                providers.gradleProperty("lami.voiceIntegrationTrial").orNull == "true")
+                voiceIntegrationTrial.get())
         ) {
             // Isolated diagnostic/trial APK only. Never enable on the production release.
             // Diagnostic JNI/QNN payload is not silently added by this flag.
             variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
+        if (voiceIntegrationTrial.get() && variant.name == "standardDebug") {
+            // Dependencies also carry QNN 2.34. Supply QNN only through the
+            // separately pinned 2.47 staging/signing gate, while keeping the
+            // ordinary LiteRT-LM GPU implementation and app payload intact.
+            listOf(
+                "**/libQnn*.so", "**/libqnn*.so", "**/*qairt244*.so",
+                "**/libLiteRtDispatch_Qualcomm.so", "**/libLiteRtCompilerPlugin_Qualcomm.so",
+            ).forEach { variant.packaging.jniLibs.excludes.add(it) }
         }
         if (
             variant.buildType == "release" &&
@@ -1321,12 +1337,20 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
 }
 
 tasks.matching { it.name == "packageStandardDebug" }.configureEach {
-    dependsOn("overlayQairt244StandardDebugNativeLibs")
-    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+    if (!voiceIntegrationTrial.get()) {
+        dependsOn("overlayQairt244StandardDebugNativeLibs")
+        dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+    }
 }
 
 tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
-    dependsOn("stageQairt244StandardDebugNativeLibs")
+    inputs.property("voiceIntegrationTrial", voiceIntegrationTrial)
+    if (!voiceIntegrationTrial.get()) {
+        dependsOn("stageQairt244StandardDebugNativeLibs")
+    }
+    // The source directory list changes between trial and normal builds. Force
+    // re-merging to discard native files previously overlaid outside AGP.
+    outputs.upToDateWhen { false }
 }
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {

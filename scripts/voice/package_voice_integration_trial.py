@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """PC-only isolated trial delivery; never builds with Gradle or installs an APK.
 
-Controller-only build command (run outside Codex):
+Build the isolated source APK first, using the installed Android SDK and JDK 21:
+  JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
   ANDROID_HOME=/home/sato/Android/Sdk ANDROID_SDK_ROOT=/home/sato/Android/Sdk \
-  ./gradlew --offline :app:assembleStandardDebug -Plami.voiceIntegrationTrial=true
+  ./gradlew --offline --no-daemon :app:assembleStandardDebug -Plami.voiceIntegrationTrial=true
+
+The trial flag disconnects the QAIRT 2.44 standardDebug staging/overlays and
+excludes dependency-provided QNN libraries. That intermediate APK is not a
+complete voice runtime: this script supplies the verified QAIRT 2.47 payload.
 
 Then invoke this script with that APK, existing QAIRT SDK, rebuilt JNI with its
 .provenance.json receipt, lami_cute model manifest + independently expected SHA,
