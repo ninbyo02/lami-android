@@ -154,6 +154,23 @@ class NativeBuildProvenanceTest(unittest.TestCase):
                     build.rust_identity()
                 run.assert_not_called()
 
+    def test_native_header_and_argument_overrides_rejected_for_build_and_verification(self):
+        jni = self.root/'test.so'
+        jni.write_bytes(b'jni')
+        receipt = {'schema': 2, 'sdk': build.sdk_identity(self.sdk),
+                   'sources': build.source_identity()}
+        build.receipt_path(jni).write_text(json.dumps(receipt))
+        for name in ('CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH',
+                     'OBJC_INCLUDE_PATH', 'CCC_OVERRIDE_OPTIONS'):
+            with self.subTest(name=name), \
+                    patch.dict(os.environ, {name: 'private-unrecorded-input'}, clear=True), \
+                    patch.object(build.subprocess, 'run') as run:
+                for check in (build.rust_identity, lambda: build.verify_jni(jni, self.sdk)):
+                    with self.assertRaisesRegex(ValueError,
+                                                'native build overrides; unset: ' + name + '$'):
+                        check()
+                run.assert_not_called()
+
     def test_receipt_binds_binary_sources_and_separate_architectures(self):
         jni = self.root/'test.so'
         jni.write_bytes(b'jni')

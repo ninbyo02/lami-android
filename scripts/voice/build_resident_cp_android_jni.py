@@ -65,6 +65,15 @@ def reject_cargo_config():
 
 
 def rust_identity():
+    # Both the SDK bridge and JNI wrapper inherit Clang's environment. These
+    # inputs can replace pinned headers or rewrite explicit compiler arguments;
+    # neither is represented by the SDK/tool executable hashes in the receipt.
+    native_overrides = ('CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH',
+                        'OBJC_INCLUDE_PATH', 'CCC_OVERRIDE_OPTIONS')
+    active_native = [name for name in native_overrides if os.environ.get(name)]
+    if active_native:
+        raise ValueError('Unrecorded native build overrides; unset: ' +
+                         ', '.join(active_native))
     reject_cargo_config()
     # Cargo inherits these overrides from the caller. They can select a compiler
     # or alter its output without changing the tool hashes recorded below.

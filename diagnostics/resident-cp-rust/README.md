@@ -113,6 +113,10 @@ Build and verification reject nonempty environment overrides for Rust compilers,
 compiler wrappers and Rust flags (including Cargo build/Android target variants),
 because those inputs are not recorded in schema 2. Unset the named variables
 before retrying; their values are never printed in the error.
+The same checks reject Clang's nonempty `CPATH`, `C_INCLUDE_PATH`,
+`CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH` and `CCC_OVERRIDE_OPTIONS`: inherited
+header search paths or argument rewrites could otherwise change both native
+compilation stages despite matching SDK header and compiler hashes.
 Build and verification also reject Cargo `config`/`config.toml` files in the
 crate's ancestor `.cargo` directories and `CARGO_HOME` (default `~/.cargo`),
 because their compiler/flag overrides and includes are not recorded. Use a
