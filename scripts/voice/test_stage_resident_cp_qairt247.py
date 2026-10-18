@@ -19,6 +19,13 @@ def jni_header(machine=183, elf_class=2, byte_order=1, kind=3):
 
 class RuntimeStageTest(unittest.TestCase):
     def setUp(self):
+        # Runtime/ABI fixtures are intentionally not compiled JNI. Exercise the
+        # real receipt verifier separately in NativeBuildProvenanceTest.
+        self.receipt_check = patch('stage_resident_cp_qairt247.verified_build_receipt',
+                                  side_effect=lambda jni, sdk: {
+                                      'jni_sha256': hashlib.sha256(jni.read_bytes()).hexdigest()})
+        self.verify_receipt = self.receipt_check.start()
+        self.addCleanup(self.receipt_check.stop)
         self.pins = {}
         self.patch = patch('stage_resident_cp_qairt247.SDK_PINS', self.pins)
         self.patch.start()
@@ -128,6 +135,48 @@ class RuntimeStageTest(unittest.TestCase):
             for name, digest in manifest['files'].items():
                 self.assertEqual(hashlib.sha256((base/'valid'/name).read_bytes()).hexdigest(),
                                  digest)
+
+    def test_voice_trial_requires_receipt_and_binds_it_before_creating_output(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            destination = base/'stage'
+            # Reach the actual builder verifier: missing receipts fail before
+            # SDK/toolchain checks and before any staging output is created.
+            from build_resident_cp_android_jni import verify_jni
+            self.verify_receipt.side_effect = verify_jni
+            with self.assertRaises(FileNotFoundError):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            self.verify_receipt.side_effect = ValueError('JNI provenance mismatch; rebuild required')
+            with self.assertRaisesRegex(ValueError, 'rebuild required'):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            self.verify_receipt.side_effect = None
+            self.verify_receipt.return_value = {'jni_sha256': '0'*64}
+            with self.assertRaisesRegex(ValueError, 'changed during build provenance'):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            receipt = {'schema': 2, 'jni_sha256': hashlib.sha256(jni.read_bytes()).hexdigest()}
+            self.verify_receipt.return_value = receipt
+            manifest = stage(sdk, jni, destination, 'voice-trial')
+            self.assertEqual(manifest['jni_build_receipt'], receipt)
+            self.assertIn('device unverified', manifest['jni_provenance'])
+            self.verify_receipt.assert_called_with(jni, sdk)
+            self.verify_receipt.reset_mock()
+            diagnostic = stage(sdk, jni, base/'diagnostic')
+            self.verify_receipt.assert_not_called()
+            self.assertNotIn('jni_build_receipt', diagnostic)
 
     def test_full_profile_rejects_wrong_jni_abi_at_staging_and_inspection(self):
         with tempfile.TemporaryDirectory() as root:

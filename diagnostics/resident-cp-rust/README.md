@@ -124,9 +124,13 @@ configuration-free build environment; the helper never edits existing configs.
 Verification rejects absent or mismatched receipts; these local receipts are
 build evidence, not signed attestations. Outputs remain under ignored `target/`.
 
-This does not change staging/APK promotion gates: staging still labels JNI
-provenance unverified. A trial APK needs explicit receipt consumption by the
-packaging gate, the full pinned runtime with V79 skeleton in its separate asset
+Voice-trial staging now calls this same verifier before creating its output,
+rejects missing/stale receipts and binds the copied JNI hash to the verified
+receipt. Its manifest preserves the receipt as `jni_build_receipt`; this proves
+only the local build, with device behavior still unverified. Diagnostic staging
+keeps its existing unverified route. Run staging in the same configuration-free
+Rust/SDK environment used for the build. A trial APK still needs explicit receipt
+consumption by the packaging gate, the full pinned runtime with V79 skeleton in its separate asset
 location, model SHA gates and controller offline Android validation. Device
 acceptance remains with the separately authorized coordinator.
 

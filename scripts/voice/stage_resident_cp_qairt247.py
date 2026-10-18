@@ -32,6 +32,12 @@ def sha(path):
             h.update(block)
     return h.hexdigest()
 
+def verified_build_receipt(jni, sdk):
+    # Import lazily: the builder reuses this module's reviewed runtime pins.
+    from build_resident_cp_android_jni import verify_jni
+    return verify_jni(jni, sdk)
+
+
 def stage(sdk, jni, destination, profile='diagnostic'):
     if profile not in ('diagnostic', 'voice-trial'):
         raise ValueError('Unknown staging profile')
@@ -68,9 +74,15 @@ def stage(sdk, jni, destination, profile='diagnostic'):
     for name, digest in verified_hashes.items():
         if name != JNI and digest != SDK_PINS[Path(name).name]:
             raise ValueError('SDK version/hash mismatch: ' + name)
+    build_receipt = None
     if profile == 'voice-trial':
         with jni.open('rb') as f:
             verify_jni_abi(f.read(64))
+        build_receipt = verified_build_receipt(jni, sdk)
+        # Bind the receipt to the bytes already hashed for copying. Verification
+        # must not bless a different JNI swapped in between these two reads.
+        if build_receipt['jni_sha256'] != verified_hashes[JNI]:
+            raise ValueError('JNI changed during build provenance verification')
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Refuse populated staging directory')
     destination.mkdir(parents=True, exist_ok=True)
@@ -91,6 +103,9 @@ def stage(sdk, jni, destination, profile='diagnostic'):
                 'sdk_version': '2.47.0.260601114230',
                 'jni_provenance': 'unverified; rebuild required before promotion',
                 'files': verified_hashes}
+    if build_receipt is not None:
+        manifest['jni_provenance'] = 'local QAIRT 2.47 build receipt verified; device unverified'
+        manifest['jni_build_receipt'] = build_receipt
     (destination/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
     return manifest
 
