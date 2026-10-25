@@ -346,13 +346,14 @@ fun Settings(
         }
     }
 
-    LaunchedEffect(settingsBackStackEntry, requestedLocalModelFocus) {
+    val settingsShortcutCount = 1 + listOfNotNull(onBluetoothStandby, onUsbHeadset).size
+    LaunchedEffect(settingsBackStackEntry, requestedLocalModelFocus, settingsShortcutCount) {
         val savedStateHandle = settingsBackStackEntry?.savedStateHandle
         if (requestedLocalModelFocus == null || savedStateHandle?.get<Boolean>(LocalModelFocusConsumedKey) == true) return@LaunchedEffect
         val focus = OneShotSettingsLocalModelFocus(requestedLocalModelFocus).consume() ?: return@LaunchedEffect
         savedStateHandle?.set(LocalModelFocusConsumedKey, true)
         listState.animateScrollToItem(
-            SettingsLocalModelScrollTarget.itemIndex,
+            SettingsLocalModelScrollTarget.itemIndex + settingsShortcutCount,
             with(density) { SettingsLocalModelScrollTarget.scrollOffsetDp.dp.roundToPx() },
         )
         try {
@@ -433,6 +434,9 @@ fun Settings(
                 ),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            item(key = "assistant-settings") {
+                AssistantSettingsRow()
+            }
             if (onBluetoothStandby != null) {
                 item {
                     SettingsNavRowItem(
