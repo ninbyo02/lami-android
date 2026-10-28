@@ -1,0 +1,4 @@
+# Reuse the existing SDK development image; keep vendor SDK files outside Git.
+FROM qairt-dev:ubuntu22
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends libc++1 libc++abi1 clang make && rm -rf /var/lib/apt/lists/*
