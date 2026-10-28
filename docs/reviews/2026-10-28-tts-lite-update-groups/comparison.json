@@ -1,0 +1,58 @@
+{
+  "order": [
+    "reference",
+    "baseline",
+    "candidate",
+    "alternate_candidate"
+  ],
+  "examples": 1,
+  "optimizer_steps": 400,
+  "trial_optimizer_steps": 400,
+  "gain_adjustment": false,
+  "duration_seconds": 17.17609977324263,
+  "segments": [
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "reference",
+      "start_seconds": 0.5,
+      "end_seconds": 3.38,
+      "source_sha256": "fac6fbc0ea17bd36d08ec14ab3a8b0444740fc3465379a628d9f15214f5d52c8"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "baseline",
+      "start_seconds": 4.08,
+      "end_seconds": 7.412063492063492,
+      "source_sha256": "cb739658b703cf3474797705ad8ecdac073082e4afdee22fc86df47716a2b32f"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "candidate",
+      "start_seconds": 8.112063492063491,
+      "end_seconds": 11.444126984126983,
+      "source_sha256": "1f207cd57d6976422a7674e29b7b125e4bec4d3493c9a356cac8ff28a0172636"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "alternate_candidate",
+      "start_seconds": 12.144126984126984,
+      "end_seconds": 15.476190476190476,
+      "source_sha256": "b9473d38f58c12148ced2b82107d3816b6257e72a9c82471b050664889e1bb23"
+    }
+  ],
+  "sha256": "790fb1249a28822161e7014d029723ff41ce275874869d65e525efc6fd3b9042",
+  "listening": "pending",
+  "voice_adopted": false,
+  "condition_labels": {
+    "reference": "lami-cute-v3-03 reviewed reference",
+    "baseline": "stock JP corrected long vowels",
+    "candidate": "400 steps, acoustic modules, LR 3e-6",
+    "alternate_candidate": "1000 steps, acoustic modules, LR 1e-5"
+  },
+  "mp3_sha256": "4146b82e1e7370f5b7bb68932d270f2e6b913bb329c64a6d700112640759d0c9",
+  "mp3_bytes": 413823
+}

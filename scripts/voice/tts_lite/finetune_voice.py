@@ -23,6 +23,7 @@ from torch.nn.utils.rnn import pad_sequence
 SOURCE_REVISION = "209145371cff8fc3bd60d7be902ea69cbdb7965a"
 MANIFEST_SHA256 = "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0"
 BASE_CHECKPOINT_SHA256 = "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0"
+UPDATE_MODULES = ("enc_p", "dp", "sdp", "emb_g", "enc_q", "flow", "dec")
 
 
 def sha256(path):
@@ -139,6 +140,31 @@ def finite_step(loss, model, optimizer):
     return float(norm)
 
 
+def configure_updates(model, modules=None, freeze_text_duration=False):
+    """Choose whole upstream modules; never partially alter their architecture."""
+    if modules is not None and freeze_text_duration:
+        raise ValueError("Choose explicit modules or the historical freeze flag")
+    selected = tuple(modules) if modules is not None else (
+        ("enc_q", "flow", "dec") if freeze_text_duration else UPDATE_MODULES)
+    if not selected or len(selected) != len(set(selected)) or set(selected) - set(UPDATE_MODULES):
+        raise ValueError("Invalid or duplicate update modules")
+    if set(dict(model.named_children())) != set(UPDATE_MODULES):
+        raise ValueError("Unexpected upstream generator modules")
+    model.requires_grad_(False)
+    for name in selected:
+        getattr(model, name).requires_grad_(True)
+    return tuple(name for name in UPDATE_MODULES if name not in selected)
+
+
+def module_grad_norms(model):
+    result = {}
+    for name, module in model.named_children():
+        gradients = [p.grad.detach() for p in module.parameters() if p.grad is not None]
+        if gradients:
+            result[name] = float(torch.sqrt(sum(g.float().square().sum() for g in gradients)))
+    return result
+
+
 @contextlib.contextmanager
 def fixed_rng(seed):
     with torch.random.fork_rng(devices=[torch.cuda.current_device()]):
@@ -207,8 +233,10 @@ def main():
     parser.add_argument("--save-every", type=int, default=100)
     parser.add_argument("--eval-every", type=int, default=0)
     parser.add_argument("--eval-seeds", default="42")
-    parser.add_argument("--freeze-text-duration", action="store_true",
+    updates = parser.add_mutually_exclusive_group()
+    updates.add_argument("--freeze-text-duration", action="store_true",
                         help="Preserve text encoder, duration predictors and speaker embedding; adapt acoustic/decoder modules")
+    updates.add_argument("--update-modules", help="Comma-separated whole upstream modules to update")
     args = parser.parse_args()
     seeds = tuple(map(int, args.eval_seeds.split(",")))
     if not seeds or len(seeds) != len(set(seeds)) or args.eval_every < 0:
@@ -254,9 +282,9 @@ def main():
                            train["segment_size"] // cfg["hop_length"], n_speakers=cfg["n_speakers"],
                            num_tones=config["num_tones"], num_languages=config["num_languages"], **config["model"])
     model.load_state_dict(torch.load(args.model_dir / "checkpoint.pth", map_location="cpu", weights_only=True)["model"], strict=True)
-    frozen_modules = ("enc_p", "dp", "sdp", "emb_g") if args.freeze_text_duration else ()
-    for name in frozen_modules:
-        getattr(model, name).requires_grad_(False)
+    frozen_modules = configure_updates(model, args.update_modules.split(",") if args.update_modules else None,
+                                       args.freeze_text_duration)
+    updated_modules = [name for name in UPDATE_MODULES if name not in frozen_modules]
     disc = MultiPeriodDiscriminator(config["model"]["use_spectral_norm"])
     duration_disc = DurationDiscriminator(config["model"]["hidden_channels"], config["model"]["hidden_channels"],
                                            3, 0.1, gin_channels=config["model"]["gin_channels"])
@@ -286,6 +314,8 @@ def main():
                "precision": "float32", "seed": 42,
                "train_examples": len(training), "validation_examples": len(validation),
                "frozen_modules": list(frozen_modules),
+               "updated_modules": updated_modules,
+               "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
                "phoneme_profile": phoneme_profile, "evaluation_seeds": list(seeds),
                "evaluation_interval": args.eval_every, "periodic_validations": [],
                "full_gan_losses": ["mel", "duration", "kl", "adversarial", "feature_matching", "duration_adversarial"],
@@ -303,7 +333,8 @@ def main():
         save_json(target / "config.json", base_config)
         metadata = {"voice": "lami_cute_v3_03_trial_not_adopted", "optimizer_steps": step,
                     "source_manifest_sha256": MANIFEST_SHA256, "base_checkpoint_sha256": BASE_CHECKPOINT_SHA256,
-                    "frozen_modules": list(frozen_modules), "phoneme_profile": phoneme_profile}
+                    "frozen_modules": list(frozen_modules), "updated_modules": updated_modules,
+                    "learning_rate": args.learning_rate, "phoneme_profile": phoneme_profile}
         atomic_save({"model": {key: value.detach().cpu() for key, value in model.state_dict().items()},
                      "tts_lite": metadata}, target / "checkpoint.pth")
         return target
@@ -342,6 +373,8 @@ def main():
                        "loss_duration_d": float(loss_dd.detach()), "grad_norm_g": norm_g, "grad_norm_d": norm_d,
                        "grad_norm_duration_d": norm_dd, "step_ms": (time.monotonic() - tick) * 1000,
                        **{key: float(value.detach()) for key, value in losses.items()}}
+            if step == 1 or step % 10 == 0:
+                metrics["generator_module_grad_norms"] = module_grad_norms(model)
             with (args.output / "steps.jsonl").open("a") as stream:
                 stream.write(json.dumps(metrics) + "\n")
             if step == 1 or step % 10 == 0:

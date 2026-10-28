@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from finetune_voice import collate, finite_step
+from finetune_voice import UPDATE_MODULES, collate, configure_updates, finite_step
 
 
 class TrainingBoundaryTests(unittest.TestCase):
@@ -33,6 +33,25 @@ class TrainingBoundaryTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             finite_step(torch.sqrt(parameter), net, optimizer)
         self.assertEqual(float(parameter.detach()), 0)
+
+    def test_module_ablation_preserves_frozen_weights_after_update(self):
+        net = torch.nn.ModuleDict({name: torch.nn.Linear(1, 1, bias=False) for name in UPDATE_MODULES})
+        frozen = configure_updates(net, ("enc_q", "flow"))
+        self.assertIn("dec", frozen)
+        before = {key: value.clone() for key, value in net.state_dict().items()}
+        optimizer = torch.optim.AdamW((p for p in net.parameters() if p.requires_grad), lr=0.01)
+        loss = sum(layer(torch.ones(1, 1)).sum() for layer in net.values())
+        finite_step(loss, net, optimizer)
+        for key, value in net.state_dict().items():
+            self.assertEqual(torch.equal(before[key], value), key.split(".")[0] in frozen)
+
+    def test_invalid_module_selection_is_rejected(self):
+        net = torch.nn.ModuleDict({name: torch.nn.Linear(1, 1) for name in UPDATE_MODULES})
+        for modules in ((), ("flow", "flow"), ("typo",)):
+            with self.assertRaises(ValueError):
+                configure_updates(net, modules)
+        with self.assertRaises(ValueError):
+            configure_updates(net, ("flow",), freeze_text_duration=True)
 
 
 if __name__ == "__main__":

@@ -195,8 +195,9 @@ Open JTalkでカナ化した文字誤り率（CER）を比較します。この�
 
 ## Remaining implementation gates
 
-最新の検証は[長音の欠落修正と1,000ステップの比較学習](../../../docs/reviews/2026-10-28-tts-lite-long-vowels.md)を参照してください。
-長音修正には効果がありましたが、声の追加学習は別の16文で指標が悪化しているため未採用です。
+最新の検証は[更新する層・学習率の比較](../../../docs/reviews/2026-10-28-tts-lite-update-groups.md)を参照してください。
+[長音の欠落修正と1,000ステップの比較学習](../../../docs/reviews/2026-10-28-tts-lite-long-vowels.md)から続けて原因を調べています。
+声の類似度・自然さを含む採用判断は、音声を聴いて確認するまで保留しています。
 
 ### Long-vowel profile and checkpoint evaluation
 
@@ -242,6 +243,57 @@ artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/select_voice_checkpoin
 この形式は `variants` 内の `baseline` / `candidate` と任意の `reference` の音声パスを持ち、追加文の比較にも使えます。
 比較WAVへ `--step 1000 --frontend-control .../comparisons.jsonl --limit 1` を付けると、
 基準音声→修正前→長音修正後→学習後を同じ1文で聞き比べられます。
+
+### Update groups and learning-rate ablations
+
+`diagnose_voice_modules.py` は同じ上流モデルと学習後モデルのflow・デコーダを組み替え、
+16文×3乱数×4組の音声を作ります。テキスト・音素長予測器・話者埋め込みの重みが同じことを要求し、
+各音素の長さとpriorのサンプルが全組で等しいことを確認します。
+組み替えたモデルは学習時の組合せを崩すため、原因を調べる補助であり採用候補ではありません。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/diagnose_voice_modules.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese-long-vowels \
+  --candidate artifacts/tts-lite/lami-gan-long-vowels-1000/candidate-step001000 \
+  --prepared-data artifacts/tts-lite/lami-voice-long-vowels-44100 \
+  --output artifacts/tts-lite/voice-module-swaps-new
+python3 scripts/voice/tts_lite/run_finetune.py \
+  --prepared-data artifacts/tts-lite/lami-voice-long-vowels-44100 \
+  --output artifacts/tts-lite/voice-low-lr-new --steps 400 --max-minutes 10 \
+  --save-every 400 --eval-every 400 --eval-seeds 42,43,44 \
+  --learning-rate 3e-6 --update-modules enc_q,flow,dec
+```
+
+`--update-modules enc_q,flow` はデコーダを固定し、`enc_q,dec` はflowを固定します。
+既存の各モジュールを単位に更新対象を選び、構造は変えません。指定したもの以外は固定して評価モードにし、
+更新対象・学習率・学習可能パラメータ数と10ステップごとのモジュール別勾配を保存します。
+`--freeze-text-duration` との同時指定はできません。
+音声のposterior encoderである `enc_q` は学習用forwardで使いますが、テキストからの自由合成では呼びません。
+そのため、学習用メル誤差の低下だけで自由合成の改善とは判断できません。
+
+`render_voice_candidates.py` は、事前に準備したphone/tone/language IDとモデル一覧JSONを使い、
+同じ環境の自由合成で候補を比較します。既定はGPU、`--device cpu` はCPUです。
+入力JSONLは `id` / `normalized_text` / `phoneme_profile` と
+`phone` / `tone` / `language` のID配列を持ちます。モデル一覧は `baseline` を含む名前→ディレクトリです。
+CPUとGPUでは乱数列が異なるため、別の実験の値を直接差し引きません。
+
+`summarize_voice_ablation.py` は条件名→ASR結果ディレクトリのJSONを受け取り、
+基準WAVのハッシュ・期待する読み・認識文・ASR設定が一致することを確認して集計します。
+全条件の値、seed別、改善／悪化した要求数、任意のカテゴリ別を残します。
+同じ16文を3回生成しても独立した48文にはなりません。過去に使った検証集合や追加文も独立した最終テストではありません。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/summarize_voice_ablation.py \
+  --reports artifacts/tts-lite/voice-review-additional-reports.json \
+  --corpus scripts/voice/tts_lite/japanese-probes.jsonl \
+  --output artifacts/tts-lite/voice-review-additional-summary.json
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/audit_voice_ablation.py \
+  --artifacts artifacts/tts-lite --output artifacts/tts-lite/voice-review-integrity.json
+```
+
+今回のASRでは、ほぼ等しい全文合成／チャンク合成のPCM16の差が最大1でも、
+「2本／日本」の表記などが変わりカナCERが動く例を確認しました。
+学習前後は同じ合成方式と設定で比較し、小さな指標差を発音・声質の改善の証明には使いません。
 
 以下の採用条件は継続します。
 

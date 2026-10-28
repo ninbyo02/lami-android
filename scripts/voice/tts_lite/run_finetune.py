@@ -12,7 +12,10 @@ def main():
     parser.add_argument("--steps", type=int, default=200)
     parser.add_argument("--max-minutes", type=float, default=20)
     parser.add_argument("--image", default="lami-tts-lite-training:20261028")
-    parser.add_argument("--freeze-text-duration", action="store_true")
+    updates = parser.add_mutually_exclusive_group()
+    updates.add_argument("--freeze-text-duration", action="store_true")
+    updates.add_argument("--update-modules")
+    parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--prepared-data", type=Path)
     parser.add_argument("--save-every", type=int, default=100)
     parser.add_argument("--eval-every", type=int, default=0)
@@ -24,7 +27,7 @@ def main():
     prepared.relative_to(artifacts)
     output = args.output.resolve()
     output.relative_to(artifacts)
-    if output.exists() or args.steps < 1 or args.max_minutes <= 0:
+    if output.exists() or args.steps < 1 or args.max_minutes <= 0 or args.learning_rate <= 0:
         parser.error("Choose a new artifact output and positive limits")
     cache = artifacts / "training-cache"
     cache.mkdir(exist_ok=True)
@@ -44,9 +47,12 @@ def main():
                     "--source", str(artifacts / "MeloTTS"), "--model-dir", str(artifacts / "MeloTTS-Japanese"),
                     "--prepared-data", str(prepared), "--fresh-discriminators",
                     "--output", str(output), "--steps", str(args.steps), "--max-minutes", str(args.max_minutes),
+                    "--learning-rate", str(args.learning_rate),
                     "--save-every", str(args.save_every), "--eval-every", str(args.eval_every), "--eval-seeds", args.eval_seeds])
     if args.freeze_text_duration:
         command.append("--freeze-text-duration")
+    if args.update_modules:
+        command.extend(["--update-modules", args.update_modules])
     output.with_name(output.name + "-launch.json").write_text(json.dumps({"image": image["Id"], "argv": command}, indent=2) + "\n")
     return subprocess.run(command).returncode
 

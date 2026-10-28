@@ -1,0 +1,15 @@
+{
+  "scope": "additional_cpu_confirmation_of_primary_learning_rate_contrast",
+  "reason": "Original additional-text quality gate and mobile acoustic path use CPU; GPU random streams cannot replace that comparison.",
+  "models": [
+    "baseline",
+    "low-lr-all"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "corpus": "same16previously_used_probes",
+  "voice_adopted": false
+}

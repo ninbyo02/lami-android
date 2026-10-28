@@ -1,0 +1,173 @@
+{
+  "scope": "same_candidate_full_vs_chunk_pcm16_and_asr_sensitivity_diagnostic",
+  "rows": [
+    {
+      "id": "greeting",
+      "max_int16_difference": 1,
+      "different_samples": 77,
+      "samples": 82432,
+      "previous_chunk_asr_errors": 4,
+      "full_asr_errors": 4,
+      "previous_transcript": "今日はラミーです",
+      "full_transcript": "今日はラミーです"
+    },
+    {
+      "id": "acknowledgement",
+      "max_int16_difference": 1,
+      "different_samples": 114,
+      "samples": 164352,
+      "previous_chunk_asr_errors": 3,
+      "full_asr_errors": 3,
+      "previous_transcript": "配慮を開始しました少しを待ちくださいね",
+      "full_transcript": "配慮を開始しました少しを待ちくださいね"
+    },
+    {
+      "id": "numbers",
+      "max_int16_difference": 1,
+      "different_samples": 157,
+      "samples": 229888,
+      "previous_chunk_asr_errors": 15,
+      "full_asr_errors": 15,
+      "previous_transcript": "1333131万2345",
+      "full_transcript": "1333131万2345"
+    },
+    {
+      "id": "dates",
+      "max_int16_difference": 1,
+      "different_samples": 179,
+      "samples": 246784,
+      "previous_chunk_asr_errors": 1,
+      "full_asr_errors": 1,
+      "previous_transcript": "今日は10月28日水曜日ですごく6時15分 になりました",
+      "full_transcript": "今日は10月28日水曜日ですごご6時15分 にたりました"
+    },
+    {
+      "id": "counter",
+      "max_int16_difference": 1,
+      "different_samples": 81,
+      "samples": 167424,
+      "previous_chunk_asr_errors": 2,
+      "full_asr_errors": 0,
+      "previous_transcript": "1人2人3人1本日本3本",
+      "full_transcript": "1人2人3人1本2本3本"
+    },
+    {
+      "id": "proper_names",
+      "max_int16_difference": 1,
+      "different_samples": 221,
+      "samples": 264192,
+      "previous_chunk_asr_errors": 0,
+      "full_asr_errors": 0,
+      "previous_transcript": "東京から京都を経由して大阪へ向かい ます佐藤さんに確認しますね",
+      "full_transcript": "東京から京都を経由して大阪へ向かい ます佐藤さんに確認しますね"
+    },
+    {
+      "id": "mixed_script",
+      "max_int16_difference": 1,
+      "different_samples": 134,
+      "samples": 246272,
+      "previous_chunk_asr_errors": 0,
+      "full_asr_errors": 0,
+      "previous_transcript": "USBケーブルを接続して アンドロイドの設定を開いてください",
+      "full_transcript": "USBケーブルを接続して アンドロイドの設定を開いてください"
+    },
+    {
+      "id": "long_sentence",
+      "max_int16_difference": 1,
+      "different_samples": 474,
+      "samples": 564224,
+      "previous_chunk_asr_errors": 2,
+      "full_asr_errors": 2,
+      "previous_transcript": "設定内容を順番に説明しますね まず音量を確認してから読み上げる声と話すはやさを選んでください準備ができたら 短い文章でき声方を確かめましょう",
+      "full_transcript": "設定内容を順番に説明しますね まず音量を確認してから読み上げる声と話すはやさを選んでください準備ができたら 短い文章でき声方を確かめましょう"
+    },
+    {
+      "id": "decimal",
+      "max_int16_difference": 1,
+      "different_samples": 170,
+      "samples": 209408,
+      "previous_chunk_asr_errors": 4,
+      "full_asr_errors": 2,
+      "previous_transcript": "器用は23.5度で、1度は65%です。",
+      "full_transcript": "気温は23.5度で、1度は65%です。"
+    },
+    {
+      "id": "raw_digits",
+      "max_int16_difference": 1,
+      "different_samples": 217,
+      "samples": 299008,
+      "previous_chunk_asr_errors": 20,
+      "full_asr_errors": 20,
+      "previous_transcript": "1331331020345順番に読み上げます",
+      "full_transcript": "1331331020345順番に読み上げます"
+    },
+    {
+      "id": "raw_date",
+      "max_int16_difference": 1,
+      "different_samples": 200,
+      "samples": 293376,
+      "previous_chunk_asr_errors": 3,
+      "full_asr_errors": 3,
+      "previous_transcript": "2026年10月28日10時15分に出発読ます",
+      "full_transcript": "2026年10月28日10時15分に出発読ます"
+    },
+    {
+      "id": "question",
+      "max_int16_difference": 1,
+      "different_samples": 109,
+      "samples": 181760,
+      "previous_chunk_asr_errors": 0,
+      "full_asr_errors": 0,
+      "previous_transcript": "大丈夫ですか何か気になることはありますか",
+      "full_transcript": "大丈夫ですか何か気になることはありますか"
+    },
+    {
+      "id": "encouragement",
+      "max_int16_difference": 1,
+      "different_samples": 144,
+      "samples": 204288,
+      "previous_chunk_asr_errors": 3,
+      "full_asr_errors": 3,
+      "previous_transcript": "大丈夫です用地ついて進めればきっととわくいきます",
+      "full_transcript": "大丈夫です用地ついて進めればきっととわくいきます"
+    },
+    {
+      "id": "loanwords",
+      "max_int16_difference": 1,
+      "different_samples": 114,
+      "samples": 175616,
+      "previous_chunk_asr_errors": 0,
+      "full_asr_errors": 0,
+      "previous_transcript": "スマートフォンのマイクとスピーカーを確認します",
+      "full_transcript": "スマートフォンのマイクとスピーカーを確認します"
+    },
+    {
+      "id": "punctuation",
+      "max_int16_difference": 1,
+      "different_samples": 122,
+      "samples": 160768,
+      "previous_chunk_asr_errors": 2,
+      "full_asr_errors": 2,
+      "previous_transcript": "A 塗装ですねもう一度確認してみます",
+      "full_transcript": "A 塗装ですねもう一度確認してみます"
+    },
+    {
+      "id": "long_vowels",
+      "max_int16_difference": 1,
+      "different_samples": 125,
+      "samples": 187392,
+      "previous_chunk_asr_errors": 1,
+      "full_asr_errors": 1,
+      "previous_transcript": "おじさんとおじいさんおばさんとおばあさんビルトビル",
+      "full_transcript": "おじさんとおじいさんおばさんとおばあさんビルトビル"
+    }
+  ],
+  "max_int16_difference": 1,
+  "previous_total_errors": 60,
+  "full_total_errors": 56,
+  "reference_characters": 559,
+  "notes": [
+    "This is a diagnostic of the ASR proxy near equivalent waveforms, not a new voice model comparison.",
+    "The new factorial experiment uses full synthesis for every condition; old chunk results are not mixed into its baseline."
+  ]
+}
