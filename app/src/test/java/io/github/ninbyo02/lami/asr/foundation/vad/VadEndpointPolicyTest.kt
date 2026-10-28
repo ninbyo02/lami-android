@@ -33,7 +33,7 @@ class VadEndpointPolicyTest {
             { VadEndpointConfig(preRollFrames = 16) },
             { VadEndpointConfig(postRollFrames = 21) },
             { VadEndpointConfig(minimumSpeechFrames = 14) },
-            { VadEndpointConfig(endSilenceFrames = 41) },
+            { VadEndpointConfig(endSilenceFrames = 251) },
             { VadEndpointConfig(noSpeechTimeoutFrames = 501) },
             { VadEndpointConfig(hardLimitFrames = 1_501) },
         )
@@ -42,16 +42,16 @@ class VadEndpointPolicyTest {
     }
 
     @Test
-    fun `policy rejects threshold combinations that retain more than twenty eight frames`() {
+    fun `policy rejects threshold combinations above five second bounded retention`() {
         assertThrows(IllegalArgumentException::class.java) {
-            VadEndpointConfig(postRollFrames = 1, endSilenceFrames = 40)
+            VadEndpointConfig(postRollFrames = 1, endSilenceFrames = 250)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            VadEndpointConfig(postRollFrames = 11, endSilenceFrames = 40)
+            VadEndpointConfig(postRollFrames = 19, endSilenceFrames = 250)
         }
 
-        val boundary = VadEndpointConfig(postRollFrames = 12, endSilenceFrames = 40)
-        assertEquals(28, boundary.endSilenceFrames - boundary.postRollFrames)
+        val boundary = VadEndpointConfig(postRollFrames = 20, endSilenceFrames = 250)
+        assertEquals(230, boundary.endSilenceFrames - boundary.postRollFrames)
     }
 
     @Test

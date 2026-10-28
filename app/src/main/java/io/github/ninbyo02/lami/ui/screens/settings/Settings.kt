@@ -1152,6 +1152,9 @@ fun Settings(
                 Spacer(modifier = Modifier.height(2.dp))
                 AsrModelSettingsCard()
             }
+            item(key = "asr-listening-settings") {
+                AsrListeningSettingsSection()
+            }
             item {
                 CardSectionHeader(
                     title = "サーバー設定",
