@@ -1,0 +1,392 @@
+{
+  "schema_version": 1,
+  "scope": "compiled_qnn_input_layout_and_precision_preparation",
+  "onnx_sha256": "fc470b652bf067983b7001314ddffb5d9fbf36f96ba3416e38030b1ea98a58bc",
+  "context_sha256": "d2bc522f4dbeb59d2c47e705ceca01e886474a24ba1dad06a7be9c6c634dadf8",
+  "model_metadata_sha256": "159533622c977f5addc32a915b34d8bc32d352d42e58348c6dfa7cd891924c01",
+  "qnn_net_run_input_flag": "--use_native_input_files",
+  "probes": [
+    {
+      "probe": 0,
+      "inputs": [
+        {
+          "name": "latent",
+          "source_shape": [
+            1,
+            192,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            192
+          ],
+          "data_type": 534,
+          "bytes": 18432,
+          "sha256": "588c732117fc2a974956acdf5f5b2a35f06f4bf6618b6cd591c1ef7a1a64a1e4",
+          "input_rounding_max_error": 0.00315093994140625
+        },
+        {
+          "name": "mask_0",
+          "source_shape": [
+            1,
+            1,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 96,
+          "sha256": "b1e432c2e8112bea64333f4c5dd1b6f5c550ed6fac1ce621e4d5491bee809ed0",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_1",
+          "source_shape": [
+            1,
+            1,
+            384
+          ],
+          "native_shape": [
+            1,
+            384,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 768,
+          "sha256": "35583213e3a272b82e58028474f97105873820a6e98f2bf6431c2520632069c7",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_2",
+          "source_shape": [
+            1,
+            1,
+            3072
+          ],
+          "native_shape": [
+            1,
+            3072,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 6144,
+          "sha256": "5c7fd1455d70a45006501a460c066703374bc1339801b60fc9ab3e914e74c27a",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_3",
+          "source_shape": [
+            1,
+            1,
+            6144
+          ],
+          "native_shape": [
+            1,
+            6144,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 12288,
+          "sha256": "642fea9aac183db14bd87679af2b4584ab3b20566495665889c24810485aa5bf",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_4",
+          "source_shape": [
+            1,
+            1,
+            12288
+          ],
+          "native_shape": [
+            1,
+            12288,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 24576,
+          "sha256": "eaf20b218f6e5f1e9338825d885f16188983f169e985272d36ea95237ee881e1",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_5",
+          "source_shape": [
+            1,
+            1,
+            24576
+          ],
+          "native_shape": [
+            1,
+            24576,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 49152,
+          "sha256": "76dc2d5275de556ae086c89bdee11926af3cfffd5ec4f760c6e6f6ce4fe26fd9",
+          "input_rounding_max_error": 0.0
+        }
+      ],
+      "onnx_output_error_from_input_rounding": 0.00017523765563964844
+    },
+    {
+      "probe": 1,
+      "inputs": [
+        {
+          "name": "latent",
+          "source_shape": [
+            1,
+            192,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            192
+          ],
+          "data_type": 534,
+          "bytes": 18432,
+          "sha256": "126328f48d96a7bb1f62ea6307a1a86c9531ca43e3705029baa99eae0f9d6126",
+          "input_rounding_max_error": 0.0038776397705078125
+        },
+        {
+          "name": "mask_0",
+          "source_shape": [
+            1,
+            1,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 96,
+          "sha256": "6b915313f9a35aa1187c128f7a0b39416b7dde4a3c97d63fa1b1715a6630bd95",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_1",
+          "source_shape": [
+            1,
+            1,
+            384
+          ],
+          "native_shape": [
+            1,
+            384,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 768,
+          "sha256": "3dbf72745a9c7f53d5da143eed49293209e3af967634ce8ad1480f0f630a6aba",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_2",
+          "source_shape": [
+            1,
+            1,
+            3072
+          ],
+          "native_shape": [
+            1,
+            3072,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 6144,
+          "sha256": "84b582bfea8a3ddea016aa8c98146bc3eef21cec4de4b4a0ac3f2706bdc9561d",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_3",
+          "source_shape": [
+            1,
+            1,
+            6144
+          ],
+          "native_shape": [
+            1,
+            6144,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 12288,
+          "sha256": "bea7e5474c013f192fb2cf0e225f6c494b0cac7c2b5da0b131f3408ad0239869",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_4",
+          "source_shape": [
+            1,
+            1,
+            12288
+          ],
+          "native_shape": [
+            1,
+            12288,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 24576,
+          "sha256": "f77ca159ec58e2042669e3e88f50f17b4f63b40ed21098ffe1e41e6af5eb163a",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_5",
+          "source_shape": [
+            1,
+            1,
+            24576
+          ],
+          "native_shape": [
+            1,
+            24576,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 49152,
+          "sha256": "506090c1fe682074387402a2f09e1f9f8795948bae55c553698ce9db824d8a12",
+          "input_rounding_max_error": 0.0
+        }
+      ],
+      "onnx_output_error_from_input_rounding": 0.00029289722442626953
+    },
+    {
+      "probe": 2,
+      "inputs": [
+        {
+          "name": "latent",
+          "source_shape": [
+            1,
+            192,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            192
+          ],
+          "data_type": 534,
+          "bytes": 18432,
+          "sha256": "b67d721721868027dcde7f24a53747b2a82f1f45b4053d34363f6798a664e430",
+          "input_rounding_max_error": 0.0035266876220703125
+        },
+        {
+          "name": "mask_0",
+          "source_shape": [
+            1,
+            1,
+            48
+          ],
+          "native_shape": [
+            1,
+            48,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 96,
+          "sha256": "5d61438fe9b8f56e8dcc7c6911180861aace80683ab17588d5530711039996cd",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_1",
+          "source_shape": [
+            1,
+            1,
+            384
+          ],
+          "native_shape": [
+            1,
+            384,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 768,
+          "sha256": "e9cf872a6310c48f1e8a4bcd8e4d4c9313eefb0e8f42f6f6a37579a9c61479db",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_2",
+          "source_shape": [
+            1,
+            1,
+            3072
+          ],
+          "native_shape": [
+            1,
+            3072,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 6144,
+          "sha256": "794fe4c80ec569692468ac1f0dd6068bb3af63a404ef0bac5effb0c67a6d3186",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_3",
+          "source_shape": [
+            1,
+            1,
+            6144
+          ],
+          "native_shape": [
+            1,
+            6144,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 12288,
+          "sha256": "0718994f4d8eb8198bc7da7478e2a3f69ebc0f725d56b29cc6d3a0a554bb36df",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_4",
+          "source_shape": [
+            1,
+            1,
+            12288
+          ],
+          "native_shape": [
+            1,
+            12288,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 24576,
+          "sha256": "0adc3861ab1ff44bca38d37bb9ff63a8c8180e82359f8bf5cc58794b654be36c",
+          "input_rounding_max_error": 0.0
+        },
+        {
+          "name": "mask_5",
+          "source_shape": [
+            1,
+            1,
+            24576
+          ],
+          "native_shape": [
+            1,
+            24576,
+            1
+          ],
+          "data_type": 534,
+          "bytes": 49152,
+          "sha256": "c2218375da7eb865f5c17b3feaa6a05f2e2c7e1bbdb4b32c8f4996f2f2fc6752",
+          "input_rounding_max_error": 0.0
+        }
+      ],
+      "onnx_output_error_from_input_rounding": 1.616353983990848e-08
+    }
+  ],
+  "native_input_list_sha256": "c930231b6a7cad6f66bcfab69f10f47bcfab3c0bcf6173031269266dd333c296",
+  "device_execution": "unverified",
+  "notes": [
+    "The compiler changes latent NCT layout into NTC; source ONNX raw files cannot be used unchanged.",
+    "Files use the compiled tensor's native precision; use --use_native_input_files with this list.",
+    "The ONNX check isolates input rounding only; HTP arithmetic and FP16 weights are not simulated."
+  ]
+}

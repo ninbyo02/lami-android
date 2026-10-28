@@ -84,19 +84,22 @@ class JapaneseMelo:
         ).cpu().eval()
         checkpoint = torch.load(model_dir / "checkpoint.pth", map_location="cpu", weights_only=True)
         self.model.load_state_dict(checkpoint["model"], strict=True)
+        candidate = checkpoint.get("tts_lite", {})
         self.init_ms = (time.perf_counter() - started) * 1000
         self.provenance = {
             "source_revision": actual,
             "checkpoint_sha256": sha256(model_dir / "checkpoint.pth"),
             "config_sha256": sha256(model_dir / "config.json"),
             "model": "myshell-ai/MeloTTS-Japanese",
-            "voice": "upstream_JP_0_not_LAMI",
+            "voice": candidate.get("voice", "upstream_JP_0_not_LAMI"),
             "torch": torch.__version__, "threads": threads,
             "sample_rate": self.sample_rate,
             "tokenizer_revision": TOKENIZER_REVISION,
             "frontend": frontend,
             "reading_version": getattr(self.reading, "__version__", None),
         }
+        if candidate:
+            self.provenance["training"] = candidate
 
     def prepare_text(self, text: str):
         torch = self.torch

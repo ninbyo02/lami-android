@@ -1,7 +1,8 @@
 # Japanese low-latency TTS host prototype
 
 LAMI用の軽量TTSを、既存のMeloTTS日本語モデルとOpen JTalkを使って比較する独立した試作です。
-この段階では上流のJP話者を使います。ラミィの声の学習・Android組み込み・実機性能の受入は別工程です。
+上流のJP話者を基準に、採用済みラミィ音声を使う短い学習試験と比較できます。
+学習候補は未採用です。Android組み込み・実機性能の受入は別工程です。
 
 ## Scope and evidence
 
@@ -136,12 +137,66 @@ artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/training_smoke.py \
 
 日本語モデルの既存埋め込みを保持するため、256行の話者テーブルを残し、話者0だけを`lami_cute`へ割り当てます。
 `disable_bert=true`でも上流ローダーがBERTファイルを開くため、期待する形のゼロテンソルを小さな共有ストレージとして保存します。
-`config.prepared.json`は学習用の準備設定で、GPUやGAN学習ループの検証済み設定ではありません。
+`config.prepared.json`は準備用の設定です。GPUでの短いGAN学習は下記の上限付きラッパーで検証します。
+
+## Bounded GPU voice trials
+
+採用済み480音声で実際に重みを更新し、20音声を検証専用に使う短い試験です。
+GPU環境はCPU推論環境から分離します。元のMeloTTS生成器・判定器・MAS整列・GAN損失を再利用し、
+学習回数と時間に上限を設けたラッパーだけを追加しています。
+
+```bash
+docker build -t lami-tts-lite-training:20261028 \
+  -f scripts/voice/tts_lite/Dockerfile.training scripts/voice/tts_lite
+python3 scripts/voice/tts_lite/run_finetune.py \
+  --output artifacts/tts-lite/voice-trial-new --steps 200 --max-minutes 20
+# 発音の変化を抑える比較試験。両方とも同じ元の日本語モデルから始めます。
+python3 scripts/voice/tts_lite/run_finetune.py \
+  --output artifacts/tts-lite/voice-frozen-trial-new --steps 200 --max-minutes 20 \
+  --freeze-text-duration
+```
+
+現在のランチャーはLinuxの開発PC（UID/GID 1000）とROCm GPUを対象とします。
+ホストのGPUデバイスの数値GIDを渡し、コンテナ内のグループ名との差を避けます。
+実行時はネットワークを無効化し、元のモデル・MeloTTSソース・準備済み音声を読み取り専用で渡します。
+200ステップまたは20分の上限を、各学習ステップの開始前に確認します。
+初期化・検証・保存の時間はこの学習時間制限とは別です。
+
+上流が指定する判定器 `D.pth` / `DUR.pth` のS3 URLは実行時に404でした。
+今回は日本語の生成器だけを既存重みから始め、判定器は上流構造の標準初期化を使います。
+生成器の学習率は1e-5、判定器は2e-4、batch 4、FP32です。
+`--freeze-text-duration` は `enc_p` / `dp` / `sdp` / `emb_g` を固定し、
+それらを評価モードで使います。音素長の損失は記録されますが、固定した音素長予測器の更新はありません。
+
+`candidate-step*/` はCPU推論・チャンク比較・ONNX書き出しの `--model-dir` に渡せます。
+チェックポイントには試験中の声であること、学習回数、元データのハッシュ、固定層を記録します。
+`training-state.pth` はモデルとoptimizerの保存です。データローダー状態を含む厳密な再開機能はまだありません。
+通常アプリの既存エンジンへは自動採用しません。
+
+```bash
+uv venv --python python3 artifacts/tts-lite/asr-venv
+uv pip install --python artifacts/tts-lite/asr-venv/bin/python \
+  -r scripts/voice/tts_lite/requirements-voice-asr.txt
+artifacts/tts-lite/asr-venv/bin/python scripts/voice/tts_lite/evaluate_voice_asr.py \
+  --trial artifacts/tts-lite/voice-trial-new --model /path/to/cached/faster-whisper-small/snapshot \
+  --openjtalk-dict /path/to/open_jtalk_dic_utf_8-1.11 --output artifacts/tts-lite/voice-asr-new
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/make_voice_comparison.py \
+  --trial artifacts/tts-lite/voice-trial-new \
+  --dataset /path/to/lami-android-voice-dataset/frozen/lami-cute-v1 \
+  --output artifacts/tts-lite/voice-comparison-new.wav
+```
+
+音声認識には期待する文章を渡しません。基準音声・学習前・学習後を同じ設定で認識し、
+Open JTalkでカナ化した文字誤り率（CER）を比較します。この指標は声の類似度・抑揚・自然さの合否を表しません。
+比較WAVは検証専用の3文を基準音声→学習前→学習後の順に並べ、時刻とハッシュをJSONへ記録します。
+主観評価は別に必要です。
+`--alternate-trial` と `--limit 1` を付けると、同じ1文について2つの学習候補まで並べて比較できます。
+今回の[試験結果と未達項目](../../../docs/reviews/2026-10-28-tts-lite-voice-trials.md)も参照してください。
 
 ## Remaining implementation gates
 
 1. 日本語の数字・日付・英字・固有名詞を増やし、音声を聴いて品質を評価する。
-2. 軽量な単一話者モデルへ、正本`lami-cute-v3-03`と人が承認した音声データを使って声を学習する。
+2. 正本`lami-cute-v3-03`と人が承認した音声データによる短い学習結果を比較し、発音と声質を満たす候補へ育てる。
    Chronicleの音声や、未承認の生成データを教師データへ混ぜない。
 3. `LamiVoiceEngine`の独立した実装へ接続し、生成・再生の並行処理と即時停止を検証する。
 4. NX733Jで、コールド／ウォームの可聴再生開始、RTF、アンダーラン、メモリ、LLM同時動作、発熱と消費電力を測る。

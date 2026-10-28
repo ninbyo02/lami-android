@@ -84,7 +84,7 @@ def main():
               "npu_execution": "unverified", "htp_fp16_output": "unverified",
               "notes": ["A single graph handles head, middle and tail, including a short final core.",
                         "Six multiscale masks preserve true signal boundaries through the original residual blocks.",
-                        "The speaker is fixed to upstream JP speaker 0."]}
+                        "Speaker ID 0 is fixed from the selected checkpoint; voice identity is recorded in provenance."]}
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report), flush=True)
 

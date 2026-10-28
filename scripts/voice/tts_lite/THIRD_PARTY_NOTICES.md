@@ -3,6 +3,9 @@
 `melo_acoustic.py` adapts `SynthesizerTrn.infer` in `melo/models.py`.
 `MaskedWindowDecoder.forward` in `chunk_decoder.py` adapts `Generator.forward`
 and reuses upstream residual-block masking and pretrained modules.
+`finetune_voice.py` adapts the bounded training step orchestration from
+`melo/train.py`, reusing the original generator, discriminators, alignment,
+mel transforms and adversarial losses.
 
 Source: https://github.com/myshell-ai/MeloTTS/tree/209145371cff8fc3bd60d7be902ea69cbdb7965a
 
