@@ -35,7 +35,16 @@ internal class SherpaOfflineAsrEngine : AsrEngine {
             return newSession(active, checkNotNull(modelId), checkNotNull(modelVersion))
         }
 
-        val created = OfflineRecognizer(config = recognizerConfig(model))
+        val created = try {
+            if (io.github.ninbyo02.lami.BuildConfig.DEBUG) android.util.Log.i("LamiAsr", "native stage=open_begin")
+            OfflineRecognizer(config = recognizerConfig(model))
+        } catch (failure: Throwable) {
+            if (io.github.ninbyo02.lami.BuildConfig.DEBUG) {
+                android.util.Log.e("LamiAsr", "native stage=open_failed type=${failure.javaClass.simpleName} cause=${failure.cause?.javaClass?.simpleName}")
+            }
+            throw failure
+        }
+        if (io.github.ninbyo02.lami.BuildConfig.DEBUG) android.util.Log.i("LamiAsr", "native stage=open_complete")
         recognizer = created
         modelFingerprint = model.contentFingerprint
         modelId = model.id

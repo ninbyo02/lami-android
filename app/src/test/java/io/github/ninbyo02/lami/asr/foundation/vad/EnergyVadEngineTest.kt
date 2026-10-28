@@ -7,6 +7,45 @@ import org.junit.Test
 
 class EnergyVadEngineTest {
     @Test
+    fun stableModeRejectsIsolatedImpulsesAndBridgesShortGaps() {
+        val vad = EnergyVadEngine(startConfirmationFrames = 3, endConfirmationFrames = 5)
+        assertEquals(VadEvent.Silence, vad.accept(frame(900)))
+        assertEquals(VadEvent.Silence, vad.accept(frame(0)))
+        repeat(2) { assertEquals(VadEvent.Silence, vad.accept(frame(900))) }
+        assertEquals(VadEvent.SpeechStarted, vad.accept(frame(900)))
+        repeat(4) { assertEquals(VadEvent.Speech, vad.accept(frame(0))) }
+        assertEquals(VadEvent.Speech, vad.accept(frame(900)))
+        repeat(4) { assertEquals(VadEvent.Speech, vad.accept(frame(0))) }
+        assertEquals(VadEvent.SpeechEnded, vad.accept(frame(0)))
+        assertEquals(VadEvent.Silence, vad.accept(frame(0)))
+    }
+
+    @Test
+    fun resetClearsPendingConfirmation() {
+        val vad = EnergyVadEngine(startConfirmationFrames = 3)
+        repeat(2) { vad.accept(frame(900)) }
+        vad.reset()
+        assertEquals(VadEvent.Silence, vad.accept(frame(900)))
+        assertEquals(VadEvent.Silence, vad.accept(frame(900)))
+        assertEquals(VadEvent.SpeechStarted, vad.accept(frame(900)))
+    }
+
+    @Test
+    fun rejectsNonfiniteThresholdsAndInvalidConfirmationCounts() {
+        assertThrows(IllegalArgumentException::class.java) { EnergyVadEngine(Double.NaN) }
+        assertThrows(IllegalArgumentException::class.java) { EnergyVadEngine(Double.POSITIVE_INFINITY) }
+        assertThrows(IllegalArgumentException::class.java) { EnergyVadEngine(startConfirmationFrames = 0) }
+        assertThrows(IllegalArgumentException::class.java) { EnergyVadEngine(endConfirmationFrames = 11) }
+    }
+
+    @Test
+    fun rejectsWrongPcmFormat() {
+        assertThrows(IllegalArgumentException::class.java) {
+            EnergyVadEngine().accept(Pcm16Frame(16_000, ShortArray(160)))
+        }
+    }
+
+    @Test
     fun emitsStrictSpeechSequenceWithHysteresis() {
         val vad = EnergyVadEngine(
             startThresholdRms = 600.0,

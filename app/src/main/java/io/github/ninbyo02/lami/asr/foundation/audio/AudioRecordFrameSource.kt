@@ -57,6 +57,7 @@ class AudioRecordFrameSource(
     private var initialRouteId: Int? = null
     private var initialRouteEstablished = false
     private var stopRequested = false
+    @Volatile private var finishing = false
     private var nativeStopCalled = false
     private var observerStopNotified = false
     private var released = false
@@ -72,7 +73,11 @@ class AudioRecordFrameSource(
     }
 
     override suspend fun read(): Pcm16Frame? {
-        ensureStarted()
+        if (!finishing) {
+            try { ensureStarted() } catch (cancelled: AudioCaptureCancellationException) {
+                if (!finishing) throw cancelled
+            }
+        }
         return channel.take()
     }
 
@@ -188,7 +193,14 @@ class AudioRecordFrameSource(
         }
     }
 
-    override fun stop() {
+    fun finish() {
+        finishing = true
+        stopCapture(preserveFrames = true)
+    }
+
+    override fun stop() = stopCapture(preserveFrames = false)
+
+    private fun stopCapture(preserveFrames: Boolean) {
         val activeWorker: Thread?
         val callNativeStop: Boolean
         val notifyObserverStop: Boolean
@@ -221,7 +233,7 @@ class AudioRecordFrameSource(
                 throw AudioCaptureException(AudioCaptureFailure.WORKER_TERMINATION_FAILED)
             }
         }
-        channel.cancel()
+        if (preserveFrames) channel.finish() else channel.cancel()
     }
 
     override fun close() {

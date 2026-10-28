@@ -13,7 +13,7 @@ import io.github.ninbyo02.lami.asr.foundation.model.ModelInstallationException
 import io.github.ninbyo02.lami.asr.foundation.session.AsrPhase
 import io.github.ninbyo02.lami.asr.foundation.session.AsrSessionCoordinator
 import io.github.ninbyo02.lami.asr.foundation.transcript.TranscriptRevision
-import io.github.ninbyo02.lami.asr.foundation.vad.EnergyVadEngine
+import io.github.ninbyo02.lami.asr.foundation.vad.AsrListeningSettings
 import io.github.ninbyo02.lami.asr.foundation.vad.VadEndpointPolicy
 import io.github.ninbyo02.lami.asr.foundation.vad.VadEndpointTerminal
 import io.github.ninbyo02.lami.asr.foundation.vad.DiscardReason
@@ -25,6 +25,8 @@ import io.github.ninbyo02.lami.asr.platform.sherpa.SherpaOfflineAsrEngine
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 internal enum class PrivacyAsrPhase {
     PREPARING,
@@ -43,6 +45,7 @@ internal data class PrivacyAsrScreenState(
     val phase: PrivacyAsrPhase = PrivacyAsrPhase.PREPARING,
     val detail: String = "モデルを検証しています。",
     val transcript: TranscriptRevision? = null,
+    val endReason: io.github.ninbyo02.lami.asr.foundation.vad.FinalizeReason? = null,
 )
 
 internal interface PrivacyAsrSession : AutoCloseable {
@@ -65,10 +68,12 @@ internal class PrivacyLocalAsrController(
     private val conversationAudio: ConversationAudioRoute = ConversationAudioRoute.NONE,
     private val audioInputSource: AudioInputSource = AudioInputSource.MIC,
     private val audioInputGain: Double = 1.0,
+    private val listeningSettings: AsrListeningSettings = AsrListeningSettings(),
+    private val engine: io.github.ninbyo02.lami.asr.foundation.asr.AsrEngine = SherpaOfflineAsrEngine(),
+    private val preparedModel: io.github.ninbyo02.lami.asr.foundation.asr.VerifiedModel? = null,
 ) : PrivacyAsrSession {
     private val appContext = context.applicationContext
     private val modelStore = AndroidLocalModelStore(appContext)
-    private val engine = SherpaOfflineAsrEngine()
     private val coordinator = AsrSessionCoordinator(engine)
     @Volatile
     private var captureObserver = AudioCaptureObserver.NONE
@@ -77,6 +82,14 @@ internal class PrivacyLocalAsrController(
     @Volatile
     private var closed = false
     private var lastEndpointTerminal: VadEndpointTerminal? = null
+    private val finishRequested = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var singleCapture: AudioRecordFrameSource? = null
+
+    suspend fun stopAndKeep() = withContext(Dispatchers.IO) {
+        finishRequested.set(true)
+        runCatching { singleCapture?.finish() }
+        Unit
+    }
 
     override val stagingPath: String
         get() = modelStore.stagingPath
@@ -87,12 +100,17 @@ internal class PrivacyLocalAsrController(
 
     override suspend fun prepare(): PrivacyAsrScreenState = withContext(Dispatchers.IO) {
         check(!closed)
+        tracePrepare("begin")
         try {
             resetCoordinatorAfterFailure()
-            val model = modelStore.loadOrInstall()
+            tracePrepare("model_load_begin")
+            val model = preparedModel ?: modelStore.loadOrInstall()
+            tracePrepare("model_verified")
             coordinator.prepare(model)
+            tracePrepare("engine_${coordinator.state.phase}_${coordinator.state.errorMessage.orEmpty()}")
             stateAfterPrepare()
         } catch (failure: Throwable) {
+            tracePrepare("failed_${failure.javaClass.simpleName}")
             val missing = runCatching { modelStore.missingStagedFiles() }.getOrDefault(emptyList())
             if (missing.isNotEmpty()) {
                 PrivacyAsrScreenState(
@@ -108,6 +126,10 @@ internal class PrivacyLocalAsrController(
                 errorState(safeDetail)
             }
         }
+    }
+
+    private fun tracePrepare(stage: String) {
+        if (io.github.ninbyo02.lami.BuildConfig.DEBUG) android.util.Log.i("LamiAsr", "prepare stage=$stage")
     }
 
     override suspend fun importModel(uris: List<Uri>): PrivacyAsrScreenState =
@@ -128,11 +150,19 @@ internal class PrivacyLocalAsrController(
             }
         }
 
-    override suspend fun recordUtterance(): PrivacyAsrScreenState = withContext(Dispatchers.IO) {
+    override suspend fun recordUtterance(): PrivacyAsrScreenState = recordSingleUtterance(wakeCandidate = false)
+
+    suspend fun recordWakeWordUtterance(): PrivacyAsrScreenState = recordSingleUtterance(wakeCandidate = true)
+
+    private suspend fun recordSingleUtterance(wakeCandidate: Boolean): PrivacyAsrScreenState = withContext(Dispatchers.IO) {
         check(!closed)
         try {
+            if (finishRequested.get()) return@withContext readyState("音声入力を停止しました。")
             conversationAudio.start()
-            recognize(createCaptureSource(DEFAULT_CAPTURE_BUFFER_FRAMES))
+            val source = createCaptureSource(DEFAULT_CAPTURE_BUFFER_FRAMES)
+            singleCapture = source
+            if (finishRequested.get()) source.finish()
+            recognize(source, wakeCandidate)
         } catch (cancelled: CancellationException) {
             io.github.ninbyo02.lami.util.DebugTraceFile.append(appContext,
                 "[LAMI_ASR] capture_cancelled type=${cancelled.javaClass.simpleName} endpoint=$lastEndpointTerminal")
@@ -141,6 +171,7 @@ internal class PrivacyLocalAsrController(
         } catch (failure: Throwable) {
             errorState("record failed: ${failure.javaClass.simpleName}")
         } finally {
+            singleCapture = null
             safeNotifyCaptureEvent(AudioCaptureEvent.Inactive)
             conversationAudio.stop()
         }
@@ -220,25 +251,31 @@ internal class PrivacyLocalAsrController(
         return readyState("文字起こしを破棄しました。")
     }
 
-    private suspend fun recognize(source: AudioFrameSource): PrivacyAsrScreenState {
+    private suspend fun recognize(source: AudioFrameSource, wakeCandidate: Boolean = false): PrivacyAsrScreenState {
         lastEndpointTerminal = null
         coordinator.start(
             source = source,
-            vad = EnergyVadEngine(),
-            endpointPolicy = VadEndpointPolicy(onTerminal = { terminal ->
+            vad = listeningSettings.createVad(),
+            endpointPolicy = VadEndpointPolicy(config = if (wakeCandidate) {
+                listeningSettings.wakeEndpointConfig()
+            } else {
+                listeningSettings.endpointConfig()
+            }, onTerminal = { terminal ->
                 lastEndpointTerminal = terminal
                 io.github.ninbyo02.lami.util.DebugTraceFile.append(appContext, "[LAMI_ASR] endpoint=$terminal")
             }),
         )
         while (coordinator.consumeNextFrame()) {
-            // Offline recognition intentionally publishes no partial text.
+            currentCoroutineContext().ensureActive()
         }
+        currentCoroutineContext().ensureActive()
         val result = coordinator.state
         return if (result.phase == AsrPhase.REVIEWING) {
             PrivacyAsrScreenState(
                 phase = PrivacyAsrPhase.FINAL,
                 detail = "端末内認識が完了しました。",
                 transcript = result.transcript,
+                endReason = (lastEndpointTerminal as? VadEndpointTerminal.Finalize)?.reason,
             )
         } else {
             errorState(result.errorMessage)

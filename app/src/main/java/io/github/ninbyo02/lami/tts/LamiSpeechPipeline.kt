@@ -6,6 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /** One producer and one player. Rendezvous transport permits only one prepared clip ahead. */
@@ -41,9 +42,15 @@ internal class LamiSpeechPipeline<T>(
                 previous.forEach { it.join() }
                 coroutineScope {
                     launch {
-                        for (text in incoming) ready.send(prepare(text))
+                        for (text in incoming) {
+                            currentCoroutineContext().ensureActive()
+                            val clip = prepare(text)
+                            currentCoroutineContext().ensureActive()
+                            ready.send(clip)
+                        }
                     }
                     for (clip in ready) {
+                        currentCoroutineContext().ensureActive()
                         play(clip)
                         synchronized(lock) {
                             if (token == generation && --outstanding == 0) onBusy(false)
@@ -83,5 +90,10 @@ internal class LamiSpeechPipeline<T>(
         worker = null
         outstanding = 0
         onBusy(false)
+    }
+
+    suspend fun awaitCleanup() {
+        val previous = synchronized(lock) { activeJobs.toList() }
+        previous.forEach { it.join() }
     }
 }

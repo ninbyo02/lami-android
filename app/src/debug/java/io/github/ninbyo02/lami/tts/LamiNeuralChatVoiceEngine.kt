@@ -117,6 +117,11 @@ internal class LamiNeuralChatVoiceEngine(
         queue.stop()
     }
 
+    override suspend fun stopForVoiceInput() {
+        stop()
+        queue.awaitCleanup()
+    }
+
     override fun shutdown() {
         stop()
         scope.cancel()

@@ -30,6 +30,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
 import java.io.File
+import io.github.ninbyo02.lami.asr.foundation.vad.AsrListeningSettings
+import io.github.ninbyo02.lami.asr.foundation.wake.WakeWordMatcher
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
 
@@ -324,6 +326,53 @@ enum class SpriteState {
 }
 
 class SettingsPreferences(private val context: Context) {
+
+    private val asrStableDetectionKey = booleanPreferencesKey("asr_stable_detection")
+    private val asrStartThresholdKey = intPreferencesKey("asr_start_threshold_rms")
+    private val asrEndSilenceKey = intPreferencesKey("asr_end_silence_millis")
+    private val asrNoSpeechTimeoutKey = intPreferencesKey("asr_no_speech_timeout_millis")
+    private val wakeWordPhraseKey = stringPreferencesKey("asr_wake_word_phrase")
+    private val voiceInputAutoSendKey = booleanPreferencesKey("voice_input_auto_send")
+    private val voiceInputSilenceSecondsKey = intPreferencesKey("voice_input_silence_seconds")
+    val voiceInputAutoSendFlow = context.dataStore.data.map { it[voiceInputAutoSendKey] ?: false }
+    val voiceInputSilenceSecondsFlow = context.dataStore.data.map { (it[voiceInputSilenceSecondsKey] ?: 2).coerceIn(1, 5) }
+    suspend fun setVoiceInputAutoSend(autoSend: Boolean) {
+        context.dataStore.edit { it[voiceInputAutoSendKey] = autoSend }
+    }
+    suspend fun setVoiceInputSubmissionSettings(autoSend: Boolean, silenceSeconds: Int) {
+        require(silenceSeconds in 1..5)
+        context.dataStore.edit {
+            it[voiceInputAutoSendKey] = autoSend
+            it[voiceInputSilenceSecondsKey] = silenceSeconds
+        }
+    }
+
+    val asrListeningSettingsFlow = context.dataStore.data.map { preferences ->
+        AsrListeningSettings(
+            stableDetection = preferences[asrStableDetectionKey] ?: false,
+            startThresholdRms = (preferences[asrStartThresholdKey] ?: 650).coerceIn(100, 4_000),
+            endSilenceMillis = ((preferences[asrEndSilenceKey] ?: 800).coerceIn(420, 800) / 20) * 20,
+            noSpeechTimeoutMillis = ((preferences[asrNoSpeechTimeoutKey] ?: 10_000).coerceIn(3_000, 10_000) / 20) * 20,
+        )
+    }
+
+    val wakeWordPhraseFlow = context.dataStore.data.map { preferences ->
+        preferences[wakeWordPhraseKey] ?: "ラミ"
+    }
+
+    suspend fun setAsrListeningSettings(value: AsrListeningSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[asrStableDetectionKey] = value.stableDetection
+            preferences[asrStartThresholdKey] = value.startThresholdRms
+            preferences[asrEndSilenceKey] = value.endSilenceMillis
+            preferences[asrNoSpeechTimeoutKey] = value.noSpeechTimeoutMillis
+        }
+    }
+
+    suspend fun setWakeWordPhrase(value: String) {
+        WakeWordMatcher(value)
+        context.dataStore.edit { preferences -> preferences[wakeWordPhraseKey] = value.trim() }
+    }
 
     private val npuStandardRoutePreferences = NpuStandardRoutePreferences(context.dataStore)
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()

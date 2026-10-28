@@ -1044,7 +1044,13 @@ fun Home(
     var userPrompt: String by rememberSaveable { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
     var pendingAssistantAutoSubmitText by remember { mutableStateOf<String?>(null) }
+    var pendingAssistantInvocationId by remember { mutableStateOf(0L) }
+    var automaticAssistantInvocationId by remember { mutableStateOf<Long?>(null) }
+    var pendingFirstChatAssistantInvocationId by remember { mutableStateOf<Long?>(null) }
     var pendingFirstChatSubmission by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
+    var pendingFirstChatVoiceGeneration by remember { mutableStateOf<Long?>(null) }
+    var voiceLifecycleGeneration by remember { mutableStateOf(0L) }
+    var automaticVoiceAction by remember { mutableStateOf(false) }
     val allChatsState = effectiveChatId?.let {
         key(it) {
             val historyFlow = remember(viewModel, it) {
@@ -1069,6 +1075,8 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val assistantVoicePhase by AssistantVoiceEvents.phase.collectAsState()
+    val assistantInvocation by AssistantVoiceEvents.invocation.collectAsState()
+    val wakeCandidate by AssistantVoiceEvents.wakeCandidate.collectAsState()
     val assistantRecognizing = assistantVoicePhase != io.github.ninbyo02.lami.assistant.AssistantVoicePhase.IDLE
     LaunchedEffect(Unit) {
         var assistantSnackbarJob: Job? = null
@@ -1076,10 +1084,11 @@ fun Home(
             assistantSnackbarJob?.cancel()
             assistantSnackbarJob = null
             when (event) {
-                AssistantVoiceEvent.Listening -> {
+                AssistantVoiceEvent.Listening, AssistantVoiceEvent.WaitingForWakeWord -> {
                     // Capture state survives replacement of the chat composer.
                 }
                 is AssistantVoiceEvent.Transcript -> {
+                    if (!AssistantVoiceEvents.consumeTranscript(event)) return@collect
                     val transcript = event.text.trim()
                     userPrompt = transcript
                     placeholder = "Enter your prompt ..."
@@ -1090,6 +1099,7 @@ fun Home(
                     } else {
                         null
                     }
+                    pendingAssistantInvocationId = event.invocationId
                     assistantTranscriptSnackbarMessage(event.autoSubmit,
                         pendingAssistantAutoSubmitText != null)?.let { message ->
                         assistantSnackbarJob = launch {
@@ -1435,8 +1445,34 @@ fun Home(
     }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var voiceInputActive by remember(effectiveChatId) { mutableStateOf(false) }
-    var voiceInputStartRequested by remember(effectiveChatId) { mutableStateOf(false) }
+    var voiceInputRequestId by remember(effectiveChatId) { mutableStateOf(0L) }
     var voiceInputController by remember(effectiveChatId) { mutableStateOf<PrivacyLocalAsrController?>(null) }
+    var voiceInputJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var voiceInputStatus by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    val voiceInputAutoSend by settingsPreferences.voiceInputAutoSendFlow.collectAsState(initial = null)
+    val voiceInputSilenceSeconds by settingsPreferences.voiceInputSilenceSecondsFlow.collectAsState(initial = null)
+    val voiceInputListeningSettings by settingsPreferences.asrListeningSettingsFlow.collectAsState(initial = null)
+    var voiceInputGate by remember(effectiveChatId) { mutableStateOf<io.github.ninbyo02.lami.asr.VoiceInputSubmissionGate?>(null) }
+    var pendingVoiceInputAutoSend by remember(effectiveChatId) {
+        mutableStateOf<Pair<io.github.ninbyo02.lami.asr.VoiceInputSubmissionGate, String>?>(null)
+    }
+    fun traceVoiceInput(stage: String) {
+        if (BuildConfig.DEBUG) android.util.Log.i("LamiAsr", "composer stage=$stage request=$voiceInputRequestId")
+    }
+    fun cancelVoiceInput() {
+        traceVoiceInput("cancel_requested")
+        voiceInputGate?.cancel()
+        pendingVoiceInputAutoSend = null
+        pendingAssistantAutoSubmitText = null
+        voiceLifecycleGeneration += 1
+        if (pendingFirstChatVoiceGeneration != null) {
+            pendingFirstChatSubmission = null
+            pendingFirstChatVoiceGeneration = null
+        }
+        val controller = voiceInputController
+        voiceInputJob?.cancel()
+        coroutineScope.launch(Dispatchers.IO) { runCatching { controller?.cancel() } }
+    }
     val asrModelImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
@@ -1451,7 +1487,7 @@ fun Home(
                     duration = SnackbarDuration.Short,
                 )
                 if (imported.phase == PrivacyAsrPhase.READY) {
-                    voiceInputStartRequested = true
+                    voiceInputRequestId += 1
                 }
             } finally {
                 runCatching { controller.close() }
@@ -1462,7 +1498,7 @@ fun Home(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            voiceInputStartRequested = true
+            voiceInputRequestId += 1
         } else {
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
@@ -1474,9 +1510,22 @@ fun Home(
         }
     }
     fun requestVoiceInput() {
+        traceVoiceInput("button_pressed")
         viewModel.onUserInteraction()
+        if (assistantRecognizing || pendingAssistantAutoSubmitText != null) {
+            pendingAssistantAutoSubmitText = null
+            AssistantVoiceEvents.requestStopRecognition()
+            return
+        }
+        if (pendingVoiceInputAutoSend != null) {
+            voiceInputGate?.stop()
+            pendingVoiceInputAutoSend = null
+            return
+        }
         if (voiceInputActive) {
-            coroutineScope.launch { voiceInputController?.cancel() }
+            voiceInputGate?.stop()
+            val owned = voiceInputController
+            coroutineScope.launch { owned?.stopAndKeep() }
             return
         }
         val permissionGranted = ContextCompat.checkSelfPermission(
@@ -1484,23 +1533,49 @@ fun Home(
             Manifest.permission.RECORD_AUDIO,
         ) == PackageManager.PERMISSION_GRANTED
         if (permissionGranted) {
-            voiceInputStartRequested = true
+            voiceInputRequestId += 1
         } else {
             recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-    LaunchedEffect(voiceInputStartRequested) {
-        if (!voiceInputStartRequested || voiceInputActive) return@LaunchedEffect
-        voiceInputStartRequested = false
-        val controller = PrivacyLocalAsrController(context.applicationContext)
-        voiceInputController = controller
+    LaunchedEffect(effectiveChatId, voiceInputRequestId) {
+        if (voiceInputRequestId == 0L || voiceInputActive) return@LaunchedEffect
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         voiceInputActive = true
+        val submissionGate = io.github.ninbyo02.lami.asr.VoiceInputSubmissionGate(voiceInputAutoSend == true)
+        voiceInputGate = submissionGate
+        voiceInputStatus = "音声認識を準備しています…"
+        traceVoiceInput("effect_started")
+        voiceInputJob = kotlinx.coroutines.currentCoroutineContext()[Job]
+        var controller: PrivacyLocalAsrController? = null
         try {
-            val prepared = controller.prepare()
+            val activeController = PrivacyLocalAsrController(context.applicationContext,
+                listeningSettings = (voiceInputListeningSettings ?: io.github.ninbyo02.lami.asr.foundation.vad.AsrListeningSettings())
+                    .copy(endSilenceMillis = (voiceInputSilenceSeconds ?: 2) * 1000))
+            controller = activeController
+            voiceInputController = activeController
+            activeController.setAudioCaptureObserver { event ->
+                if (event == io.github.ninbyo02.lami.asr.foundation.audio.AudioCaptureEvent.Started) {
+                    traceVoiceInput("capture_started")
+                    coroutineScope.launch {
+                        if (voiceInputController === activeController && voiceInputJob?.isActive == true) {
+                            voiceInputStatus = "聞き取り中…"
+                        }
+                    }
+                }
+            }
+            val prepared = activeController.prepare()
+            traceVoiceInput("prepare_${prepared.phase}")
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (submissionGate.wasStopped()) {
+                voiceInputStatus = null
+                return@LaunchedEffect
+            }
             if (prepared.phase == PrivacyAsrPhase.MODEL_REQUIRED) {
+                voiceInputStatus = prepared.detail
                 snackbarHostState.currentSnackbarData?.dismiss()
                 val result = snackbarHostState.showSnackbar(
-                    message = "${prepared.detail} (${controller.stagingPath})",
+                    message = "${prepared.detail} (${activeController.stagingPath})",
                     actionLabel = "モデル選択",
                     duration = SnackbarDuration.Long,
                 )
@@ -1510,6 +1585,7 @@ fun Home(
                 return@LaunchedEffect
             }
             if (prepared.phase != PrivacyAsrPhase.READY) {
+                voiceInputStatus = prepared.detail
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
                     message = prepared.detail,
@@ -1517,15 +1593,22 @@ fun Home(
                 )
                 return@LaunchedEffect
             }
-            placeholder = "聞き取り中..."
-            val result = controller.recordUtterance()
+            voiceInputStatus = "マイクを開始しています…"
+            val result = activeController.recordUtterance()
+            traceVoiceInput("record_${result.phase}")
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val transcript = result.transcript?.text?.trim().orEmpty()
             when {
                 result.phase == PrivacyAsrPhase.FINAL && transcript.isNotBlank() -> {
                     userPrompt = transcript
+                    if (submissionGate.complete(transcript, result.endReason)) {
+                        pendingVoiceInputAutoSend = submissionGate to transcript
+                    }
+                    voiceInputStatus = null
                     placeholder = "Enter your prompt..."
                 }
                 else -> {
+                    voiceInputStatus = result.detail
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(
                         message = result.detail,
@@ -1533,22 +1616,42 @@ fun Home(
                     )
                 }
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            traceVoiceInput("job_cancelled")
+            submissionGate.cancel()
+            voiceInputStatus = null
+            throw cancelled
+        } catch (failure: Exception) {
+            traceVoiceInput("failed_${failure.javaClass.simpleName}")
+            voiceInputStatus = "音声入力を開始できませんでした: ${failure.javaClass.simpleName}"
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(
+                message = "音声入力を開始できませんでした: ${failure.javaClass.simpleName}",
+                duration = SnackbarDuration.Short,
+            )
         } finally {
             placeholder = "Enter your prompt..."
-            runCatching { controller.close() }
-            voiceInputController = null
+            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                runCatching { controller?.close() }
+            }
+            if (voiceInputController === controller) voiceInputController = null
+            voiceInputJob = null
             voiceInputActive = false
+            traceVoiceInput("cleanup_complete")
         }
     }
-    DisposableEffect(lifecycleOwner, voiceInputController) {
+    DisposableEffect(lifecycleOwner, effectiveChatId) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
-                coroutineScope.launch { voiceInputController?.cancel() }
+                traceVoiceInput("lifecycle_stop")
+                cancelVoiceInput()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            voiceInputGate?.cancel()
+            voiceInputJob?.cancel()
             runCatching { voiceInputController?.close() }
         }
     }
@@ -3952,6 +4055,7 @@ fun Home(
     }
 
     fun queueResponseSpeech(fullText: String, final: Boolean) {
+        if (AssistantVoiceEvents.phase.value != io.github.ninbyo02.lami.assistant.AssistantVoicePhase.IDLE) return
         if (!ttsEnabled || !responseSpeechSession.accepts()) return
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && isTtsSuppressedForAssistant(targetMessageId)) return
@@ -4104,6 +4208,18 @@ fun Home(
                 ttsController.speak(announcement.text)
             }
         }
+    }
+
+    DisposableEffect(ttsController, effectiveChatId) {
+        val registration = AssistantVoiceEvents.registerCapturePreparation {
+            val manualCapture = voiceInputJob
+            cancelVoiceInput()
+            manualCapture?.join()
+            ttsTapGuardEpoch += 1
+            responseSpeechSession.stop()
+            ttsController.stopForVoiceInput()
+        }
+        onDispose { registration.close() }
     }
 
     DisposableEffect(ttsController) {
@@ -4805,6 +4921,14 @@ fun Home(
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
+                                voiceInputStatus?.let { status ->
+                                    Text(
+                                        text = status,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                                    )
+                                }
                                 if (selectedImageUris.isNotEmpty()) {
                                     AttachmentPreviewRow(
                                         uris = selectedImageUris,
@@ -4879,8 +5003,14 @@ fun Home(
                                                 interactionSource = interactionSource,
                                                 placeholder = {
                                                     Text(
-                                                        assistantVoicePhase.promptPlaceholder ?: placeholder,
+                                                        if (assistantVoicePhase == io.github.ninbyo02.lami.assistant.AssistantVoicePhase.WAITING_FOR_WAKE_WORD && wakeCandidate != null) {
+                                                            "呼びかけを待っています…\n直前の認識：${wakeCandidate?.take(24)}"
+                                                        } else {
+                                                            assistantVoicePhase.promptPlaceholder ?: placeholder
+                                                        },
                                                         style = LamiTypographyTokens.chatPlaceholder(),
+                                                        maxLines = 3,
+                                                        overflow = TextOverflow.Ellipsis,
                                                     )
                                                 },
                                                 colors = OutlinedTextFieldDefaults.colors(
@@ -4893,6 +5023,12 @@ fun Home(
                                             )
                                         }
                                     )
+
+                                    if (assistantRecognizing) {
+                                        IconButton(onClick = { AssistantVoiceEvents.requestStopRecognition() }) {
+                                            Icon(Icons.Filled.Close, contentDescription = "音声入力を停止")
+                                        }
+                                    }
 
                                     val composerSendAvailability = resolveChatSendAvailability(
                                         selectedInferenceTarget = selectedInferenceTarget,
@@ -5003,6 +5139,8 @@ fun Home(
                                                 if (isCreatingChat) return@composerAction
                                                 isCreatingChat = true
                                                 val firstSubmission = userPrompt to selectedImageUriStrings.toList()
+                                                val voiceGeneration = if (automaticVoiceAction) voiceLifecycleGeneration else null
+                                                val assistantInvocationId = automaticAssistantInvocationId
                                                 coroutineScope.launch {
                                                     try {
                                                         resolveFirstSendChatId(
@@ -5010,7 +5148,13 @@ fun Home(
                                                             createChat = { viewModel.insertChatAndReturnId(Chat(title = "New chat", titleSource = TitleSource.TEMP)) },
                                                             onChatResolved = { effectiveChatId = it },
                                                         )
-                                                        pendingFirstChatSubmission = firstSubmission
+                                                        if ((assistantInvocationId == null || AssistantVoiceEvents.isCurrentInvocation(assistantInvocationId)) &&
+                                                            (voiceGeneration == null ||
+                                                            (voiceGeneration == voiceLifecycleGeneration && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)))) {
+                                                            pendingFirstChatVoiceGeneration = voiceGeneration
+                                                            pendingFirstChatAssistantInvocationId = assistantInvocationId
+                                                            pendingFirstChatSubmission = firstSubmission
+                                                        }
                                                     } catch (cancelled: CancellationException) {
                                                         throw cancelled
                                                     } catch (_: Exception) {
@@ -9203,10 +9347,36 @@ fun Home(
                                             }
                                         }
                                     val latestComposerAction by rememberUpdatedState(composerAction)
+                                    LaunchedEffect(pendingVoiceInputAutoSend, userPrompt, composerSendAvailability.enabled, isInferenceRunningUi) {
+                                        val pending = pendingVoiceInputAutoSend ?: return@LaunchedEffect
+                                        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                            pending.first.cancel(); pendingVoiceInputAutoSend = null; return@LaunchedEffect
+                                        }
+                                        if (userPrompt != pending.second) {
+                                            pending.first.cancel()
+                                            pendingVoiceInputAutoSend = null
+                                            return@LaunchedEffect
+                                        }
+                                        if (!composerSendAvailability.enabled || isInferenceRunningUi) return@LaunchedEffect
+                                        delay(150)
+                                        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                                            pendingVoiceInputAutoSend === pending && userPrompt == pending.second && pending.first.claim(userPrompt)) {
+                                            pendingVoiceInputAutoSend = null
+                                            automaticVoiceAction = true
+                                            try { latestComposerAction() } finally { automaticVoiceAction = false }
+                                        }
+                                    }
                                     LaunchedEffect(pendingFirstChatSubmission, effectiveChatId, localChatHistoryReady) {
                                         val submission = pendingFirstChatSubmission ?: return@LaunchedEffect
                                         if (effectiveChatId == null || !localChatHistoryReady) return@LaunchedEffect
                                         pendingFirstChatSubmission = null
+                                        val voiceGeneration = pendingFirstChatVoiceGeneration
+                                        pendingFirstChatVoiceGeneration = null
+                                        val invocationId = pendingFirstChatAssistantInvocationId
+                                        pendingFirstChatAssistantInvocationId = null
+                                        if (invocationId != null && (!AssistantVoiceEvents.isCurrentInvocation(invocationId) || voiceInputAutoSend != true)) return@LaunchedEffect
+                                        if (voiceGeneration != null && (voiceGeneration != voiceLifecycleGeneration ||
+                                            !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))) return@LaunchedEffect
                                         // Start with the recomposed chat-bound state, not the draft's old state.
                                         if (submission.first == userPrompt && submission.second == selectedImageUriStrings) {
                                             latestComposerAction()
@@ -9214,12 +9384,23 @@ fun Home(
                                     }
                                     LaunchedEffect(
                                         pendingAssistantAutoSubmitText,
+                                        pendingAssistantInvocationId,
+                                        assistantInvocation,
+                                        voiceInputAutoSend,
                                         userPrompt,
                                         composerSendAvailability.enabled,
                                         isInferenceRunningUi,
                                     ) {
                                         val pendingTranscript = pendingAssistantAutoSubmitText
                                             ?: return@LaunchedEffect
+                                        val invocationId = pendingAssistantInvocationId
+                                        if (!AssistantVoiceEvents.isCurrentInvocation(invocationId) || voiceInputAutoSend == false) {
+                                            pendingAssistantAutoSubmitText = null; return@LaunchedEffect
+                                        }
+                                        if (voiceInputAutoSend == null) return@LaunchedEffect
+                                        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                            pendingAssistantAutoSubmitText = null; return@LaunchedEffect
+                                        }
                                         if (userPrompt != pendingTranscript) {
                                             pendingAssistantAutoSubmitText = null
                                             return@LaunchedEffect
@@ -9229,16 +9410,26 @@ fun Home(
                                         }
                                         delay(150)
                                         if (
+                                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
                                             pendingAssistantAutoSubmitText == pendingTranscript &&
+                                            pendingAssistantInvocationId == invocationId &&
                                             userPrompt == pendingTranscript
                                         ) {
+                                            val claimed = AssistantVoiceEvents.claimSubmission(invocationId, userPrompt, voiceInputAutoSend == true)
                                             pendingAssistantAutoSubmitText = null
-                                            latestComposerAction()
+                                            if (!claimed) return@LaunchedEffect
+                                            automaticVoiceAction = true
+                                            automaticAssistantInvocationId = invocationId
+                                            try { latestComposerAction() } finally {
+                                                automaticVoiceAction = false
+                                                automaticAssistantInvocationId = null
+                                            }
                                         }
                                     }
 
                                     IconButton(
-                                        enabled = !isInferenceRunningUi,
+                                        enabled = voiceInputActive || pendingVoiceInputAutoSend != null || assistantRecognizing || pendingAssistantAutoSubmitText != null ||
+                                            (!isInferenceRunningUi && voiceInputAutoSend != null && voiceInputSilenceSeconds != null && voiceInputListeningSettings != null),
                                         onClick = { requestVoiceInput() },
                                         modifier = Modifier
                                             .size(ComposerButtonSize)
@@ -9248,19 +9439,12 @@ fun Home(
                                         Box(
                                             modifier = Modifier
                                                 .size(ComposerButtonVisualSize)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    if (voiceInputActive) {
-                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                                    } else {
-                                                        Color.LightGray.copy(alpha = 0.25f)
-                                                    },
-                                                ),
+                                                .clip(CircleShape),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
-                                                imageVector = if (voiceInputActive) Icons.Filled.Stop else Icons.Filled.Mic,
-                                                contentDescription = if (voiceInputActive) "録音を停止" else "音声入力",
+                                                imageVector = if (voiceInputActive || pendingVoiceInputAutoSend != null || assistantRecognizing || pendingAssistantAutoSubmitText != null) Icons.Filled.Stop else Icons.Filled.Mic,
+                                                contentDescription = if (voiceInputActive || pendingVoiceInputAutoSend != null || assistantRecognizing || pendingAssistantAutoSubmitText != null) "音声入力を終了" else "音声入力",
                                                 modifier = Modifier.size(ComposerButtonIconVisualSize),
                                             )
                                         }
@@ -9268,7 +9452,12 @@ fun Home(
 
                                     IconButton(
                                         enabled = isComposerStopActive || composerSendAvailability.enabled,
-                                        onClick = composerAction,
+                                        onClick = {
+                                            voiceInputGate?.stop()
+                                            pendingVoiceInputAutoSend = null
+                                            pendingAssistantAutoSubmitText = null
+                                            composerAction()
+                                        },
                                         modifier = Modifier
                                             .size(ComposerButtonSize)
                                             .align(Alignment.Bottom)
@@ -9869,6 +10058,7 @@ fun Home(
                                                             stopUiCooldownAssistantMessageId == message.messageID),
                                                 onReplayClick = if (canShowTtsActions) {
                                                     {
+                                                    if (AssistantVoiceEvents.phase.value != io.github.ninbyo02.lami.assistant.AssistantVoicePhase.IDLE) return@PlainAssistantMessage
                                                     if (suppressReplayAssistantMessageId == message.messageID) {
                                                         return@PlainAssistantMessage
                                                     }
@@ -9904,7 +10094,8 @@ fun Home(
                                                     val replayEpoch = ttsTapGuardEpoch
                                                     coroutineScope.launch {
                                                         maybeReleaseHeldEngineForTtsPlayback()
-                                                        if (replayEpoch == ttsTapGuardEpoch && !isTtsSuppressedForAssistant(message.messageID)) {
+                                                        if (replayEpoch == ttsTapGuardEpoch && !isTtsSuppressedForAssistant(message.messageID) &&
+                                                            AssistantVoiceEvents.phase.value == io.github.ninbyo02.lami.assistant.AssistantVoicePhase.IDLE) {
                                                             ttsController.speak(speechText)
                                                         }
                                                     }
