@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "scope": "host_cpu_pcm_chunk_availability_no_playback",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+    "config_sha256": "307c9a3356f037c6164563fd5a67f9d8bd232e681b6ea4b4d8d6312cd3aa36c7",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "phoneme_profile": "melo_long_vowels_v1",
+    "reading_version": "0.4.1",
+    "training": {
+      "voice": "lami_cute_v3_03_trial_not_adopted",
+      "optimizer_steps": 1000,
+      "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+      "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "frozen_modules": [
+        "enc_p",
+        "dp",
+        "sdp",
+        "emb_g"
+      ],
+      "phoneme_profile": "melo_long_vowels_v1"
+    }
+  },
+  "model_init_ms": 823.3220579859335,
+  "core_frames": 16,
+  "context_frames": 16,
+  "first_chunk_max_audio_ms": 185.75963718820861,
+  "requests": 32,
+  "groups": {
+    "cold": {
+      "requests": 1,
+      "first_pcm_ms_p50": 337.482488976093,
+      "first_pcm_ms_p95": 337.482488976093,
+      "rtf_p50": 0.47066588841472445,
+      "projected_gaps": 0
+    },
+    "first_pass": {
+      "requests": 15,
+      "first_pcm_ms_p50": 119.56471001030877,
+      "first_pcm_ms_p95": 231.35645309812406,
+      "rtf_p50": 0.3131196597453811,
+      "projected_gaps": 0
+    },
+    "repeated": {
+      "requests": 16,
+      "first_pcm_ms_p50": 113.20421448908746,
+      "first_pcm_ms_p95": 212.51294299872825,
+      "rtf_p50": 0.31362162669197235,
+      "projected_gaps": 0
+    }
+  },
+  "peak_process_rss_kib": 1247140,
+  "android_playback": "unverified",
+  "npu_execution": "unverified",
+  "notes": [
+    "One complete text input is available before acoustic inference begins.",
+    "No full-waveform reference or warmup is run before the measured requests.",
+    "First PCM is not audible first audio; initialization and audio-device buffering are separate.",
+    "Projected gaps are a timeline simulation starting at the first chunk, not measured underruns."
+  ]
+}

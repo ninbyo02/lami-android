@@ -53,6 +53,8 @@ def main():
     ap.add_argument("--model-dir", type=Path, required=True)
     ap.add_argument("--dataset", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
+    from japanese_phonemes import LEGACY, PROFILES
+    ap.add_argument("--phoneme-profile", choices=PROFILES, default=LEGACY)
     args = ap.parse_args()
     dataset = args.dataset.resolve()
     if sha256(dataset / "manifest.jsonl") != FINALIZED_MANIFEST_SHA256:
@@ -70,7 +72,7 @@ def main():
     output = args.output.resolve()
     audio_dir = output / "audio"
     audio_dir.mkdir()
-    engine = JapaneseMelo(args.source, args.model_dir, frontend="openjtalk")
+    engine = JapaneseMelo(args.source, args.model_dir, frontend="openjtalk", phoneme_profile=args.phoneme_profile)
     target_rate = engine.sample_rate
     prepared = []
     for job in jobs:
@@ -84,7 +86,7 @@ def main():
             raise ValueError(f'Resampling clipped audio: {job["id"]}')
         reading = engine.reading.g2p(job["text"], kana=True)
         normalized = engine.frontend.text_normalize(reading)
-        phones, tones, word2ph = engine.frontend.g2p(normalized)
+        phones, tones, word2ph = engine.phonemize(normalized)
         if not normalized or len(phones) != len(tones) or len(phones) != sum(word2ph):
             raise ValueError(f'Invalid training text: {job["id"]}')
         engine.to_ids(phones, tones, "JP", engine.symbol_to_id)
@@ -111,6 +113,7 @@ def main():
     config["symbols"] = engine.config["symbols"]
     config["num_languages"] = engine.config["num_languages"]
     config["num_tones"] = engine.config["num_tones"]
+    config["tts_lite_phoneme_profile"] = engine.phoneme_profile
     config["data"].update(engine.config["data"])
     config["data"].update(training_files=str(output / "train.list"), validation_files=str(output / "validation.list"),
                            spk2id={"lami_cute": 0}, max_text_len=max(len(row["line"].split("|")[4]) for row in prepared) + 1)

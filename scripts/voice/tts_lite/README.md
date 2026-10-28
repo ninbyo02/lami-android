@@ -195,6 +195,56 @@ Open JTalkでカナ化した文字誤り率（CER）を比較します。この�
 
 ## Remaining implementation gates
 
+最新の検証は[長音の欠落修正と1,000ステップの比較学習](../../../docs/reviews/2026-10-28-tts-lite-long-vowels.md)を参照してください。
+長音修正には効果がありましたが、声の追加学習は別の16文で指標が悪化しているため未採用です。
+
+### Long-vowel profile and checkpoint evaluation
+
+ピン留めした上流の `ー` の変換規則は `":"` ですが、文字列分割でその出力が消えます。
+`japanese_phonemes.py` は元の変換器を再利用し、長音を直前の母音へ解決します。
+`melo_legacy` は過去の比較用、`melo_long_vowels_v1` はこの修正を有効にするプロファイルです。
+モデル設定の `tts_lite_phoneme_profile` を推論時に自動で読みます。省略時は過去のモデルの再現用にlegacyを使います。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/prepare_voice_data.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --dataset /path/to/lami-android-voice-dataset/frozen/lami-cute-v1 \
+  --output artifacts/tts-lite/lami-voice-long-vowels-44100 --phoneme-profile melo_long_vowels_v1
+python3 scripts/voice/tts_lite/run_finetune.py \
+  --prepared-data artifacts/tts-lite/lami-voice-long-vowels-44100 \
+  --output artifacts/tts-lite/lami-gan-long-vowels-1000 \
+  --steps 1000 --max-minutes 20 --save-every 200 --eval-every 200 \
+  --eval-seeds 42,43,44 --freeze-text-duration
+```
+
+新しい比較は同じ元の日本語モデルから開始します。誤った音素列で学習した旧候補からの継続ではありません。
+音声・正規化した読み・480/20件の分割を保持し、変換済み音声のハッシュと全500件の学習／推論のID一致を
+`audit_long_vowels.py` で確認します。モデル設定とチェックポイントには音素プロファイルも記録します。
+
+途中の各段階では検証20文を3つの乱数条件で生成し、保存済みの候補を比較できます。
+評価時は文ごとに乱数をリセットし、MASの評価用ノイズを0にします。学習用の乱数とノイズ設定は評価後に戻します。
+過去の1条件の検証とは評価手順が異なるため、今回の学習前と学習後を組にして比較します。
+
+```bash
+artifacts/tts-lite/asr-venv/bin/python scripts/voice/tts_lite/evaluate_voice_asr.py \
+  --trial artifacts/tts-lite/lami-gan-long-vowels-1000 --step 200 \
+  --model /path/to/cached/faster-whisper-small/snapshot --openjtalk-dict /path/to/open_jtalk_dic_utf_8-1.11 \
+  --output artifacts/tts-lite/long-vowels-asr-200
+# --step 400/600/800/1000 の結果も別フォルダへ保存します。
+# --reuse-baseline に前のASR結果フォルダを渡すと、モデル・設定・音声ハッシュ・期待する読みが同じ結果を再利用します。
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/select_voice_checkpoint.py \
+  --artifacts artifacts/tts-lite --trial artifacts/tts-lite/lami-gan-long-vowels-1000 \
+  --output artifacts/tts-lite/long-vowels-selection.json
+```
+
+`probe_phoneme_profiles.py` は学習なし・同じCPUモデルで長音修正だけを比較します。
+出力の `comparisons.jsonl` をASRの `--comparisons` へ渡せます。
+この形式は `variants` 内の `baseline` / `candidate` と任意の `reference` の音声パスを持ち、追加文の比較にも使えます。
+比較WAVへ `--step 1000 --frontend-control .../comparisons.jsonl --limit 1` を付けると、
+基準音声→修正前→長音修正後→学習後を同じ1文で聞き比べられます。
+
+以下の採用条件は継続します。
+
 1. 日本語の数字・日付・英字・固有名詞を増やし、音声を聴いて品質を評価する。
 2. 正本`lami-cute-v3-03`と人が承認した音声データによる短い学習結果を比較し、発音と声質を満たす候補へ育てる。
    Chronicleの音声や、未承認の生成データを教師データへ混ぜない。

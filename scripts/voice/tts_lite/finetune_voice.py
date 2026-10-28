@@ -146,29 +146,42 @@ def fixed_rng(seed):
         yield
 
 
-def evaluate(model, dataset, config, device, output, step):
+def evaluate(model, dataset, config, device, output, step, seeds=(42,)):
     output.mkdir(parents=True, exist_ok=False)
     model.eval()
     rows = []
     # Upstream mel transforms cache windows/bases for subsequent training.
     # no_grad keeps those reusable tensors compatible with autograd.
-    with fixed_rng(42), torch.no_grad():
-        for index, row in enumerate(dataset.rows):
-            batch = collate([dataset[index]])
-            _, _, _, _, terms = synthesis_terms(model, batch, config, device)
-            inputs, _ = unpack(batch, device)
-            pcm = model.infer(inputs[0], inputs[1], inputs[4], *inputs[5:],
-                              sdp_ratio=0.2, noise_scale=0.6, noise_scale_w=0.8, length_scale=1.0)[0][0, 0].cpu().numpy()
-            if not np.isfinite(pcm).all() or len(pcm) == 0:
-                raise ValueError("Non-finite validation audio")
-            wav = output / (row["path"].stem + ".wav")
-            soundfile.write(wav, pcm, config["data"]["sampling_rate"], subtype="PCM_16")
-            rows.append({"id": row["path"].stem, "normalized_text": row["text"],
-                         "reference": str(row["path"]), "wav": wav.name, "sha256": sha256(wav),
-                         "duration_seconds": len(pcm) / config["data"]["sampling_rate"],
-                         "peak": float(np.abs(pcm).max()), "rms": float(np.sqrt(np.mean(pcm ** 2))),
-                         **{key: float(value) for key, value in terms.items()}})
-    summary = {"step": step, "held_out_examples": len(rows),
+    previous_noise = getattr(model, "current_mas_noise_scale", None)
+    if previous_noise is not None:
+        model.current_mas_noise_scale = 0.0
+    try:
+        with fixed_rng(42), torch.no_grad():
+            for seed in seeds:
+                for index, row in enumerate(dataset.rows):
+                    # Reset each example independently. Duration changes in one
+                    # utterance cannot change later utterances' random streams.
+                    torch.manual_seed(seed)
+                    batch = collate([dataset[index]])
+                    _, _, _, _, terms = synthesis_terms(model, batch, config, device)
+                    inputs, _ = unpack(batch, device)
+                    torch.manual_seed(seed)
+                    pcm = model.infer(inputs[0], inputs[1], inputs[4], *inputs[5:],
+                                      sdp_ratio=0.2, noise_scale=0.6, noise_scale_w=0.8, length_scale=1.0)[0][0, 0].cpu().numpy()
+                    if not np.isfinite(pcm).all() or len(pcm) == 0:
+                        raise ValueError("Non-finite validation audio")
+                    wav = output / (row["path"].stem + "-s" + str(seed) + ".wav")
+                    soundfile.write(wav, pcm, config["data"]["sampling_rate"], subtype="PCM_16")
+                    rows.append({"id": row["path"].stem, "seed": seed, "normalized_text": row["text"],
+                                 "reference": str(row["path"]), "wav": wav.name, "sha256": sha256(wav),
+                                 "duration_seconds": len(pcm) / config["data"]["sampling_rate"],
+                                 "peak": float(np.abs(pcm).max()), "rms": float(np.sqrt(np.mean(pcm ** 2))),
+                                 **{key: float(value) for key, value in terms.items()}})
+    finally:
+        if previous_noise is not None:
+            model.current_mas_noise_scale = previous_noise
+    summary = {"step": step, "held_out_examples": len(dataset), "generated_requests": len(rows),
+               "protocol": "per_example_seed_v2_mas_noise_zero", "seeds": list(seeds),
                "mean": {key: float(np.mean([r[key] for r in rows])) for key in ("mel_l1", "duration", "kl")},
                "listening": "pending", "notes": ["Teacher-forced losses do not establish voice similarity or intelligibility.",
                                                         "Generated audio uses the held-out text with no reference audio conditioning."]}
@@ -192,9 +205,14 @@ def main():
     parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--discriminator-learning-rate", type=float, default=2e-4)
     parser.add_argument("--save-every", type=int, default=100)
+    parser.add_argument("--eval-every", type=int, default=0)
+    parser.add_argument("--eval-seeds", default="42")
     parser.add_argument("--freeze-text-duration", action="store_true",
                         help="Preserve text encoder, duration predictors and speaker embedding; adapt acoustic/decoder modules")
     args = parser.parse_args()
+    seeds = tuple(map(int, args.eval_seeds.split(",")))
+    if not seeds or len(seeds) != len(set(seeds)) or args.eval_every < 0:
+        parser.error("Expected distinct evaluation seeds and nonnegative interval")
     if min(args.steps, args.max_minutes, args.batch_size, args.learning_rate, args.discriminator_learning_rate, args.save_every) <= 0:
         parser.error("Expected positive training limits")
     if not torch.cuda.is_available():
@@ -226,6 +244,8 @@ def main():
     base_config = json.loads((args.model_dir / "config.json").read_text())
     if config["model"] != base_config["model"] or config["symbols"] != base_config["symbols"]:
         raise ValueError("Prepared model architecture changed")
+    phoneme_profile = config.get("tts_lite_phoneme_profile", "melo_legacy")
+    base_config["tts_lite_phoneme_profile"] = phoneme_profile
     cfg, train = config["data"], config["train"]
     train["learning_rate"], train["batch_size"] = args.learning_rate, args.batch_size
     args.output.mkdir(parents=True, exist_ok=False)
@@ -266,11 +286,13 @@ def main():
                "precision": "float32", "seed": 42,
                "train_examples": len(training), "validation_examples": len(validation),
                "frozen_modules": list(frozen_modules),
+               "phoneme_profile": phoneme_profile, "evaluation_seeds": list(seeds),
+               "evaluation_interval": args.eval_every, "periodic_validations": [],
                "full_gan_losses": ["mel", "duration", "kl", "adversarial", "feature_matching", "duration_adversarial"],
                "notes": ["Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
                          "CPU data spectra are cached in memory; no original dataset files are written.",
                          "No phone execution, NPU timing or subjective quality adoption is performed."]}
-    summary["baseline_validation"] = evaluate(model, validation, config, device, args.output / "validation-step000000", 0)
+    summary["baseline_validation"] = evaluate(model, validation, config, device, args.output / "validation-step000000", 0, seeds)
     save_json(args.output / "run.json", summary)
     started = time.monotonic()
     step, epoch = 0, 0
@@ -281,7 +303,7 @@ def main():
         save_json(target / "config.json", base_config)
         metadata = {"voice": "lami_cute_v3_03_trial_not_adopted", "optimizer_steps": step,
                     "source_manifest_sha256": MANIFEST_SHA256, "base_checkpoint_sha256": BASE_CHECKPOINT_SHA256,
-                    "frozen_modules": list(frozen_modules)}
+                    "frozen_modules": list(frozen_modules), "phoneme_profile": phoneme_profile}
         atomic_save({"model": {key: value.detach().cpu() for key, value in model.state_dict().items()},
                      "tts_lite": metadata}, target / "checkpoint.pth")
         return target
@@ -327,6 +349,15 @@ def main():
             if step % args.save_every == 0:
                 save_candidate()
                 completed_ids.add(step)
+            if args.eval_every and step % args.eval_every == 0:
+                if step not in completed_ids:
+                    save_candidate()
+                    completed_ids.add(step)
+                result = evaluate(model, validation, config, device,
+                                  args.output / ("validation-step" + str(step).zfill(6)), step, seeds)
+                summary["periodic_validations"].append(result)
+                summary["optimizer_steps"] = step
+                save_json(args.output / "run.json", summary)
         if step < args.steps:
             for optimizer in optimizers:
                 for group in optimizer.param_groups:
@@ -340,7 +371,9 @@ def main():
                    termination="step_limit" if step == args.steps else "time_limit",
                    peak_gpu_allocated_bytes=torch.cuda.max_memory_allocated(),
                    candidate=str(candidate), candidate_sha256=sha256(candidate / "checkpoint.pth"))
-    summary["final_validation"] = evaluate(model, validation, config, device, args.output / ("validation-step" + str(step).zfill(6)), step)
+    validation_output = args.output / ("validation-step" + str(step).zfill(6))
+    summary["final_validation"] = (json.loads((validation_output / "report.json").read_text()) if validation_output.exists()
+                                   else evaluate(model, validation, config, device, validation_output, step, seeds))
     atomic_save({"step": step, "models": [net.state_dict() for net in nets],
                  "optimizers": [optimizer.state_dict() for optimizer in optimizers],
                  "torch_rng": torch.get_rng_state(), "cuda_rng": torch.cuda.get_rng_state()}, args.output / "training-state.pth")

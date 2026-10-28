@@ -1,0 +1,50 @@
+{
+  "order": [
+    "reference",
+    "legacy_stock",
+    "corrected_stock",
+    "trained_candidate"
+  ],
+  "examples": 1,
+  "optimizer_steps": 1000,
+  "trial_optimizer_steps": 1000,
+  "gain_adjustment": false,
+  "duration_seconds": 16.79297052154195,
+  "segments": [
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "reference",
+      "start_seconds": 0.5,
+      "end_seconds": 3.38,
+      "source_sha256": "fac6fbc0ea17bd36d08ec14ab3a8b0444740fc3465379a628d9f15214f5d52c8"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "legacy_stock",
+      "start_seconds": 4.08,
+      "end_seconds": 7.028934240362812,
+      "source_sha256": "e3028dbea88196504fede6b23780270a2b7b7470d8840493ec5bdd864ca7e1b3"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "corrected_stock",
+      "start_seconds": 7.728934240362812,
+      "end_seconds": 11.060997732426305,
+      "source_sha256": "7b16605f5e64e9be2d571abb13ded7424c20e2ad6f8eb288f5a3c76f67a82f37"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "trained_candidate",
+      "start_seconds": 11.760997732426304,
+      "end_seconds": 15.093061224489796,
+      "source_sha256": "b9473d38f58c12148ced2b82107d3816b6257e72a9c82471b050664889e1bb23"
+    }
+  ],
+  "sha256": "416d114eeea71b3f5ae8e92824671003288a4a9ebadfe27a1da87fcdc1c0adac",
+  "listening": "pending",
+  "voice_adopted": false
+}

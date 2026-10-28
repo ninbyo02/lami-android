@@ -13,9 +13,15 @@ def main():
     parser.add_argument("--max-minutes", type=float, default=20)
     parser.add_argument("--image", default="lami-tts-lite-training:20261028")
     parser.add_argument("--freeze-text-duration", action="store_true")
+    parser.add_argument("--prepared-data", type=Path)
+    parser.add_argument("--save-every", type=int, default=100)
+    parser.add_argument("--eval-every", type=int, default=0)
+    parser.add_argument("--eval-seeds", default="42")
     args = parser.parse_args()
     work = Path(__file__).resolve().parents[3]
     artifacts = work / "artifacts/tts-lite"
+    prepared = (args.prepared_data or artifacts / "lami-voice-prepared-44100").resolve()
+    prepared.relative_to(artifacts)
     output = args.output.resolve()
     output.relative_to(artifacts)
     if output.exists() or args.steps < 1 or args.max_minutes <= 0:
@@ -30,14 +36,15 @@ def main():
     for gid in sorted({node.stat().st_gid for node in nodes}):
         command.extend(["--group-add", str(gid)])
     command.extend(["-v", f"{work}:{work}:ro", "-v", f"{artifacts}:{artifacts}"])
-    for sub in ("MeloTTS", "MeloTTS-Japanese", "lami-voice-prepared-44100"):
-        command.extend(["-v", f"{artifacts / sub}:{artifacts / sub}:ro"])
+    for directory in (artifacts / "MeloTTS", artifacts / "MeloTTS-Japanese", prepared):
+        command.extend(["-v", f"{directory}:{directory}:ro"])
     command.extend(["-w", str(work), "-e", "HIP_VISIBLE_DEVICES=0", "-e", f"XDG_CACHE_HOME={cache}",
                     "-e", f"NUMBA_CACHE_DIR={cache}/numba", "-e", f"MIOPEN_USER_DB_PATH={cache}/miopen",
                     args.image, "python", "scripts/voice/tts_lite/finetune_voice.py",
                     "--source", str(artifacts / "MeloTTS"), "--model-dir", str(artifacts / "MeloTTS-Japanese"),
-                    "--prepared-data", str(artifacts / "lami-voice-prepared-44100"), "--fresh-discriminators",
-                    "--output", str(output), "--steps", str(args.steps), "--max-minutes", str(args.max_minutes)])
+                    "--prepared-data", str(prepared), "--fresh-discriminators",
+                    "--output", str(output), "--steps", str(args.steps), "--max-minutes", str(args.max_minutes),
+                    "--save-every", str(args.save_every), "--eval-every", str(args.eval_every), "--eval-seeds", args.eval_seeds])
     if args.freeze_text_duration:
         command.append("--freeze-text-duration")
     output.with_name(output.name + "-launch.json").write_text(json.dumps({"image": image["Id"], "argv": command}, indent=2) + "\n")

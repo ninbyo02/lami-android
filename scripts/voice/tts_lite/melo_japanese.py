@@ -27,7 +27,7 @@ def sha256(path: Path) -> str:
 
 
 class JapaneseMelo:
-    def __init__(self, source: Path, model_dir: Path, threads: int = 4, frontend: str = "upstream"):
+    def __init__(self, source: Path, model_dir: Path, threads: int = 4, frontend: str = "upstream", phoneme_profile=None):
         started = time.perf_counter()
         actual = subprocess.check_output(
             ["git", "-C", str(source), "rev-parse", "HEAD"], text=True
@@ -69,6 +69,10 @@ class JapaneseMelo:
             self.reading = pyopenjtalk
         self.to_ids = cleaned_text_to_sequence
         self.config = json.loads((model_dir / "config.json").read_text())
+        from japanese_phonemes import LEGACY, PROFILES
+        self.phoneme_profile = phoneme_profile or self.config.get("tts_lite_phoneme_profile", LEGACY)
+        if self.phoneme_profile not in PROFILES:
+            raise ValueError(f"Unsupported phoneme profile: {self.phoneme_profile}")
         cfg = self.config
         if not cfg["data"].get("disable_bert"):
             raise ValueError("This adapter requires the Japanese BERT-disabled model")
@@ -96,10 +100,15 @@ class JapaneseMelo:
             "sample_rate": self.sample_rate,
             "tokenizer_revision": TOKENIZER_REVISION,
             "frontend": frontend,
+            "phoneme_profile": self.phoneme_profile,
             "reading_version": getattr(self.reading, "__version__", None),
         }
         if candidate:
             self.provenance["training"] = candidate
+
+    def phonemize(self, normalized_text):
+        from japanese_phonemes import phonemize
+        return phonemize(self.frontend, normalized_text, self.phoneme_profile)
 
     def prepare_text(self, text: str):
         torch = self.torch
@@ -108,7 +117,7 @@ class JapaneseMelo:
         normalized = self.frontend.text_normalize(reading)
         if not normalized.strip():
             raise ValueError("No pronounceable text after upstream normalization")
-        phones, tones, _ = self.frontend.g2p(normalized)
+        phones, tones, _ = self.phonemize(normalized)
         phone, tone, language = self.to_ids(phones, tones, "JP", self.symbol_to_id)
         if self.config["data"]["add_blank"]:
             phone = self.commons.intersperse(phone, 0)

@@ -16,13 +16,20 @@ def main():
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--alternate-trial", type=Path)
     ap.add_argument("--limit", type=int, default=3)
+    ap.add_argument("--step", type=int)
+    ap.add_argument("--frontend-control", type=Path,
+                    help="Comparison JSONL from probe_phoneme_profiles.py; insert legacy and corrected stock audio")
     args = ap.parse_args()
     if args.limit < 1 or args.output.exists() or args.output.with_suffix(".json").exists():
         ap.error("Choose a new comparison output")
     trial = json.loads((args.trial / "run.json").read_text())
-    final_dir = args.trial / ("validation-step" + str(trial["optimizer_steps"]).zfill(6))
+    step = args.step if args.step is not None else trial["optimizer_steps"]
+    final_dir = args.trial / ("validation-step" + str(step).zfill(6))
     jobs = [json.loads(line) for line in (final_dir / "requests.jsonl").read_text().splitlines()][:args.limit]
     alternate_dir = None
+    controls = {}
+    if args.frontend_control:
+        controls = {(row["id"], row["seed"]): row for row in map(json.loads, args.frontend_control.read_text().splitlines())}
     if args.alternate_trial:
         alternate = json.loads((args.alternate_trial / "run.json").read_text())
         if alternate["source_manifest_sha256"] != trial["source_manifest_sha256"]:
@@ -38,6 +45,10 @@ def main():
         variants = [("reference", Path(job["reference"])),
                               ("baseline", args.trial / "validation-step000000" / job["wav"]),
                               ("candidate", final_dir / job["wav"])]
+        if controls:
+            control = controls[(job["id"], job["seed"])]["variants"]
+            variants = [("reference", Path(job["reference"])), ("legacy_stock", Path(control["baseline"])),
+                        ("corrected_stock", Path(control["candidate"])), ("trained_candidate", final_dir / job["wav"])]
         if alternate_dir:
             variants.append(("alternate_candidate", alternate_dir / job["wav"]))
         for variant, path in variants:
@@ -55,7 +66,7 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     soundfile.write(args.output, pcm, rate, subtype="PCM_16")
     report = {"order": [variant for variant, _ in variants], "examples": len(jobs),
-              "optimizer_steps": trial["optimizer_steps"], "gain_adjustment": False,
+              "optimizer_steps": step, "trial_optimizer_steps": trial["optimizer_steps"], "gain_adjustment": False,
               "duration_seconds": len(pcm) / rate, "segments": timing,
               "sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(),
               "listening": "pending", "voice_adopted": False}

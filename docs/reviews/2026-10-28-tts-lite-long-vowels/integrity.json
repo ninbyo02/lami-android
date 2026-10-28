@@ -1,0 +1,24 @@
+{
+  "scope": "1000_step_frozen_module_and_periodic_evaluation_integrity",
+  "frozen_state_tensors": 418,
+  "frozen_parameters_bit_identical": true,
+  "changed_acoustic_state_tensors": 633,
+  "finite_optimizer_steps": 1000,
+  "checkpoint_steps": [
+    200,
+    400,
+    600,
+    800,
+    1000
+  ],
+  "validated_audio_requests_per_checkpoint": 60,
+  "held_out_texts": 20,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "all_inference_lengths_match_corrected_baseline": true,
+  "phoneme_profile": "melo_long_vowels_v1",
+  "voice_adopted": false
+}
