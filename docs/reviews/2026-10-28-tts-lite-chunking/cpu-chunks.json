@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scope": "host_cpu_pcm_chunk_availability_no_playback",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1"
+  },
+  "model_init_ms": 835.9868500265293,
+  "core_frames": 16,
+  "context_frames": 16,
+  "first_chunk_max_audio_ms": 185.75963718820861,
+  "requests": 32,
+  "groups": {
+    "cold": {
+      "requests": 1,
+      "first_pcm_ms_p50": 337.07416499964893,
+      "first_pcm_ms_p95": 337.07416499964893,
+      "rtf_p50": 0.4571044514510035,
+      "projected_gaps": 0
+    },
+    "first_pass": {
+      "requests": 15,
+      "first_pcm_ms_p50": 112.20974399475381,
+      "first_pcm_ms_p95": 199.64502508519232,
+      "rtf_p50": 0.3068887700780053,
+      "projected_gaps": 0
+    },
+    "repeated": {
+      "requests": 16,
+      "first_pcm_ms_p50": 111.79020450799726,
+      "first_pcm_ms_p95": 191.6260567450081,
+      "rtf_p50": 0.307674310696883,
+      "projected_gaps": 0
+    }
+  },
+  "peak_process_rss_kib": 1235216,
+  "android_playback": "unverified",
+  "npu_execution": "unverified",
+  "notes": [
+    "One complete text input is available before acoustic inference begins.",
+    "No full-waveform reference or warmup is run before the measured requests.",
+    "First PCM is not audible first audio; initialization and audio-device buffering are separate.",
+    "Projected gaps are a timeline simulation starting at the first chunk, not measured underruns."
+  ]
+}

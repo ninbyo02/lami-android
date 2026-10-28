@@ -81,12 +81,70 @@ SM8750、FP16、VTCM 8MBを指定します。生成結果の存在とサイズ�
 
 ## Next implementation gates
 
-1. 音響モデルと波形生成を分割し、必要な前後文脈を含むチャンクで全文波形との一致を確認する。
-2. 日本語の数字・日付・英字・固有名詞を増やし、音声を聴いて品質を評価する。
-3. 軽量な単一話者モデルへ、正本`lami-cute-v3-03`と人が承認した音声データを使って声を学習する。
+音響モデルの分離と固定サイズのチャンク化は、16文でCPU/ONNX出力を確認済みです。
+約186ms分の音声を取り出すために、前後16フレームの文脈を含む48フレームのデコーダを使います。
+各段階のマスクで真の先頭・末尾の境界を再現するため、先頭／途中／末尾で別モデルを常駐させる必要がありません。
+この実装は[MeloTTSの既存演算を利用した派生部分](THIRD_PARTY_NOTICES.md)を含みます。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/validate_chunking.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --output artifacts/tts-lite/chunk-parity-new
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/benchmark_chunks.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --output artifacts/tts-lite/chunk-benchmark-new
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/export_chunk_decoder.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --output artifacts/tts-lite/chunk-onnx-new
+```
+
+`probe_qnn.py`へ`chunk-onnx-new/decoder.onnx`を渡すと、7入力の固定サイズモデルを事前コンパイルできます。
+書き出した`input_list.txt`はONNX用です。QNNコンパイラは潜在表現の軸をNCTからNTCへ変えるため、
+実機へ渡す入力は別に準備します。`prepare_qnn_inputs.py`は変換後のメタデータから軸とネイティブ精度を読み、
+先頭・途中・末尾の入力を変換し、ファイルからの読み戻しも確認します。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/prepare_qnn_inputs.py \
+  --onnx-dir artifacts/tts-lite/chunk-onnx-new --compiled-dir artifacts/tts-lite/qnn-sm8750-new \
+  --output artifacts/tts-lite/qnn-native-inputs-new
+```
+
+ネイティブFP16のリストはQNN NetRunで`--use_native_input_files`を付けて使います。
+入力のFP16丸めだけをONNXで確認しており、HTP内部の演算やFP16の重みを検証した結果ではありません。
+
+`first_pcm_chunk_ready_ms`はモデル常駐後、全文の入力が渡されてから最初のPCMチャンクができるまでの時間です。
+Pythonの起動、モデル読み込み、音声デバイスのバッファは含みません。`projected_gaps`は時刻からの推定で、実機のアンダーランではありません。
+文脈の再計算をするため、全文の一括合成より総計算量は増えます。
+
+## LAMI voice training preparation
+
+以前確定した`lami-cute-v1`のmanifestハッシュを固定し、全500音声の元ファイルのハッシュを照合します。
+元データは変更せず、44.1kHzのコピーと、推論時と同じOpen JTalkの読みを使う学習用メタデータを作ります。
+同じ正規化テキスト・同じ音声が学習用と検証用に分かれないように分割します。
+この準備と学習用forward/backwardの確認は、学習済みの声を作ったことを意味しません。
+
+```bash
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/prepare_voice_data.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --dataset /path/to/lami-android-voice-dataset/frozen/lami-cute-v1 \
+  --output artifacts/tts-lite/lami-voice-new
+uv pip install --python artifacts/tts-lite/venv/bin/python -r scripts/voice/tts_lite/requirements-training-smoke.txt
+artifacts/tts-lite/venv/bin/python scripts/voice/tts_lite/training_smoke.py \
+  --source artifacts/tts-lite/MeloTTS --model-dir artifacts/tts-lite/MeloTTS-Japanese \
+  --prepared-data artifacts/tts-lite/lami-voice-new --output artifacts/tts-lite/training-smoke-new.json
+```
+
+日本語モデルの既存埋め込みを保持するため、256行の話者テーブルを残し、話者0だけを`lami_cute`へ割り当てます。
+`disable_bert=true`でも上流ローダーがBERTファイルを開くため、期待する形のゼロテンソルを小さな共有ストレージとして保存します。
+`config.prepared.json`は学習用の準備設定で、GPUやGAN学習ループの検証済み設定ではありません。
+
+## Remaining implementation gates
+
+1. 日本語の数字・日付・英字・固有名詞を増やし、音声を聴いて品質を評価する。
+2. 軽量な単一話者モデルへ、正本`lami-cute-v3-03`と人が承認した音声データを使って声を学習する。
    Chronicleの音声や、未承認の生成データを教師データへ混ぜない。
-4. `LamiVoiceEngine`の独立した実装へ接続し、生成・再生の並行処理と即時停止を検証する。
-5. NX733Jで、コールド／ウォームの可聴再生開始、RTF、アンダーラン、メモリ、LLM同時動作、発熱と消費電力を測る。
+3. `LamiVoiceEngine`の独立した実装へ接続し、生成・再生の並行処理と即時停止を検証する。
+4. NX733Jで、コールド／ウォームの可聴再生開始、RTF、アンダーラン、メモリ、LLM同時動作、発熱と消費電力を測る。
 
 SDK・モデル・辞書の配布条件は、将来APKへ含める対象を決めた時点で確認します。
 今回の変更は開発スクリプトと検証記録だけです。
@@ -99,4 +157,4 @@ SDK・モデル・辞書の配布条件は、将来APKへ含める対象を決�
 - [Qualcomm ASR/LLM/TTS example](https://github.com/qualcomm/qidk/tree/master/GenAI-Solutions/ASR-LLM-TTS)
 
 MeloTTSコードはMIT、pyopenjtalkはMIT、Open JTalkはModified BSDです。
-ここでは上流コードやSDKのコピーをGitへ追加せず、参照先と版を記録します。
+派生コードのライセンス通知を同梱し、モデル重みとSDKは外部の版を固定して参照します。

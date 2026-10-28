@@ -1,7 +1,8 @@
 """Japanese-only adapter around the unmodified, pinned MeloTTS implementation.
 
 Import the neural model and Japanese frontend directly; the upstream general API
-eagerly imports unrelated language frontends. No G2P or inference math is replaced.
+eagerly imports unrelated language frontends. The acoustic split is separately
+checked against upstream inference; model modules and G2P are reused.
 """
 from __future__ import annotations
 
@@ -97,7 +98,7 @@ class JapaneseMelo:
             "reading_version": getattr(self.reading, "__version__", None),
         }
 
-    def generate(self, text: str, seed: int = 42, capture_decoder: bool = False):
+    def prepare_text(self, text: str):
         torch = self.torch
         started = time.perf_counter()
         reading = self.reading.g2p(text, kana=True) if self.reading else text
@@ -118,6 +119,28 @@ class JapaneseMelo:
             torch.tensor([language]), torch.zeros(1, 1024, len(phone)),
             torch.zeros(1, 768, len(phone)),
         )
+        return inputs, {
+            "reading_input": reading, "normalized_text": normalized,
+            "phone_ids": len(phone), "frontend_ms": (time.perf_counter() - started) * 1000,
+        }
+
+    def generate_latents(self, text: str, seed: int = 42):
+        from melo_acoustic import MeloAcoustic
+        started = time.perf_counter()
+        inputs, metrics = self.prepare_text(text)
+        frontend_done = time.perf_counter()
+        with self.torch.inference_mode():
+            self.torch.manual_seed(seed)
+            z, speaker = MeloAcoustic(self.model)(*inputs)
+        finished = time.perf_counter()
+        metrics.update(acoustic_ms=(finished - frontend_done) * 1000,
+                       latent_ready_ms=(finished - started) * 1000, latent_frames=z.shape[-1])
+        return z, speaker, metrics
+
+    def generate(self, text: str, seed: int = 42, capture_decoder: bool = False):
+        torch = self.torch
+        started = time.perf_counter()
+        inputs, frontend_metrics = self.prepare_text(text)
         frontend_done = time.perf_counter()
         captured = {}
         def before_decoder(module, args, kwargs):
@@ -137,8 +160,8 @@ class JapaneseMelo:
         finished = time.perf_counter()
         from metrics import audio_metrics
         metrics = audio_metrics(pcm, self.sample_rate, (finished - started) * 1000)
+        metrics.update(frontend_metrics)
         metrics.update({
-            "reading_input": reading, "normalized_text": normalized, "phone_ids": len(phone),
             "frontend_ms": (frontend_done - started) * 1000,
             "neural_ms": (finished - frontend_done) * 1000,
         })
