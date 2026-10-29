@@ -1,0 +1,131 @@
+{
+  "scope": "paired_gpu_free_inference_on_precomputed_ids_not_voice_adoption",
+  "models": {
+    "baseline": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/MeloTTS-Japanese-long-vowels",
+      "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "training": null
+    },
+    "prior-400": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/lami-gan-long-vowels-1000/candidate-step000400",
+      "checkpoint_sha256": "a9feb25c1e0bb3bc965e2e752b0cab2e445c59f5c66477713089e659cb168408",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 400,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g"
+        ],
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    },
+    "prior-1000": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/lami-gan-long-vowels-1000/candidate-step001000",
+      "checkpoint_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 1000,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g"
+        ],
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    },
+    "low-lr-all": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-all-400/candidate-step000400",
+      "checkpoint_sha256": "b7a7c5d6a89568cff78586ab2fca776364be8ed0eafb00709ba52929b2a6560a",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 400,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g"
+        ],
+        "updated_modules": [
+          "enc_q",
+          "flow",
+          "dec"
+        ],
+        "learning_rate": 3e-06,
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    },
+    "low-lr-fixed-decoder": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-fixed-decoder-400/candidate-step000400",
+      "checkpoint_sha256": "d6006608a79635106c108983c165bc36d4b1150b3e5caa07f35d55515ab5231f",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 400,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g",
+          "dec"
+        ],
+        "updated_modules": [
+          "enc_q",
+          "flow"
+        ],
+        "learning_rate": 3e-06,
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    },
+    "low-lr-fixed-flow": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-fixed-flow-400/candidate-step000400",
+      "checkpoint_sha256": "6b83c1291ac3255788bce06d1488a7992a32f732c8671fee10078f3f251a36b7",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 400,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g",
+          "flow"
+        ],
+        "updated_modules": [
+          "enc_q",
+          "dec"
+        ],
+        "learning_rate": 3e-06,
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    }
+  },
+  "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+  "inputs_sha256": "875d1af388ceab2fff370f1f54e10125e8f05825201025f31b594ee4246eea49",
+  "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+  "hip": "7.2.53211-e1a6bc5663",
+  "device": "AMD Radeon AI PRO R9700",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "unique_texts": 16,
+  "rendered_wavs": 288,
+  "sample_rate": 44100,
+  "notes": [
+    "No reference audio conditioning, optimizer updates, or expected-text ASR prompts.",
+    "Previously used additional probes are diagnostic, not an independent final test.",
+    "Compare only within this GPU experiment; CPU/GPU random streams can differ."
+  ]
+}

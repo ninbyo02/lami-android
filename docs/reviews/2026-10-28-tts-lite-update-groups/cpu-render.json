@@ -1,0 +1,51 @@
+{
+  "scope": "paired_cpu_free_inference_on_precomputed_ids_not_voice_adoption",
+  "models": {
+    "baseline": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/MeloTTS-Japanese-long-vowels",
+      "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "training": null
+    },
+    "low-lr-all": {
+      "directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-all-400/candidate-step000400",
+      "checkpoint_sha256": "b7a7c5d6a89568cff78586ab2fca776364be8ed0eafb00709ba52929b2a6560a",
+      "training": {
+        "voice": "lami_cute_v3_03_trial_not_adopted",
+        "optimizer_steps": 400,
+        "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+        "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+        "frozen_modules": [
+          "enc_p",
+          "dp",
+          "sdp",
+          "emb_g"
+        ],
+        "updated_modules": [
+          "enc_q",
+          "flow",
+          "dec"
+        ],
+        "learning_rate": 3e-06,
+        "phoneme_profile": "melo_long_vowels_v1"
+      }
+    }
+  },
+  "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+  "inputs_sha256": "875d1af388ceab2fff370f1f54e10125e8f05825201025f31b594ee4246eea49",
+  "torch": "2.5.1+cpu",
+  "hip": null,
+  "device": "cpu",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "unique_texts": 16,
+  "rendered_wavs": 96,
+  "sample_rate": 44100,
+  "notes": [
+    "No reference audio conditioning, optimizer updates, or expected-text ASR prompts.",
+    "Previously used additional probes are diagnostic, not an independent final test.",
+    "Compare only within the same inference environment; CPU/GPU random streams can differ."
+  ]
+}

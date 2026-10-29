@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "scope": "bounded_gpu_full_gan_finetuning_trial_not_adopted_voice",
+  "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+  "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+  "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+  "prepared_train_sha256": "d544c2aec7913192abff394db04f2a684828068cffa9aa5702c12012719107a5",
+  "prepared_validation_sha256": "2a2e3dda9e71b47f1372d4c96051377a4a4bef5d37a43ce2b37023154fc16f40",
+  "discriminators": {
+    "initialization": "fresh_upstream_default_seed42",
+    "pretrained_weights": false
+  },
+  "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+  "hip": "7.2.53211-e1a6bc5663",
+  "device": "AMD Radeon AI PRO R9700",
+  "requested_steps": 200,
+  "max_minutes": 20.0,
+  "batch_size": 4,
+  "learning_rate": 1e-05,
+  "discriminator_learning_rate": 0.0002,
+  "precision": "float32",
+  "seed": 42,
+  "train_examples": 480,
+  "validation_examples": 20,
+  "full_gan_losses": [
+    "mel",
+    "duration",
+    "kl",
+    "adversarial",
+    "feature_matching",
+    "duration_adversarial"
+  ],
+  "notes": [
+    "Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
+    "CPU data spectra are cached in memory; no original dataset files are written.",
+    "No phone execution, NPU timing or subjective quality adoption is performed."
+  ],
+  "baseline_validation": {
+    "step": 0,
+    "held_out_examples": 20,
+    "mean": {
+      "mel_l1": 0.9364414393901825,
+      "duration": 4.323995101451874,
+      "kl": 15.600399827957153
+    },
+    "listening": "pending",
+    "notes": [
+      "Teacher-forced losses do not establish voice similarity or intelligibility.",
+      "Generated audio uses the held-out text with no reference audio conditioning."
+    ]
+  },
+  "optimizer_steps": 200,
+  "epochs_entered": 2,
+  "elapsed_training_seconds": 138.38059593600337,
+  "termination": "step_limit",
+  "peak_gpu_allocated_bytes": 5013826560,
+  "candidate": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/lami-gan-trial-200-v2/candidate-step000200",
+  "candidate_sha256": "23c05d0153662322ef2cfb243b7970af72292518118ab91973dc66652e75b0de",
+  "final_validation": {
+    "step": 200,
+    "held_out_examples": 20,
+    "mean": {
+      "mel_l1": 0.6103414878249168,
+      "duration": 2.673858642578125,
+      "kl": 4.328947341442108
+    },
+    "listening": "pending",
+    "notes": [
+      "Teacher-forced losses do not establish voice similarity or intelligibility.",
+      "Generated audio uses the held-out text with no reference audio conditioning."
+    ]
+  }
+}

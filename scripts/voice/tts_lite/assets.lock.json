@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repository": "https://github.com/myshell-ai/MeloTTS",
+    "revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a"
+  },
+  "model": {
+    "repository": "https://huggingface.co/myshell-ai/MeloTTS-Japanese",
+    "revision": "367f8795464b531b4e97c1515bddfc1243e60891",
+    "voice": "upstream JP speaker 0; not the LAMI voice"
+  },
+  "tokenizer": {
+    "repository": "https://huggingface.co/tohoku-nlp/bert-base-japanese-v3",
+    "revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e"
+  },
+  "files": {
+    "config.json": {
+      "bytes": 3431,
+      "sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3"
+    },
+    "checkpoint.pth": {
+      "bytes": 207860748,
+      "sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0"
+    }
+  }
+}

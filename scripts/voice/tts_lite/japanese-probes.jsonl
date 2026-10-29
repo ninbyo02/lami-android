@@ -1,0 +1,16 @@
+{"id":"greeting","category":"short","text":"こんにちは。ラミィです。"}
+{"id":"acknowledgement","category":"short","text":"はい、了解しました。少しお待ちくださいね。"}
+{"id":"numbers","category":"numbers","text":"十三、三十、百三、三百、一万二千三百四十五。"}
+{"id":"dates","category":"numbers","text":"今日は十月二十八日、水曜日です。午後六時十五分になりました。"}
+{"id":"counter","category":"numbers","text":"一人、二人、三人。一本、二本、三本。"}
+{"id":"proper_names","category":"proper_names","text":"東京から京都を経由して、大阪へ向かいます。佐藤さんに確認しますね。"}
+{"id":"mixed_script","category":"mixed_script","text":"USBケーブルを接続して、Androidの設定を開いてください。"}
+{"id":"long_sentence","category":"long","text":"設定内容を順番に説明しますね。まず音量を確認してから、読み上げる声と話す速さを選んでください。準備ができたら、短い文章で聞こえ方を確かめましょう。"}
+{"id":"decimal","category":"numbers","text":"気温は二十三点五度で、湿度は六十五パーセントです。"}
+{"id":"raw_digits","category":"numbers","text":"13、30、103、300、12345を順番に読み上げます。"}
+{"id":"raw_date","category":"numbers","text":"2026年10月28日、18時15分に出発します。"}
+{"id":"question","category":"prosody","text":"大丈夫ですか。何か気になることはありますか。"}
+{"id":"encouragement","category":"prosody","text":"大丈夫ですよ。落ち着いて進めれば、きっとうまくいきます。"}
+{"id":"loanwords","category":"loanwords","text":"スマートフォンのマイクとスピーカーを確認します。"}
+{"id":"punctuation","category":"punctuation","text":"ええと……そうですね。もう一度、確認してみます！"}
+{"id":"long_vowels","category":"pronunciation","text":"おじさんとおじいさん。おばさんとおばあさん。ビルとビール。"}

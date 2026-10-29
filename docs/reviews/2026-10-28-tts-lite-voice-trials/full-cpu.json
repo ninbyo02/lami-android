@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "scope": "host_cpu_pcm_chunk_availability_no_playback",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "23c05d0153662322ef2cfb243b7970af72292518118ab91973dc66652e75b0de",
+    "config_sha256": "29e7fb2697f9971f96c51218819339fe4ef0ce3eaabd66c9a403e714987e97d6",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1",
+    "training": {
+      "voice": "lami_cute_v3_03_trial_not_adopted",
+      "optimizer_steps": 200,
+      "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+      "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0"
+    }
+  },
+  "model_init_ms": 805.4405369912274,
+  "core_frames": 16,
+  "context_frames": 16,
+  "first_chunk_max_audio_ms": 185.75963718820861,
+  "requests": 32,
+  "groups": {
+    "cold": {
+      "requests": 1,
+      "first_pcm_ms_p50": 328.3547710161656,
+      "first_pcm_ms_p95": 328.3547710161656,
+      "rtf_p50": 0.49570434077002234,
+      "projected_gaps": 0
+    },
+    "first_pass": {
+      "requests": 15,
+      "first_pcm_ms_p50": 105.59081798419356,
+      "first_pcm_ms_p95": 169.74052388977736,
+      "rtf_p50": 0.30892236349799873,
+      "projected_gaps": 0
+    },
+    "repeated": {
+      "requests": 16,
+      "first_pcm_ms_p50": 103.09026851609815,
+      "first_pcm_ms_p95": 162.40645974176005,
+      "rtf_p50": 0.3095703286320284,
+      "projected_gaps": 0
+    }
+  },
+  "peak_process_rss_kib": 1161280,
+  "android_playback": "unverified",
+  "npu_execution": "unverified",
+  "notes": [
+    "One complete text input is available before acoustic inference begins.",
+    "No full-waveform reference or warmup is run before the measured requests.",
+    "First PCM is not audible first audio; initialization and audio-device buffering are separate.",
+    "Projected gaps are a timeline simulation starting at the first chunk, not measured underruns."
+  ]
+}

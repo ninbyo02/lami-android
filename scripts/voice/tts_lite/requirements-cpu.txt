@@ -1,0 +1,17 @@
+# Install torch first using the CPU wheel index:
+# uv pip install --python ARTIFACTS/venv/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.5.1+cpu
+torch==2.5.1+cpu
+numpy==1.26.4
+scipy==1.15.3
+numba==0.61.2
+transformers==4.44.2
+huggingface-hub==0.27.1
+num2words==0.5.12
+unidic-lite==1.0.8
+mecab-python3==1.0.9
+fugashi==1.4.0
+pykakasi==2.2.1
+soundfile==0.13.1
+onnx==1.17.0
+onnxruntime==1.20.1
+pyopenjtalk==0.4.1

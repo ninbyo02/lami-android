@@ -1,0 +1,99 @@
+{
+  "scope": "inference_only_flow_decoder_factorial_diagnostic_not_adopted_voice",
+  "baseline": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "20724f9e62eb7724eea6fd70dc41586446042e7126d0b43ccc369c383cd7580c",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "phoneme_profile": "melo_long_vowels_v1",
+    "reading_version": "0.4.1"
+  },
+  "candidate_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+  "candidate_metadata": {
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "optimizer_steps": 1000,
+    "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+    "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "frozen_modules": [
+      "enc_p",
+      "dp",
+      "sdp",
+      "emb_g"
+    ],
+    "phoneme_profile": "melo_long_vowels_v1"
+  },
+  "state_groups": {
+    "enc_p": {
+      "changed": 0,
+      "unchanged": 119
+    },
+    "dec": {
+      "changed": 290,
+      "unchanged": 0
+    },
+    "enc_q": {
+      "changed": 103,
+      "unchanged": 0
+    },
+    "flow": {
+      "changed": 240,
+      "unchanged": 0
+    },
+    "sdp": {
+      "changed": 0,
+      "unchanged": 286
+    },
+    "dp": {
+      "changed": 0,
+      "unchanged": 12
+    },
+    "emb_g": {
+      "changed": 0,
+      "unchanged": 1
+    }
+  },
+  "corpus_sha256": "61ace4843d3b20affc439d4ca5fcb6a6239fea870e92a7e1a35d410da6888b71",
+  "unique_texts": 16,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "rendered_wavs": 192,
+  "variants": {
+    "baseline": [
+      "baseline",
+      "baseline"
+    ],
+    "flow_only": [
+      "candidate",
+      "baseline"
+    ],
+    "decoder_only": [
+      "baseline",
+      "candidate"
+    ],
+    "candidate": [
+      "candidate",
+      "candidate"
+    ]
+  },
+  "same_per_phone_durations": true,
+  "same_prior_sample": true,
+  "same_latent_for_decoder_swap": true,
+  "training_overlap_ids": [],
+  "validation_overlap_ids": [],
+  "notes": [
+    "No optimizer steps and no source/checkpoint changes.",
+    "Hybrid combinations break co-adaptation; they localize sensitivity, not independent causal training effects.",
+    "This previously used probe set is diagnostic, not an independent final test.",
+    "Equal per-phone durations and prior samples exclude predictor timing drift in these comparisons.",
+    "Subjective voice quality remains pending."
+  ]
+}
