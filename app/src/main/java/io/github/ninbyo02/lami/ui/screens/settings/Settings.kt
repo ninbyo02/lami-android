@@ -1096,6 +1096,9 @@ fun Settings(
                     }
                 }
             }
+            item(key = "bravia-tv-section") {
+                io.github.ninbyo02.lami.tools.bravia.BraviaTvSettingsCard()
+            }
             item(key = "local-model-section") {
                 CardSectionHeader(
                     title = "ローカルモデル",
