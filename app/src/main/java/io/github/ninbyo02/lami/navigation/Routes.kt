@@ -10,6 +10,7 @@ object Routes {
     const val CHAT_ID_ARG_ROUTE = "chatId"
     const val CHAT_WITH_ID_ROUTE = "$CHAT/{$CHAT_ID_ARG_ROUTE}"
     const val SETTINGS = "setting"
+    const val BRAVIA_TV = "settings/bravia_tv"
     const val ABOUT = "about"
     const val NOTICE = "notice"
     const val SPRITE_SETTINGS = "settings/sprite_settings"

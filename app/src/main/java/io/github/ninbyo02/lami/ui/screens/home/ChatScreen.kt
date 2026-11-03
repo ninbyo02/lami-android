@@ -1,6 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import io.github.ninbyo02.lami.tv.BraviaIntentParser
+import io.github.ninbyo02.lami.tv.runBraviaChatTurn
 import android.content.res.Configuration
 import android.app.ActivityManager
 import android.net.Uri
@@ -916,6 +918,8 @@ fun Home(
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by rememberSaveable { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
+    var braviaToolBusy by remember { mutableStateOf(false) }
+    val braviaIntent = remember(userPrompt) { BraviaIntentParser.parse(userPrompt) }
     val allChatsState = effectiveChatId?.let {
         viewModel.allMessages(it)
             .map { messages -> messages as List<Message>? }
@@ -4659,7 +4663,8 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = isComposerStopActive || resolveChatSendAvailability(
+                                        enabled = !braviaToolBusy && (isComposerStopActive ||
+                                            (braviaIntent != null && selectedImageUriStrings.isEmpty() && !isInferenceRunningUi) || resolveChatSendAvailability(
                                             selectedInferenceTarget = selectedInferenceTarget,
                                             selectedServerModel = selectedModel,
                                             selectedLocalModelPath = selectedLocalModelFilePath,
@@ -4667,7 +4672,7 @@ fun Home(
                                             hasPromptText = userPrompt.isNotEmpty(),
                                             hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                             isInferenceRunning = isInferenceRunningUi,
-                                        ).enabled,
+                                        ).enabled),
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (!isInferenceRunningUi && isComposerStopActive) {
@@ -4725,6 +4730,55 @@ fun Home(
                                                     viewModel.resetUiState()
                                                     return@IconButton
                                                 }
+                                            }
+                                            val televisionCommand = braviaIntent
+                                            if (televisionCommand != null && selectedImageUriStrings.isEmpty()) {
+                                                if (braviaToolBusy) return@IconButton
+                                                val televisionChatId = effectiveChatId
+                                                if (televisionChatId == null) {
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar("会話の準備中です。もう一度送信してください。")
+                                                    }
+                                                    return@IconButton
+                                                }
+                                                val televisionPrompt = userPrompt
+                                                braviaToolBusy = true
+                                                userPrompt = ""
+                                                prompt = ""
+                                                coroutineScope.launch {
+                                                    try {
+                                                        val televisionReply = runBraviaChatTurn(
+                                                            context.applicationContext, viewModel,
+                                                            televisionChatId, televisionPrompt, televisionCommand,
+                                                        )
+                                                        if (ttsEnabled &&
+                                                            suppressedTtsAssistantMessageId != televisionReply.assistantId &&
+                                                            !ttsController.isInCooldown()
+                                                        ) {
+                                                            val speechText = sanitizeTextForTts(televisionReply.text)
+                                                            if (speechText.isNotEmpty()) {
+                                                                currentSpeakingAssistantMessageId = televisionReply.assistantId
+                                                                stopButtonOwnerAssistantMessageId = televisionReply.assistantId
+                                                                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                                try {
+                                                                    maybeReleaseHeldEngineForTtsPlayback()
+                                                                    ttsController.speak(speechText)
+                                                                } catch (error: CancellationException) {
+                                                                    throw error
+                                                                } catch (_: Exception) {
+                                                                    // The completed tool reply remains in the conversation.
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (error: CancellationException) {
+                                                        throw error
+                                                    } catch (_: Exception) {
+                                                        snackbarHostState.showSnackbar("テレビ操作の会話を保存できませんでした。")
+                                                    } finally {
+                                                        braviaToolBusy = false
+                                                    }
+                                                }
+                                                return@IconButton
                                             }
                                             val sendAvailability = resolveChatSendAvailability(
                                                 selectedInferenceTarget = selectedInferenceTarget,
