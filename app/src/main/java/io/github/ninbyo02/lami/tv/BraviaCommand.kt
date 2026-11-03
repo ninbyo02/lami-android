@@ -29,10 +29,15 @@ object BraviaIntentParser {
         var t = Normalizer.normalize(utterance, Normalizer.Form.NFKC).trim()
             .replace(Regex("^(?:ラミィ|ラミー|ラミ|LAMI)[、,\\s]*", RegexOption.IGNORE_CASE), "")
             .replace(Regex("[。!！]+$"), "").trim()
-        if (t.length > 100 || t.contains('\n') || t.any { it in "「」『』\"?？" }) return null
+        if (t.length > 100 || t.contains('\n') || t.any { it in "「」『』\"" }) return null
         t = t.replace(Regex("^(?:テレビ|TV|ブラビア)[、,\\s]*", RegexOption.IGNORE_CASE), "テレビ")
         if (!t.startsWith("テレビ")) return null
         t = t.replace(Regex("(?:ください|下さい)$"), "").trim()
+        val query = t.trimEnd('?', '？')
+        if (query.matches(Regex("テレビ(?:の)?(?:状態|音量|電源(?:の状態)?)(?:を教えて|を確認して|は)"))) return BraviaCommand.Status
+        if (t.any { it == '?' || it == '？' }) return null
+        if (t.matches(Regex("テレビの電源(?:を)?(?:入れて|つけて|点けて|オンにして)"))) return BraviaCommand.Power(true)
+        if (t.matches(Regex("テレビの電源(?:を)?(?:切って|消して|オフにして)"))) return BraviaCommand.Power(false)
         if (t.matches(Regex("テレビ(?:を)?(?:つけて|点けて|オンにして|電源を入れて)"))) return BraviaCommand.Power(true)
         if (t.matches(Regex("テレビ(?:を)?(?:消して|切って|オフにして|電源を切って)"))) return BraviaCommand.Power(false)
         if (t.matches(Regex("テレビ(?:の)?(?:状態|音量|電源)(?:を教えて|を確認して|は)"))) return BraviaCommand.Status

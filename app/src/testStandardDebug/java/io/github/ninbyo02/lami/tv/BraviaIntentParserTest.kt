@@ -7,6 +7,8 @@ class BraviaIntentParserTest {
     @Test fun explicitJapaneseCommandsHaveTypedArguments() {
         assertEquals(BraviaCommand.Power(true), BraviaIntentParser.parse("ラミィ、テレビをつけて。"))
         assertEquals(BraviaCommand.Power(false), BraviaIntentParser.parse("テレビを消してください"))
+        assertEquals(BraviaCommand.Power(true), BraviaIntentParser.parse("テレビの電源を入れて"))
+        assertEquals(BraviaCommand.Power(false), BraviaIntentParser.parse("テレビの電源を切ってください"))
         assertEquals(BraviaCommand.Volume(10), BraviaIntentParser.parse("テレビの音量を１０にして"))
         assertEquals(BraviaCommand.Input(1), BraviaIntentParser.parse("テレビをHDMI1に切り替えて"))
         assertEquals(BraviaCommand.Input(4), BraviaIntentParser.parse("テレビの入力をHDMI4にして"))
@@ -14,6 +16,7 @@ class BraviaIntentParserTest {
         assertEquals(BraviaCommand.Key(BraviaRemoteKey.PAUSE), BraviaIntentParser.parse("テレビで一時停止して"))
         assertEquals(BraviaCommand.LaunchApp("netflix"), BraviaIntentParser.parse("テレビでnetflixを開いて"))
         assertEquals(BraviaCommand.Status, BraviaIntentParser.parse("テレビの状態を教えて"))
+        assertEquals(BraviaCommand.Status, BraviaIntentParser.parse("テレビの電源の状態は？"))
     }
 
     @Test fun discussionNegationQuestionsAndCompoundInstructionsNeverBecomeDeviceActions() {
