@@ -103,6 +103,16 @@ class BraviaProtocolTest {
         assertThrows(BraviaException::class.java) { client.pressKey("FactoryReset") }
     }
 
+    @Test fun backUsesTheReturnKeyAdvertisedByTheA9f() {
+        val transport = FakeTransport { request ->
+            if (request.url.encodedPath == "/sony/ircc") BraviaHttpResponse(200, "")
+            else BraviaHttpResponse(200, """{"result":[{},[{"name":"Return","value":"AAAAAgAAAJcAAAAjAw=="}]],"id":1}""")
+        }
+        BraviaProtocol(endpoint, transport = transport).pressKey("Back")
+        assertEquals("/sony/ircc", transport.sent.last().url.encodedPath)
+        assertTrue(transport.sent.last().body.contains("<IRCCCode>AAAAAgAAAJcAAAAjAw==</IRCCCode>"))
+    }
+
     @Test fun malformedSoapAndUnknownKeysAreReported() {
         val transport = FakeTransport { request ->
             if (request.url.encodedPath == "/sony/ircc")

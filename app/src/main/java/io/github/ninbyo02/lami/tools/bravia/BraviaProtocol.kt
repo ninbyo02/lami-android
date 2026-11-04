@@ -168,7 +168,9 @@ internal class BraviaProtocol(
 
     fun pressKey(name: String) {
         if (name !in ALLOWED_KEYS) throw BraviaException("このリモコン操作には対応していません。")
-        val code = keys()[name] ?: throw BraviaException("テレビがこの操作に対応していません：" + name)
+        val supportedKeys = keys()
+        val keyName = if (name == "Back" && name !in supportedKeys) "Return" else name
+        val code = supportedKeys[keyName] ?: throw BraviaException("テレビがこの操作に対応していません：" + name)
         // Codes are read from the selected TV. Do not accept arbitrary SOAP or remote-control codes.
         if (!Regex("[A-Za-z0-9+/=]+").matches(code)) throw BraviaException("テレビの操作コードが不正です。")
         val xml = "<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" " +
