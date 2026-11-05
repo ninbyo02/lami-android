@@ -1590,6 +1590,21 @@ fun Settings(
                 }
             }
             item {
+                Card(
+                    onClick = { navgationController.navigate(Routes.BRAVIA_TV) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    SettingsNavRowItem(
+                        headline = "テレビ操作",
+                        supporting = "BRAVIAの登録とチャットからの操作",
+                        leadingIcon = null,
+                        onClick = null,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, bottom = 8.dp),
+                    )
+                }
+            }
+            item {
                 CardSectionHeader(
                     title = "アプリ情報",
                     description = "このアプリについて",

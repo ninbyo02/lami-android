@@ -58,6 +58,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.LocalBaseModelScreen
 import io.github.ninbyo02.lami.ui.screens.settings.LocalGenericFallbackModelScreen
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
+import io.github.ninbyo02.lami.tv.BraviaSettingsScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
 import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
@@ -224,6 +225,9 @@ class MainActivity : ComponentActivity() {
                                                 navgationController = navController,
                                                 settingsBackStackEntry = settingsBackStackEntry,
                                             )
+                                        }
+                                        composable(Routes.BRAVIA_TV) {
+                                            BraviaSettingsScreen(navController)
                                         }
                                         composable(Routes.ABOUT) {
                                             About(navController, viewModel)
