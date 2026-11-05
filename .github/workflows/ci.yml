@@ -13,6 +13,8 @@ on:
       - 'fix/**'
       - 'codex/**'
       - 'ci/**'
+      - '!feature/bravia-tv-tool-20261104'
+      - '!feature/bravia-tv-control-20261104'
   workflow_dispatch:
 
 permissions:
@@ -88,7 +90,18 @@ jobs:
           test -z "$(git status --porcelain --untracked-files=all -- app/schemas)"
 
       - name: Upload debug reports
-        if: always()
+        if: >-
+          ${{
+            always() &&
+            github.ref != 'refs/heads/feature/bravia-tv-tool-20261104' &&
+            github.ref != 'refs/heads/feature/bravia-tv-control-20261104' &&
+            (
+              github.event_name != 'pull_request' ||
+              github.event.pull_request.head.repo.full_name != 'ninbyo02/lami-android' ||
+              (github.head_ref != 'feature/bravia-tv-tool-20261104' &&
+               github.head_ref != 'feature/bravia-tv-control-20261104')
+            )
+          }}
         uses: actions/upload-artifact@v7
         with:
           name: lami-standard-debug-non-npu
@@ -168,7 +181,18 @@ jobs:
           cat "$report_dir/native-library-inventory.txt"
 
       - name: Upload release reports and bundle
-        if: always()
+        if: >-
+          ${{
+            always() &&
+            github.ref != 'refs/heads/feature/bravia-tv-tool-20261104' &&
+            github.ref != 'refs/heads/feature/bravia-tv-control-20261104' &&
+            (
+              github.event_name != 'pull_request' ||
+              github.event.pull_request.head.repo.full_name != 'ninbyo02/lami-android' ||
+              (github.head_ref != 'feature/bravia-tv-tool-20261104' &&
+               github.head_ref != 'feature/bravia-tv-control-20261104')
+            )
+          }}
         uses: actions/upload-artifact@v7
         with:
           name: lami-standard-release

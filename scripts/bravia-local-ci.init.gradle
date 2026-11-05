@@ -1,0 +1,40 @@
+import org.gradle.api.GradleException
+import org.gradle.api.tasks.testing.Test
+
+// Gradle --offline does not constrain Robolectric's own Maven resolver.
+// The local CI runner supplies a flat directory of already cached SDK jars.
+def propertyName = 'lami.localCiRobolectricDir'
+def configuredDirectory = System.getProperty(propertyName)?.trim()
+if (!configuredDirectory) {
+    throw new GradleException("BRAVIA local CI requires -D${propertyName}=<existing flat jar directory>; Robolectric downloads are forbidden.")
+}
+
+def dependencyDirectory = new File(configuredDirectory).canonicalFile
+def requiredJarName = 'android-all-instrumented-14-robolectric-10818077-i6.jar'
+def verifyLocalInput = {
+    if (!dependencyDirectory.isDirectory() || !dependencyDirectory.canRead()) {
+        throw new GradleException("BRAVIA local CI Robolectric directory is missing or unreadable: ${dependencyDirectory}")
+    }
+    def requiredJar = new File(dependencyDirectory, requiredJarName)
+    if (!requiredJar.isFile() || !requiredJar.canRead()) {
+        throw new GradleException("BRAVIA local CI requires cached ${requiredJarName} in ${dependencyDirectory}; no download is allowed.")
+    }
+}
+verifyLocalInput()
+
+gradle.beforeProject { project ->
+    project.tasks.withType(Test).configureEach { testTask ->
+        testTask.systemProperty('robolectric.offline', 'true')
+        testTask.systemProperty('robolectric.dependency.dir', dependencyDirectory.path)
+
+        // Stop if later build configuration overrides the offline contract or
+        // cached input disappears before a forked test JVM starts.
+        testTask.doFirst {
+            verifyLocalInput()
+            if (String.valueOf(testTask.systemProperties['robolectric.offline']) != 'true' ||
+                    String.valueOf(testTask.systemProperties['robolectric.dependency.dir']) != dependencyDirectory.path) {
+                throw new GradleException("${testTask.path} overrides the BRAVIA local CI Robolectric offline configuration.")
+            }
+        }
+    }
+}
