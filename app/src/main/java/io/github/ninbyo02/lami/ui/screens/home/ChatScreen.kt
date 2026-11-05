@@ -1,5 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.tools.bravia.BraviaCommandParser
+import io.github.ninbyo02.lami.tools.bravia.BraviaTvRepository
+
 import android.content.Context
 import android.content.res.Configuration
 import android.app.ActivityManager
@@ -962,6 +965,10 @@ fun Home(
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
+    val braviaTvRepository = remember(context.applicationContext) {
+        BraviaTvRepository(context.applicationContext)
+    }
+    var braviaCommandRunning by remember { mutableStateOf(false) }
     val localInferenceEngineHolder = remember(context.applicationContext) {
         LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
@@ -4659,15 +4666,17 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = isComposerStopActive || resolveChatSendAvailability(
-                                            selectedInferenceTarget = selectedInferenceTarget,
-                                            selectedServerModel = selectedModel,
-                                            selectedLocalModelPath = selectedLocalModelFilePath,
-                                            serverUrl = baseUrl,
-                                            hasPromptText = userPrompt.isNotEmpty(),
-                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
-                                            isInferenceRunning = isInferenceRunningUi,
-                                        ).enabled,
+                                        enabled = !braviaCommandRunning && (isComposerStopActive ||
+                                            (selectedImageUriStrings.isEmpty() && BraviaCommandParser.parse(userPrompt) != null) ||
+                                            resolveChatSendAvailability(
+                                                selectedInferenceTarget = selectedInferenceTarget,
+                                                selectedServerModel = selectedModel,
+                                                selectedLocalModelPath = selectedLocalModelFilePath,
+                                                serverUrl = baseUrl,
+                                                hasPromptText = userPrompt.isNotEmpty(),
+                                                hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                isInferenceRunning = isInferenceRunningUi,
+                                            ).enabled),
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (!isInferenceRunningUi && isComposerStopActive) {
@@ -4725,6 +4734,50 @@ fun Home(
                                                     viewModel.resetUiState()
                                                     return@IconButton
                                                 }
+                                            }
+                                            // TV commands are routed before model availability checks and never sent to an LLM.
+                                            val televisionCommand = if (selectedImageUriStrings.isEmpty()) {
+                                                BraviaCommandParser.parse(userPrompt)
+                                            } else null
+                                            if (televisionCommand != null) {
+                                                if (braviaCommandRunning) return@IconButton
+                                                val targetChatId = effectiveChatId
+                                                if (targetChatId == null) return@IconButton
+                                                val requestPrompt = userPrompt
+                                                braviaCommandRunning = true
+                                                userPrompt = ""
+                                                prompt = ""
+                                                stopTtsWithCleanup(
+                                                    suppressedMessageId = currentSpeakingAssistantMessageId,
+                                                    armTapGuards = false,
+                                                )
+                                                coroutineScope.launch {
+                                                    try {
+                                                        viewModel.insertMessage(
+                                                            Message(chatId = targetChatId, message = requestPrompt, isSendbyMe = true),
+                                                        )
+                                                        val toolReply = braviaTvRepository.execute(televisionCommand)
+                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                            Message(
+                                                                chatId = targetChatId,
+                                                                message = toolReply,
+                                                                isSendbyMe = false,
+                                                                modelName = "BRAVIA",
+                                                                finishReason = "tool",
+                                                            ),
+                                                        )
+                                                    } catch (cancelled: CancellationException) {
+                                                        throw cancelled
+                                                    } catch (_: Exception) {
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "テレビ操作の結果を保存できませんでした。テレビの状態を確認してください。",
+                                                            duration = SnackbarDuration.Short,
+                                                        )
+                                                    } finally {
+                                                        braviaCommandRunning = false
+                                                    }
+                                                }
+                                                return@IconButton
                                             }
                                             val sendAvailability = resolveChatSendAvailability(
                                                 selectedInferenceTarget = selectedInferenceTarget,
