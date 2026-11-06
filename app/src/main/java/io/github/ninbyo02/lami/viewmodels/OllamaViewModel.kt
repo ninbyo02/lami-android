@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.viewmodels
 import android.content.Context
+import io.github.ninbyo02.lami.skills.web.WebSearchMessagePolicy
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.SystemClock
@@ -358,7 +359,7 @@ private fun estimateRemoteChatMessageTokens(message: OllamaChatMessage): Int {
 private fun eligibleRemoteChatHistory(
     history: List<Message>,
     historyLimit: Int,
-): List<OllamaChatMessage> = history.asSequence()
+): List<OllamaChatMessage> = WebSearchMessagePolicy.remoteHistory(history).asSequence()
     .filter { message ->
         message.message.isNotBlank() &&
             (message.isSendbyMe || message.status == MessageStatus.COMPLETED)

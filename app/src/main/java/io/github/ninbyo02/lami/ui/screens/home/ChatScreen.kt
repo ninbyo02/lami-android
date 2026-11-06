@@ -1,6 +1,12 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.Manifest
+import io.github.ninbyo02.lami.skills.web.WebSearchIntent
+import io.github.ninbyo02.lami.skills.web.WebSearchIntentParser
+import io.github.ninbyo02.lami.skills.web.WebSearchManager
+import io.github.ninbyo02.lami.skills.web.WebSearchMessagePolicy
+import io.github.ninbyo02.lami.skills.web.WebSearchViewModelStore
+import io.github.ninbyo02.lami.skills.web.runWebSearchChatTurn
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -1074,6 +1080,16 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val webSearchManager = remember(context.applicationContext) { WebSearchManager.get(context.applicationContext) }
+    var webSearchJob by remember { mutableStateOf<Job?>(null) }
+    var webSearchBusy by remember { mutableStateOf(false) }
+    var webSearchChatId by remember { mutableStateOf<Int?>(null) }
+    DisposableEffect(Unit) {
+        onDispose { webSearchJob?.cancel() }
+    }
+    LaunchedEffect(effectiveChatId) {
+        if (webSearchBusy && webSearchChatId != effectiveChatId) webSearchJob?.cancel()
+    }
     val assistantVoicePhase by AssistantVoiceEvents.phase.collectAsState()
     val assistantInvocation by AssistantVoiceEvents.invocation.collectAsState()
     val wakeCandidate by AssistantVoiceEvents.wakeCandidate.collectAsState()
@@ -5030,6 +5046,7 @@ fun Home(
                                         }
                                     }
 
+                                    val webSearchIntent = WebSearchIntentParser.parse(userPrompt, selectedImageUriStrings.isNotEmpty())
                                     val composerSendAvailability = resolveChatSendAvailability(
                                         selectedInferenceTarget = selectedInferenceTarget,
                                         selectedServerModel = selectedModel,
@@ -5042,6 +5059,10 @@ fun Home(
                                         localImageCleanupPending = imageRunSnapshot.cleanupPending,
                                     )
                                     val composerAction: () -> Unit = composerAction@{
+                                            if (webSearchBusy) {
+                                                webSearchJob?.cancel()
+                                                return@composerAction
+                                            }
                                             viewModel.onUserInteraction()
                                             if (selectedInferenceTarget == InferenceTarget.LOCAL && localImageRunCoordinator.state.value.busy) {
                                                 val lease = currentImageRunLease
@@ -5113,6 +5134,40 @@ fun Home(
                                                     viewModel.resetUiState()
                                                     return@composerAction
                                                 }
+                                            }
+                                            if (webSearchIntent != null) {
+                                                if (webSearchIntent == WebSearchIntent.Rejected) {
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showProjectShortSnackbar(WebSearchIntentParser.REJECTED_REPLY)
+                                                    }
+                                                    return@composerAction
+                                                }
+                                                val webPrompt = userPrompt
+                                                val webIntent = webSearchIntent
+                                                webSearchChatId = effectiveChatId
+                                                webSearchBusy = true
+                                                userPrompt = ""
+                                                selectedImageUriStrings = emptyList()
+                                                webSearchJob = coroutineScope.launch {
+                                                    try {
+                                                        val targetChatId = resolveFirstSendChatId(
+                                                            currentChatId = effectiveChatId,
+                                                            createChat = { viewModel.insertChatAndReturnId(Chat(title = "New chat", titleSource = TitleSource.TEMP)) },
+                                                            onChatResolved = { webSearchChatId = it; effectiveChatId = it },
+                                                        )
+                                                        webSearchChatId = targetChatId
+                                                        runWebSearchChatTurn(webSearchManager, WebSearchViewModelStore(viewModel), targetChatId, webPrompt, webIntent)
+                                                    } catch (cancelled: CancellationException) {
+                                                        throw cancelled
+                                                    } catch (_: Exception) {
+                                                        snackbarHostState.showProjectShortSnackbar("Web検索の結果を保存できませんでした。")
+                                                    } finally {
+                                                        webSearchBusy = false
+                                                        webSearchJob = null
+                                                        webSearchChatId = null
+                                                    }
+                                                }
+                                                return@composerAction
                                             }
                                             val sendAvailability = resolveChatSendAvailability(
                                                 selectedInferenceTarget = selectedInferenceTarget,
@@ -5304,7 +5359,7 @@ fun Home(
                                                                 emptyList()
                                                             }
                                                             val text = NpuImageInputPolicy
-                                                                .effectivePrompt(message.message, images.isNotEmpty())
+                                                                .effectivePrompt(WebSearchMessagePolicy.localContextText(message), images.isNotEmpty())
                                                                 .takeIf(String::isNotBlank) ?: return@mapNotNull null
                                                             LocalConversationTurn(
                                                                 role = if (message.isSendbyMe) {
@@ -9451,7 +9506,8 @@ fun Home(
                                     }
 
                                     IconButton(
-                                        enabled = isComposerStopActive || composerSendAvailability.enabled,
+                                        enabled = webSearchBusy || isComposerStopActive ||
+                                            (webSearchIntent != null && !isInferenceRunningUi) || composerSendAvailability.enabled,
                                         onClick = {
                                             voiceInputGate?.stop()
                                             pendingVoiceInputAutoSend = null
@@ -9471,12 +9527,14 @@ fun Home(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (isComposerStopActive) {
+                                                imageVector = if (webSearchBusy || isComposerStopActive) {
                                                     Icons.Filled.Stop
                                                 } else {
                                                     Icons.Filled.ArrowUpward
                                                 },
-                                                contentDescription = if (isComposerStopActive) {
+                                                contentDescription = if (webSearchBusy) {
+                                                    "Web検索を停止"
+                                                } else if (isComposerStopActive) {
                                                     "Stop Button"
                                                 } else {
                                                     "Send Button"

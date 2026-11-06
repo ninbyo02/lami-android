@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 import android.content.Context
+import io.github.ninbyo02.lami.skills.web.WebSearchSettingsCard
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -1634,6 +1635,7 @@ fun Settings(
                     }
                 }
             }
+            item(key = "web-search-skill-settings") { WebSearchSettingsCard() }
             item {
                 CardSectionHeader(
                     title = "アプリ情報",

@@ -5,6 +5,12 @@ import java.security.MessageDigest
 import java.util.Properties
 import java.util.zip.ZipFile
 import com.android.build.api.variant.BuildConfigField
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 
 plugins {
     id("com.google.devtools.ksp")
@@ -13,6 +19,32 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
+}
+
+abstract class StageBundledAgentSkills : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun stage() {
+        project.sync {
+            from(sourceDirectory) {
+                include("SKILL.md", "references/**")
+                into("skills/web-search")
+            }
+            into(outputDirectory)
+            includeEmptyDirs = false
+        }
+    }
+}
+
+val stageBundledAgentSkills = tasks.register<StageBundledAgentSkills>("stageBundledAgentSkills") {
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("skills/web-search"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/bundled-agent-skills/assets"))
 }
 
 room {
@@ -426,6 +458,7 @@ androidComponents {
         }
     }
     onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(stageBundledAgentSkills, StageBundledAgentSkills::outputDirectory)
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val gpuPrewarmDiagnosticVariant =
             flavor == "standard" && variant.buildType == "debug" && gpuIdlePrewarmDiagnostic.get()
@@ -1596,6 +1629,8 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("org.jsoup:jsoup:1.24.1")
+    implementation("org.yaml:snakeyaml:2.7")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation(files("libs/sherpa-onnx-1.13.6.aar"))
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
@@ -1628,6 +1663,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.9.3")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("org.robolectric:robolectric:4.12.2")
     androidTestImplementation(libs.androidx.junit)
