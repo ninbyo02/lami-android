@@ -50,6 +50,12 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     private var playbackGeneration: Long = 0L
     private var activeUtteranceId: String? = null
     private var playbackStateRevision = 0L
+    private val audio = appContext.getSystemService(android.media.AudioManager::class.java)
+    private val privacyReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (audio.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL && !usbPlayback.isActive()) stop()
+        }
+    }
     private val _isSpeaking = MutableStateFlow(false)
     override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
     @Volatile
@@ -66,8 +72,15 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         }
     }, trace = ::trace)
 
+    fun canPlayInCurrentMode(): Boolean =
+        audio.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL || usbPlayback.target() != null
+
 
     init {
+        appContext.registerReceiver(privacyReceiver, android.content.IntentFilter().apply {
+            addAction(android.media.AudioManager.RINGER_MODE_CHANGED_ACTION)
+            addAction(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        }, Context.RECEIVER_NOT_EXPORTED)
         tts = TextToSpeech(appContext) { status ->
             synchronized(this@AndroidTtsController) {
                 if (status == TextToSpeech.SUCCESS) {
@@ -255,6 +268,11 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         runCatching {
             val engine = checkNotNull(tts) { "TTS engine unavailable" }
             val usb = usbPlayback.target()
+            // External TTS exposes no actual per-utterance route. Unknown output is never
+            // inferred private merely from a connected Bluetooth device.
+            check(usb != null || audio.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) {
+                "Unverifiable external TTS route is blocked in silent/vibrate mode"
+            }
             if (usb != null || usbPlayback.isActive()) {
                 playbackGeneration += 1
                 usbPlayback.stop()
@@ -312,6 +330,7 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
 
     @Synchronized
     override fun shutdown() {
+        runCatching { appContext.unregisterReceiver(privacyReceiver) }
         stop()
         runCatching {
             tts?.shutdown()

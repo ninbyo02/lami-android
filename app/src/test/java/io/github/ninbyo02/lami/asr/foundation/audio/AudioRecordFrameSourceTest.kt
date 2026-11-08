@@ -16,6 +16,41 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AudioRecordFrameSourceTest {
+    @Test fun `explicit finish drains captured frames without reopening microphone`() {
+        val queued = CountDownLatch(1)
+        val stopped = CountDownLatch(1)
+        val count = AtomicInteger()
+        val input = object : AudioCaptureInput {
+            override val isInitialized = true
+            override fun routedDeviceId(): Int? = 7
+            override fun start() = Unit
+            override fun read(target: ShortArray, offset: Int, length: Int): Int {
+                val id = count.incrementAndGet()
+                if (id > 4) { queued.countDown(); check(stopped.await(5, TimeUnit.SECONDS)); return -1 }
+                target.fill(id.toShort(), offset, offset + 320)
+                return 320
+            }
+            override fun stop() { stopped.countDown() }
+            override fun release() = Unit
+        }
+        val source = AudioRecordFrameSource(input, MicrophonePermissionGate { true })
+        assertEquals(1.toShort(), runImmediate { source.read() }!!.copySamples().first())
+        assertTrue(queued.await(5, TimeUnit.SECONDS))
+        source.finish()
+        for (id in 2..4) assertEquals(id.toShort(), runImmediate { source.read() }!!.copySamples().first())
+        assertEquals(null, runImmediate { source.read() })
+        source.close()
+    }
+
+    @Test fun `finish before first read never starts capture`() {
+        val input = RecordingCaptureInput()
+        val source = AudioRecordFrameSource(input, MicrophonePermissionGate { true })
+        source.finish()
+        assertEquals(null, runImmediate { source.read() })
+        assertEquals(0, input.startCount)
+        source.close(); assertEquals(1, input.releaseCount)
+    }
+
     @Test
     fun `permission denial remains sanitized when release fails`() {
         var releaseCount = 0

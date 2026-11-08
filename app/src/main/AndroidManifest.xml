@@ -38,6 +38,8 @@
         <!-- A separate assist entry point keeps assistant integration isolated from TTS. -->
         <activity
             android:name=".assistant.AssistantEntryActivity"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:exported="true"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

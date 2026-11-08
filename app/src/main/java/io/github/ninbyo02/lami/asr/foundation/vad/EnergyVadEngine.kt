@@ -12,42 +12,56 @@ import kotlin.math.sqrt
 class EnergyVadEngine(
     private val startThresholdRms: Double = DEFAULT_START_THRESHOLD_RMS,
     private val continueThresholdRms: Double = DEFAULT_CONTINUE_THRESHOLD_RMS,
+    private val startConfirmationFrames: Int = 1,
+    private val endConfirmationFrames: Int = 1,
 ) : VadEngine {
     private var inSpeech = false
+    private var startFrames = 0
+    private var endFrames = 0
     private var closed = false
 
     init {
-        require(startThresholdRms > 0)
-        require(continueThresholdRms > 0)
+        require(startThresholdRms.isFinite() && startThresholdRms > 0)
+        require(continueThresholdRms.isFinite() && continueThresholdRms > 0)
         require(continueThresholdRms <= startThresholdRms)
+        require(startConfirmationFrames in 1..10)
+        require(endConfirmationFrames in 1..10)
     }
 
     override fun accept(frame: Pcm16Frame): VadEvent {
         check(!closed) { "VAD is closed" }
+        require(frame.sampleRateHz == 16_000 && frame.sampleCount == 320)
         val rms = rootMeanSquare(frame.copySamples())
-        return when {
-            !inSpeech && rms >= startThresholdRms -> {
+        return if (!inSpeech) {
+            startFrames = if (rms >= startThresholdRms) startFrames + 1 else 0
+            if (startFrames >= startConfirmationFrames) {
                 inSpeech = true
+                startFrames = 0
                 VadEvent.SpeechStarted
-            }
-            inSpeech && rms >= continueThresholdRms -> VadEvent.Speech
-            inSpeech -> {
+            } else VadEvent.Silence
+        } else {
+            endFrames = if (rms < continueThresholdRms) endFrames + 1 else 0
+            if (endFrames >= endConfirmationFrames) {
                 inSpeech = false
+                endFrames = 0
                 VadEvent.SpeechEnded
-            }
-            else -> VadEvent.Silence
+            } else VadEvent.Speech
         }
     }
 
     override fun reset() {
         check(!closed) { "VAD is closed" }
         inSpeech = false
+        startFrames = 0
+        endFrames = 0
     }
 
     override fun close() {
         if (closed) return
         closed = true
         inSpeech = false
+        startFrames = 0
+        endFrames = 0
     }
 
     private fun rootMeanSquare(samples: ShortArray): Double {

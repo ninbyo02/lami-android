@@ -39,6 +39,7 @@ class BoundedPcmFrameChannel(
     private var size = 0
     private var closed = false
     private var cancelled = false
+    private var finished = false
     private var terminalFailure: AudioCaptureFailure? = null
 
     init {
@@ -100,9 +101,20 @@ class BoundedPcmFrameChannel(
 
     fun cancel() {
         synchronized(monitor) {
-            if (closed) return
+            if (closed && !finished) return
             clearSlotsLocked()
+            finished = false
             cancelled = true
+            closed = true
+            monitor.notifyAll()
+        }
+    }
+
+    /** Stop accepting input, but deliver already-captured full frames before EOF. */
+    fun finish() {
+        synchronized(monitor) {
+            if (closed) return
+            finished = true
             closed = true
             monitor.notifyAll()
         }
@@ -110,8 +122,8 @@ class BoundedPcmFrameChannel(
 
     override fun close() {
         synchronized(monitor) {
-            if (closed) return
             clearSlotsLocked()
+            finished = false
             closed = true
             monitor.notifyAll()
         }

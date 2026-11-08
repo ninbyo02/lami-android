@@ -15,5 +15,7 @@ interface LamiVoiceEngine {
     fun speakQueued(text: String)
     fun isInCooldown(): Boolean = false
     fun stop()
+    /** Await engine-owned playback cleanup before opening voice input. */
+    suspend fun stopForVoiceInput() { stop() }
     fun shutdown()
 }

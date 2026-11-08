@@ -4,7 +4,7 @@ import io.github.ninbyo02.lami.asr.foundation.audio.Pcm16Frame
 import io.github.ninbyo02.lami.asr.foundation.audio.OwnedPcm16Frame
 import java.util.ArrayDeque
 
-private const val MAX_RETAINED_FRAMES = 28
+private const val MAX_RETAINED_FRAMES = 230
 
 data class VadEndpointConfig(
     val sampleRateHz: Int = 16_000,
@@ -28,7 +28,7 @@ data class VadEndpointConfig(
         require(preRollFrames <= 15)
         require(postRollFrames <= 20)
         require(minimumSpeechFrames <= 13)
-        require(endSilenceFrames <= 40)
+        require(endSilenceFrames <= 250)
         require(noSpeechTimeoutFrames <= 500)
         require(hardLimitFrames <= 1_500)
         require(postRollFrames < endSilenceFrames)
@@ -57,7 +57,7 @@ enum class FailureReason { BUFFER_OVERFLOW, INVALID_PCM_FORMAT, INVALID_VAD_SEQU
 /**
  * Deterministic single-owner endpoint policy. K10 must serialize calls.
  *
- * Retention is bounded to 28 owned PCM snapshots (17,920 bytes). Emission transfers each
+ * Retention is bounded to 230 owned PCM snapshots (147,200 bytes) for five-second pauses. Emission transfers each
  * internal snapshot once into an immutable [Pcm16Frame], avoiding simultaneous raw PCM copies.
  */
 class VadEndpointPolicy(

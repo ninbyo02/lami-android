@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.tts
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -12,6 +13,26 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LamiSpeechPipelineTest {
+    @Test fun `voice input cleanup barrier waits for playback release`() = runTest {
+        val release = CompletableDeferred<Unit>()
+        var microphoneAllowed = false
+        val pipeline = LamiSpeechPipeline(backgroundScope, {}, prepare = { it }, play = {
+            try { delay(1000) } finally { withContext(NonCancellable) { release.await() } }
+        })
+        pipeline.enqueue("previous speech")
+        runCurrent()
+        val input = async {
+            pipeline.stop()
+            pipeline.awaitCleanup()
+            microphoneAllowed = true
+        }
+        runCurrent()
+        assertFalse(microphoneAllowed)
+        release.complete(Unit)
+        input.await()
+        assertTrue(microphoneAllowed)
+    }
+
     @Test fun `stop before worker starts discards queued speech and preserves replacement busy state`() = runTest {
         val finishPlayback = CompletableDeferred<Unit>()
         val prepared = mutableListOf<String>()
