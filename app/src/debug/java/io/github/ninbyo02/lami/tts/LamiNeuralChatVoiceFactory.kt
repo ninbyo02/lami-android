@@ -12,6 +12,7 @@ object LamiNeuralChatVoiceFactory {
         if (io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.isEmulator() &&
             context.getSharedPreferences(io.github.ninbyo02.lami.ui.screens.home.EmulatorMainChatBackend.PREFS,
                 Context.MODE_PRIVATE).getBoolean("android_tts", false)) return null
+        LamiKokoroVoiceFactory.createOrNull(context)?.let { return it }
         val root = context.filesDir.resolve("local_models/lami_tts/prepared_hai")
         return if (root.resolve("voice-text-bundle.json").isFile) {
             // The delivery APK selects streaming; retain the existing validation opt-in.
