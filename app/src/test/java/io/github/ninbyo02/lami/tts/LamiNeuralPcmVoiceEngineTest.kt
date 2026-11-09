@@ -12,12 +12,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class LamiKokoroVoiceEngineTest {
+class LamiNeuralPcmVoiceEngineTest {
     private val pcm = floatArrayOf(0.1f, -0.2f)
     @Test fun `prepares next clause while the first is playing`() = runTest {
         val prepared = mutableListOf<String>()
         val playback = CompletableDeferred<Unit>()
-        val engine = LamiKokoroVoiceEngine(backgroundScope, object : LamiKokoroPcmSession {
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
             override suspend fun synthesize(text: String): FloatArray { prepared += text; return pcm }
             override suspend fun close() = Unit
         }, { _, started -> started(); playback.await() })
@@ -33,7 +33,7 @@ class LamiKokoroVoiceEngineTest {
     @Test fun `microphone barrier waits for cancelled synthesis cleanup`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         var cleanupDone = false
-        val engine = LamiKokoroVoiceEngine(backgroundScope, object : LamiKokoroPcmSession {
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
             override suspend fun synthesize(text: String): FloatArray = try {
                 delay(10000); pcm
             } finally {
@@ -55,7 +55,7 @@ class LamiKokoroVoiceEngineTest {
     @Test fun `invalid synthesis does not prevent following queued text`() = runTest {
         var attempt = 0
         var played = 0
-        val engine = LamiKokoroVoiceEngine(backgroundScope, object : LamiKokoroPcmSession {
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
             override suspend fun synthesize(text: String) = if (++attempt == 1) floatArrayOf(Float.NaN) else pcm
             override suspend fun close() = Unit
         }, { _, _ -> played++ })
@@ -69,7 +69,7 @@ class LamiKokoroVoiceEngineTest {
     @Test fun `shutdown waits for playback cleanup before closing resident session`() = runTest {
         val cleanup = CompletableDeferred<Unit>()
         val events = mutableListOf<String>()
-        val engine = LamiKokoroVoiceEngine(backgroundScope, object : LamiKokoroPcmSession {
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
             override suspend fun synthesize(text: String) = pcm
             override suspend fun close() { events += "closed" }
         }, { _, _ -> try { delay(10000) } finally {
@@ -84,6 +84,6 @@ class LamiKokoroVoiceEngineTest {
 
     @Test fun `does not split decimals or latin words and preserves text content`() {
         val text = "温度は23.5度です。 CPUの設定を確認します。"
-        assertEquals(listOf("温度は23.5度です。", "CPUの設定を確認します。"), LamiKokoroTextChunks.split(text))
+        assertEquals(listOf("温度は23.5度です。", "CPUの設定を確認します。"), LamiTtsTextChunks.split(text))
     }
 }

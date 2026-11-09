@@ -9,16 +9,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /** A resident PCM session. Implementations must finish cancellation before returning. */
-internal interface LamiKokoroPcmSession {
+internal interface LamiResidentPcmSession {
+    suspend fun prewarm() = Unit
     suspend fun synthesize(text: String): FloatArray
     fun cancel() = Unit
     suspend fun close()
 }
 
 /** Sentence synthesis overlaps playback through the existing bounded LAMI pipeline. */
-internal class LamiKokoroVoiceEngine(
+internal class LamiNeuralPcmVoiceEngine(
     private val scope: CoroutineScope,
-    private val session: LamiKokoroPcmSession,
+    private val session: LamiResidentPcmSession,
     private val playPcm: suspend (FloatArray, () -> Unit) -> Unit,
     private val onEvent: (String, String) -> Unit = { _, _ -> },
 ) : LamiVoiceEngine {
@@ -70,7 +71,7 @@ internal class LamiKokoroVoiceEngine(
     }
 
     private fun enqueuePieces(text: String) {
-        for (piece in LamiKokoroTextChunks.split(text)) pipeline.enqueue(piece)
+        for (piece in LamiTtsTextChunks.split(text)) pipeline.enqueue(piece)
     }
 
     override fun stop() {
@@ -102,7 +103,7 @@ internal class LamiKokoroVoiceEngine(
 }
 
 /** Keep the initial clause short without splitting Latin words or decimal numbers. */
-internal object LamiKokoroTextChunks {
+internal object LamiTtsTextChunks {
     fun split(text: String): List<String> {
         val pieces = mutableListOf<String>()
         val current = StringBuilder()

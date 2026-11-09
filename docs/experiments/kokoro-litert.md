@@ -29,7 +29,7 @@ From this worktree, with the Android SDK configured consistently:
 ```sh
 env -u ANDROID_SDK_ROOT ANDROID_HOME=/home/sato/Android/Sdk ./gradlew \
   :app:testStandardDebugUnitTest \
-  --tests 'io.github.ninbyo02.lami.tts.LamiKokoroVoiceEngineTest' \
+  --tests 'io.github.ninbyo02.lami.tts.LamiNeuralPcmVoiceEngineTest' \
   -Plami.allowMissingQairt244Jni=true
 
 env -u ANDROID_SDK_ROOT ANDROID_HOME=/home/sato/Android/Sdk ./gradlew \

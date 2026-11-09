@@ -28,7 +28,7 @@ internal object LamiKokoroVoiceFactory {
             gpu = prefs.getBoolean("gpu", false), voice = prefs.getString("voice", "jf_tebukuro")!!,
             measured = { Log.i("LamiKokoroMetric", it.toString()) })
         scope.launch { runCatching { session.prewarm() }.onFailure { Log.e("LamiKokoro", "Prewarm failed", it) } }
-        return LamiKokoroVoiceEngine(scope, session, LamiPcmPlayer::play) { _, event ->
+        return LamiNeuralPcmVoiceEngine(scope, session, LamiPcmPlayer::play) { _, event ->
             Log.d("LamiKokoro", event)
         }
     }

@@ -28,7 +28,7 @@ internal class LamiKokoroMediaPipeSession(
     val gpu: Boolean = false,
     private val voice: String = "jf_tebukuro",
     private val measured: (JSONObject) -> Unit = {},
-) : LamiKokoroPcmSession {
+) : LamiResidentPcmSession {
     private val dispatcher = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "LamiKokoro").apply { isDaemon = true }
     }.asCoroutineDispatcher()
@@ -39,8 +39,8 @@ internal class LamiKokoroMediaPipeSession(
     private var loadStartNs: Long? = null
     private var loadEndNs: Long? = null
 
-    suspend fun prewarm() = withContext(dispatcher) {
-        mutex.withLock { ensureLoaded() }
+    override suspend fun prewarm() {
+        withContext(dispatcher) { mutex.withLock { ensureLoaded() } }
     }
 
     private fun ensureLoaded(): Long {

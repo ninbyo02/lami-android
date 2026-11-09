@@ -11,7 +11,7 @@
 
     <application android:extractNativeLibs="true">
         <activity android:name=".KokoroBenchmarkActivity" android:exported="true"
-            android:permission="android.permission.DUMP" android:label="Kokoro LiteRT (Debug)" />
+            android:permission="android.permission.DUMP" android:label="ローカルTTS比較（Debug）" />
         <activity android:name="io.github.ninbyo02.lami.remote.EmulatorCpuReferenceActivity" android:exported="true" android:label="LAMI CPU Reference (Debug)" />
         <activity
             android:name=".tts.ResidentCpContextProbeActivity"
