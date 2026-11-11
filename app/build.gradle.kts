@@ -1608,6 +1608,8 @@ kotlin {
 
 
 dependencies {
+    implementation(project(":geniex-bridge"))
+
     //Variables
     val navVersion = "2.8.6"
     val roomVersion = "2.7.1"

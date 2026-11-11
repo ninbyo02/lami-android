@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="geniex_model_title">GenieX model</string>
+    <string name="geniex_choose_model">Choose GGUF file</string>
+    <string name="geniex_model_ready">LFM3 is installed. Select GenieX in LAMI to use it.</string>
+    <string name="geniex_model_missing">Choose %1$s to use GenieX in LAMI.</string>
+    <string name="geniex_model_importing">Checking and importing the model…</string>
+    <string name="geniex_model_import_failed">The model could not be imported. Check that the file is %1$s and that storage is available.</string>
+</resources>

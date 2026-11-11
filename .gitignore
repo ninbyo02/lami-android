@@ -9,6 +9,8 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+/geniex-bridge/build/
+/geniex-engine/build/
 /captures
 .externalNativeBuild
 .cxx

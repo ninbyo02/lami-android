@@ -175,6 +175,10 @@ development routeにはkill switchと互換性診断を残しています。コ�
 
 現在のrelease境界は`docs/npu_release_boundary.md`、過去の段階的milestoneは`docs/release_notes_npu_beta_milestone.md`を参照してください。
 
+### GenieX ローカル推論
+
+統合デバッグ版では、コンパニオンを追加するとGenieXでLFM3-1.7Bのテキスト会話を利用できます。設定の初期値はオフです。 [ビルドと導入手順](docs/geniex-android.md)
+
 ### ASR、TTS、パーソナリティ
 
 TTSは利用可能です。ASR連携、より豊かなスプライト編集、QR共有、共有可能なローカルAIパーソナリティ形式は今後の方向性です。

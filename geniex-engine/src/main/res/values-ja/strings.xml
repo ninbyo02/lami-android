@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="geniex_model_title">GenieXモデル</string>
+    <string name="geniex_choose_model">GGUFファイルを選ぶ</string>
+    <string name="geniex_model_ready">LFM3を配置済みです。LAMIの設定でGenieXを選択できます。</string>
+    <string name="geniex_model_missing">LAMIでGenieXを使うには、%1$sを選んでください。</string>
+    <string name="geniex_model_importing">モデルを検証して取り込んでいます…</string>
+    <string name="geniex_model_import_failed">モデルを取り込めませんでした。ファイルが%1$sであることと、端末の空き容量を確認してください。</string>
+</resources>

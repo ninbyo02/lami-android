@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Merged into the LAMI client app. Must match the service APK signing certificate. -->
+    <uses-permission android:name="io.github.ninbyo02.lamigeniexprobe.permission.BIND_ENGINE"/>
+    <queries>
+        <package android:name="io.github.ninbyo02.lamigeniexprobe"/>
+    </queries>
+</manifest>

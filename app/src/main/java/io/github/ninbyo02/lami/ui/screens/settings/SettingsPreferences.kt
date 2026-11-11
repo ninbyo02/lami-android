@@ -436,6 +436,7 @@ class SettingsPreferences(private val context: Context) {
     private val localGenericModelDisplayNameKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY)
     private val localGenericModelFilePathKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY)
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
+    private val genieXComputeKey = stringPreferencesKey("geniex_compute")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
@@ -639,6 +640,10 @@ class SettingsPreferences(private val context: Context) {
         runCatching {
             InferenceTarget.valueOf(stored.orEmpty())
         }.getOrDefault(InferenceTarget.LOCAL)
+    }
+
+    val genieXCompute: Flow<String> = context.dataStore.data.map { preferences ->
+        GenieXComputeChoice.fromStoredValue(preferences[genieXComputeKey]).storedValue
     }
 
     val inferenceStatsDisplayModeFlow: Flow<InferenceStatsDisplayMode> = context.dataStore.data.map { preferences ->
@@ -940,6 +945,13 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveInferenceTarget(target: InferenceTarget) {
         context.dataStore.edit { preferences ->
             preferences[inferenceTargetKey] = target.name
+        }
+    }
+
+    suspend fun saveGenieXCompute(value: String) {
+        require(GenieXComputeChoice.entries.any { it.storedValue == value })
+        context.dataStore.edit { preferences ->
+            preferences[genieXComputeKey] = value
         }
     }
 

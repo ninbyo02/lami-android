@@ -122,6 +122,36 @@ class IntegratedBuildTests(unittest.TestCase):
             builder.build_integrated(self.root, self.source, run=run)
         self.assertEqual(1, run.call_count)
 
+    def test_geniex_companion_preserves_sdk_bytes_and_is_separate_from_lami(self):
+        sdk = {name: name.encode() for name in
+               ("libnpu_jni.so", "libgeniex_plugin_llama_cpp.so", "libggml-htp-v79.so", "libQnnHtp.so")}
+        sherpa = {name: name.encode() for name in ("libonnxruntime.so", "libsherpa-onnx-jni.so")}
+
+        def write(path, prefix, files, mode="w"):
+            path = self.root / path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(path, mode) as archive:
+                for name, data in files.items():
+                    archive.writestr(prefix + name, data)
+
+        write(builder.GENIEX_SDK, builder.AAR_ARM64, sdk)
+        write(builder.SHERPA_STREAM, builder.AAR_ARM64, sherpa)
+        write(builder.APK, builder.APK_ARM64, sherpa | {
+            "libexecutorch.so": b"executor",
+            "liblami_voice_matrix.so": b"voice",
+            "liblami_kokoro_scratch.so": b"kokoro",
+        })
+        write(builder.GENIEX_APK, builder.APK_ARM64, sdk)
+        self.assertEqual(len(sdk), builder.verify_geniex_packages(self.root))
+
+        write(builder.GENIEX_APK, builder.APK_ARM64, sdk | {"libQnnHtp.so": b"wrong QAIRT"})
+        with self.assertRaisesRegex(ValueError, "missing or modified libQnnHtp.so"):
+            builder.verify_geniex_packages(self.root)
+
+        write(builder.APK, builder.APK_ARM64, {"libgeniex.so": b"wrong package"}, mode="a")
+        with self.assertRaisesRegex(ValueError, "must be packaged in the companion APK"):
+            builder.verify_geniex_packages(self.root)
+
     def test_cli_has_no_gradle_argument_passthrough(self):
         with mock.patch.object(builder, "build_integrated") as build, \
                 mock.patch("sys.stderr", new_callable=io.StringIO), self.assertRaises(SystemExit):

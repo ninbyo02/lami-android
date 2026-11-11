@@ -1179,14 +1179,23 @@ fun Home(
         npuModelPath = localBaseModelFilePath,
         genericModelPath = localGenericModelFilePath,
     )
-    val emulatorCpuDevelopmentEnabled = EmulatorMainChatBackend.isEnabled(context)
-    val selectedLocalModelFilePath = if (emulatorCpuDevelopmentEnabled) "host-cpu-reference" else when (selectedLocalModelSlot) {
+    val genieXComputeSetting by settingsPreferences.genieXCompute.collectAsState(initial = "off")
+    val genieXRoute = rememberGenieXChatRoute(context, genieXComputeSetting)
+    val genieXSetupMessage = "設定のGenieXからエンジンとLFM3-1.7Bモデルを準備してください。"
+    val emulatorCpuDevelopmentEnabled = genieXRoute == null && EmulatorMainChatBackend.isEnabled(context)
+    val legacyLocalModelFilePath = if (emulatorCpuDevelopmentEnabled) "host-cpu-reference" else when (selectedLocalModelSlot) {
         LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelFilePath
         LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelFilePath
     }
-    val selectedLocalModelDisplayName = if (emulatorCpuDevelopmentEnabled) "PC CPU reference: " + EmulatorMainChatBackend.modelName(context) else when (selectedLocalModelSlot) {
-        LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
-        LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
+    val selectedLocalModelFilePath = if (genieXRoute == null) legacyLocalModelFilePath
+        else GENIEX_MODEL_PATH_MARKER.takeIf { genieXRoute.modelReady == true }
+    val selectedLocalModelDisplayName = when {
+        genieXRoute != null -> genieXChatModelName(genieXRoute.compute)
+        emulatorCpuDevelopmentEnabled -> "PC CPU reference: " + EmulatorMainChatBackend.modelName(context)
+        else -> when (selectedLocalModelSlot) {
+            LocalInferenceModelSlot.NPU_PREVIEW -> localBaseModelDisplayName
+            LocalInferenceModelSlot.GENERIC_FALLBACK -> localGenericModelDisplayName
+        }
     }
     val localStreamingRunner = remember(
         context.applicationContext,
@@ -1264,7 +1273,7 @@ fun Home(
     var effectiveLocalModelDisplayNameForHeader by remember(effectiveChatId) {
         mutableStateOf<String?>(null)
     }
-    val activeLocalModelDisplayName = resolveActiveLocalHeaderModelDisplayName(
+    val activeLocalModelDisplayName = if (genieXRoute != null) selectedLocalModelDisplayName else resolveActiveLocalHeaderModelDisplayName(
         effectiveBackendModelDisplayName = effectiveLocalModelDisplayNameForHeader,
         automaticNpuRouteSelected = automaticNpuRouteSelected,
         npuModelDisplayName = localBaseModelDisplayName,
@@ -1411,7 +1420,7 @@ fun Home(
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
         if (localInferenceRunState.running) return@LaunchedEffect
-        if (shouldApplyHeldEngineModelPath(selectedLocalModelFilePath)) {
+        if (genieXRoute == null && shouldApplyHeldEngineModelPath(selectedLocalModelFilePath)) {
             localInferenceEngineHolder.clearIfModelChanged(selectedLocalModelFilePath?.trim().orEmpty())
         }
     }
@@ -1758,7 +1767,16 @@ fun Home(
     } else {
         "応答中..."
     }
-    val emptyChatUiState = resolveEmptyChatUiState(
+    val emptyChatUiState = if (
+        selectedInferenceTarget == InferenceTarget.LOCAL && genieXRoute != null && genieXRoute.modelReady != true
+    ) {
+        EmptyChatUiState(
+            title = "GenieXのモデルを準備",
+            supportingText = genieXSetupMessage,
+            actionLabel = "設定を開く",
+            useOfflineLoop = true,
+        )
+    } else resolveEmptyChatUiState(
         selectedInferenceTarget = selectedInferenceTarget,
         selectedServerModel = selectedModel,
         selectedLocalModelPath = selectedLocalModelFilePath,
@@ -5012,10 +5030,35 @@ fun Home(
                                         }
                                     }
 
+                                    val localConversationHistorySnapshot = remember(allChatsOrNull) {
+                                        allChatsOrNull.orEmpty().mapNotNull { message ->
+                                            if (!message.isSendbyMe && message.status != MessageStatus.COMPLETED) {
+                                                return@mapNotNull null
+                                            }
+                                            val images = if (message.isSendbyMe) {
+                                                message.localConversationImageFilePaths()
+                                            } else {
+                                                emptyList()
+                                            }
+                                            val text = NpuImageInputPolicy
+                                                .effectivePrompt(message.message, images.isNotEmpty())
+                                                .takeIf(String::isNotBlank) ?: return@mapNotNull null
+                                            LocalConversationTurn(
+                                                role = if (message.isSendbyMe) LocalConversationRole.USER else LocalConversationRole.MODEL,
+                                                text = text,
+                                                imageFilePaths = images,
+                                            )
+                                        }.takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
+                                    }
+                                    val composerHasImageContext = selectedImageUriStrings.isNotEmpty() ||
+                                        localConversationHistorySnapshot.any { it.imageFilePaths.isNotEmpty() }
+                                    val composerLocalModelPath = if (genieXRoute != null && composerHasImageContext) {
+                                        localImageModelPath ?: legacyLocalModelFilePath
+                                    } else selectedLocalModelFilePath
                                     val composerSendAvailability = resolveChatSendAvailability(
                                         selectedInferenceTarget = selectedInferenceTarget,
                                         selectedServerModel = selectedModel,
-                                        selectedLocalModelPath = selectedLocalModelFilePath,
+                                        selectedLocalModelPath = composerLocalModelPath,
                                         serverUrl = baseUrl,
                                         hasPromptText = userPrompt.isNotEmpty(),
                                         hasImageInput = selectedImageUriStrings.isNotEmpty(),
@@ -5099,7 +5142,7 @@ fun Home(
                                             val sendAvailability = resolveChatSendAvailability(
                                                 selectedInferenceTarget = selectedInferenceTarget,
                                                 selectedServerModel = selectedModel,
-                                                selectedLocalModelPath = selectedLocalModelFilePath,
+                                                selectedLocalModelPath = composerLocalModelPath,
                                                 serverUrl = baseUrl,
                                                 hasPromptText = userPrompt.isNotEmpty(),
                                                 hasImageInput = selectedImageUriStrings.isNotEmpty(),
@@ -5110,7 +5153,9 @@ fun Home(
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
                                                     snackbarHostState.showSnackbar(
-                                                        message = chatSendBlockedSnackbarMessage(sendAvailability.blockedReason),
+                                                        message = if (genieXRoute != null && !composerHasImageContext &&
+                                                            sendAvailability.blockedReason == ChatSendBlockedReason.LOCAL_MODEL_MISSING
+                                                        ) genieXSetupMessage else chatSendBlockedSnackbarMessage(sendAvailability.blockedReason),
                                                         duration = SnackbarDuration.Short
                                                     )
                                                 }
@@ -5277,30 +5322,17 @@ fun Home(
                                                         hasImages = localImagesRequested,
                                                     )
                                                     if (requestPrompt.isBlank()) return@composerAction
-                                                    val localConversationHistorySnapshot = allChatsOrNull.orEmpty()
-                                                        .mapNotNull { message ->
-                                                            if (!message.isSendbyMe && message.status != MessageStatus.COMPLETED) return@mapNotNull null
-                                                            val images = if (message.isSendbyMe) {
-                                                                message.localConversationImageFilePaths()
-                                                            } else {
-                                                                emptyList()
-                                                            }
-                                                            val text = NpuImageInputPolicy
-                                                                .effectivePrompt(message.message, images.isNotEmpty())
-                                                                .takeIf(String::isNotBlank) ?: return@mapNotNull null
-                                                            LocalConversationTurn(
-                                                                role = if (message.isSendbyMe) {
-                                                                    LocalConversationRole.USER
-                                                                } else {
-                                                                    LocalConversationRole.MODEL
-                                                                },
-                                                                text = text,
-                                                                imageFilePaths = images,
-                                                            )
-                                                        }
-                                                        .takeLast(LocalConversationHistoryPolicy.MAX_HISTORY_MESSAGES)
                                                     val requestHasImageContext = localImagesRequested ||
                                                         localConversationHistorySnapshot.any { it.imageFilePaths.isNotEmpty() }
+                                                    val requestGenieX = genieXRoute.takeUnless { requestHasImageContext }
+                                                    if (requestGenieX != null && requestPrompt.length > GENIEX_MAX_PROMPT_CHARS) {
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.showProjectShortSnackbar(
+                                                                "GenieXへの入力を${GENIEX_MAX_PROMPT_CHARS}文字以内にしてください。",
+                                                            )
+                                                        }
+                                                        return@composerAction
+                                                    }
                                                     val localSendTapElapsedMs = SystemClock.elapsedRealtime()
                                                     lastLocalSendTapElapsedMs = localSendTapElapsedMs
                                                     lastLocalSendPromptForTrace = requestPrompt
@@ -5605,7 +5637,7 @@ fun Home(
                                                         } else {
                                                             "none"
                                                         }
-                                                    val shouldEnterNpuS1ForRequest = !emulatorCpuDevelopmentEnabled && shouldEnterNpuStandardRouteS1(
+                                                    val shouldEnterNpuS1ForRequest = requestGenieX == null && !emulatorCpuDevelopmentEnabled && shouldEnterNpuStandardRouteS1(
                                                         enabled = if (requestHasImageContext) {
                                                             requestNpuImageRouteAvailable && shouldUseNpuImageRoute
                                                         } else {
@@ -7665,7 +7697,7 @@ fun Home(
                                                             }
                                                             var measuredModelLoadDurationNs: Long? = null
                                                             localGpuWatchdogJob?.cancel()
-                                                            localGpuWatchdogForRun = launchGpuExperimentalLocalRouteWatchdog(
+                                                            localGpuWatchdogForRun = if (requestGenieX == null) launchGpuExperimentalLocalRouteWatchdog(
                                                                 currentChatId = currentChatId,
                                                                 diagnosticContext = localRouteDiagnosticContext,
                                                                 runGuardEpoch = localRunGuardEpoch,
@@ -7677,7 +7709,7 @@ fun Home(
                                                                         staleCallbackIgnored = true,
                                                                     )
                                                                 },
-                                                            )
+                                                            ) else null
                                                             localGpuWatchdogJob = localGpuWatchdogForRun
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
@@ -7687,6 +7719,34 @@ fun Home(
                                                                     resolveNpuStandardRouteLocalFallbackBackend(preferredBackendDryRunSetting)
                                                             var mediaPipeProbeModelPathForRun: String? = null
                                                             val runResult = withContext(Dispatchers.Default) {
+                                                                if (requestGenieX != null) {
+                                                                    val genieXResult = requestGenieX.backend.run(
+                                                                        compute = requestGenieX.compute,
+                                                                        prompt = requestPrompt,
+                                                                        history = localConversationHistorySnapshot,
+                                                                        onPartial = { partial ->
+                                                                            withContext(Dispatchers.Main.immediate) {
+                                                                                if (!localInferenceRunState.stopRequested &&
+                                                                                    currentChatId == effectiveChatId &&
+                                                                                    localRunGuardEpoch == streamingGuardEpoch
+                                                                                ) {
+                                                                                    localPartialStreamingState = localPartialStreamingState.onPartialReceived()
+                                                                                    assistantUpdateCountForDev++
+                                                                                    firstNonEmptyAssistantChunkSeenForDev = firstNonEmptyAssistantChunkSeenForDev || partial.isNotBlank()
+                                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = partial)
+                                                                                        .withDelayedPlaceholder(false)
+                                                                                    streamingResponseTextForRender = partial
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                    )
+                                                                    Log.i(
+                                                                        "LamiGenieX",
+                                                                        "event=generation_complete requested_compute=${requestGenieX.compute.wireName} " +
+                                                                            "content_chunks=${genieXResult.trace.realPartialChunkCount}",
+                                                                    )
+                                                                    return@withContext genieXResult
+                                                                }
                                                                 if (emulatorCpuDevelopmentEnabled) {
                                                                     return@withContext requireNotNull(EmulatorMainChatBackend.run(
                                                                         context = context.applicationContext,
@@ -9226,6 +9286,8 @@ fun Home(
                                                         } catch (exception: CancellationException) {
                                                             throw exception
                                                         } catch (exception: Exception) {
+                                                            val failureText = (exception as? GenieXChatException)?.userMessage
+                                                                ?: "ローカル推論の応答取得に失敗しました"
                                                             val localGenerationTimeMs =
                                                                 (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
                                                             val localFailureCompactText = buildLocalInferenceFailureCompactDiagnosticsText(
@@ -9270,7 +9332,6 @@ fun Home(
                                                             )
                                                             effectiveChatId?.let { chatId ->
                                                                 if (!localInferenceRunState.stopRequested) {
-                                                                    val failureText = "ローカル推論の応答取得に失敗しました"
                                                                     val failureStats = InferenceStats(
                                                                         modelName = selectedLocalModelDisplayName ?: selectedModel,
                                                                         generationTimeMs = localGenerationTimeMs,
@@ -9291,7 +9352,7 @@ fun Home(
                                                             }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             snackbarHostState.showSnackbar(
-                                                                message = "ローカル推論の応答取得に失敗しました",
+                                                                message = failureText,
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                         } finally {
@@ -9992,7 +10053,8 @@ fun Home(
                                                 TextButton(
                                                     onClick = {
                                                         navHostController.navigate(
-                                                            emptyChatActionDestination(
+                                                            if (genieXRoute != null && selectedInferenceTarget == InferenceTarget.LOCAL) Routes.SETTINGS
+                                                            else emptyChatActionDestination(
                                                                 selectedInferenceTarget,
                                                                 preferredBackendDryRunSetting,
                                                             )

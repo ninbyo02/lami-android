@@ -20,3 +20,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "lami-android"
 include(":app")
+include(":geniex-bridge")
+include(":geniex-engine")

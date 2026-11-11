@@ -734,6 +734,8 @@ fun Settings(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                GenieXSettingsSection(settingsPreferences)
                 if (BuildConfig.DEBUG) {
                     // DEV診断向けの実験設定のため、DEBUGビルドのみ表示する
                     Spacer(modifier = Modifier.height(2.dp))
